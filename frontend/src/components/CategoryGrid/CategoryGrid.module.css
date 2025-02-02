@@ -1,0 +1,291 @@
+.container {
+    position: fixed;
+    bottom: 68px;
+    left: 0;
+    right: 0;
+    height: calc(65vh - 80px);
+    background: var(--card-background);
+    border-radius: 32px 32px 0 0;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    z-index: 10;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--border-color);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    opacity: 0.6;
+}
+
+.searchWrapper {
+    margin-top: 12px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 2;
+}
+
+.scrollContainer {
+    position: relative;
+    flex: 1;
+    overflow-y: auto;
+    margin: 0 -24px;
+    padding: 0 24px;
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 32px,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 32px,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+    transition: mask-image 0.3s ease, -webkit-mask-image 0.3s ease;
+}
+
+.scrollContainer.atTop {
+    mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black calc(100% - 32px),
+        transparent 100%
+    );
+}
+
+.scrollContainer.atBottom {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 32px,
+        black 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 32px,
+        black 100%
+    );
+}
+
+.scrollContainer.atTop.atBottom {
+    mask-image: none;
+    -webkit-mask-image: none;
+}
+
+.scrollContainer::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollContainer::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 24px 0;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 3px;
+    transition: background 0.3s ease;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-color-hover);
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    padding-bottom: 8px;
+}
+
+.item {
+    background: var(--background-color);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    min-height: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, 
+        rgba(255, 255, 255, 0.05),
+        rgba(255, 255, 255, 0.1)
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.item:hover::before {
+    opacity: 1;
+}
+
+.title {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.highlighted {
+    background: var(--orange-primary) !important;
+    border-color: var(--orange-primary) !important;
+    color: white !important;
+    transform: scale(1.02);
+}
+
+.highlighted .title {
+    color: white !important;
+}
+
+.highlighted:hover {
+    background: var(--orange-primary-hover) !important;
+    border-color: var(--orange-primary-hover) !important;
+}
+
+.checkmark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--success-color);
+    box-shadow: 0 2px 8px rgba(0, 200, 83, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.checkmark::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, 
+        rgba(255, 255, 255, 0.1),
+        rgba(255, 255, 255, 0.2)
+    );
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.item:hover .checkmark::before {
+    opacity: 1;
+}
+
+.checkmark svg {
+    width: 12px;
+    height: 12px;
+    stroke: white;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transform-origin: center;
+    animation: checkmark-appear 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes checkmark-appear {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.item:hover .checkmark {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 200, 83, 0.4);
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 16px;
+    }
+
+    .grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 12px;
+    }
+
+    .item {
+        padding: 16px;
+        min-height: 90px;
+    }
+
+    .title {
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 12px;
+    }
+
+    .grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 8px;
+    }
+
+    .item {
+        padding: 12px;
+        min-height: 80px;
+    }
+
+    .title {
+        font-size: 14px;
+    }
+}
+
+/* Добавляем стили для предотвращения изменения позиции при фокусе на поле ввода */
+@media screen and (max-width: 768px) {
+    .container:focus-within {
+        position: fixed !important;
+        height: calc(65vh - 80px) !important;
+        bottom: 68px !important;
+    }
+} 

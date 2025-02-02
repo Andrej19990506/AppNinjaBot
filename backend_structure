@@ -1,0 +1,18 @@
+backend/
+├── app.py                 # FastAPI приложение для API
+├── telegramNinjaBot/      # Основной модуль бота
+│   ├── __init__.py
+│   ├── bot.py            # Основной файл бота
+│   ├── config/
+│   │   ├── __init__.py
+│   │   └── config.py
+│   ├── handlers/
+│   │   ├── __init__.py
+│   │   └── group_handlers.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── json_service.py
+│   └── data/
+│       ├── members.json
+│       └── admins.json
+└── requirements.txt 

@@ -1,0 +1,85 @@
+version: '3'
+
+services:
+  bot:
+    build: 
+      context: ./backend/telegramNinjaBot
+      target: development
+    volumes:
+      - ./backend/telegramNinjaBot:/app
+      - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
+      - /app/__pycache__
+      - /app/handlers/__pycache__
+      - /app/services/__pycache__
+    env_file:
+      - ./backend/telegramNinjaBot/.env
+    restart: always
+    networks:
+      - ninja_network
+    command: python -u bot.py
+
+  server:
+    build: 
+      context: ./backend
+      target: development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - ./data:/app/data
+    env_file:
+      - ./backend/.env
+      - ./backend/telegramNinjaBot/.env
+    depends_on:
+      - bot
+    networks:
+      - ninja_network
+    command: python app.py
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - REACT_APP_API_URL=https://surf-britain-roland-ip.trycloudflare.com/api
+    depends_on:
+      - server
+    networks:
+      - ninja_network
+    command: npm start
+
+  tunnel-frontend:
+    image: cloudflare/cloudflared
+    command: tunnel --url http://frontend:3000
+    networks:
+      - ninja_network
+    depends_on:
+      - frontend
+
+  tunnel-api:
+    image: cloudflare/cloudflared
+    command: tunnel --url http://server:8000
+    networks:
+      - ninja_network
+    depends_on:
+      - server
+
+volumes:
+  bot-data:
+
+networks:
+  ninja_network:
+    driver: bridge 

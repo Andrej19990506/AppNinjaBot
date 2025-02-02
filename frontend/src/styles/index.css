@@ -1,0 +1,32 @@
+/* Reset styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    transition-property: background-color, color, border-color, box-shadow;
+    transition-duration: var(--transition-normal);
+    transition-timing-function: ease-in-out;
+    -webkit-tap-highlight-color: transparent; /* Убирает подсветку при тапе на iOS */
+    user-select: none; /* Запрещает выделение текста */
+}
+
+/* Разрешаем выделение текста только в полях ввода */
+input, 
+textarea {
+    user-select: text;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: var(--background-color);
+    color: var(--text-color);
+    transition: background-color var(--transition-normal), color var(--transition-normal);
+}
+
+#root {
+    min-height: 100vh;
+    min-height: 100dvh;
+    transition: background-color var(--transition-normal);
+}
+

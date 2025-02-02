@@ -1,0 +1,57 @@
+{
+    "2301705202": {
+        "chat_title": "Словцова",
+        "members": [
+            {
+                "user_id": "934757347",
+                "username": "iheayou",
+                "first_name": "наsssтя",
+                "last_name": null,
+                "photo_url": "local:934757347",
+                "phone": null,
+                "status": "administrator",
+                "activity_score": 0
+            },
+            {
+                "user_id": "8044750997",
+                "username": "NinjaSlovtsova_bot",
+                "first_name": "NinjaBot",
+                "last_name": null,
+                "photo_url": "local:8044750997",
+                "phone": null,
+                "status": "administrator",
+                "activity_score": 0
+            },
+            {
+                "user_id": "1703407797",
+                "username": "ssfxck_k",
+                "first_name": "ss/fxck///",
+                "last_name": null,
+                "photo_url": null,
+                "phone": null,
+                "status": "administrator",
+                "activity_score": 0
+            },
+            {
+                "user_id": "1682142222",
+                "username": "andrejnikolaevich1999",
+                "first_name": "andrej",
+                "last_name": "malahow",
+                "photo_url": "local:1682142222",
+                "phone": null,
+                "status": "creator",
+                "activity_score": 11.0
+            },
+            {
+                "user_id": "1925770048",
+                "username": null,
+                "first_name": "Юрий",
+                "last_name": "Васильевич",
+                "is_bot": false,
+                "status": "administrator",
+                "photo_url": "local:1925770048"
+            }
+        ],
+        "last_update": "2025-02-01T19:21:46.293101"
+    }
+}

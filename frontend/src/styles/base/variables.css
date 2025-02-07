@@ -69,6 +69,14 @@
     --gradient-dark: linear-gradient(45deg, var(--gray-900), var(--gray-800));
 
     --navigation-height: 80px;
+
+    /* Новые переменные */
+    --success-color: #10B981;
+    --warning-color: #F59E0B;
+    --error-color: #EF4444;
+    --success-background: rgba(16, 185, 129, 0.1);
+    --warning-background: rgba(245, 158, 11, 0.1);
+    --error-background: rgba(239, 68, 68, 0.1);
 }
 
 /* Темная тема */

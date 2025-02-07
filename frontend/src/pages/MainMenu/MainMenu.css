@@ -1,29 +1,39 @@
 .container {
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     background: var(--background-color);
     display: flex;
     flex-direction: column;
     padding: 16px;
-    padding-top: calc(env(safe-area-inset-top) + 32px);
-    padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+    padding-top: calc(env(safe-area-inset-top) + 83px);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 34px);
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
 }
 
 .title {
-    font-size: 32px;
+    font-size: 28px;
     font-weight: 700;
     color: var(--text-color);
-    margin-bottom: 32px;
+    margin-bottom: 24px;
     text-align: center;
+    flex-shrink: 0;
 }
 
 .menuGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 16px;
-    margin: auto;
     width: 100%;
     max-width: 600px;
+    margin: 0 auto;
+    flex: 1;
+    align-content: center;
+    min-height: 0;
 }
 
 .menuItem {
@@ -31,14 +41,15 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 24px;
+    gap: 12px;
+    padding: 20px;
     background: var(--card-background);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     cursor: pointer;
     transition: all var(--transition-normal);
     color: var(--text-color);
+    height: 120px;
 }
 
 .menuItem:hover {
@@ -48,8 +59,8 @@
 }
 
 .iconWrapper {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -59,8 +70,33 @@
 }
 
 .menuTitle {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
+    text-align: center;
+}
+
+.themeToggle {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.themeIcon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--primary-color);
+    border-radius: 50%;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.themeIcon:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .themeButton {
@@ -68,13 +104,13 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 24px;
-    margin-top: auto;
+    padding: 10px 20px;
+    margin-top: 24px;
     background: var(--card-background);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     color: var(--text-color);
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all var(--transition-normal);
@@ -87,32 +123,49 @@
 }
 
 .themeButton .icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     color: var(--primary-color);
 }
 
-@media (width <= 480px) {
+@media (max-height: 600px) {
     .container {
-        padding: 16px;
-        padding-top: calc(env(safe-area-inset-top) + 24px);
+        padding: 12px;
     }
 
     .title {
-        font-size: 28px;
-        margin-bottom: 24px;
-    }
-
-    .menuGrid {
-        grid-template-columns: 1fr;
+        font-size: 24px;
+        margin-bottom: 16px;
     }
 
     .menuItem {
-        padding: 20px;
+        height: 100px;
+        padding: 16px;
+        gap: 8px;
+    }
+
+    .iconWrapper {
+        width: 32px;
+        height: 32px;
+    }
+
+    .menuTitle {
+        font-size: 14px;
+    }
+
+    .themeIcon {
+        width: 32px;
+        height: 32px;
     }
 
     .themeButton {
-        padding: 10px 20px;
-        font-size: 14px;
+        padding: 8px 16px;
+        margin-top: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .menuGrid {
+        grid-template-columns: 1fr;
     }
 } 

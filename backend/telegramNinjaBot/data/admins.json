@@ -1,58 +1,145 @@
 {
-    "2301705202": {
-        "chat_title": "Словцова",
-        "admins": [
-            {
-                "user_id": "1925770048",
-                "username": null,
-                "first_name": "Юрий",
-                "last_name": "Васильевич",
-                "photo_url": "local:1925770048",
-                "phone": null,
-                "status": "administrator",
-                "activity_score": 0
-            },
-            {
-                "user_id": "934757347",
-                "username": "iheayou",
-                "first_name": "наsssтя",
-                "last_name": null,
-                "photo_url": "local:934757347",
-                "phone": null,
-                "status": "administrator",
-                "activity_score": 0
-            },
-            {
-                "user_id": "8044750997",
-                "username": "NinjaSlovtsova_bot",
-                "first_name": "NinjaBot",
-                "last_name": null,
-                "photo_url": "local:8044750997",
-                "phone": null,
-                "status": "administrator",
-                "activity_score": 0
-            },
-            {
-                "user_id": "1703407797",
-                "username": "ssfxck_k",
-                "first_name": "ss/fxck///",
-                "last_name": null,
-                "photo_url": null,
-                "phone": null,
-                "status": "administrator",
-                "activity_score": 0
-            },
-            {
-                "user_id": "1682142222",
-                "username": "andrejnikolaevich1999",
-                "first_name": "andrej",
-                "last_name": "malahow",
-                "photo_url": "local:1682142222",
-                "phone": null,
-                "status": "creator",
-                "activity_score": 11.0
-            }
-        ],
-        "last_update": "2025-02-01T19:21:46.421285"
-    }
+  "2463560158": {
+    "chat_title": "Словцова",
+    "admins": [
+      {
+        "user_id": 1925770048,
+        "username": null,
+        "first_name": "Юрий",
+        "last_name": "Васильевич",
+        "status": "administrator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": false,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_24.jpg"
+      },
+      {
+        "user_id": 1682142222,
+        "username": "andrejnikolaevich1999",
+        "first_name": "andrej",
+        "last_name": "malahow",
+        "status": "creator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": true,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_23.jpg"
+      }
+    ],
+    "last_updated": "2025-02-07T15:47:49.348157"
+  },
+  "4717954061": {
+    "chat_title": "Взлетка",
+    "admins": [
+      {
+        "user_id": 1682142222,
+        "username": "andrejnikolaevich1999",
+        "first_name": "andrej",
+        "last_name": "malahow",
+        "status": "creator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": true,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_23.jpg"
+      }
+    ],
+    "last_updated": "2025-02-07T15:47:49.363825"
+  },
+  "4783657997": {
+    "chat_title": "Свердловская",
+    "admins": [
+      {
+        "user_id": 8044750997,
+        "username": "NinjaSlovtsova_bot",
+        "first_name": "NinjaBot",
+        "last_name": null,
+        "status": "administrator",
+        "is_bot": true,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": false,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_25.jpg"
+      },
+      {
+        "user_id": 1682142222,
+        "username": "andrejnikolaevich1999",
+        "first_name": "andrej",
+        "last_name": "malahow",
+        "status": "creator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": true,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_23.jpg"
+      }
+    ],
+    "last_updated": "2025-02-07T15:47:49.383241"
+  },
+  "2496351474": {
+    "chat_title": "Баумана",
+    "admins": [
+      {
+        "user_id": 1682142222,
+        "username": "andrejnikolaevich1999",
+        "first_name": "andrej",
+        "last_name": "malahow",
+        "status": "creator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": true,
+        "can_change_info": true,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_23.jpg"
+      },
+      {
+        "user_id": 934757347,
+        "username": "iheayou",
+        "first_name": "наsssтя",
+        "last_name": null,
+        "status": "administrator",
+        "is_bot": false,
+        "can_manage_chat": true,
+        "can_delete_messages": true,
+        "can_manage_voice_chats": true,
+        "can_restrict_members": true,
+        "can_promote_members": false,
+        "can_change_info": false,
+        "can_invite_users": true,
+        "can_pin_messages": true,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_26.jpg"
+      }
+    ],
+    "last_updated": "2025-02-07T15:47:49.402089"
+  }
 }

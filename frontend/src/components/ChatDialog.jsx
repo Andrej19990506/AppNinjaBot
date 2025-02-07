@@ -2,23 +2,37 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ChatDialog.module.css';
 import config from '../config';
+import PhotoService from '../services/PhotoService';
 
 const ChatDialog = ({ chat, onClose, onStartInventory, onMainMenu }) => {
     const [adminPhotos, setAdminPhotos] = useState({});
     const [isPhotosSwapped, setIsPhotosSwapped] = useState(false);
     const [clickedAdminId, setClickedAdminId] = useState(null);
-    const webApp = config.TELEGRAM_WEB_APP;
+    const webApp = window.Telegram?.WebApp;
     const currentUser = webApp?.initDataUnsafe?.user;
     const userId = currentUser?.id;
     
-    const isAdmin = chat.admins?.some(admin => Number(admin.user_id) === userId);
+    console.log('=== Проверка прав доступа ===');
+    console.log('Текущий пользователь:', currentUser);
+    console.log('ID пользователя:', userId);
+    console.log('Администраторы чата:', chat.admins);
+    
+    const isAdmin = chat.admins?.some(admin => {
+        const isMatch = Number(admin.user_id) === userId;
+        console.log(`Проверка админа ${admin.user_id}: ${isMatch ? 'совпадает' : 'не совпадает'} с текущим пользователем ${userId}`);
+        return isMatch;
+    });
+    
+    console.log('Результат проверки:', isAdmin ? 'Пользователь является администратором' : 'Пользователь не является администратором');
 
     const activeAdmins = useMemo(() => {
         if (!chat.admins) return [];
-        return [...chat.admins]
+        const filtered = [...chat.admins]
             .filter(admin => !admin.is_bot)
             .sort((a, b) => (b.activity_score || 0) - (a.activity_score || 0))
             .slice(0, 2);
+        console.log('Активные администраторы:', filtered);
+        return filtered;
     }, [chat.admins]);
 
     useEffect(() => {
@@ -27,13 +41,10 @@ const ChatDialog = ({ chat, onClose, onStartInventory, onMainMenu }) => {
             for (const admin of activeAdmins) {
                 if (admin.photo_url) {
                     try {
-                        // Убираем начальный слеш и 'api/' из URL, если они есть
-                        const photoPath = admin.photo_url
-                            .replace(/^\//, '')  // Убираем начальный слеш
-                            .replace(/^api\//, '');  // Убираем 'api/' если есть
-                        
-                        // Формируем полный URL с правильным путем
-                        photos[admin.user_id] = `${config.API_URL}/photo/${photoPath}`;
+                        const photoData = await PhotoService.getPhoto(admin.photo_url);
+                        if (photoData) {
+                            photos[admin.user_id] = photoData;
+                        }
                     } catch (error) {
                         console.error('Error loading photo:', error);
                     }
@@ -186,7 +197,7 @@ const ChatDialog = ({ chat, onClose, onStartInventory, onMainMenu }) => {
                         </div>
                         <motion.button 
                             className={styles.inventoryButton} 
-                            onClick={onStartInventory}
+                            onClick={() => onStartInventory()}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                         >

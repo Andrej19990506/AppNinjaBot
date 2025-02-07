@@ -28,28 +28,52 @@ api.interceptors.response.use(
 
 export const getChats = async () => {
     try {
+        console.log('=== Запрос списка чатов ===');
         const response = await api.get('/chats');
-        return response.data;
+        const data = response.data;
+        console.log('Полученные данные:', data);
+        
+        // Преобразуем объект чатов в массив
+        const chats = Object.entries(data).map(([chatId, chatData]) => ({
+            chat_id: chatId,
+            ...chatData
+        }));
+        
+        console.log('Преобразованные данные:', chats);
+        return chats;
     } catch (error) {
+        console.error('Ошибка при получении списка чатов:', error);
         throw error;
     }
 };
 
 export const getInventory = async (chatId) => {
+    console.log('=== Запрос инвентаря ===');
+    console.log('ID чата:', chatId);
+    
     try {
-        const response = await axios.get(`${config.API_URL}/inventory/${chatId}`);
+        const response = await api.get(`/inventory/${chatId}`);
+        console.log('Ответ API:', response.data);
         return response.data;
     } catch (error) {
         console.error('Ошибка при загрузке инвентаря:', error.response?.data || error.message);
+        console.error('Полная ошибка:', error);
         throw error.response?.data || error;
     }
 };
 
 export const saveInventory = async (chatId, inventory) => {
+    console.log('=== Сохранение инвентаря ===');
+    console.log('ID чата:', chatId);
+    console.log('Данные для сохранения:', inventory);
+    
     try {
-        const response = await api.post(`/inventory/${chatId}`, { inventory });
+        const response = await api.post(`/inventory/${chatId}`, inventory);
+        console.log('Ответ API после сохранения:', response.data);
         return response.data;
     } catch (error) {
+        console.error('Ошибка при сохранении инвентаря:', error.response?.data || error.message);
+        console.error('Полная ошибка:', error);
         throw error;
     }
 };

@@ -1,10 +1,10 @@
 from telegram import Update, ChatMember, Bot
 from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler, CommandHandler
-from services.json_service import JsonService
+from telegramNinjaBot.services.json_service import JsonService
 import logging
 from telegram.constants import ChatMemberStatus
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Union, Any
 import random
 import json
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -14,6 +14,9 @@ import httpx
 import os
 import aiohttp
 import aiofiles
+import asyncio
+from telegramNinjaBot.config.config import Config
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -47,23 +50,11 @@ class GroupHandler:
         if self.json_service.file_exists('photo_cache.json'):
             self.photo_cache = self.json_service.load_from_json('photo_cache.json')
         
-        # Регистрация обработчиков
-        self.application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.handle_new_chat_members))
-        self.application.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, self.handle_left_chat_member))
-        
-        # Обновляем регистрацию ChatMemberHandler для отслеживания всех изменений статуса
-        self.application.add_handler(ChatMemberHandler(self.handle_chat_member_update, ChatMemberHandler.CHAT_MEMBER))
-        self.application.add_handler(ChatMemberHandler(self.handle_chat_member_update, ChatMemberHandler.MY_CHAT_MEMBER))
-        
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
-        self.application.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, self.handle_webapp_data))
-        self.application.add_handler(MessageHandler(filters.CONTACT, self.handle_contact_message))
-        
         # Добавляем задачу периодического обновления фотографий
         self.job_queue = application.job_queue
         self.job_queue.run_repeating(self.update_all_photos, interval=3600, first=10)  # Обновляем каждый час
         
-        logger.info("✅ Обработчики групповых событий зарегистрированы")
+        logger.info("✅ Обработчик групповых событий инициализирован")
     
     async def _ensure_http_client(self):
         """Убеждаемся, что HTTP-клиент существует и активен"""
@@ -85,60 +76,59 @@ class GroupHandler:
         """Обработка новых участников в чате"""
         try:
             chat = update.effective_chat
-            standardized_chat_id = await self._get_standardized_chat_id(chat.id)
-            original_chat_id = await self._get_original_chat_id(standardized_chat_id)
             new_members = update.message.new_chat_members
             bot_added = False
             
-            # Сначала получаем текущих участников
-            current_members = await self._get_chat_members(chat, context)
-            current_member_ids = {str(member['user_id']) for member in current_members}
+            logger.info(f"=== Обработка новых участников в чате {chat.title} ===")
+            logger.info(f"ID чата: {chat.id}")
+            logger.info(f"Тип чата: {chat.type}")
+            logger.info(f"Новые участники: {[f'{member.full_name} (ID: {member.id})' for member in new_members]}")
             
             # Проверяем каждого нового участника
             for member in new_members:
                 if member.id == context.bot.id:
-                    logger.info(f"Бот был добавлен в чат {chat.title}")
+                    logger.info(f"🤖 Бот был добавлен в чат {chat.title}")
                     bot_added = True
+                    # Сразу обрабатываем добавление бота
+                    await self._process_bot_added(update, context)
                 else:
                     # Приветствуем нового участника
                     welcome_message = (
                         f"Добро пожаловать, {member.first_name}!\n"
                         f"Рады видеть вас в группе '{chat.title}'."
                     )
-                    await update.message.reply_text(welcome_message)
-                    logger.info(f"Отправлено приветствие новому участнику {member.first_name} в чате {chat.title}")
+                    try:
+                        await update.message.reply_text(welcome_message)
+                        logger.info(f"✅ Отправлено приветствие новому участнику {member.full_name} в чате {chat.title}")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при отправке приветствия: {e}")
+            
+            if not bot_added:
+                # Получаем стандартизированный ID чата
+                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
+                original_chat_id = await self._get_original_chat_id(standardized_chat_id)
                 
-                # Если участник еще не в списке, добавляем его
-                if str(member.id) not in current_member_ids:
-                    member_info = {
-                        'user_id': str(member.id),
-                        'username': member.username,
-                        'first_name': member.first_name,
-                        'last_name': member.last_name,
-                        'is_bot': member.is_bot,
-                        'status': 'member'  # Новые участники всегда имеют статус member
-                    }
-                    current_members.append(member_info)
-                    logger.info(f"Добавлен новый участник {member.first_name} в список участников")
-
-            # Получаем текущих администраторов чата
-            admins = await self._get_chat_admins(original_chat_id, context)
-            await self.json_service.save_admins(standardized_chat_id, chat.title, admins)
-            logger.info(f"Обновлены администраторы для чата {chat.title}")
-            
-            # Сохраняем обновленный список участников
-            await self.json_service.save_members(standardized_chat_id, chat.title, current_members)
-            logger.info(f"Обновлены участники для чата {chat.title}")
-            
-            # Если был добавлен бот, отправляем специальное приветственное сообщение
-            if bot_added:
-                    await self._process_bot_added(update, context)
-            
-            logger.info(f"Обработаны новые участники в чате {chat.title} (ID: {standardized_chat_id})")
+                logger.info(f"Обновление данных для обычного участника в чате {chat.title}")
+                logger.info(f"Стандартизированный ID: {standardized_chat_id}")
+                logger.info(f"Оригинальный ID: {original_chat_id}")
+                
+                # Получаем текущих участников
+                current_members = await self._get_chat_members(chat, context)
+                logger.info(f"Получено {len(current_members)} участников")
+                
+                # Получаем администраторов
+                admins = await self._get_chat_admins(original_chat_id, context)
+                logger.info(f"Получено {len(admins)} администраторов")
+                
+                # Сохраняем данные
+                await self.json_service.save_members(standardized_chat_id, chat.title, current_members)
+                await self.json_service.save_admins(standardized_chat_id, chat.title, admins)
+                
+                logger.info(f"✅ Обновлены данные для чата {chat.title} (ID: {standardized_chat_id})")
             
         except Exception as e:
-            logger.error(f"Ошибка при обработке новых участников: {e}", exc_info=True)
-    
+            logger.error(f"❌ Ошибка при обработке новых участников: {e}", exc_info=True)
+
     async def handle_chat_member_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка изменений участников чата"""
         try:
@@ -171,13 +161,25 @@ class GroupHandler:
             was_admin = old_member.status in ['administrator', 'creator']
             is_admin = new_member.status in ['administrator', 'creator']
             
-            if was_admin != is_admin:
+            if was_admin != is_admin or is_admin:  # Добавляем проверку is_admin для обновления прав
                 logger.info(f"⚡️ Обнаружено изменение прав администратора для {user_name}")
                 try:
                     # Получаем стандартизированный ID чата
                     chat_id = await self._get_standardized_chat_id(chat.id)
                     # Получаем оригинальный ID для запросов к API
                     original_chat_id = await self._get_original_chat_id(chat_id)
+                    
+                    # Получаем актуальные права администратора
+                    admin_rights = {
+                        'can_manage_chat': getattr(new_member, 'can_manage_chat', False),
+                        'can_delete_messages': getattr(new_member, 'can_delete_messages', False),
+                        'can_manage_voice_chats': getattr(new_member, 'can_manage_voice_chats', False),
+                        'can_restrict_members': getattr(new_member, 'can_restrict_members', False),
+                        'can_promote_members': getattr(new_member, 'can_promote_members', False),
+                        'can_change_info': getattr(new_member, 'can_change_info', False),
+                        'can_invite_users': getattr(new_member, 'can_invite_users', False),
+                        'can_pin_messages': getattr(new_member, 'can_pin_messages', False)
+                    }
                     
                     # Получаем текущий список участников
                     members_data = self.json_service.load_from_json('members.json')
@@ -186,7 +188,10 @@ class GroupHandler:
                         # Обновляем статус участника
                         for member_info in members:
                             if str(member_info['user_id']) == str(user.id):
-                                member_info['status'] = 'member' if not is_admin else 'administrator'
+                                member_info['status'] = new_member.status
+                                # Добавляем права администратора
+                                if is_admin:
+                                    member_info.update(admin_rights)
                                 logger.info(f"Обновлен статус участника {user_name} на {member_info['status']}")
                         
                         # Сохраняем обновленный список участников
@@ -194,10 +199,46 @@ class GroupHandler:
                         logger.info(f"📋 Обновлен список участников для чата {chat.title}")
                     
                     # Обновляем список администраторов
-                    admins = await self._get_chat_admins(original_chat_id, context)
-                    if admins:  # Сохраняем только если список не пустой
-                        await self.json_service.save_admins(chat_id, chat.title, admins)
-                        logger.info(f"📋 Обновлен список администраторов для чата {chat.title}")
+                    admins_data = self.json_service.load_from_json('admins.json')
+                    if str(chat_id) not in admins_data:
+                        admins_data[str(chat_id)] = {'chat_title': chat.title, 'admins': []}
+                    
+                    chat_admins = admins_data[str(chat_id)]
+                    
+                    if is_admin:
+                        # Создаем или обновляем информацию об администраторе
+                        admin_info = {
+                            'user_id': user.id,
+                            'username': user.username,
+                            'first_name': user.first_name,
+                            'last_name': user.last_name,
+                            'status': new_member.status,
+                            'is_bot': user.is_bot,
+                            **admin_rights  # Добавляем права администратора
+                        }
+                        
+                        # Обновляем или добавляем администратора
+                        admin_found = False
+                        for i, admin in enumerate(chat_admins['admins']):
+                            if str(admin['user_id']) == str(user.id):
+                                chat_admins['admins'][i] = admin_info
+                                admin_found = True
+                                break
+                        
+                        if not admin_found:
+                            chat_admins['admins'].append(admin_info)
+                            
+                    else:
+                        # Удаляем администратора из списка
+                        chat_admins['admins'] = [admin for admin in chat_admins['admins'] 
+                                               if str(admin['user_id']) != str(user.id)]
+                    
+                    # Обновляем время последнего обновления
+                    chat_admins['last_updated'] = datetime.now().isoformat()
+                    
+                    # Сохраняем обновленный список администраторов
+                    await self.json_service.save_admins(chat_id, chat.title, chat_admins['admins'])
+                    logger.info(f"📋 Обновлен список администраторов для чата {chat.title}")
                     
                     # Отправляем уведомление в чат
                     if is_admin:
@@ -258,7 +299,7 @@ class GroupHandler:
             # Принудительно обновляем списки участников и администраторов
             try:
                 chat = update.effective_chat
-                standardized_chat_id = await self._get_standardized_chat_id(chat_id)
+                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
                 original_chat_id = await self._get_original_chat_id(standardized_chat_id)
                 
                 # Обновляем список администраторов
@@ -316,33 +357,27 @@ class GroupHandler:
         except Exception as e:
             logger.error(f"Ошибка при обработке сообщения: {e}", exc_info=True)
     
-    async def _get_standardized_chat_id(self, chat_id: int) -> str:
+    async def _get_standardized_chat_id(self, chat_id: Union[int, str]) -> str:
         """Преобразует ID чата в стандартный формат"""
-        try:
-            str_id = str(chat_id)
-            # Для супергрупп (начинается с -100)
-            if str_id.startswith('-100'):
-                return str_id[4:]  # Убираем '-100'
-            # Для обычных групп (начинается с -)
-            elif str_id.startswith('-'):
-                return str_id[1:]  # Убираем '-'
-            # Для приватных чатов (положительные ID)
-            return str_id
-        except Exception as e:
-            logger.error(f"Ошибка при стандартизации ID чата {chat_id}: {str(e)}")
-            return str(abs(chat_id))  # Возвращаем абсолютное значение как запасной вариант
+        str_id = str(chat_id)
+        
+        # Удаляем префикс -100 для супергрупп
+        if str_id.startswith('-100'):
+            return str_id[4:]
+        # Удаляем префикс - для обычных групп
+        elif str_id.startswith('-'):
+            return str_id[1:]
+        return str_id
 
-    async def _get_original_chat_id(self, standardized_id: str) -> int:
-        """Преобразует стандартизированный ID обратно в оригинальный формат"""
-        try:
-            # Для супергрупп (ID длиннее 10 символов)
-            if len(standardized_id) >= 10:
-                return int(f"-100{standardized_id}")
-            # Для остальных групп
-            return -int(standardized_id)
-        except Exception as e:
-            logger.error(f"Ошибка при получении оригинального ID чата {standardized_id}: {str(e)}")
-            return int(standardized_id)  # Возвращаем как есть в случае ошибки
+    async def _get_original_chat_id(self, standardized_chat_id: Union[int, str]) -> str:
+        """Преобразует стандартизированный ID чата в оригинальный формат"""
+        str_id = str(standardized_chat_id)
+        
+        # Проверяем длину ID для определения типа группы
+        if len(str_id) >= 10:  # Супергруппа
+            return f"-100{str_id}"
+        else:  # Обычная группа
+            return f"-{str_id}"
 
     def _calculate_activity_score(self, activity_data: Dict) -> float:
         """Рассчитывает оценку активности администратора"""
@@ -396,49 +431,70 @@ class GroupHandler:
         """Скачивание и сохранение фотографии локально"""
         try:
             photo_path = self._get_photo_path(user_id)
-            async with aiohttp.ClientSession() as session:
-                async with session.get(file_path) as response:
-                    if response.status == 200:
-                        async with aiofiles.open(photo_path, 'wb') as f:
-                            await f.write(await response.read())
-                        logger.info(f"✅ Фото для пользователя {user_id} сохранено локально")
-                        return True
-            logger.error(f"❌ Не удалось скачать фото для пользователя {user_id}")
+            
+            # Убедимся, что директория существует
+            os.makedirs(os.path.dirname(photo_path), exist_ok=True)
+            
+            # Попытка скачать и сохранить фото с повторными попытками
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.get(file_path) as response:
+                            if response.status == 200:
+                                # Сначала сохраняем во временный файл
+                                temp_path = f"{photo_path}.tmp"
+                                async with aiofiles.open(temp_path, 'wb') as f:
+                                    await f.write(await response.read())
+                                # Затем переименовываем в целевой файл
+                                os.replace(temp_path, photo_path)
+                                logger.info(f"✅ Фото для пользователя {user_id} сохранено локально")
+                                return True
+                            else:
+                                logger.warning(f"⚠️ Неудачная попытка {attempt + 1}/{max_retries} скачать фото. Статус: {response.status}")
+                except Exception as e:
+                    if attempt == max_retries - 1:
+                        raise
+                    logger.warning(f"⚠️ Попытка {attempt + 1}/{max_retries} не удалась: {str(e)}")
+                    await asyncio.sleep(1)  # Пауза перед следующей попыткой
+                    
+            logger.error(f"❌ Не удалось скачать фото для пользователя {user_id} после {max_retries} попыток")
             return False
         except Exception as e:
             logger.error(f"❌ Ошибка при сохранении фото: {str(e)}")
             return False
             
     async def _get_user_photo(self, user_id: int, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
-        """Получение фотографии пользователя с использованием локального хранения"""
+        """Получение фотографии пользователя"""
         try:
-            user_id_str = str(user_id)
-            current_time = datetime.now()
-            photo_path = self._get_photo_path(user_id_str)
+            # Проверяем кэш
+            cache_key = str(user_id)
+            if cache_key in self.photo_cache:
+                return self.photo_cache[cache_key]
             
-            # Проверяем наличие локальной фотографии
-            if os.path.exists(photo_path):
-                # Проверяем время последнего обновления файла
-                modified_time = datetime.fromtimestamp(os.path.getmtime(photo_path))
-                if current_time - modified_time < timedelta(hours=24):  # Обновляем раз в сутки
-                    logger.info(f"✅ Используем локальную фотографию для пользователя {user_id}")
-                    return f"local:{user_id_str}"
-            
-            # Если локальной фотографии нет или она устарела, получаем новую
+            # Получаем фотографии пользователя
             photos = await context.bot.get_user_profile_photos(user_id, limit=1)
+            
             if photos and photos.photos:
-                file_id = photos.photos[0][-1].file_id
-                file = await context.bot.get_file(file_id)
+                # Берем последнюю фотографию
+                photo = photos.photos[0][-1]  # Берем файл с максимальным размером
                 
-                # Скачиваем и сохраняем фото локально
-                if await self._download_and_save_photo(file.file_path, user_id_str):
-                    return f"local:{user_id_str}"
-                    
-            logger.warning(f"❌ Не удалось получить фото для пользователя {user_id}")
+                # Получаем файл
+                file = await context.bot.get_file(photo.file_id)
+                photo_url = file.file_path
+                
+                # Сохраняем в кэш
+                self.photo_cache[cache_key] = photo_url
+                
+                # Сохраняем кэш в файл
+                await self.json_service.save_to_json('photo_cache.json', self.photo_cache)
+                
+                return photo_url
+            
             return None
             
         except Exception as e:
-            logger.error(f"❌ Ошибка при получении фото профиля: {str(e)}")
+            logger.error(f"Ошибка при получении фото пользователя {user_id}: {str(e)}")
             return None
 
     async def request_admin_contact(self, admin_id: int, admin_name: str, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -488,228 +544,189 @@ class GroupHandler:
         except Exception as e:
             logger.error(f"Ошибка при запросе контакта у администратора {admin_name}: {e}", exc_info=True)
 
-    async def _get_chat_admins(self, chat_id: int, context: ContextTypes.DEFAULT_TYPE) -> List[Dict]:
-        """Получает список администраторов чата"""
+    async def _get_chat_members(self, chat, context: ContextTypes.DEFAULT_TYPE) -> List[dict]:
+        """Получение списка участников чата"""
         try:
-            logger.info(f"Получение списка администраторов для чата {chat_id}")
-            standardized_chat_id = await self._get_standardized_chat_id(chat_id)
+            logger.info(f"Получение участников для чата {chat.title}")
             
-            # Загружаем данные об активности администраторов
-            admin_activity = self.json_service.load_from_json('admin_activity.json')
-            chat_activity = admin_activity.get(str(standardized_chat_id), {})
+            # Получаем администраторов чата
+            admins = await context.bot.get_chat_administrators(chat.id)
+            members = []
             
-            try:
-                # Получаем список администраторов через API
-                chat_admins = await context.bot.get_chat_administrators(chat_id)
-                logger.info(f"Получено {len(chat_admins)} администраторов")
-                
-                admins_list = []
-                for admin in chat_admins:
-                    if not admin.user:
-                        continue
-                        
-                    user = admin.user
-                    user_id = str(user.id)
-                    
-                    # Получаем фото профиля
-                    photo_url = await self._get_user_photo(user.id, context)
-                    
-                    # Получаем данные об активности
-                    activity_data = chat_activity.get(user_id, {
-                        'message_count': 0,
-                        'last_active': '',
-                        'commands_used': 0,
-                        'reactions_received': 0,
-                        'messages_pinned': 0
-                    })
-                    
-                    # Рассчитываем оценку активности
-                    activity_score = self._calculate_activity_score(activity_data)
-                    
-                    admin_info = {
-                        'user_id': user_id,
-                        'username': user.username,
-                        'first_name': user.first_name,
-                        'last_name': user.last_name,
-                        'photo_url': photo_url,
-                        'phone': None,  # Телефон добавляется отдельно
-                        'status': admin.status,
-                        'activity_score': activity_score
-                    }
-                    admins_list.append(admin_info)
-                    
-                return admins_list
-                
-            except Exception as api_error:
-                logger.error(f"Неожиданная ошибка при получении администраторов: {str(api_error)}")
-                # При ошибке API возвращаем текущий список администраторов из файла
-                current_admins = self.json_service.load_from_json('admins.json')
-                if str(standardized_chat_id) in current_admins:
-                    return current_admins[str(standardized_chat_id)].get('admins', [])
-                return []
-                
+            # Добавляем администраторов в список участников
+            for admin in admins:
+                user = admin.user
+                members.append({
+                    'user_id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'status': get_member_status(admin),
+                    'joined_date': datetime.now().isoformat(),
+                    'is_bot': user.is_bot
+                })
+                logger.info(f"Добавлен администратор: {user.full_name} ({user.id})")
+            
+            logger.info(f"Получено {len(members)} участников")
+            return members
+            
         except Exception as e:
-            logger.error(f"Ошибка при получении списка администраторов: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка при получении списка участников: {str(e)}")
             return []
 
-    async def _get_chat_members(self, chat, context):
-        """Получение списка участников чата"""
-        members = []
+    async def _get_chat_admins(self, chat_id: Union[int, str], context: ContextTypes.DEFAULT_TYPE) -> List[dict]:
+        """Получение списка администраторов чата"""
         try:
-            # Получаем администраторов для проверки статуса
-            admins = await self._get_chat_admins(chat.id, context)
-            admin_ids = {str(admin['user_id']) for admin in admins}  # Убеждаемся, что все ID в строковом формате
-            admin_statuses = {str(admin['user_id']): admin['status'] for admin in admins}
+            logger.info(f"Получение администраторов для чата {chat_id}")
             
-            # Получаем количество участников
-            total_count = await context.bot.get_chat_member_count(chat.id)
-            logger.info(f"Всего участников в чате: {total_count}")
+            # Преобразуем chat_id в правильный формат для API
+            str_chat_id = str(chat_id)
             
-            # Добавляем администраторов
-            members.extend(admins)
-            logger.info(f"Добавлены администраторы: {[admin['username'] for admin in admins]}")
+            # Определяем форматы ID для попыток
+            chat_id_formats = []
             
-            # Получаем информацию о боте
-            bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
-            if bot_member and bot_member.user:
-                logger.info(f"Получаем фото для бота {bot_member.user.username}")
-                # Проверяем, не добавлен ли уже бот как администратор
-                if str(bot_member.user.id) not in admin_ids:
-                    photo_url = await self._get_user_photo(bot_member.user.id, context)
-                    member_info = {
-                        'user_id': str(bot_member.user.id),  # Сохраняем ID как строку
-                        'username': bot_member.user.username,
-                        'first_name': bot_member.user.first_name,
-                        'last_name': bot_member.user.last_name,
-                        'is_bot': True,
-                        'status': str(bot_member.status).lower(),
-                        'photo_url': photo_url
-                    }
-                    members.append(member_info)
-                    logger.info(f"Добавлен бот {member_info['username']} с фото: {photo_url}")
-                else:
-                    logger.info(f"Бот {bot_member.user.username} уже добавлен как администратор")
-
-            # Проверяем наличие обновления и сообщения
-            update = getattr(context, 'update', None)
-            if update:
-                logger.info("Обрабатываем обновление")
-                # Если есть сообщение с новыми участниками
-                if hasattr(update, 'message') and update.message:
-                    message = update.message
-                    logger.info("Найдено сообщение в обновлении")
-                    
-                    # Добавляем отправителя, если он не администратор
-                    if message.from_user and message.from_user.id not in admin_ids:
-                        sender = message.from_user
-                        logger.info(f"Обрабатываем отправителя: {sender.username}")
-                        member = await context.bot.get_chat_member(chat.id, sender.id)
-                        if member.status not in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                            photo_url = await self._get_user_photo(sender.id, context)
-                            member_info = {
-                                'user_id': str(sender.id),
-                                'username': sender.username,
-                                'first_name': sender.first_name,
-                                'last_name': sender.last_name,
-                                'is_bot': sender.is_bot,
-                                'status': str(member.status).lower(),
-                                'photo_url': photo_url
-                            }
-                            members.append(member_info)
-                            logger.info(f"Добавлен отправитель {member_info['username']} с фото: {photo_url}")
-                    
-                    # Добавляем новых участников
-                    if hasattr(message, 'new_chat_members'):
-                        logger.info("Обрабатываем новых участников")
-                        for new_member in message.new_chat_members:
-                            if new_member.id not in admin_ids and new_member.id != context.bot.id:
-                                logger.info(f"Обрабатываем нового участника: {new_member.username}")
-                                member = await context.bot.get_chat_member(chat.id, new_member.id)
-                                if member.status not in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                                    photo_url = await self._get_user_photo(new_member.id, context)
-                                    member_info = {
-                                        'user_id': str(new_member.id),
-                                        'username': new_member.username,
-                                        'first_name': new_member.first_name,
-                                        'last_name': new_member.last_name,
-                                        'is_bot': new_member.is_bot,
-                                        'status': str(member.status).lower(),
-                                        'photo_url': photo_url
-                                    }
-                                    members.append(member_info)
-                                    logger.info(f"Добавлен новый участник {member_info['username']} с фото: {photo_url}")
-
-                # Если есть обновление статуса участника
-                if hasattr(update, 'chat_member') and update.chat_member:
-                    logger.info("Обрабатываем обновление статуса участника")
-                    chat_member = update.chat_member
-                    if chat_member.new_chat_member and chat_member.new_chat_member.user:
-                        user = chat_member.new_chat_member.user
-                        logger.info(f"Обновляем статус для пользователя: {user.username}")
-                        if user.id not in admin_ids:
-                            photo_url = await self._get_user_photo(user.id, context)
-                            member_info = {
-                                'user_id': str(user.id),
-                                'username': user.username,
-                                'first_name': user.first_name,
-                                'last_name': user.last_name,
-                                'is_bot': user.is_bot,
-                                'status': str(chat_member.new_chat_member.status).lower(),
-                                'photo_url': photo_url
-                            }
-                            members.append(member_info)
-                            logger.info(f"Обновлен участник {member_info['username']} с фото: {photo_url}")
+            # Сначала пробуем формат обычной группы
+            if str_chat_id.startswith('-100'):
+                # Если начинается с -100, пробуем сначала обычный формат
+                chat_id_formats.append(f"-{str_chat_id[4:]}")
+                chat_id_formats.append(str_chat_id)  # Затем оригинальный формат
+            elif str_chat_id.startswith('-'):
+                chat_id_formats.append(str_chat_id)  # Сначала как есть
+                chat_id_formats.append(f"-100{str_chat_id[1:]}")  # Затем формат супергруппы
+            else:
+                chat_id_formats.append(f"-{str_chat_id}")  # Сначала обычный формат
+                chat_id_formats.append(f"-100{str_chat_id}")  # Затем формат супергруппы
             
-            # Получаем фото для всех участников, у которых его еще нет
-            logger.info("Проверяем наличие фото у всех участников")
-            for member in members:
-                if 'photo_url' not in member or member['photo_url'] is None:
-                    logger.info(f"Получаем фото для участника {member['username']}")
-                    photo_url = await self._get_user_photo(int(member['user_id']), context)
-                    member['photo_url'] = photo_url
-                    logger.info(f"Обновлено фото для участника {member['username']}: {photo_url}")
+            admins = None
+            last_error = None
             
-            # Обновляем статусы участников в соответствии с их правами администратора
-            for member in members:
-                if member['user_id'] in admin_statuses:
-                    old_status = member['status']
-                    member['status'] = admin_statuses[member['user_id']]
-                    logger.info(f"Обновлен статус участника {member['username']}: {old_status} -> {member['status']}")
-
-            # Удаляем дубликаты по user_id, сохраняя последнюю версию
-            unique_members = {}
-            for member in members:
-                unique_members[member['user_id']] = member
-            members = list(unique_members.values())
+            # Пробуем каждый формат ID
+            for format_id in chat_id_formats:
+                try:
+                    logger.info(f"Пробую получить администраторов с ID: {format_id}")
+                    admins = await context.bot.get_chat_administrators(format_id)
+                    if admins:
+                        logger.info(f"Успешно получены администраторы с ID: {format_id}")
+                        break
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Не удалось получить администраторов с ID {format_id}: {e}")
+                    continue
             
-            logger.info(f"Получено {len(members)} участников из {total_count}")
-            logger.info("Финальный список участников:")
-            for member in members:
-                logger.info(f"- {member['username']}: статус={member['status']}, фото={member['photo_url'] is not None}")
+            if not admins:
+                if last_error:
+                    raise last_error
+                return []
+            
+            admin_list = []
+            for admin in admins:
+                user = admin.user
+                admin_info = {
+                    'user_id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'status': get_member_status(admin),
+                    'is_bot': user.is_bot,
+                    'can_manage_chat': getattr(admin, 'can_manage_chat', True),
+                    'can_delete_messages': getattr(admin, 'can_delete_messages', True),
+                    'can_manage_voice_chats': getattr(admin, 'can_manage_voice_chats', True),
+                    'can_restrict_members': getattr(admin, 'can_restrict_members', True),
+                    'can_promote_members': getattr(admin, 'can_promote_members', True),
+                    'can_change_info': getattr(admin, 'can_change_info', True),
+                    'can_invite_users': getattr(admin, 'can_invite_users', True),
+                    'can_pin_messages': getattr(admin, 'can_pin_messages', True)
+                }
+                
+                # Получаем фото профиля
+                photo_url = await self._get_user_photo(user.id, context)
+                if photo_url:
+                    admin_info['photo_url'] = photo_url
+                
+                admin_list.append(admin_info)
+                logger.info(f"Добавлен администратор: {user.full_name} ({user.id})")
+            
+            logger.info(f"Всего получено {len(admin_list)} администраторов")
+            return admin_list
             
         except Exception as e:
-            logger.error(f"❌ Ошибка при получении участников: {e}", exc_info=True)
-        return members
-    
+            logger.error(f"Ошибка при получении списка администраторов: {str(e)}")
+            return []
+
+    async def _standardize_chat_id(self, chat_id: int | str) -> str:
+        """Стандартизация ID чата"""
+        chat_id_str = str(chat_id)
+        
+        # Убираем '-100' из начала ID если есть
+        if chat_id_str.startswith('-100'):
+            return chat_id_str[4:]
+        # Убираем '-' из начала ID если есть
+        elif chat_id_str.startswith('-'):
+            return chat_id_str[1:]
+        return chat_id_str
+
     async def _process_bot_added(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка добавления бота в чат"""
         try:
             chat = update.effective_chat
-            logger.info(f"Начинаем обработку добавления бота в чат {chat.title}")
+            logger.info(f"=== Начало обработки добавления бота в чат {chat.title} ===")
+            logger.info(f"ID чата: {chat.id}")
+            
+            # Получаем стандартизированный ID чата
+            chat_id = str(chat.id).replace('-100', '').replace('-', '')
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем список участников
+            logger.info("Получение списка участников...")
+            members = await self._get_chat_members(chat, context)
+            logger.info(f"Получено {len(members)} участников")
+            
+            # Получаем список администраторов
+            logger.info("Получение списка администраторов...")
+            admins = await self._get_chat_admins(chat.id, context)
+            logger.info(f"Получено {len(admins)} администраторов")
+            
+            # Сохраняем данные
+            logger.info("Сохранение данных...")
+            
+            # Создаем файл инвентаря для чата
+            inventory_file = os.path.join(self.json_service.inventory_dir, f'inventory_{chat_id}.json')
+            logger.info(f"Создание файла инвентаря: {inventory_file}")
+            
+            # Создаем директорию, если её нет
+            os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
+            
+            with open(inventory_file, 'w', encoding='utf-8') as f:
+                json.dump({
+                    'chat_id': chat_id,
+                    'chat_title': chat.title,
+                    'created_at': datetime.now().isoformat(),
+                    'items': []
+                }, f, ensure_ascii=False, indent=2)
+            logger.info("✅ Файл инвентаря создан")
             
             # Отправляем приветственное сообщение
             welcome_message = (
-                f"Привет! Спасибо, что добавили меня в группу '{chat.title}'!\n"
-            f"Я буду помогать вам управлять группой и отслеживать участников."
-        )
-            await update.message.reply_text(welcome_message)
-            logger.info(f"Отправлено приветственное сообщение в чат {chat.title}")
+                f"👋 Привет! Я бот для управления инвентарем.\n"
+                f"Теперь я буду помогать вам отслеживать и управлять инвентарем в группе '{chat.title}'.\n\n"
+                f"🔍 Вот что я умею:\n"
+                f"• Отслеживать добавление и удаление предметов\n"
+                f"• Синхронизировать инвентарь между филиалами\n"
+                f"• Показывать статистику и отчеты\n\n"
+                f"Чтобы начать работу, добавьте меня в администраторы группы."
+            )
             
-            logger.info(f"Бот успешно добавлен в чат {chat.title} (ID: {chat.id})")
+            message = await context.bot.send_message(
+                chat_id=chat.id,
+                text=welcome_message
+            )
+            logger.info(f"✅ Приветственное сообщение отправлено (Message ID: {message.message_id})")
+            
+            logger.info(f"✅ Бот успешно добавлен в чат {chat.title} (ID: {chat.id})")
             
         except Exception as e:
-            logger.error(f"Ошибка при обработке добавления бота: {e}", exc_info=True)
-            raise
+            logger.error(f"❌ Ошибка при обработке добавления бота: {str(e)}")
+            logger.error(traceback.format_exc())
 
     async def handle_left_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка удаления участника из чата"""
@@ -1017,3 +1034,157 @@ class GroupHandler:
             
         except Exception as e:
             logger.error(f"Ошибка при периодическом обновлении фотографий: {str(e)}", exc_info=True)
+
+    async def handle_my_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработка изменений статуса бота в чате"""
+        try:
+            logger.info("=== Начало обработки изменения статуса бота ===")
+            logger.info(f"Update ID: {update.update_id}")
+            logger.info(f"Update type: {update.__class__.__name__}")
+            logger.info(f"Update data: {update.to_dict()}")
+            
+            if not update.my_chat_member:
+                logger.error("❌ Нет my_chat_member в update")
+                return
+
+            chat = update.effective_chat
+            new_member = update.my_chat_member.new_chat_member
+            old_member = update.my_chat_member.old_chat_member
+            
+            logger.info(f"Чат: {chat.title} (ID: {chat.id})")
+            logger.info(f"Тип чата: {chat.type}")
+            logger.info(f"Старый статус: {old_member.status}")
+            logger.info(f"Новый статус: {new_member.status}")
+            logger.info(f"Пользователь: {new_member.user.full_name} (ID: {new_member.user.id})")
+            logger.info(f"Это бот? {new_member.user.is_bot}")
+            logger.info(f"ID нашего бота: {context.bot.id}")
+            
+            # Проверяем, что это действительно наш бот
+            if new_member.user.id != context.bot.id:
+                logger.info(f"❌ Обновление не относится к нашему боту (наш ID: {context.bot.id})")
+                return
+            
+            # Если бота добавили в чат (из состояния left/kicked в member/administrator)
+            if (old_member.status in ['left', 'kicked'] and 
+                new_member.status in ['member', 'administrator']):
+                logger.info("✅ Обнаружено добавление бота в чат")
+                
+                # Получаем стандартизированный ID чата
+                chat_id = await self._get_standardized_chat_id(chat.id)
+                logger.info(f"Стандартизированный ID чата: {chat_id}")
+                
+                try:
+                    # Проверяем права бота
+                    bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
+                    logger.info(f"Права бота в чате: {bot_member.status}")
+                    logger.info(f"Может отправлять сообщения: {getattr(bot_member, 'can_post_messages', True)}")
+                    
+                    # Проверяем тип чата и права
+                    if chat.type not in ['group', 'supergroup']:
+                        logger.error(f"❌ Неподдерживаемый тип чата: {chat.type}")
+                        await context.bot.send_message(
+                            chat_id=chat.id,
+                            text="❌ Извините, но я работаю только в группах и супергруппах."
+                        )
+                        return
+                    
+                    if not getattr(bot_member, 'can_post_messages', True):
+                        logger.error("❌ У бота нет прав на отправку сообщений")
+                        return
+
+                    # Получаем оригинальный ID чата для API запросов
+                    original_chat_id = await self._get_original_chat_id(chat_id)
+                    logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+                    
+                    # Получаем список участников чата
+                    logger.info("Получение списка участников...")
+                    members = await self._get_chat_members(chat, context)
+                    logger.info(f"Получено {len(members)} участников")
+                    
+                    # Получаем список администраторов
+                    logger.info("Получение списка администраторов...")
+                    admins = await self._get_chat_admins(original_chat_id, context)
+                    logger.info(f"Получено {len(admins)} администраторов")
+                    
+                    if not members:
+                        logger.error("❌ Не удалось получить список участников")
+                    if not admins:
+                        logger.error("❌ Не удалось получить список администраторов")
+                    
+                    # Сохраняем данные о чате и участниках
+                    logger.info("Сохранение данных...")
+                    if members:
+                        await self.json_service.save_members(chat_id, chat.title, members)
+                        logger.info("✅ Список участников сохранен")
+                    if admins:
+                        await self.json_service.save_admins(chat_id, chat.title, admins)
+                        logger.info("✅ Список администраторов сохранен")
+                    
+                    # Создаем пустой файл инвентаря для нового чата
+                    inventory_path = os.path.join(self.json_service.inventory_dir, f'inventory_{chat_id}.json')
+                    logger.info(f"Создание файла инвентаря: {inventory_path}")
+                    
+                    if not os.path.exists(inventory_path):
+                        empty_inventory = {
+                            'inventory': {},
+                            'metadata': {
+                                'lastUpdated': datetime.now().isoformat(),
+                                'progress': 0
+                            }
+                        }
+                        with open(inventory_path, 'w', encoding='utf-8') as f:
+                            json.dump(empty_inventory, f, ensure_ascii=False, indent=2)
+                        logger.info("✅ Файл инвентаря создан")
+                    else:
+                        logger.info("Файл инвентаря уже существует")
+                    
+                    # Отправляем приветственное сообщение
+                    welcome_message = (
+                        f"🤖 Привет! Спасибо, что добавили меня в группу '{chat.title}'!\n\n"
+                        f"Я буду помогать вам управлять инвентаризацией и отслеживать участников.\n\n"
+                        f"✅ Данные чата успешно инициализированы:\n"
+                        f"- Список участников сохранен ({len(members) if members else 0} участников)\n"
+                        f"- Список администраторов сохранен ({len(admins) if admins else 0} админов)\n"
+                        f"- Файл инвентаря создан\n\n"
+                        f"🔍 Теперь вы можете начать инвентаризацию!"
+                    )
+                    
+                    try:
+                        sent_message = await context.bot.send_message(
+                            chat_id=chat.id,
+                            text=welcome_message,
+                            parse_mode='HTML'
+                        )
+                        logger.info(f"✅ Приветственное сообщение отправлено (Message ID: {sent_message.message_id})")
+                    except telegram.error.TelegramError as e:
+                        logger.error(f"❌ Ошибка Telegram при отправке приветственного сообщения: {e}")
+                        if 'not enough rights' in str(e).lower():
+                            logger.error("У бота недостаточно прав для отправки сообщений")
+                        elif 'bot was blocked' in str(e).lower():
+                            logger.error("Бот был заблокирован в чате")
+                        else:
+                            logger.error(f"Неизвестная ошибка Telegram: {e}")
+                    except Exception as e:
+                        logger.error(f"❌ Общая ошибка при отправке приветственного сообщения: {e}")
+                    
+                    logger.info(f"✅ Бот успешно добавлен в чат {chat.title} (ID: {chat.id})")
+                    
+                except Exception as inner_e:
+                    logger.error(f"❌ Ошибка при инициализации бота в чате: {str(inner_e)}", exc_info=True)
+                    try:
+                        error_message = (
+                            "❌ Произошла ошибка при инициализации бота.\n"
+                            "Пожалуйста, удалите бота из группы и добавьте снова.\n\n"
+                            f"Ошибка: {str(inner_e)}"
+                        )
+                        await context.bot.send_message(
+                            chat_id=chat.id,
+                            text=error_message
+                        )
+                    except Exception as e2:
+                        logger.error(f"❌ Ошибка при отправке сообщения об ошибке: {e2}")
+            else:
+                logger.info(f"Изменение статуса бота с {old_member.status} на {new_member.status} не требует обработки")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке изменения статуса бота: {str(e)}", exc_info=True)

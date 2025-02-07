@@ -11,6 +11,7 @@ import {
     loadDictionaries,
     updateDictionariesFromInventory 
 } from '../utils/searchUtils';
+import LoadingSpinner from './LoadingSpinner/LoadingSpinner';
 
 // Начальное состояние
 const initialState = {
@@ -276,6 +277,10 @@ export default function Search({
         dispatch({ type: 'RESET' });
         onChange?.('');
     };
+
+    if (state.isLoading) {
+        return <LoadingSpinner text="Выполняется поиск..." />;
+    }
 
     return (
         <div className={styles.searchWrapper}>

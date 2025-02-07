@@ -48,8 +48,23 @@ const CategoryGrid = ({ categories, onSelect, matchedCategories = [], inventory 
     const [isTopReached, setIsTopReached] = useState(true);
     const [isBottomReached, setIsBottomReached] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filteredCategories, setFilteredCategories] = useState(categories);
+    const [filteredCategories, setFilteredCategories] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    // При изменении categories или inventory обновляем список отфильтрованных категорий
+    useEffect(() => {
+        if (!inventory) {
+            setFilteredCategories([]);
+            return;
+        }
+        // Используем только категории из inventory, исключая служебные поля
+        const validCategories = categories.filter(category => 
+            category !== 'metadata' &&
+            typeof inventory[category] === 'object' && 
+            inventory[category] !== null
+        );
+        setFilteredCategories(validCategories);
+    }, [categories, inventory]);
 
     const handleScroll = (e) => {
         const { scrollTop, scrollHeight, clientHeight } = e.target;
@@ -63,68 +78,36 @@ const CategoryGrid = ({ categories, onSelect, matchedCategories = [], inventory 
         setSearchQuery(query);
         
         if (!query.trim()) {
-            console.log('Пустой запрос, возвращаем исходный список категорий');
-            setFilteredCategories(categories);
+            console.log('Пустой запрос, возвращаем отфильтрованные категории');
+            setFilteredCategories(categories.filter(category => 
+                typeof inventory[category] === 'object' && 
+                inventory[category] !== null
+            ));
             setShowSuggestions(false);
             return;
         }
 
         const queryLower = query.toLowerCase();
         console.log('Поиск по запросу:', queryLower);
-        console.log('Текущие категории:', categories);
         
-        // Проверяем, есть ли совпадения в категориях
-        const hasMatches = categories.some(category => 
+        // Фильтруем только валидные категории из inventory
+        const validCategories = categories.filter(category => 
+            typeof inventory[category] === 'object' && 
+            inventory[category] !== null
+        );
+        
+        // Ищем совпадения среди валидных категорий
+        const matches = validCategories.filter(category =>
             category.toLowerCase().includes(queryLower)
         );
-        console.log('Есть совпадения в категориях:', hasMatches);
-
-        if (hasMatches) {
-            // Сортируем категории, перемещая совпадающие наверх
-            const sorted = [...categories].sort((a, b) => {
-                const aLower = a.toLowerCase();
-                const bLower = b.toLowerCase();
-                
-                // Точное совпадение в начале
-                const aStartsWith = aLower.startsWith(queryLower);
-                const bStartsWith = bLower.startsWith(queryLower);
-                
-                // Частичное совпадение
-                const aIncludes = aLower.includes(queryLower);
-                const bIncludes = bLower.includes(queryLower);
-                
-                console.log(`\nСравниваем: "${a}" и "${b}"`);
-                console.log('Начинается с запроса:', { a: aStartsWith, b: bStartsWith });
-                console.log('Содержит запрос:', { a: aIncludes, b: bIncludes });
-                
-                if (aStartsWith && !bStartsWith) {
-                    console.log(`"${a}" начинается с запроса, перемещаем вверх`);
-                    return -1;
-                }
-                if (!aStartsWith && bStartsWith) {
-                    console.log(`"${b}" начинается с запроса, перемещаем вверх`);
-                    return 1;
-                }
-                if (aIncludes && !bIncludes) {
-                    console.log(`"${a}" содержит запрос, перемещаем вверх`);
-                    return -1;
-                }
-                if (!aIncludes && bIncludes) {
-                    console.log(`"${b}" содержит запрос, перемещаем вверх`);
-                    return 1;
-                }
-                
-                const originalOrder = categories.indexOf(a) - categories.indexOf(b);
-                console.log('Сохраняем оригинальный порядок:', originalOrder);
-                return originalOrder;
-            });
-            
-            console.log('Отсортированный список:', sorted);
-            setFilteredCategories(sorted);
+        
+        if (matches.length > 0) {
+            console.log('Найдены совпадения:', matches);
+            setFilteredCategories(matches);
             setShowSuggestions(false);
         } else {
             console.log('Нет совпадений в категориях, показываем подсказки');
-            setFilteredCategories(categories);
+            setFilteredCategories(validCategories);
             setShowSuggestions(true);
         }
         console.log('=== Конец handleSearchChange ===\n');

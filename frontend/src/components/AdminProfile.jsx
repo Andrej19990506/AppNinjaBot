@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './AdminProfile.module.css';
 import config from '../config';
+import PhotoService from '../services/PhotoService';
 
 const AdminProfile = ({ admin }) => {
+    const [photoData, setPhotoData] = useState(null);
     const webApp = config.TELEGRAM_WEB_APP;
+
+    useEffect(() => {
+        const loadPhoto = async () => {
+            if (admin.photo_url) {
+                const photo = await PhotoService.getPhoto(admin.photo_url);
+                setPhotoData(photo);
+            }
+        };
+        loadPhoto();
+    }, [admin.photo_url]);
 
     const handleClick = () => {
         if (admin.username) {
@@ -20,9 +32,9 @@ const AdminProfile = ({ admin }) => {
     return (
         <div className={styles.adminProfile} onClick={handleClick}>
             <div className={styles.photoContainer}>
-                {admin.photo_url ? (
+                {photoData ? (
                     <img 
-                        src={`${config.API_URL}/photo/${admin.photo_url}`}
+                        src={photoData}
                         alt={admin.first_name} 
                         className={styles.photo}
                         onError={(e) => {

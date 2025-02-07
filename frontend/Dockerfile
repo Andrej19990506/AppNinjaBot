@@ -8,12 +8,16 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Копируем исходный код
+# Копируем исходный код и env файлы
 COPY . .
 
 # Для режима разработки
 FROM builder as development
 ENV NODE_ENV=development
+# Добавляем скрипт для подстановки переменных окружения
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["npm", "start"]
 
 # Для продакшен сборки

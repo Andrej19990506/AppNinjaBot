@@ -1,10 +1,176 @@
 {
-  "Соусы": {},
-  "Специи и приправы": {},
-  "Овощи и зелень": {},
-  "Мясо и рыба": {},
-  "Молочные продукты": {},
-  "Заготовки": {},
-  "Десерты": {},
-  "Масла и заправки": {}
+  "Десерты": {
+    "Чизкейк карамель": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Заготовки": {
+    "Картофель": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      }
+    },
+    "Мука": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      }
+    },
+    "Панировочные сухари": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Масла и заправки": {
+    "Заправка для моркови": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Майонез": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Молочные продукты": {
+    "Моцарелла": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Сыр Монарелла": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Мясо и рыба": {
+    "Ветчина": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Крылья куриные": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Овощи и зелень": {
+    "Базилик": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Морковь": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Соусы": {
+    "Соус Барбекю": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Соус Дор Блю": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  },
+  "Специи и приправы": {
+    "Бульон сухой куриный": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Горчица дижонская": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      }
+    },
+    "Набор для бульона": {
+      "raw": {
+        "filled": false,
+        "quantity": 0
+      },
+      "semifinished": {
+        "quantity": 0,
+        "filled": false
+      }
+    }
+  }
 }

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTheme } from '../contexts';
-import Header from './Header';
 import FadeTransition from './transitions/FadeTransition';
 import MainMenu from '../pages/MainMenu';
 import EventList from '../pages/EventList';
@@ -15,7 +14,6 @@ const AppContent = () => {
 
     return (
         <div className="app" data-theme={theme}>
-            {!isMainPage && <Header />}
             <FadeTransition>
                 <main className="main-content">
                     <Routes>

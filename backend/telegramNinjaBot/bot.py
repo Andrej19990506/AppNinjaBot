@@ -668,8 +668,8 @@ async def handle_deletion_callback(update: Update, context: ContextTypes.DEFAULT
                                                     chat_id=format_id,
                                                     message_id=initiator_message_id,
                                                     text=status_message,
-                                reply_markup=None
-                            )
+                                                    reply_markup=None
+                                                )
                                                 logger.info(f"✅ Обновлено статусное сообщение у инициатора (формат ID: {format_id})")
                                                 success = True
                                                 break
@@ -684,7 +684,7 @@ async def handle_deletion_callback(update: Update, context: ContextTypes.DEFAULT
                                         logger.error(f"❌ Ошибка при обновлении статусного сообщения: {str(e)}")
                                 except Exception as e:
                                     logger.error(f"❌ Ошибка при обновлении статусного сообщения: {str(e)}")
-                        else:
+                            else:
                                 logger.error(f"Ошибка при получении данных о запросе: {del_response.status}")
                     else:
                         logger.error(f"Ошибка при отправке подтверждения: {response.status}")

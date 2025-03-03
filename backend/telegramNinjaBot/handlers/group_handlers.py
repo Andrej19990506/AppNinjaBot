@@ -1,18 +1,19 @@
+import os
+import json
+import logging
+import aiohttp
+from datetime import datetime
+from typing import List, Dict, Any, Optional, Union
 from telegram import Update, ChatMember, Bot
 from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler, CommandHandler
 from telegramNinjaBot.services.json_service import JsonService
-import logging
 from telegram.constants import ChatMemberStatus
-from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Union, Any
 import random
-import json
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 import time
 import telegram.error
 import httpx
-import os
-import aiohttp
 import aiofiles
 import asyncio
 from telegramNinjaBot.config.config import Config
@@ -92,6 +93,10 @@ class GroupHandler:
                     # Сразу обрабатываем добавление бота
                     await self._process_bot_added(update, context)
                 else:
+                    # Получаем фото нового участника с принудительным обновлением
+                    photo_url = await self._get_user_photo(member.id, context, force_update=True)
+                    logger.info(f"Получено фото для нового участника {member.full_name}: {photo_url}")
+                    
                     # Приветствуем нового участника
                     welcome_message = (
                         f"Добро пожаловать, {member.first_name}!\n"
@@ -128,160 +133,155 @@ class GroupHandler:
             
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке новых участников: {e}", exc_info=True)
+            logger.error(traceback.format_exc())
 
     async def handle_chat_member_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка изменений участников чата"""
         try:
-            logger.info("🔄 Получено обновление статуса участника")
-            
-            if not update.chat_member:
-                logger.warning("❌ Не удалось получить информацию об участнике")
-                return
-                
-            chat = update.effective_chat
-            member = update.chat_member
-            
-            # Получаем объекты участников и их статусы
-            old_member = member.old_chat_member
-            new_member = member.new_chat_member
-            
-            if not old_member or not new_member:
-                logger.warning("❌ Не удалось получить информацию о старом или новом статусе участника")
-                return
-            
-            # Получаем информацию о пользователе
-            user = new_member.user
-            user_name = user.full_name if user else 'Unknown User'
-            
-            logger.info(f"🔄 Обновление статуса участника {user_name}")
+            chat = update.chat_member.chat
+            user = update.chat_member.new_chat_member.user
+            new_member = update.chat_member.new_chat_member
+            old_member = update.chat_member.old_chat_member
+            user_name = f"{user.first_name} {user.last_name if user.last_name else ''}"
+
+            logger.info(f"=== Обработка изменения статуса участника ===")
+            logger.info(f"Чат: {chat.title}")
+            logger.info(f"ID чата: {chat.id}")
+            logger.info(f"Участник: {user_name}")
+            logger.info(f"ID участника: {user.id}")
             logger.info(f"Старый статус: {old_member.status}")
             logger.info(f"Новый статус: {new_member.status}")
-            
-            # Проверка изменения статуса администратора
-            was_admin = old_member.status in ['administrator', 'creator']
-            is_admin = new_member.status in ['administrator', 'creator']
-            
-            if was_admin != is_admin or is_admin:  # Добавляем проверку is_admin для обновления прав
-                logger.info(f"⚡️ Обнаружено изменение прав администратора для {user_name}")
-                try:
-                    # Получаем стандартизированный ID чата
-                    chat_id = await self._get_standardized_chat_id(chat.id)
-                    # Получаем оригинальный ID для запросов к API
-                    original_chat_id = await self._get_original_chat_id(chat_id)
-                    
-                    # Получаем актуальные права администратора
-                    admin_rights = {
-                        'can_manage_chat': getattr(new_member, 'can_manage_chat', False),
-                        'can_delete_messages': getattr(new_member, 'can_delete_messages', False),
-                        'can_manage_voice_chats': getattr(new_member, 'can_manage_voice_chats', False),
-                        'can_restrict_members': getattr(new_member, 'can_restrict_members', False),
-                        'can_promote_members': getattr(new_member, 'can_promote_members', False),
-                        'can_change_info': getattr(new_member, 'can_change_info', False),
-                        'can_invite_users': getattr(new_member, 'can_invite_users', False),
-                        'can_pin_messages': getattr(new_member, 'can_pin_messages', False)
-                    }
-                    
-                    # Получаем текущий список участников
-                    members_data = self.json_service.load_from_json('members.json')
-                    if str(chat_id) in members_data:
-                        members = members_data[str(chat_id)]['members']
-                        # Обновляем статус участника
-                        for member_info in members:
-                            if str(member_info['user_id']) == str(user.id):
-                                member_info['status'] = new_member.status
-                                # Добавляем права администратора
-                                if is_admin:
-                                    member_info.update(admin_rights)
-                                logger.info(f"Обновлен статус участника {user_name} на {member_info['status']}")
-                        
-                        # Сохраняем обновленный список участников
-                        await self.json_service.save_members(chat_id, chat.title, members)
-                        logger.info(f"📋 Обновлен список участников для чата {chat.title}")
-                    
-                    # Обновляем список администраторов
-                    admins_data = self.json_service.load_from_json('admins.json')
-                    if str(chat_id) not in admins_data:
-                        admins_data[str(chat_id)] = {'chat_title': chat.title, 'admins': []}
-                    
-                    chat_admins = admins_data[str(chat_id)]
-                    
-                    if is_admin:
-                        # Создаем или обновляем информацию об администраторе
-                        admin_info = {
-                            'user_id': user.id,
-                            'username': user.username,
-                            'first_name': user.first_name,
-                            'last_name': user.last_name,
-                            'status': new_member.status,
-                            'is_bot': user.is_bot,
-                            **admin_rights  # Добавляем права администратора
-                        }
-                        
-                        # Обновляем или добавляем администратора
-                        admin_found = False
-                        for i, admin in enumerate(chat_admins['admins']):
-                            if str(admin['user_id']) == str(user.id):
-                                chat_admins['admins'][i] = admin_info
-                                admin_found = True
-                                break
-                        
-                        if not admin_found:
-                            chat_admins['admins'].append(admin_info)
-                            
-                    else:
-                        # Удаляем администратора из списка
-                        chat_admins['admins'] = [admin for admin in chat_admins['admins'] 
-                                               if str(admin['user_id']) != str(user.id)]
-                    
-                    # Обновляем время последнего обновления
-                    chat_admins['last_updated'] = datetime.now().isoformat()
-                    
-                    # Сохраняем обновленный список администраторов
-                    await self.json_service.save_admins(chat_id, chat.title, chat_admins['admins'])
-                    logger.info(f"📋 Обновлен список администраторов для чата {chat.title}")
-                    
-                    # Отправляем уведомление в чат
-                    if is_admin:
-                        await chat.send_message(
-                            f"🎉 Поздравляем! {user_name} теперь администратор!"
-                        )
-                        logger.info(f"Отправлено поздравление новому администратору {user_name}")
-                        
-                        # Инициализируем активность администратора
-                        activity_data = self.json_service.load_from_json('admin_activity.json')
-                        if str(chat_id) not in activity_data:
-                            activity_data[str(chat_id)] = {}
-                        if str(user.id) not in activity_data[str(chat_id)]:
-                            activity_data[str(chat_id)][str(user.id)] = {
-                                'message_count': 0,
-                                'last_active': datetime.now().isoformat(),
-                                'commands_used': 0,
-                                'reactions_received': 0,
-                                'messages_pinned': 0
-                            }
-                        self.json_service.save_admin_activity(activity_data)
-                        logger.info(f"Инициализирована активность нового администратора {user_name}")
-                    else:
-                        await chat.send_message(
-                            f"❌ {user_name} больше не является администратором."
-                        )
-                        logger.info(f"Отправлено уведомление о снятии прав администратора у {user_name}")
-                        
-                        # Удаляем из admin_activity.json
-                        activity_data = self.json_service.load_from_json('admin_activity.json')
-                        if str(chat_id) in activity_data and str(user.id) in activity_data[str(chat_id)]:
-                            del activity_data[str(chat_id)][str(user.id)]
-                            # Если это был последний админ в чате, удаляем и запись о чате
-                            if not activity_data[str(chat_id)]:
-                                del activity_data[str(chat_id)]
-                            self.json_service.save_admin_activity(activity_data)
-                            logger.info(f"🗑 Удалена активность бывшего администратора {user_name}")
-                    
-                except Exception as inner_e:
-                    logger.error(f"Ошибка при обновлении статуса участника: {str(inner_e)}", exc_info=True)
 
+            # Проверка изменения статуса
+            if new_member.status == "administrator":
+                logger.info(f"🎉 Пользователь {user_name} назначен администратором")
+                
+                # Получаем актуальные права администратора
+                admin_rights = {
+                    'can_manage_chat': getattr(new_member, 'can_manage_chat', False),
+                    'can_delete_messages': getattr(new_member, 'can_delete_messages', False),
+                    'can_manage_voice_chats': getattr(new_member, 'can_manage_voice_chats', False),
+                    'can_restrict_members': getattr(new_member, 'can_restrict_members', False),
+                    'can_promote_members': getattr(new_member, 'can_promote_members', False),
+                    'can_change_info': getattr(new_member, 'can_change_info', False),
+                    'can_invite_users': getattr(new_member, 'can_invite_users', False),
+                    'can_pin_messages': getattr(new_member, 'can_pin_messages', False)
+                }
+                logger.info(f"Права администратора: {json.dumps(admin_rights, indent=2, ensure_ascii=False)}")
+
+                # Сначала получаем фото нового администратора
+                photo_url = await self._get_user_photo(user.id, context, force_update=True)
+                logger.info(f"Получено фото для нового администратора: {photo_url}")
+                
+                # Создаем или обновляем информацию об администраторе
+                admin_info = {
+                    'user_id': user.id,
+                    'username': user.username,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'status': new_member.status,
+                    'is_bot': user.is_bot,
+                    'photo_url': photo_url,
+                    **admin_rights  # Добавляем права администратора
+                }
+                logger.info(f"Создана информация об администраторе: {json.dumps(admin_info, indent=2, ensure_ascii=False)}")
+
+                # Получаем стандартизированный ID чата
+                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
+                logger.info(f"Стандартизированный ID чата: {standardized_chat_id}")
+
+                # Обновляем список администраторов
+                admins_data = self.json_service.load_from_json('admins.json')
+                logger.info(f"Загружен текущий список администраторов")
+                
+                if standardized_chat_id not in admins_data:
+                    logger.info(f"Создаем новую запись для чата {chat.title}")
+                    admins_data[standardized_chat_id] = {'chat_title': chat.title, 'admins': []}
+                
+                # Обновляем или добавляем администратора
+                admin_found = False
+                for i, admin in enumerate(admins_data[standardized_chat_id]['admins']):
+                    if str(admin['user_id']) == str(user.id):
+                        logger.info(f"Обновляем существующего администратора {user_name}")
+                        admins_data[standardized_chat_id]['admins'][i] = admin_info
+                        admin_found = True
+                        break
+                
+                if not admin_found:
+                    logger.info(f"Добавляем нового администратора {user_name}")
+                    admins_data[standardized_chat_id]['admins'].append(admin_info)
+                
+                # Обновляем время последнего обновления
+                admins_data[standardized_chat_id]['last_updated'] = datetime.now().isoformat()
+                
+                # Сохраняем обновленный список администраторов
+                await self.json_service.save_to_json('admins.json', admins_data)
+                logger.info(f"✅ Список администраторов успешно обновлен")
+
+                # Отправляем поздравление
+                await chat.send_message(
+                    f"🎉 Поздравляем! {user_name} теперь администратор!"
+                )
+                logger.info(f"✅ Отправлено поздравление новому администратору")
+
+                # Отправляем уведомление на сервер
+                logger.info(f"Отправляем уведомление на сервер об обновлении прав")
+                await self._notify_server_about_admin_update(
+                    standardized_chat_id,
+                    admins_data[standardized_chat_id]
+                )
+
+            elif old_member.status == "administrator":
+                logger.info(f"❌ Пользователь {user_name} больше не является администратором")
+                
+                await chat.send_message(
+                    f"❌ {user_name} больше не является администратором."
+                )
+                logger.info(f"Отправлено уведомление о снятии прав администратора")
+                
+                # Получаем стандартизированный ID чата
+                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
+                logger.info(f"Стандартизированный ID чата: {standardized_chat_id}")
+                
+                # Удаляем из admin_activity.json
+                activity_data = self.json_service.load_from_json('admin_activity.json')
+                if standardized_chat_id in activity_data and str(user.id) in activity_data[standardized_chat_id]:
+                    del activity_data[standardized_chat_id][str(user.id)]
+                    logger.info(f"Удалена активность администратора из admin_activity.json")
+                    
+                    # Если это был последний админ в чате, удаляем и запись о чате
+                    if not activity_data[standardized_chat_id]:
+                        del activity_data[standardized_chat_id]
+                        logger.info(f"Удалена запись о чате из admin_activity.json (нет активных админов)")
+                    
+                    await self.json_service.save_to_json('admin_activity.json', activity_data)
+                    logger.info(f"✅ Файл admin_activity.json обновлен")
+                
+                # Удаляем из списка администраторов
+                admins_data = self.json_service.load_from_json('admins.json')
+                if standardized_chat_id in admins_data:
+                    before_count = len(admins_data[standardized_chat_id]['admins'])
+                    admins_data[standardized_chat_id]['admins'] = [
+                        admin for admin in admins_data[standardized_chat_id]['admins']
+                        if str(admin['user_id']) != str(user.id)
+                    ]
+                    after_count = len(admins_data[standardized_chat_id]['admins'])
+                    
+                    admins_data[standardized_chat_id]['last_updated'] = datetime.now().isoformat()
+                    await self.json_service.save_to_json('admins.json', admins_data)
+                    logger.info(f"✅ Администратор удален из списка (было {before_count}, стало {after_count} админов)")
+
+                    # Отправляем уведомление на сервер
+                    logger.info(f"Отправляем уведомление на сервер об обновлении прав")
+                    await self._notify_server_about_admin_update(
+                        standardized_chat_id,
+                        admins_data[standardized_chat_id]
+                    )
+            
         except Exception as e:
-            logger.error(f"❌ Ошибка при обработке изменения участника: {str(e)}", exc_info=True)
+            logger.error(f"❌ Ошибка при обработке изменения участника")
+            logger.error(f"Описание ошибки: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик сообщений для отслеживания активности администраторов"""
@@ -464,12 +464,13 @@ class GroupHandler:
             logger.error(f"❌ Ошибка при сохранении фото: {str(e)}")
             return False
             
-    async def _get_user_photo(self, user_id: int, context: ContextTypes.DEFAULT_TYPE) -> Optional[str]:
+    async def _get_user_photo(self, user_id: int, context: ContextTypes.DEFAULT_TYPE, force_update: bool = False) -> Optional[str]:
         """Получение фотографии пользователя"""
         try:
-            # Проверяем кэш
+            # Проверяем кэш только если не требуется принудительное обновление
             cache_key = str(user_id)
-            if cache_key in self.photo_cache:
+            if not force_update and cache_key in self.photo_cache:
+                logger.info(f"Возвращаем фото из кэша для пользователя {user_id}")
                 return self.photo_cache[cache_key]
             
             # Получаем фотографии пользователя
@@ -481,7 +482,18 @@ class GroupHandler:
                 
                 # Получаем файл
                 file = await context.bot.get_file(photo.file_id)
-                photo_url = file.file_path
+                
+                # Проверяем, является ли file.file_path уже полным URL
+                if file.file_path.startswith('http'):
+                    photo_url = file.file_path
+                else:
+                    # Формируем URL для загрузки файла
+                    bot_token = context.bot.token
+                    photo_url = f"https://api.telegram.org/file/bot{bot_token}/{file.file_path}"
+                
+                # Очищаем URL от возможного дублирования
+                if "https://api.telegram.org/file/bot" in photo_url[30:]:
+                    photo_url = photo_url[:photo_url.find("/https://")]
                 
                 # Сохраняем в кэш
                 self.photo_cache[cache_key] = photo_url
@@ -489,12 +501,15 @@ class GroupHandler:
                 # Сохраняем кэш в файл
                 await self.json_service.save_to_json('photo_cache.json', self.photo_cache)
                 
+                logger.info(f"Получен URL фото для пользователя {user_id}: {photo_url}")
                 return photo_url
             
+            logger.warning(f"Фотографии не найдены для пользователя {user_id}")
             return None
             
         except Exception as e:
             logger.error(f"Ошибка при получении фото пользователя {user_id}: {str(e)}")
+            logger.error(traceback.format_exc())
             return None
 
     async def request_admin_contact(self, admin_id: int, admin_name: str, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -547,31 +562,71 @@ class GroupHandler:
     async def _get_chat_members(self, chat, context: ContextTypes.DEFAULT_TYPE) -> List[dict]:
         """Получение списка участников чата"""
         try:
-            logger.info(f"Получение участников для чата {chat.title}")
-            
-            # Получаем администраторов чата
-            admins = await context.bot.get_chat_administrators(chat.id)
+            logger.info(f"=== Получение участников чата {chat.title} ===")
             members = []
+            last_error = None
+            success = False
             
-            # Добавляем администраторов в список участников
-            for admin in admins:
-                user = admin.user
-                members.append({
-                    'user_id': user.id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'status': get_member_status(admin),
-                    'joined_date': datetime.now().isoformat(),
-                    'is_bot': user.is_bot
-                })
-                logger.info(f"Добавлен администратор: {user.full_name} ({user.id})")
+            # Пробуем получить участников с разными форматами ID
+            chat_id_formats = [
+                chat.id,  # Оригинальный ID
+                str(chat.id),  # Строковый ID
+                f"-100{str(chat.id)}" if not str(chat.id).startswith('-100') else str(chat.id),  # Формат для супергрупп
+            ]
             
-            logger.info(f"Получено {len(members)} участников")
+            for chat_id in chat_id_formats:
+                if success:
+                    break
+                    
+                try:
+                    # Получаем список участников
+                    chat_members = await context.bot.get_chat_administrators(chat_id)
+                    
+                    # Обрабатываем каждого участника
+                    for member in chat_members:
+                        user = member.user
+                        if user.is_bot:  # Пропускаем ботов
+                            continue
+                            
+                        # Получаем фото участника с принудительным обновлением для новых
+                        photo_url = await self._get_user_photo(user.id, context, force_update=True)
+                        
+                        member_info = {
+                            'user_id': user.id,
+                            'username': user.username,
+                            'first_name': user.first_name,
+                            'last_name': user.last_name,
+                            'status': get_member_status(member),
+                            'joined_date': datetime.now().isoformat(),
+                            'is_bot': user.is_bot
+                        }
+                        
+                        # Добавляем фото, если оно есть
+                        if photo_url:
+                            member_info['photo_url'] = photo_url
+                            logger.info(f"Добавлено фото для участника {user.full_name}")
+                        else:
+                            logger.warning(f"Не удалось получить фото для участника {user.full_name}")
+                        
+                        members.append(member_info)
+                        logger.info(f"Добавлен участник: {user.full_name} ({user.id})")
+                    
+                    success = True
+                    logger.info(f"✅ Успешно получены {len(members)} участников")
+                    
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Ошибка при получении участников с ID {chat_id}: {str(e)}")
+                    continue
+            
+            if not success and last_error:
+                raise last_error
+            
             return members
             
         except Exception as e:
-            logger.error(f"Ошибка при получении списка участников: {str(e)}")
+            logger.error(f"❌ Ошибка при получении списка участников: {str(e)}")
+            logger.error(traceback.format_exc())
             return []
 
     async def _get_chat_admins(self, chat_id: Union[int, str], context: ContextTypes.DEFAULT_TYPE) -> List[dict]:
@@ -1188,3 +1243,33 @@ class GroupHandler:
             
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке изменения статуса бота: {str(e)}", exc_info=True)
+
+    async def _notify_server_about_admin_update(self, chat_id: str, admins_data: dict) -> None:
+        """Отправляет уведомление на сервер об обновлении прав администратора"""
+        try:
+            logger.info(f"🔄 Отправка уведомления на сервер об обновлении прав администратора")
+            logger.info(f"ID чата: {chat_id}")
+            logger.info(f"Количество администраторов: {len(admins_data.get('admins', []))}")
+            
+            api_url = os.getenv('API_URL', 'http://api:8000')
+            logger.info(f"URL сервера: {api_url}")
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{api_url}/api/admin_update/{chat_id}",
+                    json=admins_data,
+                    headers={'Content-Type': 'application/json'}
+                ) as response:
+                    if response.status == 200:
+                        logger.info(f"✅ Уведомление успешно отправлено на сервер")
+                        logger.info(f"Чат: {chat_id}")
+                        logger.info(f"Название чата: {admins_data.get('chat_title', 'Неизвестно')}")
+                    else:
+                        logger.error(f"❌ Ошибка при отправке уведомления на сервер")
+                        logger.error(f"Код ошибки: {response.status}")
+                        error_text = await response.text()
+                        logger.error(f"Описание ошибки: {error_text}")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке уведомления на сервер")
+            logger.error(f"Описание ошибки: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")

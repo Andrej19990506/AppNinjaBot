@@ -1,0 +1,399 @@
+/* Центр уведомлений */
+.notificationMenu {
+    min-width: 320px;
+    max-width: 400px;
+    max-height: 500px;
+    border-radius: var(--radius) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: var(--shadow-lg) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+/* Стилизация скроллбара для меню уведомлений */
+.notificationMenu::-webkit-scrollbar {
+    width: 8px;
+}
+
+.notificationMenu::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: var(--radius);
+}
+
+.notificationMenu::-webkit-scrollbar-thumb {
+    background-color: var(--gray-300);
+    border-radius: var(--radius);
+}
+
+.notificationMenu::-webkit-scrollbar-thumb:hover {
+    background-color: var(--gray-400);
+}
+
+/* Список уведомлений */
+.notificationList {
+    padding: 0;
+    margin: 0;
+}
+
+/* Элемент уведомления */
+.notificationItem {
+    padding: 16px !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    transition: background-color var(--transition-normal) !important;
+    cursor: pointer;
+}
+
+.notificationItem:hover {
+    background-color: var(--hover-overlay) !important;
+}
+
+/* Стиль для непрочитанного уведомления */
+.unreadNotification {
+    background-color: var(--primary-transparent);
+}
+
+/* Заголовок уведомления */
+.notificationTitle {
+    font-size: 14px;
+    color: var(--text-primary);
+    margin: 0;
+    word-break: break-word;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.notificationTitle.bold {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.notificationTitle.normal {
+    font-weight: 400;
+    color: var(--text-secondary);
+}
+
+.notificationMessage {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    word-break: break-word;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Время уведомления */
+.notificationTime {
+    font-size: 12px;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+.notificationSource {
+    font-size: 12px;
+    color: var(--orange-primary);
+    opacity: 0.9;
+    font-weight: 500;
+    display: inline-block;
+    margin-top: 5px;
+}
+
+/* Кнопка удаления уведомления */
+.deleteButton {
+    color: var(--text-secondary) !important;
+    padding: 4px !important;
+    margin-left: 8px !important;
+    opacity: 0.5;
+    transition: opacity 0.2s ease;
+    min-width: 0 !important;
+}
+
+.deleteButton:hover {
+    opacity: 1;
+    background-color: var(--hover-overlay) !important;
+}
+
+/* Сообщение о пустом списке уведомлений */
+.emptyMessage {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Стилизация Material UI компонентов */
+:global(.MuiPopover-paper),
+:global(.MuiMenu-paper) {
+    border-radius: var(--radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    border: 1px solid var(--border-color) !important;
+    margin-top: 4px !important;
+}
+
+:global(.MuiMenuItem-root) {
+    padding: 12px 16px !important;
+    min-height: 48px !important;
+    font-size: 14px !important;
+}
+
+:global(.MuiMenuItem-root:hover) {
+    background-color: var(--hover-overlay) !important;
+}
+
+:global(.MuiMenuItem-root.Mui-selected) {
+    background-color: var(--primary-transparent) !important;
+}
+
+:global(.MuiMenuItem-root.Mui-selected:hover) {
+    background-color: var(--hover-overlay) !important;
+}
+
+:global(.MuiList-padding) {
+    padding: 0 !important;
+}
+
+:global(.MuiListItem-root.Mui-selected) {
+    background-color: var(--primary-transparent) !important;
+}
+
+:global(.MuiDivider-root) {
+    margin: 0 !important;
+    border-color: var(--border-color) !important;
+}
+
+/* Стили для темной темы */
+:global([data-theme="dark"] .MuiPopover-paper),
+:global([data-theme="dark"] .MuiMenu-paper) {
+    background-color: var(--card-background) !important;
+    border-color: var(--border-color) !important;
+}
+
+:global([data-theme="dark"] .MuiMenuItem-root) {
+    color: var(--text-color) !important;
+}
+
+:global([data-theme="dark"] .MuiMenuItem-root:hover) {
+    background-color: var(--hover-overlay) !important;
+}
+
+:global([data-theme="dark"] .MuiListItem-root:hover) {
+    background-color: var(--hover-overlay) !important;
+}
+
+/* Значок для уведомления */
+.notificationBadge {
+    transition: transform var(--transition-normal);
+}
+
+.notificationBadge:hover {
+    transform: scale(1.1);
+}
+
+/* Стили для всплывающих Toast-уведомлений */
+.toast {
+    margin-top: 16px !important;
+    border-radius: var(--radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    position: fixed !important;
+    bottom: 24px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    min-width: 300px !important;
+    max-width: 80% !important;
+    z-index: 9999 !important;
+}
+
+/* Стили для разных типов toast-уведомлений */
+.toastSuccess {
+    background-color: var(--success-color) !important;
+    color: white !important;
+}
+
+.toastWarning {
+    background-color: var(--warning-color) !important;
+    color: white !important;
+}
+
+.toastError {
+    background-color: var(--error-color) !important;
+    color: white !important;
+}
+
+.toastInfo {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 600px) {
+    .notificationMenu {
+        min-width: 100%;
+        max-width: 100%;
+        width: 100%;
+        border-radius: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .notificationItem {
+        padding: 12px !important;
+    }
+    
+    .notificationTitle {
+        font-size: 14px;
+    }
+    
+    .notificationTime {
+        font-size: 11px;
+    }
+    
+    .deleteButton {
+        padding: 3px !important;
+    }
+}
+
+/* Стили для уведомлений с предложениями товаров */
+.itemSuggestionNotification {
+    background-color: var(--primary-transparent) !important;
+    border-left: 3px solid var(--primary-color) !important;
+    position: relative;
+}
+
+.itemSuggestionNotification:after {
+    content: '';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: translateY(-50%) scale(0.95);
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7);
+    }
+    
+    70% {
+        transform: translateY(-50%) scale(1);
+        box-shadow: 0 0 0 8px rgba(var(--primary-rgb), 0);
+    }
+    
+    100% {
+        transform: translateY(-50%) scale(0.95);
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
+    }
+}
+
+/* Стили для уведомления о статусе предложения товара */
+.suggestionStatusNotification {
+    border-left: 4px solid var(--orange-primary);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.suggestionStatusNotification::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--orange-primary);
+    transition: background-color 0.3s ease;
+}
+
+.suggestionStatusNotification.accepted {
+    border-left-color: var(--success-color);
+}
+
+.suggestionStatusNotification.accepted::before {
+    background: var(--success-color);
+}
+
+.suggestionStatusNotification.rejected {
+    border-left-color: var(--error-color);
+}
+
+.suggestionStatusNotification.rejected::before {
+    background: var(--error-color);
+}
+
+.suggestionStatusNotification.error {
+    border-left-color: var(--error-color);
+}
+
+.suggestionStatusNotification.error::before {
+    background: var(--error-color);
+}
+
+/* Стили для анимации иконки ожидания */
+.pendingIcon {
+    animation: pulse 1.5s infinite ease-in-out;
+    display: inline-flex;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(0.95);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Добавляем анимацию для песочных часов */
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    25% {
+        transform: rotate(45deg);
+    }
+    50% {
+        transform: rotate(180deg);
+    }
+    75% {
+        transform: rotate(270deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.hourglassIcon {
+    animation: rotate 2s infinite ease-in-out;
+    color: var(--orange-primary);
+}
+
+.soundSettings {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.volumeControl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.testSoundButton {
+    margin-top: 8px;
+    align-self: flex-start;
+}

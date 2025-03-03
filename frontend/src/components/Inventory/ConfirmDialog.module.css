@@ -1,0 +1,117 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.dialog {
+    background: var(--card-background);
+    border-radius: 24px;
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+}
+
+.dialog.danger {
+    border-color: var(--error-color);
+}
+
+.dialog.warning {
+    border-color: var(--warning-color);
+}
+
+.dialog.info {
+    border-color: var(--primary-color);
+}
+
+.title {
+    margin: 0 0 16px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color);
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.message {
+    margin: 0 0 24px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-line;
+}
+
+.message p {
+    margin: 8px 0;
+}
+
+.buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.button {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.button.cancel {
+    background: var(--error-background);
+    color: var(--error-color);
+}
+
+.button.confirm {
+    color: white;
+}
+
+.button.confirm.danger {
+    background: var(--error-color);
+}
+
+.button.confirm.warning {
+    background: var(--warning-color);
+}
+
+.button.confirm.info {
+    background: var(--primary-color);
+}
+
+@media (max-width: 480px) {
+    .dialog {
+        padding: 20px;
+    }
+
+    .title {
+        font-size: 1.25rem;
+    }
+
+    .message {
+        font-size: 0.9rem;
+    }
+
+    .button {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+    }
+} 

@@ -1,0 +1,158 @@
+.notificationsContainer {
+    position: fixed;
+    top: max(20px, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1100;
+    pointer-events: none;
+}
+
+.notification {
+    padding: 16px 24px;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--card-rgb), 0.8),
+        rgba(var(--card-rgb), 0.95)
+    );
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    max-width: 90%;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+    transition: all var(--transition-normal);
+    pointer-events: auto;
+}
+
+.success {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--success-rgb), 0.1),
+        rgba(var(--success-rgb), 0.2)
+    );
+    border-color: rgba(var(--success-rgb), 0.3);
+}
+
+.error {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--error-rgb), 0.1),
+        rgba(var(--error-rgb), 0.2)
+    );
+    border-color: rgba(var(--error-rgb), 0.3);
+}
+
+.warning {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--warning-rgb), 0.1),
+        rgba(var(--warning-rgb), 0.2)
+    );
+    border-color: rgba(var(--warning-rgb), 0.3);
+}
+
+.icon {
+    font-size: 1.5rem !important;
+    transition: all var(--transition-normal);
+}
+
+.success .icon {
+    color: var(--success-color);
+}
+
+.error .icon {
+    color: var(--error-color);
+}
+
+.warning .icon {
+    color: var(--warning-color);
+}
+
+.message {
+    color: var(--text-color);
+    font-size: 1rem;
+    font-weight: 500;
+    line-height: 1.5;
+    transition: color var(--transition-normal);
+    flex: 1;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.6;
+    transition: all var(--transition-normal);
+}
+
+.closeButton:hover {
+    opacity: 1;
+    color: var(--text-color);
+    background: rgba(var(--text-rgb), 0.1);
+}
+
+.notification:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 8px 24px rgba(0, 0, 0, 0.15),
+        0 4px 8px rgba(var(--primary-rgb), 0.15);
+}
+
+.notification:hover .icon {
+    transform: scale(1.1);
+}
+
+/* Медиа-запросы */
+@media (max-width: 768px) {
+    .notification {
+        min-width: auto;
+        width: calc(100% - 32px);
+        padding: 14px 20px;
+        border-radius: var(--radius);
+    }
+
+    .icon {
+        font-size: 1.25rem !important;
+    }
+
+    .message {
+        font-size: 0.95rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .notification {
+        padding: 12px 16px;
+        width: calc(100% - 24px);
+    }
+
+    .icon {
+        font-size: 1.1rem !important;
+    }
+
+    .message {
+        font-size: 0.9rem;
+    }
+}
+
+/* Поддержка iPhone с челкой */
+@supports (padding: max(0px)) {
+    .notification {
+        padding-top: max(16px, env(safe-area-inset-top));
+        padding-left: max(24px, env(safe-area-inset-left));
+        padding-right: max(24px, env(safe-area-inset-right));
+    }
+} 

@@ -1,0 +1,127 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.header {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.title {
+    font-size: 1.5rem;
+    color: var(--text-color);
+    margin: 0;
+    font-weight: 600;
+}
+
+.content {
+    margin-bottom: 24px;
+    color: var(--text-secondary);
+    text-align: center;
+    line-height: 1.5;
+}
+
+.warning {
+    background: rgba(var(--error-color-rgb), 0.1);
+    color: var(--error-color);
+    padding: 12px;
+    border-radius: var(--radius);
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.warning svg {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.button {
+    padding: 12px 24px;
+    border-radius: var(--radius);
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.cancelButton {
+    background: var(--border-color);
+    color: var(--text-color);
+}
+
+.cancelButton:hover {
+    background: var(--border-hover-color);
+}
+
+.deleteButton {
+    background: var(--error-color);
+    color: white;
+}
+
+.deleteButton:hover {
+    background: var(--error-hover-color);
+}
+
+.timer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: var(--error-color);
+    transition: width 0.1s linear;
+}
+
+.itemInfo {
+    background: var(--background);
+    padding: 16px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.itemName {
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 4px;
+}
+
+.itemCategory {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+} 

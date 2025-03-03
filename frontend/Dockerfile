@@ -1,30 +1,54 @@
-# Build stage
+# Базовый образ для разработки
 FROM node:18-alpine as builder
 
 WORKDIR /app
 
-# Сначала копируем только файлы package.json и package-lock.json
-# Это позволит кешировать слой с node_modules
+# Копируем файлы package.json и package-lock.json
 COPY package*.json ./
+
+# Устанавливаем все зависимости
 RUN npm install
 
-# Копируем исходный код и env файлы
+# Копируем исходный код
 COPY . .
 
 # Для режима разработки
 FROM builder as development
 ENV NODE_ENV=development
-# Добавляем скрипт для подстановки переменных окружения
-COPY docker-entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Устанавливаем craco глобально
+RUN npm install -g @craco/craco
+
+# Создаем entrypoint скрипт
+RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
+    echo 'if [ -f /app/.env.runtime ]; then' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo '  export $(cat /app/.env.runtime | xargs)' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
+    echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
+    chmod +x /usr/local/bin/docker-entrypoint.sh
+
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["npm", "start"]
+CMD ["craco", "start"]
 
 # Для продакшен сборки
-FROM builder as production
+FROM builder as production-build
+ENV NODE_ENV=production
 RUN npm run build
 
-FROM nginx:alpine as prod-stage
-COPY --from=production /app/build /usr/share/nginx/html
+# Финальный продакшен образ
+FROM nginx:alpine as production
+COPY --from=production-build /app/build /usr/share/nginx/html
+
+# Копируем конфигурацию nginx
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Создаем entrypoint скрипт для подстановки переменных окружения
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'envsubst < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
+    echo 'exec "$@"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
 EXPOSE 80
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"] 

@@ -1,0 +1,367 @@
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--color-background);
+    border-top: 1px solid var(--gray-200);
+    padding: 12px 0;
+    z-index: 1000;
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Индикатор подключения */
+.footer::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--orange-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.footer.connected::before {
+    opacity: 1;
+    background: var(--green-500);
+}
+
+.footer.disconnected::before {
+    opacity: 1;
+    background: var(--red-500);
+}
+
+.container {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 20px;
+    gap: 12px;
+}
+
+.iconButton, .chatButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    background: var(--color-background-secondary);
+    color: var(--color-text);
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 95, 31, 0.1);
+    flex-shrink: 0;
+}
+
+.chatButton {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: none;
+    background: var(--gradient-primary);
+    color: white;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    position: relative;
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.chatButtonEmpty {
+    background: var(--gradient-primary);
+    color: white;
+    padding: 0;
+    width: 44px;
+}
+
+.chatButtonEmpty .chatIcon {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.chatIcon {
+    width: 24px;
+    height: 24px;
+    color: white;
+}
+
+.chatButtonEmpty .chatIcon {
+    color: white;
+}
+
+.iconButton:hover, .chatButton:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    background: var(--color-background);
+    border-color: var(--color-primary);
+}
+
+.iconButton:active, .chatButton:active {
+    transform: translateY(0);
+}
+
+.icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.backButton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border: none;
+    background: var(--gradient-primary);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+    min-width: 0;
+    max-width: 300px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.backButton:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.backButton:active {
+    transform: translateY(0);
+}
+
+.backArrow {
+    font-size: 1.2rem;
+    font-weight: bold;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.textContainer {
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.scrollingText {
+    display: inline-block;
+    white-space: nowrap;
+    animation: scrollText 15s linear infinite;
+    padding-right: 50px;
+}
+
+@keyframes scrollText {
+    0% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(calc(-100% + 100px));
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.textOverflow {
+    position: relative;
+}
+
+.textOverflow::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 30px;
+    background: linear-gradient(to right, transparent, var(--orange-primary));
+    pointer-events: none;
+}
+
+.chatInfo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+.chatAvatar {
+    width: 32px;
+    height: 32px;
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+    box-shadow: var(--shadow-md);
+}
+
+.chatName {
+    font-size: 0.9rem;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    display: block;
+}
+
+.chatTooltip {
+    position: absolute;
+    bottom: calc(100% + 16px);
+    right: 0;
+    background: #121212;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--orange-primary);
+    width: max-content;
+    max-width: 280px;
+    z-index: 1000;
+}
+
+.tooltipContent {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+}
+
+.tooltipText {
+    color: var(--color-text);
+    font-size: 1rem;
+    font-weight: 500;
+    margin-right: 24px;
+    padding: 8px 12px;
+    background: var(--color-background);
+    border-radius: 8px;
+    border: 1px solid var(--orange-primary);
+}
+
+.changeButton {
+    background: var(--gradient-primary);
+    color: var(--color-white);
+    border: none;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    box-shadow: var(--shadow-md);
+}
+
+.changeButton:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.tooltipClose {
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #121212;
+    border: 1px solid var(--orange-primary);
+    color: var(--orange-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+    box-shadow: var(--shadow-sm);
+}
+
+.tooltipClose:hover {
+    background: var(--orange-primary);
+    color: var(--color-white);
+    transform: rotate(90deg);
+}
+
+.chatTooltip::before {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    right: 16px;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-transparent);
+    transform: rotate(45deg);
+    border-right: 1px solid var(--orange-primary);
+    border-bottom: 1px solid var(--orange-primary);
+}
+
+.selectedChatName {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    background: var(--color-background);
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--color-text);
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--color-primary);
+}
+
+.chatButton:hover .selectedChatName {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Добавляем отступ снизу для контента, чтобы он не перекрывался футером */
+:global(.app) {
+    padding-bottom: calc(44px + 24px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+    .chatName {
+        max-width: 150px;
+    }
+} 

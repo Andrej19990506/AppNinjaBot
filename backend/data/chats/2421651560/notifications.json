@@ -1,0 +1,50 @@
+[
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "321",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-03T15:59:38.907Z",
+    "id": "872fba30-707f-406f-82c6-9de6a99ed2f2"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "777",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-03T16:06:38.977Z",
+    "id": "d5482084-6a9a-4724-b5cf-2a6a73480a9d"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "555",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-03T16:11:19.656Z",
+    "id": "9988f889-b6f0-4320-b892-7615f36e77ba"
+  }
+]

@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   bot:
@@ -14,6 +14,9 @@ services:
       - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=https://ugly-portrait-precision-aka.trycloudflare.com
     restart: "no"
     deploy:
       replicas: 1
@@ -45,34 +48,58 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
-      - API_BASE_URL=https://sense-gpl-announced-battle.trycloudflare.com
+      - API_BASE_URL=https://ugly-portrait-precision-aka.trycloudflare.com
+      - SOCKET_URL=wss://ugly-portrait-precision-aka.trycloudflare.com/ws
+
+  scheduler:
+    build:
+      context: ./backend
+      target: development
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - ./backend/data/inventory:/app/data/inventory
+      - shared-data:/app/shared
+    depends_on:
+      - server
+    networks:
+      - ninja_network
+    command: python scheduler/app.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://server:8000/api
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development
+      target: ${NODE_ENV:-development}
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=https://sense-gpl-announced-battle.trycloudflare.com/api
+      - REACT_APP_API_URL=https://ugly-portrait-precision-aka.trycloudflare.com/api
+      - REACT_APP_WS_URL=wss://ugly-portrait-precision-aka.trycloudflare.com
+      - NODE_ENV=${NODE_ENV:-development}
+      - REACT_APP_ENV=${NODE_ENV:-development}
       - REACT_APP_DEBUG=true
+      - PORT=${PORT:-3000}
     env_file:
       - ./frontend/.env.docker
     depends_on:
       - server
     networks:
       - ninja_network
-    command: npm start
+    command: ./node_modules/.bin/craco start
 
   tunnel-frontend:
     image: cloudflare/cloudflared
-    command: tunnel --url http://frontend:3000 --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20000
+    command: tunnel --url http://frontend:${PORT:-3000} --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20000
     networks:
       - ninja_network
     depends_on:
@@ -87,7 +114,7 @@ services:
 
   tunnel-api:
     image: cloudflare/cloudflared
-    command: tunnel --url http://server:8000 --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20001
+    command: tunnel --url http://server:8000 --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20001 --http2-origin --no-tls-verify
     networks:
       - ninja_network
     depends_on:

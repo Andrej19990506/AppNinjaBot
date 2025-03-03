@@ -1,0 +1,323 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100%;
+    background-color: var(--background-color);
+    overflow: hidden; /* Предотвращаем скролл только основного контейнера */
+    position: relative;
+}
+
+.content {
+    display: flex;
+    flex: 1 1;
+    position: relative;
+    padding: 20px;
+    padding-bottom: calc(20px + 60px);
+    overflow: visible;
+    z-index: 1;
+    align-items: center;;
+}
+
+.mainSection {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
+    margin-bottom: 20px;
+    height: 70vh; /* Добавляем высоту для корректного скроллинга */
+    display: flex;
+    flex-direction: column;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    position: relative;
+    z-index: 2;
+    overflow: visible; /* Разрешаем контенту переполняться */
+}
+
+.mainSection > *:last-child {
+    margin-bottom: 0;
+}
+
+.loadingWrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    width: 100%;
+    height: 100%;
+}
+
+.skeletonItem {
+    height: 200px;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.skeletonHeader {
+    height: 60px;
+    margin-bottom: 16px;
+}
+
+.skeletonContent {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+}
+
+.skeletonText {
+    height: 20px;
+    width: 100%;
+    border-radius: 4px;
+}
+
+.skeletonText:last-child {
+    width: 60%;
+}
+
+/* Удаляем старые стили спиннера */
+.loadingSpinner {
+    display: none;
+}
+
+.errorWrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 20px;
+}
+
+.errorMessage {
+    color: #e74c3c;
+    text-align: center;
+    font-size: 1.1rem;
+}
+
+.retryButton {
+    padding: 10px 20px;
+    background-color: #3498db;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.retryButton:hover {
+    background-color: #2980b9;
+}
+
+.itemEditContainer {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 20px;
+    background-color: var(--card-background);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+    align-items: center;
+    height: 35vh;
+    justify-content: center;
+}
+
+.itemEditWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Удаляем стили для historySection */
+/* .historySection {
+    position: relative;
+    z-index: 10;
+    margin-bottom: 20px;
+    overflow: visible;
+} */
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Мобильные стили */
+@media (max-width: 768px) {
+    .itemEditContainer {
+        padding: 16px;
+        max-height: 50vh;
+        margin-bottom: 20px; /* Уменьшаем отступ снизу */
+        overflow-y: auto;
+        position: relative;
+        z-index: 10;
+    }
+    
+    .itemEditWrapper {
+        gap: 16px;
+        position: relative;
+        z-index: 5;
+    }
+    
+    /* Удаляем стили для historySection в мобильной версии */
+    /* .historySection {
+        margin-bottom: 120px;
+        z-index: 10;
+        overflow: visible;
+        display: none;
+    } */
+
+    /* Стили для высоты и скроллинга на мобильных */
+    .mainSection {
+        height: auto;
+        max-height: calc(100vh - 150px);
+        overflow-y: visible;
+    }
+
+    /* Удаляем стили для плавающей кнопки истории */
+    /* :global([class*="ItemHistory_historyFab"]) {
+        z-index: 2000 !important;
+        position: fixed !important;
+        bottom: 80px !important;
+        right: 20px !important;
+        visibility: visible !important;
+        display: flex !important;
+        pointer-events: auto !important;
+    } */
+
+    /* Удаляем стили для модального окна истории */
+    /* :global([class*="ItemHistory_modalOverlay"]) {
+        z-index: 3000 !important;
+    } */
+
+    /* Удаляем стили для ItemEdit на мобильных устройствах */
+    /* :global([class*="ItemEdit_container"]) {
+        z-index: 10 !important;
+        position: relative !important;
+        margin-bottom: 100px !important;
+    }
+    
+    :global([class*="ItemEdit_item"]:last-child) {
+        margin-bottom: 80px !important;
+    } */
+
+    :global(.ItemList_list__EL7Vr),
+    :global(.CategoryGrid_grid__j65fG) {
+        max-height: calc(100vh - 200px);
+    }
+}
+
+@media (max-width: 480px) {
+    .itemEditContainer {
+        padding: 12px;
+        padding-bottom: 20px; /* Уменьшаем отступ снизу */
+        max-height: 65vh;
+        z-index: 10;
+    }
+    
+    /* Удаляем отступ внутри контейнера */
+    /* .itemEditWrapper {
+        padding-bottom: 0;
+    } */
+    
+    /* Удаляем стили для historySection в мобильной версии */
+    /* .historySection {
+        margin-bottom: 150px;
+        overflow: visible;
+        display: none;
+    } */
+
+    /* Удаляем позиционирование кнопки истории ниже на маленьких экранах */
+    /* :global([class*="ItemHistory_historyFab"]) {
+        bottom: 70px !important;
+        right: 16px !important;
+    } */
+
+    /* Уменьшаем отступы для маленьких экранов */
+    .content {
+        padding: 12px;
+        padding-bottom: calc(12px + 60px);
+    }
+}
+
+/* Поддержка темной темы */
+@media (prefers-color-scheme: dark) {
+    .container {
+        background-color: var(--background-color);
+    }
+
+    .itemEditContainer {
+        background-color: var(--card-background);
+    }
+
+    .historySection {
+        background-color: var(--card-background);
+    }
+
+    .historySelect {
+        background-color: var(--input-background);
+        border-color: var(--input-border);
+        color: var(--input-text);
+    }
+
+    .historySelect:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px var(--primary-transparent);
+    }
+}
+
+/* Стили для списка элементов */
+:global(.ItemList_list__EL7Vr),
+:global(.CategoryGrid_grid__j65fG) {
+    flex: 1;
+    overflow-y: auto !important;
+    padding-right: 10px;
+    margin-bottom: 20px;
+    min-height: 0; /* Важно для работы flex-контейнера со скроллом */
+    max-height: 60vh; /* Ограничиваем высоту для активации скролла */
+}
+
+/* Стили для контейнера поиска */
+.searchContainer {
+    margin-bottom: 20px;
+    width: 100%;
+    position: relative;
+    z-index: 9000; /* Высокий z-index для контейнера поиска */
+}
+
+/* Стиль затемнения контента при активном поиске */
+.contentBlurred {
+    opacity: 0.4;
+    pointer-events: none;
+    filter: blur(2px);
+    transition: all 0.3s ease;
+}
+
+/* Важно: не блокируем взаимодействие когда не размыто */
+.contentBlurred * {
+    pointer-events: none;
+}
+
+/* Расширяем стили для состояния поиска */
+.searchActive {
+    z-index: 9999 !important;
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    .searchContainer {
+        margin-bottom: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .searchContainer {
+        margin-bottom: 10px;
+    }
+}
+
+/* Специальные стили для ItemList внутри mainSection */
+.mainSection :global(.ItemList_list__EL7Vr) {
+    overflow-y: auto !important;
+    max-height: 60vh; /* Ограничиваем высоту для активации скролла */
+}

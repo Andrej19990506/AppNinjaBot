@@ -1,0 +1,263 @@
+/* Стили для Dialog и Paper компонентов для предложения о добавлении товара */
+.dialogPaper {
+    border-radius: var(--radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    background-color: #333 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    overflow: hidden !important;
+    max-width: 95vw !important;
+    width: 400px !important;
+    margin: 16px !important;
+    color: white !important;
+    transition: box-shadow var(--transition-normal), transform var(--transition-normal) !important;
+}
+
+/* Заголовок диалога с оранжевым фоном */
+.dialogTitle {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    border-bottom: 1px solid var(--primary-dark) !important;
+    padding: 16px 24px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+}
+
+.dialogTitle :global(.MuiSvgIcon-root) {
+    color: white !important;
+}
+
+/* Кнопка закрытия в заголовке */
+.closeButton {
+    position: absolute !important;
+    right: 8px !important;
+    top: 8px !important;
+    min-width: 0 !important;
+    padding: 6px !important;
+    color: white !important;
+    opacity: 0.8 !important;
+    transition: var(--transition-fast) !important;
+    border-radius: 50% !important;
+}
+
+.closeButton:hover {
+    opacity: 1 !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    transform: rotate(90deg) !important;
+}
+
+/* Контент диалога */
+.dialogContent {
+    background-color: #333;
+    color: white;
+    padding: 24px;
+}
+
+.dialogText {
+    color: white;
+    margin-bottom: 20px;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+/* Блок с информацией о товаре */
+.itemBox {
+    padding: 20px;
+    background-color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-sm);
+    margin-top: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-normal);
+}
+
+.itemBox:hover {
+    box-shadow: var(--shadow-md);
+    transform: var(--hover-transform);
+    border-color: var(--primary-light);
+}
+
+.itemName {
+    font-weight: bold;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+}
+
+.chipsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* Блок с кнопками действий */
+.dialogActions {
+    background-color: #333;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 16px 24px;
+    gap: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Кнопка принятия предложения */
+.acceptButton {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+    font-weight: bold !important;
+    padding: 10px 28px !important;
+    transition: var(--transition-normal) !important;
+    border-radius: var(--radius-sm) !important;
+    text-transform: none !important;
+    font-size: 15px !important;
+    min-width: 150px !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.acceptButton:hover {
+    transform: var(--hover-transform) !important;
+    box-shadow: var(--shadow-md) !important;
+    filter: brightness(1.05) !important;
+}
+
+.acceptButton:active {
+    transform: var(--active-transform) !important;
+    box-shadow: var(--shadow) !important;
+}
+
+.acceptButton:disabled {
+    opacity: var(--disabled-opacity) !important;
+    background: var(--primary-color) !important;
+}
+
+/* Кнопка отклонения предложения */
+.rejectButton {
+    color: white !important;
+    font-weight: 500 !important;
+    text-transform: none !important;
+    font-size: 15px !important;
+    border-radius: var(--radius-sm) !important;
+    min-width: 120px !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    padding: 9px 16px !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.rejectButton:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.rejectButton:active {
+    background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.rejectButton:disabled {
+    opacity: var(--disabled-opacity) !important;
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.highlight {
+    color: var(--orange-light);
+    font-weight: bold;
+}
+
+/* Стили для чипсов в белой карточке */
+.itemBox :global(.MuiChip-outlinedPrimary) {
+    color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+    background-color: var(--primary-transparent) !important;
+    font-weight: 500 !important;
+}
+
+.itemBox :global(.MuiChip-outlinedSecondary) {
+    color: var(--text-color) !important;
+    border-color: var(--gray-300) !important;
+    background-color: var(--hover-overlay) !important;
+}
+
+/* Стили для Dialog backdrop */
+:global(.MuiBackdrop-root) {
+    background-color: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(3px) !important;
+}
+
+/* Стили для диалога подтверждения */
+.confirmDialogPaper {
+    background-color: #333 !important;
+    color: white !important;
+    border-radius: var(--radius) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.confirmDialogTitle {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.confirmDialogContent {
+    color: white !important;
+    padding: 24px !important;
+}
+
+.confirmDialogActions {
+    background-color: rgba(0, 0, 0, 0.2) !important;
+    padding: 16px 24px !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.confirmButton {
+    background: var(--gradient-primary) !important;
+    color: white !important;
+}
+
+.cancelButton {
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Анимация появления диалога */
+@keyframes dialogFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+:global(.MuiDialog-paper) {
+    animation: dialogFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Адаптация для мобильных устройств */
+@media (max-width: 600px) {
+    .dialogTitle {
+        padding: 14px 16px !important;
+    }
+    
+    .dialogContent {
+        padding: 16px !important;
+    }
+    
+    .itemBox {
+        padding: 14px !important;
+    }
+    
+    .dialogActions {
+        padding: 12px 16px !important;
+    }
+
+    .acceptButton, .rejectButton {
+        padding: 8px 16px !important;
+        font-size: 14px !important;
+        min-width: unset !important;
+        flex: 1;
+    }
+}

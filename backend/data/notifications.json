@@ -1,0 +1,2586 @@
+[
+  {
+    "id": "2457417588_Бакалея_Салют_20250303154334_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T15:43:34.350902",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салют_20250303154334_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T15:43:34.351473",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салют_20250303154334_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T15:43:34.351749",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салют_20250303154334_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T15:43:34.351996",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салют_20250303154237_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T15:42:37.240130",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салют_20250303154237_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T15:42:37.240610",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салют_20250303154237_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T15:42:37.240811",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салют_20250303154237_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салют",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T15:42:37.241014",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сумма_20250303145038_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сумма",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:50:38.182492",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сумма_20250303145038_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сумма",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:50:38.184527",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сумма_20250303145038_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сумма",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:50:38.185364",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сумма_20250303145038_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сумма",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:50:38.185673",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Шама_20250303144449_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:49.213128",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Шама_20250303144449_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:49.214021",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Шама_20250303144449_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:49.215046",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Шама_20250303144449_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:49.215633",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Урааа_20250303144446_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:46.737172",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Урааа_20250303144446_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:46.743131",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Урааа_20250303144446_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:46.746248",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Урааа_20250303144446_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:46.746894",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Приветик_20250303144442_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:42.050614",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Приветик_20250303144442_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:42.051392",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Приветик_20250303144442_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:42.052034",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Приветик_20250303144442_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:42.052514",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Попробуй_20250303144439_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:39.615118",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Попробуй_20250303144439_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:39.619865",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Попробуй_20250303144439_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:39.620767",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Попробуй_20250303144439_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:39.621243",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Заходите_20250303144436_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:36.340675",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Заходите_20250303144436_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:36.342270",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Заходите_20250303144436_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:36.345544",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Заходите_20250303144436_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:36.346818",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Гау_20250303144433_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:33.283848",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Гау_20250303144433_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:33.287914",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Гау_20250303144433_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:33.288601",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Гау_20250303144433_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:33.289089",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Шама_20250303144429_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:29.608480",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Шама_20250303144429_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:29.609426",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Шама_20250303144429_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:29.611509",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Шама_20250303144429_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:29.612831",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250303144425_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:25.930446",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250303144425_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:25.931377",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250303144425_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:25.932313",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250303144425_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:25.932791",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Приветик_20250303144422_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:22.026029",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Приветик_20250303144422_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:22.026830",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Приветик_20250303144422_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:22.027642",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Приветик_20250303144422_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:22.028129",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Попробуй_20250303144418_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:18.972132",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Попробуй_20250303144418_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:18.972975",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Попробуй_20250303144418_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:18.973886",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Попробуй_20250303144418_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Попробуй",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:18.974426",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Заходите_20250303144415_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:44:15.580489",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Заходите_20250303144415_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:44:15.581307",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Заходите_20250303144415_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:44:15.582253",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Заходите_20250303144415_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Заходите",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:44:15.582732",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Гау_20250303142542_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:25:42.079431",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Гау_20250303142542_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:25:42.080186",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Гау_20250303142542_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:25:42.080853",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Гау_20250303142542_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:25:42.081502",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Шама_20250303142435_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:24:35.316607",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Шама_20250303142435_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:24:35.318043",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Шама_20250303142435_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:24:35.318859",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Шама_20250303142435_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Шама",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:24:35.320040",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Урааа_20250303142431_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:24:31.093592",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Урааа_20250303142431_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:24:31.094510",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Урааа_20250303142431_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:24:31.095015",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Урааа_20250303142431_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:24:31.095569",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Гау_20250303142425_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:24:25.072110",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Гау_20250303142425_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:24:25.072648",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Гау_20250303142425_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:24:25.073014",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Гау_20250303142425_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Гау",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:24:25.073506",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Приветик_20250303142421_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:24:21.107363",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Приветик_20250303142421_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:24:21.107879",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Приветик_20250303142421_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:24:21.108173",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Приветик_20250303142421_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Приветик",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:24:21.108421",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250303141722_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:17:22.378769",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250303141722_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:17:22.382464",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250303141722_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:17:22.383226",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250303141722_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:17:22.383757",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Такс_20250303141633_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:16:33.226530",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Такс_20250303141633_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:16:33.227524",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Такс_20250303141633_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:16:33.228039",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Такс_20250303141633_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:16:33.228388",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Упс_20250303141606_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:16:06.694543",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Упс_20250303141606_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:16:06.697450",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Упс_20250303141606_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:16:06.699543",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Упс_20250303141606_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:16:06.700458",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Такс_20250303141603_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:16:03.267408",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Такс_20250303141603_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:16:03.268893",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Такс_20250303141603_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:16:03.269741",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Такс_20250303141603_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:16:03.270351",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Салам_20250303141557_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:15:57.734297",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Салам_20250303141557_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:15:57.735416",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Салам_20250303141557_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:15:57.735757",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Салам_20250303141557_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:15:57.736007",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Емае_20250303141553_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:15:53.870397",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Емае_20250303141553_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:15:53.870789",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Емае_20250303141553_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:15:53.871093",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Емае_20250303141553_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:15:53.871353",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салам_20250303141352_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:13:52.287685",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салам_20250303141352_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:13:52.288397",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салам_20250303141352_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:13:52.288749",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Салам_20250303141352_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:13:52.288977",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Упс_20250303141344_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:13:44.621411",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Упс_20250303141344_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:13:44.625912",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Упс_20250303141344_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:13:44.627334",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Упс_20250303141344_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:13:44.628222",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Емае_20250303141339_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:13:39.785591",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Емае_20250303141339_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:13:39.786996",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Емае_20250303141339_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:13:39.789104",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Емае_20250303141339_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:13:39.790103",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Емае_20250303141338_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:13:38.290794",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Емае_20250303141338_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:13:38.292429",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Емае_20250303141338_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:13:38.292942",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Емае_20250303141338_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Емае",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:13:38.293174",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Упс_20250303141217_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T14:12:17.231653",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Упс_20250303141217_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T14:12:17.232185",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Упс_20250303141217_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T14:12:17.232510",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Упс_20250303141217_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Упс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T14:12:17.232731",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салам_20250303135631_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T13:56:31.973682",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салам_20250303135631_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T13:56:31.974367",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салам_20250303135631_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T13:56:31.975065",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Салам_20250303135631_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Салам",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T13:56:31.975555",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Сухари_20250303135543_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T13:55:43.645092",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Сухари_20250303135543_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T13:55:43.646815",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Сухари_20250303135543_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T13:55:43.647558",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_Сухари_20250303135543_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T13:55:43.648234",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сухари_20250303135530_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T13:55:30.321995",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сухари_20250303135530_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T13:55:30.322365",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сухари_20250303135530_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T13:55:30.322751",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Сухари_20250303135530_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T13:55:30.323011",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123ewqe_20250303135519_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T13:55:19.453706",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123ewqe_20250303135519_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T13:55:19.460259",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123ewqe_20250303135519_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T13:55:19.460718",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123ewqe_20250303135519_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T13:55:19.461133",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Сухари_20250303115730_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T11:57:30.733433",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Сухари_20250303115730_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T11:57:30.735402",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Сухари_20250303115730_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T11:57:30.736465",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Сухари_20250303115730_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Сухари",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T11:57:30.737638",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_выфвыф_20250303115716_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "выфвыф",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T11:57:16.669757",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_выфвыф_20250303115716_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "выфвыф",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T11:57:16.670473",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_выфвыф_20250303115716_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "выфвыф",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T11:57:16.670925",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_выфвыф_20250303115716_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "выфвыф",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T11:57:16.671362",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_123ewqe_20250303115606_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T11:56:06.614461",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_123ewqe_20250303115606_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T11:56:06.615058",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_123ewqe_20250303115606_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T11:56:06.615555",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "4621747814_Бакалея_123ewqe_20250303115606_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123ewqe",
+    "branch_name": "Словцова",
+    "initiator_chat_id": "4621747814",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T11:56:06.615941",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Привет_20250303115556_4621747814",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Привет",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4621747814",
+    "created_at": "2025-03-03T11:55:56.182227",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Привет_20250303115556_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Привет",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-03T11:55:56.183296",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Привет_20250303115556_2421651560",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Привет",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "2421651560",
+    "created_at": "2025-03-03T11:55:56.183890",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  },
+  {
+    "id": "2421651560_Бакалея_Привет_20250303115556_4715475833",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Привет",
+    "branch_name": "Баумана",
+    "initiator_chat_id": "2421651560",
+    "target_chat_id": "4715475833",
+    "created_at": "2025-03-03T11:55:56.184259",
+    "read_by": [],
+    "author": {
+      "first_name": "andrej",
+      "last_name": "malahow",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg",
+      "user_id": 1682142222
+    }
+  }
+]

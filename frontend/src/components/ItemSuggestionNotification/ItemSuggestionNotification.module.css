@@ -1,0 +1,347 @@
+.dialogRoot {
+    backdrop-filter: blur(12px);
+}
+
+.dialogPaper {
+    background: linear-gradient(135deg, 
+        rgba(var(--card-rgb), 0.85), 
+        rgba(var(--card-rgb), 0.95),
+        rgba(var(--card-rgb), 0.85)
+    ) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(var(--border-rgb), 0.15) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: 
+        0 0 0 1px rgba(var(--primary-rgb), 0.05),
+        0 10px 30px -10px rgba(0, 0, 0, 0.3),
+        0 4px 6px -2px rgba(0, 0, 0, 0.05),
+        0 0 20px rgba(var(--primary-rgb), 0.1) !important;
+    overflow: hidden !important;
+    position: relative !important;
+    min-width: 320px !important;
+    max-width: 90vw !important;
+    margin: 16px !important;
+    z-index: 1400 !important;
+    transform-origin: center !important;
+    animation: dialogAppear 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dialogPaper::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+        circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+        rgba(var(--primary-rgb), 0.15),
+        transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.dialogPaper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        120deg,
+        transparent 20%,
+        rgba(var(--primary-rgb), 0.05) 25%,
+        rgba(var(--primary-rgb), 0.1) 30%,
+        transparent 35%
+    );
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 1;
+    animation: shimmer 3s infinite;
+}
+
+.dialogPaper:hover::before {
+    opacity: 1;
+}
+
+.dialogTitle {
+    background: rgba(var(--background-rgb), 0.6) !important;
+    border-bottom: 1px solid rgba(var(--border-rgb), 0.1) !important;
+    padding: 20px 24px !important;
+    position: relative !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dialogTitle::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(var(--primary-rgb), 0.4),
+        transparent
+    );
+    animation: borderGlow 3s infinite;
+}
+
+.dialogTitleText {
+    font-size: 1.3rem !important;
+    font-weight: 600 !important;
+    color: var(--text-color) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.titleIcon {
+    color: var(--primary-color) !important;
+    font-size: 28px !important;
+    filter: drop-shadow(0 2px 8px rgba(var(--primary-rgb), 0.4)) !important;
+    animation: iconPulse 2s infinite;
+}
+
+.dialogContent {
+    padding: 24px !important;
+    background: rgba(var(--background-rgb), 0.4) !important;
+    color: var(--text-color) !important;
+    font-size: 1.1rem !important;
+    line-height: 1.6 !important;
+    letter-spacing: 0.01em !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+.dialogActions {
+    padding: 20px 24px !important;
+    background: rgba(var(--background-rgb), 0.6) !important;
+    border-top: 1px solid rgba(var(--border-rgb), 0.1) !important;
+    position: relative !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dialogActions::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(var(--primary-rgb), 0.4),
+        transparent
+    );
+    animation: borderGlow 3s infinite;
+}
+
+.closeButton {
+    position: absolute !important;
+    right: 12px !important;
+    top: 12px !important;
+    color: var(--text-secondary) !important;
+    background: rgba(var(--background-rgb), 0.2) !important;
+    backdrop-filter: blur(5px) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1px solid rgba(var(--border-rgb), 0.1) !important;
+    padding: 8px !important;
+}
+
+.closeButton:hover {
+    background: rgba(var(--primary-rgb), 0.15) !important;
+    color: var(--primary-color) !important;
+    transform: rotate(90deg) scale(1.1) !important;
+    border-color: rgba(var(--primary-rgb), 0.3) !important;
+}
+
+/* Стили для кнопок */
+.button {
+    font-weight: 600 !important;
+    text-transform: none !important;
+    padding: 10px 28px !important;
+    border-radius: var(--radius) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    font-size: 1rem !important;
+    letter-spacing: 0.02em !important;
+}
+
+.buttonOutlined {
+    composes: button;
+    border: 2px solid var(--primary-color) !important;
+    color: var(--primary-color) !important;
+    background: transparent !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.buttonOutlined:hover {
+    background: rgba(var(--primary-rgb), 0.1) !important;
+    border-color: var(--primary-light) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px -2px rgba(var(--primary-rgb), 0.2) !important;
+}
+
+.buttonOutlined:active {
+    transform: translateY(0) !important;
+}
+
+.buttonContained {
+    composes: button;
+    background: linear-gradient(
+        135deg,
+        var(--primary-color),
+        var(--primary-light)
+    ) !important;
+    color: white !important;
+    box-shadow: 
+        0 2px 4px -1px rgba(0, 0, 0, 0.2),
+        0 4px 5px 0 rgba(0, 0, 0, 0.14),
+        0 1px 10px 0 rgba(0, 0, 0, 0.12),
+        0 0 0 1px rgba(var(--primary-rgb), 0.1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.buttonContained::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.buttonContained:hover {
+    background: linear-gradient(
+        135deg,
+        var(--primary-light),
+        var(--primary-color)
+    ) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 
+        0 5px 15px -3px rgba(var(--primary-rgb), 0.3),
+        0 4px 6px -2px rgba(var(--primary-rgb), 0.2) !important;
+}
+
+.buttonContained:hover::before {
+    left: 100%;
+}
+
+.buttonContained:active {
+    transform: translateY(0) !important;
+    background: var(--primary-dark) !important;
+}
+
+/* Переопределение стилей Material-UI */
+:global(.MuiDialog-root) {
+    backdrop-filter: blur(12px) !important;
+}
+
+:global(.MuiDialog-container) {
+    background: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Анимации */
+@keyframes dialogAppear {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    50%, 100% {
+        transform: translateX(100%);
+    }
+}
+
+@keyframes borderGlow {
+    0%, 100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@keyframes iconPulse {
+    0%, 100% {
+        transform: scale(1);
+        filter: drop-shadow(0 2px 8px rgba(var(--primary-rgb), 0.4));
+    }
+    50% {
+        transform: scale(1.1);
+        filter: drop-shadow(0 2px 12px rgba(var(--primary-rgb), 0.6));
+    }
+}
+
+/* Темная тема */
+[data-theme="dark"] .dialogPaper {
+    background: linear-gradient(135deg, 
+        rgba(var(--card-rgb), 0.7),
+        rgba(var(--card-rgb), 0.85),
+        rgba(var(--card-rgb), 0.7)
+    ) !important;
+    box-shadow: 
+        0 0 0 1px rgba(var(--primary-rgb), 0.1),
+        0 10px 30px -10px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(var(--primary-rgb), 0.15) !important;
+}
+
+[data-theme="dark"] .dialogTitle,
+[data-theme="dark"] .dialogContent,
+[data-theme="dark"] .dialogActions {
+    background: rgba(var(--background-rgb), 0.4) !important;
+}
+
+/* Мобильные стили */
+@media (max-width: 600px) {
+    .dialogPaper {
+        margin: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        height: 100% !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+        animation: mobileDialogAppear 0.3s ease-out !important;
+    }
+
+    .dialogTitle {
+        padding: 16px 20px !important;
+    }
+
+    .dialogContent {
+        padding: 20px !important;
+    }
+
+    .dialogActions {
+        padding: 16px 20px !important;
+    }
+
+    @keyframes mobileDialogAppear {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+} 

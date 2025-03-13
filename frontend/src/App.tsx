@@ -1,17 +1,18 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Provider, useSelector } from 'react-redux';
-import { BrowserRouter as Router, Routes, Route, createRoutesFromElements } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { ThemeProvider as StyledThemeProvider } from 'styled-components';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { store } from './store';
 import './styles/base/variables.css';
 import MainMenu from './components/MainMenu/MainMenu';
 import Inventory from './components/Inventory/Inventory';
+import WriteOff from './components/WriteOff/WriteOff';
 import { useWebSocket } from './hooks/useWebSocket';
 import { socketService } from './services/socket';
-import { useAppDispatch } from './store/hooks';
+import { useAppDispatch, useAppSelector } from './store/hooks';
 import { addNotification, NotificationTypes } from './store/slices/notificationSlice';
-import { RootState } from './store';
+import { initializeFromTelegram } from './store/slices/inventorySlice';
 
 // Вспомогательная функция для генерации уникальных ID для уведомлений
 const generateUniqueNotificationId = (prefix: string = 'notification'): string => {
@@ -52,6 +53,48 @@ const clearOldNotifications = () => {
 // Очищаем уведомления при запуске приложения
 clearOldNotifications();
 
+// Компонент для инициализации приложения
+const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const dispatch = useAppDispatch();
+    const [isInitialized, setIsInitialized] = useState(false);
+    const currentUser = useAppSelector((state) => state.inventory.currentUser);
+
+    useEffect(() => {
+        const initializeApp = async () => {
+            try {
+                console.debug('🚀 Инициализация приложения...');
+                await dispatch(initializeFromTelegram()).unwrap();
+                console.debug('✅ Пользователь инициализирован:', currentUser);
+                setIsInitialized(true);
+            } catch (error) {
+                console.error('❌ Ошибка при инициализации:', error);
+                // Можно добавить обработку ошибки, например показать уведомление
+            }
+        };
+
+        if (!isInitialized) {
+            initializeApp();
+        }
+    }, [dispatch, isInitialized, currentUser]);
+
+    // Показываем загрузку, пока не инициализировали пользователя
+    if (!isInitialized) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh',
+                backgroundColor: '#1a1a1a'
+            }}>
+                <div style={{ color: '#fff' }}>Загрузка...</div>
+            </div>
+        );
+    }
+
+    return <>{children}</>;
+};
+
 // Компонент для управления WebSocket соединением
 const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const websocket = useWebSocket();
@@ -73,7 +116,7 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     
     const [connectionAttempts, setConnectionAttempts] = useState(0);
     const dispatch = useAppDispatch();
-    const currentUser = useSelector((state: RootState) => state.inventory.currentUser);
+    const currentUser = useAppSelector((state) => state.inventory.currentUser);
     const MAX_CONNECTION_ATTEMPTS = 3;
 
     // Инициализируем соединение при старте
@@ -155,17 +198,19 @@ const App: React.FC = () => {
         <Provider store={store}>
             <ThemeProvider>
                 <StyledThemeProvider theme={{ mode: 'light' }}>
-                    <WebSocketProvider>
-                        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                            <Routes>
-                                <Route path="/" element={<MainMenu />} />
-                                <Route path="/events" element={<div>События</div>} />
-                                <Route path="/inventory/:chatId" element={<Inventory />} />
-                                <Route path="/inventory" element={<Inventory />} />
-                                <Route path="/write-off" element={<div>Списание</div>} />
-                            </Routes>
-                        </Router>
-                    </WebSocketProvider>
+                    <AppInitializer>
+                        <WebSocketProvider>
+                            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                                    <Routes>
+                                        <Route path="/" element={<MainMenu />} />
+                                        <Route path="/events" element={<div>События</div>} />
+                                        <Route path="/inventory/:chatId" element={<Inventory />} />
+                                        <Route path="/inventory" element={<Inventory />} />
+                                        <Route path="/write-off" element={<WriteOff />} />
+                                    </Routes>
+                            </Router>
+                        </WebSocketProvider>
+                    </AppInitializer>
                 </StyledThemeProvider>
             </ThemeProvider>
         </Provider>

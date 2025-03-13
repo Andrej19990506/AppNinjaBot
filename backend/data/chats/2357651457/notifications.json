@@ -1,0 +1,162 @@
+[
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "Перец",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-07T08:37:28.939Z",
+    "id": "04c28afb-da3a-4558-9589-684186e9dfc9"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "Димон красава",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-08T10:08:21.378Z",
+    "id": "d0c2d03a-d1ca-4723-879b-65e1d2552566"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Масла и заправки",
+      "itemId": "Привет",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-09T11:48:54.434Z",
+    "id": "cda47d66-0353-49aa-8faf-2b15986f458a"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Десерты",
+      "itemId": "Проверка",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T20:41:59.636Z",
+    "id": "08f72d23-7c76-4850-971a-0f2a7960e937"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "Урааа",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T20:42:57.740Z",
+    "id": "cfbcd303-156c-49bf-9bb4-2448f2a46c53"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "Такс",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T20:54:54.663Z",
+    "id": "bc3249a1-44df-4f72-b81b-404464723921"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "прверь",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T21:14:15.109Z",
+    "id": "a7960258-775c-44ce-8a8e-5e003917326c"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 1682142222,
+      "userName": "andrej",
+      "chatId": "4621747814",
+      "chatTitle": "Словцова"
+    },
+    "item": {
+      "category": "Полуфабрикаты",
+      "itemId": "nfr",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T21:28:14.650Z",
+    "id": "db1a0ec7-ca66-4110-876f-ac64a2e77b15"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Полуфабрикаты",
+      "itemId": "Пц",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-10T21:30:25.403Z",
+    "id": "d601f097-3e85-4cce-b617-c394777ced43"
+  },
+  {
+    "type": "item_suggestion",
+    "source": {
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
+    },
+    "item": {
+      "category": "Бакалея",
+      "itemId": "Смотрим",
+      "has_semifinished": false
+    },
+    "timestamp": "2025-03-11T03:00:55.472Z",
+    "id": "ee1861c5-b070-4f6c-85a3-b8c730d10bb1"
+  }
+]

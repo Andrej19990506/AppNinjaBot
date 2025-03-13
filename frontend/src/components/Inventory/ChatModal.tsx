@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, forwardRef } from 'react';
 import { motion, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import Dialog from '@mui/material/Dialog';
@@ -34,22 +34,36 @@ interface User {
 }
 
 interface ChatModalProps {
-    chat: ChatInventory;
+    chat?: ChatInventory;
     open: boolean;
     onClose: () => void;
     onStartInventory: () => void;
     isAdmin: boolean;
     wasKickedFromInventory?: boolean;
+    mode?: 'inventory' | 'write-off';
 }
 
-const ChatModal: React.FC<ChatModalProps> = ({ 
-    chat, 
-    open, 
-    onClose, 
-    onStartInventory, 
+const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
+    chat,
+    open,
+    onClose,
+    onStartInventory,
     isAdmin,
-    wasKickedFromInventory = false
-}) => {
+    wasKickedFromInventory = false,
+    mode = 'inventory'
+}, ref) => {
+    // Проверка на null для chat
+    if (!chat) {
+        return null;
+    }
+
+    console.log('=== 🔍 ChatModal Props ===', {
+        chatTitle: chat.chat_title,
+        isAdmin,
+        mode,
+        admins: chat.admins
+    });
+
     const { currentUser } = useAppSelector(state => state.inventory) as { currentUser: User };
     const [prevIsAdmin, setPrevIsAdmin] = useState<boolean | undefined>(undefined);
     const [showNotification, setShowNotification] = useState(false);
@@ -66,12 +80,10 @@ const ChatModal: React.FC<ChatModalProps> = ({
         if (open) {
             document.body.style.overflow = 'hidden';
             isClosing.current = false;
-            // Устанавливаем начальное значение prevIsAdmin только при открытии окна
             if (prevIsAdmin === undefined) {
                 setPrevIsAdmin(isAdmin);
             }
 
-            // Показываем уведомление сразу если пользователь был выкинут
             if (wasKickedFromInventory) {
                 setNotificationMessage("У вас забрали права администратора во время инвентаризации. Вы больше не можете проводить инвентаризацию в этом чате");
                 setNotificationType('error');
@@ -80,7 +92,6 @@ const ChatModal: React.FC<ChatModalProps> = ({
         }
         return () => {
             document.body.style.overflow = 'unset';
-            // Сбрасываем prevIsAdmin при закрытии окна
             setPrevIsAdmin(undefined);
         };
     }, [open, isAdmin, wasKickedFromInventory]);
@@ -126,9 +137,13 @@ const ChatModal: React.FC<ChatModalProps> = ({
 
     const getNoAccessMessage = () => {
         if (wasKickedFromInventory) {
-            return "У вас забрали права администратора. Вы больше не можете проводить инвентаризацию в этом чате";
+            return mode === 'inventory' 
+                ? "У вас забрали права администратора. Вы больше не можете проводить инвентаризацию в этом чате"
+                : "У вас забрали права администратора. Вы больше не можете проводить списание в этом чате";
         }
-        return "У вас нет прав для проведения инвентаризации в этом чате";
+        return mode === 'inventory'
+            ? "У вас нет прав для проведения инвентаризации в этом чате"
+            : "У вас нет прав для проведения списания в этом чате";
     };
 
     if (!chat || !open) return null;
@@ -184,7 +199,7 @@ const ChatModal: React.FC<ChatModalProps> = ({
                         <h2>{chat.chat_title}</h2>
                     </div>
 
-                    {!canManageInventory ? (
+                    {!isAdmin ? (
                         <motion.div className={styles.fadeIn}>
                             <div className={styles.noAccessMessage}>
                                 <svg 
@@ -251,7 +266,12 @@ const ChatModal: React.FC<ChatModalProps> = ({
                                 </div>
                                 <div className={styles.welcomeMessage}>
                                     <h3>Добро пожаловать!</h3>
-                                    <p>Вы можете начать инвентаризацию</p>
+                                    <p>
+                                        {mode === 'inventory' 
+                                            ? 'Вы можете начать инвентаризацию'
+                                            : 'Вы можете начать списание'
+                                        }
+                                    </p>
                                 </div>
                             </div>
                             {onStartInventory && (
@@ -261,7 +281,10 @@ const ChatModal: React.FC<ChatModalProps> = ({
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
                                 >
-                                    Приступить к инвентаризации
+                                    {mode === 'inventory' 
+                                        ? 'Приступить к инвентаризации'
+                                        : 'Приступить к списанию'
+                                    }
                                 </motion.button>
                             )}
                         </motion.div>
@@ -282,6 +305,6 @@ const ChatModal: React.FC<ChatModalProps> = ({
     );
 
     return createPortal(dialogContent, document.body);
-};
+});
 
 export default ChatModal; 

@@ -555,3 +555,57 @@
     animation: rotate 1s linear infinite;
 }
 
+.buttonsContainer {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    display: flex;
+    gap: 16px;
+    z-index: 1000;
+}
+
+.homeButton {
+    background: linear-gradient(135deg, 
+        rgba(var(--success-rgb), 0.9),
+        rgba(var(--success-rgb), 0.7)
+    );
+}
+
+.homeButton:hover {
+    background: linear-gradient(135deg, 
+        rgba(var(--success-rgb), 1),
+        rgba(var(--success-rgb), 0.8)
+    );
+    box-shadow: 
+        0 8px 24px rgba(var(--success-rgb), 0.2),
+        0 4px 8px rgba(var(--success-rgb), 0.15);
+}
+
+@media (max-width: 768px) {
+    .buttonsContainer {
+        bottom: 16px;
+        right: 16px;
+        gap: 12px;
+    }
+
+    .chatSelectorButton,
+    .homeButton {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .buttonsContainer {
+        bottom: 12px;
+        right: 12px;
+        gap: 8px;
+    }
+
+    .chatSelectorButton,
+    .homeButton {
+        width: 44px;
+        height: 44px;
+    }
+}
+

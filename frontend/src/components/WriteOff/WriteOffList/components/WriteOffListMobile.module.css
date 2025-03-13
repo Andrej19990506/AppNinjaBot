@@ -1,0 +1,177 @@
+.container {
+  padding: 12px;
+  width: 100%;
+  max-width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.listContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 90px; /* Увеличенный отступ для плавающей кнопки */
+  padding-bottom: 60px; /* Дополнительный отступ внизу */
+  position: relative;
+}
+
+/* Стилизация скролл-контейнера */
+.scrollContainer {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 4px 40px 4px;
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  max-height: calc(100vh - 240px); /* Фиксированная высота для скролла */
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+/* Скроллбар для мобильной версии */
+.scrollContainer::-webkit-scrollbar {
+  width: 4px;
+}
+
+.scrollContainer::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb {
+  background: var(--orange-primary, #ff5f1f);
+  border-radius: 4px;
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:hover {
+  background: var(--orange-secondary, #ff7e3e);
+}
+
+/* Кнопка добавления списания */
+.addButtonContainer {
+  position: fixed;
+  bottom: 85px; /* Отступ от футера */
+  left: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 10;
+  padding: 12px 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.9) 40%, rgba(255, 255, 255, 0));
+  pointer-events: none; /* Контейнер прозрачен для кликов */
+}
+
+.addButtonContainer > * {
+  pointer-events: auto; /* Но сама кнопка кликабельна */
+}
+
+/* Тени для скролл-контейнера */
+.scrollShadowTop, 
+.scrollShadowBottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 3;
+}
+
+.scrollShadowTop {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+}
+
+.scrollShadowBottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0));
+}
+
+.scrollShadowVisible {
+  opacity: 1;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.emptyStateIcon {
+  font-size: 48px;
+  color: var(--primary-color-light, #90caf9);
+  margin-bottom: 16px;
+}
+
+.emptyStateText {
+  color: var(--secondary-text, #757575);
+  margin-bottom: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary-text, #333);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.listItem {
+  margin-bottom: 8px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.listItem:hover {
+  transform: translateY(-2px);
+}
+
+/* Анимации для элементов списка */
+.itemEnter {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.itemEnterActive {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.itemExit {
+  opacity: 1;
+}
+
+.itemExitActive {
+  opacity: 0;
+  transform: translateX(-20px);
+  transition: opacity 300ms, transform 300ms;
+}
+
+/* Темная тема */
+[data-theme="dark"] .addButtonContainer {
+  background: linear-gradient(to top, rgba(18, 18, 18, 0.9) 40%, rgba(18, 18, 18, 0));
+}
+
+[data-theme="dark"] .scrollShadowTop {
+  background: linear-gradient(to bottom, rgba(18, 18, 18, 0.9), rgba(18, 18, 18, 0));
+}
+
+[data-theme="dark"] .scrollShadowBottom {
+  background: linear-gradient(to top, rgba(18, 18, 18, 0.9), rgba(18, 18, 18, 0));
+} 

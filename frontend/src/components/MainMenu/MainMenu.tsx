@@ -7,11 +7,9 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
-import ChatIcon from '@mui/icons-material/Chat';
 import styles from './MainMenu.module.css';
 
 const menuItems = [
-    { id: 'chats', title: 'Чаты', path: '/chats', icon: ChatIcon },
     { id: 'events', title: 'События', path: '/events', icon: EventIcon },
     { id: 'inventory', title: 'Инвентарь', path: '/inventory', icon: InventoryIcon },
     { id: 'write-off', title: 'Списание', path: '/write-off', icon: DeleteIcon },

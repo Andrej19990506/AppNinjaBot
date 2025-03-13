@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@barba/core": "^2.9.7",
     "@craco/craco": "^7.1.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
@@ -22,6 +23,7 @@
     "crypto-browserify": "^3.12.0",
     "date-fns": "^3.3.1",
     "framer-motion": "^11.18.2",
+    "gsap": "^3.12.5",
     "handsontable": "^13.1.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",

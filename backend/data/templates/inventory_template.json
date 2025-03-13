@@ -75,6 +75,72 @@
         "quantity": 0,
         "filled": false
       }
+    },
+    "Хаха": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "вау": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Фигасе": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Афигетт": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Перец": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Димон красава": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Урааа": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Такс": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "прверь": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Смотрим": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Сухари панировачные (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
     }
   },
   "Овощи и фрукты": {
@@ -303,6 +369,18 @@
         "quantity": 0,
         "filled": false
       }
+    },
+    "Чупа чупс": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Проверка": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
     }
   },
   "Масла и заправки": {
@@ -353,6 +431,12 @@
       }
     },
     "мпмпр": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Привет": {
       "raw": {
         "quantity": 0,
         "filled": false
@@ -827,6 +911,18 @@
       }
     },
     "Сырные шарики (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "nfr": {
+      "raw": {
+        "quantity": 0,
+        "filled": false
+      }
+    },
+    "Пц": {
       "raw": {
         "quantity": 0,
         "filled": false

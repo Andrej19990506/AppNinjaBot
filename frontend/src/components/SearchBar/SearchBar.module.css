@@ -1,0 +1,82 @@
+.searchBar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: all 0.3s ease;
+    width: 100%;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+}
+
+.searchBar.focused {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 2px rgba(var(--color-accent-rgb), 0.15);
+}
+
+.searchBar.hasValue {
+    background: var(--color-bg-lighter);
+}
+
+.searchIcon {
+    color: var(--color-text-secondary);
+    margin-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.searchBar.focused .searchIcon {
+    color: var(--color-accent);
+}
+
+.searchInput {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-text-light);
+    font-size: 1rem;
+    height: 100%;
+    padding: 0;
+    width: 100%;
+}
+
+.searchInput::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 0.7;
+}
+
+.clearButton {
+    background: none;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.clearButton:hover {
+    background: rgba(var(--color-text-secondary-rgb), 0.1);
+    color: var(--color-text-light);
+}
+
+/* Адаптивные стили */
+@media (min-width: 768px) {
+    .searchBar {
+        padding: 10px 14px;
+    }
+}
+
+@media (max-width: 767px) {
+    .searchInput {
+        font-size: 0.875rem;
+    }
+} 

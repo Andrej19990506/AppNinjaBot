@@ -1,0 +1,321 @@
+[
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Специи и приправы",
+    "itemName": "Лавровый лист (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "795cc856-15a3-4433-b36a-719e05026549",
+    "timestamp": "2025-03-11T22:10:59.329962+00:00",
+    "quantity": 0,
+    "description": "Удалено 0 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Лавровый лист (гр.)",
+    "category_display_name": "Специи и приправы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Лавровый лист (гр.)"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Полуфабрикаты",
+    "itemName": "Омлетная смесь (Меланж) (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "bce67a34-fdbc-45a8-97a2-8eb6c014221e",
+    "timestamp": "2025-03-11T22:10:36.677541+00:00",
+    "quantity": 0,
+    "description": "Удалено 0 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Омлетная смесь (Меланж) (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Омлетная смесь (Меланж) (гр.)"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Полуфабрикаты",
+    "itemName": "Соус сырный (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "6b10574f-b809-4f03-8f98-10ac1cc442b9",
+    "timestamp": "2025-03-11T22:10:05.893787+00:00",
+    "quantity": 0,
+    "description": "Удалено 0 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Соус сырный (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соус сырный (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Говядина",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "38811a92-8b85-4151-bd9a-8980bbc3a1df",
+    "timestamp": "2025-03-11T22:09:21.283200+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Говядина",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Говядина"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Соусы",
+    "itemName": "Соус цитрусовый (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "ee0ad8ed-4b4c-41c0-9add-630cdbb17dc6",
+    "timestamp": "2025-03-11T19:24:55.550781+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Соус цитрусовый (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соус цитрусовый (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Соусы",
+    "itemName": "Соус цитрусовый (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "808d019f-e781-4695-bb5d-73375aea0ee8",
+    "timestamp": "2025-03-11T19:24:49.493378+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Соус цитрусовый (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соус цитрусовый (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Упаковка и приборы",
+    "itemName": "Бутылка 1л",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "98b5dfa1-5e88-4d16-8689-be5636222e1f",
+    "timestamp": "2025-03-11T06:32:30.193184+00:00",
+    "quantity": 25,
+    "description": "Добавлено 25 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Бутылка 1л",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Бутылка 1л"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Упаковка и приборы",
+    "itemName": "Бутылка 0,5 л",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "018e3e72-9259-4a60-9504-adcf411048c3",
+    "timestamp": "2025-03-11T06:32:22.231339+00:00",
+    "quantity": 50,
+    "description": "Добавлено 50 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Бутылка 0,5 л",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Бутылка 0,5 л"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1,
+    "category": "Полуфабрикаты",
+    "itemName": "nfr",
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_55.jpg"
+    },
+    "id": "1fb9d360-dc05-4cd6-a0cf-fc0a8fe3f007",
+    "timestamp": "2025-03-10T21:28:20.935000+00:00",
+    "quantity": 1,
+    "description": "Добавлено 1 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "nfr",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1,
+      "difference": 1
+    },
+    "item": "nfr"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Арома Клубника (шт)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    },
+    "id": "5c1c94ea-72f1-4b8b-9c92-a5c99ac0d13b",
+    "timestamp": "2025-03-10T20:53:20.558885+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Арома Клубника (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Арома Клубника (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Бакалея",
+    "itemName": "Мука (гр.)",
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_52.jpg"
+    },
+    "id": "0f92d2ed-2e79-43de-be18-c156af1cf29c",
+    "timestamp": "2025-03-07T18:44:20.545318+00:00",
+    "quantity": 50,
+    "description": "Добавлено 50 сырья",
+    "chat_id": "4621747814",
+    "status": "completed",
+    "item_display_name": "Мука (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Мука (гр.)"
+  }
+]

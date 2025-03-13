@@ -1,0 +1,1278 @@
+[
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 750,
+    "category": "Упаковка и приборы",
+    "itemName": "Коробки для Фрай-бокса",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "dc9e43eb-3c37-476b-9bf2-bfb963946dd7",
+    "timestamp": "2025-03-13T07:58:20.464167+00:00",
+    "quantity": 750,
+    "description": "Добавлено 750 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Коробки для Фрай-бокса",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 750,
+      "difference": 750
+    },
+    "item": "Коробки для Фрай-бокса"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 86,
+    "category": "Упаковка и приборы",
+    "itemName": "Контейнер для соуса",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "89d2fcef-f678-4488-ba61-6f8fd365832d",
+    "timestamp": "2025-03-13T07:58:07.053828+00:00",
+    "quantity": 86,
+    "description": "Добавлено 86 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Контейнер для соуса",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 86,
+      "difference": 86
+    },
+    "item": "Контейнер для соуса"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 100,
+    "category": "Упаковка и приборы",
+    "itemName": "Бутылка 0,5 л",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "678aa2c1-1e34-4f92-9b15-672ff14e7122",
+    "timestamp": "2025-03-13T07:57:55.918557+00:00",
+    "quantity": 100,
+    "description": "Добавлено 100 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бутылка 0,5 л",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 100,
+      "difference": 100
+    },
+    "item": "Бутылка 0,5 л"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 64,
+    "newQuantity": 128,
+    "category": "Упаковка и приборы",
+    "itemName": "Бутылка 1л",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "b6023c6d-f46e-4e7f-b468-215151a66355",
+    "timestamp": "2025-03-13T07:57:46.422548+00:00",
+    "quantity": 64,
+    "description": "Добавлено 64 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бутылка 1л",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 64,
+      "new_value": 128,
+      "difference": 64
+    },
+    "item": "Бутылка 1л"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 64,
+    "category": "Упаковка и приборы",
+    "itemName": "Бутылка 1л",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "c58d7639-3ed6-462d-91a3-036e2a5cb8ad",
+    "timestamp": "2025-03-13T07:57:41.064441+00:00",
+    "quantity": 64,
+    "description": "Добавлено 64 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бутылка 1л",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 64,
+      "difference": 64
+    },
+    "item": "Бутылка 1л"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 24,
+    "newQuantity": 41,
+    "category": "Напитки",
+    "itemName": "Flash Energy Мятный Лайм 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "7a98203f-f8aa-48e5-a6fd-0e1c7205a2cf",
+    "timestamp": "2025-03-13T07:57:15.532978+00:00",
+    "quantity": 17,
+    "description": "Добавлено 17 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy Мятный Лайм 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 24,
+      "new_value": 41,
+      "difference": 17
+    },
+    "item": "Flash Energy Мятный Лайм 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 24,
+    "newQuantity": 40,
+    "category": "Напитки",
+    "itemName": "Flash Energy Ягодный микс 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "e90e5553-9787-4b5c-8b33-a2917ad3fc03",
+    "timestamp": "2025-03-13T07:56:33.869785+00:00",
+    "quantity": 16,
+    "description": "Добавлено 16 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy Ягодный микс 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 24,
+      "new_value": 40,
+      "difference": 16
+    },
+    "item": "Flash Energy Ягодный микс 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 24,
+    "newQuantity": 35,
+    "category": "Напитки",
+    "itemName": "Flash Energy 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "97f9133d-7df9-4078-9f17-03663adc8f42",
+    "timestamp": "2025-03-13T07:56:06.804069+00:00",
+    "quantity": 11,
+    "description": "Добавлено 11 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 24,
+      "new_value": 35,
+      "difference": 11
+    },
+    "item": "Flash Energy 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 24,
+    "category": "Напитки",
+    "itemName": "Flash Energy Ягодный микс 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "71e54251-5a25-4462-b1d3-3d34bf719dfd",
+    "timestamp": "2025-03-13T07:55:10.195286+00:00",
+    "quantity": 24,
+    "description": "Добавлено 24 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy Ягодный микс 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 24,
+      "difference": 24
+    },
+    "item": "Flash Energy Ягодный микс 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 24,
+    "category": "Напитки",
+    "itemName": "Flash Energy Мятный Лайм 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "8bb3e451-a987-476a-8eb8-ed3699096cfb",
+    "timestamp": "2025-03-13T07:54:49.269294+00:00",
+    "quantity": 24,
+    "description": "Добавлено 24 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy Мятный Лайм 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 24,
+      "difference": 24
+    },
+    "item": "Flash Energy Мятный Лайм 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 20,
+    "category": "Напитки",
+    "itemName": "Flash Energy 0.5 ПЭТ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "510acb76-25d6-4382-82d1-ad7b6a212a76",
+    "timestamp": "2025-03-13T07:54:39.884993+00:00",
+    "quantity": 20,
+    "description": "Добавлено 20 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy 0.5 ПЭТ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 20,
+      "difference": 20
+    },
+    "item": "Flash Energy 0.5 ПЭТ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 24,
+    "category": "Напитки",
+    "itemName": "Flash Energy 0.45 ЖБ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "14d094a5-8088-49be-bc8a-eb090d931c10",
+    "timestamp": "2025-03-13T07:54:27.538272+00:00",
+    "quantity": 24,
+    "description": "Добавлено 24 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash Energy 0.45 ЖБ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 24,
+      "difference": 24
+    },
+    "item": "Flash Energy 0.45 ЖБ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Специи и приправы",
+    "itemName": "Приправа рыбная сухая (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "b5429e55-280b-4f91-9c70-ee1aaaa2113d",
+    "timestamp": "2025-03-13T07:36:54.348421+00:00",
+    "quantity": 50,
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Приправа рыбная сухая (гр.)",
+    "category_display_name": "Специи и приправы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Приправа рыбная сухая (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 60,
+    "category": "Специи и приправы",
+    "itemName": "Лавровый лист (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "23ca6751-49dc-4b1a-be69-063d944738fc",
+    "timestamp": "2025-03-13T07:36:39.416928+00:00",
+    "quantity": 60,
+    "description": "Добавлено 60 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Лавровый лист (гр.)",
+    "category_display_name": "Специи и приправы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 60,
+      "difference": 60
+    },
+    "item": "Лавровый лист (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 12000,
+    "category": "Соусы",
+    "itemName": "Томатный соус (кетчуп) (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "c001ffaa-6cfc-4a55-ab7a-f07904722ece",
+    "timestamp": "2025-03-13T07:36:07.014465+00:00",
+    "quantity": 12000,
+    "description": "Добавлено 12000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Томатный соус (кетчуп) (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 12000,
+      "difference": 12000
+    },
+    "item": "Томатный соус (кетчуп) (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1000,
+    "category": "Соусы",
+    "itemName": "Горчица дижонская",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "5dc32834-4ef7-449e-ac1f-61ad8e88ceb5",
+    "timestamp": "2025-03-13T07:35:40.821341+00:00",
+    "quantity": 1000,
+    "description": "Добавлено 1000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Горчица дижонская",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1000,
+      "difference": 1000
+    },
+    "item": "Горчица дижонская"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 1,
+    "newQuantity": 0,
+    "category": "Соусы",
+    "itemName": "Горчица дижонская",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "69e09839-4ac1-4318-ab67-ac51d5d970a5",
+    "timestamp": "2025-03-13T07:35:34.550796+00:00",
+    "quantity": -1,
+    "description": "Удалено 1 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Горчица дижонская",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 1,
+      "new_value": 0,
+      "difference": -1
+    },
+    "item": "Горчица дижонская"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1,
+    "category": "Соусы",
+    "itemName": "Горчица дижонская",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "ef1644f2-3e41-4282-96b5-1a378b63ae01",
+    "timestamp": "2025-03-13T07:35:23.281867+00:00",
+    "quantity": 1,
+    "description": "Добавлено 1 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Горчица дижонская",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1,
+      "difference": 1
+    },
+    "item": "Горчица дижонская"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 1000,
+    "newQuantity": 0,
+    "category": "Соусы",
+    "itemName": "Горчица дижонская",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "a852b01a-9795-4582-97f1-5c86498b1203",
+    "timestamp": "2025-03-13T07:35:17.765029+00:00",
+    "quantity": -1000,
+    "description": "Удалено 1000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Горчица дижонская",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 1000,
+      "new_value": 0,
+      "difference": -1000
+    },
+    "item": "Горчица дижонская"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 30000,
+    "category": "Соусы",
+    "itemName": "Майонез (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "cf10bc1c-a2b2-46ee-aee8-8883a25f9dba",
+    "timestamp": "2025-03-13T07:34:15.813610+00:00",
+    "quantity": 30000,
+    "description": "Добавлено 30000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Майонез (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 30000,
+      "difference": 30000
+    },
+    "item": "Майонез (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1000,
+    "category": "Соусы",
+    "itemName": "Горчица дижонская",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "53b133fc-bef7-4630-b4b2-f55c46c25c2e",
+    "timestamp": "2025-03-13T07:33:51.189028+00:00",
+    "quantity": 1000,
+    "description": "Добавлено 1000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Горчица дижонская",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1000,
+      "difference": 1000
+    },
+    "item": "Горчица дижонская"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Соусы",
+    "itemName": "Соус Чили (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "45317248-c77d-4ff9-bd0a-9350cb467432",
+    "timestamp": "2025-03-13T07:33:07.481809+00:00",
+    "quantity": 0,
+    "description": "Удалено 0 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Чили (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соус Чили (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 4000,
+    "category": "Соусы",
+    "itemName": "Соус Песто(гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "c0a50424-8efc-4d43-ad23-1fbea49fb8be",
+    "timestamp": "2025-03-13T07:32:45.851205+00:00",
+    "quantity": 4000,
+    "description": "Добавлено 4000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Песто(гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 4000,
+      "difference": 4000
+    },
+    "item": "Соус Песто(гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 12000,
+    "category": "Соусы",
+    "itemName": "Соус Грибной (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "f806631b-9e8c-4060-9fbd-6c2359d3cfe0",
+    "timestamp": "2025-03-13T07:32:30.211377+00:00",
+    "quantity": 12000,
+    "description": "Добавлено 12000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Грибной (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 12000,
+      "difference": 12000
+    },
+    "item": "Соус Грибной (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1000,
+    "category": "Соусы",
+    "itemName": "Сок лимона (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "78e4d1dd-b40a-4dd0-8842-3e51270e9add",
+    "timestamp": "2025-03-13T07:32:14.681813+00:00",
+    "quantity": 1000,
+    "description": "Добавлено 1000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Сок лимона (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1000,
+      "difference": 1000
+    },
+    "item": "Сок лимона (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1800,
+    "category": "Соусы",
+    "itemName": "Соус Терияки (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "242ce8b0-b83e-459a-ae2a-931c97a1ddf5",
+    "timestamp": "2025-03-13T07:31:58.116366+00:00",
+    "quantity": 1800,
+    "description": "Добавлено 1800 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Терияки (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1800,
+      "difference": 1800
+    },
+    "item": "Соус Терияки (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 4800,
+    "category": "Соусы",
+    "itemName": "Соус Чили сладкий (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "81d34458-013d-481f-8885-b52838d3de56",
+    "timestamp": "2025-03-13T07:31:42.485621+00:00",
+    "quantity": 4800,
+    "description": "Добавлено 4800 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Чили сладкий (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 4800,
+      "difference": 4800
+    },
+    "item": "Соус Чили сладкий (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25000,
+    "category": "Соусы",
+    "itemName": "Соус Мутти (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "df243dd9-798d-4746-9cf9-d515bc17c5c8",
+    "timestamp": "2025-03-13T07:31:16.689263+00:00",
+    "quantity": 25000,
+    "description": "Добавлено 25000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус Мутти (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25000,
+      "difference": 25000
+    },
+    "item": "Соус Мутти (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5400,
+    "category": "Соусы",
+    "itemName": "Соус цитрусовый (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "7bb07beb-c5fb-4adb-bc78-8d6dd7b2a885",
+    "timestamp": "2025-03-13T07:30:34.478783+00:00",
+    "quantity": 5400,
+    "description": "Добавлено 5400 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус цитрусовый (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5400,
+      "difference": 5400
+    },
+    "item": "Соус цитрусовый (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 2340,
+    "category": "Соусы",
+    "itemName": "Соус брусничный (гр.)",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "6427fbb4-d90e-454b-84c7-0bc14bed76ac",
+    "timestamp": "2025-03-13T07:30:10.682755+00:00",
+    "quantity": 2340,
+    "description": "Добавлено 2340 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Соус брусничный (гр.)",
+    "category_display_name": "Соусы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 2340,
+      "difference": 2340
+    },
+    "item": "Соус брусничный (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 3,
+    "category": "Напитки",
+    "itemName": "Flash 1литр ПЭТ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "f1eb4eba-b404-41d3-aa58-aa75e8840ddb",
+    "timestamp": "2025-03-13T06:19:52.713358+00:00",
+    "quantity": 3,
+    "description": "Добавлено 3 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash 1литр ПЭТ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 3,
+      "difference": 3
+    },
+    "item": "Flash 1литр ПЭТ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 3,
+    "category": "Напитки",
+    "itemName": "Flash 1литр ПЭТ",
+    "author": {
+      "id": 1732151074,
+      "first_name": "Роза",
+      "photo_url": null
+    },
+    "id": "7594fa82-9166-4fb0-b3e3-37c9f68b6b9e",
+    "timestamp": "2025-03-13T06:19:52.625307+00:00",
+    "quantity": 3,
+    "description": "Добавлено 3 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Flash 1литр ПЭТ",
+    "category_display_name": "Напитки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 3,
+      "difference": 3
+    },
+    "item": "Flash 1литр ПЭТ"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Полуфабрикаты",
+    "itemName": "Луковые кольца (гр.)",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "42c438a3-79c7-469e-a4b3-9ddc52c2aafe",
+    "timestamp": "2025-03-12T08:59:26.155041+00:00",
+    "quantity": 50,
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Луковые кольца (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Луковые кольца (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 400,
+    "category": "Мясо и рыба",
+    "itemName": "Ветчина",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "f1752711-daa2-405b-b473-cf6bed7739a8",
+    "timestamp": "2025-03-12T03:33:03.316530+00:00",
+    "quantity": 400,
+    "description": "Добавлено 400 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Ветчина",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 400,
+      "difference": 400
+    },
+    "item": "Ветчина"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Ветчина",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "73cc7d8f-d973-410f-a880-0022a19fefca",
+    "timestamp": "2025-03-12T03:32:57.417482+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Ветчина",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Ветчина"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Бекон",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "482a5386-8c99-4bf3-9ab8-f0852ebb300d",
+    "timestamp": "2025-03-12T03:32:20.026607+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бекон",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Бекон"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 2500,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Бекон",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "2c038282-c0a3-4fbf-a0f4-4c5b743371d7",
+    "timestamp": "2025-03-12T03:32:08.341450+00:00",
+    "quantity": -2500,
+    "description": "Удалено 2500 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бекон",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 2500,
+      "new_value": 0,
+      "difference": -2500
+    },
+    "item": "Бекон"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 5000,
+    "newQuantity": 2500,
+    "category": "Мясо и рыба",
+    "itemName": "Бекон",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "3f1b1eae-3e52-48ae-bae0-29ac674029aa",
+    "timestamp": "2025-03-12T03:31:57.355324+00:00",
+    "quantity": -2500,
+    "description": "Удалено 2500 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бекон",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 5000,
+      "new_value": 2500,
+      "difference": -2500
+    },
+    "item": "Бекон"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5000,
+    "category": "Мясо и рыба",
+    "itemName": "Бекон",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "13a664ca-fde6-4d83-ac44-a4d9f1789927",
+    "timestamp": "2025-03-12T03:31:48.479508+00:00",
+    "quantity": 5000,
+    "description": "Добавлено 5000 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бекон",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5000,
+      "difference": 5000
+    },
+    "item": "Бекон"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Бекон",
+    "author": {
+      "id": 836104828,
+      "first_name": "Ира",
+      "photo_url": null
+    },
+    "id": "23550072-e39f-4218-8d61-c0eddfb945ae",
+    "timestamp": "2025-03-12T03:30:27.986293+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Бекон",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Бекон"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "author": {
+      "id": 490427591,
+      "first_name": "Твой",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_53.jpg"
+    },
+    "id": "3c3d0ee5-57b8-4af8-aafa-a01fa74c5e5f",
+    "timestamp": "2025-03-04T10:10:36.584352+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "author": {
+      "id": 490427591,
+      "first_name": "Твой",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_53.jpg"
+    },
+    "id": "0ea51a62-466f-4c0e-a797-8e8d0afff819",
+    "timestamp": "2025-03-04T10:10:29.979319+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "author": {
+      "id": 490427591,
+      "first_name": "Твой",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_53.jpg"
+    },
+    "id": "c2c1a8f9-4773-4351-ac36-fb777f8b7d91",
+    "timestamp": "2025-03-04T10:10:13.145551+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "author": {
+      "id": 490427591,
+      "first_name": "Твой",
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_53.jpg"
+    },
+    "id": "0bdba367-708b-4844-8841-45873ec06c89",
+    "timestamp": "2025-03-04T10:10:10.164615+00:00",
+    "quantity": 0,
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  }
+]

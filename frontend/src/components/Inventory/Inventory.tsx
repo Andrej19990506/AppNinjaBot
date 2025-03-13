@@ -17,11 +17,11 @@ import ItemList from './ItemList';
 import ItemHistory from '../ItemHistory/ItemHistory';
 import ItemEdit from './ItemEdit';
 import InventoryCompleteDialog from '../InventoryCompleteDialog';
+import Header from './Header';
 import styles from './Inventory.module.css';
 import { Inventory as InventoryType, ChatInventory, InventoryItem } from '../../types/inventory';
 import { AnimatePresence } from 'framer-motion';
 import { motion } from 'framer-motion';
-import Header from './Header';
 import Footer from './Footer';
 import Skeleton from '../common/Skeleton';
 import InventorySearch, { normalizeString } from './InventorySearch';
@@ -36,6 +36,15 @@ interface SearchResult {
     field: string;
     value: string;
   }[];
+}
+
+// Добавляем интерфейс для преобразования ChatInventory в Chat
+interface Chat {
+    id: string;
+    name: string;
+    type: 'group' | 'supergroup' | 'private';
+    created_at: string;
+    updated_at: string;
 }
 
 const Inventory: React.FC = () => {
@@ -140,12 +149,6 @@ const Inventory: React.FC = () => {
                 });
 
                 try {
-                    // Инициализируем пользователя
-                    await dispatch(initializeFromTelegram()).unwrap();
-                    console.debug('🔍 Inventory Debug - Пользователь инициализирован:', {
-                        currentUser
-                    });
-
                     // Загружаем инвентарь
                     if (isMounted) {
                         console.debug('🔍 Inventory Debug - Загрузка списка чатов');
@@ -402,6 +405,15 @@ const Inventory: React.FC = () => {
         handleSearch(query);
     }, [handleSearch]);
 
+    // Преобразуем ChatInventory в Chat для Footer
+    const chatForFooter: Chat | null = selectedChat ? {
+        id: selectedChat.chat_id,
+        name: selectedChat.chat_title,
+        type: 'group',
+        created_at: selectedChat.metadata.lastUpdated,
+        updated_at: selectedChat.metadata.lastUpdated
+    } : null;
+
     if (isInventoryLoading) {
         return (
             <div className={styles.container}>
@@ -482,6 +494,7 @@ const Inventory: React.FC = () => {
             <div className={styles.container}>
                 <Header 
                     title={getHeaderTitle()}
+                    mode="inventory"
                     progress={selectedChat?.metadata?.progress || 0}
                     notifications={notifications}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -588,7 +601,7 @@ const Inventory: React.FC = () => {
                     )}
                 </div>
                 <Footer 
-                    selectedChat={selectedChat}
+                    selectedChat={chatForFooter}
                     selectedCategory={selectedCategory || undefined}
                     selectedItem={selectedItem || undefined}
                     onBack={handleBack}
@@ -610,6 +623,8 @@ const Inventory: React.FC = () => {
             <ChatList 
                 chats={items}
                 onChatSelect={handleChatClick}
+                mode="inventory"
+                currentUser={currentUser}
             />
             {isListPage && selectedChat && (
                 <ChatModal

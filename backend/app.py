@@ -16,6 +16,16 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 import sys
 import pytz
+from functools import wraps
+from data.write_offs import get_chat_write_offs, add_write_off, update_write_off, delete_write_off
+import time
+import random
+import string
+import mimetypes
+import subprocess
+from decimal import Decimal
+from typing import Dict, List, Optional, Union, Any
+import urllib.parse
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -180,17 +190,29 @@ app = Flask(__name__)
 # Настройки CORS
 cors = CORS(
     app,
-    origins=["*"],
-    allow_headers=["Content-Type", "Authorization", "Origin"],
+    origins=[
+        "https://conference-henderson-falls-investigation.trycloudflare.com",
+        "https://drum-converter-telephony-fireplace.trycloudflare.com",
+        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+        "http://localhost:3000"  # Для локальной разработки
+    ],
+    allow_headers=["Content-Type", "Authorization", "Origin", "Accept", "X-Requested-With"],
     methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     supports_credentials=True,
-    intercept_exceptions=False
+    intercept_exceptions=True,
+    max_age=3600,
+    vary_header=True
 )
 
 # Инициализация Socket.IO с правильными настройками
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
+    cors_allowed_origins=[
+        "https://conference-henderson-falls-investigation.trycloudflare.com",
+        "https://drum-converter-telephony-fireplace.trycloudflare.com",
+        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+        "http://localhost:3000"  # Для локальной разработки
+    ],
     async_mode='gevent',
     path='/ws/socket.io',
     ping_timeout=20,
@@ -220,9 +242,23 @@ CHAT_ROOM_PREFIX = 'inventory_'   # Префикс для комнат конк�
 def handle_preflight():
     if request.method == "OPTIONS":
         response = app.make_default_options_response()
-        response.headers["Access-Control-Allow-Origin"] = "*"
+        # Получаем origin из заголовков запроса
+        origin = request.headers.get('Origin', '')
+        # Проверяем, что origin в списке разрешенных
+        allowed_origins = [
+            "https://conference-henderson-falls-investigation.trycloudflare.com",
+            "https://drum-converter-telephony-fireplace.trycloudflare.com",
+            "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+            "http://localhost:3000"
+        ]
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        else:
+            # Устанавливаем localhost для тестирования
+            response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Origin, Accept, X-Requested-With"
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Max-Age"] = "3600"
         return response
@@ -1821,9 +1857,21 @@ def scheduler_proxy(path):
     try:
         if request.method == 'OPTIONS':
             response = app.make_default_options_response()
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+            origin = request.headers.get('Origin', '')
+            allowed_origins = [
+                "https://conference-henderson-falls-investigation.trycloudflare.com",
+                "https://drum-converter-telephony-fireplace.trycloudflare.com",
+                "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+                "http://localhost:3000"
+            ]
+            if origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+            else:
+                response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+                
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization, Origin, Accept, X-Requested-With')
+            response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
             return response
 
         scheduler_url = f'http://scheduler:8002/scheduler/{path}'
@@ -2833,25 +2881,515 @@ def handle_get_item_history(data):
         logger.error(traceback.format_exc())
         emit('error', {'message': str(e)})
 
+# Эндпоинты для списаний
+@app.route('/api/write-offs/<chat_id>', methods=['GET'])
+def get_write_offs(chat_id):
+    """Получение списаний для чата"""
+    try:
+        write_offs = get_chat_write_offs(chat_id)
+        return jsonify(write_offs)
+    except Exception as e:
+        logger.error(f"Error getting write-offs: {str(e)}")
+        return jsonify({'error': 'Ошибка при получении списаний'}), 500
+
+@app.route('/api/write-offs/<chat_id>', methods=['POST'])
+def create_write_off(chat_id):
+    """Создание нового списания"""
+    try:
+        data = request.get_json()
+        required_fields = ['name', 'reason', 'quantity']
+        
+        # Проверяем обязательные поля
+        if not all(field in data for field in required_fields):
+            return jsonify({'error': 'Не все обязательные поля заполнены'}), 400
+        
+        # Добавляем списание
+        write_off = add_write_off(chat_id, data)
+        
+        # Отправляем уведомление через WebSocket
+        broadcast_write_off_update(chat_id, write_off, 'create', None)
+        
+        return jsonify(write_off), 201
+    except Exception as e:
+        logger.error(f"Error creating write-off: {str(e)}")
+        return jsonify({'error': 'Ошибка при создании списания'}), 500
+
+@app.route('/api/write-offs/<chat_id>/<write_off_id>', methods=['PUT'])
+def update_write_off_endpoint(chat_id, write_off_id):
+    """Обновление списания"""
+    try:
+        data = request.get_json()
+        updated_write_off = update_write_off(chat_id, write_off_id, data)
+        
+        if updated_write_off is None:
+            return jsonify({'error': 'Списание не найдено'}), 404
+        
+        # Отправляем уведомление через WebSocket
+        broadcast_write_off_update(chat_id, updated_write_off, 'update', None)
+        
+        return jsonify(updated_write_off)
+    except Exception as e:
+        logger.error(f"Error updating write-off: {str(e)}")
+        return jsonify({'error': 'Ошибка при обновлении списания'}), 500
+
+@app.route('/api/write-offs/<chat_id>/<write_off_id>', methods=['DELETE'])
+def delete_write_off_endpoint(chat_id, write_off_id):
+    """Удаление списания"""
+    try:
+        success = delete_write_off(chat_id, write_off_id)
+        
+        if not success:
+            return jsonify({'error': 'Списание не найдено'}), 404
+        
+        # Отправляем уведомление через WebSocket
+        broadcast_write_off_update(chat_id, {'id': write_off_id}, 'delete', None)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error deleting write-off: {str(e)}")
+        return jsonify({'error': 'Ошибка при удалении списания'}), 500
+
+def set_cors_headers(response):
+    """Установка правильных CORS заголовков для ответа"""
+    origin = request.headers.get('Origin', '')
+    allowed_origins = [
+        "https://conference-henderson-falls-investigation.trycloudflare.com",
+        "https://drum-converter-telephony-fireplace.trycloudflare.com",
+        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+        "http://localhost:3000"
+    ]
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
+        
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, Origin, Accept, X-Requested-With"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    return response
+
+def _generate_write_off_document_internal():
+    """Внутренняя функция для генерации документа акта списания"""
+    try:
+        # Импортируем функцию генерации документа
+        from utils.document_generator import create_write_off_document
+        
+        # Логируем информацию о запросе
+        logger.info(f"=== 🔄 Запрос на генерацию документа ===")
+        logger.info(f"📋 Метод: {request.method}")
+        logger.info(f"📋 Content-Type: {request.content_type}")
+        logger.info(f"📋 Origin: {request.headers.get('Origin', 'не указан')}")
+        logger.info(f"📋 URL: {request.url}")
+        logger.info(f"📋 Args: {request.args}")
+        logger.info(f"📋 Form data: {list(request.form.keys()) if request.form else 'нет'}")
+        
+        # Проверяем наличие параметра download
+        download_param = request.args.get('download', 'false')
+        if request.form and 'download' in request.form:
+            download_param = request.form['download']
+        
+        # Проверяем наличие дополнительного параметра force_download
+        force_download_param = request.args.get('force_download', 'false')
+        if request.form and 'force_download' in request.form:
+            force_download_param = request.form['force_download']
+        
+        # Проверяем значение параметров download и force_download
+        is_download = download_param.lower() in ('true', 't', 'yes', 'y', '1')
+        is_force_download = force_download_param.lower() in ('true', 't', 'yes', 'y', '1')
+        
+        # Логируем информацию о режиме скачивания
+        logger.info(f"📋 Download mode: {is_download}")
+        logger.info(f"📋 Force Download mode: {is_force_download}")
+        
+        # Получаем данные из запроса (поддерживаем form-data, POST JSON, и GET JSON)
+        data = None
+        
+        # 1. Приоритет - данные формы
+        if request.form and 'data' in request.form:
+            try:
+                data = json.loads(request.form['data'])
+                logger.info(f"📦 Получены данные из form-data")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при парсинге данных из формы: {str(e)}")
+        
+        # 2. Если нет данных в форме, проверяем JSON в теле запроса
+        if data is None and request.content_type and ('application/json' in request.content_type):
+            try:
+                data = request.get_json(silent=True)
+                if data:
+                    logger.info(f"📦 Получены JSON данные из тела запроса: {len(str(data))} байт")
+                else:
+                    logger.warning(f"⚠️ JSON данные в теле запроса пусты или некорректны")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при парсинге JSON данных: {str(e)}")
+        
+        # 3. Если нет данных в JSON, проверяем GET-параметры
+        if data is None and request.args and 'data' in request.args:
+            try:
+                data_param = request.args.get('data', '{}')
+                logger.info(f"📦 Попытка парсинга данных из GET-параметров, длина: {len(data_param)} байт")
+                logger.info(f"📦 Первые 200 символов данных: {data_param[:200]}...")
+                data = json.loads(data_param)
+                logger.info(f"📦 Успешно распарсены данные из GET-параметров")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при парсинге данных из GET-параметров: {str(e)}")
+                logger.error(traceback.format_exc())
+        
+        # Проверяем наличие необходимых данных
+        if not data:
+            logger.error(f"❌ Данные не получены: GET={request.args}, POST={request.form}")
+            error_response = jsonify({'error': 'Не предоставлены данные для формирования документа'})
+            return set_cors_headers(error_response), 400
+        
+        # Проверяем наличие элементов списания
+        if 'items' not in data or not data['items']:
+            logger.error(f"❌ Отсутствуют элементы для списания: {data}")
+            error_response = jsonify({'error': 'Не предоставлены элементы для формирования документа'})
+            return set_cors_headers(error_response), 400
+        
+        chat_title = data.get('chatTitle', 'Неизвестный филиал')
+        logger.info(f"📝 Название филиала: {chat_title}")
+        logger.info(f"📝 Количество элементов для списания: {len(data['items'])}")
+        
+        # Генерируем документ
+        document_stream = create_write_off_document(data)
+        
+        # Формируем имя файла
+        current_date = datetime.now().strftime("%d-%m-%Y")
+        original_filename = request.args.get('filename', f"Акт_списания_{chat_title.replace(' ', '_')}_{current_date}.docx")
+        
+        # Создаем ASCII-совместимое имя файла для HTTP заголовков
+        # Используем RFC 5987 кодирование для non-ASCII символов
+        ascii_filename = f"write_off_act_{current_date}.docx"  # Простое ASCII-имя по умолчанию
+        encoded_filename = urllib.parse.quote(original_filename)  # URL-кодирование для non-ASCII символов
+        
+        logger.info(f'📝 Оригинальное имя файла: {original_filename}')
+        logger.info(f'📝 ASCII имя файла: {ascii_filename}')
+        logger.info(f'📝 Кодированное имя файла: {encoded_filename}')
+        
+        # Создаем response с документом
+        response = send_file(
+            document_stream,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name=ascii_filename  # Используем ASCII-имя для совместимости
+        )
+        
+        # Добавляем заголовки для принудительного скачивания
+        # Используем rfc5987 формат для non-ASCII символов в имени файла
+        logger.info(f"📝 Установка заголовков для принудительного скачивания (всегда attachment)")
+        # Force-download заголовки - ВСЕГДА используем attachment
+        response.headers.set('Content-Disposition', 
+                          f'attachment; filename="{ascii_filename}"; filename*=UTF-8\'\'{encoded_filename}')
+        
+        response.headers.set('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response.headers.set('Content-Transfer-Encoding', 'binary')
+        response.headers.set('X-Content-Type-Options', 'nosniff')
+        response.headers.set('X-Download-Options', 'noopen')
+        response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate')
+        response.headers.set('Pragma', 'no-cache')
+        response.headers.set('Expires', '0')
+        
+        # Добавляем CORS заголовки
+        response = set_cors_headers(response)
+        
+        # Логируем заголовки ответа для диагностики
+        logger.info(f"📝 Заголовки ответа:")
+        for header, value in response.headers:
+            logger.info(f"📝 {header}: {value}")
+        
+        # Дополнительное логирование для проверки фактического Content-Disposition
+        logger.info(f"✅ Content-Disposition итоговый: {response.headers.get('Content-Disposition', 'не установлен')}")
+        logger.info(f"✅ Content-Type итоговый: {response.headers.get('Content-Type', 'не установлен')}")
+        
+        logger.info(f"✅ Документ успешно сгенерирован: {original_filename} (кодировано как {ascii_filename})")
+        return response
+    except ImportError as e:
+        logger.error(f"❌ Python-docx library is not installed: {str(e)}")
+        error_response = jsonify({'error': 'Отсутствует необходимая библиотека для генерации документа'})
+        return set_cors_headers(error_response), 500
+    except Exception as e:
+        logger.error(f"❌ Error generating write-off document: {str(e)}")
+        logger.error(traceback.format_exc())
+        error_response = jsonify({'error': 'Ошибка при формировании документа'})
+        return set_cors_headers(error_response), 500
+
+def broadcast_write_off_update(chat_id, write_off_data, action, skip_sid=None):
+    """Отправка уведомлений о изменениях списаний через WebSocket"""
+    try:
+        # Определяем тип события в зависимости от действия
+        event_type = {
+            'create': 'writeoff_created',
+            'update': 'writeoff_updated',
+            'delete': 'writeoff_deleted'
+        }.get(action, 'writeoff_updated')
+        
+        room = f'inventory_{chat_id}'
+        logger.info('=== 📢 Рассылка обновления списания ===')
+        logger.info(f'🏠 Комната: {room}')
+        logger.info(f'🔄 Действие: {action}')
+        logger.info(f'🔄 Тип события: {event_type}')
+        logger.info(f'🔄 Пропускаем отправителя: {skip_sid}')
+        
+        # Подготавливаем данные для отправки в зависимости от действия
+        if action == 'create' or action == 'update':
+            update_data = {
+                'chatId': chat_id,
+                'writeOffId': write_off_data.get('id'),
+                'writeOffItem': write_off_data
+            }
+            logger.info(f'📝 ID списания: {write_off_data.get("id")}')
+            logger.info(f'📝 Название: {write_off_data.get("name")}')
+        elif action == 'delete':
+            update_data = {
+                'chatId': chat_id,
+                'writeOffId': write_off_data.get('id')
+            }
+            logger.info(f'📝 ID удаляемого списания: {write_off_data.get("id")}')
+        else:
+            logger.warning(f'⚠️ Неизвестное действие: {action}')
+            return
+
+        # Получаем список активных клиентов в комнате
+        room_clients = active_users.get(room, {})
+        logger.info(f'👥 Всего активных пользователей в комнате: {len(room_clients)}')
+        
+        if room_clients:
+            # Отправляем обновление всем клиентам в комнате
+            emit_kwargs = {'room': room}
+            if skip_sid:
+                emit_kwargs['skip_sid'] = skip_sid
+                logger.info(f'⏭️ Пропускаем отправителя: {skip_sid}')
+
+            # Отправляем событие соответствующего типа
+            socketio.emit(event_type, update_data, **emit_kwargs)
+            logger.info(f'📨 Обновление списания ({action}) отправлено в комнату')
+            
+            # Отправляем подтверждения
+            sent_count = 0
+            skipped_count = 0
+            for user_id, user_info in room_clients.items():
+                if not skip_sid or user_info.get('socket_id') != skip_sid:
+                    try:
+                        socketio.emit('writeoff_update_sent', {
+                            'status': 'success',
+                            'action': action,
+                            'timestamp': datetime.now().isoformat(),
+                            'recipient': {
+                                'id': user_id,
+                                'name': user_info.get('first_name')
+                            }
+                        }, room=user_info.get('socket_id'))
+                        sent_count += 1
+                        logger.info(f'✅ Подтверждение отправлено: {user_info.get("first_name")} (Socket ID: {user_info.get("socket_id")})')
+                    except Exception as e:
+                        logger.error(f'❌ Ошибка отправки подтверждения для {user_info.get("first_name")}: {str(e)}')
+                else:
+                    skipped_count += 1
+                    logger.info(f'⏭️ Пропущен пользователь: {user_info.get("first_name")} (Socket ID: {user_info.get("socket_id")})')
+            
+            logger.info(f'📊 Итого: отправлено {sent_count}, пропущено {skipped_count}')
+        else:
+            logger.info('ℹ️ Нет активных клиентов')
+            
+        logger.info('=== Рассылка завершена ===')
+    except Exception as e:
+        logger.error('❌ Ошибка рассылки обновления списания')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+
+@socketio.on('writeoff_update')
+def handle_writeoff_update(data):
+    """Обработчик WebSocket события обновления списания"""
+    try:
+        logger.info('=== 📦 Получено обновление списания через WebSocket ===')
+        logger.info(f'👤 Отправитель (Socket ID): {request.sid}')
+
+        if not data or not isinstance(data, dict):
+            logger.error('❌ Некорректный формат данных')
+            return
+
+        # Получаем основные данные
+        action = data.get('action')  # create, update, delete
+        chat_id = data.get('chatId')
+        write_off_id = data.get('writeOffId')
+        write_off_data = data.get('writeOffItem', {})
+
+        if not chat_id:
+            logger.error('❌ Отсутствует ID чата')
+            return
+
+        if not action:
+            logger.error('❌ Отсутствует действие')
+            return
+
+        # Валидация данных в зависимости от действия
+        if action == 'create':
+            required_fields = ['name', 'reason', 'quantity']
+            # Проверяем обязательные поля для создания
+            if not all(field in write_off_data for field in required_fields):
+                logger.error('❌ Не все обязательные поля заполнены')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': 'Не все обязательные поля заполнены',
+                    'action': action
+                }, room=request.sid)
+                return
+
+            # Создаем новое списание
+            try:
+                new_write_off = add_write_off(chat_id, write_off_data)
+                
+                # Отправляем обновление всем клиентам в комнате
+                broadcast_write_off_update(chat_id, new_write_off, 'create', request.sid)
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('writeoff_update_sent', {
+                    'status': 'success',
+                    'action': 'create',
+                    'chatId': chat_id,
+                    'writeOffId': new_write_off.get('id'),
+                    'writeOffItem': new_write_off
+                }, room=request.sid)
+                
+                logger.info(f'✅ Списание успешно создано и отправлено')
+            except Exception as e:
+                logger.error(f'❌ Ошибка при создании списания: {str(e)}')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': f'Ошибка при создании списания: {str(e)}',
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'update':
+            if not write_off_id:
+                logger.error('❌ Отсутствует ID списания для обновления')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': 'Отсутствует ID списания',
+                    'action': action
+                }, room=request.sid)
+                return
+
+            # Обновляем существующее списание
+            try:
+                updated_write_off = update_write_off(chat_id, write_off_id, write_off_data)
+                
+                if updated_write_off is None:
+                    logger.error(f'❌ Списание {write_off_id} не найдено')
+                    socketio.emit('writeoff_update_error', {
+                        'status': 'error',
+                        'message': 'Списание не найдено',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Отправляем обновление всем клиентам в комнате
+                broadcast_write_off_update(chat_id, updated_write_off, 'update', request.sid)
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('writeoff_update_sent', {
+                    'status': 'success',
+                    'action': 'update',
+                    'chatId': chat_id,
+                    'writeOffId': write_off_id,
+                    'writeOffItem': updated_write_off
+                }, room=request.sid)
+                
+                logger.info(f'✅ Списание успешно обновлено и отправлено')
+            except Exception as e:
+                logger.error(f'❌ Ошибка при обновлении списания: {str(e)}')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': f'Ошибка при обновлении списания: {str(e)}',
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'delete':
+            if not write_off_id:
+                logger.error('❌ Отсутствует ID списания для удаления')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': 'Отсутствует ID списания',
+                    'action': action
+                }, room=request.sid)
+                return
+
+            # Удаляем списание
+            try:
+                result = delete_write_off(chat_id, write_off_id)
+                
+                if not result:
+                    logger.error(f'❌ Ошибка при удалении списания {write_off_id}')
+                    socketio.emit('writeoff_update_error', {
+                        'status': 'error',
+                        'message': 'Ошибка при удалении списания',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Отправляем обновление всем клиентам в комнате
+                broadcast_write_off_update(chat_id, {'id': write_off_id}, 'delete', request.sid)
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('writeoff_update_sent', {
+                    'status': 'success',
+                    'action': 'delete',
+                    'chatId': chat_id,
+                    'writeOffId': write_off_id
+                }, room=request.sid)
+                
+                logger.info(f'✅ Списание успешно удалено и обновление отправлено')
+            except Exception as e:
+                logger.error(f'❌ Ошибка при удалении списания: {str(e)}')
+                socketio.emit('writeoff_update_error', {
+                    'status': 'error',
+                    'message': f'Ошибка при удалении списания: {str(e)}',
+                    'action': action
+                }, room=request.sid)
+        else:
+            logger.error(f'❌ Неизвестное действие: {action}')
+            socketio.emit('writeoff_update_error', {
+                'status': 'error',
+                'message': f'Неизвестное действие: {action}',
+                'action': action
+            }, room=request.sid)
+            
+    except Exception as e:
+        logger.error('❌ Ошибка обработки обновления списания')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+        
+        # Отправляем сообщение об ошибке отправителю
+        try:
+            socketio.emit('writeoff_update_error', {
+                'status': 'error',
+                'message': f'Внутренняя ошибка сервера: {str(e)}'
+            }, room=request.sid)
+        except:
+            pass
+
+@app.route('/api/write-offs/generate-document', methods=['GET', 'POST'])
+def generate_write_off_document():
+    """Генерация DOCX файла акта списания"""
+    return _generate_write_off_document_internal()
+
+@app.route('/api/writeoffs/generate-document', methods=['GET', 'POST'])
+def generate_write_off_document_compat():
+    """Совместимый эндпоинт для генерации DOCX файла акта списания (без дефиса)"""
+    logger.info("Вызов совместимого эндпоинта /api/writeoffs/generate-document")
+    return _generate_write_off_document_internal()
+
 if __name__ == '__main__':
     try:
-        # Создаем необходимые директории
-        os.makedirs(DATA_DIR, exist_ok=True)
-        os.makedirs(TEMPLATES_DIR, exist_ok=True)
-        os.makedirs(INVENTORY_DIR, exist_ok=True)
-        os.makedirs(BOT_DATA_DIR, exist_ok=True)
+        HOST = os.getenv('HOST', '0.0.0.0')
+        PORT = int(os.getenv('PORT', 8000))
         
-        # Проверяем наличие шаблона инвентаризации
-        if not TEMPLATE_PATH.exists():
-            # Создаем пустой шаблон если его нет
-            with open(TEMPLATE_PATH, 'w', encoding='utf-8') as f:
-                json.dump({}, f, ensure_ascii=False, indent=2)
-            logger.info(f"Created empty template at {TEMPLATE_PATH}")
-        
-        # Запускаем сервер с WebSocket поддержкой
-        port = int(os.getenv('PORT', 8000))
-        socketio.run(app, host='0.0.0.0', port=port, debug=True)
+        # Запуск приложения через socketio для поддержки WebSocket
+        print(f"\n🚀 Starting server on {HOST}:{PORT}...")
+        socketio.run(app, host=HOST, port=PORT, debug=True, use_reloader=True, log_output=True)
     except Exception as e:
-        logger.error(f"Failed to start server: {str(e)}")
-        logger.error(traceback.format_exc())
+        logger.error(f"Error starting server: {str(e)}")
+        print(f"❌ Error starting server: {str(e)}")
         sys.exit(1)

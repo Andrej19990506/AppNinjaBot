@@ -114,7 +114,6 @@
     flex-direction: column;
     width: 100%;
     padding: 20px;
-    background-color: var(--card-background);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     margin-bottom: 20px;
@@ -246,9 +245,6 @@
         background-color: var(--background-color);
     }
 
-    .itemEditContainer {
-        background-color: var(--card-background);
-    }
 
     .historySection {
         background-color: var(--card-background);

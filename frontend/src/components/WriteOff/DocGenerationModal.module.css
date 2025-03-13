@@ -1,0 +1,442 @@
+.dialog {
+    backdrop-filter: blur(5px);
+}
+
+.dialogPaper {
+    background-color: var(--card-background) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: var(--shadow-lg) !important;
+    color: var(--text-color) !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.15);
+    position: relative;
+    overflow: hidden;
+}
+
+.dialogPaper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(to right, 
+        transparent, 
+        var(--orange-primary) 50%, 
+        transparent
+    );
+}
+
+.dialogTitle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px !important;
+    border-bottom: 1px solid rgba(var(--primary-rgb), 0.1);
+    color: var(--text-color) !important;
+    font-weight: 600 !important;
+    font-size: 1.25rem !important;
+}
+
+.loadingTitle {
+    background: linear-gradient(45deg, var(--text-color), var(--orange-primary));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: titlePulse 2s ease-in-out infinite;
+}
+
+@keyframes titlePulse {
+    0% {
+        opacity: 0.8;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.8;
+    }
+}
+
+.dialogContent {
+    padding: 24px !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 240px;
+    position: relative;
+    background-color: var(--card-background);
+}
+
+.dialogActions {
+    padding: 16px 24px !important;
+    border-top: 1px solid rgba(var(--primary-rgb), 0.1);
+    justify-content: space-between !important;
+    background-color: var(--card-background);
+}
+
+.closeButton {
+    color: var(--text-secondary) !important;
+    position: absolute !important;
+    right: 8px;
+    top: 8px;
+    transition: var(--transition-normal) !important;
+}
+
+.closeButton:hover {
+    color: var(--orange-primary) !important;
+    transform: rotate(90deg);
+}
+
+.loadingContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+    gap: 20px;
+    color: var(--orange-primary);
+    position: relative;
+    overflow: hidden;
+}
+
+.loadingContainer::before {
+    content: '';
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    top: -50%;
+    left: -50%;
+    z-index: 0;
+    background: radial-gradient(
+        circle,
+        rgba(var(--primary-rgb), 0.05) 0%,
+        transparent 70%
+    );
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.loadingContainer::after {
+    content: '';
+    position: absolute;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(45deg, transparent, rgba(var(--primary-rgb), 0.03), transparent);
+    animation: rotateGradient 4s linear infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.3;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0.3;
+    }
+}
+
+@keyframes rotateGradient {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.loadingText {
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin-top: 16px;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    font-weight: 500;
+    background: linear-gradient(45deg, var(--text-color), var(--orange-primary));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: colorChange 2s ease-in-out infinite;
+}
+
+@keyframes colorChange {
+    0% {
+        opacity: 0.7;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.7;
+    }
+}
+
+/* Стили для спиннера - будут использоваться вместе с глобальными стилями Material UI */
+.loadingContainer :global(.MuiCircularProgress-root) {
+    position: relative;
+    z-index: 2;
+    color: var(--orange-primary) !important;
+    filter: drop-shadow(0 0 8px rgba(var(--primary-rgb), 0.3));
+}
+
+.loadingContainer :global(.MuiCircularProgress-circle) {
+    stroke-linecap: round;
+    animation-duration: 1.2s !important;
+}
+
+/* Дополнительный индикатор прогресса */
+.progressRing {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        rgba(var(--primary-rgb), 0.8) 50%,
+        transparent 100%
+    );
+    opacity: 0.15;
+    animation: rotateGradient 3s linear infinite;
+}
+
+.successContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 24px 0;
+    gap: 16px;
+    position: relative;
+    text-align: center;
+    overflow: hidden;
+}
+
+.successContainer::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(
+        circle,
+        rgba(var(--primary-rgb), 0.2) 0%,
+        transparent 70%
+    );
+    border-radius: 50%;
+    animation: successGlow 3s ease-in-out infinite;
+}
+
+@keyframes successGlow {
+    0% {
+        transform: scale(1);
+        opacity: 0.2;
+    }
+    50% {
+        transform: scale(1.5);
+        opacity: 0.3;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 0.2;
+    }
+}
+
+.successIconContainer {
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.2));
+    border-radius: 50%;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(var(--primary-rgb), 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.successIconContainer::before {
+    content: '';
+    position: absolute;
+    width: 150%;
+    height: 150%;
+    background: conic-gradient(
+        from 0deg,
+        transparent,
+        rgba(var(--primary-rgb), 0.1),
+        transparent
+    );
+    animation: rotateSuccess 3s linear infinite;
+}
+
+@keyframes rotateSuccess {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.successIcon {
+    color: var(--orange-primary) !important;
+    font-size: 48px !important;
+    filter: drop-shadow(0 0 5px rgba(var(--primary-rgb), 0.3));
+    position: relative;
+    z-index: 2;
+}
+
+.successTitle {
+    color: var(--text-color);
+    font-size: 24px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+}
+
+.successMessage {
+    color: var(--text-secondary);
+    font-size: 16px;
+    margin: 8px 0 16px 0;
+    max-width: 80%;
+}
+
+.documentPreview {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 16px;
+    border-radius: var(--radius);
+    background-color: rgba(var(--primary-rgb), 0.05);
+    border: 1px dashed rgba(var(--primary-rgb), 0.2);
+    transition: var(--transition-normal);
+}
+
+.documentPreview:hover {
+    background-color: rgba(var(--primary-rgb), 0.1);
+    border-color: rgba(var(--primary-rgb), 0.3);
+}
+
+.previewIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    background-color: var(--orange-primary);
+    color: white;
+    margin-right: 16px;
+    box-shadow: var(--shadow-md);
+}
+
+.previewInfo {
+    flex: 1;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+}
+
+.documentName {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 12px;
+}
+
+.documentType {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.downloadButton {
+    background: linear-gradient(45deg, var(--orange-primary), var(--orange-light)) !important;
+    color: white !important;
+    padding: 8px 16px !important;
+    border-radius: var(--radius-sm) !important;
+    transition: var(--transition-normal) !important;
+    text-transform: none !important;
+    font-weight: 500 !important;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 10px rgba(var(--primary-rgb), 0.2) !important;
+}
+
+.downloadButton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: 0.5s;
+}
+
+.downloadButton:hover {
+    background: linear-gradient(45deg, var(--orange-dark), var(--orange-primary)) !important;
+    transform: var(--hover-transform);
+    box-shadow: 0 6px 15px rgba(var(--primary-rgb), 0.3) !important;
+}
+
+.downloadButton:hover::before {
+    left: 100%;
+}
+
+.downloadButton:active {
+    transform: scale(0.98);
+}
+
+.cancelButton {
+    color: var(--text-secondary) !important;
+    transition: var(--transition-normal) !important;
+    text-transform: none !important;
+    font-weight: 500 !important;
+}
+
+.cancelButton:hover {
+    color: var(--text-color) !important;
+    background-color: rgba(var(--primary-rgb), 0.05) !important;
+}
+
+@media (max-width: 600px) {
+    .dialogPaper {
+        width: 90% !important;
+        max-width: 90% !important;
+        margin: 16px auto !important;
+        max-height: 80vh !important;
+    }
+    
+    .documentName {
+        font-size: 14px;
+    }
+    
+    .previewIcon {
+        min-width: 50px;
+        height: 50px;
+    }
+} 

@@ -1,0 +1,607 @@
+@import '../../../styles/base/variables.css';
+
+/* Основные стили для модального окна */
+.customModalContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 900; /* Ниже футера (z-index 1000) */
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none; /* Позволяет кликам проходить сквозь контейнер к футеру */
+}
+
+.modalOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 70px; /* Оставляем место для футера (70px) */
+  height: calc(100% - 70px); /* Уменьшаем высоту оверлея */
+  background-color: rgba(0, 0, 0, 0.75);
+  /* Удаляем блюр из базовых стилей */
+  /* backdrop-filter: blur(10px); */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto; /* Восстанавливаем обработку событий */
+}
+
+/* Добавляем блюр только для десктопной версии через медиа-запрос */
+@media (min-width: 769px) {
+  .modalOverlay {
+    backdrop-filter: blur(10px);
+  }
+}
+
+.modalOverlay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at 50% 30%,
+    rgba(var(--primary-rgb), 0.05) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  opacity: 0;
+  animation: gradientAppear 1s ease-out forwards 0.2s;
+}
+
+@keyframes gradientAppear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.drawerContainer {
+  position: absolute;
+  bottom: 70px; /* Располагаем над футером */
+  left: 0;
+  right: 0;
+  background-color: var(--card-background);
+  border-radius: 28px 28px 0 0;
+  max-height: calc(95vh - 70px); /* Вычитаем высоту футера */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 
+    0 -10px 30px rgba(0, 0, 0, 0.25),
+    0 -6px 15px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  pointer-events: auto; /* Восстанавливаем обработку событий */
+  transform-origin: bottom center;
+  /* Оптимизации для мобильной версии */
+  will-change: transform;
+  /* Аппаратное ускорение для мобильной версии */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  -webkit-perspective: 1000;
+  background-image: 
+    radial-gradient(
+      circle at 20% 110%, 
+      rgba(var(--primary-rgb), 0.07) 0%, 
+      transparent 60%
+    ),
+    radial-gradient(
+      circle at 80% 90%, 
+      rgba(var(--primary-rgb), 0.05) 0%, 
+      transparent 50%
+    );
+}
+
+.drawerContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: var(--gradient-primary);
+  z-index: 10;
+  box-shadow: 
+    0 2px 15px rgba(var(--primary-rgb), 0.4),
+    0 0 2px rgba(255, 255, 255, 0.5) inset;
+  animation: glowTop 4s infinite alternate;
+}
+
+.drawerContainer::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.25);
+  z-index: 10;
+}
+
+@keyframes glowTop {
+  from {
+    box-shadow: 
+      0 2px 12px rgba(var(--primary-rgb), 0.2),
+      0 0 2px rgba(255, 255, 255, 0.4) inset;
+  }
+  to {
+    box-shadow: 
+      0 2px 20px rgba(var(--primary-rgb), 0.5),
+      0 0 3px rgba(255, 255, 255, 0.6) inset;
+  }
+}
+
+.drawerHandle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 20px;
+  position: relative;
+  background-color: var(--card-background);
+  box-shadow: 0 4px 12px -8px rgba(0, 0, 0, 0.1);
+}
+
+.handleBar {
+  width: 60px;
+  height: 5px;
+  border-radius: 4px;
+  margin: 0 auto;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(to right, var(--gray-300), var(--gray-400), var(--gray-300));
+  box-shadow: 
+    0 0.5px 1px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+}
+
+.handleBar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: handleBarGlow 2.5s infinite ease-in-out;
+}
+
+@keyframes handleBarGlow {
+  0% {
+    left: -100%;
+  }
+  50%, 100% {
+    left: 100%;
+  }
+}
+
+.closeButton {
+  position: absolute !important;
+  right: 18px;
+  top: 14px;
+  width: 40px !important;
+  height: 40px !important;
+  background: var(--hover-overlay) !important;
+  border-radius: 50% !important;
+  color: var(--text-secondary) !important;
+  transition: var(--transition-normal) !important;
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.07) inset !important;
+  overflow: hidden;
+  transform-origin: center;
+  animation: closeButtonAppear 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards 0.5s;
+  opacity: 0;
+}
+
+@keyframes closeButtonAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.closeButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    circle at center, 
+    transparent 0%, 
+    transparent 50%, 
+    rgba(var(--primary-rgb), 0.2) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.closeButton:hover {
+  background: rgba(var(--primary-rgb), 0.12) !important;
+  color: var(--primary-color) !important;
+  transform: rotate(90deg) !important;
+  box-shadow: 
+    0 4px 10px rgba(var(--primary-rgb), 0.25),
+    0 0 0 1px rgba(var(--primary-rgb), 0.15) inset !important;
+}
+
+.closeButton:hover::before {
+  opacity: 1;
+}
+
+.closeButton:active {
+  transform: scale(0.9) rotate(90deg) !important;
+  background: rgba(var(--primary-rgb), 0.18) !important;
+}
+
+.closeButton svg {
+  position: relative;
+  z-index: 1;
+  font-size: 20px;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+.closeButton:hover svg {
+  transform: scale(1.15);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Стили для десктопной версии */
+.desktopDrawerContainer {
+  position: relative;
+  margin: 1% auto; /* Центрируем модальное окно */
+  width: 100%;
+  max-width: 900px;
+  height: auto;
+  max-height: 90vh;
+  border-radius: var(--radius-lg);
+  background-color: var(--card-background);
+  box-shadow: 
+    0 25px 50px rgba(0, 0, 0, 0.2),
+    0 10px 25px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  background-image: 
+    radial-gradient(
+      circle at 10% 5%, 
+      rgba(var(--primary-rgb), 0.07) 0%, 
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 90% 10%, 
+      rgba(var(--primary-rgb), 0.05) 0%, 
+      transparent 40%
+    );
+}
+
+.desktopDrawerHandle {
+  justify-content: space-between;
+  padding: 24px 32px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  background: linear-gradient(
+    to right,
+    rgba(var(--primary-rgb), 0.04),
+    transparent 50%,
+    rgba(var(--primary-rgb), 0.04)
+  );
+  box-shadow: 
+    0 5px 15px -10px rgba(0, 0, 0, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.desktopDrawerHandle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--primary-rgb), 0.05),
+    transparent
+  );
+  pointer-events: none;
+}
+
+.desktopModalTitle {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+  text-align: center;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+  letter-spacing: 0.5px;
+  position: relative;
+  flex: 1;
+  animation: titleAppear 0.7s ease forwards;
+  background: var(--text-color);
+  background-clip: text;
+  -webkit-background-clip: text;
+  text-fill-color: transparent;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--text-color),
+    var(--text-color) 60%,
+    var(--primary-color) 150%
+  );
+}
+
+@keyframes titleAppear {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+.desktopModalTitle::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  animation: lineAppear 0.8s ease forwards 0.4s;
+  border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(var(--primary-rgb), 0.3);
+}
+
+@keyframes lineAppear {
+  0% {
+    width: 0;
+    opacity: 0;
+  }
+  100% {
+    width: 80px;
+    opacity: 1;
+  }
+}
+
+/* Содержимое модального окна */
+.modalContent {
+  padding: 28px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+.modalContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.modalContent::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.modalContent::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.modalContent::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, var(--primary-light), var(--primary));
+}
+
+.modalContent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to bottom, var(--card-background), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.modalContent::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 24px;
+  background: linear-gradient(to top, var(--card-background), transparent);
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Более агрессивные стили для скрытия кнопок в футере на десктопной версии */
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) :global(.createButton),
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) :global(.updateButton),
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) [class*="Footer_createButton"],
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) [class*="Footer_updateButton"],
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) button[class*="createButton"],
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) button[class*="updateButton"],
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) > .MuiButton-root,
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) > div > .MuiButton-root,
+:global(body.desktop-modal-open) :global(.footer:not(.customModalContainer .footer)) button:not([class*="chatButton"]):not([class*="iconButton"]):not(.customModalContainer button) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .customModalContainer {
+    align-items: flex-end;
+    /* Сокращаем время отклика для тачевых устройств */
+    touch-action: manipulation;
+  }
+  
+  .modalOverlay {
+    bottom: 70px;
+    height: calc(100% - 70px);
+    /* Оптимизация рендеринга оверлея */
+    will-change: opacity;
+    /* Упрощаем визуальные эффекты для мобильных устройств */
+    background-color: rgba(0, 0, 0, 0.8);
+    /* Отключаем градиенты для повышения производительности */
+    background-image: none;
+  }
+  
+  .footerOverlay {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 65px;
+    background-color: transparent;
+    z-index: 995;
+  }
+  
+  .drawerContainer {
+    position: absolute;
+    bottom: 65px;
+    left: 0;
+    right: 0;
+    margin-bottom: 0;
+    max-height: calc(100vh - 65px);
+    z-index: 995;
+    /* Упрощаем тени для мобильных устройств */
+    box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
+    /* Используем аппаратное ускорение */
+    backface-visibility: hidden;
+    perspective: 1000;
+    /* Отключаем сложные градиенты для повышения производительности */
+    background-image: none;
+  }
+  
+  .desktopDrawerContainer {
+    width: 95%;
+    min-height: auto;
+    max-height: 80vh;
+  }
+  
+  .desktopDrawerHandle {
+    padding: 20px 24px;
+  }
+  
+  .desktopModalTitle {
+    font-size: 22px;
+  }
+  
+  .modalContent {
+    padding: 22px;
+    gap: 18px;
+  }
+  
+  .srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Отключаем декоративные эффекты, которые влияют на производительность */
+  .drawerContainer::before,
+  .drawerContainer::after {
+    display: none;
+  }
+}
+
+.footerOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 70px; /* Высота футера */
+  background-color: transparent; /* Полностью прозрачный, чтобы футер был виден */
+  pointer-events: none; /* Полностью пропускаем события к футеру */
+  z-index: 950; /* Ниже футера, но выше остальных элементов */
+}
+
+/* Стили для режима оптимизации производительности на мобильных устройствах */
+:global(body.performance-mode) {
+  /* Отключаем сложные анимации и эффекты во время открытия модального окна */
+  :global(.animate-pulse),
+  :global(.animate-spin),
+  :global([class*="gradient"]),
+  :global([class*="animation"]),
+  :global([class*="moving"]) {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  /* Упрощаем тени */
+  :global(.shadow-lg),
+  :global(.shadow-xl),
+  :global([class*="shadow"]) {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  }
+  
+  /* Упрощаем фоны */
+  :global([class*="blur"]),
+  :global([class*="backdrop"]) {
+    backdrop-filter: none !important;
+    filter: none !important;
+  }
+  
+  /* Оптимизируем прокрутку */
+  :global(*) {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Дополнительные оптимизации для модального окна в мобильном режиме */
+@media (max-width: 768px) {
+  /* Стилизуем скроллбар для лучшей производительности */
+  .modalContent::-webkit-scrollbar {
+    width: 0;
+    background: transparent;
+  }
+  
+  /* Упрощаем стили для повышения производительности */
+  .modalContent::before,
+  .modalContent::after {
+    display: none;
+  }
+}
+

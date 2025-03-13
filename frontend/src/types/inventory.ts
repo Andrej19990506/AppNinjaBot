@@ -13,8 +13,43 @@ export interface InventoryItemData {
 }
 
 export interface InventoryItem {
-    raw: InventoryItemData;
-    semifinished?: InventoryItemData | null;
+    name: string;
+    description?: string;
+    quantity: number;
+    unit?: string;
+    price?: number;
+    category?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    lowStockThreshold?: number;
+    history?: ItemHistoryEntry[];
+    tags?: string[];
+    suppliers?: string[];
+    imageUrl?: string;
+    barcode?: string;
+    sku?: string;
+    lastOrderDate?: string;
+    nextOrderDate?: string;
+    minOrderQuantity?: number;
+    maxOrderQuantity?: number;
+    orderLeadTime?: number;
+    notes?: string;
+    location?: string;
+    status?: 'in-stock' | 'low-stock' | 'out-of-stock' | 'discontinued';
+    expiryDate?: string;
+    customs?: Record<string, any>;
+    raw?: {
+        quantity: number;
+        unit?: string;
+        filled?: boolean;
+        isOutOfStock?: boolean;
+    };
+    semifinished?: {
+        quantity: number;
+        unit?: string;
+        filled?: boolean;
+        isOutOfStock?: boolean;
+    } | null;
 }
 
 export interface InventoryCategory {
@@ -125,6 +160,18 @@ export interface InventoryState {
         timestamp?: string;
         type?: string;
     };
+}
+
+export interface ItemHistoryEntry {
+    date: string;
+    action: 'add' | 'update' | 'delete' | 'order' | 'restock' | 'writeoff';
+    quantity?: number;
+    previousQuantity?: number;
+    newQuantity?: number;
+    userId?: string;
+    userName?: string;
+    note?: string;
+    actionDetails?: Record<string, any>;
 }
 
 // Action Types

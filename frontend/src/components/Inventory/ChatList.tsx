@@ -7,6 +7,7 @@ import PlayCircle from '@mui/icons-material/PlayCircle';
 import PendingActions from '@mui/icons-material/PendingActions';
 import Refresh from '@mui/icons-material/Refresh';
 import AccessTime from '@mui/icons-material/AccessTime';
+import HomeIcon from '@mui/icons-material/Home';
 import ChatModal from './ChatModal';
 import ConfirmDialog from './ConfirmDialog';
 import SystemNotification from '../notifications/SystemNotification';
@@ -22,6 +23,15 @@ interface ChatListProps {
     chats: ChatInventory[];
     onChatSelect: (chatId: string, chat: ChatInventory) => void;
     onResetInventory?: (chatId: string) => Promise<void>;
+    mode: 'inventory' | 'write-off';
+    title?: string;
+    currentUser: {
+        id: number | null;
+        isAdmin: boolean;
+        adminRights: any | null;
+        photo_url: string | null;
+        first_name: string | null;
+    };
 }
 
 interface SystemNotificationType {
@@ -29,8 +39,21 @@ interface SystemNotificationType {
     type: 'success' | 'error';
 }
 
-const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInventory }) => {
-    const { currentUser } = useAppSelector(state => state.inventory);
+// Константы для свайпа
+const swipeConfidenceThreshold = 10000;
+const swipePower = (offset: number, velocity: number) => {
+    return Math.abs(offset) * velocity;
+};
+
+const ChatList: React.FC<ChatListProps> = ({ 
+    chats, 
+    onChatSelect, 
+    onResetInventory,
+    mode = 'inventory',
+    title = mode === 'inventory' ? 'Выберите чат для инвентаризации' : 'Выберите чат для списания',
+    currentUser
+}) => {
+    const { currentUser: appCurrentUser } = useAppSelector(state => state.inventory);
     const [resetConfirmation, setResetConfirmation] = useState<{ chatId: string; button: HTMLButtonElement } | null>(null);
     const [systemNotification, setSystemNotification] = useState<SystemNotificationType>({ message: '', type: 'success' });
     const [activeIndex, setActiveIndex] = useState(0);
@@ -86,6 +109,9 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
     }, []);
 
     const getStatusText = useCallback((status: 'completed' | 'in-progress' | 'not-started'): string => {
+        if (mode === 'write-off') {
+            return ''; // В режиме списания не показываем статус
+        }
         switch (status) {
             case 'completed':
                 return 'Завершено';
@@ -94,7 +120,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
             case 'not-started':
                 return 'Не начато';
         }
-    }, []);
+    }, [mode]);
 
     const handleResetInventory = useCallback(async (chatId: string, event: React.MouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
@@ -103,13 +129,13 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
         const chat = chats.find(c => c.chat_id === chatId);
         if (!chat) return;
 
-        if (!currentUser.isAdmin) {
+        if (!appCurrentUser.isAdmin) {
             setResetConfirmation({
                 chatId,
                 button: event.currentTarget
             });
         }
-    }, [chats, currentUser.isAdmin, onResetInventory]);
+    }, [chats, appCurrentUser.isAdmin, onResetInventory]);
 
     const handleResetConfirm = useCallback(async () => {
         if (!resetConfirmation || !onResetInventory) return;
@@ -188,6 +214,10 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
         }
     }, []);
 
+    const handleHomeClick = () => {
+        navigate('/');
+    };
+
     if (!currentChat) {
         return (
             <div className={styles.container}>
@@ -230,7 +260,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
                 >
-                    Выберите чат для инвентаризации
+                    {title}
                 </motion.h1>
 
                 <SystemNotification 
@@ -282,40 +312,44 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
                                 </div>
                                 
                                 <div className={styles.progressSection}>
-                                    <div className={styles.progressInfo}>
-                                        <div className={styles.progressStatus}>
-                                            {getInventoryStatus(currentChat) === 'completed' ? (
-                                                <CheckCircle className={styles.icon} />
-                                            ) : getInventoryStatus(currentChat) === 'in-progress' ? (
-                                                <PlayCircle className={styles.icon} />
-                                            ) : (
-                                                <PendingActions className={styles.icon} />
-                                            )}
-                                            <span className={styles.progressText}>
-                                                {currentChat.metadata?.progress || 0}%
-                                            </span>
-                                        </div>
-                                        <div className={styles.progressActions}>
-                                            {(currentChat.metadata?.progress || 0) > 0 && onResetInventory && (
-                                                <motion.button
-                                                    className={styles.resetButton}
-                                                    onClick={(e) => handleResetInventory(currentChat.chat_id, e)}
-                                                    whileHover={{ scale: 1.1, rotate: 180 }}
-                                                    whileTap={{ scale: 0.9 }}
-                                                >
-                                                    <Refresh className={styles.icon} />
-                                                </motion.button>
-                                            )}
-                                        </div>
-                                    </div>
-                                    <LinearProgress 
-                                        variant="determinate" 
-                                        value={currentChat.metadata?.progress || 0}
-                                        className={styles.progress}
-                                        classes={{
-                                            bar: styles.progressBar
-                                        }}
-                                    />
+                                    {mode === 'inventory' && (
+                                        <>
+                                            <div className={styles.progressInfo}>
+                                                <div className={styles.progressStatus}>
+                                                    {getInventoryStatus(currentChat) === 'completed' ? (
+                                                        <CheckCircle className={styles.icon} />
+                                                    ) : getInventoryStatus(currentChat) === 'in-progress' ? (
+                                                        <PlayCircle className={styles.icon} />
+                                                    ) : (
+                                                        <PendingActions className={styles.icon} />
+                                                    )}
+                                                    <span className={styles.progressText}>
+                                                        {currentChat.metadata?.progress || 0}%
+                                                    </span>
+                                                </div>
+                                                <div className={styles.progressActions}>
+                                                    {(currentChat.metadata?.progress || 0) > 0 && onResetInventory && (
+                                                        <motion.button
+                                                            className={styles.resetButton}
+                                                            onClick={(e) => handleResetInventory(currentChat.chat_id, e)}
+                                                            whileHover={{ scale: 1.1, rotate: 180 }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                        >
+                                                            <Refresh className={styles.icon} />
+                                                        </motion.button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <LinearProgress 
+                                                variant="determinate" 
+                                                value={currentChat.metadata?.progress || 0}
+                                                className={styles.progress}
+                                                classes={{
+                                                    bar: styles.progressBar
+                                                }}
+                                            />
+                                        </>
+                                    )}
                                 </div>
 
                                 <div className={styles.chatFooter}>
@@ -333,14 +367,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
                         )}
                     </AnimatePresence>
 
-                    <motion.div 
-                        className={styles.chatSelectorContainer}
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                        ref={dropdownRef}
-                        onKeyDown={handleKeyDown}
-                    >
+                    <div className={styles.buttonsContainer}>
                         <motion.button
                             className={styles.chatSelectorButton}
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -386,7 +413,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
                                     <motion.path
                                         initial={{ d: "M4 16h16" }}
                                         animate={{
-                                            d: isDropdownOpen ? "M6 6l12 12" : "M4 16h16"
+                                            d: isDropdownOpen ? "M6 6L18 18" : "M4 16h16"
                                         }}
                                         transition={{ duration: 0.3 }}
                                     />
@@ -394,45 +421,67 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
                             </motion.div>
                         </motion.button>
 
-                        <AnimatePresence>
-                            {isDropdownOpen && (
-                                <motion.div
-                                    id="chat-dropdown"
-                                    className={styles.chatDropdown}
-                                    initial={{ opacity: 0, y: 20, height: 0 }}
-                                    animate={{ opacity: 1, y: 0, height: 'auto' }}
-                                    exit={{ opacity: 0, y: 20, height: 0 }}
-                                    transition={{ duration: 0.3, ease: "easeInOut" }}
-                                    role="menu"
-                                    aria-orientation="vertical"
-                                >
-                                    {chats.map((chat, index) => (
-                                        <motion.button
-                                            key={chat.chat_id}
-                                            className={`${styles.chatOption} ${index === activeIndex ? styles.active : ''}`}
-                                            onClick={() => handleChatButtonClick(index)}
-                                            initial={{ opacity: 0, x: -20 }}
-                                            animate={{ 
-                                                opacity: 1, 
-                                                x: 0,
-                                                transition: { delay: index * 0.05 }
-                                            }}
-                                            whileHover={{ scale: 1.02, x: 10 }}
-                                            whileTap={{ scale: 0.98 }}
-                                            role="menuitem"
-                                            aria-current={index === activeIndex}
-                                        >
-                                            <span className={styles.chatTitle}>{chat.chat_title}</span>
-                                            <span className={`${styles.chatProgress} ${styles[getInventoryStatus(chat)]}`}>
-                                                {chat.metadata?.progress || 0}%
-                                            </span>
-                                        </motion.button>
-                                    ))}
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </motion.div>
+                        <motion.button
+                            className={`${styles.chatSelectorButton} ${styles.homeButton}`}
+                            onClick={handleHomeClick}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            aria-label="Вернуться на главную"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.2 }}
+                        >
+                            <HomeIcon />
+                        </motion.button>
+                    </div>
                 </div>
+
+                <motion.div 
+                    className={styles.chatSelectorContainer}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    ref={dropdownRef}
+                    onKeyDown={handleKeyDown}
+                >
+                    <AnimatePresence>
+                        {isDropdownOpen && (
+                            <motion.div
+                                id="chat-dropdown"
+                                className={styles.chatDropdown}
+                                initial={{ opacity: 0, y: 20, height: 0 }}
+                                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                                exit={{ opacity: 0, y: 20, height: 0 }}
+                                transition={{ duration: 0.3, ease: "easeInOut" }}
+                                role="menu"
+                                aria-orientation="vertical"
+                            >
+                                {chats.map((chat, index) => (
+                                    <motion.button
+                                        key={chat.chat_id}
+                                        className={`${styles.chatOption} ${index === activeIndex ? styles.active : ''}`}
+                                        onClick={() => handleChatButtonClick(index)}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ 
+                                            opacity: 1, 
+                                            x: 0,
+                                            transition: { delay: index * 0.05 }
+                                        }}
+                                        whileHover={{ scale: 1.02, x: 10 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        role="menuitem"
+                                        aria-current={index === activeIndex}
+                                    >
+                                        <span className={styles.chatTitle}>{chat.chat_title}</span>
+                                        <span className={`${styles.chatProgress} ${styles[getInventoryStatus(chat)]}`}>
+                                            {chat.metadata?.progress || 0}%
+                                        </span>
+                                    </motion.button>
+                                ))}
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
 
                 {resetConfirmation && (
                     <ConfirmDialog
@@ -455,11 +504,6 @@ const ChatList: React.FC<ChatListProps> = ({ chats, onChatSelect, onResetInvento
             </LazyMotion>
         </div>
     );
-};
-
-const swipeConfidenceThreshold = 10000;
-const swipePower = (offset: number, velocity: number) => {
-    return Math.abs(offset) * velocity;
 };
 
 export default ChatList;

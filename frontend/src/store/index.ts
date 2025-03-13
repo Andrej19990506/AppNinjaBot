@@ -2,12 +2,16 @@ import { configureStore, Action, ThunkAction } from '@reduxjs/toolkit';
 import chatReducer from './slices/chatSlice';
 import inventoryReducer from './slices/inventorySlice';
 import notificationReducer from './slices/notificationSlice';
+import writeOffReducer from './slices/writeOffSlice';
+import userReducer from './slices/userSlice';
 
 export const store = configureStore({
     reducer: {
         chats: chatReducer,
         inventory: inventoryReducer,
-        notification: notificationReducer
+        notification: notificationReducer,
+        writeOff: writeOffReducer,
+        user: userReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

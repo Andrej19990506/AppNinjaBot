@@ -8,43 +8,43 @@
       "chatTitle": "Словцова"
     },
     "item": {
-      "category": "Бакалея",
-      "itemId": "321",
+      "category": "Полуфабрикаты",
+      "itemId": "nfr",
       "has_semifinished": false
     },
-    "timestamp": "2025-03-03T15:59:38.907Z",
-    "id": "f5286f75-34cf-4f92-be0b-198b3956f79d"
+    "timestamp": "2025-03-10T21:28:14.650Z",
+    "id": "a3f71299-58d0-4108-84a1-e4b02e4ef3d7"
   },
   {
     "type": "item_suggestion",
     "source": {
-      "userId": 1682142222,
-      "userName": "andrej",
-      "chatId": "4621747814",
-      "chatTitle": "Словцова"
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
     },
     "item": {
-      "category": "Бакалея",
-      "itemId": "777",
+      "category": "Полуфабрикаты",
+      "itemId": "Пц",
       "has_semifinished": false
     },
-    "timestamp": "2025-03-03T16:06:38.977Z",
-    "id": "01fa54a4-9cb7-4597-b96c-bd5b62c6cc65"
+    "timestamp": "2025-03-10T21:30:25.403Z",
+    "id": "bd9d97fc-fbff-48bb-b358-4385f9cb41e4"
   },
   {
     "type": "item_suggestion",
     "source": {
-      "userId": 1682142222,
-      "userName": "andrej",
-      "chatId": "4621747814",
-      "chatTitle": "Словцова"
+      "userId": 6843570748,
+      "userName": "Словцова",
+      "chatId": "2457417588",
+      "chatTitle": "Свердловская"
     },
     "item": {
       "category": "Бакалея",
-      "itemId": "555",
+      "itemId": "Смотрим",
       "has_semifinished": false
     },
-    "timestamp": "2025-03-03T16:11:19.656Z",
-    "id": "375c0ee5-152e-46b9-8e8b-7b98ba8d75e3"
+    "timestamp": "2025-03-11T03:00:55.472Z",
+    "id": "d0a155bd-7607-4de7-893d-8a8cca571258"
   }
 ]

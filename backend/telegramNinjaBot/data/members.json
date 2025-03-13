@@ -1,14 +1,23 @@
 {
-  "4621747814": {
+  "2283072469": {
     "chat_title": "Словцова",
     "members": [
+      {
+        "user_id": 836104828,
+        "username": "nesterova111",
+        "first_name": "Ира",
+        "last_name": null,
+        "status": "administrator",
+        "joined_date": "2025-03-12T03:28:23.005332",
+        "is_bot": false
+      },
       {
         "user_id": 1732151074,
         "username": "Pyma5",
         "first_name": "Роза",
         "last_name": null,
         "status": "administrator",
-        "joined_date": "2025-03-02T16:48:51.661362",
+        "joined_date": "2025-03-12T03:28:23.121553",
         "is_bot": false
       },
       {
@@ -17,69 +26,11 @@
         "first_name": "andrej",
         "last_name": "malahow",
         "status": "creator",
-        "joined_date": "2025-03-02T16:48:51.920620",
+        "joined_date": "2025-03-12T03:28:23.358355",
         "is_bot": false,
-        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg"
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_57.jpg"
       }
     ],
-    "last_updated": "2025-03-03T16:16:38.862602"
-  },
-  "2457417588": {
-    "chat_title": "Свердловская",
-    "members": [
-      {
-        "user_id": 6843570748,
-        "username": null,
-        "first_name": "Словцова",
-        "last_name": null,
-        "status": "creator",
-        "joined_date": "2025-03-02T16:48:32.705392",
-        "is_bot": false,
-        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_48.jpg"
-      },
-      {
-        "user_id": 1682142222,
-        "username": "andrejnikolaevich1999",
-        "first_name": "andrej",
-        "last_name": "malahow",
-        "status": "administrator",
-        "joined_date": "2025-03-02T16:48:32.934970",
-        "is_bot": false,
-        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg"
-      }
-    ],
-    "last_updated": "2025-03-03T16:16:38.990218"
-  },
-  "2421651560": {
-    "chat_title": "Баумана",
-    "members": [
-      {
-        "user_id": 1682142222,
-        "username": "andrejnikolaevich1999",
-        "first_name": "andrej",
-        "last_name": "malahow",
-        "status": "creator",
-        "joined_date": "2025-03-03T09:36:14.744551",
-        "is_bot": false,
-        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg"
-      }
-    ],
-    "last_updated": "2025-03-03T16:16:39.007525"
-  },
-  "4715475833": {
-    "chat_title": "Взлетка",
-    "members": [
-      {
-        "user_id": 1682142222,
-        "username": "andrejnikolaevich1999",
-        "first_name": "andrej",
-        "last_name": "malahow",
-        "status": "creator",
-        "joined_date": "2025-03-02T16:49:36.067540",
-        "is_bot": false,
-        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_49.jpg"
-      }
-    ],
-    "last_updated": "2025-03-03T16:16:39.027447"
+    "last_updated": "2025-03-13T07:07:40.795092"
   }
 }

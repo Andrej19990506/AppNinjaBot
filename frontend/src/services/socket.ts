@@ -167,14 +167,28 @@ class SocketService {
     }
 
     subscribe(event: string, callback: (data: any) => void): void {
+        console.log(`🔌 Подписка на WebSocket событие: ${event}`);
         if (this.socket) {
-            this.socket.on(event, callback);
+            // Добавляем обертку для логирования всех событий
+            const wrappedCallback = (data: any) => {
+                console.log(`📡 Получено WebSocket событие: ${event}`, data);
+                callback(data);
+            };
+            
+            this.socket.on(event, wrappedCallback);
+            console.log(`✅ Успешно подписались на событие: ${event}`);
+        } else {
+            console.warn(`⚠️ Не удалось подписаться на событие ${event}: сокет не инициализирован`);
         }
     }
 
     unsubscribe(event: string): void {
+        console.log(`🔌 Отписка от WebSocket события: ${event}`);
         if (this.socket) {
             this.socket.off(event);
+            console.log(`✅ Успешно отписались от события: ${event}`);
+        } else {
+            console.warn(`⚠️ Не удалось отписаться от события ${event}: сокет не инициализирован`);
         }
     }
 

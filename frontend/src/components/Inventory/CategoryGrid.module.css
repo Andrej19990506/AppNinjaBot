@@ -5,7 +5,7 @@
     background: var(--background);
     border-radius: var(--radius-lg);
     overflow: visible;
-    padding: 24px;
+    padding: 24px 24px 60px 24px;
 }
 
 .grid {

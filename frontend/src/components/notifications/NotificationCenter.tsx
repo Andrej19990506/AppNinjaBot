@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { removeNotification, markAsRead, Notification, NotificationTypes, showToastNotification } from '../../store/slices/notificationSlice';
 import Snackbar from '@mui/material/Snackbar';
@@ -15,7 +15,7 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Tooltip from '@mui/material/Tooltip';
-import ItemSuggestionNotification from './ItemSuggestionNotification';
+import ItemSuggestionNotification from '../ItemSuggestionNotification/ItemSuggestionNotification';
 import CloseIcon from '@mui/icons-material/Close';
 import { format } from 'date-fns';
 import styles from './NotificationCenter.module.css';
@@ -31,6 +31,13 @@ import Slider from '@mui/material/Slider';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Switch from '@mui/material/Switch';
 import Button from '@mui/material/Button';
+import { motion, AnimatePresence } from 'framer-motion';
+import CheckIcon from '@mui/icons-material/Check';
+import DeleteIcon from '@mui/icons-material/Delete';
+import FilterListIcon from '@mui/icons-material/FilterList';
+import { ru } from 'date-fns/locale';
+import { updateInventoryItem } from '../../store/slices/inventorySlice';
+import type { InventoryItem } from '../../types/inventory';
 
 // Определение типа для дубликатов
 interface DuplicateSuggestion {
@@ -51,31 +58,57 @@ const NotificationCenter: React.FC = () => {
     
     // Фильтруем уведомления, чтобы избежать дубликатов
     const filteredNotifications = useMemo(() => {
-        // Сначала отфильтровываем toast-уведомления
-        const nonToastNotifications = notifications.filter(n => !n.isToast);
+        // Сначала отфильтровываем toast-уведомления и невалидные уведомления
+        const nonToastNotifications = notifications.filter(n => 
+            !n.isToast && n.id && n.type
+        );
         
-        // Создаем Map для отслеживания уникальных уведомлений по их содержимому
-        const uniqueNotifications = new Map();
+        // Создаем Map для отслеживания уникальных уведомлений
+        const uniqueNotifications = new Map<string, Notification>();
         
         // Для каждого уведомления создаем уникальный ключ на основе его содержимого
         nonToastNotifications.forEach(notification => {
+            // Убеждаемся, что у уведомления есть ID
+            if (!notification.id) return;
+            
+            let key = notification.id;
+            
             // Для уведомлений статуса предложения товара используем комбинацию targetChatId, itemName и status
-            if (notification.type === NotificationTypes.SUGGESTION_STATUS && notification.payload?.type === 'suggestion_status') {
-                const key = `${notification.payload.targetChatId}-${notification.payload.itemName}-${notification.payload.status}`;
-                
-                // Если уведомление с таким ключом уже есть, сохраняем только самое новое
-                if (!uniqueNotifications.has(key) || 
-                    new Date(notification.timestamp || '') > new Date(uniqueNotifications.get(key).timestamp || '')) {
-                    uniqueNotifications.set(key, notification);
+            if (notification.type === NotificationTypes.SUGGESTION_STATUS && 
+                notification.payload?.type === 'suggestion_status') {
+                const { targetChatId, itemName, status } = notification.payload;
+                if (targetChatId && itemName && status) {
+                    key = `suggestion-${targetChatId}-${itemName}-${status}`;
                 }
-            } else {
-                // Для других типов уведомлений используем их ID
-                uniqueNotifications.set(notification.id, notification);
+            }
+            // Для предложений товара используем комбинацию chatId, category и itemId
+            else if (notification.payload?.type === 'item_suggestion' && 
+                     notification.payload.item && 
+                     notification.payload.source) {
+                const { item, source } = notification.payload;
+                if (item.category && item.itemId && source.chatId) {
+                    key = `item-${source.chatId}-${item.category}-${item.itemId}`;
+                }
+            }
+            
+            // Если уведомление с таким ключом уже есть, сохраняем только самое новое
+            const existingNotification = uniqueNotifications.get(key);
+            const currentTimestamp = notification.timestamp || new Date().toISOString();
+            const existingTimestamp = existingNotification?.timestamp || new Date(0).toISOString();
+            
+            if (!existingNotification || 
+                new Date(currentTimestamp) > new Date(existingTimestamp)) {
+                uniqueNotifications.set(key, notification);
             }
         });
         
-        // Преобразуем Map обратно в массив
-        return Array.from(uniqueNotifications.values());
+        // Преобразуем Map обратно в массив и сортируем по времени (новые сверху)
+        return Array.from(uniqueNotifications.values())
+            .sort((a, b) => {
+                const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                return timeB - timeA;
+            });
     }, [notifications]);
     
     // Считаем только непрочитанные уведомления
@@ -92,7 +125,7 @@ const NotificationCenter: React.FC = () => {
     );
     
     const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-    const [currentNotification, setCurrentNotification] = useState<string | null>(null);
+    const [currentNotification, setCurrentNotification] = useState<Notification | null>(null);
     const [inventoryLoaded, setInventoryLoaded] = useState(false);
     const open = Boolean(anchorEl);
     
@@ -318,7 +351,7 @@ const NotificationCenter: React.FC = () => {
                     // Показываем самое старое (первое) непринятое предложение товара
                     const oldestSuggestion = updatedPendingItemSuggestions[0];
                     console.log('📣 Показываем предложение товара:', oldestSuggestion);
-                    setCurrentNotification(oldestSuggestion.id as string);
+                    setCurrentNotification(oldestSuggestion);
                     
                     // Воспроизводим звук уведомления
                     playNotificationSound();
@@ -371,70 +404,118 @@ const NotificationCenter: React.FC = () => {
     };
 
     // Обработчик выбора уведомления
-    const handleNotificationClick = (notificationId: string) => {
-        const notification = filteredNotifications.find((n: Notification) => n.id === notificationId);
-        
-        if (!notification) {
-            console.error('🔴 Не найдено уведомление с ID:', notificationId);
-            return;
-        }
-        
-        // Добавляем полное логирование для отладки
-        console.log('📣 Обработка клика по уведомлению:', {
-            id: notification.id,
-            type: notification.type,
-            payloadType: notification.payload?.type,
-            hasItem: !!notification.payload?.item,
-            hasSource: !!notification.payload?.source,
-            complete: !!(notification.payload?.type === 'item_suggestion' && 
-                       notification.payload?.item?.itemId && 
-                       notification.payload?.source?.userName)
-        });
-        
-        // Для уведомлений типа item_suggestion добавим более подробную информацию
+    const handleNotificationClick = (notification: Notification) => {
         if (notification.payload?.type === 'item_suggestion') {
-            console.log('🔍 Данные предложения товара:', {
-                itemId: notification.payload?.item?.itemId || 'ОТСУТСТВУЕТ',
-                category: notification.payload?.item?.category || 'ОТСУТСТВУЕТ',
-                userName: notification.payload?.source?.userName || 'ОТСУТСТВУЕТ',
-                chatTitle: notification.payload?.source?.chatTitle || 'ОТСУТСТВУЕТ'
-            });
+            setCurrentNotification(notification);
         }
-        
-        // Если это предложение добавить товар и оно содержит все необходимые данные, показываем диалог
-        if (notification.payload?.type === 'item_suggestion' && 
-            notification.payload.item?.itemId && 
-            notification.payload.item?.category && 
-            notification.payload.source?.userName && 
-            notification.payload.source?.chatTitle) {
-            
-            console.log('✅ Открываем диалог с предложением товара:', notification);
-            setCurrentNotification(notificationId);
-        } else if (notification.payload?.type === 'item_suggestion') {
-            console.warn('⚠️ Неполное предложение товара:', notification);
-            // Показать toast с объяснением
-            dispatch(showToastNotification(
-                NotificationTypes.WARNING, 
-                'Невозможно отобразить предложение товара из-за отсутствия необходимых данных'
-            ));
-            
-            // Не открываем диалог для неполных предложений
-            setCurrentNotification(null);
-        } else {
-            console.log('ℹ️ Обычное уведомление, не требует специальной обработки');
-            // Просто оставляем это как обычное уведомление
-            setCurrentNotification(null);
-        }
-        
-        // Отмечаем уведомление как прочитанное
-        dispatch(markAsRead(notificationId));
-        
-        // Закрываем меню
-        handleClose();
     };
 
-    // Обработчик закрытия диалога предложения
+    // Обработчик закрытия диалога
     const handleDialogClose = () => {
+        setCurrentNotification(null);
+    };
+
+    // Обработчик подтверждения
+    const handleConfirm = (notificationId: string) => {
+        if (!currentNotification) {
+            console.error('❌ Нет текущего уведомления');
+            return;
+        }
+
+        const { payload } = currentNotification;
+        
+        console.log('🔄 Обработка подтверждения уведомления:', {
+            id: notificationId,
+            payload
+        });
+        
+        // Проверяем, что это предложение товара и содержит все необходимые данные
+        if (payload?.type === 'item_suggestion' && payload.item && payload.source) {
+            const { item, source } = payload;
+            
+            // Проверяем наличие всех необходимых данных
+            if (!item.category || !item.itemId) {
+                console.error('❌ Отсутствуют обязательные данные товара:', item);
+                dispatch(showToastNotification(
+                    NotificationTypes.ERROR,
+                    'Ошибка: отсутствуют обязательные данные товара'
+                ));
+                return;
+            }
+            
+            console.log('📦 Данные товара:', {
+                category: item.category,
+                itemId: item.itemId,
+                name: item.name || item.itemId,
+                quantity: item.quantity,
+                has_semifinished: item.has_semifinished,
+                source: {
+                    chatId: source.chatId,
+                    chatTitle: source.chatTitle
+                }
+            });
+            
+            // Создаем объект товара для добавления
+            const newItem: InventoryItem = {
+                raw: {
+                    quantity: item.quantity || 1,
+                    filled: true,
+                    name: item.name || item.itemId // Используем name если есть, иначе itemId
+                }
+            };
+
+            // Если есть опции для полуфабриката
+            if (item.has_semifinished) {
+                newItem.semifinished = {
+                    quantity: 0,
+                    filled: false
+                };
+            }
+
+            console.log('📝 Подготовленный объект товара:', newItem);
+
+            try {
+                // Обновляем инвентарь
+                dispatch(updateInventoryItem({
+                    chatId: source.chatId,
+                    category: item.category,
+                    itemId: item.itemId,
+                    item: newItem
+                }));
+
+                // Отмечаем уведомление как прочитанное
+                dispatch(markAsRead(notificationId));
+
+                // Показываем уведомление об успешном добавлении с правильным именем товара
+                const itemDisplayName = item.name || item.itemId;
+                dispatch(showToastNotification(
+                    NotificationTypes.SUCCESS,
+                    `Товар "${itemDisplayName}" успешно добавлен в категорию "${item.category}"`
+                ));
+
+                console.log('✅ Товар успешно добавлен:', itemDisplayName);
+            } catch (err) {
+                const error = err as Error;
+                console.error('❌ Ошибка при добавлении товара:', error);
+                
+                dispatch(showToastNotification(
+                    NotificationTypes.ERROR,
+                    `Ошибка при добавлении товара: ${error.message || 'Неизвестная ошибка'}`
+                ));
+            }
+        } else {
+            console.error('❌ Неверный формат уведомления:', {
+                type: payload?.type,
+                hasItem: !!payload?.item,
+                hasSource: !!payload?.source
+            });
+            
+            dispatch(showToastNotification(
+                NotificationTypes.ERROR,
+                'Ошибка: неверный формат уведомления'
+            ));
+        }
+
         setCurrentNotification(null);
     };
 
@@ -461,7 +542,7 @@ const NotificationCenter: React.FC = () => {
     const formatNotificationTime = (timestamp: string): string => {
         try {
             const date = new Date(timestamp);
-            return format(date, 'dd.MM.yyyy HH:mm');
+            return format(date, 'dd.MM.yyyy HH:mm', { locale: ru });
         } catch (error) {
             return timestamp;
         }
@@ -519,7 +600,7 @@ const NotificationCenter: React.FC = () => {
                             key={notification.id}
                             notification={notification}
                             onClose={() => handleCloseNotification(notification.id)}
-                            onClick={() => handleNotificationClick(notification.id || '')}
+                            onClick={() => handleNotificationClick(notification)}
                             isSpecial={true}
                         />
                     );
@@ -531,7 +612,7 @@ const NotificationCenter: React.FC = () => {
                             key={notification.id}
                             notification={notification}
                             onClose={() => handleCloseNotification(notification.id)}
-                            onClick={() => handleNotificationClick(notification.id || '')}
+                            onClick={() => handleNotificationClick(notification)}
                             isSpecial={false}
                         />
                     );
@@ -544,7 +625,7 @@ const NotificationCenter: React.FC = () => {
                     key={notification.id}
                     notification={notification}
                     onClose={() => handleCloseNotification(notification.id)}
-                    onClick={() => handleNotificationClick(notification.id || '')}
+                    onClick={() => handleNotificationClick(notification)}
                 />
             );
         } catch (error) {
@@ -673,7 +754,7 @@ const NotificationCenter: React.FC = () => {
                                     <>
                                         <ListItem 
                                             button
-                                            onClick={() => handleNotificationClick(notification.id as string)}
+                                            onClick={() => handleNotificationClick(notification)}
                                             className={`${styles.notificationItem} ${!notification.read ? styles.unreadNotification : ''} ${notification.payload?.type === 'item_suggestion' ? styles.itemSuggestionNotification : ''}`}
                                         >
                                             <ListItemText
@@ -740,61 +821,17 @@ const NotificationCenter: React.FC = () => {
             </Snackbar>
 
             {/* Отображаем диалог с предложением товара, если он активен */}
-            {currentNotification && (() => {
-                const notification = filteredNotifications.find((n: Notification) => n.id === currentNotification);
-                if (!notification) {
-                    console.error('❌ Не найдено уведомление с ID:', currentNotification);
-                    // Автоматически закрываем диалог, так как уведомление не найдено
-                    setTimeout(handleDialogClose, 0);
-                    return null;
-                }
-                
-                // Проверяем, что уведомление действительно является предложением товара и содержит все необходимые данные
-                if (!notification.payload || 
-                    notification.payload.type !== 'item_suggestion' || 
-                    !notification.payload.source || 
-                    !notification.payload.source.userName || 
-                    !notification.payload.source.chatTitle || 
-                    !notification.payload.item || 
-                    !notification.payload.item.itemId || 
-                    !notification.payload.item.category) {
-                    
-                    console.error('❌ Уведомление не содержит необходимые данные для отображения диалога:', {
-                        id: notification.id,
-                        payloadType: notification.payload?.type || 'ОТСУТСТВУЕТ',
-                        hasItem: !!notification.payload?.item,
-                        hasItemId: !!notification.payload?.item?.itemId,
-                        hasCategory: !!notification.payload?.item?.category,
-                        hasSource: !!notification.payload?.source,
-                        hasUserName: !!notification.payload?.source?.userName,
-                        hasChatTitle: !!notification.payload?.source?.chatTitle
-                    });
-                    
-                    // Показываем предупреждение и закрываем диалог
-                    dispatch(showToastNotification(
-                        NotificationTypes.WARNING, 
-                        'Невозможно отобразить предложение товара из-за отсутствия данных'
-                    ));
-                    
-                    // Закрываем диалог автоматически 
-                    setTimeout(handleDialogClose, 0);
-                    return null;
-                }
-                
-                // Если все проверки пройдены, показываем диалог с предложением
-                console.log('📦 Отображаем диалог с предложением товара:', {
-                    от: notification.payload.source.userName,
-                    чат: notification.payload.source.chatTitle,
-                    товар: `${notification.payload.item.category}:${notification.payload.item.itemId}`
-                });
-                
-                return (
-                    <ItemSuggestionNotification
-                        notification={notification}
-                        onClose={handleDialogClose}
-                    />
-                );
-            })()}
+            {currentNotification && (
+                <ItemSuggestionNotification
+                    open={!!currentNotification}
+                    onClose={handleDialogClose}
+                    title={currentNotification.title || 'Уведомление'}
+                    message={currentNotification.message}
+                    onConfirm={() => handleConfirm(currentNotification.id || '')}
+                    confirmText="Подтвердить"
+                    cancelText="Закрыть"
+                />
+            )}
         </div>
     );
 };

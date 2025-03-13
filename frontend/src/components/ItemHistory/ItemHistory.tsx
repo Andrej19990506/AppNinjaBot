@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import HistoryIcon from '@mui/icons-material/History';
 import CloseIcon from '@mui/icons-material/Close';
-import Select from '@mui/material/Select';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -15,6 +15,54 @@ import Fab from '@mui/material/Fab';
 import type { HistoryRecord } from '../../types/inventory';
 import { fetchItemHistory, clearItemHistory } from '../../store/slices/inventorySlice';
 import styles from './ItemHistory.module.css';
+import { useHistoryAnimations } from './hooks/useHistoryAnimations';
+
+// Анимационные варианты для элементов истории
+const historyItemVariants = {
+    hidden: { opacity: 0, x: -20, scale: 0.95 },
+    visible: (index: number) => ({
+        opacity: 1, 
+        x: 0, 
+        scale: 1,
+        transition: { 
+            type: "spring",
+            stiffness: 500,
+            damping: 30,
+            delay: index * 0.05
+        }
+    }),
+    exit: { opacity: 0, x: 20, transition: { duration: 0.2 } }
+};
+
+// Анимационные варианты для модального окна
+const modalVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.3 } },
+    exit: { opacity: 0, transition: { duration: 0.2 } }
+};
+
+const modalContentVariants = {
+    hidden: { y: '100%', opacity: 0.5 },
+    visible: { 
+        y: 0, 
+        opacity: 1,
+        transition: { 
+            type: 'spring', 
+            damping: 25, 
+            stiffness: 300 
+        }
+    },
+    exit: { 
+        y: '100%', 
+        opacity: 0,
+        transition: { 
+            type: 'spring', 
+            damping: 25, 
+            stiffness: 300,
+            duration: 0.3
+        }
+    }
+};
 
 // Форматирование даты
 const formatDate = (date: string | Date): string => {
@@ -43,7 +91,19 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
     const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [isMobile, setIsMobile] = useState<boolean>(false);
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const modalRef = useRef<HTMLDivElement>(null);
     
+    // Получаем рефы и функции анимаций
+    const {
+        headerRef,
+        timelineRef,
+        filterRef,
+        animateNewHistoryItem,
+        animateHistoryItemUpdate,
+        animateHistoryItemRemoval,
+        animateFilterChange
+    } = useHistoryAnimations();
+
     // Функция для обнаружения мобильного устройства
     const checkIsMobile = useCallback(() => {
         const mobile = window.innerWidth <= 768;
@@ -67,6 +127,44 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         window.addEventListener('resize', checkIsMobile);
         return () => window.removeEventListener('resize', checkIsMobile);
     }, [checkIsMobile]);
+
+    // Обработчик клика вне модального окна для его закрытия
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (isModalOpen && modalRef.current && !modalRef.current.contains(event.target as Node)) {
+                closeModal();
+            }
+        };
+
+        if (isModalOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        } else {
+            document.removeEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isModalOpen]);
+
+    // Обработчик клавиши ESC для закрытия модального окна
+    useEffect(() => {
+        const handleEscKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && isModalOpen) {
+                closeModal();
+            }
+        };
+
+        if (isModalOpen) {
+            document.addEventListener('keydown', handleEscKey);
+        } else {
+            document.removeEventListener('keydown', handleEscKey);
+        }
+
+        return () => {
+            document.removeEventListener('keydown', handleEscKey);
+        };
+    }, [isModalOpen]);
 
     // Открытие и закрытие модального окна
     const openModal = useCallback(() => {
@@ -150,7 +248,10 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         });
     }, [history, selectedDate]);
 
+    // Обработчик движения мыши для эффекта свечения
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+        if (isMobile) return; // Пропускаем эффект на мобильных устройствах
+        
         const item = event.currentTarget;
         const rect = item.getBoundingClientRect();
         const x = event.clientX - rect.left;
@@ -158,6 +259,16 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
 
         item.style.setProperty('--mouse-x', `${x}px`);
         item.style.setProperty('--mouse-y', `${y}px`);
+    };
+
+    // Обработчик изменения фильтра
+    const handleFilterChange = (event: SelectChangeEvent<string>) => {
+        const newDate = event.target.value;
+        setSelectedDate(newDate);
+
+        // Анимируем изменение фильтра
+        const historyItems = document.querySelectorAll('.history-item');
+        animateFilterChange(Array.from(historyItems) as HTMLElement[]);
     };
 
     // Загрузка истории при монтировании
@@ -244,31 +355,33 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
     // Компонент для отображения контента истории
     const HistoryContent = () => (
         <>
-            <motion.div 
-                className={styles.header}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-            >
+            <div ref={headerRef} className={styles.header}>
                 <div className={styles.titleContainer}>
+                    <HistoryIcon className={styles.historyIcon} />
+                    <h2 className={styles.title}>История изменений</h2>
+                </div>
+                <div ref={filterRef} className={styles.filterContainer}>
                     <FormControl size={isMobile ? "small" : "medium"} className={styles.dateSelect}>
                         <InputLabel>Дата</InputLabel>
                         <Select
                             value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value as string)}
+                            onChange={handleFilterChange}
                             label="Дата"
                             MenuProps={{
                                 anchorOrigin: {
                                     vertical: 'bottom',
-                                    horizontal: 'center',
+                                    horizontal: 'left',
                                 },
                                 transformOrigin: {
                                     vertical: 'top',
-                                    horizontal: 'center',
+                                    horizontal: 'left',
                                 },
                                 PaperProps: {
                                     style: {
-                                        maxHeight: 300
+                                        maxHeight: 300,
+                                        background: 'rgba(var(--card-rgb), 0.8)',
+                                        backdropFilter: 'blur(10px)',
+                                        border: '1px solid rgba(var(--border-rgb), 0.1)',
                                     }
                                 }
                             }}
@@ -284,39 +397,29 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                         </Select>
                     </FormControl>
                 </div>
-                {lastUpdate && (
-                    <span className={styles.lastUpdate}>
-                        Обновлено: {isMobile ? formatMobileDate(lastUpdate) : formatDate(lastUpdate)}
-                    </span>
-                )}
-            </motion.div>
+            </div>
 
-            <div className={styles.timeline}>
+            <div ref={timelineRef} className={styles.timeline}>
                 <AnimatePresence mode="popLayout">
                     {filteredHistory.map((record: HistoryRecord, index) => (
                         <motion.div
                             key={`${record.id}-${record.timestamp}`}
-                            className={styles.historyItem}
-                            initial={{ opacity: 0, x: isMobile ? 0 : -20, y: isMobile ? -10 : 0 }}
-                            animate={{ opacity: 1, x: 0, y: 0 }}
-                            exit={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 10 : 0 }}
-                            transition={{ 
-                                type: "spring",
-                                stiffness: 500,
-                                damping: 30,
-                                delay: index * 0.05 // Добавляем небольшую задержку для каскадной анимации
-                            }}
-                            onMouseMove={!isMobile ? handleMouseMove : undefined}
-                            whileHover={!isMobile ? { x: 8 } : undefined}
+                            className={`${styles.historyItem} history-item`}
+                            variants={historyItemVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            custom={index}
+                            onMouseMove={handleMouseMove}
+                            data-history-id={record.id}
+                            layoutId={`history-${record.id}`}
                         >
                             <div className={styles.authorInfo}>
                                 {record.author?.photo_url && (
-                                    <motion.img 
+                                    <img 
                                         src={record.author.photo_url} 
                                         alt={record.author.first_name}
                                         className={styles.authorPhoto}
-                                        whileHover={!isMobile ? { scale: 1.1 } : undefined}
-                                        transition={{ type: "spring", stiffness: 400 }}
                                     />
                                 )}
                                 <span className={styles.authorName}>
@@ -327,21 +430,11 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                 <span className={`${styles.action} ${styles[record.action]}`}>
                                     {formatAction(record.action, record.type)}
                                 </span>
-                                {record.action !== 'add_option' && record.action !== 'remove_option' && (
-                                    <>
-                                        <span className={styles.quantity}>
-                                            {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
-                                        </span>
-                                        <span className={styles.type}>
-                                            {getTypeText(record.type, isMobile)}
-                                        </span>
-                                    </>
-                                )}
+                                <span className={styles.quantity}>
+                                    {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
+                                </span>
                             </div>
-                            <motion.div 
-                                className={styles.quantityChange}
-                                whileHover={!isMobile ? { scale: 1.05 } : undefined}
-                            >
+                            <div className={styles.quantityChange}>
                                 <span className={styles.oldQuantity}>
                                     {record.oldQuantity ?? 0}
                                 </span>
@@ -349,30 +442,31 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                 <span className={styles.newQuantity}>
                                     {record.newQuantity ?? 0}
                                 </span>
-                            </motion.div>
+                            </div>
                             <time className={styles.timestamp}>
                                 {isMobile ? formatMobileDate(record.timestamp) : formatDate(record.timestamp)}
                             </time>
                         </motion.div>
                     ))}
                 </AnimatePresence>
-                {/* Добавляем пустой элемент в конце для обеспечения корректной прокрутки */}
-                <div style={{ height: '80px', width: '100%' }} />
                 {filteredHistory.length === 0 && (
                     <motion.div 
                         className={styles.emptyFilterMessage}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4 }}
                     >
                         {selectedDate !== 'all' ? (
                             <>
                                 <p>Нет записей за {selectedDate}</p>
-                                <button 
+                                <motion.button 
                                     className={styles.resetFilterButton}
                                     onClick={() => setSelectedDate('all')}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
                                     Показать все записи
-                                </button>
+                                </motion.button>
                             </>
                         ) : (
                             <p>Нет доступных записей</p>
@@ -387,41 +481,34 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
     const EmptyHistory = () => (
         <motion.div 
             className={styles.emptyState}
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4 }}
         >
             <motion.div
-                initial={{ rotate: 0 }}
-                animate={{ rotate: [0, 15, -15, 10, -10, 0] }}
+                animate={{
+                    rotate: [0, 10, -10, 10, 0],
+                    scale: [1, 1.1, 1, 1.1, 1]
+                }}
                 transition={{
-                    duration: 2,
-                    times: [0, 0.2, 0.4, 0.6, 0.8, 1],
+                    duration: 4,
                     ease: "easeInOut",
-                    repeat: isMobile ? 0 : Infinity,
-                    repeatDelay: 3
+                    times: [0, 0.2, 0.4, 0.6, 0.8],
+                    repeat: Infinity,
+                    repeatDelay: 1
                 }}
             >
                 <HistoryIcon className={styles.emptyIcon} />
             </motion.div>
-            <motion.h3 
-                className={styles.emptyTitle}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-            >
+            <h3 className={styles.emptyTitle}>
                 {isMobile ? 'История пуста' : 'Здесь будет история изменений'}
-            </motion.h3>
-            <motion.p 
-                className={styles.emptyText}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.7 }}
-                transition={{ delay: 0.5 }}
-            >
+            </h3>
+            <p className={styles.emptyText}>
                 {isMobile ? 
                     'Изменения количества товара будут отображаться здесь' : 
                     'Все изменения количества товара будут отображаться в этом разделе'
                 }
-            </motion.p>
+            </p>
         </motion.div>
     );
 
@@ -533,18 +620,26 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                     {isModalOpen && (
                         <motion.div 
                             className={styles.modalOverlay}
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            onClick={closeModal} // Закрытие по клику на затемнённую область
+                            variants={modalVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
                         >
                             <motion.div 
+                                ref={modalRef}
                                 className={styles.modalContainer}
-                                initial={{ y: '100%', opacity: 0.5 }}
-                                animate={{ y: 0, opacity: 1 }}
-                                exit={{ y: '100%', opacity: 0 }}
-                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                                onClick={(e) => e.stopPropagation()} // Предотвращаем закрытие по клику на содержимое
+                                variants={modalContentVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                drag="y"
+                                dragConstraints={{ top: 0, bottom: 20 }}
+                                dragElastic={0.2}
+                                onDragEnd={(e, info) => {
+                                    if (info.offset.y > 100) {
+                                        closeModal();
+                                    }
+                                }}
                             >
                                 <div className={styles.modalHeader}>
                                     <h3 className={styles.modalTitle}>
@@ -564,10 +659,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                     {!history || history.length === 0 ? (
                                         <EmptyHistory />
                                     ) : (
-                                        <>
-                                            <HistoryContent />
-                                            
-                                        </>
+                                        <HistoryContent />
                                     )}
                                 </div>
                             </motion.div>
@@ -599,12 +691,16 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
 
     return (
         <motion.div 
-            className={`${styles.container} ${className} ${hasNewHistory ? styles.hasNewHistory : ''}`}
-            initial={{ opacity: 0, x: isMobile ? 0 : 20, y: isMobile ? 20 : 0 }}
-            animate={{ opacity: 1, x: 0, y: 0 }}
+            className={`${styles.container} ${className}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
         >
-            <HistoryContent />
+            {!history || history.length === 0 ? (
+                <EmptyHistory />
+            ) : (
+                <HistoryContent />
+            )}
         </motion.div>
     );
 });

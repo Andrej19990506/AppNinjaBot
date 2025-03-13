@@ -16,7 +16,7 @@ services:
       - ./backend/telegramNinjaBot/.env
     environment:
       - PYTHONUNBUFFERED=1
-      - API_URL=https://ugly-portrait-precision-aka.trycloudflare.com
+      - API_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
     restart: "no"
     deploy:
       replicas: 1
@@ -34,8 +34,6 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - /app/__pycache__
-      - /app/*/__pycache__
       - ./backend/data/inventory:/app/data/inventory
       - shared-data:/app/shared
     env_file:
@@ -48,8 +46,9 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
-      - API_BASE_URL=https://ugly-portrait-precision-aka.trycloudflare.com
-      - SOCKET_URL=wss://ugly-portrait-precision-aka.trycloudflare.com/ws
+      - API_BASE_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
+      - SOCKET_URL=wss://ranging-starsmerchant-southampton-spiritual.trycloudflare.com/ws
+      - PYTHONPYCACHEPREFIX=/tmp/pycache
 
   scheduler:
     build:
@@ -83,8 +82,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=https://ugly-portrait-precision-aka.trycloudflare.com/api
-      - REACT_APP_WS_URL=wss://ugly-portrait-precision-aka.trycloudflare.com
+      - REACT_APP_API_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com/api
+      - REACT_APP_WS_URL=wss://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
       - NODE_ENV=${NODE_ENV:-development}
       - REACT_APP_ENV=${NODE_ENV:-development}
       - REACT_APP_DEBUG=true
@@ -130,6 +129,7 @@ services:
 volumes:
   bot-data:
   shared-data:
+  server-cache:
 
 networks:
   ninja_network:

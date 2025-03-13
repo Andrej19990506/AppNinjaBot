@@ -301,7 +301,7 @@ export const fetchItemHistory = createAsyncThunk(
         });
 
         try {
-            const response = await api.getItemHistory(chatId, itemId, category, itemName);
+            const response = await api.history.getItemHistory(chatId, itemId, category, itemName);
             console.log('✅ История успешно загружена:', {
                 recordsCount: response.data.length,
                 firstRecord: response.data[0],

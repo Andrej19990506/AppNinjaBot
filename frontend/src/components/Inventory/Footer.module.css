@@ -43,40 +43,79 @@
     margin: 0 auto;
     padding: 0 20px;
     gap: 12px;
+    position: relative;
+}
+
+/* Когда отображается кнопка создания, меняем сетку */
+.container.withCreateButton {
+    grid-template-columns: auto 1fr auto;
+    justify-content: space-between;
+}
+
+/* Домашняя кнопка всегда в первой колонке */
+.container .iconButton {
+    grid-column: 1;
+    margin-right: 8px;
+}
+
+/* Кнопка назад или создания всегда во второй колонке */
+.container .backButton,
+.container .createButton {
+    grid-column: 2;
+    justify-self: center;
+    width: 100%;
+    max-width: 200px;
+}
+
+/* Кнопка чата всегда в последней колонке */
+.container .chatButton {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 8px;
 }
 
 .iconButton, .chatButton {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    background: var(--color-background);
+    border: 1px solid var(--gray-200);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     padding: 0;
-    border: none;
-    background: var(--color-background-secondary);
-    color: var(--color-text);
     cursor: pointer;
-    border-radius: 12px;
     transition: all 0.3s ease;
-    border: 1px solid rgba(255, 95, 31, 0.1);
-    flex-shrink: 0;
+    color: var(--color-text);
 }
 
 .chatButton {
-    width: 44px;
-    height: 44px;
-    padding: 0;
-    border: none;
+    position: relative;
+    margin-left: 8px;
     background: var(--gradient-primary);
     color: white;
-    cursor: pointer;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    position: relative;
-    margin-left: auto;
+    border: none;
+}
+
+/* Стили для контейнера с кнопкой назад */
+.backButton {
     display: flex;
     align-items: center;
+    background: var(--color-background);
+    border: 1px solid var(--gray-200);
+    border-radius: 20px;
+    height: 40px;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: var(--color-text);
+    overflow: hidden;
+    gap: 8px;
     justify-content: center;
+    margin: 0 auto;
+    min-width: 120px;
+    max-width: 200px;
+    width: 100%;
 }
 
 .chatButtonEmpty {
@@ -113,85 +152,60 @@
 }
 
 .iconButton:hover, .chatButton:hover {
+    background-color: var(--gray-100);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    background: var(--color-background);
-    border-color: var(--color-primary);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .iconButton:active, .chatButton:active {
     transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .icon {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-}
-
-.backButton {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 44px;
-    padding: 0 16px;
-    border: none;
-    background: var(--gradient-primary);
-    color: white;
-    font-size: 1rem;
-    cursor: pointer;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    box-shadow: var(--shadow-md);
-    min-width: 0;
-    max-width: 300px;
-    margin: 0 auto;
-    width: 100%;
+    width: 20px;
+    height: 20px;
+    stroke: var(--orange-primary);
+    stroke-width: 2;
 }
 
 .backButton:hover {
+    background-color: var(--gray-100);
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .backButton:active {
     transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .backArrow {
-    font-size: 1.2rem;
+    font-size: 18px;
     font-weight: bold;
-    flex-shrink: 0;
-    line-height: 1;
+    margin-right: 4px;
+    color: var(--orange-primary);
 }
 
 .textContainer {
     position: relative;
     overflow: hidden;
-    flex: 1;
-    min-width: 0;
-    height: 24px;
-    display: flex;
-    align-items: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 120px;
 }
 
 .scrollingText {
     display: inline-block;
-    white-space: nowrap;
-    animation: scrollText 15s linear infinite;
-    padding-right: 50px;
+    animation: scrollText 8s linear infinite;
+    padding-right: 20px;
 }
 
 @keyframes scrollText {
-    0% {
-        transform: translateX(0);
-    }
-    50% {
-        transform: translateX(calc(-100% + 100px));
-    }
-    100% {
-        transform: translateX(0);
-    }
+    0% { transform: translateX(0); }
+    40% { transform: translateX(0); }
+    60% { transform: translateX(calc(-100% + 120px)); }
+    100% { transform: translateX(calc(-100% + 120px)); }
 }
 
 .textOverflow {
@@ -363,5 +377,263 @@
 @media (min-width: 768px) {
     .chatName {
         max-width: 150px;
+    }
+}
+
+/* Стили для кнопки "Создать" */
+.createButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, var(--orange-primary) 0%, var(--orange-dark) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-lg) !important;
+    padding: 8px 24px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: var(--shadow-md), 0 4px 10px rgba(var(--primary-rgb), 0.25) !important;
+    z-index: 1001;
+    position: relative;
+    margin: 0 auto;
+    min-width: 130px;
+    height: 40px;
+    letter-spacing: 0.3px !important;
+    text-transform: none !important;
+    overflow: hidden !important; /* Для рипл-эффекта */
+}
+
+/* Специальные стили для кнопки "Обновить" */
+.createButton:global(.updateButton) {
+    background: linear-gradient(135deg, var(--orange-light) 0%, var(--orange-primary) 100%);
+    box-shadow: var(--shadow-md), 0 4px 10px rgba(var(--primary-rgb), 0.3) !important;
+}
+
+.createButton:global(.updateButton) svg {
+    animation: rotateIcon 4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center;
+}
+
+.createButton:global(.updateButton):hover svg {
+    animation: rotateIcon 2s infinite cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes rotateIcon {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.createButton:global(.updateButton):hover {
+    box-shadow: var(--shadow-lg), 0 6px 15px rgba(var(--primary-rgb), 0.4) !important;
+    background: linear-gradient(135deg, var(--orange-light) 10%, var(--orange-primary) 90%);
+    transform: translateY(-2px) scale(1.02);
+}
+
+.createButton:global(.updateButton):active {
+    box-shadow: var(--shadow), 0 2px 5px rgba(var(--primary-rgb), 0.3) !important;
+    transform: translateY(0) scale(0.98);
+}
+
+.createButtonWrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+}
+
+.createButtonActive {
+    animation: pulseButton 2s infinite;
+}
+
+@keyframes pulseButton {
+    0% {
+        box-shadow: var(--shadow-md), 0 4px 10px rgba(var(--primary-rgb), 0.25);
+    }
+    50% {
+        box-shadow: var(--shadow-lg), 0 4px 15px rgba(var(--primary-rgb), 0.5);
+    }
+    100% {
+        box-shadow: var(--shadow-md), 0 4px 10px rgba(var(--primary-rgb), 0.25);
+    }
+}
+
+.createButtonDisabled {
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.3) 0%, rgba(230, 70, 10, 0.3) 100%) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: 0.6 !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.15) !important;
+}
+
+.createButton:hover {
+    box-shadow: var(--shadow-lg), 0 6px 15px rgba(var(--primary-rgb), 0.35) !important;
+    transform: translateY(-2px) scale(1.02);
+}
+
+.createButton:active {
+    box-shadow: var(--shadow), 0 2px 5px rgba(var(--primary-rgb), 0.2) !important;
+    transform: translateY(0) scale(0.98);
+}
+
+/* Темная тема */
+[data-theme="dark"] .createButton {
+    background: linear-gradient(135deg, var(--orange-primary) 0%, var(--orange-dark) 100%);
+    box-shadow: var(--shadow-md), 0 4px 12px rgba(var(--primary-rgb), 0.35) !important;
+}
+
+[data-theme="dark"] .createButton:global(.updateButton) {
+    background: linear-gradient(135deg, var(--orange-light) 0%, var(--orange-primary) 90%);
+    box-shadow: var(--shadow-md), 0 4px 12px rgba(var(--primary-rgb), 0.4) !important;
+}
+
+/* Отключенная кнопка в темной теме */
+[data-theme="dark"] .createButtonDisabled {
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.2) 0%, rgba(230, 70, 10, 0.2) 100%) !important;
+    opacity: 0.5 !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.1) !important;
+}
+
+.createButtonInner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.createIcon {
+    font-size: 18px !important;
+}
+
+.createText {
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.chatButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(255, 95, 31, 0.3);
+}
+
+.chatButton:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(255, 95, 31, 0.3);
+}
+
+/* Стили для рипл-эффекта */
+:global(.ripple-effect) {
+    position: absolute;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.4);
+    width: 100px;
+    height: 100px;
+    margin-top: -50px;
+    margin-left: -50px;
+    transform: scale(0);
+    animation: ripple 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple {
+    to {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+/* Улучшим вид в темной теме */
+@media (prefers-color-scheme: dark) {
+    .createButton {
+        background: linear-gradient(135deg, var(--orange-primary), var(--orange-dark));
+        box-shadow: var(--shadow-md), 0 4px 15px rgba(var(--primary-rgb), 0.35) !important;
+    }
+    
+    .createButton:global(.updateButton) {
+        background: linear-gradient(135deg, var(--orange-light), var(--orange-primary));
+    }
+}
+
+/* Улучшаем анимацию при наведении */
+.createButtonWrapper:hover .createButton:not(.createButtonDisabled) {
+    transform: translateY(-2px);
+}
+
+.createButtonWrapper:active .createButton:not(.createButtonDisabled) {
+    transform: translateY(0);
+}
+
+/* Контейнер для кнопок в футере */
+.buttonsContainer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Стили для кнопки формирования документа */
+.generateDocButtonWrapper {
+    position: relative;
+}
+
+.generateDocButton {
+    background-color: var(--success-color) !important;
+    color: white !important;
+    font-size: 14px !important;
+    min-width: 170px !important;
+    padding: 6px 14px !important;
+    transition: var(--transition-normal) !important;
+    border-radius: var(--radius-sm) !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+.generateDocButtonActive {
+    box-shadow: var(--shadow-md) !important;
+}
+
+.generateDocButtonActive:hover {
+    background-color: color-mix(in srgb, var(--success-color), #000 10%) !important;
+    box-shadow: var(--shadow-lg) !important;
+    transform: var(--hover-transform) !important;
+}
+
+.generateDocButtonActive:active {
+    background-color: color-mix(in srgb, var(--success-color), #000 20%) !important;
+    transform: var(--active-transform) !important;
+    box-shadow: var(--shadow) !important;
+    transition: all 0.1s ease !important;
+}
+
+.generateDocButtonDisabled {
+    background-color: color-mix(in srgb, var(--success-color), transparent 50%) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+}
+
+.generatingSpinner {
+    color: white !important;
+    margin-right: 4px !important;
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 768px) {
+    .buttonsContainer {
+        position: static;
+        transform: none;
+        margin: 0 8px;
+    }
+    
+    .generateDocButton {
+        min-width: auto !important;
+        padding: 4px 12px !important;
+        font-size: 13px !important;
     }
 } 

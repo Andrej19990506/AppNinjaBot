@@ -2,7 +2,13 @@ import React, { useRef, useState, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Footer.module.css';
 import { motion, AnimatePresence } from 'framer-motion';
+import AddIcon from '@mui/icons-material/Add';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { Chat } from '../../types/chat';
+import Button from '@mui/material/Button';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CircularProgress from '@mui/material/CircularProgress';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 // Функция для получения инициалов из названия чата
 const getChatInitials = (chatName: string): string => {
@@ -169,19 +175,35 @@ const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
 };
 
 interface FooterProps {
-    selectedChat: Chat | null;
+    selectedChat: Chat;
     selectedCategory?: string;
     selectedItem?: string;
-    onBack?: () => void;
-    onChatSelect?: () => void;
+    onBack: () => void;
+    onChatSelect: () => void;
+    showCreateButton?: boolean;
+    isCreateButtonActive?: boolean;
+    onCreateClick?: (e?: React.MouseEvent) => void;
+    createButtonText?: string;
+    showGenerateDocButton?: boolean;
+    onGenerateDocClick?: () => void;
+    isGeneratingDocument?: boolean;
+    hasWriteOffItems?: boolean;
 }
 
-const Footer = memo<FooterProps>(({ 
+const Footer: React.FC<FooterProps> = ({ 
     selectedChat,
     selectedCategory,
     selectedItem,
     onBack,
-    onChatSelect
+    onChatSelect,
+    showCreateButton = false,
+    isCreateButtonActive = false,
+    onCreateClick,
+    createButtonText = 'Создать',
+    showGenerateDocButton = false,
+    onGenerateDocClick,
+    isGeneratingDocument = false,
+    hasWriteOffItems = false
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -208,7 +230,7 @@ const Footer = memo<FooterProps>(({
             animate={{ y: 0 }}
             exit={{ y: 100 }}
         >
-            <div className={styles.container}>
+            <div className={`${styles.container} ${showCreateButton ? styles.withCreateButton : ''}`}>
                 <motion.button 
                     className={styles.iconButton}
                     onClick={() => navigate('/')}
@@ -220,7 +242,7 @@ const Footer = memo<FooterProps>(({
                     </svg>
                 </motion.button>
 
-                {(selectedCategory || selectedItem) && (
+                {(selectedCategory || selectedItem) && !showCreateButton && (
                     <motion.button
                         className={styles.backButton}
                         onClick={onBack}
@@ -238,6 +260,101 @@ const Footer = memo<FooterProps>(({
                         </div>
                     </motion.button>
                 )}
+
+                {/* Контейнер для кнопок с помощью Flexbox */}
+                {showCreateButton ? (
+                    <motion.div
+                        className={styles.createButtonWrapper}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                        whileHover={{ scale: isCreateButtonActive ? 1.03 : 1 }}
+                        whileTap={{ scale: isCreateButtonActive ? 0.97 : 1 }}
+                    >
+                        <Button
+                            className={`${styles.createButton} ${isCreateButtonActive ? styles.createButtonActive : styles.createButtonDisabled} ${createButtonText === 'Обновить' ? 'updateButton' : ''}`}
+                            startIcon={createButtonText === 'Обновить' ? <RefreshIcon /> : <AddIcon />}
+                            disabled={!isCreateButtonActive}
+                            onClick={(e) => {
+                                // Предотвращаем всплытие события, чтобы не закрылось модальное окно
+                                e.stopPropagation();
+                                // Добавляем анимацию нажатия
+                                if (isCreateButtonActive) {
+                                    // Эффект рипла при клике
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    const x = e.clientX - rect.left;
+                                    const y = e.clientY - rect.top;
+                                    
+                                    // Создаем рипл-эффект
+                                    const ripple = document.createElement('span');
+                                    ripple.classList.add('ripple-effect');
+                                    ripple.style.left = `${x}px`;
+                                    ripple.style.top = `${y}px`;
+                                    e.currentTarget.appendChild(ripple);
+                                    
+                                    // Удаляем рипл-эффект после анимации
+                                    setTimeout(() => {
+                                        ripple.remove();
+                                    }, 600);
+                                }
+                                if (onCreateClick) onCreateClick(e);
+                            }}
+                            variant="contained"
+                            disableElevation
+                            sx={{
+                                textTransform: 'none', 
+                                fontWeight: 600,
+                                borderRadius: (theme) => theme.shape.borderRadius * 2,
+                                position: 'relative',
+                                overflow: 'hidden' // Для рипл-эффекта
+                            }}
+                        >
+                            {createButtonText}
+                        </Button>
+                    </motion.div>
+                ) : (
+                    // Показываем кнопку "Сформировать акт" только когда не отображается окно создания
+                    <div className={styles.buttonsContainer}>
+                        {/* Кнопка для формирования акта списания */}
+                        {showGenerateDocButton && hasWriteOffItems && (
+                            <motion.div
+                                className={styles.generateDocButtonWrapper}
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                whileHover={{ scale: hasWriteOffItems ? 1.03 : 1 }}
+                                whileTap={{ scale: hasWriteOffItems ? 0.97 : 1 }}
+                            >
+                                <Button
+                                    className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`}
+                                    startIcon={isGeneratingDocument ? 
+                                        <CircularProgress size={18} className={styles.generatingSpinner} /> : 
+                                        <DescriptionIcon />}
+                                    disabled={!hasWriteOffItems || isGeneratingDocument}
+                                    onClick={onGenerateDocClick}
+                                    variant="contained"
+                                    disableElevation
+                                    sx={{
+                                        textTransform: 'none', 
+                                        fontWeight: 600,
+                                        borderRadius: (theme) => theme.shape.borderRadius * 1.5,
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        backgroundColor: 'var(--success-color)',
+                                        '&:hover': {
+                                            backgroundColor: 'var(--success-color)'
+                                        }
+                                    }}
+                                >
+                                    {isGeneratingDocument ? 'Создание...' : 'Сформировать акт'}
+                                </Button>
+                            </motion.div>
+                        )}
+                    </div>
+                )}
+
                 <ChatButton 
                     selectedChat={selectedChat}
                     onClick={onChatSelect || (() => {})}
@@ -245,7 +362,7 @@ const Footer = memo<FooterProps>(({
             </div>
         </motion.div>
     );
-});
+};
 
 Footer.displayName = 'Footer';
 

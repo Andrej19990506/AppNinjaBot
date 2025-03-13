@@ -1,0 +1,266 @@
+@import '../../../../styles/base/variables.css';
+
+/* Стили для уведомления об успешном создании/обновлении списания */
+.successContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  background-color: var(--card-background);
+  border-radius: var(--radius);
+  text-align: center;
+  margin: 24px 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  transition: var(--transition-normal);
+}
+
+.successContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange-primary) 0%, var(--orange-light) 100%);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+}
+
+.successContainer::after {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(var(--primary-rgb), 0.1) 0%,
+    transparent 70%
+  );
+  animation: pulseFade 3s ease-in-out infinite;
+}
+
+@keyframes pulseFade {
+  0% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+}
+
+.successIcon {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0.2));
+  color: var(--orange-primary);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(var(--primary-rgb), 0.2);
+}
+
+.successIcon::before {
+  content: '';
+  position: absolute;
+  width: 150%;
+  height: 150%;
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(var(--primary-rgb), 0.1),
+    transparent
+  );
+  animation: rotateIcon 3s linear infinite;
+}
+
+@keyframes rotateIcon {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.successIcon svg {
+  font-size: 36px !important;
+  color: var(--orange-primary) !important;
+  filter: drop-shadow(0 0 5px rgba(var(--primary-rgb), 0.3));
+  position: relative;
+  z-index: 2;
+}
+
+.successTitle {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 12px;
+  background: linear-gradient(45deg, var(--text-color), var(--orange-primary));
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.successText {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+.successButton {
+  margin-top: 16px;
+  width: 100%;
+}
+
+.successConfirmButton {
+  padding: 12px 32px !important;
+  border-radius: var(--radius-sm) !important;
+  background: linear-gradient(45deg, var(--orange-primary), var(--orange-light)) !important;
+  color: white !important;
+  border: none !important;
+  font-weight: 500 !important;
+  font-size: 16px !important;
+  cursor: pointer;
+  transition: var(--transition-normal) !important;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  max-width: 300px;
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(var(--primary-rgb), 0.2) !important;
+  animation: buttonPulse 2s infinite;
+}
+
+.successConfirmButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: 0.5s;
+}
+
+.successConfirmButton:hover {
+  background: linear-gradient(45deg, var(--orange-dark), var(--orange-primary)) !important;
+  transform: var(--hover-transform);
+  box-shadow: 0 6px 15px rgba(var(--primary-rgb), 0.3) !important;
+}
+
+.successConfirmButton:hover::before {
+  left: 100%;
+}
+
+.successConfirmButton:active {
+  transform: scale(0.98);
+}
+
+.successConfirmButton:disabled {
+  background: linear-gradient(90deg, var(--gray-400) 0%, var(--gray-500) 100%) !important;
+  cursor: not-allowed;
+  animation: none;
+  transform: none;
+  opacity: 0.7;
+}
+
+@keyframes buttonPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
+  }
+}
+
+.successButtonWrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.successButtonWrapper button {
+  min-width: 180px;
+  text-transform: none !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Стили для спиннера загрузки */
+.loadingSpinner {
+  animation: spin 1s linear infinite;
+  color: var(--orange-primary) !important;
+  filter: drop-shadow(0 0 5px rgba(var(--primary-rgb), 0.3));
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Стили для состояния загрузки */
+.loadingContainer {
+  background-color: var(--card-background);
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
+}
+
+.loadingContainer .successIcon {
+  background: linear-gradient(135deg, var(--orange-primary), var(--orange-light));
+}
+
+.loadingContainer .successTitle {
+  animation: colorPulse 2s ease-in-out infinite;
+}
+
+@keyframes colorPulse {
+  0% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.7;
+  }
+} 

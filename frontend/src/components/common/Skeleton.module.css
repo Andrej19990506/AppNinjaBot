@@ -82,10 +82,114 @@
     height: 100px;
 }
 
+/* Стили для MainMenuSkeleton */
+.mainMenuContainer {
+    height: 100vh;
+    background: var(--background-color, #1a1a1a);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 60px);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 34px);
+    box-sizing: border-box;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    will-change: opacity, transform;
+}
+
+.mainMenuTitle {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.mainMenuGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    flex: 1;
+    align-content: center;
+}
+
+.mainMenuItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+    background: var(--card-background, rgba(255, 255, 255, 0.05));
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+    border-radius: var(--radius, 8px);
+    height: 120px;
+    transition: all 0.3s ease;
+}
+
+.mainMenuItem:hover {
+    transform: scale(1.03);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.mainMenuIcon {
+    width: 40px !important;
+    height: 40px !important;
+    margin-bottom: 8px;
+}
+
+.mainMenuItemTitle {
+    width: 100px !important;
+    height: 16px !important;
+}
+
+.mainMenuThemeButton {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    width: 100%;
+}
+
+.mainMenuButtonSkeleton {
+    width: 150px !important;
+    height: 38px !important;
+    border-radius: var(--radius, 8px) !important;
+    transition: all 0.3s ease;
+}
+
+.mainMenuButtonSkeleton:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Класс для плавного исчезновения скелетона */
+.fadeOut {
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out, filter 0.8s ease-out;
+}
+
+.fadeOut.exit {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: blur(8px);
+}
+
 /* Медиа-запросы для адаптивности */
 @media (max-width: 600px) {
     .rectangular {
         height: 80px;
+    }
+    
+    .mainMenuGrid {
+        grid-template-columns: 1fr;
+    }
+    
+    .mainMenuItem {
+        height: 100px;
+        padding: 16px;
     }
 }
 

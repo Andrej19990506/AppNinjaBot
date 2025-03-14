@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Skeleton.module.css';
 
@@ -18,6 +18,184 @@ interface SkeletonProps {
     count?: number;
     layout?: boolean;
 }
+
+// Интерфейс для скелетона по типу компонента
+interface SkeletonByTypeProps {
+    type: 'mainMenu' | 'inventory' | 'writeOff' | 'chatList';
+    animation?: 'pulse' | 'wave' | 'shimmer';
+    theme?: 'light' | 'dark';
+    onAnimationComplete?: () => void;
+}
+
+// Компонент для скелетона главного меню
+export const MainMenuSkeleton: React.FC<{
+    animation?: 'pulse' | 'wave' | 'shimmer';
+    theme?: 'light' | 'dark';
+    onAnimationComplete?: () => void;
+}> = ({ animation = 'shimmer', theme = 'dark', onAnimationComplete }) => {
+    const menuItems = [
+        { id: 'events', title: 'События' },
+        { id: 'inventory', title: 'Инвентарь' },
+        { id: 'write-off', title: 'Списание' }
+    ];
+
+    // Вызываем колбэк после задержки, чтобы обеспечить время для отображения скелетона
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (onAnimationComplete) {
+                onAnimationComplete();
+            }
+        }, 800);
+        
+        return () => clearTimeout(timer);
+    }, [onAnimationComplete]);
+
+    // Варианты анимации для плавного появления всех элементов вместе
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.06,
+                delayChildren: 0.1,
+                when: 'beforeChildren',
+                duration: 0.3,
+                ease: "easeOut"
+            }
+        },
+        exit: {
+            opacity: 0,
+            scale: 0.96,
+            filter: "blur(8px)",
+            transition: {
+                duration: 0.8,
+                ease: "easeOut",
+                when: 'afterChildren'
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { opacity: 0, y: 5, scale: 0.98 },
+        visible: { 
+            opacity: 1, 
+            y: 0, 
+            scale: 1,
+            transition: { 
+                duration: 0.2,
+                ease: "easeOut"
+            } 
+        },
+        exit: { 
+            opacity: 0, 
+            scale: 0.95,
+            transition: { 
+                duration: 0.2,
+                ease: "easeOut"
+            } 
+        }
+    };
+
+    return (
+        <motion.div 
+            className={styles.mainMenuContainer}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+        >
+            {/* Заголовок */}
+            <motion.div variants={itemVariants}>
+                <Skeleton
+                    variant="rectangular"
+                    width="180px"
+                    height="36px"
+                    animation={animation}
+                    theme={theme}
+                    className={styles.mainMenuTitle}
+                />
+            </motion.div>
+            
+            {/* Сетка меню */}
+            <div className={styles.mainMenuGrid}>
+                {menuItems.map((item, index) => (
+                    <motion.div
+                        key={item.id}
+                        className={styles.mainMenuItem}
+                        variants={itemVariants}
+                        whileHover={{ 
+                            scale: 1.03, 
+                            boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
+                            transition: { 
+                                duration: 0.2,
+                                ease: "easeOut"
+                            }
+                        }}
+                    >
+                        {/* Иконка */}
+                        <Skeleton
+                            variant="circular"
+                            width="40px"
+                            height="40px"
+                            animation={animation}
+                            theme={theme}
+                            className={styles.mainMenuIcon}
+                        />
+                        
+                        {/* Текст меню */}
+                        <Skeleton
+                            variant="rectangular"
+                            width="100px"
+                            height="16px"
+                            animation={animation}
+                            theme={theme}
+                            className={styles.mainMenuItemTitle}
+                        />
+                    </motion.div>
+                ))}
+            </div>
+            
+            {/* Кнопка переключения темы */}
+            <motion.div
+                className={styles.mainMenuThemeButton}
+                variants={itemVariants}
+            >
+                <Skeleton
+                    variant="rectangular"
+                    width="150px"
+                    height="38px"
+                    animation={animation}
+                    theme={theme}
+                    className={styles.mainMenuButtonSkeleton}
+                />
+            </motion.div>
+        </motion.div>
+    );
+};
+
+// Компонент для выбора скелетона по типу
+export const SkeletonByType: React.FC<SkeletonByTypeProps> = ({ 
+    type, 
+    animation = 'shimmer', 
+    theme = 'dark',
+    onAnimationComplete
+}) => {
+    switch (type) {
+        case 'mainMenu':
+            return <MainMenuSkeleton animation={animation} theme={theme} onAnimationComplete={onAnimationComplete} />;
+        case 'inventory':
+            // TODO: добавить скелетон для инвентаря
+            return <div>Inventory Skeleton</div>;
+        case 'writeOff':
+            // TODO: добавить скелетон для списания
+            return <div>WriteOff Skeleton</div>;
+        case 'chatList':
+            // TODO: добавить скелетон для списка чатов
+            return <div>ChatList Skeleton</div>;
+        default:
+            return null;
+    }
+};
 
 const Skeleton: React.FC<SkeletonProps> = ({
     variant = 'rectangular',

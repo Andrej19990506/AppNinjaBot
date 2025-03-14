@@ -13,6 +13,7 @@ import { socketService } from './services/socket';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { addNotification, NotificationTypes } from './store/slices/notificationSlice';
 import { initializeFromTelegram } from './store/slices/inventorySlice';
+import { MainMenuSkeleton } from './components/common/Skeleton';
 
 // Вспомогательная функция для генерации уникальных ID для уведомлений
 const generateUniqueNotificationId = (prefix: string = 'notification'): string => {
@@ -194,6 +195,26 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
 };
 
 const App: React.FC = () => {
+    // Добавляем состояние для контроля загрузки главного меню
+    const [isMainMenuLoading, setIsMainMenuLoading] = useState(true);
+
+    // Имитируем загрузку данных при первом рендере
+    useEffect(() => {
+        console.log('🔄 Инициализация главного меню...');
+        const timer = setTimeout(() => {
+            setIsMainMenuLoading(false);
+            console.log('✅ Главное меню загружено');
+        }, 1500); // Имитация времени загрузки
+
+        return () => clearTimeout(timer);
+    }, []);
+
+    // Обработчик завершения анимации скелетона
+    const handleSkeletonAnimationComplete = useCallback(() => {
+        console.log('✨ Анимация скелетона главного меню завершена');
+        setIsMainMenuLoading(false);
+    }, []);
+
     return (
         <Provider store={store}>
             <ThemeProvider>
@@ -202,7 +223,14 @@ const App: React.FC = () => {
                         <WebSocketProvider>
                             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                                     <Routes>
-                                        <Route path="/" element={<MainMenu />} />
+                                        <Route path="/" element={
+                                            isMainMenuLoading 
+                                                ? <MainMenuSkeleton 
+                                                    animation="shimmer" 
+                                                    onAnimationComplete={handleSkeletonAnimationComplete} 
+                                                  /> 
+                                                : <MainMenu />
+                                        } />
                                         <Route path="/events" element={<div>События</div>} />
                                         <Route path="/inventory/:chatId" element={<Inventory />} />
                                         <Route path="/inventory" element={<Inventory />} />

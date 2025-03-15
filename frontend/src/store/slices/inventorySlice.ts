@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk, PayloadAction, ActionCreatorWithPayload } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction, ActionCreatorWithPayload, createAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import type { 
     ChatInventory, 
@@ -16,7 +16,6 @@ import { WebApp } from '../../types/telegram';
 import config from '../../config';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
-import { createAction } from '@reduxjs/toolkit';
 import { store, RootState } from '../../store';
 import { checkAdminRights } from './adminSlice';
 
@@ -39,9 +38,44 @@ export const InventoryActionTypes = {
     FETCH_ITEM_HISTORY_ERROR: 'inventory/fetchItemHistoryError'
 } as const;
 
+// Определяем интерфейс для данных обновления
+interface UpdateInventoryDataPayload {
+    chatId: string;
+    data: {
+        inventory?: Inventory;
+        type?: string;
+        category?: string;
+        itemId?: string;
+        item?: any;
+        metadata?: any;
+        notification?: any;
+        admins?: Admin[];
+    };
+}
+
 // Обновляем тип для history.records
 interface HistoryRecords {
     [key: string]: HistoryRecord[];
+}
+
+interface ItemSuggestionSource {
+    userId: number | null;
+    userName: string | null;
+    chatId: string;
+    chatTitle: string;
+}
+
+interface ItemSuggestionData {
+    category: string;
+    itemId: string;
+    has_semifinished: boolean;
+}
+
+interface ItemSuggestion {
+    type: string;
+    source: ItemSuggestionSource;
+    item: ItemSuggestionData;
+    timestamp: string;
 }
 
 const initialState: InventoryState = {
@@ -58,7 +92,7 @@ const initialState: InventoryState = {
         isLoading: false,
         error: null
     },
-    lastSentItemSuggestion: undefined
+    lastSentItemSuggestion: null
 };
 
 export const fetchInventory = createAsyncThunk(
@@ -524,7 +558,7 @@ export const selectChat = createAsyncThunk(
     }
 );
 
-export const inventorySlice = createSlice({
+const inventorySlice = createSlice({
     name: 'inventory',
     initialState,
     reducers: {
@@ -532,16 +566,17 @@ export const inventorySlice = createSlice({
             state.selectedChatId = null;
             state.selectedChat = null;
         },
-        updateChatData: (state, action) => {
+        updateInventoryData(state, action: PayloadAction<UpdateInventoryDataPayload>) {
             const { chatId, data } = action.payload;
             
             if (process.env.NODE_ENV === 'development') {
-                console.debug('📡 Обновление данных чата в Redux:', {
+                console.log('📡 Обновление данных чата в Redux:', {
                     chatId,
                     dataType: data.type || 'full',
                     updateType: data.type === 'item_update' ? 'partial' : 'full',
-                    hasAdmins: !!data.admins,
-                    selectedChatId: state.selectedChatId
+                    hasInventory: !!data.inventory,
+                    metadata: data.metadata,
+                    timestamp: new Date().toISOString()
                 });
             }
 
@@ -550,13 +585,14 @@ export const inventorySlice = createSlice({
                 const oldData = state.items[chatIndex];
                 
                 if (data.type === 'item_update' && data.category && data.itemId && data.item) {
+                    // Обработка частичного обновления (один товар)
                     const updatedInventory = JSON.parse(JSON.stringify(oldData.inventory || {}));
                     
                     if (!updatedInventory[data.category]) {
                         updatedInventory[data.category] = {};
                     }
                     
-                    // Применяем ту же логику обработки filled статуса
+                    // Применяем логику обработки filled статуса
                     const updatedItem = { ...data.item };
                     if (updatedItem.raw) {
                         updatedItem.raw = {
@@ -572,78 +608,94 @@ export const inventorySlice = createSlice({
                     }
                     
                     updatedInventory[data.category][data.itemId] = updatedItem;
-
-                    // Рассчитываем новый прогресс
-                    const progress = calculateInventoryProgress(updatedInventory);
                     
-                    // Обновляем метаданные с новым прогрессом
-                    const updatedMetadata = {
-                        ...oldData.metadata,
-                        progress,
-                        lastUpdated: new Date().toISOString()
-                    };
-
-                    if (process.env.NODE_ENV === 'development') {
-                        console.debug('✏️ Обновление товара в Redux:', {
-                            category: data.category,
-                            itemId: data.itemId,
-                            oldValue: oldData.inventory?.[data.category]?.[data.itemId],
-                            newValue: data.item,
-                            notification: data.notification,
-                            progress
-                        });
-                    }
-                    
-                    state.items[chatIndex] = {
+                    // Обновляем состояние с новыми метаданными
+                    const updatedChat = {
                         ...oldData,
                         inventory: updatedInventory,
-                        metadata: updatedMetadata
+                        metadata: {
+                            ...oldData.metadata,
+                            lastUpdated: new Date().toISOString(),
+                            progress: calculateInventoryProgress(updatedInventory)
+                        }
                     };
                     
+                    // Обновляем чат в списке
+                    state.items[chatIndex] = updatedChat;
+                    
+                    // Если это выбранный чат, обновляем его тоже
                     if (state.selectedChatId === chatId) {
-                        state.selectedChat = state.items[chatIndex];
+                        state.selectedChat = updatedChat;
                     }
+                    
+                    console.log('✅ Обновлен товар в инвентаре:', {
+                        chatId,
+                        category: data.category,
+                        itemId: data.itemId,
+                        newQuantity: updatedItem.raw?.quantity || updatedItem.semifinished?.quantity,
+                        progress: updatedChat.metadata.progress
+                    });
                 } else if (data.inventory) {
-                    const progress = calculateInventoryProgress(data.inventory);
+                    // Обработка полного обновления инвентаря
+                    console.log('📦 Обработка полного обновления инвентаря:', {
+                        chatId,
+                        inventorySize: Object.keys(data.inventory).length,
+                        metadata: data.metadata
+                    });
                     
-                    const updatedMetadata = {
-                        ...oldData.metadata,
-                        ...data.metadata,
-                        progress,
-                        lastUpdated: new Date().toISOString()
-                    };
-                    
-                    state.items[chatIndex] = {
+                    // Обновляем состояние с новыми данными
+                    const updatedChat = {
                         ...oldData,
                         inventory: data.inventory,
-                        metadata: updatedMetadata
+                        metadata: {
+                            ...oldData.metadata,
+                            ...data.metadata,
+                            lastUpdated: data.metadata?.lastUpdated || new Date().toISOString(),
+                            progress: calculateInventoryProgress(data.inventory)
+                        }
                     };
                     
-                    if (process.env.NODE_ENV === 'development') {
-                        console.debug('📦 Полное обновление инвентаря:', {
-                            chatId,
-                            categoriesCount: Object.keys(data.inventory).length,
-                            progress
-                        });
-                    }
-
+                    console.log('📊 Обновленные данные чата:', {
+                        chatId,
+                        inventorySize: Object.keys(updatedChat.inventory).length,
+                        metadata: updatedChat.metadata
+                    });
+                    
+                    // Обновляем чат в списке
+                    state.items[chatIndex] = updatedChat;
+                    
+                    // Если это выбранный чат, обновляем его тоже
                     if (state.selectedChatId === chatId) {
-                        state.selectedChat = state.items[chatIndex];
+                        state.selectedChat = updatedChat;
                     }
+                    
+                    console.log('✅ Обновлен весь инвентарь:', {
+                        chatId,
+                        itemsCount: Object.keys(data.inventory).length,
+                        progress: updatedChat.metadata.progress
+                    });
                 }
+            } else {
+                console.warn('⚠️ Чат не найден в списке:', chatId);
             }
         },
         setSelectedItem: (state, action: PayloadAction<InventoryItem | null>) => {
             state.selectedItem = action.payload;
         },
-        setHistoryLoading: (state, action) => {
+        setHistoryLoading: (state, action: PayloadAction<boolean>) => {
             state.history.isLoading = action.payload;
+        },
+        setHistoryError: (state, action: PayloadAction<string | null>) => {
+            state.history.error = action.payload;
         },
         clearItemHistory: (state) => {
             state.history.records = {} as HistoryRecords;
             state.history.lastUpdate = null;
         },
-        receiveHistoryUpdate: (state, action) => {
+        receiveHistoryUpdate: (state, action: PayloadAction<{
+            itemId: string;
+            record: HistoryRecord;
+        }>) => {
             const { itemId, record } = action.payload;
             console.log('=== 📝 Обработка обновления истории в Redux ===');
             console.log('📦 Товар:', itemId);
@@ -704,45 +756,7 @@ export const inventorySlice = createSlice({
                 console.warn('⚠️ Нет выбранного чата или инвентаря для обновления прогресса');
             }
         },
-        // Редьюсер для ручного обновления инвентаря после изменений на сервере
-        manualInventoryUpdate: (state, action) => {
-            const { chatId, data } = action.payload;
-            console.log('=== 🔄 Ручное обновление инвентаря ===');
-            console.log(`🏠 Чат: ${chatId}`);
-            console.log('📦 Данные:', data);
-            
-            // Рассчитываем прогресс для обновленного инвентаря
-            const progress = calculateInventoryProgress(data.inventory);
-            
-            // Обновляем инвентарь в выбранном чате, если это он
-            if (state.selectedChat && state.selectedChat.chat_id === chatId) {
-                console.log('✅ Обновляем выбранный чат');
-                state.selectedChat.inventory = data.inventory;
-                state.selectedChat.metadata = {
-                    ...data.metadata,
-                    chat_id: chatId,
-                    progress,
-                    lastUpdated: new Date().toISOString()
-                };
-            }
-            
-            // Обновляем инвентарь в общем списке чатов
-            const chatIndex = state.items.findIndex(chat => chat.chat_id === chatId);
-            if (chatIndex !== -1) {
-                console.log('✅ Обновляем чат в общем списке');
-                state.items[chatIndex].inventory = data.inventory;
-                state.items[chatIndex].metadata = {
-                    ...data.metadata,
-                    chat_id: chatId,
-                    progress,
-                    lastUpdated: new Date().toISOString()
-                };
-            } else {
-                console.warn('⚠️ Чат не найден в общем списке для обновления');
-            }
-        },
-        // Добавляем новый редьюсер для сохранения последнего отправленного предложения товара
-        setLastSentItemSuggestion: (state, action: PayloadAction<any>) => {
+        setLastSentItemSuggestion: (state, action: PayloadAction<ItemSuggestion | null>) => {
             state.lastSentItemSuggestion = action.payload;
             console.log('🔄 Сохранено последнее отправленное предложение товара:', action.payload);
         }
@@ -971,13 +985,13 @@ export const inventorySlice = createSlice({
 
 export const { 
     clearSelectedChat, 
-    updateChatData,
+    updateInventoryData,
     setSelectedItem,
     setHistoryLoading,
+    setHistoryError,
     clearItemHistory,
     receiveHistoryUpdate,
     updateProgress,
-    manualInventoryUpdate,
     setLastSentItemSuggestion
 } = inventorySlice.actions;
 export default inventorySlice.reducer;

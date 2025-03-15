@@ -3,6 +3,238 @@
     "action": "add",
     "type": "raw",
     "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Десерты",
+    "itemName": "Пирожное Красный бархат (шт)",
+    "id": "74aa565b-0c4c-4924-a626-bc8abb55afa1",
+    "timestamp": "2025-03-15T18:19:03.473461+00:00",
+    "quantity": 5,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Пирожное Красный бархат (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "Пирожное Красный бархат (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 10,
+    "category": "Десерты",
+    "itemName": "Макаруны (шт.)",
+    "id": "7e401192-cc7d-4d20-89aa-4b656c4f3c93",
+    "timestamp": "2025-03-15T18:18:25.244246+00:00",
+    "quantity": 10,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 10 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Макаруны (шт.)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 10,
+      "difference": 10
+    },
+    "item": "Макаруны (шт.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Десерты",
+    "itemName": "Арома Сникерс с Арахисом",
+    "id": "01be55d1-bd81-4288-9cab-fae7260a45cb",
+    "timestamp": "2025-03-15T18:16:43.600229+00:00",
+    "quantity": 5,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Сникерс с Арахисом",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "Арома Сникерс с Арахисом"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Арома Пломбир с Меренгой (шт)",
+    "id": "4be33d2d-e91f-4595-bf9c-d804ddba45f8",
+    "timestamp": "2025-03-15T18:15:41.355535+00:00",
+    "quantity": 0,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Пломбир с Меренгой (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Арома Пломбир с Меренгой (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Десерты",
+    "itemName": "Арома Пломбир с Меренгой (шт)",
+    "id": "9e78af7c-6fe7-430b-b5d6-9d4ee2b67377",
+    "timestamp": "2025-03-15T18:15:26.040628+00:00",
+    "quantity": 5,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Пломбир с Меренгой (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "Арома Пломбир с Меренгой (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Десерты",
+    "itemName": "Арома Манго-Маракуя (шт)",
+    "id": "14dd3310-55e6-4c08-aba6-a767a02bdf0c",
+    "timestamp": "2025-03-15T18:10:04.484622+00:00",
+    "quantity": 5,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Манго-Маракуя (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "Арома Манго-Маракуя (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Десерты",
+    "itemName": "Арома Клубника (шт)",
+    "id": "7ea5bca4-d00f-4d45-bc0a-156d236521fe",
+    "timestamp": "2025-03-15T18:03:31.250309+00:00",
+    "quantity": 5,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Клубника (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "Арома Клубника (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 50,
+    "newQuantity": 100,
+    "category": "Бакалея",
+    "itemName": "Перец",
+    "id": "485ec86c-1ec0-44fa-86d7-a6218e2f72ed",
+    "timestamp": "2025-03-15T17:43:43.162439+00:00",
+    "quantity": 50,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Перец",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 100,
+      "difference": 50
+    },
+    "item": "Перец"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
     "newQuantity": 50,
     "category": "Бакалея",
     "itemName": "Перец",

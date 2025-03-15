@@ -3,11 +3,12 @@ import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { 
   fetchInventory, 
   fetchChatInventory, 
-  selectChat,
-  updateChatData
+  updateInventoryData,
+  updateProgress 
 } from '../store/slices/inventorySlice';
 import { useNavigate } from 'react-router-dom';
 import { Inventory, ChatResponse, Admin } from '../types/inventory';
+import { useWebSocket } from './useWebSocket';
 
 interface ChatData {
     inventory: any;
@@ -47,6 +48,60 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
   const chats = useAppSelector(state => state.inventory.items);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
+  // Инициализируем WebSocket хук
+  const { socket } = useWebSocket(chatId);
+
+  // Обработчик обновлений инвентаря через WebSocket
+  const handleInventoryUpdate = useCallback((data: any) => {
+    const updateData = data.data || data;
+    const chatId = updateData.metadata?.chat_id || updateData.chatId;
+    
+    if (!chatId) {
+        console.warn('⚠️ Отсутствует chatId в данных обновления:', updateData);
+        return;
+    }
+
+    console.log('📦 Получено обновление инвентаря:', {
+        chatId,
+        hasInventory: !!updateData.inventory,
+        type: updateData.type || 'full',
+        timestamp: new Date().toISOString()
+    });
+
+    // Формируем данные для обновления Redux
+    const payload = {
+        chatId,
+        data: {
+            type: updateData.type || 'full',
+            inventory: updateData.inventory,
+            metadata: updateData.metadata,
+            category: updateData.category,
+            itemId: updateData.itemId,
+            item: updateData.item
+        }
+    };
+
+    console.log('📤 Отправка обновления в Redux:', payload);
+
+    // Отправляем обновление в Redux
+    dispatch(updateInventoryData(payload));
+    console.log('✅ Данные отправлены в Redux для обновления');
+
+    // Обновляем прогресс после обновления инвентаря
+    dispatch(updateProgress());
+  }, [dispatch]);
+
+  // Подписываемся на обновления через WebSocket
+  useEffect(() => {
+    if (socket) {
+      socket.on('inventory_update', handleInventoryUpdate);
+      
+      return () => {
+        socket.off('inventory_update', handleInventoryUpdate);
+      };
+    }
+  }, [socket, handleInventoryUpdate]);
+
   // Функция для загрузки шаблона инвентаря из JSON-файла
   const loadInventoryTemplate = useCallback(async () => {
     console.log('🔄 Загрузка шаблона инвентаря...');
@@ -252,7 +307,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
       
       // Если мы находимся на странице инвентаризации, возвращаемся к списку
       if (window.location.pathname.includes(`/inventory/${chatId}`)) {
-        dispatch(selectChat(chatId));
+        dispatch(fetchChatInventory(chatId));
         navigate('/inventory');
       }
     }

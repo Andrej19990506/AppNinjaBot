@@ -46,7 +46,7 @@
       "Перец": {
         "raw": {
           "filled": true,
-          "quantity": 50
+          "quantity": 100
         }
       },
       "Сахар (гр.)": {
@@ -147,8 +147,8 @@
     "Десерты": {
       "Арома Клубника (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 5
         },
         "semifinished": {
           "filled": false,
@@ -157,32 +157,36 @@
       },
       "Арома Манго-Маракуя (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 5
         }
       },
       "Арома Пломбир с Меренгой (шт)": {
         "raw": {
-          "filled": false,
+          "filled": true,
+          "quantity": 5
+        },
+        "semifinished": {
+          "filled": true,
           "quantity": 0
         }
       },
       "Арома Сникерс с Арахисом": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 5
         }
       },
       "Макаруны (шт.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 10
         }
       },
       "Пирожное Красный бархат (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 5
         }
       },
       "Проверка": {
@@ -1170,7 +1174,7 @@
     }
   },
   "metadata": {
-    "lastUpdated": "2025-03-15T17:38:15.870Z",
+    "lastUpdated": "2025-03-15T18:19:03.744Z",
     "chat_id": "2457417588"
   }
 }

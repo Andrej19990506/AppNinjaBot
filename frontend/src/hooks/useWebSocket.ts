@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAppDispatch } from '../store/hooks';
-import { updateChatData, receiveHistoryUpdate, addInventoryItem } from '../store/slices/inventorySlice';
+import { receiveHistoryUpdate, addInventoryItem, updateInventoryData } from '../store/slices/inventorySlice';
 import { Admin } from '../types/inventory';
 import config from '../config';
 import { addNotification, removeNotification, NotificationTypes } from '../store/slices/notificationSlice';
@@ -861,6 +861,62 @@ export const useWebSocket = (chatId?: string) => {
         processedNotifications.clear();
     }, []);
 
+    const handleInventoryUpdate = useCallback((data: any) => {
+        console.log('=== 📦 Получено обновление инвентаря ===');
+        console.log('📊 Данные:', data);
+        
+        // Извлекаем данные из обновления
+        const updateData = data.data || data;
+        const chatId = updateData.metadata?.chat_id || updateData.chatId;
+        
+        if (!chatId) {
+            console.warn('⚠️ Отсутствует chatId в данных обновления:', updateData);
+            return;
+        }
+
+        if (updateData.type === 'item_update' && updateData.category && updateData.itemId && updateData.item) {
+            // Обработка обновления отдельного товара
+            console.log(`🏠 Чат: ${chatId}`);
+            console.log('📦 Тип обновления: item_update');
+            
+            dispatch(updateInventoryData({
+                chatId,
+                data: {
+                    type: 'item_update',
+                    category: updateData.category,
+                    itemId: updateData.itemId,
+                    item: updateData.item,
+                    metadata: updateData.metadata || {
+                        lastUpdated: new Date().toISOString()
+                    }
+                }
+            }));
+        } else if (updateData.inventory) {
+            // Обработка полного обновления инвентаря
+            console.log(`🏠 Чат: ${chatId}`);
+            console.log('📦 Тип обновления: full');
+            
+            const payload = {
+                chatId,
+                data: {
+                    type: 'full',
+                    inventory: updateData.inventory,
+                    metadata: updateData.metadata || {
+                        lastUpdated: new Date().toISOString()
+                    }
+                }
+            };
+            
+            console.log('📤 Отправка обновления в Redux:', payload);
+            dispatch(updateInventoryData(payload));
+        } else {
+            console.warn('⚠️ Получены некорректные данные обновления:', updateData);
+            return;
+        }
+        
+        console.log('✅ Данные отправлены в Redux для обновления');
+    }, [dispatch]);
+
     // Далее идут все useEffect
     useEffect(() => {
         // Инициализируем сокет только если его еще нет
@@ -986,6 +1042,17 @@ export const useWebSocket = (chatId?: string) => {
             globalSocket.current?.off('notification_updated', handleNotificationUpdated);
         };
     }, [globalSocket.current, dispatch, chatId, joinedRooms.current]);
+
+    useEffect(() => {
+        if (globalSocket.current) {
+            // Подписываемся на обновления инвентаря
+            globalSocket.current.on('inventory_update', handleInventoryUpdate);
+            
+            return () => {
+                globalSocket.current?.off('inventory_update', handleInventoryUpdate);
+            };
+        }
+    }, [handleInventoryUpdate]);
 
     // Очистка при размонтировании компонента
     useEffect(() => {

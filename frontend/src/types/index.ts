@@ -3,14 +3,22 @@ import './date-fns.d';
 
 export interface Chat {
     chat_id: string;
-    title: string;
+    chat_title: string;
+    type: 'group' | 'supergroup' | 'private';
     inventory?: {
         metadata?: {
             progress?: number;
             lastUpdated?: string;
         };
-        items?: any[];
+        categories?: {
+            [category: string]: {
+                [itemId: string]: InventoryItem;
+            };
+        };
     };
+    writeOffHistory?: WriteOffRecord[];
+    events?: ChatEvent[];
+    metadata?: ChatMetadata;
 }
 
 export interface User {
@@ -59,4 +67,52 @@ export interface ItemSuggestionNotification extends BaseNotification {
     };
 }
 
-export type AppNotification = ItemSuggestionNotification; 
+export type AppNotification = ItemSuggestionNotification;
+
+// Типы для инвентаризации
+export interface InventoryItem {
+    id: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    category: string;
+    description?: string;
+    lastUpdated?: string;
+    updatedBy?: string;
+}
+
+// Типы для списания
+export interface WriteOffRecord {
+    id: string;
+    chatId: string;
+    items: {
+        [itemId: string]: {
+            quantity: number;
+            reason: string;
+            date?: string;
+        };
+    };
+    createdAt: string;
+    createdBy: string;
+    status: 'pending' | 'completed' | 'cancelled';
+}
+
+// Типы для событий
+export interface ChatEvent {
+    id: string;
+    chatId: string;
+    type: 'inventory' | 'writeoff' | 'system';
+    action: string;
+    data: any;
+    timestamp: string;
+    userId: string;
+}
+
+// Метаданные чата
+export interface ChatMetadata {
+    lastUpdated?: string;
+    lastAction?: string;
+    mode?: 'inventory' | 'writeoff' | 'events';
+    progress?: number;
+    status?: 'active' | 'completed' | 'pending';
+} 

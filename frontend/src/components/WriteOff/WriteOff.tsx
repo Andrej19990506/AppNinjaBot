@@ -5,8 +5,9 @@ import Typography from '@mui/material/Typography';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Button from '@mui/material/Button';
-import ChatSelector from '../common/ChatSelector';
-import ChatModal from '../Inventory/ChatModal';
+
+import ChatSelector, { ChatItem } from '../common/ChatSelector/ChatSelector';
+import ChatModal from '../common/ChatModal/ChatModal';
 import Footer from '../Inventory/Footer';
 import AppHeader from '../common/AppHeader';
 import EmptyWriteOff from './EmptyWriteOff';
@@ -15,8 +16,10 @@ import CreateWriteOffModal from './CreateWriteOffModal/CreateWriteOffModal';
 import WriteOffList from './WriteOffList/WriteOffList';
 import DocGenerationModal from './DocGenerationModal';
 import { RootState } from '../../store';
-import { WriteOffChat, WriteOffItem } from '../../types/writeOff';
-import { ChatInventory } from '../../types/inventory';
+
+import { ChatInventory, Admin } from '../../types/inventory';
+import { WriteOffItem } from '../../types/writeOff';
+import { Chat } from '../../types/chat';
 import { useAppDispatch } from '../../store/hooks';
 import { 
     selectWriteOffChat, 
@@ -43,21 +46,34 @@ import { socketService } from '../../services/socket';
 import { subscribeToEvent, unsubscribeFromEvent, joinChatRoom, leaveChatRoom } from '../../services/websocketHelper';
 import config from '../../config';
 import useAnimations from './hooks/useGSAPAnimations';
+import { ChatListSkeleton } from '../common/Skeleton';
+import { useWriteOffLoader } from '../../hooks/useWriteOffLoader';
 
-// Добавляем интерфейс для преобразования ChatInventory в Chat
-interface Chat {
-    id: string;
-    name: string;
-    type: 'group' | 'supergroup' | 'private';
-    created_at: string;
-    updated_at: string;
-}
-
-// Добавляем интерфейс для причины списания
+// Интерфейс для причины списания
 interface WriteOffReason {
     id: string;
     title: string;
     description: string;
+}
+
+// Обновляем интерфейс WriteOffChat чтобы он соответствовал ChatItem
+interface WriteOffChat {
+    chat_id: string;
+    chat_title: string;
+    admins: Admin[];
+    members?: Array<{
+        user_id: number;
+        first_name: string;
+        photo_url?: string;
+    }>;
+    metadata?: {
+        progress?: number;
+        lastUpdated?: string;
+        chat_id?: string;
+        totalWriteOffs?: number;
+        pendingWriteOffs?: number;
+    };
+    writeOffs?: WriteOffItem[];
 }
 
 // Анимации для переходов
@@ -88,8 +104,6 @@ const WriteOff: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCreateWriteOffModalOpen, setIsCreateWriteOffModalOpen] = useState(false);
     const [selectedChatForModal, setSelectedChatForModal] = useState<WriteOffChat | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [loadingProgress, setLoadingProgress] = useState(0);
     const [writeOffName, setWriteOffName] = useState<string>('');
     const [selectedReason, setSelectedReason] = useState<WriteOffReason | null>(null);
     const [writeOffQuantity, setWriteOffQuantity] = useState<number>(0);
@@ -118,7 +132,7 @@ const WriteOff: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     
-    const { chats, isLoading: isChatsLoading, error, selectedChat: selectedWriteOffChat } = useSelector((state: RootState) => state.writeOff);
+    const { chats, isLoading: isChatsLoading, selectedChat: selectedWriteOffChat } = useSelector((state: RootState) => state.writeOff);
     const user = useSelector((state: RootState) => state.user);
     const branchName = useSelector((state: RootState) => state.user.branchName || 'Филиал не выбран');
 
@@ -134,6 +148,18 @@ const WriteOff: React.FC = () => {
         animateItemRemoval,
         animateItemUpdate
     } = useAnimations();
+
+    // Добавляем использование хука useWriteOffLoader
+    const {
+        isLoading: isWriteOffLoading,
+        error: writeOffError,
+        loadingProgress,
+        loadWriteOffData
+    } = useWriteOffLoader({
+        chatId: selectedChat?.chat_id,
+        currentUserId: user?.id || null,
+        isAdmin: user?.isAdmin || false
+    });
 
     // Обработчик удаления списания (перемещен на верхний уровень)
     const handleWriteOffDeleted = useCallback((data: any) => {
@@ -318,7 +344,7 @@ const WriteOff: React.FC = () => {
         setIsCreateWriteOffModalOpen(true);
     };
 
-    const handleChatSelect = async (chatId: string, chat: ChatInventory) => {
+    const handleChatSelect = async (chatId: string, chat: ChatItem) => {
         // Анимация перед выбором чата
         await controls.start({
             opacity: 0,
@@ -326,9 +352,12 @@ const WriteOff: React.FC = () => {
             transition: { duration: 0.3 }
         });
         
-        // Преобразуем ChatInventory в WriteOffChat
+        // Преобразуем ChatItem в WriteOffChat
         const writeOffChat: WriteOffChat = {
-            ...chat,
+            chat_id: chat.chat_id,
+            chat_title: chat.chat_title,
+            admins: chat.admins,
+            members: chat.members,
             metadata: {
                 lastUpdated: new Date().toISOString(),
                 progress: 0,
@@ -364,23 +393,23 @@ const WriteOff: React.FC = () => {
 
     const handleStartWriteOff = async () => {
         if (selectedChatForModal) {
-            // Сначала устанавливаем выбранный чат для отображения футера
-            setSelectedChat(selectedChatForModal as WriteOffChat);
-            // Затем закрываем модальное окно выбора чата
-            setIsModalOpen(false);
-            
             try {
                 console.log('🔄 Загрузка списаний для чата:', selectedChatForModal.chat_id);
-                // Устанавливаем состояние загрузки
-                setIsLoading(true);
-                // Загружаем данные списаний
-                await dispatch(fetchWriteOffs(selectedChatForModal.chat_id)).unwrap();
+                
+                // Сначала выбираем чат через Redux
+                await dispatch(selectWriteOffChat(selectedChatForModal.chat_id)).unwrap();
+                
+                // После успешного выбора чата устанавливаем его в локальное состояние
+                setSelectedChat(selectedChatForModal as WriteOffChat);
+                
+                // Закрываем модальное окно выбора чата
+                setIsModalOpen(false);
+                
+                // Загружаем данные списаний через хук
+                await loadWriteOffData(true);
                 console.log('✅ Списания загружены успешно');
             } catch (error) {
                 console.error('❌ Ошибка при загрузке списаний:', error);
-            } finally {
-                // В любом случае завершаем загрузку
-                setIsLoading(false);
             }
         }
     };
@@ -397,34 +426,8 @@ const WriteOff: React.FC = () => {
         navigate('/');
     };
 
-    const handleRetry = async () => {
-        setIsLoading(true);
-        setLoadingProgress(0);
-        
-        // Имитация прогресса загрузки
-        const interval = setInterval(() => {
-            setLoadingProgress(prev => {
-                if (prev >= 90) {
-                    clearInterval(interval);
-                    return prev;
-                }
-                return prev + 10;
-            });
-        }, 300);
-        
-        try {
-            await dispatch(fetchWriteOffChats()).unwrap();
-        } catch (error) {
-            console.error('Ошибка при повторной загрузке данных:', error);
-        } finally {
-            clearInterval(interval);
-            setLoadingProgress(100);
-            
-            // Небольшая задержка перед скрытием загрузки
-            setTimeout(() => {
-                setIsLoading(false);
-            }, 300);
-        }
+    const handleRetry = () => {
+        loadWriteOffData(true);
     };
 
     const handleCreateWriteOffSubmit = async (
@@ -938,19 +941,6 @@ const WriteOff: React.FC = () => {
 
     useEffect(() => {
         const initializeData = async () => {
-            setIsLoading(true);
-            
-            // Имитация прогресса загрузки
-            const interval = setInterval(() => {
-                setLoadingProgress(prev => {
-                    if (prev >= 90) {
-                        clearInterval(interval);
-                        return prev;
-                    }
-                    return prev + 10;
-                });
-            }, 300);
-            
             try {
                 await dispatch(initializeFromTelegram()).unwrap();
                 await dispatch(fetchWriteOffChats()).unwrap();
@@ -964,14 +954,6 @@ const WriteOff: React.FC = () => {
                 
             } catch (error) {
                 console.error('Ошибка при инициализации данных:', error);
-            } finally {
-                clearInterval(interval);
-                setLoadingProgress(100);
-                
-                // Небольшая задержка перед скрытием загрузки
-                setTimeout(() => {
-                    setIsLoading(false);
-                }, 300);
             }
         };
         
@@ -1041,64 +1023,21 @@ const WriteOff: React.FC = () => {
         }
     };
 
-    if (!user.id || isLoading || isChatsLoading) {
+    // Обновляем условие рендеринга для загрузки
+    if (!user.id || isWriteOffLoading || isChatsLoading) {
         return (
             <div className={styles.container}>
-                <div className={styles.loadingWrapper}>
-                    {[1, 2, 3].map((item) => (
-                        <div key={item} className={styles.skeletonItem}>
-                            <Skeleton 
-                                variant="rectangular" 
-                                className={styles.skeletonHeader}
-                                animation="wave"
-                            />
-                            <div className={styles.skeletonContent}>
-                                <Skeleton 
-                                    variant="text" 
-                                    className={styles.skeletonText}
-                                    animation="wave"
-                                />
-                                <Skeleton 
-                                    variant="text" 
-                                    className={styles.skeletonText}
-                                    animation="wave"
-                                />
-                            </div>
-                        </div>
-                    ))}
-                    
-                    {/* Индикатор прогресса загрузки */}
-                    <motion.div 
-                        style={{ 
-                            width: '200px', 
-                            height: '4px', 
-                            background: 'rgba(255, 95, 31, 0.2)',
-                            borderRadius: '2px',
-                            marginTop: '2rem',
-                            overflow: 'hidden',
-                            position: 'relative'
-                        }}
-                    >
-                        <motion.div 
-                            style={{ 
-                                height: '100%', 
-                                background: 'var(--orange-primary)',
-                                borderRadius: '2px',
-                                position: 'absolute',
-                                left: 0,
-                                top: 0
-                            }}
-                            initial={{ width: '0%' }}
-                            animate={{ width: `${loadingProgress}%` }}
-                            transition={{ duration: 0.3 }}
-                        />
-                    </motion.div>
-                </div>
+                <ChatListSkeleton 
+                    animation="shimmer"
+                    theme="dark"
+                    loadingProgress={loadingProgress}
+                />
             </div>
         );
     }
 
-    if (error) {
+    // Обновляем условие рендеринга для ошибки
+    if (writeOffError) {
         return (
             <div className={styles.container}>
                 <div className={styles.errorWrapper}>
@@ -1107,7 +1046,7 @@ const WriteOff: React.FC = () => {
                         Ошибка
                     </Typography>
                     <Typography variant="body1" className={styles.errorMessage}>
-                        Произошла ошибка при загрузке данных. Пожалуйста, попробуйте еще раз.
+                        {writeOffError}
                     </Typography>
                     <motion.div
                         whileHover={{ scale: 1.05 }}
@@ -1117,7 +1056,7 @@ const WriteOff: React.FC = () => {
                             variant="contained" 
                             color="primary" 
                             startIcon={<RefreshIcon />}
-                            onClick={handleRetry}
+                            onClick={() => loadWriteOffData(true)}
                             sx={{ 
                                 mt: 2, 
                                 background: 'var(--gradient-primary)',
@@ -1151,7 +1090,7 @@ const WriteOff: React.FC = () => {
                             title="Списания"
                             mode="writeoff"
                             progress={loadingProgress}
-                            isLoading={isLoading}
+                            isLoading={isWriteOffLoading}
                         />
                     </div>
 
@@ -1203,7 +1142,7 @@ const WriteOff: React.FC = () => {
                         <ChatSelector
                             chats={chats}
                             onChatSelect={handleChatSelect}
-                            mode="write-off"
+                            mode="writeoff"
                         />
                     ) : (
                         <div className={styles.noChatsMessage}>
@@ -1268,10 +1207,15 @@ const WriteOff: React.FC = () => {
             <ChatModal
                 open={isModalOpen}
                 onClose={handleModalClose}
-                onStartInventory={handleStartWriteOff}
-                chat={selectedChatForModal as WriteOffChat}
-                isAdmin={!!selectedWriteOffChat}
-                mode="write-off"
+                onStartAction={handleStartWriteOff}
+                chat={selectedChatForModal ? {
+                    chat_id: selectedChatForModal.chat_id,
+                    chat_title: selectedChatForModal.chat_title,
+                    admins: selectedChatForModal.admins,
+                    members: selectedChatForModal.members,
+                    metadata: selectedChatForModal.metadata
+                } : undefined}
+                mode="writeoff"
             />
             
             {/* Модальное окно подтверждения удаления */}

@@ -7,7 +7,7 @@ import config from '../config';
 import { addNotification, removeNotification, NotificationTypes } from '../store/slices/notificationSlice';
 import { socketService } from '../services/socket';
 import axios from 'axios';
-import { store } from '../store';
+import { store, RootState } from '../store';
 
 const PING_INTERVAL = 10000;
 const PING_TIMEOUT = 5000;
@@ -75,6 +75,9 @@ const clearOldNotifications = () => {
         console.error('❌ Ошибка при очистке устаревших уведомлений:', error);
     }
 };
+
+// Получаем данные о последнем отправленном предложении из state
+const getLastSentItemSuggestion = (state: RootState) => state.inventory.lastSentItemSuggestion;
 
 export const useWebSocket = (chatId?: string) => {
     const dispatch = useAppDispatch();
@@ -350,7 +353,7 @@ export const useWebSocket = (chatId?: string) => {
             console.log('🔍 Обработка уведомления item_suggestion');
             
             // Получаем информацию о текущем пользователе, чтобы знать, что он инициатор
-            const currentUser = store.getState().inventory.currentUser;
+            const currentUser = store.getState().user;
             console.log('👤 Текущий пользователь (отправитель):', currentUser);
             
             if (data.suggestionId) {
@@ -386,7 +389,7 @@ export const useWebSocket = (chatId?: string) => {
                 console.log(`🔧 Создаем временный suggestionId: ${tempSuggestionId}`);
                 
                 // Получаем данные о последнем отправленном предложении из state
-                const lastSentSuggestion = store.getState().inventory.lastSentItemSuggestion;
+                const lastSentSuggestion = getLastSentItemSuggestion(store.getState());
                 console.log('📦 Последнее отправленное предложение:', lastSentSuggestion);
                 
                 let itemName = 'Неизвестный товар';
@@ -548,7 +551,7 @@ export const useWebSocket = (chatId?: string) => {
             // Для item_suggestion особая логика - не показываем инициатору
             if (data.type === 'item_suggestion' && data.source && data.source.userId) {
                 // Получаем текущего пользователя напрямую из store для синхронного доступа
-                const currentUser = store.getState().inventory.currentUser;
+                const currentUser = store.getState().user;
                 
                 if (currentUser && currentUser.id && 
                     String(currentUser.id) === String(data.source.userId)) {
@@ -604,7 +607,7 @@ export const useWebSocket = (chatId?: string) => {
                 }
                 
                 // Получаем текущего пользователя
-                const currentUser = store.getState().inventory.currentUser;
+                const currentUser = store.getState().user;
                 
                 // Проверяем, что это ответ на наше предложение
                 if (data.originalSource && data.originalSource.userId && 

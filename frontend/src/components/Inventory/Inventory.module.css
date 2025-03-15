@@ -3,9 +3,9 @@
     flex-direction: column;
     height: 100vh;
     width: 100%;
-    background-color: var(--background-color);
-    overflow: hidden; /* Предотвращаем скролл только основного контейнера */
+    overflow: hidden;
     position: relative;
+    background: var(--background-color);
 }
 
 .content {
@@ -38,46 +38,16 @@
     margin-bottom: 0;
 }
 
-.loadingWrapper {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-    padding: 20px;
-    width: 100%;
-    height: 100%;
-}
 
-.skeletonItem {
-    height: 200px;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.skeletonHeader {
-    height: 60px;
-    margin-bottom: 16px;
-}
-
-.skeletonContent {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 16px;
-}
-
-.skeletonText {
-    height: 20px;
-    width: 100%;
-    border-radius: 4px;
-}
-
-.skeletonText:last-child {
-    width: 60%;
-}
-
-/* Удаляем старые стили спиннера */
-.loadingSpinner {
-    display: none;
+@keyframes fadeInUp {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .errorWrapper {

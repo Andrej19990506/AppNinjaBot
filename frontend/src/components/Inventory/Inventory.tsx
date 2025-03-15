@@ -1,17 +1,17 @@
-import React, { useEffect, useRef, useMemo, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { 
     fetchInventory, 
-    selectChat, 
-    clearSelectedChat, 
     initializeFromTelegram, 
     fetchChatInventory,
-    setSelectedItem
+    setSelectedItem,
+    selectChat
 } from '../../store/slices/inventorySlice';
+import { checkAdminRights } from '../../store/slices/adminSlice';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import ChatList from './ChatList';
-import ChatModal from './ChatModal';
+import ChatSelector, { ChatItem } from '../common/ChatSelector/ChatSelector';
+import ChatModal from '../common/ChatModal/ChatModal';
 import CategoryGrid from './CategoryGrid';
 import ItemList from './ItemList';
 import ItemHistory from '../ItemHistory/ItemHistory';
@@ -19,13 +19,20 @@ import ItemEdit from './ItemEdit';
 import InventoryCompleteDialog from '../InventoryCompleteDialog';
 import Header from './Header';
 import styles from './Inventory.module.css';
-import { Inventory as InventoryType, ChatInventory, InventoryItem } from '../../types/inventory';
-import { AnimatePresence } from 'framer-motion';
-import { motion } from 'framer-motion';
+import { InventoryItem, ChatInventory, ChatData, ChatResponse } from '../../types/inventory';
+import { AnimatePresence, motion } from 'framer-motion';
 import Footer from './Footer';
-import Skeleton from '../common/Skeleton';
+import { ChatListSkeleton } from '../common/Skeleton';
 import InventorySearch, { normalizeString } from './InventorySearch';
 import SearchResultsDropdown from './SearchResultsDropdown';
+import axios from 'axios';
+import config from '../../config';
+
+// Импортируем необходимые хуки
+import { useInventoryLoader } from '../../hooks/useInventoryLoader';
+import { useInventoryNavigation } from '../../hooks/useInventoryNavigation';
+import { useInventorySearch } from '../../hooks/useInventorySearch';
+import { useInventoryView } from '../../hooks/useInventoryView';
 
 // Интерфейс для результатов поиска
 interface SearchResult {
@@ -48,185 +55,194 @@ interface Chat {
 }
 
 const Inventory: React.FC = () => {
-    const navigate = useNavigate();
     const dispatch = useAppDispatch();
+    const navigate = useNavigate();
+    const currentUrl = window.location.pathname;
+    const inventoryState = useAppSelector(state => state.inventory);
     const { chatId } = useParams<{ chatId?: string }>();
-    const { items, isLoading: isInventoryLoading, error, selectedChat, currentUser } = useAppSelector(state => state.inventory);
-    const isInitialized = useRef<boolean>(false);
-    const location = useLocation();
-    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const [selectedItem, setSelectedItem] = useState<string | null>(null);
-    const [itemHistory, setItemHistory] = useState<any[]>([]);
+    const { error: reduxError, selectedChat, items } = useAppSelector(state => state.inventory);
+    const currentUser = useAppSelector(state => state.user);
+    
+    // Все состояния
     const [notifications, setNotifications] = useState<Array<{ id: string; type: string; message?: string; title?: string }>>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const [showChatModal, setShowChatModal] = useState(false);
+    const [selectedChatForModal, setSelectedChatForModal] = useState<ChatItem | null>(null);
     
-    // Состояние для глобального поиска
-    const [searchQuery, setSearchQuery] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    // Состояние для отслеживания прямого перехода по URL
+    const [isDirectAccess] = useState(() => !!window.location.pathname.includes('/inventory/'));
     
-    // Новые состояния для поддержки выпадающего списка поиска и истории
-    const [isSearchFocused, setIsSearchFocused] = useState(false);
-    const [searchHistory, setSearchHistory] = useState<string[]>(() => {
-        // Загружаем историю поиска из localStorage при инициализации
-        try {
-            const savedHistory = localStorage.getItem('inventorySearchHistory');
-            return savedHistory ? JSON.parse(savedHistory) : [];
-        } catch (e) {
-            console.error('Ошибка загрузки истории поиска:', e);
-            return [];
+    // Все хуки должны быть вызваны до любых условных операторов
+    const {
+        isLoading: isInventoryLoading,
+        error: loaderError,
+        loadInventoryData,
+        loadingProgress,
+        isInitialized
+    } = useInventoryLoader({
+        chatId: chatId,
+        currentUserId: currentUser?.id || null,
+        isAdmin: currentUser?.isAdmin || false
+    });
+    
+    const {
+        selectedCategory,
+        selectedItem,
+        handleCategorySelect,
+        handleItemSelect,
+        handleBack
+    } = useInventoryNavigation({
+        onNavigate: (category, item) => {
+            console.log('Navigation:', { category, item });
         }
     });
     
-    // Сохраняем историю поиска в localStorage при её изменении
-    useEffect(() => {
-        try {
-            localStorage.setItem('inventorySearchHistory', JSON.stringify(searchHistory));
-        } catch (e) {
-            console.error('Ошибка сохранения истории поиска:', e);
+    const {
+        searchQuery,
+        isSearching,
+        searchResults,
+        isSearchFocused,
+        searchHistory,
+        handleSearch,
+        handleClearSearch,
+        handleSearchFocusChange,
+        handleSearchResultSelect,
+        handleHistoryItemSelect
+    } = useInventorySearch({
+        inventory: selectedChat?.inventory,
+        onSelectResult: (category, itemId) => {
+            handleCategorySelect(category);
+            handleItemSelect(itemId);
         }
-    }, [searchHistory]);
+    });
     
-    // Получаем список категорий
-    const categories = useMemo(() => {
-        if (!selectedChat?.inventory) return [];
-        return Object.keys(selectedChat.inventory);
-    }, [selectedChat?.inventory]);
-
-    // Получаем инвентарь
-    const inventory = useMemo(() => {
-        return selectedChat?.inventory || {};
-    }, [selectedChat?.inventory]);
-
-    // Определяем, находимся ли мы на странице списка чатов
-    const isListPage = useMemo(() => location.pathname === '/inventory', [location.pathname]);
-    
-    // Получаем WebSocket методы
     const { joinRoom, leaveRoom } = useWebSocket();
+    
+    const { 
+        currentView, 
+        hasValidInventory,
+        wasInventoryLoaded
+    } = useInventoryView({
+        selectedCategory,
+        selectedItem,
+        inventory: selectedChat?.inventory || {},
+        searchActive: isSearchFocused && !!searchQuery,
+        isLoading: isInventoryLoading,
+        renderCategories: () => (
+            <CategoryGrid
+                key="categories"
+                categories={Object.keys(selectedChat?.inventory || {})}
+                onSelect={handleCategorySelect}
+                inventory={selectedChat?.inventory || {}}
+                selectedCategory={selectedCategory}
+            />
+        ),
+        renderItems: (category) => (
+            <ItemList
+                key={`items-${category}`}
+                category={category}
+                items={selectedChat?.inventory?.[category] || {}}
+                onSelect={handleItemSelect}
+                chatId={selectedChat?.chat_id || ''}
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                onSearchResultSelect={handleSearchResultSelect}
+            />
+        ),
+        renderItemDetail: (category, itemId) => (
+            <motion.div
+                key={`${category}-${itemId}`}
+                className={styles.itemEditContainer}
+                initial={{ opacity: 0, y: 50 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 50 }}
+                transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                }}
+            >
+                <ItemEdit
+                    category={category}
+                    itemId={itemId}
+                    item={selectedChat?.inventory?.[category]?.[itemId] || {} as InventoryItem}
+                    onClose={handleBack}
+                    onUpdate={() => {
+                        console.log('Item updated');
+                    }}
+                    chatId={selectedChat?.chat_id || ''}
+                />
+                
+                <ItemHistory
+                    itemId={itemId}
+                    itemName={itemId}
+                    category={category}
+                    className={styles.itemHistory}
+                />
+            </motion.div>
+        ),
+        renderSearch: () => (
+            <SearchResultsDropdown
+                isVisible={true}
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                isSearching={isSearching}
+                searchHistory={searchHistory}
+                onSelectResult={handleSearchResultSelect}
+                onSelectHistoryItem={handleHistoryItemSelect}
+            />
+        )
+    });
 
-    // Мемоизируем обработчики
-    const handleChatClick = useCallback((chatId: string, chat: ChatInventory) => {
-        if (isListPage) {
-            dispatch(selectChat(chatId));
-        }
-    }, [dispatch, isListPage]);
+    // Объединяем все ошибки
+    const error = loaderError || reduxError;
 
-    const handleCloseModal = useCallback(() => {
-        sessionStorage.removeItem('wasKickedFromInventory');
-        dispatch(clearSelectedChat());
-    }, [dispatch]);
-
-    const handleStartInventory = useCallback(() => {
-        if (selectedChat && currentUser.isAdmin) {
-            navigate(`/inventory/${selectedChat.chat_id}`);
-        }
-    }, [navigate, selectedChat, currentUser.isAdmin]);
-
-    const handleCategorySelect = (category: string) => {
-        console.log('Category selected:', category);
-        console.log('Inventory data:', selectedChat?.inventory);
-        setSelectedCategory(category);
-        setSelectedItem(null);
-    };
-
-    const handleItemSelect = (itemId: string) => {
-        console.log('Item selected:', itemId);
-        setSelectedItem(itemId);
-    };
-
-    // Эффект для инициализации приложения
+    // Эффект для загрузки списка чатов
     useEffect(() => {
-        let isMounted = true;
-
-        const initializeApp = async () => {
-            if (!isInitialized.current) {
-                console.debug('🔍 Inventory Debug - Начало инициализации:', {
-                    timestamp: new Date().toISOString(),
-                    chatId,
-                    isInitialized: isInitialized.current,
-                    currentUserId: currentUser.id
-                });
-
-                try {
-                    // Загружаем инвентарь
-                    if (isMounted) {
-                        console.debug('🔍 Inventory Debug - Загрузка списка чатов');
-                        const inventory = await dispatch(fetchInventory()).unwrap();
-                        console.debug('🔍 Inventory Debug - Список чатов загружен:', {
-                            chatsCount: inventory.length
-                        });
-
-                        if (chatId && isMounted) {
-                            console.debug('🔍 Inventory Debug - Проверка доступа к чату:', {
-                                chatId,
-                                foundChat: inventory.find(c => c.chat_id === chatId)
-                            });
-
-                            const chat = inventory.find(c => c.chat_id === chatId);
-                            if (!chat || !chat.admins.some(admin => admin.user_id === currentUser.id)) {
-                                console.debug('🔍 Inventory Debug - Нет доступа к чату, возврат к списку');
-                                dispatch(selectChat(chatId));
-                                navigate('/inventory');
-                                return;
-                            }
-
-                            console.debug('🔍 Inventory Debug - Загрузка инвентаря чата:', chatId);
-                            await dispatch(fetchChatInventory(chatId)).unwrap();
-                            dispatch(selectChat(chatId));
-                        }
-
-                        isInitialized.current = true;
-                        console.debug('🔍 Inventory Debug - Инициализация завершена');
-                    }
-                } catch (error) {
-                    console.error('🔍 Inventory Debug - Ошибка при инициализации:', {
-                        error,
-                        chatId,
-                        currentUser
-                    });
-                }
-            }
-        };
-
-        initializeApp();
-
-        return () => {
-            console.debug('🔍 Inventory Debug - Компонент размонтирован');
-            isMounted = false;
-        };
-    }, [dispatch, chatId, currentUser.id, navigate]);
-
-    // Эффект для отслеживания изменений currentUser и selectedChat
-    useEffect(() => {
-        if (!currentUser.id) return;
-
-        // Если мы на странице инвентаризации и пользователь потерял права админа
-        if (chatId && !currentUser.isAdmin) {
-            console.debug('⚠️ Потеря прав администратора в инвентаризации:', {
-                chatId,
-                currentPath: location.pathname
-            });
-
-            // Сохраняем ID чата для отображения уведомления
-            sessionStorage.setItem('wasKickedFromInventory', chatId);
-
-            // Если мы находимся на странице инвентаризации, возвращаемся к списку
-            if (location.pathname.includes(`/inventory/${chatId}`)) {
-                dispatch(selectChat(chatId));
-                navigate('/inventory');
-            }
+        if (!currentUser?.id) {
+            console.log('⚠️ Пользователь не инициализирован');
             return;
         }
 
-        // Если нет выбранного чата, выходим
-        if (!selectedChat) return;
+        if (!selectedChat && !isInventoryLoading) {
+            console.log('📥 Загрузка списка чатов');
+            dispatch(fetchInventory());
+        }
+    }, [currentUser?.id, selectedChat, isInventoryLoading, dispatch]);
+
+    // Проверяем состояние инвентаря
+    useEffect(() => {
+        if (!isInventoryLoading && selectedChat) {
+            const categoryCount = selectedChat.inventory ? Object.keys(selectedChat.inventory).length : 0;
+            console.log('📊 Состояние инвентаря:', {
+                chatId: selectedChat.chat_id,
+                categoryCount,
+                hasInventory: categoryCount > 0
+            });
+            
+            if (categoryCount === 0 && !error) {
+                console.log('⚠️ Инвентарь пуст после загрузки, пробуем загрузить еще раз через 2 секунды...');
+                
+                const timer = setTimeout(() => {
+                    console.log('🔄 Автоматическая повторная загрузка инвентаря...');
+                    loadInventoryData(true);
+                }, 2000);
+                
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [isInventoryLoading, selectedChat, error, loadInventoryData]);
+
+    // Все useEffect хуки
+    useEffect(() => {
+        if (!currentUser?.id || !selectedChat) return;
 
         const userInfo = {
             id: currentUser.id,
             first_name: currentUser.first_name,
             photo_url: currentUser.photo_url,
-            isAdmin: selectedChat.admins.some(admin => admin.user_id === currentUser.id)
+            isAdmin: currentUser.isAdmin
         };
 
         joinRoom(selectedChat.chat_id, userInfo);
@@ -237,47 +253,15 @@ const Inventory: React.FC = () => {
                 isAdmin: currentUser.isAdmin
             });
         };
-    }, [currentUser.id, currentUser.isAdmin, selectedChat, chatId, joinRoom, leaveRoom, dispatch, navigate, location.pathname]);
+    }, [currentUser?.id, currentUser?.isAdmin, selectedChat, joinRoom, leaveRoom]);
 
-    // Эффект для загрузки инвентаря
-    useEffect(() => {
-        if (chatId && currentUser.id) {
-            console.log('=== LOADING INVENTORY ===');
-            console.log('Chat ID:', chatId);
-            console.log('Current User:', currentUser);
-            
-            dispatch(fetchChatInventory(chatId))
-                .unwrap()
-                .then(result => {
-                    console.log('Inventory loaded successfully:', result);
-                })
-                .catch(error => {
-                    console.error('Failed to load inventory:', error);
-                });
-        }
-    }, [chatId, currentUser.id, dispatch]);
-
-    // Периодическое обновление списка чатов
-    useEffect(() => {
-        if (!isInitialized.current) return;
-
-        const updateInterval = setInterval(() => {
-            if (!chatId) { // Обновляем только если не находимся в инвентаре
-                dispatch(fetchInventory());
-            }
-        }, 30000);
-
-        return () => clearInterval(updateInterval);
-    }, [dispatch, chatId]);
-
-    // Эффект для отслеживания прогресса инвентаризации
     useEffect(() => {
         if (selectedChat?.metadata?.progress === 100 && chatId) {
             setShowCompleteDialog(true);
         }
     }, [selectedChat?.metadata?.progress, chatId]);
 
-    // Функция для получения заголовка
+    // Все callback функции
     const getHeaderTitle = useCallback(() => {
         if (!selectedChat) return 'Инвентарь';
         if (!selectedCategory) return selectedChat.chat_title;
@@ -285,166 +269,96 @@ const Inventory: React.FC = () => {
         return `${selectedChat.chat_title} - ${selectedItem}`;
     }, [selectedChat, selectedCategory, selectedItem]);
 
-    // Функция для закрытия уведомления
     const handleNotificationClose = useCallback((id: string) => {
         setNotifications(prev => prev.filter(n => n.id !== id));
         setHasUnreadNotifications(false);
     }, []);
 
-    // Обработчик возврата назад
-    const handleBack = useCallback(() => {
-        if (selectedItem) {
-            setSelectedItem(null);
-            dispatch({ type: 'inventory/setSelectedItem', payload: null });
-        } else if (selectedCategory) {
-            setSelectedCategory(null);
-        }
-    }, [selectedItem, selectedCategory, dispatch]);
-
     const handleCloseCompleteDialog = useCallback(() => {
         setShowCompleteDialog(false);
     }, []);
 
-    // Функция для глобального поиска по инвентарю
-    const handleSearch = useCallback((query: string) => {
-        if (!selectedChat?.inventory || query.length < 2) {
-            setSearchResults([]);
-            return;
-        }
-        
-        setIsSearching(true);
-        setSearchQuery(query); // Устанавливаем значение поискового запроса
-        
-        console.log('🔍 Начинаем поиск по запросу:', query);
-        
-        setTimeout(() => {
-            const normalizedQuery = normalizeString(query);
-            const results: SearchResult[] = [];
-            
-            // Поиск по всем категориям и товарам
-            Object.entries(selectedChat.inventory).forEach(([category, items]) => {
-                Object.entries(items).forEach(([itemId, item]) => {
-                    const matches: { field: string; value: string }[] = [];
-                    
-                    // Поиск в названии товара
-                    if (normalizeString(itemId).includes(normalizedQuery)) {
-                        matches.push({ field: 'name', value: itemId });
-                        console.log(`✅ Найдено совпадение в названии: "${itemId}" в категории "${category}"`);
-                    }
-                    
-                    // Поиск в описании товара, если оно есть
-                    if (item.raw.description) {
-                        const description = item.raw.description;
-                        if (normalizeString(description).includes(normalizedQuery)) {
-                            matches.push({ field: 'description', value: description });
-                            console.log(`✅ Найдено совпадение в описании товара "${itemId}"`);
-                        }
-                    }
-                    
-                    // Если есть совпадения, добавляем в результаты
-                    if (matches.length > 0) {
-                        results.push({
-                            category,
-                            itemId,
-                            item,
-                            matches
-                        });
-                    }
-                });
-            });
-            
-            console.log(`🔎 Результаты поиска: найдено ${results.length} совпадений`);
-            if (results.length > 0) {
-                console.log('📋 Первый результат:', {
-                    category: results[0].category,
-                    itemId: results[0].itemId,
-                    matches: results[0].matches
-                });
-            }
-            
-            setSearchResults(results);
-            setIsSearching(false);
-            
-            // Добавляем запрос в историю поиска, если его там еще нет и есть результаты
-            if (results.length > 0 && !searchHistory.includes(query)) {
-                setSearchHistory(prev => [query, ...prev].slice(0, 5)); // Ограничиваем историю 5 элементами
-                console.log('📝 Запрос добавлен в историю поиска');
-            }
-        }, 300); // Небольшая задержка для улучшения UX
-    }, [selectedChat?.inventory, searchHistory]);
-    
-    // Очистка поиска
-    const handleClearSearch = useCallback(() => {
-        setSearchQuery('');
-        setSearchResults([]);
-    }, []);
-    
-    // Функция для обработки изменения состояния фокуса поиска
-    const handleSearchFocusChange = useCallback((isFocused: boolean) => {
-        console.log(`🔍 Изменение состояния фокуса поиска: ${isFocused ? 'в фокусе' : 'не в фокусе'}`);
-        setIsSearchFocused(isFocused);
-        
-        // Если фокус пропал и есть поисковый запрос, сохраняем результаты для выпадающего списка,
-        // но очищаем для основного списка
-        if (!isFocused && searchQuery) {
-            console.log('🔍 Фокус снят, сохраняем результаты только для выпадающего списка');
-        }
-    }, [searchQuery]);
-    
-    // Функция для перехода к товару из результатов поиска
-    const handleSearchResultSelect = useCallback((category: string, itemId: string) => {
-        console.log(`🔍 Выбран результат поиска: ${itemId} в категории ${category}`);
-        setSelectedCategory(category);
-        setSelectedItem(itemId);
-        setIsSearchFocused(false); // Скрываем выпадающий список после выбора
-        handleClearSearch();
-    }, []);
-    
-    // Функция для работы с историей поиска
-    const handleHistoryItemSelect = useCallback((query: string) => {
-        handleSearch(query);
-    }, [handleSearch]);
+    const handleChatSelect = useCallback((chatId: string, chat: ChatItem) => {
+        if (!currentUser?.id) return;
 
-    // Преобразуем ChatInventory в Chat для Footer
+        // Проверяем права администратора
+        dispatch(checkAdminRights({
+            userId: currentUser.id,
+            chatId: chatId,
+            admins: chat.admins,
+            context: 'inventory'
+        })).unwrap()
+        .then((adminData: { isAdmin: boolean }) => {
+            if (adminData.isAdmin) {
+                // Для админа сразу показываем модальное окно
+                setSelectedChatForModal(chat);
+                setShowChatModal(true);
+            } else {
+                // Для обычного пользователя просто выбираем чат
+                dispatch(selectChat(chatId));
+                navigate(`/inventory/${chatId}`);
+            }
+        })
+        .catch((error: Error) => {
+            console.error('❌ Ошибка при проверке прав администратора:', error);
+        });
+    }, [dispatch, navigate, currentUser]);
+
+    const handleStartInventory = useCallback(async () => {
+        if (!selectedChatForModal) return;
+
+        try {
+            console.log('🚀 Запуск процесса инвентаризации...');
+            
+            // Выбираем чат и делаем навигацию
+            await dispatch(selectChat(selectedChatForModal.chat_id)).unwrap();
+            navigate(`/inventory/${selectedChatForModal.chat_id}`, { replace: true });
+            
+            // Закрываем модалку
+            setShowChatModal(false);
+            setSelectedChatForModal(null);
+            
+            console.log('✅ Процесс инвентаризации запущен');
+        } catch (error) {
+            console.error('❌ Ошибка при запуске инвентаризации:', error);
+            throw error;
+        }
+    }, [dispatch, navigate, selectedChatForModal]);
+
+    const handleResetInventory = useCallback(async (chatId: string): Promise<void> => {
+        try {
+            // Отправляем запрос на сброс инвентаризации
+            await axios.post(`${config.API_URL}/inventory/${chatId}/reset`);
+            
+            // После успешного сброса обновляем данные инвентаря
+            await dispatch(fetchChatInventory(chatId));
+        } catch (error) {
+            console.error('Ошибка при сбросе инвентаризации:', error);
+            throw error;
+        }
+    }, [dispatch]);
+
+    // Преобразование данных
     const chatForFooter: Chat | null = selectedChat ? {
         id: selectedChat.chat_id,
         name: selectedChat.chat_title,
         type: 'group',
-        created_at: selectedChat.metadata.lastUpdated,
-        updated_at: selectedChat.metadata.lastUpdated
+        created_at: selectedChat.metadata?.lastUpdated || '',
+        updated_at: selectedChat.metadata?.lastUpdated || ''
     } : null;
 
+    // Рендеринг компонента
     if (isInventoryLoading) {
         return (
             <div className={styles.container}>
-                <div className={styles.loadingWrapper}>
-                    {[1, 2, 3, 4, 5, 6].map((item) => (
-                        <div key={item} className={styles.skeletonItem}>
-                            <Skeleton 
-                                variant="rectangular" 
-                                className={styles.skeletonHeader}
-                                animation="wave"
-                            />
-                            <div className={styles.skeletonContent}>
-                                <Skeleton 
-                                    variant="text" 
-                                    className={styles.skeletonText}
-                                    animation="wave"
-                                />
-                                <Skeleton 
-                                    variant="text" 
-                                    className={styles.skeletonText}
-                                    animation="wave"
-                                />
-                                <Skeleton 
-                                    variant="text" 
-                                    className={styles.skeletonText}
-                                    animation="wave"
-                                />
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.3 }}
+                >
+                    <ChatListSkeleton loadingProgress={loadingProgress} />
+                </motion.div>
             </div>
         );
     }
@@ -455,46 +369,18 @@ const Inventory: React.FC = () => {
                 <div className={styles.errorWrapper}>
                     <p className={styles.errorMessage}>{error}</p>
                     <button className={styles.retryButton} onClick={() => window.location.reload()}>
-                        Retry
+                        Повторить
                     </button>
                 </div>
             </div>
         );
     }
 
-    // Если мы на странице инвентаризации
     if (chatId && selectedChat) {
-        console.log('=== ИНВЕНТАРЬ ===');
-        console.log(`Чат: ${selectedChat.chat_title} (${chatId})`);
-        if (selectedChat.inventory) {
-            console.log(`Категорий: ${Object.keys(selectedChat.inventory).length}`);
-            if (selectedCategory) {
-                const items = selectedChat.inventory[selectedCategory] || {};
-                console.log(`Выбрана категория: ${selectedCategory} (${Object.keys(items).length} товаров)`);
-                if (selectedItem) {
-                    const item = items[selectedItem];
-                    console.log(`Выбран товар: ${selectedItem}`);
-                    console.log(`- Сырье: ${item.raw.quantity} ${item.raw.filled ? '(заполнено)' : '(не заполнено)'}`);
-                    if (item.semifinished) {
-                        console.log(`- Полуфабрикат: ${item.semifinished.quantity} ${item.semifinished.filled ? '(заполнено)' : '(не заполнено)'}`);
-                    }
-                }
-            }
-        } else {
-            console.log('Инвентарь пуст');
-        }
-        console.log('================');
-
-        // Проверяем, что inventory существует и не пустой
-        const hasValidInventory = selectedChat.inventory && 
-            typeof selectedChat.inventory === 'object' && 
-            Object.keys(selectedChat.inventory).length > 0;
-
         return (
             <div className={styles.container}>
                 <Header 
                     title={getHeaderTitle()}
-                    mode="inventory"
                     progress={selectedChat?.metadata?.progress || 0}
                     notifications={notifications}
                     hasUnreadNotifications={hasUnreadNotifications}
@@ -522,86 +408,22 @@ const Inventory: React.FC = () => {
                                         onClearSearch={handleClearSearch}
                                         onFocusChange={handleSearchFocusChange}
                                     />
-                                    
-                                    <SearchResultsDropdown
-                                        isVisible={isSearchFocused}
-                                        searchQuery={searchQuery}
-                                        searchResults={searchResults}
-                                        isSearching={isSearching}
-                                        searchHistory={searchHistory}
-                                        onSelectResult={handleSearchResultSelect}
-                                        onSelectHistoryItem={handleHistoryItemSelect}
-                                    />
                                 </div>
                             )}
                             
-                            {/* Отображаем контент всегда, чтобы выпадающий список накладывался поверх */}
                             <div className={isSearchFocused && searchQuery ? styles.contentBlurred : ''} style={{ overflow: 'visible', minHeight: '60vh' }}>
-                                {!selectedCategory ? (
-                                    <CategoryGrid
-                                        key="categories"
-                                        categories={categories}
-                                        onSelect={handleCategorySelect}
-                                        inventory={inventory}
-                                        selectedCategory={selectedCategory}
-                                    />
-                                ) : !selectedItem ? (
-                                    <ItemList
-                                        key="items"
-                                        category={selectedCategory}
-                                        items={inventory[selectedCategory] || {}}
-                                        onSelect={handleItemSelect}
-                                        chatId={selectedChat.chat_id}
-                                        searchQuery={searchQuery}
-                                        searchResults={searchResults}
-                                        onSearchResultSelect={handleSearchResultSelect}
-                                    />
-                                ) : (
-                                    <motion.div
-                                        key={`${selectedCategory}-${selectedItem}`}
-                                        className={styles.itemEditContainer}
-                                        initial={{ opacity: 0, y: 50 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0, y: 50 }}
-                                    >
-                                        
-                                            <ItemEdit
-                                                category={selectedCategory}
-                                                itemId={selectedItem}
-                                                item={inventory[selectedCategory][selectedItem]}
-                                                onClose={() => {
-                                                    setSelectedCategory(null);
-                                                    dispatch({ type: 'inventory/setSelectedItem', payload: null });
-                                                }}
-                                                onUpdate={() => {
-                                                    console.log('Item updated');
-                                                }}
-                                                chatId={selectedChat.chat_id}
-                                            />
-                                            
-                                            {/* Блок истории рендерится всегда, но на мобильных скрыт через CSS и отображается как FAB */}
-                                        
-                                                <ItemHistory
-                                                    itemId={selectedItem}
-                                                    itemName={selectedItem}
-                                                    category={selectedCategory}
-                                                    className={styles.itemHistory}
-                                                />
-                                            
-                                        
-                                    </motion.div>
-                                )}
+                                {currentView}
                             </div>
                         </motion.div>
                     ) : (
-                        <div className={styles.loadingWrapper}>
+                        <div className={styles.inventoryLoadingWrapper}>
                             <div className={styles.loadingSpinner} />
                             <p>Loading inventory data...</p>
                         </div>
                     )}
                 </div>
                 <Footer 
-                    selectedChat={chatForFooter}
+                    selectedChat={chatForFooter!}
                     selectedCategory={selectedCategory || undefined}
                     selectedItem={selectedItem || undefined}
                     onBack={handleBack}
@@ -610,30 +432,56 @@ const Inventory: React.FC = () => {
                 <InventoryCompleteDialog
                     isOpen={showCompleteDialog}
                     onClose={handleCloseCompleteDialog}
-                    inventoryData={selectedChat}
-                    chatId={selectedChat.chat_id}
+                    inventoryData={selectedChat as any}
+                    chatId={selectedChat?.chat_id || ''}
                 />
             </div>
         );
     }
 
-    // Иначе показываем список чатов
     return (
         <div className={styles.container}>
-            <ChatList 
-                chats={items}
-                onChatSelect={handleChatClick}
+            <ChatSelector
+                chats={items.map(chat => ({
+                    chat_id: chat.chat_id,
+                    chat_title: chat.chat_title,
+                    admins: chat.admins.map(admin => ({
+                        ...admin,
+                        is_bot: false,
+                        can_manage_chat: admin.status === 'creator' || admin.status === 'administrator',
+                        can_delete_messages: admin.status === 'creator' || admin.status === 'administrator',
+                        can_manage_voice_chats: admin.status === 'creator' || admin.status === 'administrator',
+                        can_restrict_members: admin.status === 'creator' || admin.status === 'administrator',
+                        can_promote_members: admin.status === 'creator',
+                        can_change_info: admin.status === 'creator' || admin.status === 'administrator',
+                        can_invite_users: admin.status === 'creator' || admin.status === 'administrator',
+                        can_pin_messages: admin.status === 'creator' || admin.status === 'administrator'
+                    })),
+                    members: chat.members,
+                    inventory: chat.inventory,
+                    metadata: {
+                        progress: chat.metadata?.progress || 0,
+                        lastUpdated: chat.metadata?.lastUpdated || new Date().toISOString(),
+                        chat_id: chat.chat_id
+                    }
+                }))}
+                onChatSelect={handleChatSelect}
+                onResetInventory={handleResetInventory}
                 mode="inventory"
-                currentUser={currentUser}
             />
-            {isListPage && selectedChat && (
+
+            {selectedChatForModal && (
                 <ChatModal
-                    chat={selectedChat}
-                    open={selectedChat !== null}
-                    onClose={handleCloseModal}
-                    onStartInventory={handleStartInventory}
-                    isAdmin={currentUser.isAdmin}
-                    wasKickedFromInventory={sessionStorage.getItem('wasKickedFromInventory') === selectedChat.chat_id}
+                    chat={selectedChatForModal}
+                    open={showChatModal}
+                    onClose={() => {
+                        setShowChatModal(false);
+                        setSelectedChatForModal(null);
+                    }}
+                    onStartAction={handleStartInventory}
+                    mode="inventory"
+                    title="Подтверждение инвентаризации"
+                    actionButtonText="Приступить к инвентаризации"
                 />
             )}
         </div>

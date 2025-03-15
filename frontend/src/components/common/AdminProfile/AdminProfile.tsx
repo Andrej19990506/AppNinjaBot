@@ -1,6 +1,6 @@
 import React from 'react';
 import styles from './AdminProfile.module.css';
-import { WebApp } from '../../types/telegram';
+import { WebApp } from '../../../types/telegram';
 
 interface Admin {
     user_id: number;

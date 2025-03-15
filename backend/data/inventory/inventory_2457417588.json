@@ -1,0 +1,1176 @@
+{
+  "inventory": {
+    "Бакалея": {
+      "123": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "321": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "555": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "777": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Афигетт": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Димон красава": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Мука (гр.)": {
+        "raw": {
+          "filled": true,
+          "quantity": 50
+        }
+      },
+      "Перец": {
+        "raw": {
+          "filled": true,
+          "quantity": 50
+        }
+      },
+      "Сахар (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Смотрим": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соль (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сухари панировачные (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Такс": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Уксус (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Уксус винный (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Урааа": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Фигасе": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Хаха": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Хлеб Бородинский (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Хлеб для Цезаря (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Яйцо куриное (шт.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "вау": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "прверь": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Десерты": {
+      "Арома Клубника (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Арома Манго-Маракуя (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Арома Пломбир с Меренгой (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Арома Сникерс с Арахисом": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Макаруны (шт.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Пирожное Красный бархат (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Проверка": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Салют": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чизкейк \"Малиновый вихрь\" (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чизкейк New York (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чизкейк Фисташковый (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чизкейк Шоколад (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чупа чупс": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Эклер с варёным сгущённым молоком (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Масла и заправки": {
+      "Заправка для морковки (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Маринад для крыльев (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Масло растительное (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Масло фритюрное (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Паста Том Кха (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Паста Том Ям (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Привет": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Томатная паста (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "мпмпр": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Молочные продукты": {
+      "Молоко (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сливки (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сметана(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Брынза (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Гауда (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Дор Блю (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Моцарелла (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Пармезан (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр Чеддер (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Фета (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Мясо и рыба": {
+      "Бекон": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Ветчина": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Говядина": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Грудка варено копченая": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Креветка тигровая (шт)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Крылья куриные (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Крылья куриные (маринованные)  (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Набор для бульона (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Пепперони (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Салями (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сервелат (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сосиски Макси (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Фарш (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Филе Куриное (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Филе Лосося (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Напитки": {
+      "Flash 1литр ПЭТ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Energy 0.45 ЖБ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Energy 0.5 ПЭТ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Energy Апельсиновый ритм 0.45 ЖБ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Energy Мятный Лайм 0.45 ЖБ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Energy Ягодный микс 0.45 ЖБ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Flash Ultra Energy 0.45 ЖБ": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Морс брусничный 0.5л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Морс брусничный 1л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черноголовка Дюшес 2л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черноголовка Лимонад 2л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черноголовка Тархун 2л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черноголовка кола 0.5л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черноголовка кола 2л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Овощи и фрукты": {
+      "Ананасы (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Брусника (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Груша(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Капуста (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Картофель (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Лимон(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Лук(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Маслины (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Морковь (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Огурцы (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Огурцы маринованные (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Перец Болгарский (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Перец халапеньо (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Помидоры (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Салат листовой (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Свекла (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Укроп(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Черри(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чеснок (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Шампиньоны (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Полуфабрикаты": {
+      "nfr": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Бульон куриный (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Говядина жаренная (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Гренки чесночные (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Жареное куриное филе (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Замес для Бургера (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Замес на Жюльен (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Замес на Солянку Злодейскую (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Замес на Солянку суп (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Капуста на Чафан (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Картофель дольки св/м (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Картофель пай (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Картофель фри (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Картофельные шарики ветчина с сыром (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Луковые кольца (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Масло Конфи (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Морковь на Чафан (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Морс брусничный (мл.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Наггетсы куриные (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Омлетная смесь (Меланж) (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Пц": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Свекла на Чафан (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Греческий (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Дижонский (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Классический (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Тар-Тар (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Цезарь (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус сливочно-чесночный (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус томатный (кетчуп+чеснок) (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сухарики на Цезарь (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сыр сборный (Гауда и Моцарелла) (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сырные палочки (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сырные шарики (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Тесто (кг.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Соусы": {
+      "Горчица дижонская": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        },
+        "semifinished": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Майонез (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Сок лимона (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Барбекю (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Грибной (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Мутти (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Песто(гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Сырный (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Терияки (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Чили (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус Чили сладкий (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус брусничный (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус соевый (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Соус цитрусовый (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Томатный соус (кетчуп) (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Специи и приправы": {
+      "Бульон сухой грибной": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Бульон сухой куриный": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Лавровый лист (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Орегано": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Паприка (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Перец чёрный молотый (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Приправа рыбная сухая (гр.)": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    },
+    "Упаковка и приборы": {
+      "Бутылка 0,5 л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Бутылка 1л": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Контейнер для десертов": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Контейнер для салатов/закусок": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Контейнер для соуса": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Контейнер для эклеров": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Коробки д/пиццы": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Коробки д/пиццы маленькие": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Коробки д/снеков": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Коробки для Фрай-бокса": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Крышка к контейнеру для салатов/закусок": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Крышка к чашке для супа": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Набор приборов №1": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Набор приборов №2": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Набор приборов №4": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      },
+      "Чашка для супа": {
+        "raw": {
+          "filled": false,
+          "quantity": 0
+        }
+      }
+    }
+  },
+  "metadata": {
+    "lastUpdated": "2025-03-15T17:38:15.870Z",
+    "chat_id": "2457417588"
+  }
+}

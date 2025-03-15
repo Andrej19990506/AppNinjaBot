@@ -1,19 +1,24 @@
 import { createSlice, createAsyncThunk, PayloadAction, ActionCreatorWithPayload } from '@reduxjs/toolkit';
 import axios from 'axios';
-import { 
-    InventoryState, 
+import type { 
     ChatInventory, 
     Admin,
     InventoryItem,
     Inventory,
-    HistoryRecord
+    HistoryRecord,
+    Item,
+    Category,
+    Chat,
+    InventoryState,
+    ChatResponse
 } from '../../types/inventory';
 import { WebApp } from '../../types/telegram';
 import config from '../../config';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
 import { createAction } from '@reduxjs/toolkit';
-import { store } from '../../store';
+import { store, RootState } from '../../store';
+import { checkAdminRights } from './adminSlice';
 
 // Константа для ID глобальной комнаты
 const GLOBAL_ROOM_ID = 'global';
@@ -34,26 +39,26 @@ export const InventoryActionTypes = {
     FETCH_ITEM_HISTORY_ERROR: 'inventory/fetchItemHistoryError'
 } as const;
 
+// Обновляем тип для history.records
+interface HistoryRecords {
+    [key: string]: HistoryRecord[];
+}
+
 const initialState: InventoryState = {
     items: [],
-    isLoading: false,
-    error: null,
+    categories: [],
     selectedChatId: null,
     selectedChat: null,
+    isLoading: false,
+    error: null,
     selectedItem: null,
-    currentUser: {
-        id: null,
-        isAdmin: false,
-        adminRights: null,
-        photo_url: null,
-        first_name: null
-    },
     history: {
-        records: {},
+        records: {} as HistoryRecords,
+        lastUpdate: null,
         isLoading: false,
-        error: null,
-        lastUpdate: null
-    }
+        error: null
+    },
+    lastSentItemSuggestion: undefined
 };
 
 export const fetchInventory = createAsyncThunk(
@@ -66,73 +71,35 @@ export const fetchInventory = createAsyncThunk(
     }
 );
 
-export const fetchChatInventory = createAsyncThunk(
+export const fetchChatInventory = createAsyncThunk<ChatResponse, string>(
     'inventory/fetchChatInventory',
     async (chatId: string) => {
-        console.log('=== FETCH CHAT INVENTORY ===');
-        console.log('Chat ID:', chatId);
-        console.log('API URL:', `${config.API_URL}/inventory/${chatId}`);
-        console.log('Config:', config);
-
         try {
-            console.log('Making API request...');
-            const response = await axios.get(`${config.API_URL}/inventory/${chatId}`);
-            
-            console.log('Server Response:', {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers,
-                data: response.data,
-                rawData: JSON.stringify(response.data, null, 2)
-            });
+            // Получаем данные инвентаря
+            const inventoryResponse = await axios.get(`${config.API_URL}/inventory/${chatId}`);
+            const inventoryData = inventoryResponse.data;
 
-            // Проверяем структуру данных
-            if (!response.data) {
-                console.error('No data in response');
-                throw new Error('Нет данных в ответе');
+            if (!inventoryData) {
+                throw new Error('No data returned from inventory API');
             }
 
-            // Проверяем, есть ли шаблон в ответе
-            if (!response.data.inventory && typeof response.data === 'object') {
-                console.log('Using response data as inventory template');
-                // Если нет inventory в ответе, но есть данные, используем их как шаблон
-                const result = { 
-                    chatId, 
-                    data: {
-                        inventory: response.data,
-                        metadata: {
-                            lastUpdated: new Date().toISOString(),
-                            progress: 0
-                        }
-                    }
-                };
-                console.log('Formatted Result (from template):', result);
-                return result;
-            }
-
-            // Если есть поле inventory, используем его
-            const result = { 
-                chatId, 
+            // Формируем ответ в нужном формате, используя данные только из inventory
+            const response: ChatResponse = {
+                chatId,
                 data: {
-                    inventory: response.data.inventory || {},
-                    metadata: response.data.metadata || {
-                        lastUpdated: new Date().toISOString(),
-                        progress: 0
-                    }
+                    inventory: inventoryData.inventory || {},
+                    metadata: {
+                        lastUpdated: inventoryData.lastUpdated || new Date().toISOString(),
+                        progress: inventoryData.progress || 0,
+                    },
+                    chat_title: inventoryData.chat_title || chatId,
+                    admins: inventoryData.admins || []
                 }
             };
 
-            console.log('Formatted Result (from inventory):', result);
-            console.log('========================');
-
-            return result;
-        } catch (error: any) {
-            console.error('=== FETCH CHAT INVENTORY ERROR ===');
-            console.error('Error:', error.message);
-            console.error('Response:', error.response?.data);
-            console.error('Status:', error.response?.status);
-            console.error('Config:', error.config);
-            console.error('========================');
+            return response;
+        } catch (error) {
+            console.error('Error fetching chat inventory:', error);
             throw error;
         }
     }
@@ -152,123 +119,91 @@ interface UpdateInventoryResult {
 
 export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, UpdateInventoryPayload>(
     InventoryActionTypes.UPDATE_INVENTORY,
-    async (payload, { getState }) => {
-        // Получаем текущий инвентарь из состояния
-        const state = getState() as { inventory: InventoryState };
-        const currentInventory = state.inventory.selectedChat?.inventory || {};
-        const currentItem = currentInventory[payload.category]?.[payload.itemId];
-        
-        // Определяем тип изменения для логирования
-        let actionType = '';
-        let oldQuantity = 0;
-        let newQuantity = 0;
-        let itemType = 'raw';
-
-        // Создаем обновленный item с автоматической установкой filled
-        const updatedItem = { ...payload.item };
-        
-        // Автоматически устанавливаем filled в true если quantity > 0
-        // или если filled уже установлен в true (для случаев, когда товара нет в наличии)
-        if (updatedItem.raw) {
-            updatedItem.raw = {
-                ...updatedItem.raw,
-                filled: updatedItem.raw.quantity > 0 || updatedItem.raw.filled === true || updatedItem.raw.isOutOfStock === true
+    async (payload, { getState, rejectWithValue }) => {
+        try {
+            const state = getState() as RootState;
+            const currentInventory = state.inventory.selectedChat?.inventory || {};
+            const currentItem = currentInventory[payload.category]?.[payload.itemId];
+            
+            // Create updated inventory with proper typing
+            const updatedInventory: Inventory = {
+                ...currentInventory,
+                [payload.category]: {
+                    ...currentInventory[payload.category],
+                    [payload.itemId]: payload.item
+                }
             };
-        }
-        
-        if (updatedItem.semifinished) {
-            updatedItem.semifinished = {
-                ...updatedItem.semifinished,
-                filled: updatedItem.semifinished.quantity > 0 || updatedItem.semifinished.filled === true
-            };
-        }
 
-        if (!currentItem?.semifinished && updatedItem.semifinished) {
-            actionType = 'добавлен полуфабрикат';
-            itemType = 'semifinished';
-            oldQuantity = 0;
-            newQuantity = updatedItem.semifinished.quantity;
-        } else if (currentItem?.semifinished && !updatedItem.semifinished) {
-            actionType = 'удален полуфабрикат';
-            itemType = 'semifinished';
-            oldQuantity = currentItem.semifinished.quantity;
-            newQuantity = 0;
-        } else if (currentItem?.raw.quantity !== updatedItem.raw.quantity) {
-            actionType = 'изменено количество сырья';
-            itemType = 'raw';
-            oldQuantity = currentItem?.raw.quantity || 0;
-            newQuantity = updatedItem.raw.quantity;
-        } else if (currentItem?.semifinished?.quantity !== updatedItem?.semifinished?.quantity) {
-            actionType = 'изменено количество полуфабриката';
-            itemType = 'semifinished';
-            oldQuantity = currentItem?.semifinished?.quantity || 0;
-            newQuantity = updatedItem.semifinished?.quantity || 0;
-        }
+            // Determine change type for logging
+            let actionType = '';
+            let oldQuantity = 0;
+            let newQuantity = 0;
+            let itemType = 'raw';
 
-        console.log('📊 Данные для истории:', {
-            actionType,
-            itemType,
-            oldQuantity,
-            newQuantity,
-            category: payload.category,
-            itemId: payload.itemId
-        });
-
-        // Создаем обновленный инвентарь
-        const updatedInventory = {
-            ...currentInventory,
-            [payload.category]: {
-                ...currentInventory[payload.category],
-                [payload.itemId]: updatedItem
+            if (!currentItem?.semifinished && payload.item.semifinished) {
+                actionType = 'добавлен полуфабрикат';
+                itemType = 'semifinished';
+                oldQuantity = 0;
+                newQuantity = payload.item.semifinished.quantity;
+            } else if (currentItem?.semifinished && !payload.item.semifinished) {
+                actionType = 'удален полуфабрикат';
+                itemType = 'semifinished';
+                oldQuantity = currentItem.semifinished.quantity;
+                newQuantity = 0;
+            } else if (currentItem?.raw?.quantity !== payload.item?.raw?.quantity) {
+                actionType = 'изменено количество сырья';
+                itemType = 'raw';
+                oldQuantity = currentItem?.raw?.quantity || 0;
+                newQuantity = payload.item?.raw?.quantity || 0;
+            } else if (currentItem?.semifinished?.quantity !== payload.item?.semifinished?.quantity) {
+                actionType = 'изменено количество полуфабриката';
+                itemType = 'semifinished';
+                oldQuantity = currentItem?.semifinished?.quantity || 0;
+                newQuantity = payload.item?.semifinished?.quantity || 0;
             }
-        };
-        
-        // Формируем данные для отправки
-        const inventoryData = {
-            inventory: updatedInventory,
-            metadata: {
-                lastUpdated: new Date().toISOString(),
-                progress: 0,
-                chat_id: payload.chatId,
-                currentUser: state.inventory.currentUser
-            },
-            // Добавляем информацию для истории
-            history: {
-                action: actionType === 'добавлен полуфабрикат' ? 'add_option' :
-                        actionType === 'удален полуфабрикат' ? 'remove_option' :
-                        newQuantity > oldQuantity ? 'add' : 'remove',
-                type: itemType,
-                oldQuantity,
-                newQuantity,
+
+            // Log the change
+            console.log(`Inventory change: ${actionType}`, {
+                chatId: payload.chatId,
                 category: payload.category,
-                itemName: payload.itemId
-            }
-        };
+                itemId: payload.itemId,
+                itemType,
+                oldQuantity,
+                newQuantity
+            });
 
-        console.log('📤 Отправка данных на сервер:', inventoryData);
+            // Prepare data for API
+            const inventoryData = {
+                inventory: updatedInventory,
+                metadata: {
+                    lastUpdated: new Date().toISOString(),
+                    progress: 0,
+                    chat_id: payload.chatId,
+                },
+                history: {
+                    action: actionType === 'добавлен полуфабрикат' ? 'add_option' :
+                            actionType === 'удален полуфабрикат' ? 'remove_option' :
+                            newQuantity > oldQuantity ? 'add' : 'remove',
+                    type: itemType,
+                    oldQuantity,
+                    newQuantity,
+                    category: payload.category,
+                    itemName: payload.itemId
+                }
+            };
 
-        const response = await axios.post(`${config.API_URL}/inventory/${payload.chatId}`, inventoryData);
-        console.log(`✅ ${actionType} успешно сохранен:`, response.data);
-        
-        return { 
-            chatId: payload.chatId, 
-            inventory: updatedInventory 
-        };
-    }
-);
+            console.log('📤 Sending data to server:', inventoryData);
 
-export const checkAdminRights = createAsyncThunk(
-    InventoryActionTypes.CHECK_ADMIN_RIGHTS,
-    async ({ userId, chatId }: { userId: number; chatId: string }, { getState }) => {
-        const state = getState() as { inventory: InventoryState };
-        const chat = state.inventory.items.find(item => item.chat_id === chatId);
-        
-        if (!chat) {
-            throw new Error('Chat not found');
+            const response = await axios.post(`${config.API_URL}/inventory/${payload.chatId}`, inventoryData);
+            console.log(`✅ ${actionType} successfully saved:`, response.data);
+
+            return {
+                chatId: payload.chatId,
+                inventory: updatedInventory
+            };
+        } catch (error) {
+            return rejectWithValue(error);
         }
-
-        const admin = chat.admins.find(admin => admin.user_id === userId);
-        return admin || null;
     }
 );
 
@@ -335,54 +270,27 @@ export const fetchItemHistory = createAsyncThunk(
 
 // Функция для вычисления прогресса инвентаризации
 const calculateInventoryProgress = (inventory: Inventory): number => {
-    console.log('=== 📊 Вычисление прогресса инвентаризации ===');
     let totalItems = 0;
     let filledItems = 0;
 
-    Object.entries(inventory).forEach(([category, items]) => {
-        console.log(`\n📑 Категория: ${category}`);
-        Object.entries(items).forEach(([itemName, item]) => {
-            console.log(`\n📦 Товар: ${itemName}`);
-            
-            // Проверяем сырье
+    Object.entries(inventory).forEach(([_, items]) => {
+        Object.values(items).forEach((item) => {
             if (item.raw) {
                 totalItems++;
-                const isRawFilled = item.raw.filled === true || (item.raw.quantity ?? 0) > 0 || item.raw.isOutOfStock === true;
-                console.log('🥩 Сырье:');
-                console.log(`   - Количество: ${item.raw.quantity}`);
-                console.log(`   - Флаг filled: ${item.raw.filled}`);
-                console.log(`   - Флаг isOutOfStock: ${item.raw.isOutOfStock}`);
-                console.log(`   - Итоговый статус: ${isRawFilled ? 'заполнено' : 'не заполнено'}`);
-                
-                if (isRawFilled) {
+                if (item.raw.filled || item.raw.quantity > 0 || item.raw.isOutOfStock) {
                     filledItems++;
                 }
             }
-
-            // Проверяем полуфабрикат, если есть
             if (item.semifinished) {
                 totalItems++;
-                const isSemifinishedFilled = item.semifinished.filled === true || (item.semifinished.quantity ?? 0) > 0;
-                console.log('🥪 Полуфабрикат:');
-                console.log(`   - Количество: ${item.semifinished.quantity}`);
-                console.log(`   - Флаг filled: ${item.semifinished.filled}`);
-                console.log(`   - Итоговый статус: ${isSemifinishedFilled ? 'заполнено' : 'не заполнено'}`);
-                
-                if (isSemifinishedFilled) {
+                if (item.semifinished.filled || item.semifinished.quantity > 0) {
                     filledItems++;
                 }
             }
         });
     });
 
-    const progress = totalItems > 0 ? Math.round((filledItems / totalItems) * 100) : 0;
-    
-    console.log('\n=== Итоги подсчета ===');
-    console.log(`📊 Всего позиций: ${totalItems}`);
-    console.log(`✅ Заполнено: ${filledItems}`);
-    console.log(`📈 Прогресс: ${progress}%`);
-    
-    return progress;
+    return totalItems > 0 ? Math.round((filledItems / totalItems) * 100) : 0;
 };
 
 // Добавляем типы для результатов async thunks
@@ -473,13 +381,12 @@ export const removeInventoryItemGlobally = createAsyncThunk<RemoveInventoryItemR
     }
 );
 
-export const addInventoryItem = createAsyncThunk<AddInventoryItemResult, { chatId: string; category: string; itemId: string }>(
+export const addInventoryItem = createAsyncThunk(
     'inventory/addInventoryItem',
-    async ({ chatId, category, itemId }, { getState }) => {
+    async ({ chatId, category, itemId }: { chatId: string; category: string; itemId: string }, { getState }) => {
         try {
-            // Получаем текущего пользователя и информацию о чате
-            const state = getState() as { inventory: InventoryState };
-            const currentUser = state.inventory.currentUser;
+            const state = getState() as RootState;
+            const currentUser = state.user;
             const currentChat = state.inventory.items.find(chat => chat.chat_id === chatId);
             
             // Добавляем в шаблон
@@ -501,8 +408,10 @@ export const addInventoryItem = createAsyncThunk<AddInventoryItemResult, { chatI
                     [category]: {
                         ...currentInventory.inventory[category],
                         [itemId]: {
-                            raw: {
-                                quantity: 0,
+                            name: itemId,
+                            quantity: 0,
+                            raw: { 
+                                quantity: 0, 
                                 filled: false,
                                 isOutOfStock: false
                             }
@@ -590,68 +499,38 @@ export const addInventoryItem = createAsyncThunk<AddInventoryItemResult, { chatI
     }
 );
 
+export const selectChat = createAsyncThunk(
+    'inventory/selectChat',
+    async (chatId: string, { getState }) => {
+        console.log('🎯 Выбран чат:', chatId);
+        
+        try {
+            // Получаем текущее состояние
+            const state = getState() as RootState;
+            const chat = state.inventory.items.find(c => c.chat_id === chatId);
+            
+            if (!chat) {
+                throw new Error('Чат не найден');
+            }
+            
+            console.log('💬 Данные выбранного чата:', chat);
+            
+            // Возвращаем данные чата
+            return chat;
+        } catch (error) {
+            console.error('Ошибка при выборе чата:', error);
+            throw error;
+        }
+    }
+);
+
 export const inventorySlice = createSlice({
     name: 'inventory',
     initialState,
     reducers: {
-        selectChat: (state, action) => {
-            const chatId = action.payload;
-            const selectedChat = state.items.find(chat => chat.chat_id === chatId);
-            
-            console.log('🎯 Выбран чат:', chatId);
-            console.log('👤 Текущий пользователь:', state.currentUser);
-            console.log('💬 Данные выбранного чата:', selectedChat);
-            
-            // Обновляем выбранный чат
-            state.selectedChatId = chatId;
-            state.selectedChat = selectedChat || null;
-
-            // Сбрасываем права пользователя для нового чата
-            state.currentUser.isAdmin = false;
-            state.currentUser.adminRights = null;
-
-            // Проверяем права только если есть ID пользователя и выбранный чат
-            if (selectedChat && state.currentUser.id) {
-                console.log('🔍 Проверка прав администратора для чата:', selectedChat.chat_title);
-                
-                // Проверяем, является ли пользователь администратором этого чата
-                const adminData = selectedChat.admins.find(
-                    admin => {
-                        console.log('🔄 Сравнение ID админа:', admin.user_id, 'тип:', typeof admin.user_id);
-                        console.log('🔄 С ID пользователя:', state.currentUser.id, 'тип:', typeof state.currentUser.id);
-                        return Number(admin.user_id) === Number(state.currentUser.id);
-                    }
-                );
-
-                if (adminData) {
-                    state.currentUser.isAdmin = true;
-                    state.currentUser.adminRights = adminData;
-                    state.currentUser.photo_url = adminData.photo_url || null;
-                    state.currentUser.first_name = adminData.first_name;
-                    console.log('✅ Пользователь является администратором этого чата:', state.currentUser);
-                } else {
-                    console.log('ℹ️ Пользователь не является администратором этого чата');
-                    const memberData = selectedChat.members.find(
-                        member => Number(member.user_id) === Number(state.currentUser.id)
-                    );
-
-                    if (memberData) {
-                        state.currentUser.photo_url = memberData.photo_url || null;
-                        state.currentUser.first_name = memberData.first_name;
-                        console.log('👥 Пользователь является участником этого чата');
-                    } else {
-                        console.log('❌ Пользователь не является участником этого чата');
-                    }
-                }
-            }
-        },
         clearSelectedChat: (state) => {
             state.selectedChatId = null;
             state.selectedChat = null;
-            state.currentUser.isAdmin = false;
-            state.currentUser.adminRights = null;
-            state.currentUser.photo_url = null;
-            state.currentUser.first_name = null;
         },
         updateChatData: (state, action) => {
             const { chatId, data } = action.payload;
@@ -752,39 +631,6 @@ export const inventorySlice = createSlice({
                         state.selectedChat = state.items[chatIndex];
                     }
                 }
-
-                // Перепроверяем права пользователя если есть обновление админов
-                if (data.admins && state.currentUser.id) {
-                    const wasAdmin = state.currentUser.isAdmin;
-                    const adminData = state.items[chatIndex].admins.find(
-                        admin => Number(admin.user_id) === Number(state.currentUser.id)
-                    );
-
-                    state.currentUser.isAdmin = !!adminData;
-
-                    if (adminData) {
-                        state.currentUser.adminRights = adminData;
-                        state.currentUser.photo_url = adminData.photo_url || null;
-                        state.currentUser.first_name = adminData.first_name;
-                    } else {
-                        state.currentUser.adminRights = null;
-                        const memberData = state.items[chatIndex].members.find(
-                            member => Number(member.user_id) === Number(state.currentUser.id)
-                        );
-                        if (memberData) {
-                            state.currentUser.photo_url = memberData.photo_url || null;
-                            state.currentUser.first_name = memberData.first_name;
-                        }
-                    }
-
-                    if (wasAdmin !== state.currentUser.isAdmin && process.env.NODE_ENV === 'development') {
-                        console.debug('Изменение прав пользователя:', {
-                            wasAdmin,
-                            isAdmin: state.currentUser.isAdmin,
-                            userId: state.currentUser.id
-                        });
-                    }
-                }
             }
         },
         setSelectedItem: (state, action: PayloadAction<InventoryItem | null>) => {
@@ -794,7 +640,7 @@ export const inventorySlice = createSlice({
             state.history.isLoading = action.payload;
         },
         clearItemHistory: (state) => {
-            state.history.records = {};
+            state.history.records = {} as HistoryRecords;
             state.history.lastUpdate = null;
         },
         receiveHistoryUpdate: (state, action) => {
@@ -874,6 +720,7 @@ export const inventorySlice = createSlice({
                 state.selectedChat.inventory = data.inventory;
                 state.selectedChat.metadata = {
                     ...data.metadata,
+                    chat_id: chatId,
                     progress,
                     lastUpdated: new Date().toISOString()
                 };
@@ -886,6 +733,7 @@ export const inventorySlice = createSlice({
                 state.items[chatIndex].inventory = data.inventory;
                 state.items[chatIndex].metadata = {
                     ...data.metadata,
+                    chat_id: chatId,
                     progress,
                     lastUpdated: new Date().toISOString()
                 };
@@ -934,73 +782,6 @@ export const inventorySlice = createSlice({
                 });
                 
                 state.items = chatsWithProgress;
-                
-                // При получении данных о чатах, проверяем права только для выбранного чата
-                if (state.selectedChatId && state.currentUser.id) {
-                    const selectedChat = chatsWithProgress.find(
-                        chat => chat.chat_id === state.selectedChatId
-                    );
-                    
-                    if (selectedChat) {
-                        // Сбрасываем текущие права
-                        state.currentUser.isAdmin = false;
-                        state.currentUser.adminRights = null;
-                        state.currentUser.photo_url = null;
-                        state.currentUser.first_name = null;
-
-                        // Проверяем права администратора
-                        const adminData = selectedChat.admins.find(
-                            admin => Number(admin.user_id) === Number(state.currentUser.id)
-                        );
-
-                        if (adminData) {
-                            state.currentUser.isAdmin = true;
-                            state.currentUser.adminRights = adminData;
-                            state.currentUser.photo_url = adminData.photo_url || null;
-                            state.currentUser.first_name = adminData.first_name;
-                            
-                            if (process.env.NODE_ENV === 'development') {
-                                console.debug('👤 Обновлены права администратора:', {
-                                    userId: state.currentUser.id,
-                                    isAdmin: true,
-                                    rights: adminData
-                                });
-                            }
-                            return;
-                        }
-
-                        // Если пользователь не админ, проверяем членство в чате
-                        const memberData = selectedChat.members.find(
-                            member => Number(member.user_id) === Number(state.currentUser.id)
-                        );
-
-                        if (memberData) {
-                            state.currentUser.photo_url = memberData.photo_url || null;
-                            state.currentUser.first_name = memberData.first_name;
-                            
-                            if (process.env.NODE_ENV === 'development') {
-                                console.debug('👤 Обновлены данные участника:', {
-                                    userId: state.currentUser.id,
-                                    isAdmin: false
-                                });
-                            }
-                        }
-                    }
-                }
-
-                // Обновляем выбранный чат если он есть
-                if (state.selectedChatId) {
-                    state.selectedChat = chatsWithProgress.find(
-                        chat => chat.chat_id === state.selectedChatId
-                    ) || null;
-                    
-                    if (process.env.NODE_ENV === 'development') {
-                        console.debug('✅ Обновлен выбранный чат:', {
-                            chatId: state.selectedChatId,
-                            found: !!state.selectedChat
-                        });
-                    }
-                }
             })
             .addCase(fetchInventory.rejected, (state, action) => {
                 if (process.env.NODE_ENV === 'development') {
@@ -1040,6 +821,7 @@ export const inventorySlice = createSlice({
                     state.selectedChat.inventory = action.payload.data.inventory;
                     state.selectedChat.metadata = {
                         ...action.payload.data.metadata,
+                        chat_id: action.payload.chatId,
                         progress,
                         lastUpdated: new Date().toISOString()
                     };
@@ -1061,6 +843,7 @@ export const inventorySlice = createSlice({
                     state.items[chatIndex].inventory = action.payload.data.inventory;
                     state.items[chatIndex].metadata = {
                         ...action.payload.data.metadata,
+                        chat_id: action.payload.chatId,
                         progress,
                         lastUpdated: new Date().toISOString()
                     };
@@ -1107,34 +890,7 @@ export const inventorySlice = createSlice({
             })
             .addCase(initializeFromTelegram.fulfilled, (state, action) => {
                 const user = action.payload;
-                
-                // Устанавливаем базовую информацию о пользователе
-                state.currentUser.id = user.id;
-                state.currentUser.photo_url = user.photo_url || null;
-                state.currentUser.first_name = user.first_name;
-                
-                // Сбрасываем права администратора
-                state.currentUser.isAdmin = false;
-                state.currentUser.adminRights = null;
-
-                // Если есть выбранный чат, проверяем права в нем
-                if (state.selectedChat) {
-                    const adminData = state.selectedChat.admins.find(
-                        admin => {
-                            console.log('Сравниваем ID админа:', admin.user_id, 'тип:', typeof admin.user_id);
-                            console.log('С ID пользователя:', user.id, 'тип:', typeof user.id);
-                            return Number(admin.user_id) === Number(user.id);
-                        }
-                    );
-
-                    if (adminData) {
-                        state.currentUser.isAdmin = true;
-                        state.currentUser.adminRights = adminData;
-                        state.currentUser.photo_url = adminData.photo_url || null;
-                        state.currentUser.first_name = adminData.first_name;
-                        console.log('Права администратора установлены при инициализации:', state.currentUser);
-                    }
-                }
+                // Remove all currentUser references as they are now handled in userSlice
             })
             .addCase(initializeFromTelegram.rejected, (state, action) => {
                 state.error = 'Failed to initialize user from Telegram';
@@ -1180,9 +936,15 @@ export const inventorySlice = createSlice({
                 const { chatId, category, itemId } = action.payload;
                 const chat = state.items.find(item => item.chat_id === chatId);
                 if (chat) {
-                    if (!chat.inventory) chat.inventory = {};
-                    if (!chat.inventory[category]) chat.inventory[category] = {};
+                    if (!chat.inventory) {
+                        chat.inventory = {};
+                    }
+                    if (!chat.inventory[category]) {
+                        chat.inventory[category] = {};
+                    }
                     chat.inventory[category][itemId] = {
+                        name: itemId,
+                        quantity: 0,
                         raw: { 
                             quantity: 0, 
                             filled: false,
@@ -1193,12 +955,21 @@ export const inventorySlice = createSlice({
                         state.selectedChat = chat;
                     }
                 }
+            })
+            .addCase(selectChat.fulfilled, (state, action) => {
+                if (action.payload) {
+                    state.selectedChatId = action.payload.chat_id;
+                    state.selectedChat = action.payload;
+                }
+            })
+            .addCase(selectChat.rejected, (state) => {
+                state.selectedChatId = null;
+                state.selectedChat = null;
             });
     }
 });
 
 export const { 
-    selectChat, 
     clearSelectedChat, 
     updateChatData,
     setSelectedItem,
@@ -1221,4 +992,14 @@ export const setupHistoryWebSocket = (store: any) => {
         });
         store.dispatch(receiveHistoryUpdate({ itemId: data.itemId, record: data.record }));
     });
-}; 
+};
+
+// Пример использования в thunk:
+export const someThunk = createAsyncThunk(
+    'inventory/someThunk',
+    async (_, { getState }) => {
+        const state = getState() as RootState;
+        const user = state.user;
+        // Используем user.id, user.isAdmin и т.д.
+    }
+); 

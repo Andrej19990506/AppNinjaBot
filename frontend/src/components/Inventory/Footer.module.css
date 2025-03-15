@@ -625,12 +625,6 @@
 
 /* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
-    .buttonsContainer {
-        position: static;
-        transform: none;
-        margin: 0 8px;
-    }
-    
     .generateDocButton {
         min-width: auto !important;
         padding: 4px 12px !important;

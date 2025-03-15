@@ -572,8 +572,8 @@ export const acceptItemSuggestion = (payload: any) => async (dispatch: AppDispat
                         status: 'accepted',
                         item: payload.item,
                         source: {
-                            userId: state.inventory.currentUser.id,
-                            userName: state.inventory.currentUser.first_name,
+                            userId: state.user.id,
+                            userName: state.user.first_name,
                             chatId: currentChatId,
                             chatTitle: state.inventory.selectedChat?.chat_title || 'Неизвестный чат'
                         },
@@ -693,8 +693,8 @@ export const rejectItemSuggestion = (notificationId: string) => (dispatch: AppDi
                     status: 'rejected',
                     item: notification.payload.item,
                     source: {
-                        userId: state.inventory.currentUser.id,
-                        userName: state.inventory.currentUser.first_name,
+                        userId: state.user.id,
+                        userName: state.user.first_name,
                         chatId: state.inventory.selectedChatId,
                         chatTitle: state.inventory.selectedChat?.chat_title || 'Неизвестный чат'
                     },

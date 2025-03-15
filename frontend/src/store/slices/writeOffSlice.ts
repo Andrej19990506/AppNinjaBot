@@ -4,6 +4,7 @@ import { RootState } from '../index';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
 import { PayloadAction } from '@reduxjs/toolkit';
+import { checkAdminRights } from './adminSlice';
 
 const initialState: WriteOffState = {
     chats: [],
@@ -25,24 +26,49 @@ const initialState: WriteOffState = {
 // Загрузка списка чатов для списания
 export const fetchWriteOffChats = createAsyncThunk(
     'writeOff/fetchChats',
-    async () => {
+    async (_, { getState }) => {
         try {
             console.log('=== 🔄 Загрузка чатов для списания ===');
             const response = await api.writeOff.getWriteOffChats();
             console.log('✅ Получены данные:', response.data);
 
-            // Преобразуем данные в формат для списания
-            const writeOffChats = response.data.map((chat: any) => ({
-                ...chat,
-                writeOffs: [],
-                metadata: {
-                    lastUpdated: new Date().toISOString(),
-                    progress: 0,
-                    chat_id: chat.chat_id,
-                    totalWriteOffs: 0,
-                    pendingWriteOffs: 0
-                }
-            })) as WriteOffChat[];
+            const state = getState() as RootState;
+            const userId = state.user.id;
+
+            if (!response.data || !Array.isArray(response.data)) {
+                throw new Error('Некорректный формат данных от сервера');
+            }
+
+            // Фильтруем чаты, где пользователь является админом
+            const writeOffChats = response.data
+                .filter((chat: any) => {
+                    // Проверяем наличие admins
+                    if (!chat.admins || !Array.isArray(chat.admins)) {
+                        console.warn('⚠️ Чат без списка админов:', chat);
+                        return false;
+                    }
+
+                    // Проверяем, является ли пользователь админом в чате
+                    return chat.admins.some((admin: any) => 
+                        admin.user_id === userId && 
+                        (admin.status === 'creator' || admin.status === 'administrator')
+                    );
+                })
+                .map((chat: any) => ({
+                    ...chat,
+                    writeOffs: [],
+                    metadata: {
+                        lastUpdated: new Date().toISOString(),
+                        progress: 0,
+                        chat_id: chat.chat_id,
+                        totalWriteOffs: 0,
+                        pendingWriteOffs: 0
+                    }
+                })) as WriteOffChat[];
+
+            if (writeOffChats.length === 0) {
+                console.warn('⚠️ Нет доступных чатов для списания');
+            }
 
             console.log('✅ Данные преобразованы:', writeOffChats);
             return writeOffChats;
@@ -83,65 +109,37 @@ export const selectWriteOffChat = createAsyncThunk(
         console.log('🏠 Выбранный chat_id:', chatId);
         
         const state = getState() as RootState;
-        const user = state.user;
         const chat = state.writeOff.chats.find(c => c.chat_id === chatId);
         
-        if (!chat) {
-            console.log('❌ Чат не найден');
-            return null;
-        }
-        
-        // Проверяем, что пользователь имеет права на работу с этим чатом
-        const hasAccess = user.isAdmin || chat.admins?.some(admin => {
-            const isMatch = Number(admin.user_id) === Number(user.id) && 
-                          (admin.status === 'creator' || admin.status === 'administrator');
-            console.log('🔄 Проверка админа:', {
-                adminId: admin.user_id,
-                adminStatus: admin.status,
-                userId: user.id,
-                match: isMatch
-            });
-            return isMatch;
-        });
-
-        console.log('🔑 Результат проверки доступа:', {
-            hasAccess,
-            isGlobalAdmin: user.isAdmin,
-            isChatAdmin: chat.admins?.some(admin => 
-                Number(admin.user_id) === Number(user.id) && 
-                (admin.status === 'creator' || admin.status === 'administrator')
-            )
-        });
-
-        if (!hasAccess) {
-            console.log('❌ Нет прав доступа');
-            return null;
+        if (!chat || !state.user.id) {
+            console.log('❌ Чат не найден или ID пользователя отсутствует');
+            throw new Error('Чат не найден или нет доступа');
         }
 
-        console.log('✅ Доступ разрешен');
-        
-        // Проверяем, нужно ли загружать списания для этого чата
-        const currentChat = state.writeOff.selectedChat;
-        const needToRefetch = !currentChat || 
-                              currentChat.chat_id !== chatId || 
-                              !currentChat.writeOffs || 
-                              currentChat.writeOffs.length === 0;
-        
-        // Загружаем списания для выбранного чата только если их нет или при первом выборе чата
-        if (needToRefetch) {
-            try {
-                console.log('🔄 Загрузка списаний для выбранного чата');
-                await dispatch(fetchWriteOffs(chatId)).unwrap();
-            } catch (error) {
-                console.error('❌ Ошибка при загрузке списаний для чата:', error);
-                // Продолжаем даже если не удалось загрузить списания,
-                // но залогируем ошибку
-            }
-        } else {
-            console.log('ℹ️ Списания уже загружены, пропускаем загрузку');
+        // Проверяем права через централизованный механизм
+        try {
+            // Преобразуем админов в нужный формат
+            const formattedAdmins = chat.admins.map(admin => ({
+                user_id: admin.user_id,
+                first_name: admin.first_name,
+                status: admin.status
+            }));
+
+            await dispatch(checkAdminRights({
+                userId: state.user.id,
+                chatId,
+                admins: formattedAdmins,
+                members: chat.members,
+                context: 'writeoff'
+            })).unwrap();
+
+            // Если проверка прав прошла успешно, загружаем списания
+            await dispatch(fetchWriteOffs(chatId));
+            return chat;
+        } catch (error: any) {
+            console.log('❌ Нет прав доступа или ошибка проверки прав:', error);
+            throw new Error(error?.message || 'Нет прав доступа к чату');
         }
-        
-        return chat;
     }
 );
 
@@ -676,18 +674,42 @@ const writeOffSlice = createSlice({
             .addCase(fetchWriteOffs.fulfilled, (state, action) => {
                 state.isLoading = false;
                 
+                // Получаем chatId из аргументов action
+                const chatId = action.meta.arg;
+                
+                // Получаем списания из payload
+                const writeOffs = Array.isArray(action.payload) ? action.payload : 
+                                 action.payload.writeOffs ? action.payload.writeOffs : [];
+                
+                console.log('📦 Обновление списаний в Redux:', { 
+                    chatId, 
+                    writeOffsCount: writeOffs.length,
+                    writeOffs,
+                    payload: action.payload
+                });
+                
                 // Обновляем списания в выбранном чате
-                if (state.selectedChat && state.selectedChat.chat_id === action.payload.chatId) {
-                    state.selectedChat.writeOffs = action.payload.writeOffs;
+                if (state.selectedChat && state.selectedChat.chat_id === chatId) {
+                    console.log('✅ Обновляем списания в выбранном чате:', {
+                        chatId,
+                        writeOffsCount: writeOffs.length
+                    });
+                    state.selectedChat.writeOffs = writeOffs;
+                    if (state.selectedChat.metadata) {
+                        state.selectedChat.metadata.totalWriteOffs = writeOffs.length;
+                        state.selectedChat.metadata.lastUpdated = new Date().toISOString();
+                    }
                 }
                 
                 // Обновляем списания в списке чатов
-                const chatIndex = state.chats.findIndex(chat => chat.chat_id === action.payload.chatId);
+                const chatIndex = state.chats.findIndex(chat => chat.chat_id === chatId);
                 if (chatIndex >= 0) {
                     const chat = state.chats[chatIndex];
-                    chat.writeOffs = action.payload.writeOffs;
-                    chat.metadata.totalWriteOffs = action.payload.writeOffs.length;
-                    chat.metadata.lastUpdated = new Date().toISOString();
+                    chat.writeOffs = writeOffs;
+                    if (chat.metadata) {
+                        chat.metadata.totalWriteOffs = writeOffs.length;
+                        chat.metadata.lastUpdated = new Date().toISOString();
+                    }
                 }
             })
             .addCase(fetchWriteOffs.rejected, (state, action) => {

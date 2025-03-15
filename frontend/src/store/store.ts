@@ -1,13 +1,18 @@
 import { configureStore } from '@reduxjs/toolkit';
-import inventoryReducer, { setupHistoryWebSocket } from './slices/inventorySlice';
+import inventoryReducer from './slices/inventorySlice';
+import writeOffReducer from './slices/writeOffSlice';
 import notificationReducer from './slices/notificationSlice';
-import writeOffReducer, { setupWriteOffWebSocket } from './slices/writeOffSlice';
+import userReducer from './slices/userSlice';
+import adminReducer from './slices/adminSlice';
+import { setupWriteOffWebSocket } from './slices/writeOffSlice';
 
-export const store = configureStore({
+const store = configureStore({
     reducer: {
         inventory: inventoryReducer,
+        writeOff: writeOffReducer,
         notification: notificationReducer,
-        writeOff: writeOffReducer
+        user: userReducer,
+        admin: adminReducer
     },
     middleware: (getDefaultMiddleware) => 
         getDefaultMiddleware({
@@ -15,11 +20,10 @@ export const store = configureStore({
         })
 });
 
-// Настройка WebSocket для истории
-setupHistoryWebSocket(store);
-
-// Настройка WebSocket для списаний
+// Initialize WebSocket connections
 setupWriteOffWebSocket(store);
 
 export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch; 
+export type AppDispatch = typeof store.dispatch;
+
+export { store }; 

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { WebApp } from '../../types/telegram';
 import { User } from '../../types/user';
 import { Admin } from '../../types/inventory';
+import { ChatContext } from './chatSlice';
 
 interface UserState {
     id: number | null;
@@ -49,26 +50,35 @@ export const initializeFromTelegram = createAsyncThunk(
 );
 
 // Проверка прав администратора для конкретного чата
-export const checkAdminRights = createAsyncThunk(
+export const checkAdminRights = createAsyncThunk<void, {
+    userId: number;
+    chatId: string;
+    admins: Admin[];
+    context?: ChatContext;
+}>(
     'user/checkAdminRights',
-    async ({ userId, chatId, admins }: { userId: number; chatId: string; admins: Admin[] }) => {
-        console.log('🔍 Проверка прав администратора');
-        console.log('👤 User ID:', userId);
-        console.log('💬 Chat ID:', chatId);
-        
-        const admin = admins.find(admin => {
-            console.log('🔄 Сравнение ID админа:', admin.user_id, 'тип:', typeof admin.user_id);
-            console.log('🔄 С ID пользователя:', userId, 'тип:', typeof userId);
-            return Number(admin.user_id) === Number(userId);
-        });
+    async ({ userId, chatId, admins, context = 'inventory' }, { dispatch }) => {
+        try {
+            console.log('👤 User ID:', userId);
+            console.log('💬 Chat ID:', chatId);
 
-        if (admin) {
-            console.log('✅ Пользователь является администратором');
-        } else {
-            console.log('❌ Пользователь не является администратором');
+            // Проверяем каждого админа
+            for (const admin of admins) {
+                console.log('🔄 Сравнение ID админа:', admin.user_id, 'тип:', typeof admin.user_id);
+                console.log('🔄 С ID пользователя:', userId, 'тип:', typeof userId);
+                
+                if (admin.user_id === userId) {
+                    console.log('✅ Пользователь является администратором');
+                    // Обновляем статус администратора
+                    dispatch(updateAdminStatus({ isAdmin: true, adminRights: admin }));
+                    return;
+                }
+            }
+
+            throw `У вас нет прав для ${context === 'inventory' ? 'инвентаризации' : context === 'writeoff' ? 'списания' : 'просмотра событий'} в этом чате`;
+        } catch (error) {
+            throw error;
         }
-
-        return admin || null;
     }
 );
 
@@ -105,16 +115,9 @@ const userSlice = createSlice({
                 state.isLoading = false;
                 state.error = action.error.message || 'Failed to initialize user';
             })
-            .addCase(checkAdminRights.fulfilled, (state, action) => {
-                if (action.payload) {
-                    state.isAdmin = true;
-                    state.adminRights = action.payload;
-                    state.photo_url = action.payload.photo_url || state.photo_url;
-                    state.first_name = action.payload.first_name;
-                } else {
-                    state.isAdmin = false;
-                    state.adminRights = null;
-                }
+            .addCase(checkAdminRights.rejected, (state) => {
+                state.isAdmin = false;
+                state.adminRights = null;
             });
     }
 });

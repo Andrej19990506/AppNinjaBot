@@ -29,9 +29,9 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({
 
     useEffect(() => {
         if (message) {
-            // Добавляем новое уведомление
+            // Добавляем новое уведомление с уникальным ключом
             const newNotification = {
-                id: Date.now().toString(),
+                id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 message,
                 type
             };

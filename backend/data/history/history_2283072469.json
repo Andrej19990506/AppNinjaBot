@@ -3,6 +3,93 @@
     "action": "add",
     "type": "raw",
     "oldQuantity": 0,
+    "newQuantity": 1,
+    "category": "Бакалея",
+    "itemName": "Хлеб для Цезаря (гр.)",
+    "id": "65e37aef-b355-4c6d-8e93-b80265525432",
+    "timestamp": "2025-03-15T03:32:05.813518+00:00",
+    "quantity": 1,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 1 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Хлеб для Цезаря (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1,
+      "difference": 1
+    },
+    "item": "Хлеб для Цезаря (гр.)"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 1,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Хлеб для Цезаря (гр.)",
+    "id": "7946716a-6f66-4fa2-a1d2-8838f0f0db96",
+    "timestamp": "2025-03-15T03:31:50.254295+00:00",
+    "quantity": -1,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Удалено 1 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Хлеб для Цезаря (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 1,
+      "new_value": 0,
+      "difference": -1
+    },
+    "item": "Хлеб для Цезаря (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1,
+    "category": "Бакалея",
+    "itemName": "Хлеб для Цезаря (гр.)",
+    "id": "8cb63202-d628-452b-b0a6-7c2f25e219dc",
+    "timestamp": "2025-03-15T03:31:36.997960+00:00",
+    "quantity": 1,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 1 сырья",
+    "chat_id": "2283072469",
+    "status": "completed",
+    "item_display_name": "Хлеб для Цезаря (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1,
+      "difference": 1
+    },
+    "item": "Хлеб для Цезаря (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
     "newQuantity": 750,
     "category": "Упаковка и приборы",
     "itemName": "Коробки для Фрай-бокса",

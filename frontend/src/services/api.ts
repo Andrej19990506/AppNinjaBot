@@ -17,7 +17,22 @@ const writeOffApi = {
     getWriteOffChats: () => {
         console.log('=== 📡 Запрос списка чатов для списания ===');
         console.log('🔗 URL:', `${config.API_URL}/chats`);
-        return axiosInstance.get('/chats');
+        return axiosInstance.get('/chats').then(response => {
+            console.log('✅ Ответ от сервера:', {
+                status: response.status,
+                data: response.data,
+                headers: response.headers
+            });
+            return response;
+        }).catch(error => {
+            console.error('❌ Ошибка при запросе чатов:', {
+                status: error.response?.status,
+                data: error.response?.data,
+                message: error.message,
+                config: error.config
+            });
+            throw error;
+        });
     },
     
     // Получение данных конкретного чата
@@ -35,7 +50,21 @@ const writeOffApi = {
         console.log('🔗 Полный URL:', `${config.API_URL}/write-offs/${chatId}`);
         console.log('🔗 BASE URL:', process.env.REACT_APP_API_URL || '/api');
         
-        return axiosInstance.get(`/write-offs/${chatId}`).catch(error => {
+        return axiosInstance.get(`/write-offs/${chatId}`).then(response => {
+            // Проверяем, что данные пришли в формате объекта с chatId в качестве ключа
+            if (response.data && response.data[chatId]) {
+                console.log('✅ Получены списания для чата:', response.data[chatId]);
+                return { data: response.data[chatId] };
+            }
+            // Если данные пришли в формате массива, возвращаем как есть
+            if (Array.isArray(response.data)) {
+                console.log('✅ Получены списания в формате массива:', response.data);
+                return { data: response.data };
+            }
+            // Если данные не найдены, возвращаем пустой массив
+            console.log('ℹ️ Списания не найдены, возвращаем пустой массив');
+            return { data: [] };
+        }).catch(error => {
             // Если списаний нет (404), возвращаем пустой массив
             if (error.response?.status === 404) {
                 console.log('ℹ️ Списания не найдены (404), возвращаем пустой массив');

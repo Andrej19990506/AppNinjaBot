@@ -3,6 +3,64 @@
     "action": "add",
     "type": "raw",
     "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Бакалея",
+    "itemName": "Перец",
+    "id": "f778f955-ec0f-4a1d-952e-a0f6a569f06b",
+    "timestamp": "2025-03-15T17:38:15.727215+00:00",
+    "quantity": 50,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Перец",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Перец"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Бакалея",
+    "itemName": "Мука (гр.)",
+    "id": "2729f4f9-071c-48b9-b0ee-a130b779af1d",
+    "timestamp": "2025-03-15T17:36:00.769469+00:00",
+    "quantity": 50,
+    "author": {
+      "id": null,
+      "first_name": "Система",
+      "photo_url": null
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Мука (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Мука (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
     "newQuantity": 1,
     "category": "Бакалея",
     "itemName": "Смотрим",

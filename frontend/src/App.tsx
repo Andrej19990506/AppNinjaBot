@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Provider } from 'react-redux';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider as StyledThemeProvider } from 'styled-components';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { store } from './store';
@@ -12,7 +12,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { socketService } from './services/socket';
 import { useAppDispatch, useAppSelector } from './store/hooks';
 import { addNotification, NotificationTypes } from './store/slices/notificationSlice';
-import { initializeFromTelegram } from './store/slices/inventorySlice';
+import { initializeFromTelegram } from './store/slices/userSlice';
 import { MainMenuSkeleton } from './components/common/Skeleton';
 
 // Вспомогательная функция для генерации уникальных ID для уведомлений
@@ -58,42 +58,64 @@ clearOldNotifications();
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const dispatch = useAppDispatch();
     const [isInitialized, setIsInitialized] = useState(false);
-    const currentUser = useAppSelector((state) => state.inventory.currentUser);
+    const [initError, setInitError] = useState<string | null>(null);
 
     useEffect(() => {
         const initializeApp = async () => {
             try {
-                console.debug('🚀 Инициализация приложения...');
-                await dispatch(initializeFromTelegram()).unwrap();
-                console.debug('✅ Пользователь инициализирован:', currentUser);
+                console.debug('🚀 Начало инициализации приложения...');
+                
+                // Инициализация данных пользователя
+                console.debug('🔄 Начало инициализации данных пользователя...');
+                const initResult = await dispatch(initializeFromTelegram()).unwrap();
+                console.debug('✅ Результат инициализации данных:', initResult);
+                
                 setIsInitialized(true);
+                console.debug('🎉 Инициализация приложения завершена успешно');
             } catch (error) {
-                console.error('❌ Ошибка при инициализации:', error);
-                // Можно добавить обработку ошибки, например показать уведомление
+                const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка при инициализации';
+                console.error('❌ Ошибка при инициализации:', errorMessage);
+                setInitError(errorMessage);
             }
         };
 
-        if (!isInitialized) {
+        if (!isInitialized && !initError) {
             initializeApp();
         }
-    }, [dispatch, isInitialized, currentUser]);
+    }, [dispatch, isInitialized, initError]);
 
-    // Показываем загрузку, пока не инициализировали пользователя
+    if (initError) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column',
+                justifyContent: 'center', 
+                alignItems: 'center', 
+                height: '100vh',
+                padding: '20px',
+                textAlign: 'center',
+                color: '#ff4444'
+            }}>
+                <div>Ошибка при инициализации приложения:</div>
+                <div style={{ marginTop: '10px' }}>{initError}</div>
+            </div>
+        );
+    }
+
     if (!isInitialized) {
         return (
             <div style={{ 
                 display: 'flex', 
                 justifyContent: 'center', 
                 alignItems: 'center', 
-                height: '100vh',
-                backgroundColor: '#1a1a1a'
+                height: '100vh' 
             }}>
-                <div style={{ color: '#fff' }}>Загрузка...</div>
+                <div>Загрузка приложения...</div>
             </div>
         );
     }
 
-    return <>{children}</>;
+    return children;
 };
 
 // Компонент для управления WebSocket соединением
@@ -117,17 +139,17 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     
     const [connectionAttempts, setConnectionAttempts] = useState(0);
     const dispatch = useAppDispatch();
-    const currentUser = useAppSelector((state) => state.inventory.currentUser);
+    const currentUser = useAppSelector((state) => state.user);
     const MAX_CONNECTION_ATTEMPTS = 3;
 
     // Инициализируем соединение при старте
     useEffect(() => {
         const initConnection = async () => {
-            if (!socket && currentUser) {
+            if (!socket && currentUser.id) {
                 console.log('🚀 Инициализируем подключение WebSocket');
                 try {
                     // Проверяем наличие текущего пользователя
-                    if (!currentUser) {
+                    if (!currentUser.id) {
                         console.warn('⚠️ Нет данных о текущем пользователе, подключение отложено');
                         return;
                     }
@@ -136,7 +158,7 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                     joinGlobalRoom({
                         first_name: currentUser.first_name || '',
                         isAdmin: currentUser.isAdmin || false,
-                        id: currentUser.id || null
+                        id: currentUser.id
                     });
                 } catch (error: any) {
                     console.error('❌ Ошибка при инициализации WebSocket:', error);
@@ -204,7 +226,7 @@ const App: React.FC = () => {
         const timer = setTimeout(() => {
             setIsMainMenuLoading(false);
             console.log('✅ Главное меню загружено');
-        }, 1500); // Имитация времени загрузки
+        }, 2500);
 
         return () => clearTimeout(timer);
     }, []);
@@ -222,20 +244,20 @@ const App: React.FC = () => {
                     <AppInitializer>
                         <WebSocketProvider>
                             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                                    <Routes>
-                                        <Route path="/" element={
-                                            isMainMenuLoading 
-                                                ? <MainMenuSkeleton 
-                                                    animation="shimmer" 
-                                                    onAnimationComplete={handleSkeletonAnimationComplete} 
-                                                  /> 
-                                                : <MainMenu />
-                                        } />
-                                        <Route path="/events" element={<div>События</div>} />
-                                        <Route path="/inventory/:chatId" element={<Inventory />} />
-                                        <Route path="/inventory" element={<Inventory />} />
-                                        <Route path="/write-off" element={<WriteOff />} />
-                                    </Routes>
+                                <Routes>
+                                    <Route path="/" element={
+                                        isMainMenuLoading 
+                                            ? <MainMenuSkeleton 
+                                                animation="shimmer" 
+                                                onAnimationComplete={handleSkeletonAnimationComplete} 
+                                              /> 
+                                            : <MainMenu />
+                                    } />
+                                    <Route path="/events" element={<div>События</div>} />
+                                    <Route path="/inventory/:chatId" element={<Inventory />} />
+                                    <Route path="/inventory" element={<Inventory />} />
+                                    <Route path="/write-off" element={<WriteOff />} />
+                                </Routes>
                             </Router>
                         </WebSocketProvider>
                     </AppInitializer>

@@ -173,7 +173,210 @@ export const MainMenuSkeleton: React.FC<{
     );
 };
 
-// Компонент для выбора скелетона по типу
+// Компонент для скелетона списка чатов
+export const ChatListSkeleton: React.FC<{
+    animation?: 'pulse' | 'wave' | 'shimmer';
+    theme?: 'light' | 'dark';
+    onAnimationComplete?: () => void;
+    itemCount?: number;
+    loadingProgress?: number;
+}> = ({ animation = 'shimmer', theme = 'dark', itemCount = 1, loadingProgress = 0 }) => {
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.06,
+                delayChildren: 0.1,
+                when: 'beforeChildren',
+                duration: 0.3,
+                ease: "easeOut"
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { 
+            opacity: 0, 
+            y: -20,
+            scale: 0.95
+        },
+        visible: { 
+            opacity: 1, 
+            y: 0,
+            scale: 1,
+            transition: { 
+                duration: 0.4,
+                ease: [0.4, 0, 0.2, 1]
+            } 
+        }
+    };
+
+    return (
+        <motion.div 
+            className={styles.container}
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+        >
+            {/* Заголовок "Выберите чат для инвентаризации" */}
+            <motion.div 
+                className={styles.titleContainer}
+                variants={itemVariants}
+            >
+                <div className={styles.titleWrapper}>
+                    <Skeleton
+                        variant="rectangular"
+                        width="clamp(280px, 50vw, 400px)"
+                        height="clamp(36px, 5vw, 48px)"
+                        animation={animation}
+                        theme={theme}
+                        className={styles.titleSkeleton}
+                    />
+                </div>
+            </motion.div>
+            
+            {/* Индикатор прогресса загрузки */}
+            <motion.div 
+                className={styles.progressContainer}
+                variants={itemVariants}
+            >
+                <motion.div 
+                    className={styles.progressBar}
+                    initial={{ width: '0%' }}
+                    animate={{ width: `${loadingProgress}%` }}
+                    transition={{ duration: 0.3 }}
+                />
+            </motion.div>
+            
+            {/* Карточки чатов */}
+            <motion.div 
+                className={styles.chatList}
+                variants={itemVariants}
+            >
+                {Array.from({ length: itemCount }).map((_, index) => (
+                    <div key={index} className={styles.chatSkeleton}>
+                        {/* Заголовок чата */}
+                        <div className={styles.chatHeader}>
+                            <div className={styles.chatInfo}>
+                                <div className={styles.chatTitleWrapper}>
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width="180px"
+                                        height="24px"
+                                        animation={animation}
+                                        theme={theme}
+                                        className={styles.chatTitle}
+                                    />
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width="80px"
+                                        height="20px"
+                                        animation={animation}
+                                        theme={theme}
+                                        className={styles.statusBadge}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Секция прогресса */}
+                        <div className={styles.progressSection}>
+                            <div className={styles.progressInfo}>
+                                <div className={styles.progressStatus}>
+                                    <Skeleton
+                                        variant="circular"
+                                        width="24px"
+                                        height="24px"
+                                        animation={animation}
+                                        theme={theme}
+                                        className={styles.icon}
+                                    />
+                                    <Skeleton
+                                        variant="rectangular"
+                                        width="45px"
+                                        height="20px"
+                                        animation={animation}
+                                        theme={theme}
+                                        className={styles.progressText}
+                                    />
+                                </div>
+                                <div className={styles.progressActions}>
+                                    <Skeleton
+                                        variant="circular"
+                                        width="32px"
+                                        height="32px"
+                                        animation={animation}
+                                        theme={theme}
+                                        className={styles.resetButton}
+                                    />
+                                </div>
+                            </div>
+                            <Skeleton
+                                variant="rectangular"
+                                width="100%"
+                                height="4px"
+                                animation={animation}
+                                theme={theme}
+                                className={styles.progress}
+                            />
+                        </div>
+
+                        {/* Футер с временем последнего обновления */}
+                        <div className={styles.chatFooter}>
+                            <div className={styles.lastInventory}>
+                                <Skeleton
+                                    variant="circular"
+                                    width="20px"
+                                    height="20px"
+                                    animation={animation}
+                                    theme={theme}
+                                    className={styles.icon}
+                                />
+                                <Skeleton
+                                    variant="rectangular"
+                                    width="200px"
+                                    height="16px"
+                                    animation={animation}
+                                    theme={theme}
+                                    className={styles.lastUpdate}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </motion.div>
+            
+            {/* Контейнер с кнопками */}
+            <motion.div
+                className={styles.chatSelectorContainer}
+                variants={itemVariants}
+            >
+                {/* Кнопка домой */}
+                <Skeleton
+                    variant="circular"
+                    width="56px"
+                    height="56px"
+                    animation={animation}
+                    theme={theme}
+                    className={styles.homeButton}
+                />
+                
+                {/* Кнопка открытия списка */}
+                <Skeleton
+                    variant="circular"
+                    width="56px"
+                    height="56px"
+                    animation={animation}
+                    theme={theme}
+                    className={styles.chatSelectorButton}
+                />
+            </motion.div>
+        </motion.div>
+    );
+};
+
+// Обновляем компонент SkeletonByType
 export const SkeletonByType: React.FC<SkeletonByTypeProps> = ({ 
     type, 
     animation = 'shimmer', 
@@ -190,8 +393,7 @@ export const SkeletonByType: React.FC<SkeletonByTypeProps> = ({
             // TODO: добавить скелетон для списания
             return <div>WriteOff Skeleton</div>;
         case 'chatList':
-            // TODO: добавить скелетон для списка чатов
-            return <div>ChatList Skeleton</div>;
+            return <ChatListSkeleton animation={animation} theme={theme} />;
         default:
             return null;
     }

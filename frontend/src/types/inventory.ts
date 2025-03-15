@@ -14,42 +14,16 @@ export interface InventoryItemData {
 
 export interface InventoryItem {
     name: string;
-    description?: string;
     quantity: number;
-    unit?: string;
-    price?: number;
-    category?: string;
-    createdAt?: string;
-    updatedAt?: string;
-    lowStockThreshold?: number;
-    history?: ItemHistoryEntry[];
-    tags?: string[];
-    suppliers?: string[];
-    imageUrl?: string;
-    barcode?: string;
-    sku?: string;
-    lastOrderDate?: string;
-    nextOrderDate?: string;
-    minOrderQuantity?: number;
-    maxOrderQuantity?: number;
-    orderLeadTime?: number;
-    notes?: string;
-    location?: string;
-    status?: 'in-stock' | 'low-stock' | 'out-of-stock' | 'discontinued';
-    expiryDate?: string;
-    customs?: Record<string, any>;
     raw?: {
         quantity: number;
-        unit?: string;
-        filled?: boolean;
-        isOutOfStock?: boolean;
+        filled: boolean;
+        isOutOfStock: boolean;
     };
     semifinished?: {
         quantity: number;
-        unit?: string;
-        filled?: boolean;
-        isOutOfStock?: boolean;
-    } | null;
+        filled: boolean;
+    };
 }
 
 export interface InventoryCategory {
@@ -64,30 +38,39 @@ export interface Inventory {
 
 export interface Admin {
     user_id: number;
-    username: string | null;
     first_name: string;
-    last_name: string | null;
-    status: 'creator' | 'administrator';
-    is_bot: boolean;
-    can_manage_chat: boolean;
-    can_delete_messages: boolean;
-    can_manage_voice_chats: boolean;
-    can_restrict_members: boolean;
-    can_promote_members: boolean;
-    can_change_info: boolean;
-    can_invite_users: boolean;
-    can_pin_messages: boolean;
     photo_url?: string;
+    status?: 'creator' | 'administrator' | 'member' | string;
+    is_bot?: boolean;
+    can_manage_chat?: boolean;
+    can_delete_messages?: boolean;
+    can_manage_voice_chats?: boolean;
+    can_restrict_members?: boolean;
+    can_promote_members?: boolean;
+    can_change_info?: boolean;
+    can_invite_users?: boolean;
+    can_pin_messages?: boolean;
 }
 
 export interface ChatInventory {
     chat_id: string;
     chat_title: string;
-    members_count: number;
-    members: any[];
     admins: Admin[];
-    inventory: Inventory;
-    metadata: InventoryMetadata;
+    members: Array<{
+        user_id: number;
+        first_name: string;
+        photo_url?: string;
+    }>;
+    inventory: {
+        [category: string]: {
+            [itemId: string]: InventoryItem;
+        };
+    };
+    metadata: {
+        lastUpdated: string;
+        progress: number;
+        chat_id: string;
+    };
 }
 
 export interface CurrentUser {
@@ -106,16 +89,10 @@ export interface InventoryAuthor {
 
 export interface HistoryRecord {
     id: string;
+    type: string;
+    action: string;
     timestamp: string;
-    action: 'add' | 'remove' | 'update' | 'add_option' | 'remove_option' | 'out_of_stock' | 'in_stock';
-    type: 'raw' | 'semifinished';
-    quantity?: number;
-    oldQuantity?: number;
-    newQuantity?: number;
-    author: InventoryAuthor;
-    item_id: string;
-    category: string;
-    item_name: string;
+    data: any;
 }
 
 export interface HistoryState {
@@ -125,25 +102,59 @@ export interface HistoryState {
     lastUpdate: string | null;
 }
 
+export interface Item {
+    id: string;
+    name: string;
+    category: string;
+    quantity: number;
+    unit: string;
+    price: number;
+    total: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface Category {
+    id: string;
+    name: string;
+    items: InventoryItem[];
+}
+
+export interface Chat {
+    chat_id: string;
+    chat_title: string;
+    admins: Array<{
+        user_id: number;
+        first_name: string;
+        last_name?: string;
+        username?: string;
+        photo_url?: string;
+        status?: string;
+    }>;
+    members: Array<{
+        user_id: number;
+        first_name: string;
+        photo_url?: string;
+    }>;
+    inventory: {
+        items: Item[];
+        categories: Category[];
+    };
+}
+
 export interface InventoryState {
     items: ChatInventory[];
-    isLoading: boolean;
-    error: string | null;
+    categories: Category[];
     selectedChatId: string | null;
     selectedChat: ChatInventory | null;
     selectedItem: InventoryItem | null;
-    currentUser: {
-        id: number | null;
-        isAdmin: boolean;
-        adminRights: any | null;
-        photo_url: string | null;
-        first_name: string | null;
-    };
+    isLoading: boolean;
+    error: string | null;
     history: {
-        records: { [key: string]: HistoryRecord[] };
+        records: Record<string, HistoryRecord[]>;
+        lastUpdate: string | null;
         isLoading: boolean;
         error: string | null;
-        lastUpdate: string | null;
     };
     lastSentItemSuggestion?: {
         item?: {
@@ -172,6 +183,33 @@ export interface ItemHistoryEntry {
     userName?: string;
     note?: string;
     actionDetails?: Record<string, any>;
+}
+
+export interface UpdateInventoryPayload {
+    chatId: string;
+    category: string;
+    itemId: string;
+    item: InventoryItem;
+}
+
+export interface UpdateInventoryResult {
+    chatId: string;
+    inventory: Inventory;
+}
+
+export interface ChatData {
+    inventory: Record<string, Record<string, InventoryItem>>;
+    metadata: {
+        lastUpdated: string;
+        progress: number;
+    };
+    chat_title: string;
+    admins: Admin[];
+}
+
+export interface ChatResponse {
+    chatId: string;
+    data: ChatData;
 }
 
 // Action Types

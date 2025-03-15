@@ -1,1104 +1,119 @@
 [
   {
     "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 5,
-    "category": "Десерты",
-    "itemName": "Пирожное Красный бархат (шт)",
-    "id": "74aa565b-0c4c-4924-a626-bc8abb55afa1",
-    "timestamp": "2025-03-15T18:19:03.473461+00:00",
-    "quantity": 5,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 5 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Пирожное Красный бархат (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 5,
-      "difference": 5
-    },
-    "item": "Пирожное Красный бархат (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 10,
-    "category": "Десерты",
-    "itemName": "Макаруны (шт.)",
-    "id": "7e401192-cc7d-4d20-89aa-4b656c4f3c93",
-    "timestamp": "2025-03-15T18:18:25.244246+00:00",
-    "quantity": 10,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 10 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Макаруны (шт.)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 10,
-      "difference": 10
-    },
-    "item": "Макаруны (шт.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 5,
-    "category": "Десерты",
-    "itemName": "Арома Сникерс с Арахисом",
-    "id": "01be55d1-bd81-4288-9cab-fae7260a45cb",
-    "timestamp": "2025-03-15T18:16:43.600229+00:00",
-    "quantity": 5,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 5 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Сникерс с Арахисом",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 5,
-      "difference": 5
-    },
-    "item": "Арома Сникерс с Арахисом"
-  },
-  {
-    "action": "add_option",
     "type": "semifinished",
     "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Десерты",
-    "itemName": "Арома Пломбир с Меренгой (шт)",
-    "id": "4be33d2d-e91f-4595-bf9c-d804ddba45f8",
-    "timestamp": "2025-03-15T18:15:41.355535+00:00",
-    "quantity": 0,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Пломбир с Меренгой (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Арома Пломбир с Меренгой (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 5,
-    "category": "Десерты",
-    "itemName": "Арома Пломбир с Меренгой (шт)",
-    "id": "9e78af7c-6fe7-430b-b5d6-9d4ee2b67377",
-    "timestamp": "2025-03-15T18:15:26.040628+00:00",
-    "quantity": 5,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 5 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Пломбир с Меренгой (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 5,
-      "difference": 5
-    },
-    "item": "Арома Пломбир с Меренгой (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 5,
-    "category": "Десерты",
-    "itemName": "Арома Манго-Маракуя (шт)",
-    "id": "14dd3310-55e6-4c08-aba6-a767a02bdf0c",
-    "timestamp": "2025-03-15T18:10:04.484622+00:00",
-    "quantity": 5,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 5 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Манго-Маракуя (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 5,
-      "difference": 5
-    },
-    "item": "Арома Манго-Маракуя (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 5,
-    "category": "Десерты",
-    "itemName": "Арома Клубника (шт)",
-    "id": "7ea5bca4-d00f-4d45-bc0a-156d236521fe",
-    "timestamp": "2025-03-15T18:03:31.250309+00:00",
-    "quantity": 5,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 5 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Клубника (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 5,
-      "difference": 5
-    },
-    "item": "Арома Клубника (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 50,
-    "newQuantity": 100,
+    "newQuantity": 55,
     "category": "Бакалея",
-    "itemName": "Перец",
-    "id": "485ec86c-1ec0-44fa-86d7-a6218e2f72ed",
-    "timestamp": "2025-03-15T17:43:43.162439+00:00",
-    "quantity": 50,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T20:12:14.647Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
     },
-    "description": "Добавлено 50 сырья",
+    "id": "96f67a74-9e70-4038-8ec4-600793e5f737",
+    "timestamp": "2025-03-15T20:12:14.802455+00:00",
+    "quantity": 55,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 55 полуфабрикатов",
     "chat_id": "2457417588",
     "status": "completed",
-    "item_display_name": "Перец",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 50,
-      "new_value": 100,
-      "difference": 50
-    },
-    "item": "Перец"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 50,
-    "category": "Бакалея",
-    "itemName": "Перец",
-    "id": "f778f955-ec0f-4a1d-952e-a0f6a569f06b",
-    "timestamp": "2025-03-15T17:38:15.727215+00:00",
-    "quantity": 50,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 50 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Перец",
+    "item_display_name": "Сахар (гр.)",
     "category_display_name": "Бакалея",
     "change_type": "quantity_update",
     "change_details": {
       "field": "quantity",
       "old_value": 0,
-      "new_value": 50,
-      "difference": 50
+      "new_value": 55,
+      "difference": 55
     },
-    "item": "Перец"
+    "item": "Сахар (гр.)"
   },
   {
     "action": "add",
     "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 50,
-    "category": "Бакалея",
-    "itemName": "Мука (гр.)",
-    "id": "2729f4f9-071c-48b9-b0ee-a130b779af1d",
-    "timestamp": "2025-03-15T17:36:00.769469+00:00",
-    "quantity": 50,
-    "author": {
-      "id": null,
-      "first_name": "Система",
-      "photo_url": null
-    },
-    "description": "Добавлено 50 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Мука (гр.)",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 50,
-      "difference": 50
-    },
-    "item": "Мука (гр.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Бакалея",
-    "itemName": "Смотрим",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_57.jpg"
-    },
-    "id": "9ad0761d-d9bf-4c11-b6a8-6fe5ef15bafe",
-    "timestamp": "2025-03-12T00:58:46.705851+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Смотрим",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Смотрим"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Бакалея",
-    "itemName": "Смотрим",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_57.jpg"
-    },
-    "id": "42b960bb-2aa4-4644-8e56-5dc23dafb76d",
-    "timestamp": "2025-03-12T00:58:43.350381+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Смотрим",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Смотрим"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 50,
-    "category": "Полуфабрикаты",
-    "itemName": "Бульон куриный (гр.)",
-    "author": {
-      "id": 6843570748,
-      "first_name": "Словцова",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_55.jpg"
-    },
-    "id": "20611e49-0119-46f7-a21e-8e1341f52815",
-    "timestamp": "2025-03-12T00:54:27.349726+00:00",
-    "quantity": 50,
-    "description": "Добавлено 50 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Бульон куриный (гр.)",
-    "category_display_name": "Полуфабрикаты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 50,
-      "difference": 50
-    },
-    "item": "Бульон куриный (гр.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 4,
-    "category": "Мясо и рыба",
-    "itemName": "Бекон",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "cae68192-b8d4-4735-a493-89a467e608c7",
-    "timestamp": "2025-03-12T00:53:19.615303+00:00",
-    "quantity": 4,
-    "description": "Добавлено 4 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Бекон",
-    "category_display_name": "Мясо и рыба",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 4,
-      "difference": 4
-    },
-    "item": "Бекон"
-  },
-  {
-    "action": "remove_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Мясо и рыба",
-    "itemName": "Филе Куриное (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "2156f1c6-cb9c-46f7-8f5e-007f911e3569",
-    "timestamp": "2025-03-12T00:31:24.993360+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Филе Куриное (гр.)",
-    "category_display_name": "Мясо и рыба",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Филе Куриное (гр.)"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Мясо и рыба",
-    "itemName": "Филе Куриное (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "f19181c5-ec58-4f0c-8ebc-9d82c0f450fb",
-    "timestamp": "2025-03-12T00:31:21.735789+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Филе Куриное (гр.)",
-    "category_display_name": "Мясо и рыба",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Филе Куриное (гр.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 12,
-    "category": "Масла и заправки",
-    "itemName": "Заправка для морковки (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "c9534c31-c24a-4ff8-a9d3-eecf2bbf2839",
-    "timestamp": "2025-03-11T23:56:17.449281+00:00",
-    "quantity": 12,
-    "description": "Добавлено 12 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заправка для морковки (гр.)",
-    "category_display_name": "Масла и заправки",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 12,
-      "difference": 12
-    },
-    "item": "Заправка для морковки (гр.)"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Масла и заправки",
-    "itemName": "Заправка для морковки (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "8c578261-02a8-4d5b-b261-713bc697209a",
-    "timestamp": "2025-03-11T23:55:54.583037+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заправка для морковки (гр.)",
-    "category_display_name": "Масла и заправки",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Заправка для морковки (гр.)"
-  },
-  {
-    "action": "remove_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Бакалея",
-    "itemName": "Заходите",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "dcca00aa-ad26-487e-b2cd-5f62da83c3bb",
-    "timestamp": "2025-03-11T23:46:32.567959+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заходите",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Заходите"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Бакалея",
-    "itemName": "Заходите",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "9d64b527-c82b-4f29-a775-8c8fcbb8c38c",
-    "timestamp": "2025-03-11T23:46:30.771021+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заходите",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Заходите"
-  },
-  {
-    "action": "remove_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Бакалея",
-    "itemName": "Заходите",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "1c3f7e0c-835e-4bb6-b308-fd425012c448",
-    "timestamp": "2025-03-11T23:46:29.289489+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заходите",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Заходите"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Бакалея",
-    "itemName": "Заходите",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "3ab09f23-309e-44bf-bd88-ebf0e02703a5",
-    "timestamp": "2025-03-11T23:46:25.831086+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Заходите",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Заходите"
-  },
-  {
-    "action": "add",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 213,
-    "category": "Бакалея",
-    "itemName": "Мука (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "9f5a453b-2447-414b-87a8-8352e04daffe",
-    "timestamp": "2025-03-11T23:45:15.455787+00:00",
-    "quantity": 213,
-    "description": "Добавлено 213 полуфабрикатов",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Мука (гр.)",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 213,
-      "difference": 213
-    },
-    "item": "Мука (гр.)"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Бакалея",
-    "itemName": "Мука (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "295a715e-52ee-4413-9655-b6ae7dffd68e",
-    "timestamp": "2025-03-11T23:44:57.991353+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Мука (гр.)",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Мука (гр.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Масла и заправки",
-    "itemName": "Привет",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "4f1112b2-0f56-4985-ba22-27301b46ad05",
-    "timestamp": "2025-03-11T22:58:00.176737+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Привет",
-    "category_display_name": "Масла и заправки",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Привет"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Бакалея",
-    "itemName": "Урааа",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "93a833b2-e465-4416-933d-e9258ef11d53",
-    "timestamp": "2025-03-11T22:57:58.066519+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Урааа",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Урааа"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Полуфабрикаты",
-    "itemName": "Пц",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "e4336273-831c-445d-a794-cad60bd3fb81",
-    "timestamp": "2025-03-11T22:57:55.047966+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Пц",
-    "category_display_name": "Полуфабрикаты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Пц"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Бакалея",
-    "itemName": "Такс",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "dc4e1ccc-8352-44e8-a75d-70da4cd42a0c",
-    "timestamp": "2025-03-11T22:57:48.787115+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Такс",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Такс"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Бакалея",
-    "itemName": "Смотрим",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "3c2b47f0-f36f-4564-a89f-86971a11212c",
-    "timestamp": "2025-03-11T22:57:32.785840+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Смотрим",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Смотрим"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 25,
-    "newQuantity": 39,
-    "category": "Десерты",
-    "itemName": "Арома Клубника (шт)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "0acd086e-1347-440c-8923-a1eefb641812",
-    "timestamp": "2025-03-11T22:55:32.657838+00:00",
-    "quantity": 14,
-    "description": "Добавлено 14 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Клубника (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 25,
-      "new_value": 39,
-      "difference": 14
-    },
-    "item": "Арома Клубника (шт)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
+    "oldQuantity": 20,
     "newQuantity": 25,
-    "category": "Десерты",
-    "itemName": "Арома Клубника (шт)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "01578b00-8f41-468f-81ab-2bf4b31bd2ae",
-    "timestamp": "2025-03-11T22:55:27.433013+00:00",
-    "quantity": 25,
-    "description": "Добавлено 25 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Арома Клубника (шт)",
-    "category_display_name": "Десерты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 25,
-      "difference": 25
-    },
-    "item": "Арома Клубника (шт)"
-  },
-  {
-    "action": "remove_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Соусы",
-    "itemName": "Соус соевый (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "732c0bf2-2ca3-459b-9049-95925b643ac5",
-    "timestamp": "2025-03-11T22:40:09.562128+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Соус соевый (гр.)",
-    "category_display_name": "Соусы",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Соус соевый (гр.)"
-  },
-  {
-    "action": "add_option",
-    "type": "semifinished",
-    "oldQuantity": 0,
-    "newQuantity": 0,
-    "category": "Соусы",
-    "itemName": "Соус соевый (гр.)",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "365e619a-c665-4136-9de0-e5d2288cdba8",
-    "timestamp": "2025-03-11T22:40:00.916886+00:00",
-    "quantity": 0,
-    "description": "Изменено количество полуфабрикатов с 0 на 0",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Соус соевый (гр.)",
-    "category_display_name": "Соусы",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 0,
-      "difference": 0
-    },
-    "item": "Соус соевый (гр.)"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
     "category": "Бакалея",
-    "itemName": "Смотрим",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T20:11:40.418Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
     },
-    "id": "f85bb12e-75df-4b11-8dc7-739081b52cbe",
-    "timestamp": "2025-03-11T03:01:43.430652+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Смотрим",
-    "category_display_name": "Бакалея",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Смотрим"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Полуфабрикаты",
-    "itemName": "Пц",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "30055685-8faa-4278-9360-bc399ad5759f",
-    "timestamp": "2025-03-10T21:32:49.802916+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Пц",
-    "category_display_name": "Полуфабрикаты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Пц"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Полуфабрикаты",
-    "itemName": "Пц",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "c8fbe6db-2e8c-4e05-9768-92ec2f5bddca",
-    "timestamp": "2025-03-10T21:31:29.792078+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Пц",
-    "category_display_name": "Полуфабрикаты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Пц"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 1,
-    "category": "Полуфабрикаты",
-    "itemName": "Пц",
-    "author": {
-      "id": 1682142222,
-      "first_name": "andrej",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_56.jpg"
-    },
-    "id": "dd5c5102-3412-4523-bba9-5acdd9f8ba69",
-    "timestamp": "2025-03-10T21:31:14.552485+00:00",
-    "quantity": 1,
-    "description": "Добавлено 1 сырья",
-    "chat_id": "2457417588",
-    "status": "completed",
-    "item_display_name": "Пц",
-    "category_display_name": "Полуфабрикаты",
-    "change_type": "quantity_update",
-    "change_details": {
-      "field": "quantity",
-      "old_value": 0,
-      "new_value": 1,
-      "difference": 1
-    },
-    "item": "Пц"
-  },
-  {
-    "action": "add",
-    "type": "raw",
-    "oldQuantity": 0,
-    "newQuantity": 50,
-    "category": "Бакалея",
-    "itemName": "Мука (гр.)",
+    "id": "6472ffa7-93f1-4379-9485-654d4ec81f30",
+    "timestamp": "2025-03-15T20:11:41.091892+00:00",
+    "quantity": 5,
     "author": {
       "id": 6843570748,
       "first_name": "Словцова",
-      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_51.jpg"
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
     },
-    "id": "3fac5ea2-b779-4fab-9ea8-1a14a998606c",
-    "timestamp": "2025-03-04T06:25:15.471229+00:00",
-    "quantity": 50,
-    "description": "Добавлено 50 сырья",
+    "description": "Добавлено 5 сырья",
     "chat_id": "2457417588",
     "status": "completed",
-    "item_display_name": "Мука (гр.)",
+    "item_display_name": "Сахар (гр.)",
     "category_display_name": "Бакалея",
     "change_type": "quantity_update",
     "change_details": {
       "field": "quantity",
-      "old_value": 0,
-      "new_value": 50,
-      "difference": 50
+      "old_value": 20,
+      "new_value": 25,
+      "difference": 5
     },
-    "item": "Мука (гр.)"
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 15,
+    "newQuantity": 20,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T20:10:36.983Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "9cfb6836-98d4-4f2c-bbec-4be520fa18e3",
+    "timestamp": "2025-03-15T20:10:37.138943+00:00",
+    "quantity": 5,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 15,
+      "new_value": 20,
+      "difference": 5
+    },
+    "item": "Сахар (гр.)"
   }
 ]

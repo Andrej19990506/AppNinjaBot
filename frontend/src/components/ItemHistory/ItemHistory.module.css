@@ -140,19 +140,171 @@
 }
 
 .filterContainer {
+    flex: 1;
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px;
-    background: rgba(var(--background-rgb), 0.5);
-    border-radius: var(--radius);
-    border: 1px solid rgba(var(--border-rgb), 0.1);
-    backdrop-filter: blur(5px);
-    box-shadow: var(--shadow-sm);
+    justify-content: flex-start;
+    position: relative;
+    z-index: 1100;
+}
+
+.filterContainer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        to right,
+        rgba(var(--primary-rgb), 0.05),
+        rgba(var(--primary-rgb), 0.02)
+    );
+    pointer-events: none;
+}
+
+.filterSection {
+    padding: 16px 20px;
+    background: linear-gradient(to right, rgba(var(--primary-rgb), 0.08), rgba(var(--primary-rgb), 0.03));
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    z-index: 1200;
 }
 
 .dateSelect {
-    min-width: 150px;
+    background: var(--background-color) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg) !important;
+    width: 100% !important;
+    max-width: 300px !important;
+    margin: 0 auto !important;
+    transition: all 0.2s ease !important;
+    color: var(--text-color) !important;
+}
+
+.dateSelect:hover {
+    border-color: var(--primary-color) !important;
+    background: var(--background-color) !important;
+}
+
+.dateSelect:focus, 
+.dateSelect.Mui-focused {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2) !important;
+    background: var(--background-color) !important;
+}
+
+/* Переопределяем стандартные стили MUI */
+.dateSelect .MuiOutlinedInput-notchedOutline {
+    border: none !important;
+}
+
+.dateSelect .MuiSelect-icon {
+    color: var(--primary-color) !important;
+    transition: transform 0.2s ease !important;
+}
+
+.dateSelect.Mui-focused .MuiSelect-icon {
+    transform: rotate(180deg) !important;
+    color: var(--primary-color) !important;
+}
+
+.selectValue {
+    font-size: 0.95rem;
+    color: var(--color-text);
+    text-align: center;
+}
+
+.selectMenu {
+    margin-top: 8px !important;
+    background: var(--background-color) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-lg) !important;
+    max-height: 300px !important;
+    min-width: 200px !important;
+    width: 90% !important;
+    max-width: 300px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+}
+
+.selectMenu .MuiMenuItem-root {
+    padding: 12px 16px !important;
+    font-size: 0.95rem !important;
+    color: var(--text-color) !important;
+    transition: all 0.2s ease !important;
+    text-align: center !important;
+    justify-content: center !important;
+}
+
+.selectMenu .MuiMenuItem-root:hover {
+    background: var(--primary-transparent) !important;
+    color: var(--primary-color) !important;
+}
+
+.selectMenu .MuiMenuItem-root.Mui-selected {
+    background: var(--primary-transparent) !important;
+    color: var(--primary-color) !important;
+    font-weight: 500 !important;
+}
+
+/* Переопределяем стили MUI для input и focused состояний */
+.dateSelect .MuiInputBase-root {
+    border-radius: var(--radius-lg) !important;
+}
+
+.dateSelect .MuiInputBase-root.Mui-focused {
+    border-color: var(--primary-color) !important;
+}
+
+.dateSelect .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: var(--primary-color) !important;
+    border-width: 1px !important;
+}
+
+/* Dark theme styles */
+[data-theme="dark"] .filterSection {
+    background: linear-gradient(to right, rgba(var(--primary-rgb), 0.08), rgba(var(--primary-rgb), 0.03));
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .dateSelect {
+    background: var(--card-background) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-color) !important;
+}
+
+[data-theme="dark"] .dateSelect:hover {
+    border-color: var(--primary-color) !important;
+    background: var(--card-background) !important;
+}
+
+[data-theme="dark"] .dateSelect:focus,
+[data-theme="dark"] .dateSelect.Mui-focused {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.3) !important;
+    background: var(--card-background) !important;
+}
+
+[data-theme="dark"] .dateSelect .MuiInputBase-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+    border-color: var(--primary-color) !important;
+}
+
+/* Mobile styles */
+@media (max-width: 480px) {
+    .dateSelect {
+        max-width: 100% !important;
+    }
+
+    .selectMenu {
+        width: 95% !important;
+    }
+
+    .selectMenu .MuiMenuItem-root {
+        padding: 10px 14px !important;
+        font-size: 0.9rem !important;
+    }
 }
 
 .timeline {
@@ -222,28 +374,21 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-bottom: 4px;
 }
 
 .authorPhoto {
-    width: 40px;
-    height: 40px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid var(--primary-color);
-    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.2);
-    transition: var(--transition-normal);
-}
-
-.historyItem:hover .authorPhoto {
-    transform: scale(1.1);
-    border-color: var(--primary-light);
-    box-shadow: 0 3px 10px rgba(var(--primary-rgb), 0.3);
+    flex-shrink: 0;
 }
 
 .authorName {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--text-color);
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
 }
 
 .actionInfo {
@@ -436,12 +581,6 @@
     box-shadow: var(--shadow-sm);
 }
 
-/* Исправление для Select на мобильных */
-:global(.MuiSelect-select) {
-    padding-right: 30px !important;
-    font-weight: 600 !important;
-}
-
 /* Улучшаем читаемость текста */
 .authorName {
     font-size: 1rem;
@@ -590,9 +729,10 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(3px);
-    z-index: 10001 !important;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10001;
     display: flex;
     align-items: flex-end;
     justify-content: center;
@@ -601,34 +741,95 @@
 
 .modalContainer {
     width: 100%;
-    max-height: 90vh;
-    background-color: var(--background-color);
-    border-top-left-radius: 20px;
-    border-top-right-radius: 20px;
-    box-shadow: 0 -2px 20px rgba(0, 0, 0, 0.2);
+    max-height: 85vh;
+    background: var(--card-background);
+    border-top-left-radius: 28px;
+    border-top-right-radius: 28px;
+    box-shadow: 
+        0 -10px 30px rgba(0, 0, 0, 0.25),
+        0 -6px 15px rgba(0, 0, 0, 0.15);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-top: 3px solid var(--primary-color);
+    position: relative;
+    transform-origin: bottom center;
+    /* Оптимизации для мобильной версии */
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    -webkit-perspective: 1000;
+}
+
+.modalContainer::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--gradient-primary);
+    z-index: 10;
+    box-shadow: 
+        0 2px 15px rgba(var(--primary-rgb), 0.4),
+        0 0 2px rgba(255, 255, 255, 0.5) inset;
+    animation: glowTop 4s infinite alternate;
+}
+
+@keyframes glowTop {
+    from {
+        box-shadow: 
+            0 2px 12px rgba(var(--primary-rgb), 0.2),
+            0 0 2px rgba(255, 255, 255, 0.4) inset;
+    }
+    to {
+        box-shadow: 
+            0 2px 20px rgba(var(--primary-rgb), 0.5),
+            0 0 3px rgba(255, 255, 255, 0.6) inset;
+    }
 }
 
 .modalHeader {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
-    border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
-    background: linear-gradient(to right, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.01));
+    padding: 20px 24px;
+    background: linear-gradient(
+        to right,
+        rgba(var(--primary-rgb), 0.08),
+        rgba(var(--primary-rgb), 0.03)
+    );
+    border-bottom: 1px solid rgba(var(--primary-rgb), 0.1);
+    position: relative;
+    gap: 16px;
+}
+
+.modalHeader::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(var(--primary-rgb), 0.2),
+        transparent
+    );
 }
 
 .modalTitle {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.25rem;
     font-weight: 600;
-    color: var(--text-color);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
 }
 
 .closeButton {
@@ -646,12 +847,9 @@
     flex: 1;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 16px;
+    padding: 24px;
     padding-bottom: 100px;
-    max-height: 75vh;
     scroll-padding-bottom: 120px;
-    -ms-overflow-style: none;
-    scrollbar-width: thin;
 }
 
 .modalContent::-webkit-scrollbar {
@@ -659,87 +857,88 @@
 }
 
 .modalContent::-webkit-scrollbar-track {
-    background: rgba(var(--background-rgb), 0.1);
+    background: rgba(var(--primary-rgb), 0.05);
     border-radius: 10px;
-    margin-bottom: 10px;
 }
 
 .modalContent::-webkit-scrollbar-thumb {
     background: rgba(var(--primary-rgb), 0.2);
     border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 .modalContent::-webkit-scrollbar-thumb:hover {
-    background: rgba(var(--primary-rgb), 0.4);
+    background: rgba(var(--primary-rgb), 0.3);
+    border: 2px solid transparent;
+    background-clip: padding-box;
 }
 
 /* Адаптации для разных размеров экрана */
 @media (max-width: 480px) {
     .modalContent {
-        padding: 12px;
+        padding: 16px;
     }
 
     .modalHeader {
-        padding: 12px 16px;
+        padding: 16px 20px;
     }
 
     .modalTitle {
-        font-size: 16px;
+        font-size: 1.1rem;
     }
 
     .modalContainer {
-        max-height: 85vh !important;
+        max-height: 90vh;
+    }
+
+    .historyFab {
+        bottom: 85px !important;
+        right: 16px !important;
+        width: 48px !important;
+        height: 48px !important;
+    }
+
+    .emptyHistoryBadge {
+        bottom: 85px;
+        right: 16px;
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
 }
 
 /* Стили для индикатора пустой истории на мобильных устройствах */
 .emptyHistoryBadge {
-    display: flex;
-    align-items: center;
-    background: linear-gradient(145deg, rgba(var(--card-rgb), 0.95), rgba(var(--card-rgb), 0.85));
-    border-radius: 20px;
-    padding: 8px 12px;
-    box-shadow: var(--shadow-md);
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    font-weight: 500;
-    pointer-events: all;
-    gap: 6px;
-    border: 1px solid rgba(var(--border-rgb), 0.1);
-    backdrop-filter: blur(4px);
-    cursor: pointer;
-    transition: all 0.3s ease;
     position: fixed;
     bottom: 80px;
     right: 20px;
+    display: flex;
+    align-items: center;
+    background: linear-gradient(
+        145deg, 
+        rgba(var(--card-rgb), 0.95), 
+        rgba(var(--card-rgb), 0.85)
+    );
+    border-radius: 20px;
+    padding: 8px 16px;
+    box-shadow: var(--shadow-md);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 500;
+    gap: 8px;
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    transition: all 0.3s ease;
 }
 
-.emptyHistoryBadge:hover, .emptyHistoryBadge:focus {
-    background-color: rgba(var(--primary-rgb), 0.1);
-    color: var(--primary-color);
+.emptyHistoryBadge:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);
-}
-
-.emptyHistoryBadge:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.emptyHistoryBadge svg {
+    box-shadow: 
+        0 8px 20px rgba(var(--primary-rgb), 0.15),
+        0 0 0 1px rgba(var(--primary-rgb), 0.2) inset;
     color: var(--primary-color);
-    font-size: 18px;
-}
-
-@media (max-width: 480px) {
-    .emptyHistoryBadge {
-        padding: 6px 10px;
-        font-size: 0.75rem;
-    }
-    
-    .emptyHistoryBadge svg {
-        font-size: 16px;
-    }
 }
 
 /* Мобильные стили */

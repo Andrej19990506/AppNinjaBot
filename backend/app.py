@@ -83,11 +83,24 @@ class ItemHistory:
             
             # Добавляем информацию об авторе если её нет
             if 'author' not in record:
-                record['author'] = {
-                    'id': None,
-                    'first_name': 'Система',
-                    'photo_url': None
-                }
+                # Пытаемся получить информацию о пользователе из метаданных
+                metadata = record.get('metadata', {})
+                current_user = metadata.get('currentUser', {})
+                
+                if current_user and current_user.get('id'):
+                    record['author'] = {
+                        'id': current_user.get('id'),
+                        'first_name': current_user.get('first_name'),
+                        'photo_url': current_user.get('photo_url')
+                    }
+                    logger.info(f'👤 Использую данные пользователя из метаданных: {json.dumps(record["author"], ensure_ascii=False)}')
+                else:
+                    record['author'] = {
+                        'id': None,
+                        'first_name': 'Система',
+                        'photo_url': None
+                    }
+                    logger.info('👤 Использую данные системного пользователя')
             
             # Добавляем описание изменения
             if 'description' not in record:
@@ -886,19 +899,10 @@ def handle_chat_inventory(chat_id):
                     logger.info(f'📦 Данные истории: {json.dumps(history_record, ensure_ascii=False)}')
                     
                     try:
-                        # Добавляем информацию об авторе из метаданных если есть
+                        # Добавляем метаданные в запись истории
                         if 'metadata' in inventory_data:
-                            metadata = inventory_data['metadata']
-                            if 'author' in metadata:
-                                history_record['author'] = metadata['author']
-                                logger.info(f'👤 Добавлен автор из метаданных: {json.dumps(metadata["author"], ensure_ascii=False)}')
-                            elif 'currentUser' in metadata:
-                                history_record['author'] = {
-                                    'id': metadata['currentUser'].get('id'),
-                                    'first_name': metadata['currentUser'].get('first_name'),
-                                    'photo_url': metadata['currentUser'].get('photo_url')
-                                }
-                                logger.info(f'👤 Добавлен автор из currentUser: {json.dumps(history_record["author"], ensure_ascii=False)}')
+                            history_record['metadata'] = inventory_data['metadata']
+                            logger.info(f'📝 Добавлены метаданные в запись истории: {json.dumps(inventory_data["metadata"], ensure_ascii=False)}')
                         
                         # Добавляем запись в историю
                         result = item_history.add_record(chat_id, history_record)
@@ -2612,6 +2616,23 @@ def handle_inventory_update(data):
                     logger.info(f'🏠 Чат: {chat_id}')
                     logger.info(f'📦 Товар: {history_record.get("itemName")}')
                     logger.info(f'📊 Изменение: {history_record.get("oldQuantity")} -> {history_record.get("newQuantity")}')
+                    
+                    # Получаем данные о пользователе из активных пользователей
+                    room = f'inventory_{chat_id}'
+                    user_info = None
+                    for user_id, info in active_users.get(room, {}).items():
+                        if info.get('socket_id') == request.sid:
+                            user_info = info
+                            break
+                    
+                    # Добавляем информацию об авторе
+                    if user_info:
+                        history_record['author'] = {
+                            'id': user_info.get('id'),
+                            'first_name': user_info.get('first_name'),
+                            'photo_url': user_info.get('photo_url')
+                        }
+                        logger.info(f'👤 Автор: {user_info.get("first_name")}')
                     
                     # Добавляем запись в историю
                     try:

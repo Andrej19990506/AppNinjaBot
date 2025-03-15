@@ -87,12 +87,20 @@ export interface InventoryAuthor {
     photo_url?: string;
 }
 
+export interface Author {
+    photo_url?: string | null;
+    first_name: string;
+}
+
 export interface HistoryRecord {
     id: string;
     type: string;
     action: string;
     timestamp: string;
     data: any;
+    author?: Author | null;
+    newQuantity?: number;
+    oldQuantity?: number;
 }
 
 export interface HistoryState {

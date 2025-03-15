@@ -156,6 +156,7 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
     async (payload, { getState, rejectWithValue }) => {
         try {
             const state = getState() as RootState;
+            const currentUser = state.user;
             const currentInventory = state.inventory.selectedChat?.inventory || {};
             const currentItem = currentInventory[payload.category]?.[payload.itemId];
             
@@ -213,6 +214,11 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
                     lastUpdated: new Date().toISOString(),
                     progress: 0,
                     chat_id: payload.chatId,
+                    currentUser: {
+                        id: currentUser.id,
+                        first_name: currentUser.first_name,
+                        photo_url: currentUser.photo_url
+                    }
                 },
                 history: {
                     action: actionType === 'добавлен полуфабрикат' ? 'add_option' :
@@ -700,6 +706,7 @@ const inventorySlice = createSlice({
             console.log('=== 📝 Обработка обновления истории в Redux ===');
             console.log('📦 Товар:', itemId);
             console.log('📊 Запись:', record);
+            console.log('👤 Данные автора:', record.author);
             
             if (!state.history.records[itemId]) {
                 state.history.records[itemId] = [];
@@ -711,9 +718,19 @@ const inventorySlice = createSlice({
             );
             
             if (existingIndex === -1) {
+                // Проверяем наличие данных автора и создаем новую запись
+                const newRecord: HistoryRecord = {
+                    ...record,
+                    author: record.author ? {
+                        photo_url: record.author.photo_url,  // Сохраняем photo_url как есть, даже если null
+                        first_name: record.author.first_name
+                    } : undefined
+                };
+                
                 // Добавляем новую запись в начало массива
-                state.history.records[itemId].unshift(record);
-                console.log('✅ Новая запись добавлена в историю');
+                state.history.records[itemId].unshift(newRecord);
+                console.log('✅ Новая запись добавлена в историю:', newRecord);
+                console.log('👤 Сохраненные данные автора:', newRecord.author);
             } else {
                 console.log('ℹ️ Запись уже существует в истории');
             }

@@ -16,6 +16,25 @@ import type { HistoryRecord } from '../../types/inventory';
 import { fetchItemHistory, clearItemHistory } from '../../store/slices/inventorySlice';
 import styles from './ItemHistory.module.css';
 import { useHistoryAnimations } from './hooks/useHistoryAnimations';
+import Modal from '@mui/material/Modal';
+
+// Расширяем тип HistoryRecord
+interface ExtendedHistoryRecord extends HistoryRecord {
+    newQuantity: number;
+    oldQuantity: number;
+}
+
+interface ItemHistoryProps {
+    itemId: string;
+    itemName: string;
+    category: string;
+    className?: string;
+}
+
+interface DateFormat {
+    full: string;
+    short: string;
+}
 
 // Анимационные варианты для элементов истории
 const historyItemVariants = {
@@ -70,16 +89,10 @@ const formatDate = (date: string | Date): string => {
     return format(dateObj, 'd MMMM yyyy HH:mm', { locale: ru });
 };
 
-interface ItemHistoryProps {
-    itemId: string;
-    itemName: string;
-    category: string;
-    className?: string;
-}
-
+// Компонент для отображения истории
 const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, category, className = '' }) => {
     const dispatch = useAppDispatch();
-    const history = useAppSelector(state => state.inventory.history.records[itemId] || []);
+    const history = useAppSelector(state => state.inventory.history.records[itemId] || []) as ExtendedHistoryRecord[];
     const isLoading = useAppSelector(state => state.inventory.history.isLoading);
     const error = useAppSelector(state => state.inventory.history.error);
     const selectedChatId = useAppSelector(state => state.inventory.selectedChatId);
@@ -103,6 +116,33 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         animateHistoryItemRemoval,
         animateFilterChange
     } = useHistoryAnimations();
+
+    // Определяем функции открытия и закрытия модального окна в начале компонента
+    const closeModal = useCallback(() => {
+        console.log('🔍 Закрытие модального окна истории');
+        setIsModalOpen(false);
+        // Разблокируем скролл основного контента
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.width = '';
+    }, []);
+
+    const openModal = useCallback(() => {
+        console.log('🔍 Открытие модального окна истории');
+        setIsModalOpen(true);
+        // Блокируем скролл основного контента
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        
+        // Скролл модального окна наверх при открытии
+        setTimeout(() => {
+            const modalContent = document.querySelector(`.${styles.modalContent}`);
+            if (modalContent) {
+                modalContent.scrollTop = 0;
+            }
+        }, 100);
+    }, []);
 
     // Функция для обнаружения мобильного устройства
     const checkIsMobile = useCallback(() => {
@@ -128,24 +168,31 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         return () => window.removeEventListener('resize', checkIsMobile);
     }, [checkIsMobile]);
 
-    // Обработчик клика вне модального окна для его закрытия
+    // Обработчик клика вне модального окна
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (isModalOpen && modalRef.current && !modalRef.current.contains(event.target as Node)) {
+            const target = event.target as HTMLElement;
+            
+            // Проверяем, является ли клик по селектору или его выпадающему списку
+            const isSelectClick = target.closest('.MuiSelect-root') || 
+                                target.closest('.MuiPopover-root');
+            
+            // Закрываем модальное окно только если клик был не по селектору
+            if (isModalOpen && modalRef.current && 
+                !modalRef.current.contains(event.target as Node) && 
+                !isSelectClick) {
                 closeModal();
             }
         };
 
         if (isModalOpen) {
             document.addEventListener('mousedown', handleClickOutside);
-        } else {
-            document.removeEventListener('mousedown', handleClickOutside);
         }
 
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, [isModalOpen]);
+    }, [isModalOpen, closeModal]);
 
     // Обработчик клавиши ESC для закрытия модального окна
     useEffect(() => {
@@ -165,33 +212,6 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
             document.removeEventListener('keydown', handleEscKey);
         };
     }, [isModalOpen]);
-
-    // Открытие и закрытие модального окна
-    const openModal = useCallback(() => {
-        console.log('🔍 Открытие модального окна истории');
-        setIsModalOpen(true);
-        // Блокируем скролл основного контента
-        document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        
-        // Скролл модального окна наверх при открытии
-        setTimeout(() => {
-            const modalContent = document.querySelector(`.${styles.modalContent}`);
-            if (modalContent) {
-                modalContent.scrollTop = 0;
-            }
-        }, 100);
-    }, []);
-
-    const closeModal = useCallback(() => {
-        console.log('🔍 Закрытие модального окна истории');
-        setIsModalOpen(false);
-        // Разблокируем скролл основного контента
-        document.body.style.overflow = '';
-        document.body.style.position = '';
-        document.body.style.width = '';
-    }, []);
 
     useEffect(() => {
         return () => {
@@ -246,7 +266,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
             const formattedDate = format(date, 'dd.MM.yyyy', { locale: ru });
             return formattedDate === selectedDate;
         });
-    }, [history, selectedDate]);
+    }, [history, selectedDate]) as ExtendedHistoryRecord[];
 
     // Обработчик движения мыши для эффекта свечения
     const handleMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -302,7 +322,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
 
     // Отслеживание новых записей
     useEffect(() => {
-        console.log('=== 📊 Проверка обновлений истории ===');
+        console.log('===  Проверка обновлений истории ===');
         console.log('📦 Товар:', itemName);
         console.log('📈 Текущая длина:', history.length);
         console.log('📉 Предыдущая длина:', prevHistoryLength.current);
@@ -351,131 +371,6 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         }
         return type === 'raw' ? 'сырья' : 'полуфабрикатов';
     };
-
-    // Компонент для отображения контента истории
-    const HistoryContent = () => (
-        <>
-            <div ref={headerRef} className={styles.header}>
-                <div className={styles.titleContainer}>
-                    <HistoryIcon className={styles.historyIcon} />
-                    <h2 className={styles.title}>История изменений</h2>
-                </div>
-                <div ref={filterRef} className={styles.filterContainer}>
-                    <FormControl size={isMobile ? "small" : "medium"} className={styles.dateSelect}>
-                        <InputLabel>Дата</InputLabel>
-                        <Select
-                            value={selectedDate}
-                            onChange={handleFilterChange}
-                            label="Дата"
-                            MenuProps={{
-                                anchorOrigin: {
-                                    vertical: 'bottom',
-                                    horizontal: 'left',
-                                },
-                                transformOrigin: {
-                                    vertical: 'top',
-                                    horizontal: 'left',
-                                },
-                                PaperProps: {
-                                    style: {
-                                        maxHeight: 300,
-                                        background: 'rgba(var(--card-rgb), 0.8)',
-                                        backdropFilter: 'blur(10px)',
-                                        border: '1px solid rgba(var(--border-rgb), 0.1)',
-                                    }
-                                }
-                            }}
-                        >
-                            <MenuItem value="all">
-                                {isMobile ? "Все даты" : "Все даты"}
-                            </MenuItem>
-                            {mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
-                                <MenuItem key={date.full} value={date.full}>
-                                    {isMobile ? date.short : date.full}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-                </div>
-            </div>
-
-            <div ref={timelineRef} className={styles.timeline}>
-                <AnimatePresence mode="popLayout">
-                    {filteredHistory.map((record: HistoryRecord, index) => (
-                        <motion.div
-                            key={`${record.id}-${record.timestamp}`}
-                            className={`${styles.historyItem} history-item`}
-                            variants={historyItemVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                            custom={index}
-                            onMouseMove={handleMouseMove}
-                            data-history-id={record.id}
-                            layoutId={`history-${record.id}`}
-                        >
-                            <div className={styles.authorInfo}>
-                                {record.author?.photo_url && (
-                                    <img 
-                                        src={record.author.photo_url} 
-                                        alt={record.author.first_name}
-                                        className={styles.authorPhoto}
-                                    />
-                                )}
-                                <span className={styles.authorName}>
-                                    {record.author?.first_name || 'Система'}
-                                </span>
-                            </div>
-                            <div className={styles.actionInfo}>
-                                <span className={`${styles.action} ${styles[record.action]}`}>
-                                    {formatAction(record.action, record.type)}
-                                </span>
-                                <span className={styles.quantity}>
-                                    {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
-                                </span>
-                            </div>
-                            <div className={styles.quantityChange}>
-                                <span className={styles.oldQuantity}>
-                                    {record.oldQuantity ?? 0}
-                                </span>
-                                <span className={styles.arrow}>→</span>
-                                <span className={styles.newQuantity}>
-                                    {record.newQuantity ?? 0}
-                                </span>
-                            </div>
-                            <time className={styles.timestamp}>
-                                {isMobile ? formatMobileDate(record.timestamp) : formatDate(record.timestamp)}
-                            </time>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-                {filteredHistory.length === 0 && (
-                    <motion.div 
-                        className={styles.emptyFilterMessage}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                    >
-                        {selectedDate !== 'all' ? (
-                            <>
-                                <p>Нет записей за {selectedDate}</p>
-                                <motion.button 
-                                    className={styles.resetFilterButton}
-                                    onClick={() => setSelectedDate('all')}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Показать все записи
-                                </motion.button>
-                            </>
-                        ) : (
-                            <p>Нет доступных записей</p>
-                        )}
-                    </motion.div>
-                )}
-            </div>
-        </>
-    );
 
     // Компонент для пустой истории
     const EmptyHistory = () => (
@@ -616,56 +511,173 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                     </Tooltip>
                 )}
 
-                <AnimatePresence>
-                    {isModalOpen && (
-                        <motion.div 
-                            className={styles.modalOverlay}
-                            variants={modalVariants}
-                            initial="hidden"
-                            animate="visible"
-                            exit="exit"
-                        >
-                            <motion.div 
-                                ref={modalRef}
-                                className={styles.modalContainer}
-                                variants={modalContentVariants}
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                                drag="y"
-                                dragConstraints={{ top: 0, bottom: 20 }}
-                                dragElastic={0.2}
-                                onDragEnd={(e, info) => {
-                                    if (info.offset.y > 100) {
-                                        closeModal();
-                                    }
-                                }}
+                <Modal
+                    open={isModalOpen}
+                    onClose={closeModal}
+                    className={styles.modalOverlay}
+                    BackdropProps={{
+                        onClick: (e) => {
+                            // Предотвращаем закрытие модального окна при клике на селектор
+                            const target = e.target as HTMLElement;
+                            if (target.closest('.MuiSelect-root') || 
+                                target.closest('.MuiPopover-root')) {
+                                e.stopPropagation();
+                            }
+                        }
+                    }}
+                >
+                    <div className={styles.modalContainer} ref={modalRef}>
+                        <div className={styles.modalHeader}>
+                            <div className={styles.titleContainer}>
+                                <HistoryIcon className={styles.historyIcon} />
+                                <h2 className={styles.title}>История изменений</h2>
+                            </div>
+                            <IconButton 
+                                className={styles.closeButton}
+                                onClick={closeModal}
+                                size="small"
+                                aria-label="Закрыть"
                             >
-                                <div className={styles.modalHeader}>
-                                    <h3 className={styles.modalTitle}>
-                                        <HistoryIcon className={styles.historyIcon} /> 
-                                        История изменений
-                                    </h3>
-                                    <IconButton 
-                                        className={styles.closeButton} 
-                                        onClick={closeModal}
-                                        aria-label="Закрыть"
-                                    >
-                                        <CloseIcon />
-                                    </IconButton>
-                                </div>
-                                
-                                <div className={styles.modalContent}>
-                                    {!history || history.length === 0 ? (
-                                        <EmptyHistory />
-                                    ) : (
-                                        <HistoryContent />
+                                <CloseIcon />
+                            </IconButton>
+                        </div>
+
+                        <div className={styles.filterSection}>
+                            <FormControl variant="outlined" size="small" fullWidth>
+                                <Select
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value as string)}
+                                    className={styles.dateSelect}
+                                    displayEmpty
+                                    renderValue={(value) => (
+                                        <div className={styles.selectValue}>
+                                            {value === 'all' ? 'Все даты' : value}
+                                        </div>
+                                    )}
+                                    MenuProps={{
+                                        anchorOrigin: {
+                                            vertical: 'bottom',
+                                            horizontal: 'left',
+                                        },
+                                        transformOrigin: {
+                                            vertical: 'top',
+                                            horizontal: 'left',
+                                        },
+                                        PaperProps: {
+                                            className: styles.selectMenu
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value="all">
+                                        Все даты
+                                    </MenuItem>
+                                    {mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
+                                        <MenuItem key={date.full} value={date.full}>
+                                            {isMobile ? date.short : date.full}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </div>
+                        
+                        <div className={styles.modalContent}>
+                            {!history || history.length === 0 ? (
+                                <EmptyHistory />
+                            ) : (
+                                <div ref={timelineRef} className={styles.timeline}>
+                                    <AnimatePresence mode="popLayout">
+                                        {filteredHistory.map((record: ExtendedHistoryRecord, index: number) => (
+                                            <motion.div
+                                                key={`${record.id}-${record.timestamp}`}
+                                                className={`${styles.historyItem} history-item`}
+                                                variants={historyItemVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="exit"
+                                                custom={index}
+                                                onMouseMove={handleMouseMove}
+                                                data-history-id={record.id}
+                                                layoutId={`history-${record.id}`}
+                                            >
+                                                <div className={styles.authorInfo}>
+                                                    {record.author && record.author.first_name ? (
+                                                        <>
+                                                            {record.author.photo_url !== undefined && record.author.photo_url !== null && (
+                                                                <img 
+                                                                    src={record.author.photo_url} 
+                                                                    alt={record.author.first_name}
+                                                                    className={styles.authorPhoto}
+                                                                    onError={(e) => {
+                                                                        console.log('❌ Ошибка загрузки фото автора:', record.author?.photo_url);
+                                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                                    }}
+                                                                    onLoad={() => {
+                                                                        console.log('✅ Фото автора успешно загружено:', record.author?.photo_url);
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            <span className={styles.authorName}>
+                                                                {record.author.first_name}
+                                                            </span>
+                                                        </>
+                                                    ) : (
+                                                        <span className={styles.authorName}>
+                                                            Система
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className={styles.actionInfo}>
+                                                    <span className={`${styles.action} ${styles[record.action]}`}>
+                                                        {formatAction(record.action, record.type)}
+                                                    </span>
+                                                    <span className={styles.quantity}>
+                                                        {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
+                                                    </span>
+                                                </div>
+                                                <div className={styles.quantityChange}>
+                                                    <span className={styles.oldQuantity}>
+                                                        {record.oldQuantity ?? 0}
+                                                    </span>
+                                                    <span className={styles.arrow}>→</span>
+                                                    <span className={styles.newQuantity}>
+                                                        {record.newQuantity ?? 0}
+                                                    </span>
+                                                </div>
+                                                <time className={styles.timestamp}>
+                                                    {isMobile ? formatMobileDate(record.timestamp) : formatDate(record.timestamp)}
+                                                </time>
+                                            </motion.div>
+                                        ))}
+                                    </AnimatePresence>
+                                    {filteredHistory.length === 0 && (
+                                        <motion.div 
+                                            className={styles.emptyFilterMessage}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ duration: 0.4 }}
+                                        >
+                                            {selectedDate !== 'all' ? (
+                                                <>
+                                                    <p>Нет записей за {selectedDate}</p>
+                                                    <motion.button 
+                                                        className={styles.resetFilterButton}
+                                                        onClick={() => setSelectedDate('all')}
+                                                        whileHover={{ scale: 1.05 }}
+                                                        whileTap={{ scale: 0.95 }}
+                                                    >
+                                                        Показать все записи
+                                                    </motion.button>
+                                                </>
+                                            ) : (
+                                                <p>Нет доступных записей</p>
+                                            )}
+                                        </motion.div>
                                     )}
                                 </div>
-                            </motion.div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                            )}
+                        </div>
+                    </div>
+                </Modal>
             </>
         );
     }
@@ -699,7 +711,72 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
             {!history || history.length === 0 ? (
                 <EmptyHistory />
             ) : (
-                <HistoryContent />
+                <div ref={timelineRef} className={styles.timeline}>
+                    <AnimatePresence mode="popLayout">
+                        {filteredHistory.map((record: ExtendedHistoryRecord, index: number) => (
+                            <motion.div
+                                key={`${record.id}-${record.timestamp}`}
+                                className={`${styles.historyItem} history-item`}
+                                variants={historyItemVariants}
+                                initial="hidden"
+                                animate="visible"
+                                exit="exit"
+                                custom={index}
+                                onMouseMove={handleMouseMove}
+                                data-history-id={record.id}
+                                layoutId={`history-${record.id}`}
+                            >
+                                <div className={styles.authorInfo}>
+                                    {record.author && record.author.first_name ? (
+                                        <>
+                                            {record.author.photo_url !== undefined && record.author.photo_url !== null && (
+                                                <img 
+                                                    src={record.author.photo_url} 
+                                                    alt={record.author.first_name}
+                                                    className={styles.authorPhoto}
+                                                    onError={(e) => {
+                                                        console.log('❌ Ошибка загрузки фото автора:', record.author?.photo_url);
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                    onLoad={() => {
+                                                        console.log('✅ Фото автора успешно загружено:', record.author?.photo_url);
+                                                    }}
+                                                />
+                                            )}
+                                            <span className={styles.authorName}>
+                                                {record.author.first_name}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span className={styles.authorName}>
+                                            Система
+                                        </span>
+                                    )}
+                                </div>
+                                <div className={styles.actionInfo}>
+                                    <span className={`${styles.action} ${styles[record.action]}`}>
+                                        {formatAction(record.action, record.type)}
+                                    </span>
+                                    <span className={styles.quantity}>
+                                        {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
+                                    </span>
+                                </div>
+                                <div className={styles.quantityChange}>
+                                    <span className={styles.oldQuantity}>
+                                        {record.oldQuantity ?? 0}
+                                    </span>
+                                    <span className={styles.arrow}>→</span>
+                                    <span className={styles.newQuantity}>
+                                        {record.newQuantity ?? 0}
+                                    </span>
+                                </div>
+                                <time className={styles.timestamp}>
+                                    {isMobile ? formatMobileDate(record.timestamp) : formatDate(record.timestamp)}
+                                </time>
+                            </motion.div>
+                        ))}
+                    </AnimatePresence>
+                </div>
             )}
         </motion.div>
     );

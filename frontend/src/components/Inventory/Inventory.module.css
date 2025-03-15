@@ -80,22 +80,122 @@
 }
 
 .itemEditContainer {
+    width: 100%;
     display: flex;
     flex-direction: column;
-    width: 100%;
-    padding: 20px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
-    align-items: center;
-    height: 35vh;
-    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    position: relative;
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    transition: var(--transition-normal);
+    min-height: calc(100vh - var(--header-height) - 280px);
+    overflow: hidden;
 }
 
-.itemEditWrapper {
+.itemEditContainer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+                rgba(var(--primary-rgb), 0.1), transparent 50%);
+    border-radius: inherit;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    z-index: 0;
+    transform: translate(-37%, -41%) scale(1);
+    width: 500px;
+    height: 500px;
+}
+
+
+.itemHistory {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    position: relative;
+    z-index: 1;
+    justify-content: space-around;
+}
+
+.emptyHistoryContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+    gap: 24px;
+}
+
+.emptyHistoryIcon {
+    width: 120px;
+    height: 120px;
+    color: var(--primary-color);
+    opacity: 0.8;
+    animation: float 3s ease-in-out infinite;
+}
+
+.emptyHistoryIcon svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 4px 12px rgba(var(--primary-rgb), 0.3));
+}
+
+.emptyHistoryTitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.emptyHistoryText {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 400px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+[data-theme="dark"] .itemEditContainer {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    .itemEditContainer {
+        padding: 12px;
+        min-height: calc(40vh - var(--header-height) - 200px);
+    }
+
+    .emptyHistoryIcon {
+        width: 100px;
+        height: 100px;
+    }
+
+    .emptyHistoryTitle {
+        font-size: 1.25rem;
+    }
+
+    .emptyHistoryText {
+        font-size: 0.9rem;
+    }
 }
 
 /* Удаляем стили для historySection */
@@ -109,104 +209,6 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-}
-
-/* Мобильные стили */
-@media (max-width: 768px) {
-    .itemEditContainer {
-        padding: 16px;
-        max-height: 50vh;
-        margin-bottom: 20px; /* Уменьшаем отступ снизу */
-        overflow-y: auto;
-        position: relative;
-        z-index: 10;
-    }
-    
-    .itemEditWrapper {
-        gap: 16px;
-        position: relative;
-        z-index: 5;
-    }
-    
-    /* Удаляем стили для historySection в мобильной версии */
-    /* .historySection {
-        margin-bottom: 120px;
-        z-index: 10;
-        overflow: visible;
-        display: none;
-    } */
-
-    /* Стили для высоты и скроллинга на мобильных */
-    .mainSection {
-        height: auto;
-        max-height: calc(100vh - 150px);
-        overflow-y: visible;
-    }
-
-    /* Удаляем стили для плавающей кнопки истории */
-    /* :global([class*="ItemHistory_historyFab"]) {
-        z-index: 2000 !important;
-        position: fixed !important;
-        bottom: 80px !important;
-        right: 20px !important;
-        visibility: visible !important;
-        display: flex !important;
-        pointer-events: auto !important;
-    } */
-
-    /* Удаляем стили для модального окна истории */
-    /* :global([class*="ItemHistory_modalOverlay"]) {
-        z-index: 3000 !important;
-    } */
-
-    /* Удаляем стили для ItemEdit на мобильных устройствах */
-    /* :global([class*="ItemEdit_container"]) {
-        z-index: 10 !important;
-        position: relative !important;
-        margin-bottom: 100px !important;
-    }
-    
-    :global([class*="ItemEdit_item"]:last-child) {
-        margin-bottom: 80px !important;
-    } */
-
-    :global(.ItemList_list__EL7Vr),
-    :global(.CategoryGrid_grid__j65fG) {
-        max-height: calc(100vh - 200px);
-    }
-}
-
-@media (max-width: 480px) {
-    .itemEditContainer {
-        padding: 12px;
-        padding-bottom: 20px; /* Уменьшаем отступ снизу */
-        max-height: 65vh;
-        z-index: 10;
-    }
-    
-    /* Удаляем отступ внутри контейнера */
-    /* .itemEditWrapper {
-        padding-bottom: 0;
-    } */
-    
-    /* Удаляем стили для historySection в мобильной версии */
-    /* .historySection {
-        margin-bottom: 150px;
-        overflow: visible;
-        display: none;
-    } */
-
-    /* Удаляем позиционирование кнопки истории ниже на маленьких экранах */
-    /* :global([class*="ItemHistory_historyFab"]) {
-        bottom: 70px !important;
-        right: 16px !important;
-    } */
-
-    /* Уменьшаем отступы для маленьких экранов */
-    .content {
-        padding: 12px;
-        padding-bottom: calc(12px + 60px);
-    }
 }
 
 /* Поддержка темной темы */
@@ -277,6 +279,10 @@
 }
 
 @media (max-width: 480px) {
+    .itemEditContainer {
+        padding: 8px;
+        min-height: calc(30vh - var(--header-height) - 170px);
+    }
     .searchContainer {
         margin-bottom: 10px;
     }

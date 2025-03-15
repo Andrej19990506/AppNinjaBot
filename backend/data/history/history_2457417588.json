@@ -1,6 +1,1800 @@
 [
   {
     "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Масла и заправки",
+    "itemName": "Масло растительное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:45:42.681Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "c7280fe2-3a65-436a-a617-34a68bafad6b",
+    "timestamp": "2025-03-15T23:45:42.930002+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло растительное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Масло растительное (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:43:20.463Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "a95528d9-e1aa-48ab-b846-2539591dee2e",
+    "timestamp": "2025-03-15T23:43:20.096888+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "777"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:43:13.219Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "6aa1814d-1bfa-4854-9d61-076c02dfc081",
+    "timestamp": "2025-03-15T23:43:13.003007+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:43:11.376Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "52140025-e5df-4bb2-89ee-28961106679b",
+    "timestamp": "2025-03-15T23:43:11.192330+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 50,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:11:45.416Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "84fea11a-e836-4378-ba2d-fb4787ceb3d3",
+    "timestamp": "2025-03-15T23:11:45.538827+00:00",
+    "quantity": -50,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 50 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 0,
+      "difference": -50
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 55,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:11:37.022Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "1f6e7c01-9dde-4279-a009-b04e78598be9",
+    "timestamp": "2025-03-15T23:11:37.509266+00:00",
+    "quantity": 55,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 55 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 55,
+      "difference": 55
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:48.208Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "fe11f186-2b0f-4986-af2f-fbe6a17f3409",
+    "timestamp": "2025-03-15T23:10:47.774339+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 50 полуфабрикатов",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:38.689Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "92d7ad59-532e-47a1-ab48-af26fc0cc4d3",
+    "timestamp": "2025-03-15T23:10:38.212252+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:31.679Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "21117d42-7789-4108-89fc-38c8364863e8",
+    "timestamp": "2025-03-15T23:10:31.210650+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:30.140Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "0be286b0-93ce-402e-bc8e-7871c5043beb",
+    "timestamp": "2025-03-15T23:10:29.651303+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:28.999Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "976f3e05-c66c-4307-8153-0b3dfe8996e4",
+    "timestamp": "2025-03-15T23:10:28.516886+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:27.731Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "38c72e2d-7d73-4093-a278-6f22420189a4",
+    "timestamp": "2025-03-15T23:10:27.244366+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:25.949Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "0ac18ebe-1d04-4d2b-bbbd-e904ede24a88",
+    "timestamp": "2025-03-15T23:10:25.834146+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:24.118Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "cfae3ea3-51c0-46de-bc42-7f81ff047262",
+    "timestamp": "2025-03-15T23:10:23.627687+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:22.567Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "c13cff8c-cd32-4594-b604-ec09e218467f",
+    "timestamp": "2025-03-15T23:10:22.067243+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:20.641Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "bce8e51d-cbec-4f7a-95c6-4d86df19de28",
+    "timestamp": "2025-03-15T23:10:20.160209+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:19.118Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "481e2b48-81ec-442b-84d2-42130304432f",
+    "timestamp": "2025-03-15T23:10:18.686074+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Заправка для морковки (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:10:13.635Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f8978786-badf-41bb-acbb-a55e34b30016",
+    "timestamp": "2025-03-15T23:10:13.214167+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Заправка для морковки (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Заправка для морковки (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 5,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:06:44.727Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "6be0deac-58f0-4e5a-99f8-78c76cd43db3",
+    "timestamp": "2025-03-15T23:06:44.971811+00:00",
+    "quantity": -5,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 5 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 5,
+      "new_value": 0,
+      "difference": -5
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 25,
+    "newQuantity": 49,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:06:35.662Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "00177b0a-2172-421d-9b61-c4bf8a6ab953",
+    "timestamp": "2025-03-15T23:06:36.626136+00:00",
+    "quantity": 24,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 24 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 25,
+      "new_value": 49,
+      "difference": 24
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "remove",
+    "type": "semifinished",
+    "oldQuantity": 50,
+    "newQuantity": 5,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:06:25.468Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "edb0f8a9-ac86-4727-a84b-3a009be37d2c",
+    "timestamp": "2025-03-15T23:06:25.599509+00:00",
+    "quantity": -45,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Удалено 45 полуфабрикатов",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 5,
+      "difference": -45
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "remove",
+    "type": "raw",
+    "oldQuantity": 50,
+    "newQuantity": 25,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:06:06.701Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "99bcd687-a12e-4b17-bbb5-2816de08725c",
+    "timestamp": "2025-03-15T23:06:06.833735+00:00",
+    "quantity": -25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Удалено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 25,
+      "difference": -25
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:56.312Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "b4947e84-c724-4a33-b277-c81c810534e1",
+    "timestamp": "2025-03-15T23:05:56.448494+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 50 полуфабрикатов",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:52.652Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "9644ea16-4745-439f-b5fa-f9654a6ad3d7",
+    "timestamp": "2025-03-15T23:05:52.826128+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:40.928Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "6d94d11f-9448-4b33-8652-2b911b5abbdc",
+    "timestamp": "2025-03-15T23:05:41.083411+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:31.061Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "89cbe3ca-08e6-45d4-baf3-c204d5c62b6e",
+    "timestamp": "2025-03-15T23:05:31.542615+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:29.717Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "3d7e5eae-ff65-4ada-bcfd-ee4afe1caa24",
+    "timestamp": "2025-03-15T23:05:29.840475+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:25.661Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "639ab538-c2da-4e7a-9c12-f00c4d20cdcf",
+    "timestamp": "2025-03-15T23:05:25.808221+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Маринад для крыльев (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:05:16.061Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2d5ff6d4-4b68-4a3d-a1eb-0f16daa5354c",
+    "timestamp": "2025-03-15T23:05:16.330456+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Маринад для крыльев (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Маринад для крыльев (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:59:52.279Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "2e66bf1e-a5ef-419d-9931-53870a759de5",
+    "timestamp": "2025-03-15T22:59:52.024124+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "321",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:59:43.781Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "90678326-114b-4354-a37c-80663eef6403",
+    "timestamp": "2025-03-15T22:59:43.550201+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "321"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Ям (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:42:33.156Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "fff87e6b-cff3-41dc-b887-ed322c33a707",
+    "timestamp": "2025-03-15T22:42:33.133487+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Ям (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Ям (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:51.469Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "f0704721-010f-452c-b42a-258a0916851e",
+    "timestamp": "2025-03-15T22:38:51.601728+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:46.916Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "be1ba8b8-e60d-4a84-898b-fd577790fc43",
+    "timestamp": "2025-03-15T22:38:47.062854+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:36.205Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "d0b9310f-4ec9-4f98-b8d8-d7699bcbb233",
+    "timestamp": "2025-03-15T22:38:36.674263+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:27.949Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "253d3730-aee2-4c73-a679-fe5e75535af4",
+    "timestamp": "2025-03-15T22:38:28.069696+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:25.590Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2c84ef20-9c80-4247-a2f3-f26af9b5d8e5",
+    "timestamp": "2025-03-15T22:38:25.700964+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:38:21.972Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "62698f33-5189-4982-b505-238fc4ae7136",
+    "timestamp": "2025-03-15T22:38:22.099817+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:37:50.063Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "3bb319fe-3f6b-4def-b947-fcb5602baaaa",
+    "timestamp": "2025-03-15T22:37:50.056223+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "777",
+    "metadata": {
+      "lastUpdated": "2025-03-15T22:37:34.573Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "a5b09dc6-4c41-4372-8d31-9bddf5f99bab",
+    "timestamp": "2025-03-15T22:37:35.164806+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "777",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "777"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Бакалея",
+    "itemName": "321",
+    "metadata": {
+      "lastUpdated": "2025-03-15T21:58:50.305Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "81f38c22-d035-42e1-b339-5968a8574dba",
+    "timestamp": "2025-03-15T21:58:50.628926+00:00",
+    "quantity": 5,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "321",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "321"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "555",
+    "metadata": {
+      "lastUpdated": "2025-03-15T21:56:10.580Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "1e5fdc93-2226-441f-b1e0-867b9da04787",
+    "timestamp": "2025-03-15T21:56:10.909267+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "555",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "555"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "555",
+    "metadata": {
+      "lastUpdated": "2025-03-15T21:56:04.641Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "75c44f08-b34c-4f03-9382-32448ccdf7fd",
+    "timestamp": "2025-03-15T21:56:05.089244+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "555",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "555"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 5,
+    "category": "Бакалея",
+    "itemName": "555",
+    "metadata": {
+      "lastUpdated": "2025-03-15T21:54:16.031Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "05019382-9f85-4d7d-b2c8-0899407c7101",
+    "timestamp": "2025-03-15T21:54:16.494841+00:00",
+    "quantity": 5,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "555",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 5,
+      "difference": 5
+    },
+    "item": "555"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "123",
+    "metadata": {
+      "lastUpdated": "2025-03-15T20:57:25.483Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "1b6ca8e0-1721-40bf-93ed-b755f7c7bb2e",
+    "timestamp": "2025-03-15T20:57:25.541061+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "123",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "123"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "123",
+    "metadata": {
+      "lastUpdated": "2025-03-15T20:57:18.571Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "d180682e-bd28-4cc4-95ee-33a58c700b38",
+    "timestamp": "2025-03-15T20:57:18.618911+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "123",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "123"
+  },
+  {
+    "action": "add",
     "type": "semifinished",
     "oldQuantity": 0,
     "newQuantity": 55,
@@ -16,7 +1810,7 @@
         "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
       }
     },
-    "id": "96f67a74-9e70-4038-8ec4-600793e5f737",
+    "id": "a8f67b74-9e70-4038-8ec4-600793e5f738",
     "timestamp": "2025-03-15T20:12:14.802455+00:00",
     "quantity": 55,
     "author": {
@@ -55,7 +1849,7 @@
         "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
       }
     },
-    "id": "6472ffa7-93f1-4379-9485-654d4ec81f30",
+    "id": "7572ffa7-93f1-4379-9485-654d4ec81f31",
     "timestamp": "2025-03-15T20:11:41.091892+00:00",
     "quantity": 5,
     "author": {
@@ -94,8 +1888,125 @@
         "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
       }
     },
-    "id": "9cfb6836-98d4-4f2c-bbec-4be520fa18e3",
+    "id": "8cfb6836-98d4-4379-9485-654d4ec81f32",
     "timestamp": "2025-03-15T20:10:37.138943+00:00",
+    "quantity": 5,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 15,
+      "new_value": 20,
+      "difference": 5
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 55,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-14T20:12:14.647Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "96f67a74-9e70-4038-8ec4-600793e5f737",
+    "timestamp": "2025-03-14T20:12:14.802455+00:00",
+    "quantity": 55,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 55 полуфабрикатов",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 55,
+      "difference": 55
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 20,
+    "newQuantity": 25,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-14T20:11:40.418Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "6472ffa7-93f1-4379-9485-654d4ec81f30",
+    "timestamp": "2025-03-14T20:11:41.091892+00:00",
+    "quantity": 5,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 5 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 20,
+      "new_value": 25,
+      "difference": 5
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 15,
+    "newQuantity": 20,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-14T20:10:36.983Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "9cfb6836-98d4-4f2c-bbec-4be520fa18e3",
+    "timestamp": "2025-03-14T20:10:37.138943+00:00",
     "quantity": 5,
     "author": {
       "id": 1682142222,

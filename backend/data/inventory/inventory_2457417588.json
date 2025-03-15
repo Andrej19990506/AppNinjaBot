@@ -5,25 +5,29 @@
         "raw": {
           "filled": false,
           "quantity": 0
-        }
+        },
+        "semifinished": null
       },
       "321": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 5
+        },
+        "semifinished": null
       },
       "555": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 5
+        },
+        "semifinished": null
       },
       "777": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 50
+        },
+        "semifinished": null
       },
       "Афигетт": {
         "raw": {
@@ -242,20 +246,22 @@
     "Масла и заправки": {
       "Заправка для морковки (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 55
+        },
+        "semifinished": null
       },
       "Маринад для крыльев (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 49
+        },
+        "semifinished": null
       },
       "Масло растительное (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Масло фритюрное (гр.)": {
@@ -275,10 +281,7 @@
           "filled": false,
           "quantity": 0
         },
-        "semifinished": {
-          "filled": false,
-          "quantity": 0
-        }
+        "semifinished": null
       },
       "Привет": {
         "raw": {
@@ -1175,7 +1178,7 @@
     }
   },
   "metadata": {
-    "lastUpdated": "2025-03-15T20:12:15.052Z",
+    "lastUpdated": "2025-03-15T23:45:43.123Z",
     "chat_id": "2457417588"
   }
 }

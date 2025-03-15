@@ -1,33 +1,47 @@
 .container {
     width: 100%;
-    padding: 20px;
-    background: linear-gradient(135deg, rgba(var(--card-rgb), 0.8), rgba(var(--card-rgb), 0.95));
+    padding: 16px;
+    background: linear-gradient(135deg, 
+        rgba(var(--card-rgb), 0.6),
+        rgba(var(--card-rgb), 0.8)
+    );
     border-radius: var(--radius-lg);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid rgba(var(--border-rgb), 0.1);
-    box-shadow: var(--shadow-md);
-    transition: var(--transition-normal);
-    max-height: 35vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.05),
+        0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
     position: relative;
-    z-index: 20;
+    z-index: 1;
     margin-bottom: 10px;
-    display: none;
 }
 
 .container::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
-                rgba(var(--primary-rgb), 0.1), transparent 50%);
+    background: radial-gradient(
+        circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+        rgba(var(--primary-rgb), 0.08),
+        transparent 60%
+    );
     border-radius: inherit;
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.3s ease;
     pointer-events: none;
     z-index: -1;
+    width: 500px;
+    height: 500px;
+    transform: translate(10%, 17%) scale(1);
+}
+
+.container:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 6px 16px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.12);
 }
 
 .container:hover::before {
@@ -42,11 +56,6 @@
     0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4); }
     70% { box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0); }
     100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
-}
-
-.container:hover {
-    transform: var(--hover-transform);
-    box-shadow: var(--shadow-lg);
 }
 
 .emptyContainer {
@@ -333,15 +342,15 @@
 
 .historyItem {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 16px;
-    align-items: center;
+    align-items: start;
     padding: 16px;
     background: rgba(var(--background-rgb), 0.5);
-    border-radius: var(--radius);
+    border-radius: var(--radius-lg);
     border: 1px solid rgba(var(--border-rgb), 0.1);
     backdrop-filter: blur(5px);
-    transition: var(--transition-normal);
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
     transform-origin: left center;
@@ -351,59 +360,94 @@
 .historyItem::before {
     content: '';
     position: absolute;
-    left: -2px;
-    top: 50%;
+    left: 0;
+    top: 0;
     width: 4px;
-    height: 0;
+    height: 100%;
     background: var(--gradient-primary);
-    transform: translateY(-50%);
-    transition: height 0.3s ease;
-}
-
-.historyItem:hover::before {
-    height: 70%;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
 .historyItem:hover {
-    transform: translateX(8px) scale(1.02);
+    transform: translateX(4px);
     background: rgba(var(--background-rgb), 0.8);
     box-shadow: var(--shadow-md);
+}
+
+.historyItem:hover::before {
+    opacity: 1;
+}
+
+.leftContent {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.rightContent {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
 }
 
 .authorInfo {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 4px;
+    gap: 12px;
 }
 
 .authorPhoto {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     object-fit: cover;
-    flex-shrink: 0;
+    border: 2px solid rgba(var(--primary-rgb), 0.2);
+    transition: all 0.3s ease;
+}
+
+.historyItem:hover .authorPhoto {
+    border-color: rgba(var(--primary-rgb), 0.4);
+    transform: scale(1.05);
 }
 
 .authorName {
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 500;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-color);
 }
 
 .actionInfo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .action {
     font-size: 0.9rem;
-    font-weight: 600;
-    padding: 6px 12px;
+    font-weight: 500;
+    padding: 6px 10px;
     border-radius: var(--radius);
-    transition: var(--transition-normal);
+    transition: all 0.3s ease;
+    background: rgba(var(--background-rgb), 0.8);
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.action::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.5;
 }
 
 .action.add {
@@ -425,31 +469,34 @@
 }
 
 .quantity {
-    font-weight: 700;
+    font-weight: 600;
+    font-size: 0.9rem;
     color: var(--text-color);
     background: rgba(var(--primary-rgb), 0.1);
-    padding: 6px 12px;
+    padding: 4px 10px;
     border-radius: var(--radius);
-    min-width: 60px;
+    min-width: 50px;
     text-align: center;
     box-shadow: inset 0 0 0 1px rgba(var(--primary-rgb), 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .quantityChange {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
+    gap: 8px;
+    padding: 6px 12px;
     background: rgba(var(--background-rgb), 0.8);
     border-radius: var(--radius);
     border: 1px solid rgba(var(--border-rgb), 0.1);
-    transition: var(--transition-normal);
+    transition: all 0.3s ease;
 }
 
 .historyItem:hover .quantityChange {
     background: rgba(var(--primary-rgb), 0.05);
     border-color: rgba(var(--primary-rgb), 0.2);
-    box-shadow: 0 2px 6px rgba(var(--primary-rgb), 0.1);
 }
 
 .oldQuantity {
@@ -460,14 +507,13 @@
 
 .arrow {
     color: var(--primary-color);
-    font-weight: bold;
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 .newQuantity {
     color: var(--text-color);
-    font-weight: 700;
-    font-size: 0.95rem;
+    font-weight: 600;
+    font-size: 0.9rem;
 }
 
 .timestamp {
@@ -477,7 +523,7 @@
     padding: 4px 10px;
     border-radius: var(--radius);
     white-space: nowrap;
-    transition: var(--transition-normal);
+    transition: all 0.3s ease;
 }
 
 .historyItem:hover .timestamp {
@@ -669,57 +715,22 @@
 }
 
 /* Стили для плавающей кнопки истории на мобильных устройствах */
-.historyFab {
-    z-index: 999 !important;
-    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3) !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: auto !important;
-    width: 56px !important;
-    height: 56px !important;
-    min-width: 56px !important;
-    min-height: 56px !important;
-    pointer-events: all !important;
-    background: var(--gradient-primary) !important;
-    margin: 30px auto 60px auto !important;
-    position: fixed !important;
-    bottom: 80px !important;
-    right: 20px !important;
-}
-
-.historyFab:hover {
-    transform: translateY(-3px) scale(1.05) !important;
-    box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.35) !important;
-}
-
-.historyFab.hasNewHistory {
-    animation: fabPulse 2s infinite;
-}
-
-@keyframes fabPulse {
-    0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.7); }
-    70% { box-shadow: 0 0 0 15px rgba(var(--primary-rgb), 0); }
-    100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
-}
-
+.historyFab,
+.fabContent,
 .historyCount {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 22px;
-    height: 22px;
-    background-color: var(--error-color);
-    color: white;
-    border-radius: 50%;
-    font-size: 12px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    display: none !important;
+}
+
+/* Удаляем все стили для мобильной версии FAB */
+@media (max-width: 768px) {
+    .historyFab {
+        display: none !important;
+    }
+
+    /* Убираем display: none для historyCount */
+    .historyCount {
+        display: flex !important;
+    }
 }
 
 /* Стили для модального окна истории */
@@ -892,13 +903,6 @@
         max-height: 90vh;
     }
 
-    .historyFab {
-        bottom: 85px !important;
-        right: 16px !important;
-        width: 48px !important;
-        height: 48px !important;
-    }
-
     .emptyHistoryBadge {
         bottom: 85px;
         right: 16px;
@@ -909,100 +913,7 @@
 
 /* Стили для индикатора пустой истории на мобильных устройствах */
 .emptyHistoryBadge {
-    position: fixed;
-    bottom: 80px;
-    right: 20px;
-    display: flex;
-    align-items: center;
-    background: linear-gradient(
-        145deg, 
-        rgba(var(--card-rgb), 0.95), 
-        rgba(var(--card-rgb), 0.85)
-    );
-    border-radius: 20px;
-    padding: 8px 16px;
-    box-shadow: var(--shadow-md);
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-    font-weight: 500;
-    gap: 8px;
-    border: 1px solid rgba(var(--primary-rgb), 0.1);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.emptyHistoryBadge:hover {
-    transform: translateY(-2px);
-    box-shadow: 
-        0 8px 20px rgba(var(--primary-rgb), 0.15),
-        0 0 0 1px rgba(var(--primary-rgb), 0.2) inset;
-    color: var(--primary-color);
-}
-
-/* Мобильные стили */
-@media (max-width: 768px) {
-    .container {
-        padding: 16px;
-        max-height: 50vh;
-    }
-
-    .header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-
-    .filterContainer {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .dateSelect {
-        min-width: 120px;
-    }
-
-    .historyItem {
-        grid-template-columns: 1fr;
-        gap: 12px;
-        padding: 14px;
-    }
-
-    .timeline::before {
-        left: 12px;
-    }
-
-    .quantityChange {
-        padding: 6px 12px;
-    }
-
-    .authorPhoto {
-        width: 32px;
-        height: 32px;
-    }
-
-    .action {
-        padding: 4px 8px;
-        font-size: 0.85rem;
-    }
-
-    .timestamp {
-        font-size: 0.8rem;
-    }
-    
-    /* Улучшаем мобильный макет */
-    .actionInfo {
-        flex-direction: row;
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    
-    /* Добавляем полосу прокрутки когда много записей на мобильном */
-    .timeline {
-        padding-bottom: 100px;
-    }
+    display: none;
 }
 
 /* Анимации */
@@ -1042,9 +953,10 @@
 /* Темная тема */
 [data-theme="dark"] .container {
     background: linear-gradient(135deg, 
-        rgba(var(--card-rgb), 0.7),
-        rgba(var(--card-rgb), 0.85)
+        rgba(var(--card-rgb), 0.4),
+        rgba(var(--card-rgb), 0.6)
     );
+    border-color: rgba(var(--primary-rgb), 0.15);
 }
 
 [data-theme="dark"] .historyItem {
@@ -1080,6 +992,364 @@
     
     .historyItem:active::before {
         height: 70%;
+    }
+}
+
+.emptyHistoryContainer {
+    margin-top: 35px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    gap: 16px;
+    min-height: 180px;
+    position: relative;
+    background: transparent;
+    border-radius: var(--radius-lg);
+    transition: all 0.3s ease;
+}
+
+.emptyHistoryContainer::before {
+    content: '';
+    position: absolute;
+    top: 26%;
+    left: 50%;
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 0.03),
+        rgba(var(--primary-rgb), 0.08)
+    );
+    border-radius: 50%;
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 1;
+    transition: all 0.3s ease;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.emptyHistoryContainer:hover::before {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+}
+
+.emptyHistoryContainer.hasItems {
+    cursor: pointer;
+}
+
+.emptyHistoryIcon {
+    width: 48px;
+    height: 48px;
+    color: var(--primary-color);
+    opacity: 0.8;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.emptyHistoryIcon svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 4px 8px rgba(var(--primary-rgb), 0.2));
+}
+
+.emptyHistoryIcon .historyCount {
+    position: absolute;
+    top: -15px;
+    right: -15px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(var(--primary-rgb), 0.3);
+    transform-origin: center;
+    animation: countAppear 0.3s ease-out, countPulse 2s infinite;
+    z-index: 10;
+}
+
+.emptyHistoryIcon .historyCount::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: var(--gradient-primary);
+    opacity: 0.4;
+    z-index: -1;
+    animation: glowPulse 2s infinite;
+}
+
+.emptyHistoryContainer:hover .emptyHistoryIcon .historyCount {
+    animation: countHover 0.3s ease-out forwards;
+}
+
+/* Стили для иконки с историей */
+.historyIconSvg {
+    transform-origin: center;
+}
+
+.rotatingGroup {
+    transform-origin: center;
+    animation: rotateGroup 20s linear infinite;
+}
+
+.clockHands {
+    transform-origin: center;
+    animation: tickClock 2s ease-in-out infinite;
+}
+
+.circlePathFilled {
+    stroke: var(--primary-color);
+    stroke-width: 2;
+}
+
+.historyDots {
+    opacity: 0;
+    animation: fadeInOut 3s ease-in-out infinite;
+}
+
+/* Стили для пустой иконки */
+.emptyIconSvg {
+    transform-origin: center;
+}
+
+.pulsingGroup {
+    transform-origin: center;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.clockHandsEmpty {
+    transform-origin: center;
+    stroke-dasharray: 12;
+    stroke-dashoffset: 12;
+    animation: drawHands 3s ease-in-out infinite;
+}
+
+.circlePathEmpty {
+    stroke: var(--primary-color);
+    stroke-width: 2;
+    stroke-dasharray: 56.5486;
+    stroke-dashoffset: 56.5486;
+    animation: drawCircle 3s ease-in-out infinite;
+}
+
+.centerDot {
+    fill: none;
+    animation: pulseDot 2s ease-in-out infinite;
+}
+
+/* Анимации */
+@keyframes rotateGroup {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes tickClock {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    50% {
+        transform: rotate(10deg);
+    }
+}
+
+@keyframes fadeInOut {
+    0%, 100% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+}
+
+@keyframes drawHands {
+    0% {
+        stroke-dashoffset: 12;
+    }
+    50% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 12;
+    }
+}
+
+@keyframes drawCircle {
+    0% {
+        stroke-dashoffset: 56.5486;
+    }
+    50% {
+        stroke-dashoffset: 0;
+    }
+    100% {
+        stroke-dashoffset: 56.5486;
+    }
+}
+
+@keyframes pulseDot {
+    0%, 100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+}
+
+.emptyHistoryContainer:hover .emptyHistoryIcon {
+    transform: scale(1.1);
+    opacity: 1;
+}
+
+.emptyHistoryTitle {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+    background: linear-gradient(135deg, 
+        var(--text-color) 0%, 
+        var(--primary-color) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    transition: all 0.3s ease;
+}
+
+.emptyHistoryText {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    opacity: 0.8;
+    max-width: 220px;
+    text-align: center;
+    line-height: 1.4;
+    margin: 0;
+    transition: all 0.3s ease;
+}
+
+.emptyHistoryContainer:hover .emptyHistoryTitle {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.emptyHistoryContainer:hover .emptyHistoryText {
+    opacity: 1;
+}
+
+@media (max-width: 480px) {
+    .historyItem {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .rightContent {
+        flex-direction: row;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .action {
+        max-width: calc(100% - 50px);
+    }
+}
+
+.historyCount {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: var(--gradient-primary);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(var(--primary-rgb), 0.3);
+    transform-origin: center;
+    animation: countAppear 0.3s ease-out, countPulse 2s infinite;
+    z-index: 10;
+}
+
+@keyframes countAppear {
+    from {
+        transform: scale(0) rotate(-180deg);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) rotate(0);
+        opacity: 1;
+    }
+}
+
+@keyframes countPulse {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 6px rgba(var(--primary-rgb), 0.3);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 3px 8px rgba(var(--primary-rgb), 0.4),
+                    0 0 12px rgba(var(--primary-rgb), 0.2);
+    }
+}
+
+.emptyHistoryContainer:hover .historyCount {
+    animation: countHover 0.3s ease-out forwards;
+}
+
+@keyframes countHover {
+    to {
+        transform: scale(1.15);
+        box-shadow: 0 4px 10px rgba(var(--primary-rgb), 0.5),
+                    0 0 16px rgba(var(--primary-rgb), 0.3);
+    }
+}
+
+.historyCount::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    background: var(--gradient-primary);
+    opacity: 0.4;
+    z-index: -1;
+    animation: glowPulse 2s infinite;
+}
+
+@keyframes glowPulse {
+    0%, 100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.35);
     }
 }
 

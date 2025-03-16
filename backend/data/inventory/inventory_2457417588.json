@@ -155,10 +155,7 @@
           "filled": true,
           "quantity": 5
         },
-        "semifinished": {
-          "filled": false,
-          "quantity": 0
-        }
+        "semifinished": null
       },
       "Арома Манго-Маракуя (шт)": {
         "raw": {
@@ -196,26 +193,26 @@
       },
       "Проверка": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Салют": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 52
         }
       },
       "Чизкейк \"Малиновый вихрь\" (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Чизкейк New York (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Чизкейк Фисташковый (шт)": {
@@ -268,7 +265,8 @@
         "raw": {
           "filled": false,
           "quantity": 0
-        }
+        },
+        "semifinished": null
       },
       "Паста Том Кха (гр.)": {
         "raw": {
@@ -305,8 +303,8 @@
     "Молочные продукты": {
       "Молоко (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 75
         }
       },
       "Сливки (гр.)": {
@@ -1178,7 +1176,7 @@
     }
   },
   "metadata": {
-    "lastUpdated": "2025-03-15T23:45:43.123Z",
+    "lastUpdated": "2025-03-16T00:14:53.531Z",
     "chat_id": "2457417588"
   }
 }

@@ -1,118 +1,92 @@
-.notificationsContainer {
+.notificationContainer {
     position: fixed;
-    top: max(20px, env(safe-area-inset-top));
-    left: 50%;
-    transform: translateX(-50%);
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    z-index: 1100;
-    pointer-events: none;
+    max-width: 400px;
 }
 
 .notification {
-    padding: 16px 24px;
-    border-radius: var(--radius-lg);
-    background: linear-gradient(
-        135deg,
-        rgba(var(--card-rgb), 0.8),
-        rgba(var(--card-rgb), 0.95)
-    );
-    box-shadow: var(--shadow-lg);
     display: flex;
     align-items: center;
-    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background-color: white;
     min-width: 300px;
-    max-width: 90%;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(var(--border-rgb), 0.1);
-    transition: all var(--transition-normal);
-    pointer-events: auto;
+    max-width: 100%;
 }
 
-.success {
-    background: linear-gradient(
-        135deg,
-        rgba(var(--success-rgb), 0.1),
-        rgba(var(--success-rgb), 0.2)
-    );
-    border-color: rgba(var(--success-rgb), 0.3);
+.iconContainer {
+    display: flex;
+    align-items: center;
+    margin-right: 12px;
 }
 
-.error {
-    background: linear-gradient(
-        135deg,
-        rgba(var(--error-rgb), 0.1),
-        rgba(var(--error-rgb), 0.2)
-    );
-    border-color: rgba(var(--error-rgb), 0.3);
+.content {
+    flex: 1;
+    min-width: 0;
 }
 
-.warning {
-    background: linear-gradient(
-        135deg,
-        rgba(var(--warning-rgb), 0.1),
-        rgba(var(--warning-rgb), 0.2)
-    );
-    border-color: rgba(var(--warning-rgb), 0.3);
-}
-
-.icon {
-    font-size: 1.5rem !important;
-    transition: all var(--transition-normal);
-}
-
-.success .icon {
-    color: var(--success-color);
-}
-
-.error .icon {
-    color: var(--error-color);
-}
-
-.warning .icon {
-    color: var(--warning-color);
+.title {
+    font-weight: 600;
+    margin-bottom: 4px;
 }
 
 .message {
-    color: var(--text-color);
-    font-size: 1rem;
-    font-weight: 500;
-    line-height: 1.5;
-    transition: color var(--transition-normal);
-    flex: 1;
+    font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
 }
 
 .closeButton {
-    background: none;
-    border: none;
-    padding: 4px;
-    color: var(--text-secondary);
-    cursor: pointer;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0.6;
-    transition: all var(--transition-normal);
+    margin-left: 8px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
 }
 
 .closeButton:hover {
     opacity: 1;
-    color: var(--text-color);
-    background: rgba(var(--text-rgb), 0.1);
 }
 
-.notification:hover {
-    transform: translateY(-2px);
-    box-shadow: 
-        0 8px 24px rgba(0, 0, 0, 0.15),
-        0 4px 8px rgba(var(--primary-rgb), 0.15);
+.icon {
+    font-size: 24px;
 }
 
-.notification:hover .icon {
-    transform: scale(1.1);
+/* Notification types */
+.success {
+    border-left: 4px solid #4caf50;
+}
+
+.success .icon {
+    color: #4caf50;
+}
+
+.error {
+    border-left: 4px solid #f44336;
+}
+
+.error .icon {
+    color: #f44336;
+}
+
+.warning {
+    border-left: 4px solid #ff9800;
+}
+
+.warning .icon {
+    color: #ff9800;
+}
+
+.info {
+    border-left: 4px solid #2196f3;
+}
+
+.info .icon {
+    color: #2196f3;
 }
 
 /* Медиа-запросы */

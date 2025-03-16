@@ -265,8 +265,8 @@ const Inventory: React.FC = () => {
     const getHeaderTitle = useCallback(() => {
         if (!selectedChat) return 'Инвентарь';
         if (!selectedCategory) return selectedChat.chat_title;
-        if (!selectedItem) return `${selectedChat.chat_title} - ${selectedCategory}`;
-        return `${selectedChat.chat_title} - ${selectedItem}`;
+        if (!selectedItem) return selectedCategory;
+        return selectedItem;
     }, [selectedChat, selectedCategory, selectedItem]);
 
     const handleNotificationClose = useCallback((id: string) => {

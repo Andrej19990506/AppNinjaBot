@@ -4,6 +4,357 @@
     "type": "raw",
     "oldQuantity": 0,
     "newQuantity": 25,
+    "category": "Десерты",
+    "itemName": "Чизкейк New York (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:14:53.167Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "d2db167c-f1f6-4a3a-b9c3-07aaac013615",
+    "timestamp": "2025-03-16T00:14:53.381944+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк New York (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Чизкейк New York (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Десерты",
+    "itemName": "Чизкейк \"Малиновый вихрь\" (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:14:45.270Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "ca56dd91-e660-469d-b3ff-35b672b9b6cb",
+    "timestamp": "2025-03-16T00:14:45.672504+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк \"Малиновый вихрь\" (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Чизкейк \"Малиновый вихрь\" (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 52,
+    "category": "Десерты",
+    "itemName": "Салют",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:13:42.279Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "c5ab12bb-5fd5-463a-98b2-8d0dc2cbe144",
+    "timestamp": "2025-03-16T00:13:42.661344+00:00",
+    "quantity": 52,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 52 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Салют",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 52,
+      "difference": 52
+    },
+    "item": "Салют"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Десерты",
+    "itemName": "Проверка",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:13:28.797Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "e25e7012-f999-4a07-88c6-b5dafa420f96",
+    "timestamp": "2025-03-16T00:13:29.014793+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Проверка",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Проверка"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Арома Клубника (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:13:16.015Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "d9a627c8-3f32-4f29-bc1b-e1058639e859",
+    "timestamp": "2025-03-16T00:13:16.248250+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Арома Клубника (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Арома Клубника (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 25,
+    "newQuantity": 75,
+    "category": "Молочные продукты",
+    "itemName": "Молоко (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:00:52.131Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "5c0abdee-a372-4990-b818-72e3561d37a5",
+    "timestamp": "2025-03-16T00:00:52.372883+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Молоко (гр.)",
+    "category_display_name": "Молочные продукты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 25,
+      "new_value": 75,
+      "difference": 50
+    },
+    "item": "Молоко (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Молочные продукты",
+    "itemName": "Молоко (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T00:00:41.556Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "76ae8449-898b-45c3-8089-3ddd0c93a228",
+    "timestamp": "2025-03-16T00:00:41.785297+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Молоко (гр.)",
+    "category_display_name": "Молочные продукты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Молоко (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:54:38.090Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "4588c53e-60b8-49c0-b903-e5d586288e8d",
+    "timestamp": "2025-03-15T23:54:38.345099+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-15T23:54:29.744Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "1f572249-6bcb-4621-9b44-8ad43d6e77c7",
+    "timestamp": "2025-03-15T23:54:29.964655+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
     "category": "Масла и заправки",
     "itemName": "Масло растительное (гр.)",
     "metadata": {

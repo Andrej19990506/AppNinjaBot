@@ -1,101 +1,72 @@
-import React, { useEffect, useState } from 'react';
-import { motion, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { NotificationTypes } from '../../store/slices/notificationSlice';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
+import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import styles from './SystemNotification.module.css';
 
-interface NotificationItem {
+export interface NotificationItem {
     id: string;
+    type: NotificationTypes;
     message: string;
-    type: 'success' | 'error' | 'warning';
+    title?: string;
+    duration?: number;
 }
 
 interface SystemNotificationProps {
-    message: string;
-    type: 'success' | 'error' | 'warning';
-    duration?: number;
-    onClose?: () => void;
+    notifications: NotificationItem[];
+    onClose: (id: string) => void;
 }
 
-const SystemNotification: React.FC<SystemNotificationProps> = ({
-    message,
-    type,
-    duration = 5000,
-    onClose
-}) => {
-    const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-
-    useEffect(() => {
-        if (message) {
-            // Добавляем новое уведомление с уникальным ключом
-            const newNotification = {
-                id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                message,
-                type
-            };
-            setNotifications(prev => [...prev, newNotification]);
-
-            // Автоматически удаляем уведомление через duration
-            if (duration > 0) {
-                const timer = setTimeout(() => {
-                    handleClose(newNotification.id);
-                }, duration);
-                return () => clearTimeout(timer);
-            }
-        }
-    }, [message, type, duration]);
-
-    const handleClose = (id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-        if (onClose) onClose();
-    };
-
-    const getIcon = (type: 'success' | 'error' | 'warning') => {
+const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, onClose }) => {
+    const getIcon = (type: NotificationTypes) => {
         switch (type) {
-            case 'success':
+            case NotificationTypes.SUCCESS:
                 return <CheckCircleIcon className={styles.icon} />;
-            case 'error':
+            case NotificationTypes.ERROR:
                 return <ErrorIcon className={styles.icon} />;
-            case 'warning':
+            case NotificationTypes.WARNING:
                 return <WarningIcon className={styles.icon} />;
+            default:
+                return <InfoIcon className={styles.icon} />;
         }
     };
 
     return (
-        <LazyMotion features={domAnimation}>
-            <div className={styles.notificationsContainer}>
-                <AnimatePresence mode="sync">
-                    {notifications.map((notification) => (
-                        <motion.div
-                            key={notification.id}
-                            className={`${styles.notification} ${styles[notification.type]}`}
-                            initial={{ opacity: 0, y: -20, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                            transition={{ 
-                                type: "spring",
-                                stiffness: 500,
-                                damping: 40,
-                                mass: 1
-                            }}
-                        >
+        <div className={styles.notificationContainer}>
+            <AnimatePresence>
+                {notifications.map((notification) => (
+                    <motion.div
+                        key={notification.id}
+                        initial={{ opacity: 0, y: 50 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: 100 }}
+                        className={`${styles.notification} ${styles[notification.type]}`}
+                    >
+                        <div className={styles.iconContainer}>
                             {getIcon(notification.type)}
-                            <span className={styles.message}>{notification.message}</span>
-                            <motion.button
-                                className={styles.closeButton}
-                                onClick={() => handleClose(notification.id)}
-                                whileHover={{ scale: 1.1, rotate: 90 }}
-                                whileTap={{ scale: 0.9 }}
-                            >
-                                <CloseIcon fontSize="small" />
-                            </motion.button>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-            </div>
-        </LazyMotion>
+                        </div>
+                        <div className={styles.content}>
+                            {notification.title && (
+                                <div className={styles.title}>{notification.title}</div>
+                            )}
+                            <div className={styles.message}>{notification.message}</div>
+                        </div>
+                        <IconButton
+                            size="small"
+                            onClick={() => onClose(notification.id)}
+                            className={styles.closeButton}
+                        >
+                            <CloseIcon fontSize="small" />
+                        </IconButton>
+                    </motion.div>
+                ))}
+            </AnimatePresence>
+        </div>
     );
 };
 

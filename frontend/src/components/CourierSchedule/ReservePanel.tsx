@@ -10,10 +10,11 @@ import {
     subscribeToReserveEvents, 
     unsubscribeFromReserveEvents 
 } from '../../store/slices/reservesSlice';
-import { AppDispatch } from '../../store/store';
+import { AppDispatch, RootState } from '../../store/store';
 import { ReserveShift } from '../../types/shifts';
 import { selectAllReserves } from '../../store/slices/reservesSlice';
-import { RootState } from '../../store/store';
+import { RootState as ReduxRootState } from '../../store/store';
+import LoadingOverlay from './LoadingOverlay';
 
 // Интерфейсы
 interface ReservePanelProps {
@@ -217,6 +218,32 @@ const DeleteButton = styled.div`
     transition: opacity 0.3s ease;
 `;
 
+// Добавляем стиль для мини-индикатора загрузки
+const MiniLoader = styled.div`
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 8px;
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
+// Стилизованная кнопка для добавления в резерв с индикатором загрузки
+const ReserveButtonWithLoader = styled(SlotButton)`
+    position: relative;
+    
+    &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+`;
+
 // Компонент панели резервов
 const ReservePanel: React.FC<ReservePanelProps> = ({
     date,
@@ -232,10 +259,11 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     showSuccessMessage
 }) => {
     const dispatch = useDispatch<AppDispatch>();
-    // Создаем локальное состояние, чтобы иметь возможность обновить UI независимо от props
     const [localReserves, setLocalReserves] = useState<ReserveShift[]>(reserves);
-    // Состояние для отслеживания режима подтверждения удаления
     const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const [isAddLoading, setIsAddLoading] = useState<boolean>(false);
+    const [isRemoveLoading, setIsRemoveLoading] = useState<boolean>(false);
+    const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     // Создаем ref для хранения ссылки на текущий слот в режиме удаления
     const deleteSlotRef = useRef<HTMLButtonElement>(null);
@@ -334,14 +362,52 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         };
     }, [dispatch]);
     
-    // Обновляем UI при изменении даты или при обновлении данных в Redux
+    // Обновляем UI при изменении даты 
     useEffect(() => {
-        console.log('[ReservePanel] Date or Redux data changed, refreshing reserves');
+        console.log('[ReservePanel] Date changed, refreshing reserves');
         dispatch(forceFetchReserves());
-    }, [dispatch, date, allReduxReserves.length]);
+    }, [dispatch, date]);
+
+    // При изменении состояния резерва пользователя или активной смены, принудительно обновляем UI
+    const prevUserHasReserveInList = useRef(false);
+    useEffect(() => {
+        if (userHasReserveInList !== prevUserHasReserveInList.current) {
+            console.log('[ReservePanel] User reserve state changed, forcing update');
+            forceUpdate();
+            prevUserHasReserveInList.current = userHasReserveInList;
+        }
+    }, [userHasReserveInList, forceUpdate]);
+
+    // Добавляем защитный таймаут для сброса состояния загрузки
+    const startLoadingSafetyTimeout = () => {
+        // Сначала очищаем существующий таймаут, если он есть
+        if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+        }
+        
+        // Устанавливаем новый таймаут
+        loadingTimeoutRef.current = setTimeout(() => {
+            console.log('[ReservePanel] Safety timeout triggered to prevent infinite loading');
+            setIsAddLoading(false);
+            setIsRemoveLoading(false);
+        }, 5000); // 5 секунд максимум для загрузки
+    };
+    
+    // Очищаем таймаут при размонтировании компонента
+    useEffect(() => {
+        return () => {
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const handleReserveClick = async () => {
         console.log('[ReservePanel] handleReserveClick called');
+        
+        // Показываем только локальный индикатор для кнопки добавления
+        setIsAddLoading(true);
+        startLoadingSafetyTimeout();
         
         try {
             console.log('[ReservePanel] Calling onReserveSelect to add to reserve');
@@ -380,6 +446,13 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                     dispatch(forceFetchReserves());
                 }, 300);
             }
+            
+            setIsAddLoading(false);
+            // Очищаем таймаут, так как запрос успешно завершен
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+            }
         } catch (error) {
             console.error('[ReservePanel] Error adding to reserve:', error);
             
@@ -388,6 +461,13 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 setLocalReserves(prev => 
                     prev.filter(r => !r.id.toString().startsWith('temp-'))
                 );
+            }
+            
+            setIsAddLoading(false);
+            // Очищаем таймаут, так как произошла ошибка
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
             }
         }
     };
@@ -407,6 +487,10 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     const handleCancelReserve = async () => {
         console.log('[ReservePanel] handleCancelReserve called');
         
+        // Показываем только индикатор удаления, а не полный экран загрузки
+        setIsRemoveLoading(true);
+        startLoadingSafetyTimeout();
+        
         try {
             // Определяем ID резерва для отмены из списка резервов
             if (userReserve && userReserve.id) {
@@ -415,6 +499,11 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 // Проверяем, находимся ли мы в режиме подтверждения для этого резерва
                 if (confirmDelete === reserveId) {
                     console.log('[ReservePanel] Confirming cancellation for reserve ID:', reserveId);
+                    
+                    // Оптимистическое обновление UI до получения ответа от сервера
+                    setLocalReserves(prevReserves => 
+                        prevReserves.filter(reserve => reserve.id !== reserveId)
+                    );
                     
                     // Вызываем dispatch для отправки WebSocket события
                     await dispatch(removeFromReserve({
@@ -430,6 +519,9 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                     
                     // Принудительно обновляем компонент
                     forceUpdate();
+                    
+                    // Немедленно обновляем данные в Redux
+                    dispatch(forceFetchReserves());
                 } else {
                     // Первый клик - показываем подтверждение
                     handleStartDeleteReserve(reserveId);
@@ -437,12 +529,29 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             } else {
                 console.log('[ReservePanel] No valid reserve ID to cancel');
             }
+            
+            setIsRemoveLoading(false);
+            // Очищаем таймаут, так как запрос успешно завершен
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+            }
         } catch (error) {
-            console.error('[ReservePanel] Error in handleCancelReserve:', error);
-            // Сбрасываем режим подтверждения в случае ошибки
-            setConfirmDelete(null);
+            console.error('[ReservePanel] Error canceling reserve:', error);
+            
+            setIsRemoveLoading(false);
+            // Очищаем таймаут, так как произошла ошибка
+            if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+            }
         }
     };
+
+    // Удаляем полноэкранную загрузку - теперь используем локальные индикаторы
+    // if (isLocalLoading) {
+    //     return <LoadingOverlay context="reserve" />;
+    // }
 
     return (
         <>
@@ -483,8 +592,9 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                         background: userHasBothShiftAndReserve ? 'rgba(255, 193, 7, 0.1)' : 'rgba(76, 175, 80, 0.1)',
                                         position: 'relative'
                                     }}
-                                    onClick={handleCancelReserve}
+                                    onClick={!isRemoveLoading ? handleCancelReserve : undefined}
                                     ref={isDeleteMode ? deleteSlotRef : undefined}
+                                    disabled={isRemoveLoading}
                                 >
                                     <CourierAvatar
                                         src={reserve.photo_url || defaultAvatar}
@@ -492,8 +602,9 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                         className="current-user-avatar"
                                         style={{
                                             border: userHasBothShiftAndReserve ? 
-                                                '2px solid #ffc107' : '2px solid var(--primary-color)', 
-                                            transition: 'all 0.3s ease'
+                                                '2px solid #ffc107' : '2px solid var(--primary-color)',
+                                            transition: 'all 0.3s ease',
+                                            opacity: isRemoveLoading ? 0.7 : 1
                                         }}
                                         onError={(e) => {
                                             const img = e.target as HTMLImageElement;
@@ -503,9 +614,10 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                     <DeleteButton 
                                         className="delete-reserve-button"
                                         style={{
-                                            opacity: isDeleteMode ? 1 : 0
+                                            opacity: isDeleteMode && !isRemoveLoading ? 1 : 0
                                         }}
                                         onClick={(e) => {
+                                            if (isRemoveLoading) return;
                                             e.stopPropagation();
                                             handleCancelReserve();
                                         }}
@@ -549,12 +661,13 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 {/* Показываем кнопку записи, если пользователь еще не в резерве */}
                 {!userHasReserveInList && !userHasActiveShift && (
                     <SlotButtonWrapper>
-                        <SlotButton 
+                        <ReserveButtonWithLoader 
                             $isOccupied={false}
-                            onClick={handleReserveClick}
+                            onClick={!isAddLoading ? handleReserveClick : undefined}
+                            disabled={isAddLoading}
                         >
                             <PlusIcon>+</PlusIcon>
-                        </SlotButton>
+                        </ReserveButtonWithLoader>
                         <SlotTooltip>Записаться в резерв</SlotTooltip>
                     </SlotButtonWrapper>
                 )}

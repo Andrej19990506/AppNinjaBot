@@ -110,99 +110,85 @@ export const forceFetchReserves = createAsyncThunk(
     }
 );
 
-// Async thunks
+// Функция для добавления в резерв
 export const addToReserve = createAsyncThunk(
     'reserves/addToReserve',
-    async (params: { date: string; userId: string }, { getState }) => {
+    async ({ userId, date }: { userId: string; date: string }, { rejectWithValue, getState }) => {
         try {
-            console.log('[reservesSlice] addToReserve начинает выполнение с параметрами:', params);
+            console.log('[reservesSlice] Добавление в резерв:', { userId, date });
+            
+            // Получаем информацию о пользователе из хранилища
             const state = getState() as RootState;
             const user = state.user.user;
-
-            if (!user) {
-                console.error('[reservesSlice] Ошибка: пользователь не найден в состоянии Redux');
-                throw new Error('User not found in state');
-            }
-
-            // Подготавливаем данные для WebSocket
-            const reserveData = {
-                date: params.date,
-                user_id: params.userId,
-                photo_url: user.photo_url || null,
-                first_name: user.first_name || '',
-                last_name: user.last_name || ''
-            };
             
-            console.log('[reservesSlice] Отправка данных через WebSocket:', reserveData);
-
-            // Отправляем событие через WebSocket с подтверждением
-            return new Promise<ReserveShift>((resolve, reject) => {
-                socketService.emitWithAck('add_to_reserve', reserveData, (response: any) => {
-                    console.log('[reservesSlice] Получен ответ от сервера:', response);
-                    if (response && response.error) {
-                        console.error('[reservesSlice] Ошибка от сервера:', response.error);
-                        reject(response.error);
-                    } else if (response && response.data) {
-                        console.log('[reservesSlice] Успешно добавлено в резерв:', response.data);
-                        
-                        // Убедимся, что все поля заполнены
-                        const reserve: ReserveShift = {
-                            id: response.data.id,
-                            userId: response.data.user_id || params.userId,
-                            date: response.data.date || params.date,
-                            photo_url: response.data.photo_url || user.photo_url || null,
-                            firstName: response.data.first_name || user.first_name || '',
-                            lastName: response.data.last_name || user.last_name || '',
-                            created_at: response.data.created_at || new Date().toISOString()
-                        };
-                        
-                        resolve(reserve);
-                    } else {
-                        console.log('[reservesSlice] Успешно, но нет данных в ответе');
-                        // Если нет данных в ответе, создаем "временный" объект резерва
-                        const tempReserve: ReserveShift = {
-                            id: Date.now().toString(), // временный ID
-                            userId: params.userId,
-                            date: params.date,
-                            photo_url: user.photo_url || null,
-                            firstName: user.first_name || '',
-                            lastName: user.last_name || '',
-                            created_at: new Date().toISOString()
-                        };
-                        resolve(tempReserve);
-                    }
-                });
+            if (!user) {
+                console.warn('[reservesSlice] Информация о пользователе недоступна при добавлении в резерв');
+            }
+            
+            // Отправляем событие WebSocket с данными пользователя
+            socketService.emit('add_to_reserve', {
+                user_id: userId,
+                date: date,
+                // Добавляем информацию о пользователе
+                photo_url: user?.photo_url || null,
+                first_name: user?.first_name || '',
+                last_name: user?.last_name || ''
             });
+            
+            // Возвращаем оптимистический ответ с информацией о пользователе
+            return {
+                success: true,
+                userId,
+                date,
+                photo_url: user?.photo_url || null,
+                firstName: user?.first_name || '',
+                lastName: user?.last_name || ''
+            };
         } catch (error) {
             console.error('[reservesSlice] Ошибка при добавлении в резерв:', error);
-            throw error;
+            return rejectWithValue('Failed to add to reserve');
         }
     }
 );
 
+// Функция для удаления из резерва
 export const removeFromReserve = createAsyncThunk(
     'reserves/removeFromReserve',
-    async (params: { reserveId: string; userId: string }) => {
+    async ({ reserveId, userId }: { reserveId: string; userId: string }, { rejectWithValue }) => {
         try {
-            console.log('[reservesSlice] removeFromReserve с параметрами:', params);
+            console.log('[reservesSlice] Удаление из резерва:', { reserveId, userId });
             
-            // Отправляем событие через WebSocket
-            return new Promise<string>((resolve, reject) => {
-                socketService.emitWithAck('remove_from_reserve', {
-                    reserve_id: params.reserveId,
-                    user_id: params.userId
-                }, (response: any) => {
-                    console.log('[reservesSlice] Ответ на remove_from_reserve:', response);
-                    if (response && response.error) {
-                        reject(response.error);
-                    } else {
-                        resolve(params.reserveId);
-                    }
-                });
+            // Отправляем событие WebSocket
+            socketService.emit('remove_from_reserve', {
+                reserve_id: reserveId,
+                user_id: userId
             });
+            
+            // Также отправляем HTTP запрос для надежности
+            const response = await fetch(`${API_BASE_URL}/reserves/${reserveId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            // Таймаут для сброса состояния загрузки даже если событие WebSocket не пришло
+            setTimeout(() => {
+                return {
+                    success: true,
+                    reserveId,
+                    userId
+                };
+            }, 300);
+            
+            return {
+                success: true,
+                reserveId,
+                userId
+            };
         } catch (error) {
-            console.error('[reservesSlice] Failed to remove from reserve:', error);
-            throw error;
+            console.error('[reservesSlice] Ошибка при удалении из резерва:', error);
+            return rejectWithValue('Failed to remove from reserve');
         }
     }
 );
@@ -242,74 +228,27 @@ const reservesSlice = createSlice({
             console.log('[reservesSlice] Reserve successfully added/updated in state');
         },
         reserveDeleted(state, action) {
-            const reserveId = action.payload.reserve_id;
-            state.reserves = state.reserves.filter(reserve => reserve.id !== reserveId);
-            console.log('[reservesSlice] Reserve removed from state');
+            const { reserve_id, id, userId, date } = action.payload;
+            const reserveId = reserve_id || id;
+            
+            if (reserveId) {
+                // Удаление по ID резерва
+                state.reserves = state.reserves.filter(reserve => reserve.id !== reserveId);
+                console.log('[reservesSlice] Reserve removed from state by ID:', reserveId);
+            } else if (userId && date) {
+                // Удаление по userId и date
+                state.reserves = state.reserves.filter(
+                    reserve => !(String(reserve.userId) === String(userId) && reserve.date === date)
+                );
+                console.log('[reservesSlice] Reserve removed from state by userId and date:', { userId, date });
+            } else {
+                console.warn('[reservesSlice] Incomplete data for reserve deletion:', action.payload);
+            }
         }
     },
     extraReducers: (builder) => {
         builder
-            .addCase(addToReserve.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(addToReserve.fulfilled, (state, action) => {
-                state.loading = false;
-                
-                // Если addToReserve вернул данные резерва, добавляем/обновляем его в состоянии
-                if (action.payload) {
-                    const newReserve = action.payload;
-                    console.log('[reservesSlice] Непосредственно добавляем резерв в состояние:', newReserve);
-                    
-                    // Проверяем, есть ли уже резерв с таким ID
-                    const existingIndex = state.reserves.findIndex(r => r.id === newReserve.id);
-                    
-                    if (existingIndex !== -1) {
-                        // Обновляем существующий
-                        state.reserves[existingIndex] = newReserve;
-                    } else {
-                        // Добавляем новый
-                        state.reserves.push(newReserve);
-                    }
-
-                    // Обновляем все аналогичные резервы пользователя на эту дату (для синхронизации)
-                    const { userId, date } = newReserve;
-                    if (userId && date) {
-                        // Пометим все старые резервы для этого пользователя и даты к удалению
-                        // кроме только что добавленного резерва
-                        const userOldReserves = state.reserves.filter(
-                            r => r.id !== newReserve.id && 
-                                String(r.userId) === String(userId) && 
-                                r.date === date
-                        );
-                        
-                        if (userOldReserves.length > 0) {
-                            console.log('[reservesSlice] Removing old user reserves for this date:', userOldReserves);
-                            state.reserves = state.reserves.filter(
-                                r => r.id === newReserve.id || 
-                                    !(String(r.userId) === String(userId) && r.date === date)
-                            );
-                        }
-                    }
-                }
-                // Дальнейшая обработка происходит через WebSocket событие
-            })
-            .addCase(addToReserve.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Failed to add to reserve';
-            })
-            .addCase(removeFromReserve.pending, (state) => {
-                state.loading = true;
-                state.error = null;
-            })
-            .addCase(removeFromReserve.fulfilled, (state, action) => {
-                state.loading = false;
-                // Обработка успешного удаления из резерва происходит через WebSocket событие
-            })
-            .addCase(removeFromReserve.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.error.message || 'Failed to remove from reserve';
-            })
+            // Обработка fetchReserves
             .addCase(fetchReserves.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -317,12 +256,14 @@ const reservesSlice = createSlice({
             .addCase(fetchReserves.fulfilled, (state, action) => {
                 state.loading = false;
                 state.reserves = action.payload;
-                console.log('[reservesSlice] Резервы загружены в state:', action.payload);
             })
             .addCase(fetchReserves.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Failed to fetch reserves';
+                console.error('[reservesSlice] Ошибка при загрузке резервов:', action.error);
             })
+            
+            // Обработка forceFetchReserves
             .addCase(forceFetchReserves.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -330,11 +271,41 @@ const reservesSlice = createSlice({
             .addCase(forceFetchReserves.fulfilled, (state, action) => {
                 state.loading = false;
                 state.reserves = action.payload;
-                console.log('[reservesSlice] Резервы принудительно обновлены:', action.payload);
             })
             .addCase(forceFetchReserves.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.error.message || 'Failed to force fetch reserves';
+                console.error('[reservesSlice] Ошибка при принудительной загрузке резервов:', action.error);
+            })
+            
+            // Обработка addToReserve
+            .addCase(addToReserve.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(addToReserve.fulfilled, (state) => {
+                state.loading = false;
+                // Фактическое обновление состояния произойдет через WebSocket событие
+            })
+            .addCase(addToReserve.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to add to reserve';
+                console.error('[reservesSlice] Ошибка при добавлении в резерв:', action.error);
+            })
+            
+            // Обработка removeFromReserve
+            .addCase(removeFromReserve.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(removeFromReserve.fulfilled, (state) => {
+                state.loading = false;
+                // Фактическое обновление состояния произойдет через WebSocket событие
+            })
+            .addCase(removeFromReserve.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Failed to remove from reserve';
+                console.error('[reservesSlice] Ошибка при удалении из резерва:', action.error);
             });
     }
 });

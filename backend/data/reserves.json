@@ -1,38 +1,20 @@
 [
   {
-    "id": "a55a584b-99cd-45d3-8ec5-a0e2e219bc81",
+    "id": "b2198c59-a485-4447-8774-8d1788a6d69b",
     "user_id": "1682142222",
     "date": "2025-03-22",
-    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
-    "first_name": "Андрей",
-    "last_name": "Малахов",
-    "created_at": "2025-03-19T18:58:54.749391"
-  },
-  {
-    "id": "d21c0443-b06c-4d08-8896-318f21a40e56",
-    "user_id": "1682142222",
-    "date": "2025-03-26",
-    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
-    "first_name": "Андрей",
-    "last_name": "Малахов",
-    "created_at": "2025-03-19T19:10:49.708936"
-  },
-  {
-    "id": "9af71429-b6af-4449-a6f1-b06ef82389f9",
-    "user_id": "6843570748",
-    "date": "2025-03-24",
     "photo_url": null,
-    "first_name": "Антон",
-    "last_name": "Анямов",
-    "created_at": "2025-03-19T19:14:06.766822"
+    "first_name": null,
+    "last_name": null,
+    "created_at": "2025-03-19T21:37:02.060172"
   },
   {
-    "id": "69608b5a-b78a-46b6-aa7e-aaf5cd6c7a12",
+    "id": "69d63630-71fe-46fd-a2d5-7b64145cdfc8",
     "user_id": "1682142222",
     "date": "2025-03-23",
     "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
     "first_name": "Андрей",
     "last_name": "Малахов",
-    "created_at": "2025-03-19T19:28:29.248348"
+    "created_at": "2025-03-19T22:02:00.791154"
   }
 ]

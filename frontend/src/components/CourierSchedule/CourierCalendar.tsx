@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 import format from 'date-fns/format';
 import { ru } from 'date-fns/locale';
@@ -18,10 +18,15 @@ import {
     addToReserve, 
     removeFromReserve, 
     selectAllReserves,
-    forceFetchReserves
+    forceFetchReserves,
+    subscribeToReserveEvents,
+    unsubscribeFromReserveEvents,
+    reserveDeleted
 } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 import store from '../../store/store';
+import { socketService } from '../../services/socket';
+import LoadingOverlay from './LoadingOverlay';
 
 interface CourierShift {
     userId: string;
@@ -288,6 +293,50 @@ const CrossIcon = styled.div`
     transform: translate(-50%, -50%);
 `;
 
+const LockIcon = styled.div`
+    position: absolute;
+    width: 18px;
+    height: 16px;
+    top: 58%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    
+    /* Дужка замка */
+    &::before {
+        content: '';
+        position: absolute;
+        width: 10px;
+        height: 6px;
+        border: 2px solid #FF3B30;
+        border-bottom: none;
+        border-radius: 4px 4px 0 0;
+        top: -6px;
+        left: 2px;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    
+    /* Тело замка */
+    &::after {
+        content: '';
+        position: absolute;
+        width: 16px;
+        height: 10px;
+        background-color: #FF3B30;
+        border-radius: 3px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+// Добавим стилизацию для иконки и тела замка
+const LockIconSkeuomorphic = styled(LockIcon)`
+    /* Эффект градиента для тела замка */
+    &::after {
+        background: linear-gradient(135deg, #FF5A50 0%, #FF3B30 100%);
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+`;
+
 const DayCell = styled.div<{ 
     $isToday?: boolean; 
     $isSelected?: boolean; 
@@ -490,29 +539,37 @@ const ShiftIcon = styled.span`
     font-size: 1.1rem;
 `;
 
-// Добавим стили для индикатора "в резерве"
+// Обновляем стиль для индикатора "в резерве"
 const ReserveSlotIndicator = styled(EmptySlotIndicator)`
     border: 2px solid #FF9500;
     background: rgba(255, 149, 0, 0.05);
+    position: relative;
+    overflow: visible;
 
     &::before {
-        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255, 149, 0, 0.05) 100%);
+        background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255, 149, 0, 0.05) 100%);
     }
 
     &::after {
         border-top-color: #FF9500;
         border-right-color: #FF9500;
     }
+    
+    /* Улучшаем эффект наведения */
+    &:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(255, 149, 0, 0.3);
+    }
 `;
 
-// Добавляем стиль для иконки восклицательного знака
+// Обновляем стиль для иконки восклицательного знака
 const ReserveIcon = styled.div`
     position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 18px;
-    height: 18px;
-    background: #FF9500;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    background: linear-gradient(135deg, #FFA726 0%, #FF9500 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -522,7 +579,171 @@ const ReserveIcon = styled.div`
     font-weight: bold;
     z-index: 5;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 6px rgba(255, 149, 0, 0.4);
+    border: 1.5px solid white;
+    transition: all 0.2s ease;
+    
+    /* Улучшаем внешний вид при наведении */
+    &:hover {
+        transform: scale(1.15);
+        box-shadow: 0 3px 8px rgba(255, 149, 0, 0.6);
+    }
+    
+    /* Эффект нажатия */
+    &:active {
+        transform: scale(0.95);
+        box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
+    }
+    
+    /* Добавляем стилизованный восклицательный знак */
+    &::before {
+        content: '!';
+        display: inline-block;
+        transform: translateY(-1px);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+// Обновляем стиль для заголовка тултипа резерва
+const ReserveTooltipTitle = styled.div`
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    color: #FF9500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    &::before {
+        content: '';
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: linear-gradient(135deg, #FFA726 0%, #FF9500 100%);
+        border-radius: 50%;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(255, 149, 0, 0.3);
+    }
+    
+    &::after {
+        content: '!';
+        position: absolute;
+        left: 17px;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+const TooltipDivider = styled.div`
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 12px 0;
+`;
+
+const TooltipInfoRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+`;
+
+const TooltipIconWrapper = styled.div`
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(76, 175, 80, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &.warning {
+        background: rgba(255, 59, 48, 0.1);
+    }
+`;
+
+const TooltipButton = styled.button`
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(to right, #FF9500, #FF7A00);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-top: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 149, 0, 0.25);
+    }
+    
+    &:active {
+        transform: translateY(0);
+    }
+    
+    &.disabled {
+        background: #f2f2f2;
+        color: #999;
+        cursor: not-allowed;
+        
+        &:hover {
+            transform: none;
+            box-shadow: none;
+        }
+    }
+`;
+
+// Добавляем стиль для кнопки закрытия тултипа
+const TooltipCloseButton = styled.button`
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background: rgba(0, 0, 0, 0.1);
+        color: #666;
+    }
+`;
+
+// Улучшим вид LoadingOverlay
+const CalendarLoadingOverlay = styled.div`
+    position: absolute;
+    top: 80px; /* После заголовка */
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--card-background);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    
+    &.show {
+        opacity: 1;
+        visibility: visible;
+    }
 `;
 
 // Улучшенный стиль для тултипа резерва с динамическим позиционированием стрелки
@@ -595,116 +816,6 @@ const ReserveTooltip = styled.div<{ position: 'top' | 'bottom' | 'left' | 'right
     }
 `;
 
-const ReserveTooltipTitle = styled.div`
-    font-weight: 600;
-    font-size: 1.1rem;
-    margin-bottom: 12px;
-    color: #FF9500;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    
-    &::before {
-        content: '!';
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 22px;
-        height: 22px;
-        background: #FF9500;
-        border-radius: 50%;
-        color: white;
-        font-size: 14px;
-        font-weight: bold;
-    }
-`;
-
-const TooltipDivider = styled.div`
-    height: 1px;
-    background: rgba(0, 0, 0, 0.1);
-    margin: 12px 0;
-`;
-
-const TooltipInfoRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    color: var(--text-secondary);
-    font-size: 0.95rem;
-`;
-
-const TooltipIconWrapper = styled.div`
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: rgba(76, 175, 80, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    
-    &.warning {
-        background: rgba(255, 59, 48, 0.1);
-    }
-`;
-
-const TooltipButton = styled.button`
-    width: 100%;
-    padding: 10px;
-    background: linear-gradient(to right, #FF9500, #FF7A00);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-weight: 500;
-    margin-top: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(255, 149, 0, 0.25);
-    }
-    
-    &:active {
-        transform: translateY(0);
-    }
-    
-    &.disabled {
-        background: #f2f2f2;
-        color: #999;
-        cursor: not-allowed;
-        
-        &:hover {
-            transform: none;
-            box-shadow: none;
-        }
-    }
-`;
-
-// Добавляю стиль для кнопки закрытия тултипа
-const TooltipCloseButton = styled.button`
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.05);
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #999;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    
-    &:hover {
-        background: rgba(0, 0, 0, 0.1);
-        color: #666;
-    }
-`;
-
 const CourierCalendar: React.FC<CourierCalendarProps> = ({
     onShiftSelect,
     selectedDate,
@@ -737,6 +848,8 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     const [hasShownScrollHint, setHasShownScrollHint] = useState(false);
     const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
+    const [initialLoading, setInitialLoading] = useState<boolean>(true);
+    const [showSkeleton, setShowSkeleton] = useState<boolean>(false);
 
     // Кэшируем функции обработчиков для предотвращения перерисовок
     const stableHandleShiftUpdated = useCallback((data: any) => {
@@ -754,6 +867,68 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         // Не вызываем немедленное обновление UI, позволяем редуксу сделать это
     }, []);
 
+    // Добавляем обработчики событий резервов
+    const stableHandleReserveAdded = useCallback((data: any) => {
+        console.log('[CourierCalendar] WebSocket reserve_added:', data);
+        
+        // Проверяем, касается ли событие текущего пользователя
+        const isCurrentUser = String(data.user_id) === String(currentUserId);
+        
+        if (isCurrentUser) {
+            console.log('[CourierCalendar] Current user was added to reserve:', data.date);
+        }
+        
+        // Принудительно обновляем Redux-данные после добавления в резерв
+        dispatch(forceFetchReserves()).then(() => {
+            // Немедленное обновление UI
+            setLastUpdateTime(Date.now());
+            
+            // Также закрываем и открываем диалог, если он открыт на эту дату
+            if (selectedDateForDialog && format(selectedDateForDialog, 'yyyy-MM-dd') === data.date) {
+                const currentDate = new Date(selectedDateForDialog);
+                setSelectedDateForDialog(null);
+                setTimeout(() => setSelectedDateForDialog(currentDate), 100);
+            }
+        });
+    }, [dispatch, currentUserId, selectedDateForDialog]);
+
+    const stableHandleReserveDeleted = useCallback((data: any) => {
+        console.log('[CourierCalendar] WebSocket reserve_deleted:', data);
+        
+        // Проверяем, касается ли событие текущего пользователя
+        const isCurrentUser = String(data.user_id) === String(currentUserId);
+        
+        if (isCurrentUser) {
+            console.log('[CourierCalendar] Current user was removed from reserve:', data.date);
+            
+            // Немедленное оптимистичное обновление UI
+            setLastUpdateTime(Date.now());
+        }
+        
+        // Оптимистично обновляем Redux-состояние, не дожидаясь сетевого запроса
+        const reserveId = data.reserve_id || data.id;
+        if (reserveId) {
+            // Если у нас есть ID резерва, диспатчим локальное действие
+            dispatch(reserveDeleted({ id: reserveId }));
+        } else if (data.user_id && data.date) {
+            // Если нет ID, но есть ID пользователя и дата
+            dispatch(reserveDeleted({ userId: data.user_id, date: data.date }));
+        }
+        
+        // После оптимистичного обновления делаем запрос для синхронизации
+        dispatch(forceFetchReserves()).then(() => {
+            // Дополнительное обновление UI после получения данных с сервера
+            setLastUpdateTime(Date.now());
+            
+            // Также закрываем и открываем диалог, если он открыт на эту дату
+            if (selectedDateForDialog && format(selectedDateForDialog, 'yyyy-MM-dd') === data.date) {
+                const currentDate = new Date(selectedDateForDialog);
+                setSelectedDateForDialog(null);
+                setTimeout(() => setSelectedDateForDialog(currentDate), 100);
+            }
+        });
+    }, [dispatch, currentUserId, selectedDateForDialog]);
+
     useEffect(() => {
         // Загружаем смены при монтировании компонента
         dispatch(fetchShifts());
@@ -765,11 +940,28 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             onShiftCanceled: stableHandleShiftCanceled
         });
         
+        // Подписываемся на события резервов
+        subscribeToReserveEvents(dispatch);
+
+        // Добавляем прямые обработчики для UI-обновлений календаря
+        socketService.on('reserve_added', stableHandleReserveAdded);
+        socketService.on('reserve_deleted', stableHandleReserveDeleted);
+        
         // Отписываемся при размонтировании
         return () => {
             unsubscribeFromShiftEvents();
+            unsubscribeFromReserveEvents();
+            socketService.off('reserve_added', stableHandleReserveAdded);
+            socketService.off('reserve_deleted', stableHandleReserveDeleted);
         };
-    }, [dispatch, stableHandleShiftUpdated, stableHandleShiftBooked, stableHandleShiftCanceled]);
+    }, [
+        dispatch, 
+        stableHandleShiftUpdated, 
+        stableHandleShiftBooked, 
+        stableHandleShiftCanceled,
+        stableHandleReserveAdded,
+        stableHandleReserveDeleted
+    ]);
 
     // Add a new useEffect hook to handle real-time updates
     useEffect(() => {
@@ -777,13 +969,20 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         // Вместо немедленного обновления, будем ждать небольшое время 
         // на случай, если придет несколько обновлений подряд
         const timer = setTimeout(() => {
-            console.log('[CourierCalendar] Shifts have been updated, smoothly refreshing calendar UI');
+            console.log('[CourierCalendar] Data has been updated, smoothly refreshing calendar UI');
             setLastUpdateTime(Date.now());
         }, 500); // Увеличиваем таймаут для большей плавности
         
         // Очищаем таймер при изменении зависимостей
         return () => clearTimeout(timer);
-    }, [shifts]);
+    }, [shifts, reserves]);
+
+    // Отслеживаем загрузку и устанавливаем initialLoading в false после первой загрузки
+    useEffect(() => {
+        if (!isLoading && initialLoading) {
+            setInitialLoading(false);
+        }
+    }, [isLoading, initialLoading]);
 
     const getDaysInMonth = (date: Date) => {
         const year = date.getFullYear();
@@ -835,19 +1034,28 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
 
     const getReservesForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        // Получаем свежие данные прямо из Redux store
-        const allCurrentReserves = selectAllReserves(store.getState());
         
-        // Добавим детальное логирование
-        console.log(`[CourierCalendar] All Redux reserves:`, allCurrentReserves);
+        // Используем текущие резервы из хука useSelector вместо вызова селектора напрямую
+        // Это обеспечит получение актуальных данных и правильное обновление UI
         
-        const filteredReserves = allCurrentReserves.filter(reserve => reserve.date === dateStr);
-        console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
-            totalReserves: allCurrentReserves.length,
-            filteredReserves: filteredReserves.length,
-            dateStr,
-            reservesData: filteredReserves
-        });
+        // Убираем детальное логирование для каждой даты - это создает слишком много шума
+        // и замедляет работу приложения
+        // console.log(`[CourierCalendar] Getting reserves for ${dateStr}:`, { 
+        //     reserves, 
+        //     reservesCount: reserves.length 
+        // });
+        
+        // Фильтруем резервы для указанной даты
+        const filteredReserves = reserves.filter(reserve => reserve.date === dateStr);
+        
+        // Логируем только если есть резервы на эту дату или если это текущая дата (для отладки)
+        if (filteredReserves.length > 0 || dateStr === format(new Date(), 'yyyy-MM-dd')) {
+            console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
+                filteredCount: filteredReserves.length,
+                reservesData: filteredReserves
+            });
+        }
+        
         return filteredReserves;
     };
 
@@ -1063,11 +1271,38 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     const handleCancelReserve = async (reserveId: string) => {
         try {
             console.log('[CourierCalendar] Canceling reserve with ID:', reserveId);
+            
+            // Оптимистично обновляем UI до получения ответа от сервера
+            setLastUpdateTime(Date.now());
+            
+            // Отправляем запрос на удаление из резерва
             await dispatch(removeFromReserve({
                 reserveId,
                 userId: currentUserId
             }));
-            console.log('[CourierCalendar] Successfully canceled reserve');
+            
+            // Оптимистично обновляем Redux-состояние
+            dispatch(reserveDeleted({ id: reserveId }));
+            
+            // Принудительно запрашиваем актуальные данные после удаления
+            await dispatch(forceFetchReserves());
+            
+            // Обновляем UI после удаления из резерва
+            setLastUpdateTime(Date.now());
+            
+            console.log('[CourierCalendar] Successfully canceled reserve and refreshed data');
+            
+            // Если диалог открыт, закрываем его на небольшое время и открываем снова 
+            // для принудительного обновления
+            if (selectedDateForDialog) {
+                const currentDate = new Date(selectedDateForDialog);
+                setSelectedDateForDialog(null);
+                
+                // Небольшая задержка для гарантированного обновления UI
+                setTimeout(() => {
+                    setSelectedDateForDialog(currentDate);
+                }, 100);
+            }
         } catch (error) {
             console.error('Error canceling reserve:', error);
         }
@@ -1077,7 +1312,26 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     const userIsInReserve = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
         const dateReserves = getReservesForDate(date);
-        return dateReserves.some(reserve => String(reserve.userId) === String(currentUserId));
+        
+        // Расширенная проверка с логами для отладки
+        const isInReserve = dateReserves.some(reserve => {
+            const match = String(reserve.userId) === String(currentUserId);
+            if (match) {
+                console.log(`[CourierCalendar] User ${currentUserId} is in reserve for ${dateStr}`, reserve);
+            }
+            return match;
+        });
+        
+        if (dateStr === format(new Date(), 'yyyy-MM-dd')) {
+            console.log(`[CourierCalendar] userIsInReserve check for today:`, {
+                date: dateStr,
+                currentUserId,
+                dateReserves,
+                isInReserve
+            });
+        }
+        
+        return isInReserve;
     };
 
     // Проверка доступности смен на дату
@@ -1098,7 +1352,7 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         };
     };
 
-    // Обновляем функцию renderDayContent для отображения состояния резерва
+    // Обновляем функцию renderDayContent для обновленного отображения состояния резерва
     const renderDayContent = useMemo(() => {
         // Возвращаем функцию, которая будет использоваться для рендеринга
         return (date: Date) => {
@@ -1135,13 +1389,17 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 // Если пользователь в резерве на эту дату
                 return (
                     <ReserveSlotIndicator key={`${dateStr}-reserve`}>
-                        <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
+                        <DayNumber $isAvailable={true} style={{
+                            color: '#FF9500',
+                            fontWeight: '600',
+                            textShadow: '0 1px 2px rgba(255, 255, 255, 0.8)'
+                        }}>
+                            {format(date, 'd')}
+                        </DayNumber>
                         <ReserveIcon 
                             onClick={(e) => handleReserveIconClick(e, date)}
                             title="Вы в резерве на эту дату"
-                        >
-                            !
-                        </ReserveIcon>
+                        />
                     </ReserveSlotIndicator>
                 );
             }
@@ -1157,8 +1415,35 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 } else {
                     return (
                         <OccupiedSlotIndicator key={`${dateStr}-occupied`}>
-                            <DayNumber $isAvailable={false} style={{ color: '#FF3B30' }}>{format(date, 'd')}</DayNumber>
-                            <CrossIcon>×</CrossIcon>
+                            <DayNumber 
+                                $isAvailable={false} 
+                                style={{ 
+                                    color: '#FF3B30', 
+                                    opacity: 0.9, 
+                                    fontSize: '0.85rem',
+                                    position: 'absolute',
+                                    top: '24%',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    fontWeight: '600',
+                                    textShadow: '0 0 3px rgba(255, 255, 255, 0.9)'
+                                }}
+                            >
+                                {format(date, 'd')}
+                            </DayNumber>
+                            <LockIconSkeuomorphic>
+                                <div style={{
+                                    position: 'absolute',
+                                    width: '4px',
+                                    height: '4px',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+                                    borderRadius: '50%',
+                                    top: '3px',
+                                    left: '6px',
+                                    zIndex: 3,
+                                    boxShadow: 'inset 0 0 2px rgba(0, 0, 0, 0.3)'
+                                }}/>
+                            </LockIconSkeuomorphic>
                         </OccupiedSlotIndicator>
                     );
                 }
@@ -1166,7 +1451,7 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             
             return <DayNumber $isAvailable={false} key={`${dateStr}-unavailable`}>{format(date, 'd')}</DayNumber>;
         };
-    }, [shifts, currentUserId, currentUserAvatar, isDateAvailable]);
+    }, [shifts, reserves, currentUserId, currentUserAvatar, isDateAvailable, lastUpdateTime]);
 
     // Обновленная функция для позиционирования тултипа резерва
     const calculateTooltipPosition = (element: Element, tooltipWidth: number, tooltipHeight: number) => {
@@ -1316,8 +1601,9 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         }
     }, [tooltipDay]);
 
-    if (isLoading) {
-        return <div>Загрузка...</div>;
+    // Показываем полноэкранную загрузку только при первоначальной загрузке данных
+    if (initialLoading && isLoading) {
+        return <LoadingOverlay context="schedule" />;
     }
 
     if (error) {
@@ -1502,6 +1788,11 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                     </ReserveTooltip>
                 );
             })()}
+
+            {/* Индикатор загрузки при обновлении данных */}
+            <CalendarLoadingOverlay className={isLoading && !initialLoading && !showSkeleton ? "show" : ""}>
+                <LoadingOverlay context="schedule" />
+            </CalendarLoadingOverlay>
         </CalendarContainer>
     );
 };

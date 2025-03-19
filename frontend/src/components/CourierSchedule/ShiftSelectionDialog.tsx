@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useReducer, useRef, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { ReserveShift } from '../../types/shifts';
 import { format } from 'date-fns';
 import { useDispatch, useSelector } from 'react-redux';
@@ -8,6 +8,24 @@ import { AppDispatch, RootState } from '../../store/store';
 import { socketService } from '../../services/socket';
 import ShiftPanel from './ShiftPanel';
 import ReservePanel from './ReservePanel';
+import LoadingOverlay from './LoadingOverlay';
+
+// Анимация для мини-индикатора загрузки
+const spin = keyframes`
+    to { transform: rotate(360deg); }
+`;
+
+// Мини-индикатор загрузки
+const MiniLoader = styled.div`
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: ${spin} 1s linear infinite;
+    margin-left: 8px;
+`;
 
 interface ShiftSlot {
     id?: string;
@@ -401,6 +419,9 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
 }) => {
     const dispatch = useDispatch<AppDispatch>();
     const [isReserveMode, setIsReserveMode] = useState<boolean>(false);
+    // Вместо общего состояния загрузки, используем специфичные состояния
+    const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
+    const [isReserveActionLoading, setIsReserveActionLoading] = useState<boolean>(false);
     const wsEventsRef = useRef({
         reserveDeleted: false,
         reserveAdded: false
@@ -412,6 +433,8 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     );
     const [, forceUpdate] = useReducer(x => x + 1, 0);
     const allReserves = useSelector(selectAllReserves);
+    const shiftsLoading = useSelector((state: RootState) => state.shifts.loading);
+    const reservesLoading = useSelector((state: RootState) => state.reserves.loading);
     const actualReserves: ReserveShift[] = useMemo(() => {
         if (!reserves || !Array.isArray(reserves)) return [];
         return reserves
@@ -453,6 +476,11 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                 wsEventsRef.current.reserveDeleted = true;
                 
                 showSuccessMessage("Вы были успешно удалены из резерва");
+                
+                // Переключаемся на вкладку смен после удаления из резерва
+                if (isReserveMode) {
+                    setIsReserveMode(false);
+                }
             }
             
             // Независимо от того, чей резерв удален, обновляем данные
@@ -498,85 +526,70 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
         };
     }, [wsHandlerKey, currentUserId, formattedDate, dispatch, forceUpdate, isReserveMode]);
 
-    const memoizedShiftPanel = useMemo(() => (
-        <div 
-            key="shift-panel"
-            style={{
-                display: isReserveMode ? 'none' : 'flex',
-                flexDirection: 'column',
-                willChange: 'transform',
-                transform: 'translateZ(0)'
-            }}
-        >
-            <ShiftPanel 
-                dayShifts={dayShifts} 
-                nightShifts={nightShifts}
-                maxDaySlots={maxDaySlots}
-                maxNightSlots={maxNightSlots}
-                onSlotSelect={onSlotSelect}
-                forceUpdate={forceUpdate}
-                currentUserId={currentUserId}
-                currentUserAvatar={currentUserAvatar}
-                currentUserName={currentUserName}
-                onSwitchToReserve={() => setIsReserveMode(true)}
-                date={date}
-                reserves={actualReserves}
-                showSuccessMessage={showSuccessMessage}
-            />
-        </div>
-    ), [
-        dayShifts, 
-        nightShifts, 
-        maxDaySlots, 
-        maxNightSlots, 
-        date, 
-        isReserveMode, 
-        onSlotSelect,
-        currentUserId,
-        currentUserAvatar,
-        currentUserName,
-        forceUpdate,
-        actualReserves
-    ]);
+    // Отслеживаем общее состояние загрузки
+    useEffect(() => {
+        if (shiftsLoading) {
+            setIsBookingLoading(true);
+        } else if (reservesLoading) {
+            setIsReserveActionLoading(true);
+        } else {
+            setIsBookingLoading(false);
+            setIsReserveActionLoading(false);
+        }
+        
+        // Добавляем защитный таймаут, чтобы избежать бесконечной загрузки
+        let loadingTimeout: NodeJS.Timeout;
+        if (isBookingLoading || isReserveActionLoading) {
+            loadingTimeout = setTimeout(() => {
+                console.log('[ShiftSelectionDialog] Safety timeout triggered to prevent infinite loading');
+                setIsBookingLoading(false);
+                setIsReserveActionLoading(false);
+            }, 5000); // 5 секунд максимум для загрузки
+        }
+        
+        return () => {
+            if (loadingTimeout) clearTimeout(loadingTimeout);
+        };
+    }, [shiftsLoading, reservesLoading, isBookingLoading, isReserveActionLoading]);
+
+    // Модифицируем wrapper для SlotSelect и ReserveSelect
+    const handleSlotSelectWrapper = (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
+        setIsBookingLoading(true);
+        // Вызываем оригинальную функцию
+        onSlotSelect(shiftType, slotIndex, existingShiftId);
+        
+        // Защитный таймаут для отдельного действия
+        setTimeout(() => {
+            if (isBookingLoading) {
+                console.log('[ShiftSelectionDialog] Booking action seems to be taking too long, resetting loading state');
+                setIsBookingLoading(false);
+            }
+        }, 3000);
+    };
     
-    const memoizedReservePanel = useMemo(() => (
-        <div 
-            key="reserve-panel"
-            style={{
-                display: isReserveMode ? 'flex' : 'none',
-                flexDirection: 'column',
-                willChange: 'transform',
-                transform: 'translateZ(0)'
-            }}
-        >
-            <ReservePanel 
-                reserves={actualReserves}
-                onReserveSelect={onReserveSelect}
-                currentUserId={currentUserId}
-                currentUserAvatar={currentUserAvatar}
-                currentUserName={currentUserName}
-                date={date}
-                dayShifts={dayShifts}
-                nightShifts={nightShifts}
-                onSwitchToShifts={() => setIsReserveMode(false)}
-                showSuccessMessage={showSuccessMessage}
-                forceUpdate={forceUpdate}
-            />
-        </div>
-    ), [
-        actualReserves, 
-        currentUserId, 
-        currentUserAvatar, 
-        currentUserName, 
-        date, 
-        isReserveMode, 
-        onReserveSelect,
-        forceUpdate,
-        dayShifts,
-        nightShifts
-    ]);
+    const handleReserveSelectWrapper = async () => {
+        setIsReserveActionLoading(true);
+        try {
+            await onReserveSelect();
+        } catch (error) {
+            console.error('[ShiftSelectionDialog] Error in reserve selection:', error);
+            // Явно сбрасываем состояние загрузки в случае ошибки
+            setIsReserveActionLoading(false);
+        } finally {
+            // Добавляем явный сброс состояния загрузки через короткий таймаут
+            // на случай, если Redux состояние не обновилось
+            setTimeout(() => {
+                if (isReserveActionLoading) {
+                    console.log('[ShiftSelectionDialog] Reserve action completed, ensuring loading state is reset');
+                    setIsReserveActionLoading(false);
+                }
+            }, 300);
+        }
+    };
     
     if (!isOpen) return null;
+    
+    // Убираем полноэкранную загрузку, теперь состояния загрузки передаются в дочерние компоненты
     
     return (
         <DialogOverlay onClick={onClose}>
@@ -588,6 +601,7 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                         active={!isReserveMode} 
                         onClick={() => setIsReserveMode(false)}
                         data-testid="shift-mode-button"
+                        disabled={isBookingLoading || isReserveActionLoading}
                     >
                         Смены
                     </ModeButton>
@@ -595,13 +609,62 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                         active={isReserveMode} 
                         onClick={() => setIsReserveMode(true)}
                         data-testid="reserve-mode-button"
+                        disabled={isBookingLoading || isReserveActionLoading}
                     >
                         Резерв {isCurrentUserInReserve && '✓'}
                     </ModeButton>
                 </ModeSwitchContainer>
                 
-                {memoizedShiftPanel}
-                {memoizedReservePanel}
+                {isReserveMode ? 
+                    <div 
+                        key="reserve-panel"
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            willChange: 'transform',
+                            transform: 'translateZ(0)'
+                        }}
+                    >
+                        <ReservePanel 
+                            reserves={actualReserves}
+                            onReserveSelect={handleReserveSelectWrapper}
+                            currentUserId={currentUserId}
+                            currentUserAvatar={currentUserAvatar}
+                            currentUserName={currentUserName}
+                            date={date}
+                            dayShifts={dayShifts}
+                            nightShifts={nightShifts}
+                            onSwitchToShifts={() => setIsReserveMode(false)}
+                            showSuccessMessage={showSuccessMessage}
+                            forceUpdate={forceUpdate}
+                        />
+                    </div> :
+                    <div 
+                        key="shift-panel"
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            willChange: 'transform',
+                            transform: 'translateZ(0)'
+                        }}
+                    >
+                        <ShiftPanel 
+                            dayShifts={dayShifts} 
+                            nightShifts={nightShifts}
+                            maxDaySlots={maxDaySlots}
+                            maxNightSlots={maxNightSlots}
+                            onSlotSelect={handleSlotSelectWrapper}
+                            forceUpdate={forceUpdate}
+                            currentUserId={currentUserId}
+                            currentUserAvatar={currentUserAvatar}
+                            currentUserName={currentUserName}
+                            onSwitchToReserve={() => setIsReserveMode(true)}
+                            date={date}
+                            reserves={actualReserves}
+                            showSuccessMessage={showSuccessMessage}
+                        />
+                    </div>
+                }
             </DialogContent>
         </DialogOverlay>
     );

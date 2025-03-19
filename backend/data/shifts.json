@@ -24,18 +24,6 @@
     "updated_at": "2025-03-19T18:45:06.070435"
   },
   {
-    "id": "2b291760-a549-419b-9133-b64f36d795a6",
-    "user_id": "6843570748",
-    "date": "2025-03-22",
-    "shift_type": "day",
-    "slot_index": 0,
-    "photo_url": null,
-    "first_name": "Антон",
-    "last_name": "Анямов",
-    "created_at": "2025-03-19T19:05:19.972399",
-    "updated_at": "2025-03-19T19:05:19.972413"
-  },
-  {
     "id": "55fe0545-d1ab-4441-8777-b7599ab8c5d5",
     "user_id": "1682142222",
     "date": "2025-03-24",
@@ -93,6 +81,90 @@
     "first_name": "Антон",
     "last_name": "Анямов",
     "created_at": "2025-03-19T19:35:38.030101",
-    "updated_at": "2025-03-19T19:35:38.030112"
+    "updated_at": "2025-03-19T22:03:20.496163"
+  },
+  {
+    "id": "eaf78c61-1d95-4c48-b965-d9a5c8a971f2",
+    "user_id": "5641237895",
+    "date": "2025-03-26",
+    "shift_type": "day",
+    "slot_index": 0,
+    "photo_url": "https://randomuser.me/api/portraits/men/32.jpg",
+    "first_name": "Иван",
+    "last_name": "Петров",
+    "created_at": "2025-03-20T10:15:32.114500",
+    "updated_at": "2025-03-20T10:15:32.114500"
+  },
+  {
+    "id": "93af12b4-7e69-4b57-a831-d2c53f8d6590",
+    "user_id": "4587962301",
+    "date": "2025-03-26",
+    "shift_type": "day",
+    "slot_index": 1,
+    "photo_url": "https://randomuser.me/api/portraits/women/45.jpg",
+    "first_name": "Мария",
+    "last_name": "Сидорова",
+    "created_at": "2025-03-20T10:17:42.235600",
+    "updated_at": "2025-03-20T10:17:42.235600"
+  },
+  {
+    "id": "b7dc4f19-ea85-4b72-a30e-569823f8c642",
+    "user_id": "9876543210",
+    "date": "2025-03-26",
+    "shift_type": "day",
+    "slot_index": 2,
+    "photo_url": "https://randomuser.me/api/portraits/men/67.jpg",
+    "first_name": "Алексей",
+    "last_name": "Смирнов",
+    "created_at": "2025-03-20T10:19:54.345700",
+    "updated_at": "2025-03-20T10:19:54.345700"
+  },
+  {
+    "id": "45ac3d62-5f81-4e9b-b8c7-7d91e25846f3",
+    "user_id": "1122334455",
+    "date": "2025-03-26",
+    "shift_type": "day",
+    "slot_index": 3,
+    "photo_url": "https://randomuser.me/api/portraits/women/28.jpg",
+    "first_name": "Ольга",
+    "last_name": "Козлова",
+    "created_at": "2025-03-20T10:21:12.456800",
+    "updated_at": "2025-03-20T10:21:12.456800"
+  },
+  {
+    "id": "19f8e7d5-c642-4b31-a915-8d73f6e40921",
+    "user_id": "5566778899",
+    "date": "2025-03-26",
+    "shift_type": "night",
+    "slot_index": 0,
+    "photo_url": "https://randomuser.me/api/portraits/men/52.jpg",
+    "first_name": "Дмитрий",
+    "last_name": "Соколов",
+    "created_at": "2025-03-20T10:23:33.567900",
+    "updated_at": "2025-03-20T10:23:33.567900"
+  },
+  {
+    "id": "2a3a1333-60c2-43ac-8534-397154936107",
+    "user_id": "1682142222",
+    "date": "2025-03-26",
+    "shift_type": "night",
+    "slot_index": 1,
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-19T19:49:33.945433",
+    "updated_at": "2025-03-19T19:49:33.945445"
+  },
+  {
+    "id": "7641f921-befa-4cbe-9be3-331faa7bfb39",
+    "user_id": "6843570748",
+    "date": "2025-03-27",
+    "shift_type": "night",
+    "slot_index": 0,
+    "photo_url": null,
+    "first_name": "Антон",
+    "last_name": "Анямов",
+    "created_at": "2025-03-19T20:22:52.670310",
+    "updated_at": "2025-03-19T20:22:52.670325"
   }
 ]

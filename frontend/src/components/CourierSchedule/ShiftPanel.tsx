@@ -8,6 +8,7 @@ import { cancelShift } from '../../store/slices/shiftsSlice';
 import { removeFromReserve } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 import { ReserveShift } from '../../types/shifts';
+import LoadingOverlay from './LoadingOverlay';
 
 // Интерфейсы
 interface ShiftSlot {

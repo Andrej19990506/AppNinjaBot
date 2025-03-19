@@ -1,0 +1,26 @@
+[
+  {
+    "id": "fe544c50-e385-4ae5-9a51-f5d7f90c61d5",
+    "user_id": "1682142222",
+    "date": "2025-03-21",
+    "shift_type": "day",
+    "slot_index": 0,
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-19T12:42:13.896101",
+    "updated_at": "2025-03-19T12:42:13.896119"
+  },
+  {
+    "id": "2f72121c-7887-41ce-9e97-debc60862451",
+    "user_id": "6843570748",
+    "date": "2025-03-21",
+    "shift_type": "day",
+    "slot_index": 1,
+    "photo_url": null,
+    "first_name": "Антон",
+    "last_name": "Анямов",
+    "created_at": "2025-03-19T12:44:19.688589",
+    "updated_at": "2025-03-19T12:44:19.688611"
+  }
+]

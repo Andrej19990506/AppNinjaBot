@@ -1,0 +1,46 @@
+{
+  "2283072469": {
+    "chat_title": "Словцова",
+    "members": [
+      {
+        "user_id": 1925770048,
+        "username": null,
+        "first_name": "Юрий",
+        "last_name": "Васильевич",
+        "status": "administrator",
+        "joined_date": "2025-03-15T17:02:40.877467",
+        "is_bot": false,
+        "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_60.jpg"
+      },
+      {
+        "user_id": 836104828,
+        "username": "nesterova111",
+        "first_name": "Ира",
+        "last_name": null,
+        "status": "administrator",
+        "joined_date": "2025-03-15T17:02:40.979398",
+        "is_bot": false
+      },
+      {
+        "user_id": 1732151074,
+        "username": "Pyma5",
+        "first_name": "Роза",
+        "last_name": null,
+        "status": "administrator",
+        "joined_date": "2025-03-15T17:02:41.080271",
+        "is_bot": false
+      }
+    ],
+    "last_updated": "2025-03-17T17:59:16.086998"
+  },
+  "2457417588": {
+    "chat_title": "Свердловская",
+    "members": [],
+    "last_updated": "2025-03-17T17:59:16.319761"
+  },
+  "-1004677868077": {
+    "chat_title": "Баумана",
+    "members": [],
+    "last_updated": "2025-03-17T19:28:13.889039"
+  }
+}

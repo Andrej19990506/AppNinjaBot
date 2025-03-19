@@ -13,8 +13,9 @@ import {
     subscribeToShiftEvents,
     unsubscribeFromShiftEvents,
     bookShift,
-    addToReserve
+    removeFromReserve
 } from '../../store/slices/shiftsSlice';
+import { addToReserve } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 
 interface CourierShift {
@@ -714,20 +715,36 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         if (!selectedDateForDialog) return;
         
         try {
+            const dateString = format(selectedDateForDialog, 'yyyy-MM-dd');
+            
+            // Дополнительная проверка существующего ID смены
+            let validShiftId = existingShiftId;
+            
+            // Если передан existingShiftId, проверяем, действительно ли такая смена есть в Redux
+            if (existingShiftId) {
+                const shiftsFromRedux = shifts;
+                const shiftExists = shiftsFromRedux.some(shift => shift.id === existingShiftId);
+                
+                if (!shiftExists) {
+                    console.log('[CourierCalendar] existingShiftId не найден в Redux store, будет создана новая смена');
+                    validShiftId = undefined; // Очищаем ID, если смена не найдена
+                }
+            }
+            
             console.log('[CourierCalendar] Booking/updating shift:', {
-                date: format(selectedDateForDialog, 'yyyy-MM-dd'),
+                date: dateString,
                 shiftType,
                 slotIndex,
                 userId: currentUserId,
-                existingShiftId
+                existingShiftId: validShiftId
             });
             
             await dispatch(bookShift({
-                date: format(selectedDateForDialog, 'yyyy-MM-dd'),
+                date: dateString,
                 shiftType,
                 slotIndex,
                 userId: currentUserId,
-                existingShiftId // Передаем ID существующей смены, если оно есть
+                existingShiftId: validShiftId // Используем проверенный ID или undefined
             }));
         } catch (error) {
             console.error('Error booking/updating shift:', error);
@@ -747,6 +764,19 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             // НЕ закрываем диалог после успешного добавления в резерв
         } catch (error) {
             console.error('Error adding to reserve:', error);
+        }
+    };
+
+    const handleCancelReserve = async (reserveId: string) => {
+        try {
+            console.log('[CourierCalendar] Canceling reserve with ID:', reserveId);
+            await dispatch(removeFromReserve({
+                reserveId,
+                userId: currentUserId
+            }));
+            console.log('[CourierCalendar] Successfully canceled reserve');
+        } catch (error) {
+            console.error('Error canceling reserve:', error);
         }
     };
 
@@ -919,6 +949,7 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 currentUserName={currentUserName}
                 onSlotSelect={handleShiftSelect}
                 onReserveSelect={handleReserveSelect}
+                onCancelReserve={handleCancelReserve}
                 reserves={getReservesForDate(selectedDateForDialog || new Date())}
             />
         </CalendarContainer>

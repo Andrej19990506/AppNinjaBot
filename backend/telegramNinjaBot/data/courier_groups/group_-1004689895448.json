@@ -1,0 +1,42 @@
+{
+  "chat_id": "-1004689895448",
+  "chat_title": "Курьеры Баумана",
+  "members": [
+    {
+      "user_id": 1682142222,
+      "username": "andrejnikolaevich1999",
+      "first_name": "Андрей",
+      "last_name": "Малахов",
+      "status": "administrator",
+      "joined_date": "2025-03-18T09:54:28.043542",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg"
+    }
+  ],
+  "admins": [
+    {
+      "user_id": 1682142222,
+      "username": "andrejnikolaevich1999",
+      "first_name": "Андрей",
+      "last_name": "Малахов",
+      "status": "creator",
+      "is_bot": false,
+      "can_manage_chat": true,
+      "can_delete_messages": true,
+      "can_manage_voice_chats": true,
+      "can_restrict_members": true,
+      "can_promote_members": true,
+      "can_change_info": true,
+      "can_invite_users": true,
+      "can_pin_messages": true,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg"
+    }
+  ],
+  "last_updated": "2025-03-18T09:54:28.147999",
+  "group_type": "courier",
+  "metadata": {
+    "total_members": 1,
+    "total_admins": 1,
+    "created_at": "2025-03-18T09:54:28.148005"
+  }
+}

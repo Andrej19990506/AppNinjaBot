@@ -32,15 +32,10 @@ interface CourierShift {
 
 interface BookShiftParams {
     date: string;
+    userId: string;
     shiftType: 'day' | 'night';
     slotIndex: number;
-    userId: string;
     existingShiftId?: string;
-}
-
-interface AddToReserveParams {
-    date: string;
-    userId: string;
 }
 
 interface ShiftBookedPayload {
@@ -121,32 +116,48 @@ export const bookShift = createAsyncThunk(
                 last_name: user.last_name || ''
             };
 
-            // Если передан ID существующей смены, используем его для обновления
-            if (bookingData.existingShiftId) {
-                console.log('[shiftsSlice] Updating existing shift with ID:', bookingData.existingShiftId);
-                socketService.emit('update_shift', {
-                    ...socketData,
-                    shift_id: bookingData.existingShiftId
-                });
-                return socketData;
-            }
-
-            // Проверяем, есть ли у пользователя уже смена на эту дату
-            const existingShift = (state.shifts.shifts as CourierShift[]).find(
+            // Получаем существующие АКТИВНЫЕ смены пользователя на эту дату
+            // Важно использовать именно те смены, которые есть в Redux store на данный момент
+            const existingShifts = (state.shifts.shifts as CourierShift[]).filter(
                 shift => shift.date === bookingData.date && 
                 String(shift.userId) === String(bookingData.userId)
             );
+            
+            console.log('[shiftsSlice] Active shifts for user on this date:', existingShifts);
+            
+            // Если передан конкретный ID существующей смены
+            if (bookingData.existingShiftId) {
+                // Проверяем, действительно ли такая смена существует в Redux store
+                const shiftExists = existingShifts.some(shift => shift.id === bookingData.existingShiftId);
+                
+                if (shiftExists) {
+                    console.log('[shiftsSlice] Updating existing shift:', bookingData.existingShiftId);
+                    socketService.emit('update_shift', {
+                        ...socketData,
+                        shift_id: bookingData.existingShiftId
+                    });
+                } else {
+                    // Если такой смены нет, значит она была отменена
+                    // Создаем новую смену вместо обновления несуществующей
+                    console.log('[shiftsSlice] Shift with ID', bookingData.existingShiftId, 'not found. Creating new shift instead.');
+                    socketService.emit('book_shift', socketData);
+                }
+                
+                return socketData;
+            }
 
-            if (existingShift) {
-                // Если есть существующая смена, отправляем событие обновления
-                console.log('[shiftsSlice] Updating existing shift:', existingShift.id);
+            // Если пользователь имеет активную смену на эту дату
+            if (existingShifts.length > 0) {
+                // Используем ID первой найденной смены
+                const existingShift = existingShifts[0];
+                console.log('[shiftsSlice] Found existing shift to update:', existingShift.id);
                 socketService.emit('update_shift', {
                     ...socketData,
                     shift_id: existingShift.id
                 });
             } else {
                 // Если нет существующей смены, создаем новую
-                console.log('[shiftsSlice] Creating new shift');
+                console.log('[shiftsSlice] No existing shift found, creating new shift');
                 socketService.emit('book_shift', socketData);
             }
 
@@ -185,12 +196,23 @@ export const cancelShift = createAsyncThunk(
     }
 );
 
-export const addToReserve = createAsyncThunk(
-    'shifts/addToReserve',
-    async (params: AddToReserveParams) => {
-        console.log('[shiftsSlice] addToReserve вызван с параметрами:', params);
-        socketService.emit('add_to_reserve', params);
-        return params;
+export const removeFromReserve = createAsyncThunk(
+    'shifts/removeFromReserve',
+    async (params: { reserveId: string; userId: string }) => {
+        try {
+            console.log('[shiftsSlice] Removing from reserve:', params);
+            
+            // Отправляем событие через WebSocket
+            socketService.emit('remove_from_reserve', {
+                reserve_id: params.reserveId,
+                user_id: params.userId
+            });
+            
+            return params.reserveId;
+        } catch (error) {
+            console.error('[shiftsSlice] Failed to remove from reserve:', error);
+            throw error;
+        }
     }
 );
 
@@ -225,20 +247,55 @@ const shiftsSlice = createSlice({
             
             console.log('[shiftsSlice] Shift updated in state. Current shifts:', state.shifts);
         },
-        shiftCanceled: (state, action: PayloadAction<{ userId: string; date: string }>) => {
-            state.shifts = state.shifts.filter(
-                shift => !(shift.userId === action.payload.userId && 
-                          shift.date === action.payload.date)
-            );
-        },
-        reserveAdded: (state, action: PayloadAction<ReserveShift>) => {
-            const reserve = action.payload;
-            const existingReserve = state.reserves.find(r => r.id === reserve.id);
-            if (existingReserve) {
-                Object.assign(existingReserve, reserve);
+        shiftCanceled: (state, action: PayloadAction<{ shift_id?: string; userId?: string; date?: string }>) => {
+            // Проверка на разные форматы данных события отмены
+            if (action.payload.shift_id) {
+                // Если есть shift_id, фильтруем по нему
+                console.log('[shiftsSlice] Canceling shift by ID:', action.payload.shift_id);
+                state.shifts = state.shifts.filter(shift => String(shift.id) !== String(action.payload.shift_id));
+            } else if (action.payload.userId && action.payload.date) {
+                // Если есть userId и date, фильтруем по ним
+                console.log('[shiftsSlice] Canceling shift by userId and date:', action.payload);
+                state.shifts = state.shifts.filter(
+                    shift => !(String(shift.userId) === String(action.payload.userId) && 
+                              shift.date === action.payload.date)
+                );
             } else {
-                state.reserves.push(reserve);
+                console.log('[shiftsSlice] Warning: Incomplete data for shift cancellation:', action.payload);
             }
+        },
+        reserveAdded: (state, action: PayloadAction<any>) => {
+            const reserve = action.payload;
+            console.log('[shiftsSlice] Processing reserveAdded action:', reserve);
+            
+            // Убедимся, что все поля сохранены корректно
+            const formattedReserve: ReserveShift = {
+                id: reserve.id,
+                userId: reserve.userId || reserve.user_id || '', // Поддержка обоих форматов
+                date: reserve.date,
+                photo_url: reserve.photo_url || null,
+                firstName: reserve.firstName || reserve.first_name || '',
+                lastName: reserve.lastName || reserve.last_name || '',
+                created_at: reserve.created_at || new Date().toISOString()
+            };
+            
+            const existingReserve = state.reserves.find(r => r.id === formattedReserve.id);
+            if (existingReserve) {
+                Object.assign(existingReserve, formattedReserve);
+            } else {
+                state.reserves.push(formattedReserve);
+            }
+            
+            console.log('[shiftsSlice] Reserve added/updated in state:', formattedReserve);
+        },
+        reserveDeleted: (state, action: PayloadAction<string>) => {
+            const reserveId = action.payload;
+            console.log('[shiftsSlice] Deleting reserve with ID:', reserveId);
+            
+            // Удаляем резерв из состояния по ID
+            state.reserves = state.reserves.filter(reserve => String(reserve.id) !== String(reserveId));
+            
+            console.log('[shiftsSlice] Reserves after deletion:', state.reserves);
         }
     },
     extraReducers: (builder) => {
@@ -268,18 +325,26 @@ const shiftsSlice = createSlice({
                 state.error = action.error.message || 'Failed to book shift';
             })
             .addCase(cancelShift.fulfilled, (state, action) => {
+                // При успешной отмене смены - удаляем её из Redux store по ID
+                console.log('[shiftsSlice] Removing shift with ID after cancelShift.fulfilled:', action.payload);
                 state.shifts = state.shifts.filter(shift => String(shift.id) !== String(action.payload));
             })
-            .addCase(addToReserve.pending, (state) => {
+            .addCase(removeFromReserve.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(addToReserve.fulfilled, (state) => {
+            .addCase(removeFromReserve.fulfilled, (state, action) => {
+                // Преобразуем к числу, если передается строковый ID
+                const reserveIdToRemove = typeof action.payload === 'string' ? 
+                    parseInt(action.payload, 10) : action.payload;
+                
+                // Фильтруем резервы, удаляя тот, у которого совпадает ID
+                state.reserves = state.reserves.filter(reserve => reserve.id !== reserveIdToRemove);
                 state.loading = false;
             })
-            .addCase(addToReserve.rejected, (state, action) => {
+            .addCase(removeFromReserve.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to add to reserve';
+                state.error = action.error.message || 'Failed to remove from reserve';
             });
     }
 });
@@ -294,6 +359,7 @@ export const selectError = (state: RootState) => state.shifts.error;
 export const shiftBooked = shiftsSlice.actions.shiftBooked;
 export const shiftCanceled = shiftsSlice.actions.shiftCanceled;
 export const reserveAdded = shiftsSlice.actions.reserveAdded;
+export const reserveDeleted = shiftsSlice.actions.reserveDeleted;
 
 // WebSocket подписки
 export const subscribeToShiftEvents = (dispatch: any) => {
@@ -309,9 +375,19 @@ export const subscribeToShiftEvents = (dispatch: any) => {
         console.log('[shiftsSlice] Received shift_cancelled event:', data);
         dispatch(shiftCanceled(data));
     });
+    
+    // Сохраняем обработку reserve_added для обновления состояния смен
     socketService.on('reserve_added', (reserve: ReserveShift) => {
         console.log('[shiftsSlice] Received reserve_added event:', reserve);
         dispatch(reserveAdded(reserve));
+    });
+    
+    // Добавляем обработчик для reserve_deleted чтобы удалять резервы из состояния
+    socketService.on('reserve_deleted', (data: { reserve_id: string }) => {
+        console.log('[shiftsSlice] Received reserve_deleted event:', data);
+        
+        // Удаляем резерв из состояния
+        dispatch(reserveDeleted(data.reserve_id));
     });
 };
 
@@ -320,6 +396,7 @@ export const unsubscribeFromShiftEvents = () => {
     socketService.off('shift_updated');
     socketService.off('shift_cancelled');
     socketService.off('reserve_added');
+    socketService.off('reserve_deleted');
 };
 
 export default shiftsSlice.reducer; 

@@ -51,7 +51,7 @@ export const addToReserve = createAsyncThunk(
             
             console.log('[reservesSlice] Отправка данных через WebSocket:', reserveData);
 
-            // Отправляем событие через WebSocket
+            // Отправляем событие через WebSocket с подтверждением
             return new Promise<ReserveShift>((resolve, reject) => {
                 socketService.emitWithAck('add_to_reserve', reserveData, (response: any) => {
                     console.log('[reservesSlice] Получен ответ от сервера:', response);
@@ -60,7 +60,19 @@ export const addToReserve = createAsyncThunk(
                         reject(response.error);
                     } else if (response && response.data) {
                         console.log('[reservesSlice] Успешно добавлено в резерв:', response.data);
-                        resolve(response.data);
+                        
+                        // Убедимся, что все поля заполнены
+                        const reserve: ReserveShift = {
+                            id: response.data.id,
+                            userId: response.data.user_id || params.userId,
+                            date: response.data.date || params.date,
+                            photo_url: response.data.photo_url || user.photo_url || null,
+                            firstName: response.data.first_name || user.first_name || '',
+                            lastName: response.data.last_name || user.last_name || '',
+                            created_at: response.data.created_at || new Date().toISOString()
+                        };
+                        
+                        resolve(reserve);
                     } else {
                         console.log('[reservesSlice] Успешно, но нет данных в ответе');
                         // Если нет данных в ответе, создаем "временный" объект резерва
@@ -78,7 +90,7 @@ export const addToReserve = createAsyncThunk(
                 });
             });
         } catch (error) {
-            console.error('[reservesSlice] Failed to add to reserve:', error);
+            console.error('[reservesSlice] Ошибка при добавлении в резерв:', error);
             throw error;
         }
     }
@@ -122,17 +134,28 @@ const reservesSlice = createSlice({
             // Преобразуем данные в формат ReserveShift
             const newReserve: ReserveShift = {
                 id: reserveData.id,
-                userId: reserveData.user_id,
+                userId: reserveData.user_id || reserveData.userId,
                 date: reserveData.date,
-                photo_url: reserveData.photo_url,
-                firstName: reserveData.first_name,
-                lastName: reserveData.last_name,
-                created_at: reserveData.created_at
+                photo_url: reserveData.photo_url || null,
+                firstName: reserveData.first_name || reserveData.firstName || '',
+                lastName: reserveData.last_name || reserveData.lastName || '',
+                created_at: reserveData.created_at || reserveData.createdAt || new Date().toISOString()
             };
 
-            // Добавляем новый резерв
-            state.reserves.push(newReserve);
-            console.log('[reservesSlice] Reserve added to state');
+            // Проверяем, существует ли уже резерв с таким ID
+            const existingReserveIndex = state.reserves.findIndex(reserve => 
+                reserve.id === newReserve.id
+            );
+
+            if (existingReserveIndex !== -1) {
+                // Обновляем существующий резерв
+                state.reserves[existingReserveIndex] = newReserve;
+            } else {
+                // Добавляем новый резерв
+                state.reserves.push(newReserve);
+            }
+            
+            console.log('[reservesSlice] Reserve successfully added/updated in state');
         },
         reserveDeleted(state, action) {
             const reserveId = action.payload.reserve_id;
@@ -187,6 +210,7 @@ export const subscribeToReserveEvents = (dispatch: any) => {
 
     subscribeToEvent('reserve_deleted', (data: { reserve_id: string }) => {
         console.log('📡 Получено событие reserve_deleted:', data);
+        console.log('📡 Удаляем резерв с ID:', data.reserve_id);
         dispatch(reservesSlice.actions.reserveDeleted(data));
     });
 };

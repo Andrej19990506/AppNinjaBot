@@ -82,5 +82,17 @@
     "last_name": "Анямов",
     "created_at": "2025-03-19T19:20:03.113569",
     "updated_at": "2025-03-19T19:20:03.113581"
+  },
+  {
+    "id": "75e7f9fd-c8dc-4e83-8675-0c3db0173d4e",
+    "user_id": "6843570748",
+    "date": "2025-03-23",
+    "shift_type": "day",
+    "slot_index": 0,
+    "photo_url": null,
+    "first_name": "Антон",
+    "last_name": "Анямов",
+    "created_at": "2025-03-19T19:35:38.030101",
+    "updated_at": "2025-03-19T19:35:38.030112"
   }
 ]

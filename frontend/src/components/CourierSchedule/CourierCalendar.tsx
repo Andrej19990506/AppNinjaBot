@@ -490,6 +490,221 @@ const ShiftIcon = styled.span`
     font-size: 1.1rem;
 `;
 
+// Добавим стили для индикатора "в резерве"
+const ReserveSlotIndicator = styled(EmptySlotIndicator)`
+    border: 2px solid #FF9500;
+    background: rgba(255, 149, 0, 0.05);
+
+    &::before {
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255, 149, 0, 0.05) 100%);
+    }
+
+    &::after {
+        border-top-color: #FF9500;
+        border-right-color: #FF9500;
+    }
+`;
+
+// Добавляем стиль для иконки восклицательного знака
+const ReserveIcon = styled.div`
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 18px;
+    height: 18px;
+    background: #FF9500;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 12px;
+    font-weight: bold;
+    z-index: 5;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+`;
+
+// Улучшенный стиль для тултипа резерва с динамическим позиционированием стрелки
+const ReserveTooltip = styled.div<{ position: 'top' | 'bottom' | 'left' | 'right'; arrowOffset: string }>`
+    position: fixed;
+    z-index: 1000;
+    background-color: var(--card-background);
+    border-radius: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    width: 280px;
+    max-width: 90vw;
+    padding: 16px;
+    animation: tooltipFadeIn 0.3s ease;
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    
+    @media (max-width: 480px) {
+        width: calc(100vw - 32px);
+        max-width: calc(100vw - 32px);
+        padding: 12px;
+    }
+    
+    @keyframes tooltipFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    &::after {
+        content: '';
+        position: absolute;
+        width: 0;
+        height: 0;
+        
+        ${props => props.position === 'top' && `
+            bottom: -10px;
+            left: ${props.arrowOffset};
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid var(--card-background);
+        `}
+        
+        ${props => props.position === 'bottom' && `
+            top: -10px;
+            left: ${props.arrowOffset};
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid var(--card-background);
+        `}
+        
+        ${props => props.position === 'left' && `
+            right: -10px;
+            top: ${props.arrowOffset};
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 10px solid var(--card-background);
+        `}
+        
+        ${props => props.position === 'right' && `
+            left: -10px;
+            top: ${props.arrowOffset};
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-right: 10px solid var(--card-background);
+        `}
+    }
+`;
+
+const ReserveTooltipTitle = styled.div`
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+    color: #FF9500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    &::before {
+        content: '!';
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        background: #FF9500;
+        border-radius: 50%;
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+    }
+`;
+
+const TooltipDivider = styled.div`
+    height: 1px;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 12px 0;
+`;
+
+const TooltipInfoRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+`;
+
+const TooltipIconWrapper = styled.div`
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(76, 175, 80, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &.warning {
+        background: rgba(255, 59, 48, 0.1);
+    }
+`;
+
+const TooltipButton = styled.button`
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(to right, #FF9500, #FF7A00);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+    margin-top: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(255, 149, 0, 0.25);
+    }
+    
+    &:active {
+        transform: translateY(0);
+    }
+    
+    &.disabled {
+        background: #f2f2f2;
+        color: #999;
+        cursor: not-allowed;
+        
+        &:hover {
+            transform: none;
+            box-shadow: none;
+        }
+    }
+`;
+
+// Добавляю стиль для кнопки закрытия тултипа
+const TooltipCloseButton = styled.button`
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.05);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+        background: rgba(0, 0, 0, 0.1);
+        color: #666;
+    }
+`;
+
 const CourierCalendar: React.FC<CourierCalendarProps> = ({
     onShiftSelect,
     selectedDate,
@@ -512,7 +727,12 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
 
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [tooltipDay, setTooltipDay] = useState<string | null>(null);
-    const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+    const [tooltipPosition, setTooltipPosition] = useState<{
+        top: number;
+        left: number;
+        position?: 'top' | 'bottom' | 'left' | 'right';
+        arrowOffset?: string;
+    }>({ top: 0, left: 0, position: 'top', arrowOffset: '50%' });
     const slotsContainerRef = useRef<HTMLDivElement>(null);
     const [hasShownScrollHint, setHasShownScrollHint] = useState(false);
     const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
@@ -853,7 +1073,32 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         }
     };
 
-    // Создаем мемоизированную версию функции renderDayContent
+    // Добавляем проверку, есть ли пользователь в резерве на данную дату
+    const userIsInReserve = (date: Date) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const dateReserves = getReservesForDate(date);
+        return dateReserves.some(reserve => String(reserve.userId) === String(currentUserId));
+    };
+
+    // Проверка доступности смен на дату
+    const getSlotsInfo = (date: Date) => {
+        const dayShifts = getDayShifts(date);
+        const nightShifts = getNightShifts(date);
+        const dayAvailable = dayShifts.length < 4;
+        const nightAvailable = nightShifts.length < 2;
+        
+        return {
+            dayTotal: 4,
+            nightTotal: 2,
+            dayOccupied: dayShifts.length,
+            nightOccupied: nightShifts.length,
+            dayAvailable,
+            nightAvailable,
+            hasAvailableSlots: dayAvailable || nightAvailable
+        };
+    };
+
+    // Обновляем функцию renderDayContent для отображения состояния резерва
     const renderDayContent = useMemo(() => {
         // Возвращаем функцию, которая будет использоваться для рендеринга
         return (date: Date) => {
@@ -865,13 +1110,18 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             // Проверяем, записан ли текущий курьер на эту дату
             const currentUserShift = dateShifts.find(shift => String(shift.userId) === String(currentUserId));
             
+            // Проверяем, в резерве ли текущий курьер на эту дату
+            const inReserve = userIsInReserve(date);
+            
+            // Получаем информацию о доступности смен
+            const slotsInfo = getSlotsInfo(date);
+            
             if (currentUserShift) {
-                // Сокращаем логирование для уменьшения нагрузки
+                // Если пользователь имеет смену на эту дату
                 return (
                     <CourierAvatar 
                         src={currentUserShift.photo_url || currentUserAvatar || defaultAvatar}
                         alt={`${currentUserShift.firstName || ''} ${currentUserShift.lastName || ''}`}
-                        // Используем более стабильный ключ без lastUpdateTime
                         key={`${dateStr}-${currentUserShift.id || 'user'}`}
                         onError={(e) => {
                             const img = e.target as HTMLImageElement;
@@ -881,13 +1131,24 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 );
             }
             
-            // Проверяем количество занятых слотов
-            const totalSlots = 6; // 4 дневных + 2 вечерних
-            const occupiedSlots = dateShifts.length;
-            const hasAvailableSlots = occupiedSlots < totalSlots;
+            if (inReserve) {
+                // Если пользователь в резерве на эту дату
+                return (
+                    <ReserveSlotIndicator key={`${dateStr}-reserve`}>
+                        <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
+                        <ReserveIcon 
+                            onClick={(e) => handleReserveIconClick(e, date)}
+                            title="Вы в резерве на эту дату"
+                        >
+                            !
+                        </ReserveIcon>
+                    </ReserveSlotIndicator>
+                );
+            }
             
+            // Проверяем доступность даты и наличие свободных мест
             if (isDateAvailable(date)) {
-                if (hasAvailableSlots) {
+                if (slotsInfo.hasAvailableSlots) {
                     return (
                         <EmptySlotIndicator key={`${dateStr}-empty`}>
                             <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
@@ -906,6 +1167,154 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             return <DayNumber $isAvailable={false} key={`${dateStr}-unavailable`}>{format(date, 'd')}</DayNumber>;
         };
     }, [shifts, currentUserId, currentUserAvatar, isDateAvailable]);
+
+    // Обновленная функция для позиционирования тултипа резерва
+    const calculateTooltipPosition = (element: Element, tooltipWidth: number, tooltipHeight: number) => {
+        const rect = element.getBoundingClientRect();
+        
+        // Получаем размеры области просмотра
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Расстояние между элементом и тултипом
+        const gap = 15;
+        
+        // Определяем лучшее позиционирование
+        let position: 'top' | 'bottom' | 'left' | 'right' = 'top';
+        let arrowOffset = '50%';
+        let top = 0;
+        let left = 0;
+        
+        // Проверяем, куда лучше поместить тултип
+        const spaceAbove = rect.top;
+        const spaceBelow = viewportHeight - rect.bottom;
+        const spaceLeft = rect.left;
+        const spaceRight = viewportWidth - rect.right;
+        
+        // Решаем, в каком направлении будет тултип
+        if (spaceAbove >= tooltipHeight + gap && spaceAbove >= spaceBelow) {
+            // Размещаем сверху
+            position = 'top';
+            top = rect.top - tooltipHeight - gap;
+            left = rect.left + rect.width / 2 - tooltipWidth / 2;
+            arrowOffset = '50%';
+        } else if (spaceBelow >= tooltipHeight + gap) {
+            // Размещаем снизу
+            position = 'bottom';
+            top = rect.bottom + gap;
+            left = rect.left + rect.width / 2 - tooltipWidth / 2;
+            arrowOffset = '50%';
+        } else if (spaceLeft >= tooltipWidth + gap && spaceLeft >= spaceRight) {
+            // Размещаем слева
+            position = 'left';
+            top = rect.top + rect.height / 2 - tooltipHeight / 2;
+            left = rect.left - tooltipWidth - gap;
+            arrowOffset = '50%';
+        } else {
+            // Размещаем справа по умолчанию
+            position = 'right';
+            top = rect.top + rect.height / 2 - tooltipHeight / 2;
+            left = rect.right + gap;
+            arrowOffset = '50%';
+        }
+        
+        // Корректируем, чтобы не выходил за пределы экрана
+        if (left < 16) {
+            // Сдвигаем тултип вправо, чтобы он не вылезал за левый край
+            const originalLeft = left;
+            left = 16;
+            
+            // Корректируем позицию стрелки для горизонтального тултипа
+            if (position === 'top' || position === 'bottom') {
+                const arrowLeftPixels = tooltipWidth / 2 + originalLeft - left;
+                arrowOffset = `${arrowLeftPixels}px`;
+            }
+        } else if (left + tooltipWidth > viewportWidth - 16) {
+            // Сдвигаем тултип влево, чтобы он не вылезал за правый край
+            const originalLeft = left;
+            left = viewportWidth - tooltipWidth - 16;
+            
+            // Корректируем позицию стрелки для горизонтального тултипа
+            if (position === 'top' || position === 'bottom') {
+                const arrowLeftPixels = tooltipWidth / 2 + originalLeft - left;
+                arrowOffset = `${arrowLeftPixels}px`;
+            }
+        }
+        
+        // Корректируем, чтобы не выходил за верхнюю и нижнюю границу
+        if (top < 16) {
+            const originalTop = top;
+            top = 16;
+            
+            // Корректируем позицию стрелки для вертикального тултипа
+            if (position === 'left' || position === 'right') {
+                const arrowTopPixels = tooltipHeight / 2 + originalTop - top;
+                arrowOffset = `${arrowTopPixels}px`;
+            }
+        } else if (top + tooltipHeight > viewportHeight - 16) {
+            const originalTop = top;
+            top = viewportHeight - tooltipHeight - 16;
+            
+            // Корректируем позицию стрелки для вертикального тултипа
+            if (position === 'left' || position === 'right') {
+                const arrowTopPixels = tooltipHeight / 2 + originalTop - top;
+                arrowOffset = `${arrowTopPixels}px`;
+            }
+        }
+        
+        return { top, left, position, arrowOffset };
+    };
+
+    // Обновляем функцию handleReserveIconClick, убираем автоматическое закрытие
+    const handleReserveIconClick = (event: React.MouseEvent, date: Date) => {
+        event.stopPropagation(); // Предотвращаем переход к диалогу выбора смены
+        
+        const element = event.currentTarget;
+        
+        // Предполагаемые размеры тултипа (примерные значения)
+        const tooltipWidth = window.innerWidth < 480 ? window.innerWidth - 32 : 280;
+        const tooltipHeight = 220; // Примерная высота тултипа
+        
+        // Рассчитываем оптимальную позицию
+        const { top, left, position, arrowOffset } = calculateTooltipPosition(
+            element,
+            tooltipWidth,
+            tooltipHeight
+        );
+        
+        setTooltipDay('reserve-' + format(date, 'yyyy-MM-dd'));
+        setTooltipPosition({
+            top,
+            left,
+            position,
+            arrowOffset
+        });
+        
+        // Удаляем автоматическое закрытие через таймаут
+    };
+
+    // Добавляем useEffect для обработки кликов вне тултипа
+    useEffect(() => {
+        // Только если тултип открыт
+        if (tooltipDay && tooltipDay.startsWith('reserve-')) {
+            // Функция обработчик клика
+            const handleOutsideClick = (event: MouseEvent) => {
+                // Проверяем, что клик был не внутри тултипа
+                const tooltipElement = document.querySelector('.reserve-tooltip');
+                if (tooltipElement && !tooltipElement.contains(event.target as Node)) {
+                    setTooltipDay(null);
+                }
+            };
+            
+            // Добавляем обработчик на document
+            document.addEventListener('mousedown', handleOutsideClick);
+            
+            // Очищаем обработчик при закрытии тултипа
+            return () => {
+                document.removeEventListener('mousedown', handleOutsideClick);
+            };
+        }
+    }, [tooltipDay]);
 
     if (isLoading) {
         return <div>Загрузка...</div>;
@@ -1024,6 +1433,75 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 onCancelReserve={handleCancelReserve}
                 reserves={getReservesForDate(selectedDateForDialog || new Date())}
             />
+
+            {tooltipDay && tooltipDay.startsWith('reserve-') && (() => {
+                // Получаем информацию о слотах
+                const dateObj = new Date(tooltipDay.replace('reserve-', ''));
+                const slotsInfo = getSlotsInfo(dateObj);
+                const dateStr = format(dateObj, 'dd.MM.yyyy');
+                
+                return (
+                    <ReserveTooltip 
+                        className="reserve-tooltip"
+                        style={{
+                            top: tooltipPosition.top,
+                            left: tooltipPosition.left
+                        }}
+                        position={tooltipPosition.position || 'top'}
+                        arrowOffset={tooltipPosition.arrowOffset || '50%'}
+                    >
+                        <TooltipCloseButton onClick={() => setTooltipDay(null)}>×</TooltipCloseButton>
+                        
+                        <ReserveTooltipTitle>
+                            Вы в резерве на эту дату
+                        </ReserveTooltipTitle>
+                        
+                        <TooltipDivider />
+                        
+                        <TooltipInfoRow>
+                            <TooltipIconWrapper>
+                                <span role="img" aria-label="calendar">📅</span>
+                            </TooltipIconWrapper>
+                            <div>Дата: <strong>{dateStr}</strong></div>
+                        </TooltipInfoRow>
+                        
+                        <TooltipInfoRow>
+                            <TooltipIconWrapper className={slotsInfo.dayAvailable ? '' : 'warning'}>
+                                <span role="img" aria-label="day">☀️</span>
+                            </TooltipIconWrapper>
+                            <div>
+                                Дневная смена: <strong>{slotsInfo.dayOccupied}/{slotsInfo.dayTotal}</strong>
+                                {slotsInfo.dayAvailable ? ' (есть места)' : ' (нет мест)'}
+                            </div>
+                        </TooltipInfoRow>
+                        
+                        <TooltipInfoRow>
+                            <TooltipIconWrapper className={slotsInfo.nightAvailable ? '' : 'warning'}>
+                                <span role="img" aria-label="night">🌙</span>
+                            </TooltipIconWrapper>
+                            <div>
+                                Вечерняя смена: <strong>{slotsInfo.nightOccupied}/{slotsInfo.nightTotal}</strong>
+                                {slotsInfo.nightAvailable ? ' (есть места)' : ' (нет мест)'}
+                            </div>
+                        </TooltipInfoRow>
+                        
+                        {slotsInfo.hasAvailableSlots ? (
+                            <TooltipButton
+                                onClick={() => {
+                                    setTooltipDay(null);
+                                    handleDayClick(dateObj);
+                                }}
+                            >
+                                Записаться на смену
+                            </TooltipButton>
+                        ) : (
+                            <TooltipButton className="disabled">
+                                Нет свободных мест
+                            </TooltipButton>
+                        )}
+                    </ReserveTooltip>
+                );
+            })()}
         </CalendarContainer>
     );
 };

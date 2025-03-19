@@ -25,5 +25,14 @@
     "first_name": "Антон",
     "last_name": "Анямов",
     "created_at": "2025-03-19T19:14:06.766822"
+  },
+  {
+    "id": "69608b5a-b78a-46b6-aa7e-aaf5cd6c7a12",
+    "user_id": "1682142222",
+    "date": "2025-03-23",
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-19T19:28:29.248348"
   }
 ]

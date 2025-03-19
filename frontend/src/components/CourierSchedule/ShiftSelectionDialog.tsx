@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useReducer } from 'react';
+import React, { useState, useEffect, useReducer, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import defaultAvatar from '../../assets/images/Ninja.jpg';
 import { ReserveShift } from '../../types/shifts';
 import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { useDispatch, useSelector } from 'react-redux';
-import { cancelShift, removeFromReserve } from '../../store/slices/shiftsSlice';
+import { selectAllReserves, forceFetchReserves } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 import { socketService } from '../../services/socket';
+import ShiftPanel from './ShiftPanel';
+import ReservePanel from './ReservePanel';
 
 interface ShiftSlot {
     id?: string;
@@ -41,6 +41,7 @@ const DialogContent = styled.div`
     max-width: 400px;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
     animation: slideUp 0.3s ease;
+    position: relative;
 
     @keyframes slideUp {
         from {
@@ -354,10 +355,33 @@ interface ShiftSelectionDialogProps {
     currentUserAvatar?: string;
     currentUserName?: string;
     onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => void;
-    onReserveSelect: () => void;
+    onReserveSelect: () => Promise<any>;
     onCancelReserve?: (reserveId: string) => void;
     reserves: ReserveShift[];
 }
+
+const ModeSwitchContainer = styled.div`
+    display: flex;
+    margin-bottom: 20px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+`;
+
+const ModeButton = styled.button<{ active: boolean }>`
+    flex: 1;
+    padding: 10px;
+    background: ${props => props.active ? 'var(--primary-color)' : 'transparent'};
+    color: ${props => props.active ? 'white' : 'var(--text-color)'};
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: ${props => props.active ? '600' : '400'};
+
+    &:hover {
+        background: ${props => props.active ? 'var(--primary-color)' : 'var(--hover-color)'};
+    }
+`;
 
 const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     isOpen,
@@ -376,902 +400,208 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     reserves = []
 }) => {
     const dispatch = useDispatch<AppDispatch>();
-    const [, forceUpdate] = useReducer(x => x + 1, 0);
-    const [selectedSlots, setSelectedSlots] = useState<{
-        type: 'day' | 'night';
-        index: number;
-    } | null>(null);
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [successMessage, setSuccessMessage] = useState<string>('');
-    const [localDayShifts, setLocalDayShifts] = useState(dayShifts);
-    const [localNightShifts, setLocalNightShifts] = useState(nightShifts);
-    const [isReserveMode, setIsReserveMode] = useState(false);
-    const [reserveState, setReserveState] = useState<{
-        isReserved: boolean;
-        reserveId?: string;
-        isPending?: boolean;
-    } | null>(null);
-
-    // Получаем резервы из Redux store
-    const allReserves = useSelector((state: RootState) => state.shifts.reserves);
-    // Получаем все смены из Redux store для проверки
-    const shiftsFromRedux = useSelector((state: RootState) => state.shifts.shifts);
-    
-    const currentUserReserve = allReserves.find(
-        reserve => String(reserve.userId) === String(currentUserId) && reserve.date === format(date, 'yyyy-MM-dd')
-    );
-
-    // Отслеживаем состояние загрузки для операций отмены смены
-    const shiftsLoading = useSelector((state: RootState) => state.shifts.loading);
-
-    // Отслеживаем события WebSocket для reserve_deleted
-    // Важно: этот хук должен выполняться при каждом рендере безусловно
-    useEffect(() => {
-        console.log('[ShiftSelectionDialog] Setting up WebSocket listeners');
-        
-        // Явно подписываемся на событие reserve_deleted для обработки при переходе из резерва в смену
-        const handleReserveDeleted = (data: { reserve_id: string }) => {
-            console.log('[ShiftSelectionDialog] Received reserve_deleted event:', data);
-            
-            // Явно проверяем, принадлежит ли удаленный резерв текущему пользователю
-            const deletedReserveId = data.reserve_id;
-            const userReserveId = reserveState?.reserveId || 
-                                  currentUserReserve?.id;
-            
-            if (userReserveId && deletedReserveId === userReserveId) {
-                console.log('[ShiftSelectionDialog] Clearing local reserve state after WebSocket event');
-                setReserveState(null);
-                
-                // Если находимся в режиме резерва, переключаемся обратно в режим смен
-                if (isReserveMode) {
-                    console.log('[ShiftSelectionDialog] Switching back to shift mode after reserve deletion');
-                    setIsReserveMode(false);
-                }
-                
-                // Обновляем UI
-                forceUpdate();
-            }
-        };
-        
-        // Подписываемся на событие
-        socketService.on('reserve_deleted', handleReserveDeleted);
-        
-        // Отписываемся при размонтировании
-        return () => {
-            console.log('[ShiftSelectionDialog] Cleaning up WebSocket listeners');
-            socketService.off('reserve_deleted', handleReserveDeleted);
-        };
-    }, [currentUserId, isReserveMode, reserveState, currentUserReserve]);
-
-    console.log('[ShiftSelectionDialog] Render with props:', { 
-        isOpen, 
-        currentUserId,
-        reserves: reserves.length,
-        isReserveMode,
-        reserveState,
-        currentUserReserve,
-        shiftsLoading
+    const [isReserveMode, setIsReserveMode] = useState<boolean>(false);
+    const wsEventsRef = useRef({
+        reserveDeleted: false,
+        reserveAdded: false
     });
+    const formattedDate = useMemo(() => format(date, 'yyyy-MM-dd'), [date]);
+    const wsHandlerKey = useMemo(() => 
+        `${currentUserId || 'guest'}-${formattedDate}`, 
+        [currentUserId, formattedDate]
+    );
+    const [, forceUpdate] = useReducer(x => x + 1, 0);
+    const allReserves = useSelector(selectAllReserves);
+    const actualReserves: ReserveShift[] = useMemo(() => {
+        if (!reserves || !Array.isArray(reserves)) return [];
+        return reserves
+            .filter(r => format(date, 'yyyy-MM-dd') === r.date)
+            .map(reserve => ({
+                id: reserve.id,
+                userId: reserve.userId,
+                date: reserve.date,
+                photo_url: reserve.photo_url,
+                firstName: reserve.firstName,
+                lastName: reserve.lastName,
+                created_at: reserve.created_at || new Date().toISOString()
+            }));
+    }, [reserves, date]);
+    const isCurrentUserInReserve = useMemo(() => {
+        if (!currentUserId || !actualReserves.length) return false;
+        return actualReserves.some(r => r.userId === currentUserId);
+    }, [currentUserId, actualReserves]);
+    
+    const showToast = (message: string) => {
+        console.log('[Toast]', message);
+        // Имитация toast сообщения через console.log
+        // В реальном приложении заменить на toast библиотеку
+    };
+    
+    const showSuccessMessage = (message: string) => {
+        showToast(message);
+    };
 
-    // Отслеживаем операции отмены смены и резерва в Redux
     useEffect(() => {
-        // Пропускаем лишние обновления при первоначальной загрузке
-        if (shiftsLoading) {
-            console.log('[ShiftSelectionDialog] Skipping update during loading');
-            return;
-        }
-
-        // Отслеживаем изменения в Redux-состоянии
-        console.log('[ShiftSelectionDialog] Redux state changed - shifts or reserves updated');
+        console.log(`[ShiftSelectionDialog] Setting up WebSocket listeners with key: ${wsHandlerKey}`);
         
-        // Проверка, находится ли пользователь в резерве
-        const userInReserve = reserves.some(
-            reserve => String(reserve.userId) === String(currentUserId) && 
-                      reserve.date === format(date, 'yyyy-MM-dd')
-        );
-        
-        // Проверка, находится ли пользователь в сменах (в Redux)
-        const dateString = format(date, 'yyyy-MM-dd');
-        const userInDayShifts = dayShifts.some(shift => String(shift.userId) === String(currentUserId));
-        const userInNightShifts = nightShifts.some(shift => String(shift.userId) === String(currentUserId));
-        const userHasShift = userInDayShifts || userInNightShifts;
-        
-        console.log('[ShiftSelectionDialog] User state - reserve:', userInReserve, 
-            'day:', userInDayShifts, 'night:', userInNightShifts);
-        
-        // Обновляем локальное состояние смен, если изменились входные данные
-        // и не происходит сейчас отмена резерва
-        const isHandlingReserveCancel = reserveState?.isPending;
-        
-        if (!isHandlingReserveCancel) {
-            // ВАЖНО: Если одновременно есть и резерв, и смена, приоритет отдаем смене
-            // и не обновляем состояние резерва
-            if (userInReserve && !userHasShift) {
-                // Обновляем состояние резерва только если у пользователя нет активной смены
-                const currentUserReserve = reserves.find(
-                    reserve => String(reserve.userId) === String(currentUserId) && 
-                            reserve.date === format(date, 'yyyy-MM-dd')
-                );
+        const handleReserveDeleted = (data: any) => {
+            console.log(`[ShiftSelectionDialog] Reserve deleted event received:`, data);
+            
+            if (data.user_id === currentUserId && data.date === formattedDate) {
+                console.log(`[ShiftSelectionDialog] User ${currentUserId} was removed from reserve for ${formattedDate}`);
                 
-                if (currentUserReserve) {
-                    console.log('[ShiftSelectionDialog] Updating reserve state:', currentUserReserve);
-                    setReserveState({
-                        isReserved: true,
-                        reserveId: String(currentUserReserve.id)
-                    });
-                }
-            } else if (userHasShift && userInReserve) {
-                // Если пользователь одновременно имеет и смену, и резерв - удаляем резерв из локального состояния
-                console.log('[ShiftSelectionDialog] User has both shift and reserve, prioritizing shift');
+                wsEventsRef.current.reserveDeleted = true;
                 
-                // Очищаем состояние резерва в локальном состоянии
-                if (reserveState?.isReserved) {
-                    console.log('[ShiftSelectionDialog] Clearing local reserve state because user has active shift');
-                    setReserveState(null);
-                }
-                
-                // Находясь в режиме резерва, переключаемся в режим смен
-                if (isReserveMode) {
-                    console.log('[ShiftSelectionDialog] Switching from reserve mode to shift mode due to active shift');
-                    setIsReserveMode(false);
-                }
-            } else if (reserveState?.isReserved && !userInReserve) {
-                // Если локальное состояние говорит, что он в резерве, но в Redux его нет - сбрасываем
-                console.log('[ShiftSelectionDialog] User not in reserve anymore, clearing reserve state');
-                setReserveState(null);
+                showSuccessMessage("Вы были успешно удалены из резерва");
             }
             
-            // ВАЖНОЕ ИЗМЕНЕНИЕ: Всегда обновляем локальные смены из Redux, даже если у пользователя есть резерв
-            // Это позволит видеть свои смены, даже если пользователь также находится в резерве
-            const shouldUpdateDayShifts = JSON.stringify(localDayShifts) !== JSON.stringify(dayShifts);
-            const shouldUpdateNightShifts = JSON.stringify(localNightShifts) !== JSON.stringify(nightShifts);
-            
-            if (shouldUpdateDayShifts) {
-                console.log('[ShiftSelectionDialog] Updating local day shifts from Redux');
-                setLocalDayShifts([...dayShifts]);
-            }
-            
-            if (shouldUpdateNightShifts) {
-                console.log('[ShiftSelectionDialog] Updating local night shifts from Redux');
-                setLocalNightShifts([...nightShifts]);
-            }
-            
-            if (shouldUpdateDayShifts || shouldUpdateNightShifts) {
+            // Независимо от того, чей резерв удален, обновляем данные
+            dispatch(forceFetchReserves()).then(() => {
                 forceUpdate();
-            }
-        } else {
-            console.log('[ShiftSelectionDialog] Skipping state update while handling reserve cancel');
-        }
-    }, [dayShifts, nightShifts, reserves, currentUserId, date, shiftsLoading, isReserveMode]);
-
-    // Добавляем эффект для отслеживания изменений isOpen
-    useEffect(() => {
-        console.log('[ShiftSelectionDialog] Dialog open state changed:', isOpen);
-        if (!isOpen) {
-            // Сбрасываем состояния при закрытии
-            setShowSuccess(false);
-            setSelectedSlots(null);
-            setIsReserveMode(false); // Сбрасываем режим резерва при закрытии
-        }
-    }, [isOpen]);
-
-    // Предотвращаем закрытие диалога во время обработки резерва
-    const handleClose = () => {
-        console.log('[ShiftSelectionDialog] handleClose called');
-        console.log('[ShiftSelectionDialog] Current states:', {
-            reserveState: reserveState,
-            showSuccess: showSuccess,
-            selectedSlots: selectedSlots
-        });
-        
-        // Не закрываем, если в процессе бронирования или создания резерва
-        if (reserveState?.isPending) {
-            console.log('[ShiftSelectionDialog] Not closing - reserve is pending');
-            return;
-        }
-        
-        // Не закрываем, если отображается сообщение об успехе
-        if (showSuccess) {
-            console.log('[ShiftSelectionDialog] Not closing - success message is showing');
-            return;
-        }
-
-        // Сбрасываем все локальные состояния
-        setSelectedSlots(null);
-        setIsReserveMode(false);
-        
-        // Вызываем функцию закрытия
-        onClose();
-    };
-
-    if (!isOpen) return null;
-
-    // Проверяем, все ли слоты заняты
-    const totalSlots = maxDaySlots + maxNightSlots;
-    const occupiedSlots = dayShifts.length + nightShifts.length;
-    const isFullyBooked = occupiedSlots >= totalSlots;
-
-    const handleSlotSelect = async (shiftType: 'day' | 'night', slotIndex: number) => {
-        console.log('[ShiftSelectionDialog] handleSlotSelect called:', { shiftType, slotIndex });
-        
-        const currentUserIdStr = String(currentUserId);
-        
-        // Устанавливаем slotSelection для индикации последнего действия пользователя
-        console.log('[ShiftSelectionDialog] Setting selectedSlots');
-        setSelectedSlots({ type: shiftType, index: slotIndex });
-        
-        // Если пользователь был в режиме резерва, переключаем обратно на режим смен
-        if (isReserveMode) {
-            console.log('[ShiftSelectionDialog] Switching from reserve mode to shift mode');
-            setIsReserveMode(false);
-        }
-        
-        try {
-            // Проверяем, есть ли у пользователя активный резерв
-            const userHasReserve = reserveState?.isReserved || !!currentUserReserve;
-            
-            // Проверяем, есть ли у пользователя уже смена на эту дату в локальном состоянии
-            const userDayShift = dayShifts.find(shift => String(shift.userId) === currentUserIdStr);
-            const userNightShift = nightShifts.find(shift => String(shift.userId) === currentUserIdStr);
-            
-            // Проверяем, есть ли у пользователя смена в Redux store
-            const dateString = format(date, 'yyyy-MM-dd');
-            const userShiftInRedux = shiftsFromRedux.find(
-                shift => shift.date === dateString && 
-                String(shift.userId) === currentUserIdStr
-            );
-            
-            console.log('[ShiftSelectionDialog] User shift in Redux:', userShiftInRedux);
-            
-            // Если пользователь уже имеет смену этого типа и того же индекса, не делаем ничего
-            if ((shiftType === 'day' && userDayShift?.slotIndex === slotIndex) ||
-                (shiftType === 'night' && userNightShift?.slotIndex === slotIndex)) {
-                console.log('[ShiftSelectionDialog] User already has this exact shift, doing nothing');
-                return;
-            }
-            
-            // 1. ВАЖНЫЙ ШАГ: Если пользователь в резерве, сначала отменяем резерв
-            if (userHasReserve) {
-                console.log('[ShiftSelectionDialog] User has active reserve, canceling before booking shift');
-                let reserveIdToCancel: string | undefined;
-                
-                if (reserveState?.reserveId) {
-                    reserveIdToCancel = reserveState.reserveId;
-                } else if (currentUserReserve) {
-                    reserveIdToCancel = String(currentUserReserve.id);
+                if (data.user_id === currentUserId) {
+                    wsEventsRef.current.reserveDeleted = false;
                 }
-                
-                if (reserveIdToCancel && !reserveIdToCancel.startsWith('temp-')) {
-                    try {
-                        // Устанавливаем флаг, что происходит отмена резерва
-                        setReserveState(prev => prev ? { 
-                            ...prev, 
-                            isPending: true 
-                        } : { 
-                            isReserved: false, 
-                            isPending: true 
-                        });
-                        
-                        // ВАЖНО: Отправляем событие через WebSocket для удаления из резерва
-                        // Это необходимо сделать ДО создания новой смены
-                        console.log('[ShiftSelectionDialog] Removing from reserve via WebSocket:', reserveIdToCancel);
-                        
-                        // Используем dispatch для отправки WebSocket события и дожидаемся его выполнения
-                        const result = await dispatch(removeFromReserve({
-                            reserveId: reserveIdToCancel,
-                            userId: currentUserIdStr
-                        }));
-                        
-                        // Проверяем успешность операции
-                        if (removeFromReserve.fulfilled.match(result)) {
-                            console.log('[ShiftSelectionDialog] Successfully removed from reserve via WebSocket:', result.payload);
-                        } else {
-                            console.error('[ShiftSelectionDialog] Failed to remove from reserve:', result.error);
-                            throw new Error('Failed to remove from reserve');
-                        }
-                        
-                        // Сбрасываем состояние резерва - важно сделать это немедленно
-                        setReserveState(null);
-                        
-                        // Очищаем локальное состояние смен для подготовки к созданию новой
-                        setLocalDayShifts(prev => prev.filter(shift => String(shift.userId) !== currentUserIdStr));
-                        setLocalNightShifts(prev => prev.filter(shift => String(shift.userId) !== currentUserIdStr));
-                        
-                        // Принудительно обновляем компонент
-                        forceUpdate();
-                        
-                        // Важно: дожидаемся обработки удаления резерва на сервере
-                        // Увеличиваем задержку для надежности коммуникации с сервером
-                        await new Promise(resolve => setTimeout(resolve, 800));
-                    } catch (error) {
-                        console.error('[ShiftSelectionDialog] Error canceling reserve:', error);
-                        
-                        // Сбрасываем флаг ожидания, но продолжаем процесс
-                        setReserveState(prev => prev ? {
-                            ...prev,
-                            isPending: false
-                        } : {
-                            isReserved: false,
-                            isPending: false
-                        });
-                        
-                        // Продолжаем с бронированием смены, даже если была ошибка с отменой резерва
-                        // В худшем случае у пользователя будет и резерв, и смена, но это решится в следующем useEffect
-                        console.log('[ShiftSelectionDialog] Continuing with booking shift despite reserve cancel error');
-                    }
-                }
-            }
-
-            // 2. ВАЖНЫЙ ШАГ: После отмены резерва, ВСЕГДА создаем новую смену
-            // Это предотвращает проблему с обновлением несуществующей смены
-            console.log('[ShiftSelectionDialog] Creating a new shift after reserve was canceled');
-            
-            // Никогда не передаем существующий ID смены, всегда создаем новую
-            // undefined вместо existingShiftId гарантирует создание новой смены
-            onSlotSelect(shiftType, slotIndex, undefined);
-            
-            // 3. Оптимистично обновляем UI, не дожидаясь ответа сервера
-            // Обновляем локальное состояние UI - создаем новую виртуальную смену
-            const newShift: ShiftSlot = {
-                userId: currentUserIdStr,
-                slotIndex,
-                shiftType,
-                firstName: currentUserName || '',
-                lastName: '',
-                photo_url: currentUserAvatar || null
-            };
-            
-            // Очищаем все предыдущие смены пользователя и добавляем новую
-            const updatedDayShifts = dayShifts.filter(shift => String(shift.userId) !== currentUserIdStr);
-            const updatedNightShifts = nightShifts.filter(shift => String(shift.userId) !== currentUserIdStr);
-            
-            if (shiftType === 'day') {
-                setLocalDayShifts([...updatedDayShifts, newShift]);
-                setLocalNightShifts(updatedNightShifts);
-            } else {
-                setLocalDayShifts(updatedDayShifts);
-                setLocalNightShifts([...updatedNightShifts, newShift]);
-            }
-            
-            // Принудительно обновляем компонент
-            forceUpdate();
-            
-            // Показываем уведомление об успехе
-            setSuccessMessage('Вы успешно записались на смену');
-            setShowSuccess(true);
-            
-            // Скрываем уведомление через 3 секунды
-            setTimeout(() => {
-                console.log('[ShiftSelectionDialog] Setting showSuccess to false');
-                setShowSuccess(false);
-                // Еще раз обновляем компонент
-                forceUpdate();
-            }, 3000);
-        } catch (error) {
-            console.error('[ShiftSelectionDialog] Error in handleSlotSelect:', error);
-        }
-    };
-
-    const formatDate = (date: Date) => {
-        return date.toLocaleDateString('ru-RU', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long'
-        });
-    };
-
-    const renderSlots = (shifts: ShiftSlot[], maxSlots: number, shiftType: 'day' | 'night') => {
-        const slots = [];
-        const currentUserIdStr = String(currentUserId);
-        
-        // Создаем новую копию массива shifts для рендеринга
-        // Это гарантирует, что мы используем самые актуальные данные
-        const currentShifts = [...shifts];
-        
-        // Проверяем, есть ли у текущего пользователя смена в этот день
-        // Важно: используем текущее состояние из Redux для точного отображения
-        const userHasShiftInCurrentType = currentShifts.some(shift => String(shift.userId) === currentUserIdStr);
-        
-        // Для кросс-проверки с другим типом смены
-        const userHasDayShift = shiftType === 'day' 
-            ? userHasShiftInCurrentType 
-            : dayShifts.some(shift => String(shift.userId) === currentUserIdStr);
-        
-        const userHasNightShift = shiftType === 'night' 
-            ? userHasShiftInCurrentType 
-            : nightShifts.some(shift => String(shift.userId) === currentUserIdStr);
-        
-        // Для отладки логируем информацию о сменах пользователя
-        console.log(`[ShiftSelectionDialog] Rendering ${shiftType} slots:`, {
-            userHasDayShift,
-            userHasNightShift,
-            shiftsCount: currentShifts.length
-        });
-        
-        for (let i = 0; i < maxSlots; i++) {
-            // Определяем, есть ли смена для этого слота
-            const slot = currentShifts.find(shift => shift.slotIndex === i);
-            
-            // Определяем, должен ли слот быть заблокирован
-            const hasSlot = !!slot;
-            const isCurrentUserSlot = slot && String(slot.userId) === currentUserIdStr;
-            
-            // Слот должен быть заблокирован если:
-            // 1. Он занят другим пользователем
-            // 2. Пользователь уже имеет другую смену этого типа
-            let isDisabled = false;
-            
-            if (hasSlot && !isCurrentUserSlot) {
-                // Слот занят другим пользователем
-                isDisabled = true;
-            } else if (!hasSlot && shiftType === 'day' && userHasDayShift && !isCurrentUserSlot) {
-                // Пользователь уже имеет дневную смену с другим индексом
-                isDisabled = true;
-            } else if (!hasSlot && shiftType === 'night' && userHasNightShift && !isCurrentUserSlot) {
-                // Пользователь уже имеет ночную смену с другим индексом
-                isDisabled = true;
-            }
-            
-            // Для отладки выводим информацию о каждом слоте
-            console.log(`[ShiftSelectionDialog] Rendering ${shiftType} slot ${i}:`, {
-                hasSlot,
-                isCurrentUserSlot,
-                isDisabled,
-                slot: slot || null
             });
-            
-            // Определяем текст подсказки
-            let tooltipText = '';
-            if (hasSlot && !isCurrentUserSlot) {
-                tooltipText = `Занято курьером ${slot?.firstName} ${slot?.lastName}`;
-            } else if ((shiftType === 'day' && userHasDayShift && !isCurrentUserSlot) || 
-                      (shiftType === 'night' && userHasNightShift && !isCurrentUserSlot)) {
-                tooltipText = `Вы уже записаны на ${shiftType === 'day' ? 'дневную' : 'вечернюю'} смену`;
-            }
-            
-            // Теперь добавляем слот с правильными стилями
-            slots.push(
-                <SlotButtonWrapper key={i}>
-                    {tooltipText && <SlotTooltip>{tooltipText}</SlotTooltip>}
-                    <SlotButton
-                        $isOccupied={hasSlot}
-                        onClick={() => !isDisabled && handleSlotSelect(shiftType, i)}
-                        disabled={isDisabled}
-                        style={{
-                            opacity: isDisabled && !isCurrentUserSlot ? 0.5 : 1,
-                            cursor: isDisabled && !isCurrentUserSlot ? 'not-allowed' : 'pointer',
-                            border: isCurrentUserSlot ? '2px solid var(--primary-color)' : 
-                                    hasSlot ? 'transparent' : '2px dashed var(--primary-color)',
-                            background: isCurrentUserSlot ? 'rgba(76, 175, 80, 0.1)' : 
-                                      hasSlot ? 'transparent' : 'rgba(76, 175, 80, 0.05)'
-                        }}
-                    >
-                        {hasSlot ? (
-                            <CourierAvatar
-                                src={slot?.photo_url || defaultAvatar}
-                                alt={`${slot?.firstName} ${slot?.lastName}`}
-                                onError={(e) => {
-                                    const img = e.target as HTMLImageElement;
-                                    img.src = defaultAvatar;
-                                }}
-                                style={{
-                                    border: isCurrentUserSlot ? 
-                                        '2px solid var(--primary-color)' : 
-                                        '2px solid var(--border-color)'
-                                }}
-                            />
-                        ) : !isDisabled ? (
-                            <PlusIcon>+</PlusIcon>
-                        ) : null}
-                    </SlotButton>
-                </SlotButtonWrapper>
-            );
-        }
-        return slots;
-    };
-
-    const handleReserveClick = async () => {
-        console.log('[ShiftSelectionDialog] handleReserveClick called');
-        
-        // Проверяем, есть ли у пользователя активная смена
-        const userDayShift = localDayShifts.find(shift => String(shift.userId) === String(currentUserId));
-        const userNightShift = localNightShifts.find(shift => String(shift.userId) === String(currentUserId));
-        
-        // Если есть активная смена, отменяем её
-        if (userDayShift?.id || userNightShift?.id) {
-            console.log('[ShiftSelectionDialog] Canceling existing shift before adding to reserve');
-            const shiftId = userDayShift?.id || userNightShift?.id;
-            const shiftType = userDayShift ? 'day' : 'night';
-            
-            if (shiftId) {
-                try {
-                    await dispatch(cancelShift(shiftId));
-                    console.log('[ShiftSelectionDialog] Existing shift canceled successfully');
-                    
-                    // Обновляем локальное состояние, убирая пользователя из смены
-                    if (shiftType === 'day') {
-                        const updatedDayShifts = localDayShifts.filter(shift => String(shift.userId) !== String(currentUserId));
-                        console.log('[ShiftSelectionDialog] Updated day shifts after cancel:', updatedDayShifts);
-                        setLocalDayShifts(updatedDayShifts);
-                    } else {
-                        const updatedNightShifts = localNightShifts.filter(shift => String(shift.userId) !== String(currentUserId));
-                        console.log('[ShiftSelectionDialog] Updated night shifts after cancel:', updatedNightShifts);
-                        setLocalNightShifts(updatedNightShifts);
-                    }
-                    
-                    // Принудительно обновляем компонент для отражения изменений в UI
-                    forceUpdate();
-                } catch (error) {
-                    console.error('[ShiftSelectionDialog] Error canceling existing shift:', error);
-                    // Продолжаем процесс добавления в резерв даже если не удалось отменить смену
-                }
-            }
-        }
-        
-        // Вызываем onReserveSelect для добавления в резерв
-        onReserveSelect();
-        
-        // Сразу устанавливаем временное состояние резерва до получения ответа от сервера
-        const tempReserveId = `temp-${Date.now()}`;
-        setReserveState({
-            isReserved: true,
-            reserveId: tempReserveId,
-            isPending: true // Отмечаем, что резерв в процессе создания
-        });
-        
-        // Показываем уведомление об успехе
-        setSuccessMessage('Вы успешно записались в резерв');
-        setShowSuccess(true);
-        
-        // Скрываем уведомление через 3 секунды
-        setTimeout(() => {
-            console.log('[ShiftSelectionDialog] Hiding success notification');
-            setShowSuccess(false);
-            
-            // Обновляем состояние резерва, указывая, что он больше не в процессе создания
-            setReserveState(prevState => 
-                prevState ? { ...prevState, isPending: false } : null
-            );
-            
-            // Еще раз принудительно обновляем компонент
-            forceUpdate();
-        }, 3000);
-    };
-
-    const handleCancelReserve = async () => {
-        console.log('[ShiftSelectionDialog] handleCancelReserve called');
-        
-        try {
-            // Определяем ID резерва для отмены
-            let reserveIdToCancel: string | undefined;
-            
-            if (reserveState?.reserveId) {
-                reserveIdToCancel = reserveState.reserveId;
-            } else if (currentUserReserve) {
-                reserveIdToCancel = String(currentUserReserve.id);
-            }
-            
-            if (reserveIdToCancel && !reserveIdToCancel.startsWith('temp-')) {
-                console.log('[ShiftSelectionDialog] Canceling reserve with ID:', reserveIdToCancel);
-                
-                // Немедленно обновляем локальное состояние
-                setReserveState(null);
-                
-                // Вызываем dispatch для отправки WebSocket события напрямую
-                await dispatch(removeFromReserve({
-                    reserveId: reserveIdToCancel,
-                    userId: String(currentUserId)
-                }));
-                
-                console.log('[ShiftSelectionDialog] Reserve cancellation dispatched via WebSocket');
-                
-                // Показываем уведомление об успехе отмены
-                setSuccessMessage('Резерв успешно отменен');
-                setShowSuccess(true);
-                
-                // Скрываем уведомление через 3 секунды
-                setTimeout(() => {
-                    setShowSuccess(false);
-                    
-                    // Если пользователь находится в режиме резерва, переключаем его обратно в режим смен
-                    if (isReserveMode) {
-                        console.log('[ShiftSelectionDialog] Switching back to shift mode after reserve cancellation');
-                        setIsReserveMode(false);
-                    }
-                    
-                    // Принудительно обновляем компонент
-                    forceUpdate();
-                }, 3000);
-            } else {
-                console.log('[ShiftSelectionDialog] No valid reserve ID to cancel, temporary reserve, or no cancel function');
-                
-                // Сбрасываем локальное состояние резерва в любом случае
-                setReserveState(null);
-                
-                // Переключаемся в режим выбора смены
-                if (isReserveMode) {
-                    setIsReserveMode(false);
-                }
-                
-                // Принудительно обновляем компонент
-                forceUpdate();
-            }
-        } catch (error) {
-            console.error('[ShiftSelectionDialog] Error in handleCancelReserve:', error);
-            // Сбрасываем состояние даже в случае ошибки
-            setReserveState(null);
-            if (isReserveMode) {
-                setIsReserveMode(false);
-            }
-        }
-    };
-
-    const toggleReserveMode = () => {
-        console.log('[ShiftSelectionDialog] toggleReserveMode:', !isReserveMode);
-        setIsReserveMode(!isReserveMode);
-        // Сбрасываем выбранный слот при переключении режима
-        setSelectedSlots(null);
-    };
-
-    const renderReserveContent = () => {
-        // Определяем, имеет ли текущий пользователь резерв
-        const userHasReserve = reserveState?.isReserved || !!currentUserReserve;
-        
-        // Функция для явного перехода от резерва к сменам с отменой резерва
-        const handleSwitchToShifts = () => {
-            console.log('[ShiftSelectionDialog] handleSwitchToShifts called - just switching mode without canceling reserve');
-            
-            // Просто переключаемся в режим выбора смен без отмены резерва
-            setIsReserveMode(false);
-            
-            // Если у пользователя есть смена в локальном состоянии, нужно убедиться, что она не отображается
-            // при наличии активного резерва
-            const currentUserIdStr = String(currentUserId);
-            const userHasReserve = reserveState?.isReserved || !!currentUserReserve;
-            
-            if (userHasReserve) {
-                // Если у пользователя есть резерв, убираем его из локальных смен для согласованности UI
-                const userInLocalDayShifts = localDayShifts.some(shift => String(shift.userId) === currentUserIdStr);
-                const userInLocalNightShifts = localNightShifts.some(shift => String(shift.userId) === currentUserIdStr);
-                
-                if (userInLocalDayShifts) {
-                    console.log('[ShiftSelectionDialog] Removing user from local day shifts during switch');
-                    setLocalDayShifts(prev => prev.filter(shift => String(shift.userId) !== currentUserIdStr));
-                }
-                
-                if (userInLocalNightShifts) {
-                    console.log('[ShiftSelectionDialog] Removing user from local night shifts during switch');
-                    setLocalNightShifts(prev => prev.filter(shift => String(shift.userId) !== currentUserIdStr));
-                }
-            }
-            
-            // Обновляем компонент, чтобы отразить изменения
-            forceUpdate();
         };
         
-        return (
-            <>
-                <DialogHeader>
-                    <DialogTitle>Запись в резерв</DialogTitle>
-                    <DialogDate>{format(date, 'dd MMMM yyyy', { locale: ru })}</DialogDate>
-                </DialogHeader>
-
-                <ReserveGrid>
-                    {/* Отображаем существующие резервы */}
-                    {reserves.map((reserve) => {
-                        const isCurrentUser = String(reserve.userId) === String(currentUserId);
-                        return (
-                            <SlotButtonWrapper key={reserve.id}>
-                                <SlotButton 
-                                    $isOccupied={true}
-                                    style={{
-                                        border: isCurrentUser ? '2px solid var(--primary-color)' : 'transparent',
-                                        background: isCurrentUser ? 'rgba(76, 175, 80, 0.1)' : 'transparent'
-                                    }}
-                                >
-                                    <CourierAvatar
-                                        src={reserve.photo_url || defaultAvatar}
-                                        alt={`${reserve.firstName} ${reserve.lastName}`}
-                                        style={{
-                                            border: isCurrentUser ? '2px solid var(--primary-color)' : '2px solid var(--border-color)'
-                                        }}
-                                        onError={(e) => {
-                                            const img = e.target as HTMLImageElement;
-                                            img.src = defaultAvatar;
-                                        }}
-                                    />
-                                </SlotButton>
-                                <SlotTooltip>{isCurrentUser ? 'Вы' : `${reserve.firstName} ${reserve.lastName}`}</SlotTooltip>
-                            </SlotButtonWrapper>
-                        );
-                    })}
-                    
-                    {/* Показываем кнопку записи, если пользователь еще не в резерве */}
-                    {!userHasReserve && (
-                        <SlotButtonWrapper>
-                            <SlotButton 
-                                $isOccupied={false}
-                                onClick={handleReserveClick}
-                            >
-                                <PlusIcon>+</PlusIcon>
-                            </SlotButton>
-                            <SlotTooltip>Записаться в резерв</SlotTooltip>
-                        </SlotButtonWrapper>
-                    )}
-                    
-                    {/* Показываем кнопку отмены, если пользователь в резерве */}
-                    {userHasReserve && (
-                        <SlotButtonWrapper>
-                            <SlotButton 
-                                $isOccupied={false}
-                                onClick={handleCancelReserve}
-                                style={{ background: 'rgba(244, 67, 54, 0.1)', borderColor: '#f44336' }}
-                            >
-                                <span style={{ color: '#f44336', fontSize: '1.5rem' }}>&times;</span>
-                            </SlotButton>
-                            <SlotTooltip>Отменить резерв</SlotTooltip>
-                        </SlotButtonWrapper>
-                    )}
-                </ReserveGrid>
-
-                {reserves.length === 0 && !userHasReserve && (
-                    <NoSlotsMessage>
-                        В резерве пока никого нет.<br/>
-                        Нажмите на "+" чтобы записаться первым.
-                    </NoSlotsMessage>
-                )}
+        const handleReserveAdded = (data: any) => {
+            console.log(`[ShiftSelectionDialog] Reserve added event received:`, data);
+            
+            if (data.user_id === currentUserId && data.date === formattedDate) {
+                console.log(`[ShiftSelectionDialog] User ${currentUserId} was added to reserve for ${formattedDate}`);
                 
-                <DialogFooter>
-                    <ActionButtons>
-                        <BookButton 
-                            onClick={handleSwitchToShifts}
-                        >
-                            Вернуться к выбору смены
-                        </BookButton>
-                        
-                        {userHasReserve && (
-                            <CancelButton onClick={handleCancelReserve}>
-                                Отменить резерв
-                            </CancelButton>
-                        )}
-                    </ActionButtons>
-                </DialogFooter>
-            </>
-        );
-    };
-
-    const renderRegularContent = () => {
-        // Определяем, имеет ли пользователь резерв
-        const userHasReserve = reserveState?.isReserved || !!currentUserReserve;
-        
-        // Проверяем, есть ли у пользователя смена в Redux (наиболее актуальные данные)
-        const reduxDayShift = dayShifts.find(shift => String(shift.userId) === String(currentUserId));
-        const reduxNightShift = nightShifts.find(shift => String(shift.userId) === String(currentUserId));
-        const userHasShift = !!reduxDayShift || !!reduxNightShift;
-
-        // Если все слоты заняты и у пользователя нет смены - показываем сообщение
-        if (isFullyBooked && !userHasShift) {
-            return (
-                <>
-                    <DialogHeader>
-                        <DialogTitle>Выбор смены</DialogTitle>
-                        <DialogDate>{formatDate(date)}</DialogDate>
-                    </DialogHeader>
-
-                    <NoSlotsMessage>
-                        На этот день все слоты заняты. <br/>
-                        Вы можете записаться в резерв на случай отмены смены.
-                    </NoSlotsMessage>
-
-                    <ReserveButton onClick={toggleReserveMode}>
-                        {userHasReserve ? 'Управление резервом' : 'Записаться в резерв'}
-                    </ReserveButton>
-                </>
-            );
-        }
-
-        // Используем данные из Redux для отображения
-        return (
-            <>
-                <DialogHeader>
-                    <DialogTitle>Выбор смены</DialogTitle>
-                    <DialogDate>{formatDate(date)}</DialogDate>
-                </DialogHeader>
-
-                <ShiftSection>
-                    <ShiftTitle>
-                        <ShiftIcon>☀️</ShiftIcon>
-                        Дневная смена
-                    </ShiftTitle>
-                    <SlotsGrid>
-                        {renderSlots(dayShifts, maxDaySlots, 'day')}
-                    </SlotsGrid>
-                </ShiftSection>
-
-                <ShiftSection>
-                    <ShiftTitle>
-                        <ShiftIcon>🌙</ShiftIcon>
-                        Вечерняя смена
-                    </ShiftTitle>
-                    <SlotsGrid>
-                        {renderSlots(nightShifts, maxNightSlots, 'night')}
-                    </SlotsGrid>
-                </ShiftSection>
+                wsEventsRef.current.reserveAdded = true;
                 
-                <DialogFooter>
-                    <ActionButtons>
-                        <ReserveButton 
-                            onClick={toggleReserveMode}
-                        >
-                            {userHasReserve ? 'Управление резервом' : 'Записаться в резерв'}
-                        </ReserveButton>
-                        
-                        {userHasShift && !userHasReserve && (
-                            <CancelButton 
-                                onClick={async () => {
-                                    // Отменяем существующую смену
-                                    const shiftId = reduxDayShift?.id || reduxNightShift?.id;
-                                    const shiftType = reduxDayShift ? 'day' : 'night';
-                                    
-                                    if (shiftId) {
-                                        try {
-                                            await dispatch(cancelShift(shiftId));
-                                            console.log('[ShiftSelectionDialog] Existing shift canceled successfully');
-                                            
-                                            // Обновляем локальное состояние, убирая пользователя из смены
-                                            if (shiftType === 'day') {
-                                                const updatedDayShifts = localDayShifts.filter(shift => String(shift.userId) !== String(currentUserId));
-                                                console.log('[ShiftSelectionDialog] Updated day shifts after cancel:', updatedDayShifts);
-                                                setLocalDayShifts(updatedDayShifts);
-                                            } else {
-                                                const updatedNightShifts = localNightShifts.filter(shift => String(shift.userId) !== String(currentUserId));
-                                                console.log('[ShiftSelectionDialog] Updated night shifts after cancel:', updatedNightShifts);
-                                                setLocalNightShifts(updatedNightShifts);
-                                            }
-                                            
-                                            // Принудительно обновляем компонент для отражения изменений в UI
-                                            forceUpdate();
-                                            
-                                            setSuccessMessage('Смена успешно отменена');
-                                            setShowSuccess(true);
-                                            setTimeout(() => {
-                                                setShowSuccess(false);
-                                                // Еще раз обновляем компонент после скрытия уведомления
-                                                forceUpdate();
-                                            }, 3000);
-                                        } catch (error) {
-                                            console.error('[ShiftSelectionDialog] Error canceling shift:', error);
-                                        }
-                                    }
-                                }}
-                            >
-                                {"Отменить смену"}
-                            </CancelButton>
-                        )}
-                    </ActionButtons>
-                </DialogFooter>
-            </>
-        );
-    };
-
-    return (
-        <DialogOverlay onClick={(e) => {
-            console.log('[ShiftSelectionDialog] DialogOverlay clicked');
-            if (e.target === e.currentTarget) {
-                handleClose();
+                showSuccessMessage("Вы были успешно добавлены в резерв");
+                
+                if (!isReserveMode) {
+                    setIsReserveMode(true);
+                }
             }
-        }}>
-            <DialogContent onClick={e => e.stopPropagation()}>
-                <CloseButton onClick={handleClose}>&times;</CloseButton>
-                
-                {showSuccess && (
-                    <SuccessNotification>
-                        <CheckIcon>✓</CheckIcon>
-                        {successMessage || (isReserveMode ? 'Вы успешно записались в резерв' : 'Вы успешно записались на смену')}
-                    </SuccessNotification>
-                )}
+            
+            // Независимо от того, чей резерв добавлен, обновляем данные
+            dispatch(forceFetchReserves()).then(() => {
+                forceUpdate();
+                if (data.user_id === currentUserId) {
+                    wsEventsRef.current.reserveAdded = false;
+                }
+            });
+        };
+        
+        socketService.on('reserve_deleted', handleReserveDeleted);
+        socketService.on('reserve_added', handleReserveAdded);
+        
+        return () => {
+            console.log(`[ShiftSelectionDialog] Cleaning up WebSocket listeners for key: ${wsHandlerKey}`);
+            socketService.off('reserve_deleted', handleReserveDeleted);
+            socketService.off('reserve_added', handleReserveAdded);
+        };
+    }, [wsHandlerKey, currentUserId, formattedDate, dispatch, forceUpdate, isReserveMode]);
 
-                {isReserveMode ? renderReserveContent() : renderRegularContent()}
+    const memoizedShiftPanel = useMemo(() => (
+        <div 
+            key="shift-panel"
+            style={{
+                display: isReserveMode ? 'none' : 'flex',
+                flexDirection: 'column',
+                willChange: 'transform',
+                transform: 'translateZ(0)'
+            }}
+        >
+            <ShiftPanel 
+                dayShifts={dayShifts} 
+                nightShifts={nightShifts}
+                maxDaySlots={maxDaySlots}
+                maxNightSlots={maxNightSlots}
+                onSlotSelect={onSlotSelect}
+                forceUpdate={forceUpdate}
+                currentUserId={currentUserId}
+                currentUserAvatar={currentUserAvatar}
+                currentUserName={currentUserName}
+                onSwitchToReserve={() => setIsReserveMode(true)}
+                date={date}
+                reserves={actualReserves}
+                showSuccessMessage={showSuccessMessage}
+            />
+        </div>
+    ), [
+        dayShifts, 
+        nightShifts, 
+        maxDaySlots, 
+        maxNightSlots, 
+        date, 
+        isReserveMode, 
+        onSlotSelect,
+        currentUserId,
+        currentUserAvatar,
+        currentUserName,
+        forceUpdate,
+        actualReserves
+    ]);
+    
+    const memoizedReservePanel = useMemo(() => (
+        <div 
+            key="reserve-panel"
+            style={{
+                display: isReserveMode ? 'flex' : 'none',
+                flexDirection: 'column',
+                willChange: 'transform',
+                transform: 'translateZ(0)'
+            }}
+        >
+            <ReservePanel 
+                reserves={actualReserves}
+                onReserveSelect={onReserveSelect}
+                currentUserId={currentUserId}
+                currentUserAvatar={currentUserAvatar}
+                currentUserName={currentUserName}
+                date={date}
+                dayShifts={dayShifts}
+                nightShifts={nightShifts}
+                onSwitchToShifts={() => setIsReserveMode(false)}
+                showSuccessMessage={showSuccessMessage}
+                forceUpdate={forceUpdate}
+            />
+        </div>
+    ), [
+        actualReserves, 
+        currentUserId, 
+        currentUserAvatar, 
+        currentUserName, 
+        date, 
+        isReserveMode, 
+        onReserveSelect,
+        forceUpdate,
+        dayShifts,
+        nightShifts
+    ]);
+    
+    if (!isOpen) return null;
+    
+    return (
+        <DialogOverlay onClick={onClose}>
+            <DialogContent onClick={e => e.stopPropagation()}>
+                <CloseButton onClick={onClose}>&times;</CloseButton>
+                
+                <ModeSwitchContainer>
+                    <ModeButton 
+                        active={!isReserveMode} 
+                        onClick={() => setIsReserveMode(false)}
+                        data-testid="shift-mode-button"
+                    >
+                        Смены
+                    </ModeButton>
+                    <ModeButton 
+                        active={isReserveMode} 
+                        onClick={() => setIsReserveMode(true)}
+                        data-testid="reserve-mode-button"
+                    >
+                        Резерв {isCurrentUserInReserve && '✓'}
+                    </ModeButton>
+                </ModeSwitchContainer>
+                
+                {memoizedShiftPanel}
+                {memoizedReservePanel}
             </DialogContent>
         </DialogOverlay>
     );

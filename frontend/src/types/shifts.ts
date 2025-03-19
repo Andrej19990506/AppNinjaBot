@@ -10,7 +10,7 @@ export interface CourierShift {
 }
 
 export interface ReserveShift {
-    id: string | number;
+    id: string;
     userId: string;
     date: string;
     photo_url: string | null;
@@ -45,6 +45,6 @@ export interface AddToReserveParams {
 }
 
 export interface RemoveFromReserveParams {
-    reserveId: number;
+    reserveId: string;
     userId: string;
 } 

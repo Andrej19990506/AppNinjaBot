@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 import format from 'date-fns/format';
@@ -12,11 +12,16 @@ import {
     selectError,
     subscribeToShiftEvents,
     unsubscribeFromShiftEvents,
-    bookShift,
-    removeFromReserve
+    bookShift
 } from '../../store/slices/shiftsSlice';
-import { addToReserve } from '../../store/slices/reservesSlice';
+import { 
+    addToReserve, 
+    removeFromReserve, 
+    selectAllReserves,
+    forceFetchReserves
+} from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
+import store from '../../store/store';
 
 interface CourierShift {
     userId: string;
@@ -495,7 +500,7 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
 }) => {
     const dispatch = useDispatch<AppDispatch>();
     const shifts = useSelector((state: RootState) => state.shifts.shifts);
-    const reserves = useSelector((state: RootState) => state.shifts.reserves);
+    const reserves = useSelector(selectAllReserves);
     const isLoading = useSelector(selectIsLoading);
     const error = useSelector(selectError);
 
@@ -513,24 +518,51 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
     const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
 
+    // Кэшируем функции обработчиков для предотвращения перерисовок
+    const stableHandleShiftUpdated = useCallback((data: any) => {
+        console.log('[CourierCalendar] WebSocket shift_updated:', data.id);
+        // Не вызываем немедленное обновление UI, позволяем редуксу сделать это
+    }, []);
+    
+    const stableHandleShiftBooked = useCallback((data: any) => {
+        console.log('[CourierCalendar] WebSocket shift_booked:', data.id);
+        // Не вызываем немедленное обновление UI, позволяем редуксу сделать это
+    }, []);
+    
+    const stableHandleShiftCanceled = useCallback((data: any) => {
+        console.log('[CourierCalendar] WebSocket shift_canceled:', data.id);
+        // Не вызываем немедленное обновление UI, позволяем редуксу сделать это
+    }, []);
+
     useEffect(() => {
         // Загружаем смены при монтировании компонента
         dispatch(fetchShifts());
         
-        // Подписываемся на события WebSocket
-        subscribeToShiftEvents(dispatch);
+        // Подписываемся на события WebSocket с стабильными обработчиками
+        subscribeToShiftEvents(dispatch, {
+            onShiftUpdated: stableHandleShiftUpdated,
+            onShiftBooked: stableHandleShiftBooked,
+            onShiftCanceled: stableHandleShiftCanceled
+        });
         
         // Отписываемся при размонтировании
         return () => {
             unsubscribeFromShiftEvents();
         };
-    }, [dispatch]);
+    }, [dispatch, stableHandleShiftUpdated, stableHandleShiftBooked, stableHandleShiftCanceled]);
 
     // Add a new useEffect hook to handle real-time updates
     useEffect(() => {
-        console.log('[CourierCalendar] Shifts have been updated, refreshing calendar UI');
-        // Force re-render by setting a state variable that's guaranteed to be different each time
-        setLastUpdateTime(Date.now());
+        // Используем debounce для плавного обновления без моргания
+        // Вместо немедленного обновления, будем ждать небольшое время 
+        // на случай, если придет несколько обновлений подряд
+        const timer = setTimeout(() => {
+            console.log('[CourierCalendar] Shifts have been updated, smoothly refreshing calendar UI');
+            setLastUpdateTime(Date.now());
+        }, 500); // Увеличиваем таймаут для большей плавности
+        
+        // Очищаем таймер при изменении зависимостей
+        return () => clearTimeout(timer);
     }, [shifts]);
 
     const getDaysInMonth = (date: Date) => {
@@ -583,7 +615,20 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
 
     const getReservesForDate = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        return reserves.filter(reserve => reserve.date === dateStr);
+        // Получаем свежие данные прямо из Redux store
+        const allCurrentReserves = selectAllReserves(store.getState());
+        
+        // Добавим детальное логирование
+        console.log(`[CourierCalendar] All Redux reserves:`, allCurrentReserves);
+        
+        const filteredReserves = allCurrentReserves.filter(reserve => reserve.date === dateStr);
+        console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
+            totalReserves: allCurrentReserves.length,
+            filteredReserves: filteredReserves.length,
+            dateStr,
+            reservesData: filteredReserves
+        });
+        return filteredReserves;
     };
 
     // Добавим функцию для проверки, есть ли у пользователя смена на данную дату
@@ -694,6 +739,13 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     }, []);
 
     const handleDayClick = (date: Date) => {
+        // Если дата уже выбрана, не делаем ничего
+        if (selectedDateForDialog && 
+            format(selectedDateForDialog, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
+            console.log(`[CourierCalendar] Day already selected: ${format(date, 'yyyy-MM-dd')}`);
+            return;
+        }
+        
         console.log(`[CourierCalendar] Day clicked: ${format(date, 'yyyy-MM-dd')}`);
         
         // Проверяем, есть ли у пользователя смена на эту дату
@@ -739,13 +791,30 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 existingShiftId: validShiftId
             });
             
-            await dispatch(bookShift({
+            // Диспатчим экшен без await, чтобы не блокировать UI
+            // Это позволит избежать перерисовки до завершения действия
+            const dispatchPromise = dispatch(bookShift({
                 date: dateString,
                 shiftType,
                 slotIndex,
                 userId: currentUserId,
-                existingShiftId: validShiftId // Используем проверенный ID или undefined
+                existingShiftId: validShiftId
             }));
+            
+            // Отложенно обновим UI через 500мс, чтобы дать время для обработки UI в ShiftPanel
+            setTimeout(() => {
+                console.log('[CourierCalendar] Delayed UI update after booking shift');
+            }, 500);
+            
+            // Асинхронно обрабатываем результат без блокировки UI
+            dispatchPromise.then(() => {
+                console.log('[CourierCalendar] Shift booking completed successfully');
+            }).catch(error => {
+                console.error('[CourierCalendar] Error in background shift booking:', error);
+            });
+            
+            // Возвращаем промис для кода, которому нужно дождаться завершения
+            return dispatchPromise;
         } catch (error) {
             console.error('Error booking/updating shift:', error);
         }
@@ -756,14 +825,18 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         
         try {
             console.log('[CourierCalendar] Adding to reserve...');
-            await dispatch(addToReserve({
+            const result = await dispatch(addToReserve({
                 date: format(selectedDateForDialog, 'yyyy-MM-dd'),
                 userId: currentUserId
             }));
-            console.log('[CourierCalendar] Successfully added to reserve');
-            // НЕ закрываем диалог после успешного добавления в резерв
+            
+            console.log('[CourierCalendar] Successfully added to reserve, result:', result);
+            
+            // Возвращаем результат, чтобы компонент ReservePanel мог обработать его
+            return result.payload;
         } catch (error) {
-            console.error('Error adding to reserve:', error);
+            console.error('[CourierCalendar] Error adding to reserve:', error);
+            throw error; // Пробрасываем ошибку дальше для обработки в компоненте
         }
     };
 
@@ -780,60 +853,59 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         }
     };
 
-    const renderDayContent = (date: Date) => {
-        if (!date) return null;
-        
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const dateShifts = shifts.filter(shift => shift.date === dateStr);
-        
-        // Проверяем, записан ли текущий курьер на эту дату
-        const currentUserShift = dateShifts.find(shift => String(shift.userId) === String(currentUserId));
-        
-        // Добавляем логирование для отладки отображения аватара
-        if (currentUserShift) {
-            console.log(`[CourierCalendar] Rendering avatar for date ${dateStr}:`, {
-                shift: currentUserShift,
-                userId: currentUserId,
-                photo_url: currentUserShift.photo_url
-            });
+    // Создаем мемоизированную версию функции renderDayContent
+    const renderDayContent = useMemo(() => {
+        // Возвращаем функцию, которая будет использоваться для рендеринга
+        return (date: Date) => {
+            if (!date) return null;
             
-            return (
-                <CourierAvatar 
-                    src={currentUserShift.photo_url || currentUserAvatar || defaultAvatar}
-                    alt={`${currentUserShift.firstName} ${currentUserShift.lastName}`}
-                    key={`${dateStr}-${lastUpdateTime}-${currentUserShift.shiftType}`} // Добавляем key для принудительного обновления
-                    onError={(e) => {
-                        const img = e.target as HTMLImageElement;
-                        img.src = defaultAvatar;
-                    }}
-                />
-            );
-        }
-        
-        // Проверяем количество занятых слотов
-        const totalSlots = 6; // 4 дневных + 2 вечерних
-        const occupiedSlots = dateShifts.length;
-        const hasAvailableSlots = occupiedSlots < totalSlots;
-        
-        if (isDateAvailable(date)) {
-            if (hasAvailableSlots) {
+            const dateStr = format(date, 'yyyy-MM-dd');
+            const dateShifts = shifts.filter(shift => shift.date === dateStr);
+            
+            // Проверяем, записан ли текущий курьер на эту дату
+            const currentUserShift = dateShifts.find(shift => String(shift.userId) === String(currentUserId));
+            
+            if (currentUserShift) {
+                // Сокращаем логирование для уменьшения нагрузки
                 return (
-                    <EmptySlotIndicator key={`${dateStr}-${lastUpdateTime}-empty`}>
-                        <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
-                    </EmptySlotIndicator>
-                );
-            } else {
-                return (
-                    <OccupiedSlotIndicator key={`${dateStr}-${lastUpdateTime}-occupied`}>
-                        <DayNumber $isAvailable={false} style={{ color: '#FF3B30' }}>{format(date, 'd')}</DayNumber>
-                        <CrossIcon>×</CrossIcon>
-                    </OccupiedSlotIndicator>
+                    <CourierAvatar 
+                        src={currentUserShift.photo_url || currentUserAvatar || defaultAvatar}
+                        alt={`${currentUserShift.firstName || ''} ${currentUserShift.lastName || ''}`}
+                        // Используем более стабильный ключ без lastUpdateTime
+                        key={`${dateStr}-${currentUserShift.id || 'user'}`}
+                        onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.src = defaultAvatar;
+                        }}
+                    />
                 );
             }
-        }
-        
-        return <DayNumber $isAvailable={false} key={`${dateStr}-${lastUpdateTime}-unavailable`}>{format(date, 'd')}</DayNumber>;
-    };
+            
+            // Проверяем количество занятых слотов
+            const totalSlots = 6; // 4 дневных + 2 вечерних
+            const occupiedSlots = dateShifts.length;
+            const hasAvailableSlots = occupiedSlots < totalSlots;
+            
+            if (isDateAvailable(date)) {
+                if (hasAvailableSlots) {
+                    return (
+                        <EmptySlotIndicator key={`${dateStr}-empty`}>
+                            <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
+                        </EmptySlotIndicator>
+                    );
+                } else {
+                    return (
+                        <OccupiedSlotIndicator key={`${dateStr}-occupied`}>
+                            <DayNumber $isAvailable={false} style={{ color: '#FF3B30' }}>{format(date, 'd')}</DayNumber>
+                            <CrossIcon>×</CrossIcon>
+                        </OccupiedSlotIndicator>
+                    );
+                }
+            }
+            
+            return <DayNumber $isAvailable={false} key={`${dateStr}-unavailable`}>{format(date, 'd')}</DayNumber>;
+        };
+    }, [shifts, currentUserId, currentUserAvatar, isDateAvailable]);
 
     if (isLoading) {
         return <div>Загрузка...</div>;

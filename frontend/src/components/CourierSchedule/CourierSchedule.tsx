@@ -10,6 +10,7 @@ import { updateUser } from '../../store/slices/userSlice';
 import { bookShift } from '../../store/slices/shiftsSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
+import { format } from 'date-fns';
 
 const Container = styled.div`
     padding: 20px;
@@ -120,10 +121,10 @@ const CourierSchedule: React.FC = () => {
 
         try {
             await dispatch(bookShift({
-                date,
+                date: format(date, 'yyyy-MM-dd'),
                 shiftType,
                 slotIndex,
-                userId: user.id
+                userId: String(user.id)
             })).unwrap();
 
             dispatch(addNotification({
@@ -162,7 +163,7 @@ const CourierSchedule: React.FC = () => {
                     <CourierCalendar
                         onShiftSelect={handleShiftSelect}
                         selectedDate={selectedDate}
-                        currentUserId={user?.id || 0}
+                        currentUserId={String(user?.id || '')}
                         currentUserAvatar={user?.photo_url || undefined}
                         currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
                         onClose={() => setShowCalendar(false)}

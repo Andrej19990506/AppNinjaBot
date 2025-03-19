@@ -240,7 +240,6 @@
     flex: 1;
     overflow-y: auto !important;
     padding-right: 10px;
-    margin-bottom: 20px;
     min-height: 0; /* Важно для работы flex-контейнера со скроллом */
     max-height: 60vh; /* Ограничиваем высоту для активации скролла */
 }

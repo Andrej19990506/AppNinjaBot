@@ -1,6 +1,22 @@
+export interface Group {
+    chat_id: string;
+    chat_title: string;
+    group_type: string;
+}
+
 export interface User {
     id: number;
-    username: string;
+    username: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    photo_url: string | null;
+    groups?: Group[];
     isAdmin: boolean;
-    // Добавьте другие необходимые поля пользователя
+    adminRights: any | null;
+}
+
+export interface UserState {
+    user: User | null;
+    isInitialized: boolean;
+    error: string | null;
 } 

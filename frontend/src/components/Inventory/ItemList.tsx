@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import styles from './ItemList.module.css';
 import { InventoryItem } from '../../types/inventory';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -41,6 +41,7 @@ const ItemList: React.FC<ItemListProps> = ({
     searchResults = [], 
     onSearchResultSelect 
 }) => {
+    const listRef = useRef<HTMLDivElement>(null);
     const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -48,11 +49,46 @@ const ItemList: React.FC<ItemListProps> = ({
     const dispatch = useAppDispatch();
     const { socket } = useWebSocket();
     const [deleteItem, setDeleteItem] = useState<{ id: string; name: string } | null>(null);
-    const gridRef = useRef<HTMLDivElement>(null);
-    // Добавляем состояния для управления формой добавления товара
     const [showAddForm, setShowAddForm] = useState(false);
     const [newItemName, setNewItemName] = useState('');
     const inputRef = useRef<HTMLInputElement>(null);
+    
+    // Определяем статус товара (заполнен/пуст/нет в наличии)
+    const getItemStatus = (item: InventoryItem) => {
+        if (!item.raw) return '';
+        
+        if (item.raw.isOutOfStock) return 'outOfStock';
+        
+        const isRawFilled = item.raw.filled || item.raw.quantity > 0;
+        const hasSemifinished = Boolean(item.semifinished);
+        const isSemifinishedFilled = hasSemifinished && 
+            (item.semifinished?.filled || (item.semifinished?.quantity ?? 0) > 0);
+        
+        if (isRawFilled && (!hasSemifinished || isSemifinishedFilled)) {
+            return 'filled';
+        }
+        
+        return '';
+    };
+    
+    // Получаем массив товаров и сортируем его
+    const itemsArray = Object.entries(items)
+        .map(([itemId, item]) => ({
+            id: itemId,
+            ...item
+        }))
+        .sort((a, b) => {
+            // Определяем заполненность для каждого элемента
+            const aStatus = getItemStatus(a);
+            const bStatus = getItemStatus(b);
+            
+            // Если один из элементов заполнен, а другой нет
+            if (aStatus === 'filled' && !bStatus) return 1;
+            if (!aStatus && bStatus === 'filled') return -1;
+            
+            // Если оба элемента имеют одинаковый статус, сортируем по алфавиту
+            return a.id.localeCompare(b.id);
+        });
     
     // Функция для выделения совпадений в тексте
     const highlightMatch = (text: string, query: string) => {
@@ -89,22 +125,6 @@ const ItemList: React.FC<ItemListProps> = ({
         }
         
         return result;
-    };
-    
-    // Определяем статус товара (заполнен/пуст/нет в наличии)
-    const getItemStatus = (item: InventoryItem) => {
-        if (item.raw.isOutOfStock) return 'outOfStock';
-        
-        const isRawFilled = item.raw.filled || item.raw.quantity > 0;
-        const hasSemifinished = Boolean(item.semifinished);
-        const isSemifinishedFilled = hasSemifinished && 
-            (item.semifinished?.filled || (item.semifinished?.quantity ?? 0) > 0);
-        
-        if (isRawFilled && (!hasSemifinished || isSemifinishedFilled)) {
-            return 'filled';
-        }
-        
-        return '';
     };
     
     // Получаем результаты поиска из текущей категории
@@ -245,9 +265,9 @@ const ItemList: React.FC<ItemListProps> = ({
                     <p>В этой категории нет товаров</p>
                 </div>
             ) : (
-                <div className={styles.list}>
+                <div ref={listRef} className={styles.list}>
                     <AnimatePresence>
-                        {Object.entries(items).map(([itemId, item]) => {
+                        {itemsArray.map(({ id: itemId, ...item }) => {
                             const status = getItemStatus(item);
                             const isSearchResult = searchQuery && currentCategoryResults.some(
                                 result => result.itemId === itemId
@@ -261,13 +281,21 @@ const ItemList: React.FC<ItemListProps> = ({
                                     dragConstraints={{ left: 0, right: 0 }}
                                     onDragEnd={(_, info) => handleDragEnd(info, itemId)}
                                     onClick={(e) => {
-                                        console.log(`Клик по карточке товара ${itemId}`, e);
-                                        e.stopPropagation(); // Предотвращаем всплытие события
+                                        e.stopPropagation();
                                         handleItemClick(itemId);
                                     }}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
-                                    style={{ zIndex: 100, position: 'relative' }} // Добавляем inline-стили для z-index
+                                    transition={{
+                                        type: "spring",
+                                        stiffness: 500,
+                                        damping: 30,
+                                        mass: 1
+                                    }}
+                                    layout
                                 >
                                     <h3 className={styles.itemTitle}>
                                         {searchQuery && isSearchResult ? 
@@ -326,8 +354,18 @@ const ItemList: React.FC<ItemListProps> = ({
                                     key={`${resultCategory}-${itemId}`}
                                     className={`${styles.itemCard} ${styles[status]} ${styles.searchResult}`}
                                     onClick={() => onSearchResultSelect?.(resultCategory, itemId)}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}
+                                    transition={{
+                                        type: "spring",
+                                        stiffness: 500,
+                                        damping: 30,
+                                        mass: 1
+                                    }}
+                                    layout
                                 >
                                     <div className={styles.categoryLabel}>{resultCategory}</div>
                                     <h3 className={styles.itemTitle}>

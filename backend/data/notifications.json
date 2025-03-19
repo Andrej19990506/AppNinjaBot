@@ -1,5 +1,787 @@
 [
   {
+    "id": "2457417588_Десерты_Проверка_20250317032646_2283072469",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Проверка",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:26:46.172298",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Десерты_Проверка_20250317032646_2457417588",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Проверка",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:26:46.173684",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Десерты_Салют_20250317032636_2283072469",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:26:36.298261",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Десерты_Салют_20250317032636_2457417588",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Салют",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:26:36.298647",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Смотрим_20250317032345_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Смотрим",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:45.842304",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Смотрим_20250317032345_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Смотрим",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:45.842902",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Перец_20250317032339_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Перец",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:39.951448",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Перец_20250317032339_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Перец",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:39.952397",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_777_20250317032332_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "777",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:32.569760",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_777_20250317032332_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "777",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:32.570765",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_555_20250317032328_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "555",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:28.014435",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_555_20250317032328_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "555",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:28.015160",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_321_20250317032324_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "321",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:24.329097",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_321_20250317032324_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "321",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:24.329692",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Хаха_20250317032317_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Хаха",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:17.896680",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Хаха_20250317032317_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Хаха",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:17.897007",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Фигасе_20250317032312_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Фигасе",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:12.410834",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Фигасе_20250317032312_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Фигасе",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:12.411190",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250317032306_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:23:06.277908",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Урааа_20250317032306_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Урааа",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:23:06.278376",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250317032259_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:59.176816",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250317032259_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:59.177322",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250317032258_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:58.805546",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Такс_20250317032258_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Такс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:58.805900",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_прверь_20250317032246_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "прверь",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:46.124729",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_прверь_20250317032246_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "прверь",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:46.125405",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Димон красава_20250317032243_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Димон красава",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:43.371758",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Димон красава_20250317032243_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Димон красава",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:43.372214",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Димон красава_20250317032242_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Димон красава",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:42.969509",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Димон красава_20250317032242_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Димон красава",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:42.969860",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_вау_20250317032234_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "вау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:34.213277",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_вау_20250317032234_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "вау",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:34.213599",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Афигетт_20250317032220_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Афигетт",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:20.082096",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_Афигетт_20250317032220_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "Афигетт",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:20.082437",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123_20250317032216_2283072469",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-17T03:22:16.261497",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Бакалея_123_20250317032216_2457417588",
+    "type": "item_deleted",
+    "category": "Бакалея",
+    "item": "123",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-17T03:22:16.262267",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Десерты_Чупа чупс_20250316015135_2283072469",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Чупа чупс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-16T01:51:35.776286",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Десерты_Чупа чупс_20250316015135_2457417588",
+    "type": "item_deleted",
+    "category": "Десерты",
+    "item": "Чупа чупс",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-16T01:51:35.776578",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Полуфабрикаты_Пц_20250316012817_2283072469",
+    "type": "item_deleted",
+    "category": "Полуфабрикаты",
+    "item": "Пц",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-16T01:28:17.395012",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Полуфабрикаты_Пц_20250316012817_2457417588",
+    "type": "item_deleted",
+    "category": "Полуфабрикаты",
+    "item": "Пц",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-16T01:28:17.395491",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Полуфабрикаты_nfr_20250316012807_2283072469",
+    "type": "item_deleted",
+    "category": "Полуфабрикаты",
+    "item": "nfr",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-16T01:28:07.876262",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Полуфабрикаты_nfr_20250316012807_2457417588",
+    "type": "item_deleted",
+    "category": "Полуфабрикаты",
+    "item": "nfr",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-16T01:28:07.876671",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Масла и заправки_мпмпр_20250316011928_2283072469",
+    "type": "item_deleted",
+    "category": "Масла и заправки",
+    "item": "мпмпр",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-16T01:19:28.148336",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Масла и заправки_мпмпр_20250316011928_2457417588",
+    "type": "item_deleted",
+    "category": "Масла и заправки",
+    "item": "мпмпр",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-16T01:19:28.148723",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Масла и заправки_Привет_20250316011920_2283072469",
+    "type": "item_deleted",
+    "category": "Масла и заправки",
+    "item": "Привет",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2283072469",
+    "created_at": "2025-03-16T01:19:20.727650",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
+    "id": "2457417588_Масла и заправки_Привет_20250316011920_2457417588",
+    "type": "item_deleted",
+    "category": "Масла и заправки",
+    "item": "Привет",
+    "branch_name": "Свердловская",
+    "initiator_chat_id": "2457417588",
+    "target_chat_id": "2457417588",
+    "created_at": "2025-03-16T01:19:20.729892",
+    "read_by": [],
+    "author": {
+      "first_name": "Словцова",
+      "last_name": null,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_58.jpg",
+      "user_id": 6843570748
+    }
+  },
+  {
     "id": "2283072469_Масла и заправки_мпмпр_20250312091827_2283072469",
     "type": "item_deleted",
     "category": "Масла и заправки",

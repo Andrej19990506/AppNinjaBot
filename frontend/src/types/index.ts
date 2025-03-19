@@ -115,4 +115,8 @@ export interface ChatMetadata {
     mode?: 'inventory' | 'writeoff' | 'events';
     progress?: number;
     status?: 'active' | 'completed' | 'pending';
-} 
+}
+
+export * from './shifts';
+export * from './store';
+// ... остальные экспорты 

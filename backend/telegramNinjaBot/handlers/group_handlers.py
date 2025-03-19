@@ -4,13 +4,13 @@ import logging
 import aiohttp
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Union
-from telegram import Update, ChatMember, Bot
-from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler, CommandHandler
+from telegram import Update, ChatMember, Bot, Chat, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, BotCommand, MenuButton, MenuButtonWebApp
+from telegram.constants import ChatMemberStatus, MenuButtonType
+from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler, CommandHandler, Application, CallbackQueryHandler
 from telegramNinjaBot.services.json_service import JsonService
-from telegram.constants import ChatMemberStatus
+from telegramNinjaBot.services.courier_group_service import CourierGroupService
 from typing import Optional, List, Dict, Union, Any
 import random
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
 import time
 import telegram.error
 import httpx
@@ -35,27 +35,83 @@ def get_member_status(member: ChatMember) -> str:
     return status_map.get(member.status, str(member.status).lower())
 
 class GroupHandler:
-    def __init__(self, application, json_service: JsonService):
+    def __init__(self, application: Application, json_service: JsonService):
         """Инициализация обработчика групповых событий"""
         self.application = application
         self.json_service = json_service
+        self.courier_service = CourierGroupService(self.json_service.data_dir)
+        self.bot_id = None  # Инициализируем как None
+        self.photo_cache = {}  # Инициализируем кэш фотографий
+        self.processed_groups_file = os.path.join(self.json_service.data_dir, 'processed_groups.json')
         
-        # Создаем и настраиваем HTTP-клиент для бота
-        self.http_client = None
+        # Регистрируем обработчики
+        self._register_handlers()
         
-        # Инициализируем кэш фотографий
-        self.photo_cache = {}
-        self.photos_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'photos')
-        os.makedirs(self.photos_dir, exist_ok=True)
-        
-        if self.json_service.file_exists('photo_cache.json'):
-            self.photo_cache = self.json_service.load_from_json('photo_cache.json')
-        
-        # Добавляем задачу периодического обновления фотографий
-        self.job_queue = application.job_queue
-        self.job_queue.run_repeating(self.update_all_photos, interval=3600, first=10)  # Обновляем каждый час
-        
-        logger.info("✅ Обработчик групповых событий инициализирован")
+        logger.info("✅ GroupHandler инициализирован")
+    
+    def _load_processed_groups(self) -> set:
+        """Загрузка списка обработанных групп из файла"""
+        try:
+            if os.path.exists(self.processed_groups_file):
+                with open(self.processed_groups_file, 'r', encoding='utf-8') as f:
+                    return set(json.load(f))
+            return set()
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке списка обработанных групп: {str(e)}")
+            return set()
+
+    def _save_processed_groups(self, groups: set) -> None:
+        """Сохранение списка обработанных групп в файл"""
+        try:
+            with open(self.processed_groups_file, 'w', encoding='utf-8') as f:
+                json.dump(list(groups), f)
+        except Exception as e:
+            logger.error(f"Ошибка при сохранении списка обработанных групп: {str(e)}")
+
+    async def initialize(self):
+        """Инициализация дополнительных параметров после полной инициализации бота"""
+        try:
+            # Инициализируем сервис для групп курьеров
+            self.courier_service = CourierGroupService(self.json_service.data_dir)
+            
+            # Создаем и настраиваем HTTP-клиент для бота
+            self.http_client = None
+            
+            # Инициализируем кэш фотографий
+            self.photo_cache = {}
+            self.photos_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'photos')
+            os.makedirs(self.photos_dir, exist_ok=True)
+            
+            if self.json_service.file_exists('photo_cache.json'):
+                self.photo_cache = self.json_service.load_from_json('photo_cache.json')
+            
+            # Добавляем задачу периодического обновления фотографий
+            self.job_queue = self.application.job_queue
+            self.job_queue.run_repeating(self.update_all_photos, interval=3600, first=10)  # Обновляем каждый час
+            
+            # Добавляем задачу очистки множества обработанных групп
+            self.job_queue.run_repeating(self._clear_processed_groups, interval=300, first=300)  # Очищаем каждые 5 минут
+            
+            # Инициализируем бота и получаем его ID
+            await self.application.bot.initialize()
+            self.bot_id = self.application.bot.id
+            logger.info(f"✅ ID бота установлен: {self.bot_id}")
+            
+            logger.info("✅ Обработчик групповых событий инициализирован")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при инициализации GroupHandler: {str(e)}")
+            logger.error(traceback.format_exc())
+            raise
+
+    async def _clear_processed_groups(self, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Очистка множества обработанных групп"""
+        try:
+            if hasattr(self, 'processed_groups'):
+                self.processed_groups.clear()
+                logger.info("✅ Множество обработанных групп очищено")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при очистке множества обработанных групп: {str(e)}")
     
     async def _ensure_http_client(self):
         """Убеждаемся, что HTTP-клиент существует и активен"""
@@ -74,215 +130,230 @@ class GroupHandler:
             raise
 
     async def handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка новых участников в чате"""
+        """Обработчик добавления новых участников в чат"""
         try:
             chat = update.effective_chat
-            new_members = update.message.new_chat_members
-            bot_added = False
+            new_members = update.message.new_chat_members if update.message else []
             
-            logger.info(f"=== Обработка новых участников в чате {chat.title} ===")
-            logger.info(f"ID чата: {chat.id}")
-            logger.info(f"Тип чата: {chat.type}")
-            logger.info(f"Новые участники: {[f'{member.full_name} (ID: {member.id})' for member in new_members]}")
+            # Проверяем, был ли добавлен бот
+            is_bot_added = any(member.id == context.bot.id for member in new_members)
             
-            # Проверяем каждого нового участника
-            for member in new_members:
-                if member.id == context.bot.id:
-                    logger.info(f"🤖 Бот был добавлен в чат {chat.title}")
-                    bot_added = True
-                    # Сразу обрабатываем добавление бота
-                    await self._process_bot_added(update, context)
-                else:
-                    # Получаем фото нового участника с принудительным обновлением
-                    photo_url = await self._get_user_photo(member.id, context, force_update=True)
-                    logger.info(f"Получено фото для нового участника {member.full_name}: {photo_url}")
+            if is_bot_added:
+                # Создаем уникальный идентификатор события
+                event_id = f"bot_added_{chat.id}_{update.message.message_id}"
+                
+                # Инициализируем множество для отслеживания обработанных событий, если его еще нет
+                if not hasattr(self, '_processed_events'):
+                    self._processed_events = set()
+                
+                # Проверяем, не обрабатывали ли мы уже это событие
+                if event_id in self._processed_events:
+                    logger.info(f"Событие {event_id} уже было обработано, пропускаем")
+                    return
+                
+                # Добавляем событие в множество обработанных
+                self._processed_events.add(event_id)
+                
+                logger.info(f"=== Бот добавлен в чат {chat.title} ===")
+                await self._process_bot_added(chat, context)
+                return
+            
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            # Получаем текущие списки участников и администраторов
+            current_members = await self._get_chat_members(chat, context)
+            current_admins = await self._get_chat_admins(original_chat_id, context)
+            
+            # Обрабатываем каждого нового участника
+            for new_member in new_members:
+                if new_member.is_bot:  # Пропускаем ботов
+                    continue
                     
-                    # Приветствуем нового участника
-                    welcome_message = (
-                        f"Добро пожаловать, {member.first_name}!\n"
-                        f"Рады видеть вас в группе '{chat.title}'."
-                    )
-                    try:
-                        await update.message.reply_text(welcome_message)
-                        logger.info(f"✅ Отправлено приветствие новому участнику {member.full_name} в чате {chat.title}")
-                    except Exception as e:
-                        logger.error(f"❌ Ошибка при отправке приветствия: {e}")
+                # Получаем фото нового участника
+                photo_url = await self._get_user_photo(new_member.id, context, force_update=True)
+                
+                # Создаем информацию о новом участнике
+                member_info = {
+                    'user_id': new_member.id,
+                    'username': new_member.username,
+                    'first_name': new_member.first_name or "",
+                    'last_name': new_member.last_name or "",
+                    'status': 'member',
+                    'joined_date': datetime.now().isoformat(),
+                    'is_bot': new_member.is_bot
+                }
+                
+                if photo_url:
+                    member_info['photo_url'] = photo_url
+                
+                # Проверяем, является ли новый участник администратором
+                is_admin = await context.bot.get_chat_member(chat.id, new_member.id)
+                if is_admin.status in ['administrator', 'creator']:
+                    member_info['status'] = is_admin.status
+                    if not any(a['user_id'] == new_member.id for a in current_admins):
+                        current_admins.append(member_info)
+                
+                # Добавляем участника в список, если его там еще нет
+                if not any(m['user_id'] == new_member.id for m in current_members):
+                    current_members.append(member_info)
+                    logger.info(f"Добавлен новый участник: {new_member.username or new_member.id}")
             
-            if not bot_added:
-                # Получаем стандартизированный ID чата
-                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
-                original_chat_id = await self._get_original_chat_id(standardized_chat_id)
-                
-                logger.info(f"Обновление данных для обычного участника в чате {chat.title}")
-                logger.info(f"Стандартизированный ID: {standardized_chat_id}")
-                logger.info(f"Оригинальный ID: {original_chat_id}")
-                
-                # Получаем текущих участников
-                current_members = await self._get_chat_members(chat, context)
-                logger.info(f"Получено {len(current_members)} участников")
-                
-                # Получаем администраторов
-                admins = await self._get_chat_admins(original_chat_id, context)
-                logger.info(f"Получено {len(admins)} администраторов")
-                
-                # Сохраняем данные
-                await self.json_service.save_members(standardized_chat_id, chat.title, current_members)
-                await self.json_service.save_admins(standardized_chat_id, chat.title, admins)
-                
-                logger.info(f"✅ Обновлены данные для чата {chat.title} (ID: {standardized_chat_id})")
+            # Сохраняем обновленные данные
+            if is_courier:
+                # Для курьерских групп сохраняем в системе курьеров
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=current_members,
+                    admins=current_admins
+                )
+                logger.info(f"✅ Данные курьерской группы {chat.title} успешно обновлены")
+            else:
+                # Для обычных групп сохраняем в общие файлы
+                await self.json_service.save_members(original_chat_id, chat.title, current_members)
+                await self.json_service.save_admins(original_chat_id, chat.title, current_admins)
+                logger.info(f"✅ Данные группы {chat.title} успешно обновлены")
             
         except Exception as e:
-            logger.error(f"❌ Ошибка при обработке новых участников: {e}", exc_info=True)
+            logger.error(f"❌ Ошибка при обработке новых участников: {e}")
             logger.error(traceback.format_exc())
 
     async def handle_chat_member_update(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка изменений участников чата"""
+        """Обработчик изменения статуса участника в чате"""
         try:
-            chat = update.chat_member.chat
+            chat = update.effective_chat
             user = update.chat_member.new_chat_member.user
-            new_member = update.chat_member.new_chat_member
-            old_member = update.chat_member.old_chat_member
-            user_name = f"{user.first_name} {user.last_name if user.last_name else ''}"
-
-            logger.info(f"=== Обработка изменения статуса участника ===")
-            logger.info(f"Чат: {chat.title}")
-            logger.info(f"ID чата: {chat.id}")
-            logger.info(f"Участник: {user_name}")
-            logger.info(f"ID участника: {user.id}")
-            logger.info(f"Старый статус: {old_member.status}")
-            logger.info(f"Новый статус: {new_member.status}")
-
-            # Проверка изменения статуса
-            if new_member.status == "administrator":
-                logger.info(f"🎉 Пользователь {user_name} назначен администратором")
-                
-                # Получаем актуальные права администратора
-                admin_rights = {
-                    'can_manage_chat': getattr(new_member, 'can_manage_chat', False),
-                    'can_delete_messages': getattr(new_member, 'can_delete_messages', False),
-                    'can_manage_voice_chats': getattr(new_member, 'can_manage_voice_chats', False),
-                    'can_restrict_members': getattr(new_member, 'can_restrict_members', False),
-                    'can_promote_members': getattr(new_member, 'can_promote_members', False),
-                    'can_change_info': getattr(new_member, 'can_change_info', False),
-                    'can_invite_users': getattr(new_member, 'can_invite_users', False),
-                    'can_pin_messages': getattr(new_member, 'can_pin_messages', False)
-                }
-                logger.info(f"Права администратора: {json.dumps(admin_rights, indent=2, ensure_ascii=False)}")
-
-                # Сначала получаем фото нового администратора
-                photo_url = await self._get_user_photo(user.id, context, force_update=True)
-                logger.info(f"Получено фото для нового администратора: {photo_url}")
-                
-                # Создаем или обновляем информацию об администраторе
-                admin_info = {
-                    'user_id': user.id,
-                    'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'status': new_member.status,
-                    'is_bot': user.is_bot,
-                    'photo_url': photo_url,
-                    **admin_rights  # Добавляем права администратора
-                }
-                logger.info(f"Создана информация об администраторе: {json.dumps(admin_info, indent=2, ensure_ascii=False)}")
-
-                # Получаем стандартизированный ID чата
-                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
-                logger.info(f"Стандартизированный ID чата: {standardized_chat_id}")
-
-                # Обновляем список администраторов
-                admins_data = self.json_service.load_from_json('admins.json')
-                logger.info(f"Загружен текущий список администраторов")
-                
-                if standardized_chat_id not in admins_data:
-                    logger.info(f"Создаем новую запись для чата {chat.title}")
-                    admins_data[standardized_chat_id] = {'chat_title': chat.title, 'admins': []}
-                
-                # Обновляем или добавляем администратора
-                admin_found = False
-                for i, admin in enumerate(admins_data[standardized_chat_id]['admins']):
-                    if str(admin['user_id']) == str(user.id):
-                        logger.info(f"Обновляем существующего администратора {user_name}")
-                        admins_data[standardized_chat_id]['admins'][i] = admin_info
-                        admin_found = True
-                        break
-                
-                if not admin_found:
-                    logger.info(f"Добавляем нового администратора {user_name}")
-                    admins_data[standardized_chat_id]['admins'].append(admin_info)
-                
-                # Обновляем время последнего обновления
-                admins_data[standardized_chat_id]['last_updated'] = datetime.now().isoformat()
-                
-                # Сохраняем обновленный список администраторов
-                await self.json_service.save_to_json('admins.json', admins_data)
-                logger.info(f"✅ Список администраторов успешно обновлен")
-
-                # Отправляем поздравление
-                await chat.send_message(
-                    f"🎉 Поздравляем! {user_name} теперь администратор!"
-                )
-                logger.info(f"✅ Отправлено поздравление новому администратору")
-
-                # Отправляем уведомление на сервер
-                logger.info(f"Отправляем уведомление на сервер об обновлении прав")
-                await self._notify_server_about_admin_update(
-                    standardized_chat_id,
-                    admins_data[standardized_chat_id]
-                )
-
-            elif old_member.status == "administrator":
-                logger.info(f"❌ Пользователь {user_name} больше не является администратором")
-                
-                await chat.send_message(
-                    f"❌ {user_name} больше не является администратором."
-                )
-                logger.info(f"Отправлено уведомление о снятии прав администратора")
-                
-                # Получаем стандартизированный ID чата
-                standardized_chat_id = await self._get_standardized_chat_id(chat.id)
-                logger.info(f"Стандартизированный ID чата: {standardized_chat_id}")
-                
-                # Удаляем из admin_activity.json
-                activity_data = self.json_service.load_from_json('admin_activity.json')
-                if standardized_chat_id in activity_data and str(user.id) in activity_data[standardized_chat_id]:
-                    del activity_data[standardized_chat_id][str(user.id)]
-                    logger.info(f"Удалена активность администратора из admin_activity.json")
-                    
-                    # Если это был последний админ в чате, удаляем и запись о чате
-                    if not activity_data[standardized_chat_id]:
-                        del activity_data[standardized_chat_id]
-                        logger.info(f"Удалена запись о чате из admin_activity.json (нет активных админов)")
-                    
-                    await self.json_service.save_to_json('admin_activity.json', activity_data)
-                    logger.info(f"✅ Файл admin_activity.json обновлен")
-                
+            old_status = update.chat_member.old_chat_member.status
+            new_status = update.chat_member.new_chat_member.status
+            
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            # Получаем текущие списки участников и администраторов
+            current_members = await self._get_chat_members(chat, context)
+            current_admins = await self._get_chat_admins(original_chat_id, context)
+            
+            # Получаем фото пользователя
+            photo_url = await self._get_user_photo(user.id, context, force_update=True)
+            
+            # Создаем/обновляем информацию о пользователе
+            member_info = {
+                'user_id': user.id,
+                'username': user.username,
+                'first_name': user.first_name or "",
+                'last_name': user.last_name or "",
+                'status': new_status,
+                'joined_date': datetime.now().isoformat(),
+                'is_bot': user.is_bot
+            }
+            
+            if photo_url:
+                member_info['photo_url'] = photo_url
+            
+            # Обновляем статус в списке участников
+            member_updated = False
+            for member in current_members:
+                if member['user_id'] == user.id:
+                    member.update(member_info)
+                    member_updated = True
+                    break
+            
+            # Если участника нет в списке, добавляем его
+            if not member_updated and new_status not in ['left', 'kicked']:
+                current_members.append(member_info)
+                logger.info(f"Добавлен новый участник: {user.username or user.id}")
+            
+            # Обновляем список администраторов
+            if new_status in ['administrator', 'creator']:
+                # Добавляем в список администраторов
+                if not any(a['user_id'] == user.id for a in current_admins):
+                    current_admins.append(member_info)
+                    logger.info(f"Добавлен новый администратор: {user.username or user.id}")
+            elif old_status in ['administrator', 'creator']:
                 # Удаляем из списка администраторов
-                admins_data = self.json_service.load_from_json('admins.json')
-                if standardized_chat_id in admins_data:
-                    before_count = len(admins_data[standardized_chat_id]['admins'])
-                    admins_data[standardized_chat_id]['admins'] = [
-                        admin for admin in admins_data[standardized_chat_id]['admins']
-                        if str(admin['user_id']) != str(user.id)
-                    ]
-                    after_count = len(admins_data[standardized_chat_id]['admins'])
-                    
-                    admins_data[standardized_chat_id]['last_updated'] = datetime.now().isoformat()
-                    await self.json_service.save_to_json('admins.json', admins_data)
-                    logger.info(f"✅ Администратор удален из списка (было {before_count}, стало {after_count} админов)")
+                current_admins = [a for a in current_admins if a['user_id'] != user.id]
+                logger.info(f"Удален администратор: {user.username or user.id}")
+            
+            # Сохраняем обновленные данные
+            if is_courier:
+                # Для курьерских групп сохраняем в системе курьеров
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=current_members,
+                    admins=current_admins
+                )
+                logger.info(f"✅ Данные курьерской группы {chat.title} успешно обновлены")
 
-                    # Отправляем уведомление на сервер
-                    logger.info(f"Отправляем уведомление на сервер об обновлении прав")
-                    await self._notify_server_about_admin_update(
-                        standardized_chat_id,
-                        admins_data[standardized_chat_id]
-                    )
+                # Обновляем список доступа к веб-приложению
+                courier_access_file = os.path.join(self.json_service.data_dir, 'courier_webapp_access.json')
+                try:
+                    # Загружаем текущие данные о доступе
+                    if os.path.exists(courier_access_file):
+                        with open(courier_access_file, 'r', encoding='utf-8') as f:
+                            access_data = json.load(f)
+                    else:
+                        access_data = {"groups": [], "members": []}
+
+                    # Обновляем список участников
+                    current_members = set(str(member['user_id']) for member in members)
+                    
+                    # Получаем участников всех курьерских групп
+                    all_courier_members = set()
+                    for group_id in access_data["groups"]:
+                        try:
+                            group_members = await self._get_chat_members(group_id, context)
+                            all_courier_members.update(str(member['user_id']) for member in group_members)
+                        except Exception as e:
+                            logger.error(f"Ошибка при получении участников группы {group_id}: {str(e)}")
+
+                    # Обновляем список доступа
+                    access_data["members"] = list(all_courier_members)
+
+                    # Сохраняем обновленные данные
+                    with open(courier_access_file, 'w', encoding='utf-8') as f:
+                        json.dump(access_data, f, indent=2, ensure_ascii=False)
+
+                    logger.info(f"✅ Список доступа к веб-приложению обновлен")
+
+                    # Сохраняем обновленные данные
+                    with open(courier_access_file, 'w', encoding='utf-8') as f:
+                        json.dump(access_data, f, indent=2, ensure_ascii=False)
+
+                    logger.info(f"✅ Список доступа к веб-приложению обновлен")
+
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при обновлении списка доступа: {str(e)}")
+                    logger.error(traceback.format_exc())
+            else:
+                # Для обычных групп сохраняем в общие файлы
+                await self.json_service.save_members(original_chat_id, chat.title, current_members)
+                await self.json_service.save_admins(original_chat_id, chat.title, current_admins)
+                logger.info(f"✅ Данные группы {chat.title} успешно обновлены")
             
         except Exception as e:
-            logger.error(f"❌ Ошибка при обработке изменения участника")
-            logger.error(f"Описание ошибки: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
-    
+            logger.error(f"❌ Ошибка при обработке изменения статуса участника: {e}")
+            logger.error(traceback.format_exc())
+
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик сообщений для отслеживания активности администраторов"""
         try:
@@ -296,6 +367,10 @@ class GroupHandler:
             if not user_id:
                 return
 
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(update.message.chat.title)
+            logger.info(f"Проверка группы '{update.message.chat.title}' на принадлежность к курьерам: {is_courier}")
+
             # Принудительно обновляем списки участников и администраторов
             try:
                 chat = update.effective_chat
@@ -306,16 +381,33 @@ class GroupHandler:
                 admins = await self._get_chat_admins(original_chat_id, context)
                 # Сохраняем только если список не пустой
                 if admins:
-                    await self.json_service.save_admins(standardized_chat_id, chat.title, admins)
-                    logger.info(f"Принудительно обновлен список администраторов для чата {chat.title}")
+                    if is_courier:
+                        # Для курьерских групп сохраняем данные только в системе курьеров
+                        members = await self._get_chat_members(chat, context)
+                        await self.courier_service.save_group_data(
+                            chat_id=standardized_chat_id,
+                            chat_title=chat.title,
+                            members=members,
+                            admins=admins
+                        )
+                        logger.info(f"✅ Данные курьерской группы {chat.title} успешно обновлены")
+                    else:
+                        # Для обычных групп сохраняем данные в общие файлы
+                        await self.json_service.save_admins(standardized_chat_id, chat.title, admins)
+                        logger.info(f"Принудительно обновлен список администраторов для чата {chat.title}")
                 else:
                     logger.warning("Получен пустой список администраторов, пропускаем сохранение")
                 
                 # Обновляем список участников
                 members = await self._get_chat_members(chat, context)
                 if members:
-                    await self.json_service.save_members(standardized_chat_id, chat.title, members)
-                    logger.info(f"Принудительно обновлен список участников для чата {chat.title}")
+                    if is_courier:
+                        # Для курьерских групп данные уже сохранены выше
+                        logger.info(f"✅ Список участников курьерской группы {chat.title} обновлен")
+                    else:
+                        # Для обычных групп сохраняем данные в общие файлы
+                        await self.json_service.save_members(standardized_chat_id, chat.title, members)
+                        logger.info(f"Принудительно обновлен список участников для чата {chat.title}")
                 else:
                     logger.warning("Получен пустой список участников, пропускаем сохранение")
             except Exception as update_error:
@@ -567,70 +659,62 @@ class GroupHandler:
             last_error = None
             success = False
             
-            # Пробуем получить участников с разными форматами ID
-            chat_id_formats = [
-                chat.id,  # Оригинальный ID
-                str(chat.id),  # Строковый ID
-                f"-100{str(chat.id)}" if not str(chat.id).startswith('-100') else str(chat.id),  # Формат для супергрупп
-            ]
-            
-            for chat_id in chat_id_formats:
-                if success:
-                    break
-                    
-                try:
-                    # Получаем список участников
-                    chat_members = await context.bot.get_chat_administrators(chat_id)
-                    
-                    # Обрабатываем каждого участника
-                    for member in chat_members:
-                        user = member.user
-                        if user.is_bot:  # Пропускаем ботов
-                            continue
-                            
-                        # Получаем фото участника с принудительным обновлением для новых
-                        photo_url = await self._get_user_photo(user.id, context, force_update=True)
+            # Получаем список участников через обновление чата
+            try:
+                chat_info = await context.bot.get_chat(chat.id)
+                if not chat_info.permissions:
+                    logger.warning(f"Нет прав для получения информации о чате {chat.title}")
+                    return []
+
+                # Получаем администраторов
+                admins = await context.bot.get_chat_administrators(chat.id)
+                admin_ids = [admin.user.id for admin in admins]
+                
+                # Добавляем администраторов в список участников
+                for admin in admins:
+                    user = admin.user
+                    if user.is_bot:  # Пропускаем ботов
+                        continue
                         
-                        member_info = {
-                            'user_id': user.id,
-                            'username': user.username,
-                            'first_name': user.first_name,
-                            'last_name': user.last_name,
-                            'status': get_member_status(member),
-                            'joined_date': datetime.now().isoformat(),
-                            'is_bot': user.is_bot
-                        }
-                        
-                        # Добавляем фото, если оно есть
-                        if photo_url:
-                            member_info['photo_url'] = photo_url
-                            logger.info(f"Добавлено фото для участника {user.full_name}")
-                        else:
-                            logger.warning(f"Не удалось получить фото для участника {user.full_name}")
-                        
-                        members.append(member_info)
-                        logger.info(f"Добавлен участник: {user.full_name} ({user.id})")
+                    # Получаем фото участника
+                    photo_url = await self._get_user_photo(user.id, context, force_update=True)
                     
-                    success = True
-                    logger.info(f"✅ Успешно получены {len(members)} участников")
+                    member_info = {
+                        'user_id': user.id,
+                        'username': user.username,
+                        'first_name': "",  # Инициализируем пустой строкой
+                        'last_name': "",   # Инициализируем пустой строкой
+                        'status': 'administrator',
+                        'joined_date': datetime.now().isoformat(),
+                        'is_bot': user.is_bot
+                    }
                     
-                except Exception as e:
-                    last_error = e
-                    logger.warning(f"Ошибка при получении участников с ID {chat_id}: {str(e)}")
-                    continue
+                    if photo_url:
+                        member_info['photo_url'] = photo_url
+                        
+                    members.append(member_info)
+                    logger.info(f"Добавлен администратор: {user.username or user.id}")
+
+                success = True
+                logger.info(f"✅ Успешно получены участники чата {chat.title}")
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"Не удалось получить участников чата {chat.title}: {str(e)}")
             
             if not success and last_error:
                 raise last_error
-            
+                
             return members
             
         except Exception as e:
             logger.error(f"❌ Ошибка при получении списка участников: {str(e)}")
-            logger.error(traceback.format_exc())
             return []
 
     async def _get_chat_admins(self, chat_id: Union[int, str], context: ContextTypes.DEFAULT_TYPE) -> List[dict]:
         """Получение списка администраторов чата"""
+        admin_list = []
+        
         try:
             logger.info(f"Получение администраторов для чата {chat_id}")
             
@@ -655,17 +739,13 @@ class GroupHandler:
             admins = None
             last_error = None
             
-            # Пробуем каждый формат ID
+            # Пробуем получить администраторов с разными форматами ID
             for format_id in chat_id_formats:
                 try:
-                    logger.info(f"Пробую получить администраторов с ID: {format_id}")
                     admins = await context.bot.get_chat_administrators(format_id)
-                    if admins:
-                        logger.info(f"Успешно получены администраторы с ID: {format_id}")
-                        break
+                    break
                 except Exception as e:
                     last_error = e
-                    logger.warning(f"Не удалось получить администраторов с ID {format_id}: {e}")
                     continue
             
             if not admins:
@@ -673,14 +753,13 @@ class GroupHandler:
                     raise last_error
                 return []
             
-            admin_list = []
             for admin in admins:
                 user = admin.user
                 admin_info = {
                     'user_id': user.id,
                     'username': user.username,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
+                    'first_name': "",  # Инициализируем пустой строкой
+                    'last_name': "",   # Инициализируем пустой строкой
                     'status': get_member_status(admin),
                     'is_bot': user.is_bot,
                     'can_manage_chat': getattr(admin, 'can_manage_chat', True),
@@ -699,7 +778,7 @@ class GroupHandler:
                     admin_info['photo_url'] = photo_url
                 
                 admin_list.append(admin_info)
-                logger.info(f"Добавлен администратор: {user.full_name} ({user.id})")
+                logger.info(f"Добавлен администратор: {user.username or user.id}")
             
             logger.info(f"Всего получено {len(admin_list)} администраторов")
             return admin_list
@@ -720,100 +799,238 @@ class GroupHandler:
             return chat_id_str[1:]
         return chat_id_str
 
-    async def _process_bot_added(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    async def _process_bot_added(self, chat: Chat, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработка добавления бота в чат"""
         try:
-            chat = update.effective_chat
-            logger.info(f"=== Начало обработки добавления бота в чат {chat.title} ===")
-            logger.info(f"ID чата: {chat.id}")
+            # Создаем уникальный идентификатор для этого чата
+            chat_key = f"bot_added_{chat.id}"
             
-            # Получаем стандартизированный ID чата
-            chat_id = str(chat.id).replace('-100', '').replace('-', '')
+            # Загружаем список обработанных групп
+            processed_groups = self._load_processed_groups()
+            
+            # Проверяем, не обрабатывали ли мы уже этот чат
+            if chat_key in processed_groups:
+                logger.info(f"Чат {chat.title} уже был обработан, пропускаем")
+                return
+                
+            # Добавляем чат в множество обработанных и сохраняем
+            processed_groups.add(chat_key)
+            # Добавляем чат в множество обработанных
+            if not hasattr(self, 'processed_groups'):
+                self.processed_groups = set()
+            self.processed_groups.add(chat_key)
+            
+            logger.info(f"=== Начало обработки добавления бота в чат {chat.title} ===")
+            
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
             logger.info(f"Стандартизированный ID чата: {chat_id}")
             
-            # Получаем список участников
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            if is_courier:
+                # Создаем inline клавиатуру с кнопкой "Записаться"
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📝 Записаться", callback_data="register_courier")]
+                ])
+                
+                # Отправляем сообщение с кнопкой в чат
+                try:
+                    logger.info(f"Попытка отправить приветственное сообщение в чат {chat.id}")
+                    message = await context.bot.send_message(
+                        chat_id=chat.id,
+                        text=(
+                            f"👋 Приветствую участников группы {chat.title}!\n\n"
+                            "Чтобы получить доступ к функциям записи на смену, "
+                            "пожалуйста, нажмите кнопку 'Записаться' ниже."
+                        ),
+                        reply_markup=keyboard
+                    )
+                    
+                    # Создаем задачу для попытки закрепления сообщения через 10 секунд
+                    async def try_pin_message():
+                        try:
+                            await asyncio.sleep(10)  # Ждем 10 секунд
+                            logger.info("Попытка закрепить сообщение после задержки")
+                            await context.bot.pin_chat_message(
+                                chat_id=chat.id,
+                                message_id=message.message_id,
+                                disable_notification=True
+                            )
+                            logger.info("✅ Сообщение успешно закреплено")
+                        except Exception as e:
+                            logger.error(f"❌ Не удалось закрепить сообщение после задержки: {str(e)}")
+                    
+                    # Запускаем задачу закрепления сообщения асинхронно
+                    asyncio.create_task(try_pin_message())
+                    
+                    logger.info(f"✅ Приветственное сообщение успешно отправлено в группу {chat.title}")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при отправке приветственного сообщения: {str(e)}")
+                    logger.error(traceback.format_exc())
+
+            # Получаем список всех участников чата
             logger.info("Получение списка участников...")
             members = await self._get_chat_members(chat, context)
             logger.info(f"Получено {len(members)} участников")
             
             # Получаем список администраторов
             logger.info("Получение списка администраторов...")
-            admins = await self._get_chat_admins(chat.id, context)
+            admins = await self._get_chat_admins(original_chat_id, context)
             logger.info(f"Получено {len(admins)} администраторов")
             
-            # Сохраняем данные
-            logger.info("Сохранение данных...")
+            # Проверяем и добавляем администраторов в список участников, если их там нет
+            for admin in admins:
+                if not any(m['user_id'] == admin['user_id'] for m in members):
+                    members.append(admin)
+                    logger.info(f"Администратор {admin['username'] or admin['user_id']} добавлен в список участников")
             
-            # Создаем файл инвентаря для чата
-            inventory_file = os.path.join(self.json_service.inventory_dir, f'inventory_{chat_id}.json')
-            logger.info(f"Создание файла инвентаря: {inventory_file}")
-            
-            # Создаем директорию, если её нет
-            os.makedirs(os.path.dirname(inventory_file), exist_ok=True)
-            
-            with open(inventory_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'chat_id': chat_id,
-                    'chat_title': chat.title,
-                    'created_at': datetime.now().isoformat(),
-                    'items': []
-                }, f, ensure_ascii=False, indent=2)
-            logger.info("✅ Файл инвентаря создан")
-            
-            # Отправляем приветственное сообщение
-            welcome_message = (
-                f"👋 Привет! Я бот для управления инвентарем.\n"
-                f"Теперь я буду помогать вам отслеживать и управлять инвентарем в группе '{chat.title}'.\n\n"
-                f"🔍 Вот что я умею:\n"
-                f"• Отслеживать добавление и удаление предметов\n"
-                f"• Синхронизировать инвентарь между филиалами\n"
-                f"• Показывать статистику и отчеты\n\n"
-                f"Чтобы начать работу, добавьте меня в администраторы группы."
-            )
-            
-            message = await context.bot.send_message(
-                chat_id=chat.id,
-                text=welcome_message
-            )
-            logger.info(f"✅ Приветственное сообщение отправлено (Message ID: {message.message_id})")
-            
-            logger.info(f"✅ Бот успешно добавлен в чат {chat.title} (ID: {chat.id})")
+            if is_courier:
+                # Для курьерских групп сохраняем в системе курьеров
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
+                )
+                logger.info(f"✅ Данные курьерской группы {chat.title} успешно сохранены")
+
+                # Обновляем список доступа к веб-приложению
+                courier_access_file = os.path.join(self.json_service.data_dir, 'courier_webapp_access.json')
+                try:
+                    # Загружаем текущие данные о доступе
+                    if os.path.exists(courier_access_file):
+                        with open(courier_access_file, 'r', encoding='utf-8') as f:
+                            access_data = json.load(f)
+                    else:
+                        access_data = {"groups": [], "members": []}
+
+                    # Обновляем список групп
+                    if original_chat_id not in access_data["groups"]:
+                        access_data["groups"].append(original_chat_id)
+
+                    # Обновляем список участников
+                    member_ids = [str(member['user_id']) for member in members]
+                    access_data["members"] = list(set(access_data["members"] + member_ids))
+
+                    # Сохраняем обновленные данные
+                    with open(courier_access_file, 'w', encoding='utf-8') as f:
+                        json.dump(access_data, f, indent=2, ensure_ascii=False)
+
+                    logger.info(f"✅ Список доступа к веб-приложению обновлен")
+
+                    
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при обновлении списка доступа: {str(e)}")
+                    logger.error(traceback.format_exc())
+            else:
+                # Для обычных групп сохраняем в общие файлы
+                await self.json_service.save_members(original_chat_id, chat.title, members)
+                await self.json_service.save_admins(original_chat_id, chat.title, admins)
+                logger.info(f"✅ Данные группы {chat.title} успешно сохранены")
             
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке добавления бота: {str(e)}")
             logger.error(traceback.format_exc())
 
     async def handle_left_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка удаления участника из чата"""
+        """Обработчик удаления участника из чата"""
         try:
             chat = update.effective_chat
             left_member = update.message.left_chat_member
             
-            logger.info(f"Участник {left_member.full_name} (id: {left_member.id}) покинул чат {chat.title}")
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
             
-            # Получаем стандартизированный ID чата
-            standardized_chat_id = await self._get_standardized_chat_id(chat.id)
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
             
-            # Загружаем текущий список участников для этого чата
-            data = self.json_service.load_from_json('members.json')
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
             
-            if standardized_chat_id in data:
-                current_members = data[standardized_chat_id].get('members', [])
-                # Удаляем участника из списка
-                updated_members = [m for m in current_members if str(m['user_id']) != str(left_member.id)]
+            if is_courier:
+                # Для курьерских групп обновляем данные только в системе курьеров
+                members = await self._get_chat_members(chat, context)
+                admins = await self._get_chat_admins(original_chat_id, context)
                 
-                # Сохраняем обновленный список
-                await self.json_service.save_members(standardized_chat_id, chat.title, updated_members)
-                logger.info(f"Участник удален из members.json")
-            
-            # Отправляем сообщение только если это не бот
-            if not left_member.is_bot:
-                await update.message.reply_text(
-                    f"До свидания, {left_member.full_name}! 👋"
+                # Удаляем участника из списков
+                members = [m for m in members if m['user_id'] != left_member.id]
+                admins = [a for a in admins if a['user_id'] != left_member.id]
+                
+                # Сохраняем обновленные данные только в системе курьеров
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
                 )
+                logger.info(f"✅ Данные курьерской группы {chat.title} успешно обновлены")
+
+                # Обновляем список доступа к веб-приложению
+                courier_access_file = os.path.join(self.json_service.data_dir, 'courier_webapp_access.json')
+                try:
+                    # Загружаем текущие данные о доступе
+                    if os.path.exists(courier_access_file):
+                        with open(courier_access_file, 'r', encoding='utf-8') as f:
+                            access_data = json.load(f)
+                    else:
+                        access_data = {"groups": [], "members": []}
+
+                    # Проверяем, есть ли пользователь в других курьерских группах
+                    user_in_other_groups = False
+                    for group_id in access_data["groups"]:
+                        if group_id != original_chat_id:  # Проверяем другие группы
+                            try:
+                                group_members = await self._get_chat_members(group_id, context)
+                                if any(str(member['user_id']) == str(left_member.id) for member in group_members):
+                                    user_in_other_groups = True
+                                    break
+                            except Exception as e:
+                                logger.error(f"Ошибка при получении участников группы {group_id}: {str(e)}")
+
+                    # Если пользователь не состоит в других курьерских группах, удаляем его из списка доступа
+                    if not user_in_other_groups:
+                        if str(left_member.id) in access_data["members"]:
+                            access_data["members"].remove(str(left_member.id))
+                            # Устанавливаем стандартную кнопку меню для пользователя
+                            try:
+                                await context.bot.set_chat_menu_button(
+                                    chat_id=left_member.id,
+                                    menu_button=MenuButton()  # Используем пустой MenuButton для стандартной кнопки
+                                )
+                                logger.info(f"✅ Стандартная кнопка меню установлена для пользователя {left_member.id}")
+                            except Exception as e:
+                                logger.error(f"Ошибка при установке стандартной кнопки меню: {str(e)}")
+
+                    # Сохраняем обновленные данные
+                    with open(courier_access_file, 'w', encoding='utf-8') as f:
+                        json.dump(access_data, f, indent=2, ensure_ascii=False)
+
+                    logger.info(f"✅ Список доступа к веб-приложению обновлен")
+
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при обновлении списка доступа: {str(e)}")
+                    logger.error(traceback.format_exc())
+
+            else:
+                # Для обычных групп обновляем данные в общие файлы
+                members = await self._get_chat_members(chat, context)
+                members = [m for m in members if m['user_id'] != left_member.id]
+                await self.json_service.save_members(original_chat_id, chat.title, members)
+                logger.info(f"✅ Данные группы {chat.title} успешно обновлены")
             
         except Exception as e:
-            logger.error(f"Ошибка при обработке удаления участника: {e}", exc_info=True)
+            logger.error(f"❌ Ошибка при обработке удаления участника: {e}")
+            logger.error(traceback.format_exc())
 
     async def send_love_messages(self, bot: Bot, user_id: int, count: int = 100) -> None:
         """Отправка любовных сообщений пользователю"""
@@ -840,59 +1057,25 @@ class GroupHandler:
             raise
 
     async def handle_webapp_data(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка данных из веб-приложения"""
+        """Обработка данных от веб-приложения"""
         try:
-            data = json.loads(update.effective_message.web_app_data.data)
-            logger.info(f"Получены данные из веб-приложения: {data}")
-            
-            if data.get('action') == 'open_user_profile':
-                user_id = data.get('user_id')
-                first_name = data.get('first_name', 'Пользователь')
+            if not update.message or not update.message.web_app_data:
+                return
                 
-                if user_id:
-                    # Пытаемся получить информацию о пользователе
-                    try:
-                        user_chat = await context.bot.get_chat(user_id)
-                        username = user_chat.username
-                        phone = user_chat.phone_number if hasattr(user_chat, 'phone_number') else None
-                        
-                        # Создаем кнопку для открытия чата
-                        keyboard = []
-                        
-                        if username:
-                            url = f"https://t.me/{username}"
-                            button_text = f"Открыть чат с {first_name}"
-                            keyboard.append([InlineKeyboardButton(text=button_text, url=url)])
-                        elif phone:
-                            url = f"https://t.me/+{phone}"
-                            button_text = f"Открыть чат с {first_name}"
-                            keyboard.append([InlineKeyboardButton(text=button_text, url=url)])
-                        else:
-                            # Если нет ни username, ни телефона, отправляем ссылку на профиль
-                            url = f"tg://user?id={user_id}"
-                            button_text = f"Найти {first_name} в Telegram"
-                            keyboard.append([InlineKeyboardButton(text=button_text, url=url)])
-                        
-                        reply_markup = InlineKeyboardMarkup(keyboard)
-                        
-                        await update.effective_message.reply_text(
-                            f"Вот ссылка для связи с {first_name}:",
-                            reply_markup=reply_markup
-                        )
-                    except Exception as e:
-                        logger.error(f"Ошибка при получении информации о пользователе: {e}")
-                        await update.effective_message.reply_text(
-                            f"К сожалению, не удалось получить информацию для связи с {first_name}. "
-                            "Попробуйте найти пользователя самостоятельно в Telegram."
-                        )
-                else:
-                    await update.effective_message.reply_text(
-                        "Не удалось определить пользователя для открытия чата."
-                    )
+            data = json.loads(update.message.web_app_data.data)
+            logger.info(f"Получены данные от веб-приложения: {data}")
+            
+            # Здесь можно добавить обработку различных типов данных
+            # Например, регистрация курьера, обновление профиля и т.д.
+            
+            await update.message.reply_text(
+                "Спасибо за регистрацию! Мы свяжемся с вами в ближайшее время."
+            )
             
         except Exception as e:
-            logger.error(f"Ошибка при обработке данных из веб-приложения: {e}", exc_info=True)
-            await update.effective_message.reply_text(
+            logger.error(f"❌ Ошибка при обработке данных веб-приложения: {e}")
+            logger.error(traceback.format_exc())
+            await update.message.reply_text(
                 "Произошла ошибка при обработке данных. Пожалуйста, попробуйте позже."
             )
 
@@ -901,6 +1084,10 @@ class GroupHandler:
         try:
             chat = update.effective_chat
             user = update.effective_user
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
             
             # Проверяем, является ли пользователь администратором
             chat_member = await context.bot.get_chat_member(chat.id, user.id)
@@ -958,25 +1145,54 @@ class GroupHandler:
             # Обновляем информацию во всех чатах
             for chat_id, chat_data in data.items():
                 try:
-                    updated = False
-                    admins = chat_data.get('admins', [])
+                    # Проверяем, является ли группа курьерской
+                    is_courier = self.courier_service.is_courier_group(chat_data.get('chat_title', ''))
+                    logger.info(f"Проверка группы '{chat_data.get('chat_title', '')}' на принадлежность к курьерам: {is_courier}")
                     
-                    # Обновляем номер телефона для администратора
-                    for admin in admins:
-                        if admin.get('user_id') == user.id:
-                            admin['phone'] = contact.phone_number
-                            updated = True
-                            logger.info(f"✅ Обновлен контакт администратора в чате {chat_data.get('chat_title')}")
-                            break
-                    
-                    if updated:
-                        # Используем save_admins вместо прямого обновления
-                        await self.json_service.save_admins(
-                            chat_id,
-                            chat_data.get('chat_title'),
-                            admins
-                        )
-                        success_count += 1
+                    if is_courier:
+                        # Для курьерских групп обновляем данные только в системе курьеров
+                        members = await self._get_chat_members(chat_id)
+                        admins = await self._get_chat_admins(chat_id)
+                        
+                        # Обновляем номер телефона для администратора
+                        updated = False
+                        for admin in admins:
+                            if admin.get('user_id') == user.id:
+                                admin['phone'] = contact.phone_number
+                                updated = True
+                                logger.info(f"✅ Обновлен контакт администратора в курьерской группе {chat_data.get('chat_title')}")
+                                break
+                        
+                        if updated:
+                            # Сохраняем обновленные данные только в системе курьеров
+                            await self.courier_service.save_group_data(
+                                chat_id=chat_id,
+                                chat_title=chat_data.get('chat_title', ''),
+                                members=members,
+                                admins=admins
+                            )
+                            success_count += 1
+                    else:
+                        # Для обычных групп обновляем данные в общих файлах
+                        updated = False
+                        admins = chat_data.get('admins', [])
+                        
+                        # Обновляем номер телефона для администратора
+                        for admin in admins:
+                            if admin.get('user_id') == user.id:
+                                admin['phone'] = contact.phone_number
+                                updated = True
+                                logger.info(f"✅ Обновлен контакт администратора в чате {chat_data.get('chat_title')}")
+                                break
+                        
+                        if updated:
+                            # Используем save_admins вместо прямого обновления
+                            await self.json_service.save_admins(
+                                chat_id,
+                                chat_data.get('chat_title'),
+                                admins
+                            )
+                            success_count += 1
                         
                 except Exception as e:
                     logger.error(f"❌ Ошибка при обновлении контакта в чате {chat_data.get('chat_title')}: {str(e)}")
@@ -1012,33 +1228,62 @@ class GroupHandler:
             chat = update.effective_chat
             chat_id = await self._get_standardized_chat_id(chat.id)
 
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+
             # Получаем новое фото профиля
             photo_url = await self._get_user_photo(user.id, context)
             if not photo_url:
                 logger.warning(f"Не удалось получить новое фото профиля для пользователя {user.id}")
                 return
 
-            # Обновляем фото в данных участников
-            members_data = self.json_service.load_from_json('members.json')
-            if str(chat_id) in members_data:
-                chat_data = members_data[str(chat_id)]
-                for member in chat_data.get('members', []):
+            if is_courier:
+                # Для курьерских групп обновляем данные только в системе курьеров
+                members = await self._get_chat_members(chat.id)
+                admins = await self._get_chat_admins(chat.id)
+                
+                # Обновляем фото в списках
+                for member in members:
                     if str(member.get('user_id')) == str(user.id):
                         member['photo_url'] = photo_url
-                        logger.info(f"Обновлено фото профиля для пользователя {user.id} в данных участников")
-                await self.json_service.save_members(chat_id, chat.title, chat_data['members'])
-
-            # Обновляем фото в данных администраторов
-            admins_data = self.json_service.load_from_json('admins.json')
-            if str(chat_id) in admins_data:
-                chat_admins = admins_data[str(chat_id)]
-                for admin in chat_admins.get('admins', []):
+                        logger.info(f"Обновлено фото участника {user.id} в курьерской группе")
+                
+                for admin in admins:
                     if str(admin.get('user_id')) == str(user.id):
                         admin['photo_url'] = photo_url
-                        logger.info(f"Обновлено фото профиля для администратора {user.id}")
-                await self.json_service.save_admins(chat_id, chat.title, chat_admins['admins'])
+                        logger.info(f"Обновлено фото профиля для администратора {user.id} в курьерской группе")
+                
+                # Сохраняем обновленные данные
+                await self.courier_service.save_group_data(
+                    chat_id=chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
+                )
+                logger.info(f"✅ Фотографии успешно обновлены для курьерской группы {chat.title}")
+            else:
+                # Обновляем фото в данных участников
+                members_data = self.json_service.load_from_json('members.json')
+                if str(chat_id) in members_data:
+                    chat_data = members_data[str(chat_id)]
+                    for member in chat_data.get('members', []):
+                        if str(member.get('user_id')) == str(user.id):
+                            member['photo_url'] = photo_url
+                            logger.info(f"Обновлено фото участника {user.id}")
+                    await self.json_service.save_members(chat_id, chat.title, chat_data['members'])
 
-            logger.info(f"✅ Успешно обновлены фотографии для пользователя {user.id} в чате {chat.title}")
+                # Обновляем фото в данных администраторов
+                admins_data = self.json_service.load_from_json('admins.json')
+                if str(chat_id) in admins_data:
+                    chat_admins = admins_data[str(chat_id)]
+                    for admin in chat_admins.get('admins', []):
+                        if str(admin.get('user_id')) == str(user.id):
+                            admin['photo_url'] = photo_url
+                            logger.info(f"Обновлено фото профиля для администратора {user.id}")
+                    await self.json_service.save_admins(chat_id, chat.title, chat_admins['admins'])
+
+                logger.info(f"✅ Успешно обновлены фотографии для пользователя {user.id} в чате {chat.title}")
 
         except Exception as e:
             logger.error(f"Ошибка при обновлении фото профиля: {str(e)}", exc_info=True)
@@ -1054,222 +1299,533 @@ class GroupHandler:
             
             for chat_id, chat_data in members_data.items():
                 try:
-                    logger.info(f"Обновление фотографий для чата {chat_id}")
+                    chat_title = chat_data.get('chat_title', '')
+                    logger.info(f"Обновление фотографий для чата {chat_title}")
                     
-                    # Обновляем фото участников
-                    for member in chat_data.get('members', []):
-                        if not member.get('is_bot'):  # Пропускаем ботов
-                            user_id = int(member.get('user_id'))
-                            new_photo = await self._get_user_photo(user_id, context)
-                            if new_photo and new_photo != member.get('photo_url'):
-                                member['photo_url'] = new_photo
-                                logger.info(f"Обновлено фото участника {user_id}")
+                    # Проверяем, является ли группа курьерской
+                    is_courier = self.courier_service.is_courier_group(chat_title)
+                    logger.info(f"Проверка группы '{chat_title}' на принадлежность к курьерам: {is_courier}")
                     
-                    # Сохраняем обновленные данные участников
-                    await self.json_service.save_members(chat_id, chat_data['chat_title'], chat_data['members'])
-                    
-                    # Обновляем фото администраторов
-                    if chat_id in admins_data:
-                        chat_admins = admins_data[chat_id]
-                        for admin in chat_admins.get('admins', []):
-                            user_id = int(admin.get('user_id'))
-                            new_photo = await self._get_user_photo(user_id, context)
-                            if new_photo and new_photo != admin.get('photo_url'):
-                                admin['photo_url'] = new_photo
-                                logger.info(f"Обновлено фото администратора {user_id}")
+                    if is_courier:
+                        # Для курьерских групп обновляем данные только в системе курьеров
+                        members = await self._get_chat_members(chat_id)
+                        admins = await self._get_chat_admins(chat_id, context)
                         
-                        # Сохраняем обновленные данные администраторов
-                        await self.json_service.save_admins(chat_id, chat_data['chat_title'], chat_admins['admins'])
-                    
-                except Exception as chat_error:
-                    logger.error(f"Ошибка при обновлении фото в чате {chat_id}: {str(chat_error)}")
+                        # Обновляем фото в списках
+                        for member in members:
+                            if not member.get('is_bot'):  # Пропускаем ботов
+                                user_id = int(member.get('user_id'))
+                                new_photo = await self._get_user_photo(user_id, context)
+                                if new_photo and new_photo != member.get('photo_url'):
+                                    member['photo_url'] = new_photo
+                                    logger.info(f"Обновлено фото участника {user_id} в курьерской группе")
+                        
+                        for admin in admins:
+                            if not admin.get('is_bot'):  # Пропускаем ботов
+                                user_id = int(admin.get('user_id'))
+                                new_photo = await self._get_user_photo(user_id, context)
+                                if new_photo and new_photo != admin.get('photo_url'):
+                                    admin['photo_url'] = new_photo
+                                    logger.info(f"Обновлено фото администратора {user_id} в курьерской группе")
+                        
+                        # Сохраняем обновленные данные
+                        await self.courier_service.save_group_data(
+                            chat_id=chat_id,
+                            chat_title=chat_title,
+                            members=members,
+                            admins=admins
+                        )
+                        logger.info(f"✅ Успешно обновлены фотографии в курьерской группе {chat_title}")
+                    else:
+                        # Для обычных групп обновляем данные в общие файлы
+                        members = await self._get_chat_members(chat_id)
+                        admins = await self._get_chat_admins(chat_id, context)
+                        
+                        # Обновляем фото в списках
+                        for member in members:
+                            if not member.get('is_bot'):  # Пропускаем ботов
+                                user_id = int(member.get('user_id'))
+                                new_photo = await self._get_user_photo(user_id, context)
+                                if new_photo and new_photo != member.get('photo_url'):
+                                    member['photo_url'] = new_photo
+                                    logger.info(f"Обновлено фото участника {user_id} в группе")
+                        
+                        for admin in admins:
+                            if not admin.get('is_bot'):  # Пропускаем ботов
+                                user_id = int(admin.get('user_id'))
+                                new_photo = await self._get_user_photo(user_id, context)
+                                if new_photo and new_photo != admin.get('photo_url'):
+                                    admin['photo_url'] = new_photo
+                                    logger.info(f"Обновлено фото администратора {user_id} в группе")
+                        
+                        await self.json_service.save_members(chat_id, chat_title, members)
+                        await self.json_service.save_admins(chat_id, chat_title, admins)
+                        logger.info(f"✅ Успешно обновлены фотографии в группе {chat_title}")
+                        
+                except Exception as e:
+                    logger.error(f"Ошибка при обновлении фотографий для чата {chat_id}: {e}")
                     continue
             
             logger.info("✅ Периодическое обновление фотографий завершено")
             
         except Exception as e:
-            logger.error(f"Ошибка при периодическом обновлении фотографий: {str(e)}", exc_info=True)
+            logger.error(f"Ошибка при периодическом обновлении фотографий: {e}", exc_info=True)
 
     async def handle_my_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработка изменений статуса бота в чате"""
+        """Обработчик изменения статуса бота в чате"""
         try:
-            logger.info("=== Начало обработки изменения статуса бота ===")
-            logger.info(f"Update ID: {update.update_id}")
-            logger.info(f"Update type: {update.__class__.__name__}")
-            logger.info(f"Update data: {update.to_dict()}")
-            
-            if not update.my_chat_member:
-                logger.error("❌ Нет my_chat_member в update")
-                return
-
             chat = update.effective_chat
-            new_member = update.my_chat_member.new_chat_member
-            old_member = update.my_chat_member.old_chat_member
+            old_status = update.my_chat_member.old_chat_member.status
+            new_status = update.my_chat_member.new_chat_member.status
             
-            logger.info(f"Чат: {chat.title} (ID: {chat.id})")
-            logger.info(f"Тип чата: {chat.type}")
-            logger.info(f"Старый статус: {old_member.status}")
-            logger.info(f"Новый статус: {new_member.status}")
-            logger.info(f"Пользователь: {new_member.user.full_name} (ID: {new_member.user.id})")
-            logger.info(f"Это бот? {new_member.user.is_bot}")
-            logger.info(f"ID нашего бота: {context.bot.id}")
-            
-            # Проверяем, что это действительно наш бот
-            if new_member.user.id != context.bot.id:
-                logger.info(f"❌ Обновление не относится к нашему боту (наш ID: {context.bot.id})")
+            # Проверяем, что бот был добавлен в группу
+            if old_status in ['left', 'kicked'] and new_status in ['member', 'administrator']:
+                logger.info(f"Бот добавлен в группу {chat.title}")
+                await self._process_bot_added(chat, context)
                 return
             
-            # Если бота добавили в чат (из состояния left/kicked в member/administrator)
-            if (old_member.status in ['left', 'kicked'] and 
-                new_member.status in ['member', 'administrator']):
-                logger.info("✅ Обнаружено добавление бота в чат")
-                
-                # Получаем стандартизированный ID чата
-                chat_id = await self._get_standardized_chat_id(chat.id)
-                logger.info(f"Стандартизированный ID чата: {chat_id}")
-                
-                try:
-                    # Проверяем права бота
-                    bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
-                    logger.info(f"Права бота в чате: {bot_member.status}")
-                    logger.info(f"Может отправлять сообщения: {getattr(bot_member, 'can_post_messages', True)}")
-                    
-                    # Проверяем тип чата и права
-                    if chat.type not in ['group', 'supergroup']:
-                        logger.error(f"❌ Неподдерживаемый тип чата: {chat.type}")
-                        await context.bot.send_message(
-                            chat_id=chat.id,
-                            text="❌ Извините, но я работаю только в группах и супергруппах."
-                        )
-                        return
-                    
-                    if not getattr(bot_member, 'can_post_messages', True):
-                        logger.error("❌ У бота нет прав на отправку сообщений")
-                        return
-
-                    # Получаем оригинальный ID чата для API запросов
-                    original_chat_id = await self._get_original_chat_id(chat_id)
-                    logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
-                    
-                    # Получаем список участников чата
-                    logger.info("Получение списка участников...")
-                    members = await self._get_chat_members(chat, context)
-                    logger.info(f"Получено {len(members)} участников")
-                    
-                    # Получаем список администраторов
-                    logger.info("Получение списка администраторов...")
-                    admins = await self._get_chat_admins(original_chat_id, context)
-                    logger.info(f"Получено {len(admins)} администраторов")
-                    
-                    if not members:
-                        logger.error("❌ Не удалось получить список участников")
-                    if not admins:
-                        logger.error("❌ Не удалось получить список администраторов")
-                    
-                    # Сохраняем данные о чате и участниках
-                    logger.info("Сохранение данных...")
-                    if members:
-                        await self.json_service.save_members(chat_id, chat.title, members)
-                        logger.info("✅ Список участников сохранен")
-                    if admins:
-                        await self.json_service.save_admins(chat_id, chat.title, admins)
-                        logger.info("✅ Список администраторов сохранен")
-                    
-                    # Создаем пустой файл инвентаря для нового чата
-                    inventory_path = os.path.join(self.json_service.inventory_dir, f'inventory_{chat_id}.json')
-                    logger.info(f"Создание файла инвентаря: {inventory_path}")
-                    
-                    if not os.path.exists(inventory_path):
-                        empty_inventory = {
-                            'inventory': {},
-                            'metadata': {
-                                'lastUpdated': datetime.now().isoformat(),
-                                'progress': 0
-                            }
-                        }
-                        with open(inventory_path, 'w', encoding='utf-8') as f:
-                            json.dump(empty_inventory, f, ensure_ascii=False, indent=2)
-                        logger.info("✅ Файл инвентаря создан")
-                    else:
-                        logger.info("Файл инвентаря уже существует")
-                    
-                    # Отправляем приветственное сообщение
-                    welcome_message = (
-                        f"🤖 Привет! Спасибо, что добавили меня в группу '{chat.title}'!\n\n"
-                        f"Я буду помогать вам управлять инвентаризацией и отслеживать участников.\n\n"
-                        f"✅ Данные чата успешно инициализированы:\n"
-                        f"- Список участников сохранен ({len(members) if members else 0} участников)\n"
-                        f"- Список администраторов сохранен ({len(admins) if admins else 0} админов)\n"
-                        f"- Файл инвентаря создан\n\n"
-                        f"🔍 Теперь вы можете начать инвентаризацию!"
-                    )
-                    
-                    try:
-                        sent_message = await context.bot.send_message(
-                            chat_id=chat.id,
-                            text=welcome_message,
-                            parse_mode='HTML'
-                        )
-                        logger.info(f"✅ Приветственное сообщение отправлено (Message ID: {sent_message.message_id})")
-                    except telegram.error.TelegramError as e:
-                        logger.error(f"❌ Ошибка Telegram при отправке приветственного сообщения: {e}")
-                        if 'not enough rights' in str(e).lower():
-                            logger.error("У бота недостаточно прав для отправки сообщений")
-                        elif 'bot was blocked' in str(e).lower():
-                            logger.error("Бот был заблокирован в чате")
-                        else:
-                            logger.error(f"Неизвестная ошибка Telegram: {e}")
-                    except Exception as e:
-                        logger.error(f"❌ Общая ошибка при отправке приветственного сообщения: {e}")
-                    
-                    logger.info(f"✅ Бот успешно добавлен в чат {chat.title} (ID: {chat.id})")
-                    
-                except Exception as inner_e:
-                    logger.error(f"❌ Ошибка при инициализации бота в чате: {str(inner_e)}", exc_info=True)
-                    try:
-                        error_message = (
-                            "❌ Произошла ошибка при инициализации бота.\n"
-                            "Пожалуйста, удалите бота из группы и добавьте снова.\n\n"
-                            f"Ошибка: {str(inner_e)}"
-                        )
-                        await context.bot.send_message(
-                            chat_id=chat.id,
-                            text=error_message
-                        )
-                    except Exception as e2:
-                        logger.error(f"❌ Ошибка при отправке сообщения об ошибке: {e2}")
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            # Получаем список участников чата
+            logger.info("Получение списка участников...")
+            members = await self._get_chat_members(chat, context)
+            logger.info(f"Получено {len(members)} участников")
+            
+            # Получаем список администраторов
+            logger.info("Получение списка администраторов...")
+            admins = await self._get_chat_admins(original_chat_id, context)
+            logger.info(f"Получено {len(admins)} администраторов")
+            
+            if not members:
+                logger.error("❌ Не удалось получить список участников")
+            if not admins:
+                logger.error("❌ Не удалось получить список администраторов")
+            
+            # Сохраняем данные о чате и участниках
+            logger.info("Сохранение данных...")
+            
+            if is_courier:
+                # Для курьерских групп сохраняем данные только в системе курьеров
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
+                )
+                logger.info(f"✅ Данные курьерской группы {chat.title} успешно сохранены")
             else:
-                logger.info(f"Изменение статуса бота с {old_member.status} на {new_member.status} не требует обработки")
+                # Для обычных групп сохраняем данные в общие файлы
+                if members:
+                    await self.json_service.save_members(original_chat_id, chat.title, members)
+                    logger.info("✅ Список участников сохранен")
+                if admins:
+                    await self.json_service.save_admins(original_chat_id, chat.title, admins)
+                    logger.info("✅ Список администраторов сохранен")
+            
+            logger.info(f"✅ Обработка изменения статуса бота в чате {chat.title} завершена")
             
         except Exception as e:
-            logger.error(f"❌ Ошибка при обработке изменения статуса бота: {str(e)}", exc_info=True)
+            logger.error(f"❌ Ошибка при обработке изменения статуса бота: {e}")
+            logger.error(traceback.format_exc())
 
     async def _notify_server_about_admin_update(self, chat_id: str, admins_data: dict) -> None:
-        """Отправляет уведомление на сервер об обновлении прав администратора"""
+        """Уведомление сервера об обновлении списка администраторов"""
         try:
-            logger.info(f"🔄 Отправка уведомления на сервер об обновлении прав администратора")
-            logger.info(f"ID чата: {chat_id}")
-            logger.info(f"Количество администраторов: {len(admins_data.get('admins', []))}")
+            # Получаем стандартизированный ID чата для сохранения данных
+            standardized_chat_id = await self._get_standardized_chat_id(chat_id)
+            logger.info(f"Стандартизированный ID чата: {standardized_chat_id}")
             
-            api_url = os.getenv('API_URL', 'http://api:8000')
-            logger.info(f"URL сервера: {api_url}")
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(standardized_chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
             
+            # Отправляем данные на сервер
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{api_url}/api/admin_update/{chat_id}",
-                    json=admins_data,
-                    headers={'Content-Type': 'application/json'}
+                    f"{self.server_url}/api/admin/update",
+                    json={
+                        "chat_id": original_chat_id,
+                        "admins": admins_data
+                    }
                 ) as response:
                     if response.status == 200:
-                        logger.info(f"✅ Уведомление успешно отправлено на сервер")
-                        logger.info(f"Чат: {chat_id}")
-                        logger.info(f"Название чата: {admins_data.get('chat_title', 'Неизвестно')}")
+                        logger.info(f"✅ Сервер успешно уведомлен об обновлении администраторов для чата {original_chat_id}")
                     else:
-                        logger.error(f"❌ Ошибка при отправке уведомления на сервер")
-                        logger.error(f"Код ошибки: {response.status}")
-                        error_text = await response.text()
-                        logger.error(f"Описание ошибки: {error_text}")
+                        logger.error(f"❌ Ошибка при уведомлении сервера: {response.status}")
+            
         except Exception as e:
-            logger.error(f"❌ Ошибка при отправке уведомления на сервер")
-            logger.error(f"Описание ошибки: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.error(f"❌ Ошибка при уведомлении сервера: {e}")
+            logger.error(traceback.format_exc())
+
+    def _register_handlers(self):
+        """Регистрация обработчиков групповых событий"""
+        try:
+            # Регистрируем только обработчик NEW_CHAT_MEMBERS для добавления бота
+            self.application.add_handler(
+                MessageHandler(
+                    filters.StatusUpdate.NEW_CHAT_MEMBERS,
+                    self.handle_new_chat_members
+                )
+            )
+            logger.info("✅ Обработчик добавления новых участников зарегистрирован")
+            
+            # Регистрируем обработчик изменения статуса участника
+            self.application.add_handler(
+                ChatMemberHandler(
+                    self.handle_chat_member_update,
+                    ChatMemberHandler.CHAT_MEMBER
+                )
+            )
+            logger.info("✅ Обработчик изменения статуса участника зарегистрирован")
+            
+            # Регистрируем обработчик удаления участника
+            self.application.add_handler(
+                MessageHandler(
+                    filters.StatusUpdate.LEFT_CHAT_MEMBER,
+                    self.handle_left_chat_member
+                )
+            )
+            logger.info("✅ Обработчик удаления участника зарегистрирован")
+            
+            # Регистрируем обработчик получения контакта
+            self.application.add_handler(
+                MessageHandler(
+                    filters.CONTACT,
+                    self.handle_contact
+                )
+            )
+            logger.info("✅ Обработчик получения контакта зарегистрирован")
+            
+            # Регистрируем обработчик получения фото
+            self.application.add_handler(
+                MessageHandler(
+                    filters.PHOTO,
+                    self.handle_photo
+                )
+            )
+            logger.info("✅ Обработчик получения фото зарегистрирован")
+            
+            # Регистрируем обработчик данных веб-приложения
+            self.application.add_handler(
+                MessageHandler(
+                    filters.StatusUpdate.WEB_APP_DATA,
+                    self.handle_webapp_data
+                )
+            )
+            logger.info("✅ Обработчик данных веб-приложения зарегистрирован")
+
+            # Регистрируем обработчик inline-кнопки "Записаться"
+            self.application.add_handler(
+                CallbackQueryHandler(
+                    self.handle_register_callback,
+                    pattern="^register_courier$"
+                )
+            )
+            logger.info("✅ Обработчик inline-кнопки 'Записаться' зарегистрирован")
+            
+            logger.info("✅ Все обработчики групповых событий зарегистрированы")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при регистрации обработчиков: {e}")
+            logger.error(traceback.format_exc())
+            raise
+
+    async def handle_contact(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик получения контакта от пользователя"""
+        try:
+            message = update.effective_message
+            contact = message.contact
+            user = message.from_user
+            chat = message.chat
+            
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            # Загружаем текущие данные из admins.json
+            data = self.json_service.load_from_json('admins.json')
+            success_count = 0
+            
+            # Обновляем информацию во всех чатах
+            for chat_id, chat_data in data.items():
+                try:
+                    # Проверяем, является ли группа курьерской
+                    is_courier = self.courier_service.is_courier_group(chat_data.get('chat_title', ''))
+                    logger.info(f"Проверка группы '{chat_data.get('chat_title', '')}' на принадлежность к курьерам: {is_courier}")
+                    
+                    if is_courier:
+                        # Для курьерских групп обновляем данные только в системе курьеров
+                        members = await self._get_chat_members(chat_id)
+                        admins = await self._get_chat_admins(original_chat_id, context)
+                        
+                        # Обновляем номер телефона для администратора
+                        updated = False
+                        for admin in admins:
+                            if admin.get('user_id') == user.id:
+                                admin['phone'] = contact.phone_number
+                                updated = True
+                                logger.info(f"✅ Обновлен контакт администратора в курьерской группе {chat_data.get('chat_title')}")
+                                break
+                        
+                        if updated:
+                            # Сохраняем обновленные данные только в системе курьеров
+                            await self.courier_service.save_group_data(
+                                chat_id=original_chat_id,
+                                chat_title=chat_data.get('chat_title', ''),
+                                members=members,
+                                admins=admins
+                            )
+                            success_count += 1
+                    else:
+                        # Для обычных групп обновляем данные в общие файлы
+                        admins = await self._get_chat_admins(original_chat_id, context)
+                        
+                        # Обновляем номер телефона для администратора
+                        updated = False
+                        for admin in admins:
+                            if admin.get('user_id') == user.id:
+                                admin['phone'] = contact.phone_number
+                                updated = True
+                                logger.info(f"✅ Обновлен контакт администратора в группе {chat_data.get('chat_title')}")
+                                break
+                        
+                        if updated:
+                            await self.json_service.save_admins(original_chat_id, chat_data.get('chat_title', ''), admins)
+                            success_count += 1
+                            
+                except Exception as e:
+                    logger.error(f"Ошибка при обновлении контакта в чате {chat_id}: {e}")
+                    continue
+            
+            if success_count > 0:
+                await message.reply_text(
+                    f"✅ Контакт успешно сохранен в {success_count} группах.",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+            else:
+                await message.reply_text(
+                    "❌ Произошла ошибка при сохранении контакта. Пожалуйста, попробуйте позже.",
+                    reply_markup=ReplyKeyboardRemove()
+                )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке контакта: {e}")
+            logger.error(traceback.format_exc())
+
+    async def handle_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик получения нового фото профиля"""
+        try:
+            message = update.effective_message
+            user = message.from_user
+            chat = message.chat
+            
+            # Получаем стандартизированный ID чата для сохранения данных
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            logger.info(f"Стандартизированный ID чата: {chat_id}")
+            
+            # Получаем оригинальный ID чата для API запросов
+            original_chat_id = await self._get_original_chat_id(chat_id)
+            logger.info(f"Оригинальный ID чата для API: {original_chat_id}")
+            
+            # Получаем новое фото профиля
+            photo_url = await self._get_user_photo(user.id, context)
+            if not photo_url:
+                logger.warning(f"Не удалось получить новое фото профиля для пользователя {user.id}")
+                return
+            
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам: {is_courier}")
+            
+            if is_courier:
+                # Для курьерских групп обновляем данные только в системе курьеров
+                members = await self._get_chat_members(chat, context)
+                admins = await self._get_chat_admins(original_chat_id, context)
+                
+                # Обновляем фото в списках
+                for member in members:
+                    if str(member.get('user_id')) == str(user.id):
+                        member['photo_url'] = photo_url
+                        logger.info(f"Обновлено фото участника {user.id} в курьерской группе")
+                
+                for admin in admins:
+                    if str(admin.get('user_id')) == str(user.id):
+                        admin['photo_url'] = photo_url
+                        logger.info(f"Обновлено фото профиля для администратора {user.id} в курьерской группе")
+                
+                # Сохраняем обновленные данные
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
+                )
+                logger.info(f"✅ Успешно обновлены фотографии для пользователя {user.id} в курьерской группе {chat.title}")
+            else:
+                # Для обычных групп обновляем данные в общие файлы
+                members = await self._get_chat_members(chat, context)
+                admins = await self._get_chat_admins(original_chat_id, context)
+                
+                # Обновляем фото в списках
+                for member in members:
+                    if str(member.get('user_id')) == str(user.id):
+                        member['photo_url'] = photo_url
+                        logger.info(f"Обновлено фото участника {user.id} в группе")
+                
+                for admin in admins:
+                    if str(admin.get('user_id')) == str(user.id):
+                        admin['photo_url'] = photo_url
+                        logger.info(f"Обновлено фото профиля для администратора {user.id} в группе")
+                
+                await self.json_service.save_members(original_chat_id, chat.title, members)
+                await self.json_service.save_admins(original_chat_id, chat.title, admins)
+                logger.info(f"✅ Успешно обновлены фотографии для пользователя {user.id} в чате {chat.title}")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при обновлении фото профиля: {str(e)}", exc_info=True)
+
+    async def handle_register_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик нажатия на inline-кнопку 'Записаться'"""
+        try:
+            query = update.callback_query
+            user = query.from_user
+            chat = query.message.chat
+
+            if query.data != "register_courier":
+                return
+
+            logger.info(f"Пользователь {user.id} нажал inline-кнопку 'Записаться' в чате {chat.title}")
+
+            # Получаем стандартизированный ID чата
+            chat_id = await self._get_standardized_chat_id(chat.id)
+            original_chat_id = await self._get_original_chat_id(chat_id)
+
+            # Проверяем, является ли группа курьерской
+            is_courier = self.courier_service.is_courier_group(chat.title)
+            
+            if is_courier:
+                # Получаем текущие списки участников и администраторов
+                members = await self._get_chat_members(chat, context)
+                admins = await self._get_chat_admins(original_chat_id, context)
+
+                # Получаем фото пользователя
+                photo_url = await self._get_user_photo(user.id, context, force_update=True)
+
+                # Создаем информацию о пользователе
+                user_info = {
+                    'user_id': user.id,
+                    'username': user.username,
+                    'first_name': "",
+                    'last_name': "",
+                    'status': 'member',
+                    'joined_date': datetime.now().isoformat(),
+                    'is_bot': user.is_bot
+                }
+
+                if photo_url:
+                    user_info['photo_url'] = photo_url
+
+                # Проверяем, является ли пользователь администратором
+                is_admin = any(admin['user_id'] == user.id for admin in admins)
+                if is_admin:
+                    user_info['status'] = 'administrator'
+
+                # Обновляем или добавляем пользователя в список участников
+                updated = False
+                for member in members:
+                    if member['user_id'] == user.id:
+                        member.update(user_info)
+                        updated = True
+                        break
+
+                if not updated:
+                    members.append(user_info)
+
+                # Сохраняем обновленные данные
+                await self.courier_service.save_group_data(
+                    chat_id=original_chat_id,
+                    chat_title=chat.title,
+                    members=members,
+                    admins=admins
+                )
+
+                # Обновляем список доступа к веб-приложению
+                courier_access_file = os.path.join(self.json_service.data_dir, 'courier_webapp_access.json')
+                try:
+                    if os.path.exists(courier_access_file):
+                        with open(courier_access_file, 'r', encoding='utf-8') as f:
+                            access_data = json.load(f)
+                    else:
+                        access_data = {"groups": [], "members": []}
+
+                    # Добавляем пользователя в список участников
+                    if str(user.id) not in access_data["members"]:
+                        access_data["members"].append(str(user.id))
+
+                    # Сохраняем обновленные данные
+                    with open(courier_access_file, 'w', encoding='utf-8') as f:
+                        json.dump(access_data, f, indent=2, ensure_ascii=False)
+
+
+                    # Отвечаем на callback query
+                    await query.answer("Вы успешно зарегистрированы! Проверьте личные сообщения от бота.")
+
+                    # Отправляем сообщение и видео-инструкцию пользователю в личку
+                    try:
+                        # Путь к видео-файлу
+                        video_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'videos', 'vidioNinja.mp4')
+                        
+                        # Отправляем текстовое сообщение
+                        await context.bot.send_message(
+                            chat_id=user.id,
+                            text="Теперь вы можете записаться на смену, используя кнопку 'Записаться' в меню бота."
+                        )
+                        
+                        # Отправляем видео-сообщение
+                        async with aiofiles.open(video_path, 'rb') as video_file:
+                            video_data = await video_file.read()
+                            await context.bot.send_video_note(
+                                chat_id=user.id,
+                                video_note=video_data,
+                                disable_notification=True
+                            )
+                            logger.info(f"✅ Видео-инструкция успешно отправлена пользователю {user.id}")
+                            
+                    except Exception as e:
+                        logger.warning(f"Не удалось отправить сообщение пользователю {user.id}: {str(e)}")
+                        # Отправляем сообщение в группу, если не удалось отправить в личку
+                        await context.bot.send_message(
+                            chat_id=chat.id,
+                            text=f"@{user.username}, пожалуйста, начните диалог с ботом, чтобы получить доступ к функциям записи.",
+                            reply_to_message_id=query.message.message_id
+                        )
+
+                except Exception as e:
+                    logger.error(f"Ошибка при обновлении списка доступа: {str(e)}")
+                    await query.answer("Произошла ошибка. Пожалуйста, попробуйте позже.")
+
+        except Exception as e:
+            logger.error(f"Ошибка при обработке нажатия inline-кнопки 'Записаться': {str(e)}")
+            logger.error(traceback.format_exc())
+            try:
+                await query.answer("Произошла ошибка. Пожалуйста, попробуйте позже.")
+            except:
+                pass

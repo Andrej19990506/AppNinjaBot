@@ -4,6 +4,3048 @@
     "type": "raw",
     "oldQuantity": 0,
     "newQuantity": 25,
+    "category": "Специи и приправы",
+    "itemName": "Орегано",
+    "metadata": {
+      "lastUpdated": "2025-03-17T06:40:01.122Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "ac31a74e-4475-4a6c-8b4f-2a67051c661a",
+    "timestamp": "2025-03-17T06:40:00.090363+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Орегано",
+    "category_display_name": "Специи и приправы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Орегано"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 75,
+    "newQuantity": 95,
+    "category": "Упаковка и приборы",
+    "itemName": "Коробки д/снеков",
+    "metadata": {
+      "lastUpdated": "2025-03-17T06:20:09.610Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "b343e72a-6ac6-4d20-9841-65f3c946daa7",
+    "timestamp": "2025-03-17T06:20:07.928442+00:00",
+    "quantity": 20,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 20 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Коробки д/снеков",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 75,
+      "new_value": 95,
+      "difference": 20
+    },
+    "item": "Коробки д/снеков"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 50,
+    "newQuantity": 75,
+    "category": "Упаковка и приборы",
+    "itemName": "Коробки д/снеков",
+    "metadata": {
+      "lastUpdated": "2025-03-17T06:19:25.325Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "6df4fe69-a49c-4fc5-a0f7-72c83e84b663",
+    "timestamp": "2025-03-17T06:19:23.499898+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Коробки д/снеков",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 75,
+      "difference": 25
+    },
+    "item": "Коробки д/снеков"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Упаковка и приборы",
+    "itemName": "Коробки д/снеков",
+    "metadata": {
+      "lastUpdated": "2025-03-17T06:19:07.804Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "f8c916e5-fdcd-425d-9e19-8bed21c4d4bd",
+    "timestamp": "2025-03-17T06:19:06.164139+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Коробки д/снеков",
+    "category_display_name": "Упаковка и приборы",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Коробки д/снеков"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 36,
+    "category": "Бакалея",
+    "itemName": "Соль (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T03:04:49.709Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "1af641a6-8346-4da5-a6b8-da22c5c6c390",
+    "timestamp": "2025-03-17T03:04:48.642657+00:00",
+    "quantity": 36,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 36 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Соль (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 36,
+      "difference": 36
+    },
+    "item": "Соль (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Бакалея",
+    "itemName": "Сухари панировачные (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T03:04:30.780Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "98b2e256-7bfe-4f86-95c1-ded1ab90eea6",
+    "timestamp": "2025-03-17T03:04:29.729000+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сухари панировачные (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Сухари панировачные (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 50,
+    "newQuantity": 75,
+    "category": "Бакалея",
+    "itemName": "Яйцо куриное (шт.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T03:04:15.583Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "601cb9ba-7e49-49af-988a-32cf1335ef5b",
+    "timestamp": "2025-03-17T03:04:14.520287+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Яйцо куриное (шт.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 50,
+      "new_value": 75,
+      "difference": 25
+    },
+    "item": "Яйцо куриное (шт.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Бакалея",
+    "itemName": "Яйцо куриное (шт.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T03:03:46.830Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "df83fd43-aa9a-42b5-9938-30da8592ba57",
+    "timestamp": "2025-03-17T03:03:45.695894+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Яйцо куриное (шт.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Яйцо куриное (шт.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:36:41.982Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "6f4b82b0-3b52-408c-bae3-5da64b7a44bc",
+    "timestamp": "2025-03-17T02:36:41.309230+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:36:38.663Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "c0e67ecd-2b60-4aeb-a729-513e548a7523",
+    "timestamp": "2025-03-17T02:36:37.639414+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:36:34.382Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2c25bd03-c87b-4e49-b571-3d0be3fc5574",
+    "timestamp": "2025-03-17T02:36:33.386845+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:36:27.443Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "1e911e9d-38de-41d3-a878-552b657fc2d9",
+    "timestamp": "2025-03-17T02:36:26.426151+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 55,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Сахар (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:36:25.205Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "f4903664-95f6-4c93-b9af-5ee902ea6743",
+    "timestamp": "2025-03-17T02:36:24.473578+00:00",
+    "quantity": -55,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 55 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сахар (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 55,
+      "new_value": 0,
+      "difference": -55
+    },
+    "item": "Сахар (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 75,
+    "newQuantity": 125,
+    "category": "Молочные продукты",
+    "itemName": "Молоко (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:07:42.293Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "8be7dd09-a256-4095-93c9-07da6cbda1e1",
+    "timestamp": "2025-03-17T02:07:41.785184+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Молоко (гр.)",
+    "category_display_name": "Молочные продукты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 75,
+      "new_value": 125,
+      "difference": 50
+    },
+    "item": "Молоко (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Молочные продукты",
+    "itemName": "Сыр Дор Блю (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-17T02:06:48.099Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "20f59e64-b932-4f85-892f-fc1e4956a73e",
+    "timestamp": "2025-03-17T02:06:47.618045+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сыр Дор Блю (гр.)",
+    "category_display_name": "Молочные продукты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Сыр Дор Блю (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Соль (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T13:24:00.854Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "d932afc7-3f14-4af7-91b7-1f1f02de8074",
+    "timestamp": "2025-03-16T13:24:00.975039+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Соль (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соль (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Бакалея",
+    "itemName": "Соль (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T13:23:58.912Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "b24cceca-77f0-43b4-ab64-dac733cf9df8",
+    "timestamp": "2025-03-16T13:23:59.357762+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Соль (гр.)",
+    "category_display_name": "Бакалея",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Соль (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 12,
+    "category": "Десерты",
+    "itemName": "Чизкейк Фисташковый (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:52:09.731Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "dc76dd52-4271-4ff0-9749-a65410b1358c",
+    "timestamp": "2025-03-16T01:52:09.859200+00:00",
+    "quantity": 12,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 12 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Фисташковый (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 12,
+      "difference": 12
+    },
+    "item": "Чизкейк Фисташковый (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 22,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:51:59.971Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "3ec897dc-e754-4d1b-a31d-1c1a613f02ae",
+    "timestamp": "2025-03-16T01:52:00.096217+00:00",
+    "quantity": 22,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 22 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 22,
+      "difference": 22
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 1,
+    "category": "Десерты",
+    "itemName": "Эклер с варёным сгущённым молоком (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:51:52.738Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2c07d2ad-e982-4ca2-8ae8-8a8c507afd81",
+    "timestamp": "2025-03-16T01:51:52.847261+00:00",
+    "quantity": 1,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Добавлено 1 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Эклер с варёным сгущённым молоком (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 1,
+      "difference": 1
+    },
+    "item": "Эклер с варёным сгущённым молоком (шт)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
+    "category": "Полуфабрикаты",
+    "itemName": "Сыр сборный (Гауда и Моцарелла) (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:31:07.346Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "d7485be8-e4d6-4fdc-9f66-881d27170b75",
+    "timestamp": "2025-03-16T01:31:07.193638+00:00",
+    "quantity": 25,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 25 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Сыр сборный (Гауда и Моцарелла) (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 25,
+      "difference": 25
+    },
+    "item": "Сыр сборный (Гауда и Моцарелла) (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 50,
+    "category": "Полуфабрикаты",
+    "itemName": "Тесто (кг.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:30:45.499Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "02bb48a2-39f7-48d6-8b5d-3c5cd75b86ba",
+    "timestamp": "2025-03-16T01:30:45.360841+00:00",
+    "quantity": 50,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Добавлено 50 сырья",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Тесто (кг.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 50,
+      "difference": 50
+    },
+    "item": "Тесто (кг.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:49.528Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2778348d-5589-42e9-bc5e-487951a1c5a5",
+    "timestamp": "2025-03-16T01:24:49.647802+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:47.842Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "db2fe423-babf-4d2f-b397-970bba2d2025",
+    "timestamp": "2025-03-16T01:24:48.049998+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:45.845Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "567d8b2b-6264-4339-bea8-5241bd76f86d",
+    "timestamp": "2025-03-16T01:24:45.983794+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:43.553Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "5ea2863a-37c2-4e4a-8cc4-205f2a61fae4",
+    "timestamp": "2025-03-16T01:24:43.690698+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:38.385Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "d3cd8277-e511-4eb6-b018-851401462c10",
+    "timestamp": "2025-03-16T01:24:38.496766+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:36.744Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "2d70f92c-5bde-4c81-b817-4fa3b616ae1d",
+    "timestamp": "2025-03-16T01:24:36.879052+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:35.403Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "e376cff5-70fd-4f14-8398-7f06520386d0",
+    "timestamp": "2025-03-16T01:24:35.524260+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:24:33.412Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "4a174828-7385-4316-aac3-e76024be8232",
+    "timestamp": "2025-03-16T01:24:33.521570+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Полуфабрикаты",
+    "itemName": "Замес для Бургера (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:23:56.892Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "7148d8ba-ccba-4fea-bff2-b6639180a992",
+    "timestamp": "2025-03-16T01:23:57.016063+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Замес для Бургера (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Замес для Бургера (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Полуфабрикаты",
+    "itemName": "Замес для Бургера (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:23:55.161Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 1682142222,
+        "first_name": "andrej",
+        "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+      }
+    },
+    "id": "12da4559-5e8c-41ad-8d94-721a6cb79c58",
+    "timestamp": "2025-03-16T01:23:55.427028+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 1682142222,
+      "first_name": "andrej",
+      "photo_url": "https://t.me/i/userpic/320/xZFVUgINyYFrJxktZE296g4nRdsTYcHdjEWyMXzgz7o.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Замес для Бургера (гр.)",
+    "category_display_name": "Полуфабрикаты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Замес для Бургера (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:21:17.160Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "8a8d89ca-6934-4cfd-a993-dbef427fb82a",
+    "timestamp": "2025-03-16T01:21:17.013604+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:20:56.411Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "4c376fb5-716d-4b65-a438-479fea1477c2",
+    "timestamp": "2025-03-16T01:20:56.253166+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:20:06.947Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "3f210309-9438-4cfe-b216-765f6d1a5046",
+    "timestamp": "2025-03-16T01:20:06.786884+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:20:05.052Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "54f00766-2482-4f90-8511-c942e9a5e590",
+    "timestamp": "2025-03-16T01:20:04.906764+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:50.983Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f2a65500-728f-4d9f-bee4-9c525fb3b19f",
+    "timestamp": "2025-03-16T01:18:50.820203+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:49.177Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "817e83dc-a30e-4a8b-9c1f-9d5792e0933d",
+    "timestamp": "2025-03-16T01:18:49.014421+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:42.628Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "59e3293e-7c72-4241-9953-d5c32e040bba",
+    "timestamp": "2025-03-16T01:18:42.467335+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:40.655Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "3f1cd5d1-e431-4e3e-ae93-58680e518972",
+    "timestamp": "2025-03-16T01:18:40.532765+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:37.535Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "b3138ad2-4e62-4ee7-a2f0-a97ec6415338",
+    "timestamp": "2025-03-16T01:18:37.429599+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:35.538Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "e38e2570-24dc-4dc4-9935-76765d25979f",
+    "timestamp": "2025-03-16T01:18:35.365283+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:33.313Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "00f057bd-7fdb-4380-b331-a3957e817cf5",
+    "timestamp": "2025-03-16T01:18:33.191062+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:31.820Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "476bb63c-6829-4fbe-81d6-27725704ed30",
+    "timestamp": "2025-03-16T01:18:31.644747+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:28.305Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "4a9605d6-8144-4c30-bb48-3b3971ca325f",
+    "timestamp": "2025-03-16T01:18:28.195257+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:18:25.803Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "35d597ef-3371-4bb5-a964-fa555d7526db",
+    "timestamp": "2025-03-16T01:18:25.651177+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:14:43.618Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "fee385fc-bafa-4510-ab3f-62bc434dcb38",
+    "timestamp": "2025-03-16T01:14:43.701118+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:14:42.622Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f6c41699-a007-4545-aac4-e3e99772277d",
+    "timestamp": "2025-03-16T01:14:42.683544+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:14:40.545Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "16c99de8-6f8c-41c8-bf91-61fc438e2929",
+    "timestamp": "2025-03-16T01:14:40.606906+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:14:39.379Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "d667cd77-e538-4393-99bd-db8c4c00ca53",
+    "timestamp": "2025-03-16T01:14:39.462664+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:44.526Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "29e04c95-ac70-46b3-8df0-c5903faa272f",
+    "timestamp": "2025-03-16T01:13:44.953758+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:43.308Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "75842453-a1c6-4ea5-96d3-215e3af66946",
+    "timestamp": "2025-03-16T01:13:43.362631+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:41.426Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "6d747776-eceb-4dfb-9abd-cc3957163c9c",
+    "timestamp": "2025-03-16T01:13:41.552972+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:38.638Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "826a92ed-0d4a-433b-be62-a9e4b717650d",
+    "timestamp": "2025-03-16T01:13:38.725290+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:28.672Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "7607835d-798e-4585-9059-a41735acfe34",
+    "timestamp": "2025-03-16T01:13:28.757289+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:27.296Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "48283037-3380-4328-bdcb-232c7140db62",
+    "timestamp": "2025-03-16T01:13:27.407819+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:24.633Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "23484644-cee1-4ef3-ab64-347ad8858996",
+    "timestamp": "2025-03-16T01:13:25.549380+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Десерты",
+    "itemName": "Чизкейк Шоколад (шт)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:13:23.043Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f26c3f9d-b168-4826-91f2-8e3964e90445",
+    "timestamp": "2025-03-16T01:13:23.173301+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Чизкейк Шоколад (шт)",
+    "category_display_name": "Десерты",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Чизкейк Шоколад (шт)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:17.149Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "bb6b34e8-026e-4508-a2f5-048152936c21",
+    "timestamp": "2025-03-16T01:09:17.232832+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:15.298Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "8eccf29c-280b-451f-b272-ee3ff0ee7f77",
+    "timestamp": "2025-03-16T01:09:15.377898+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:13.762Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "0c701b05-cc87-4209-b701-4f1816871047",
+    "timestamp": "2025-03-16T01:09:13.840068+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:12.472Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "5a588deb-2d5e-447d-8b15-7a6f5cd64040",
+    "timestamp": "2025-03-16T01:09:12.646359+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:11.003Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "529c7e30-dacd-46c3-8b8c-7e1c279a3cff",
+    "timestamp": "2025-03-16T01:09:11.080105+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:09.558Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "937c2495-aa47-417c-8e9f-28c07afd40a3",
+    "timestamp": "2025-03-16T01:09:09.678442+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:07.974Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "e54578c5-1c01-43dd-9cdb-ae7e58c6dc61",
+    "timestamp": "2025-03-16T01:09:08.077180+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Масло фритюрное (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:09:06.113Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "6a822946-f5f2-406a-937a-59772ab2aa11",
+    "timestamp": "2025-03-16T01:09:06.335102+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Масло фритюрное (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Масло фритюрное (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:58.309Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "850312c2-d65c-47f4-80a6-579b680cb9ef",
+    "timestamp": "2025-03-16T01:05:58.099765+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:57.075Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "04642f27-d34d-4e33-a242-5943736293fe",
+    "timestamp": "2025-03-16T01:05:56.849221+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:55.915Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f0461689-a930-4f2f-be5d-40730b1d0cdd",
+    "timestamp": "2025-03-16T01:05:55.686305+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:54.453Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "c97206cb-d6e0-42c7-ada2-06b641c39690",
+    "timestamp": "2025-03-16T01:05:54.238120+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:42.384Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "baead1cd-06f1-4cd3-a6b6-ba5cba3e2f51",
+    "timestamp": "2025-03-16T01:05:42.192649+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Масла и заправки",
+    "itemName": "Паста Том Кха (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:05:36.847Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "f77a544f-7067-491f-bb0e-49336c562643",
+    "timestamp": "2025-03-16T01:05:36.615152+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Паста Том Кха (гр.)",
+    "category_display_name": "Масла и заправки",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Паста Том Кха (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:13.984Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "82264c9d-8eb6-4d44-bdac-0f9ab7e82f77",
+    "timestamp": "2025-03-16T01:02:13.582197+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:12.544Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "5ed2ca58-1ae0-41dd-b1a5-3f579d738b9f",
+    "timestamp": "2025-03-16T01:02:12.146152+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:10.929Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "ae2b4cb8-c742-42d6-9823-fb0415f0d0d0",
+    "timestamp": "2025-03-16T01:02:10.589227+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:09.531Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "5b321150-a1be-49a1-991a-c99290414de5",
+    "timestamp": "2025-03-16T01:02:09.140947+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "remove_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:08.038Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "0d47346e-8d5b-46e1-b62f-23369a631e58",
+    "timestamp": "2025-03-16T01:02:07.652615+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "add_option",
+    "type": "semifinished",
+    "oldQuantity": 0,
+    "newQuantity": 0,
+    "category": "Мясо и рыба",
+    "itemName": "Крылья куриные (маринованные)  (гр.)",
+    "metadata": {
+      "lastUpdated": "2025-03-16T01:02:06.147Z",
+      "progress": 0,
+      "chat_id": "2457417588",
+      "currentUser": {
+        "id": 6843570748,
+        "first_name": "Словцова",
+        "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+      }
+    },
+    "id": "4dbb4fb4-64e2-4724-9da8-1bdbcadffc8f",
+    "timestamp": "2025-03-16T01:02:06.023120+00:00",
+    "quantity": 0,
+    "author": {
+      "id": 6843570748,
+      "first_name": "Словцова",
+      "photo_url": "https://t.me/i/userpic/320/dJ24hDjZZivktIkdU07aYhb3bqDFMcTXUoEBw0IjKTBvWUJoV-ydQV9yJ7ebty76.svg"
+    },
+    "description": "Изменено количество полуфабрикатов с 0 на 0",
+    "chat_id": "2457417588",
+    "status": "completed",
+    "item_display_name": "Крылья куриные (маринованные)  (гр.)",
+    "category_display_name": "Мясо и рыба",
+    "change_type": "quantity_update",
+    "change_details": {
+      "field": "quantity",
+      "old_value": 0,
+      "new_value": 0,
+      "difference": 0
+    },
+    "item": "Крылья куриные (маринованные)  (гр.)"
+  },
+  {
+    "action": "add",
+    "type": "raw",
+    "oldQuantity": 0,
+    "newQuantity": 25,
     "category": "Десерты",
     "itemName": "Чизкейк New York (шт)",
     "metadata": {

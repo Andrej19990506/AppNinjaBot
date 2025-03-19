@@ -5,7 +5,7 @@ from telegramNinjaBot.config.config import Config
 from telegramNinjaBot.services.json_service import JsonService
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
 from telegram.constants import ChatMemberStatus
-from telegram import Update, Bot
+from telegram import Update, Bot, MenuButton, MenuButtonWebApp, WebAppInfo
 from telegram.ext import ContextTypes
 import json
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -178,6 +178,20 @@ async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
     except Exception as e:
         logger.error(f"Ошибка при обработке данных веб-приложения: {e}", exc_info=True)
+
+async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /start"""
+    try:
+        user = update.effective_user
+        logger.info(f"Пользователь {user.full_name} ({user.id}) запустил команду /start")
+
+
+    except Exception as e:
+        logger.error(f"Ошибка при обработке команды /start: {str(e)}")
+        logger.error(traceback.format_exc())
+        await update.message.reply_text(
+            "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже."
+        )
 
 async def broadcast_item_deletion(data):
     """Рассылка уведомления о запросе на удаление товара"""
@@ -850,9 +864,11 @@ async def run_bot():
         bot_application.add_handler(CallbackQueryHandler(handle_deletion_callback))
         
         # Команды и веб-приложение
+        bot_application.add_handler(CommandHandler("start", handle_start))
         bot_application.add_handler(CommandHandler("send_love", send_love))
+        # Удаляем обработчик веб-приложения, оставляем только текстовые сообщения
         bot_application.add_handler(MessageHandler(
-            filters.StatusUpdate.WEB_APP_DATA | filters.TEXT,
+            filters.TEXT,
             handle_webapp_data
         ))
 

@@ -16,7 +16,7 @@ services:
       - ./backend/telegramNinjaBot/.env
     environment:
       - PYTHONUNBUFFERED=1
-      - API_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
+      - API_URL=https://auckland-wishlist-being-welsh.trycloudflare.com
     restart: "no"
     deploy:
       replicas: 1
@@ -46,8 +46,8 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
-      - API_BASE_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
-      - SOCKET_URL=wss://ranging-starsmerchant-southampton-spiritual.trycloudflare.com/ws
+      - API_BASE_URL=https://auckland-wishlist-being-welsh.trycloudflare.com
+      - SOCKET_URL=wss://auckland-wishlist-being-welsh.trycloudflare.com/ws
       - PYTHONPYCACHEPREFIX=/tmp/pycache
 
   scheduler:
@@ -82,8 +82,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=https://ranging-starsmerchant-southampton-spiritual.trycloudflare.com/api
-      - REACT_APP_WS_URL=wss://ranging-starsmerchant-southampton-spiritual.trycloudflare.com
+      - REACT_APP_API_URL=https://auckland-wishlist-being-welsh.trycloudflare.com/api
+      - REACT_APP_WS_URL=wss://auckland-wishlist-being-welsh.trycloudflare.com
       - NODE_ENV=${NODE_ENV:-development}
       - REACT_APP_ENV=${NODE_ENV:-development}
       - REACT_APP_DEBUG=true

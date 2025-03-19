@@ -160,8 +160,13 @@ class JsonService:
     def load_admins(self) -> list:
         """Загружает список администраторов из файла"""
         try:
-            with open(self.admins_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+            data = self.load_from_json('admins.json')
+            # Собираем всех администраторов из всех чатов
+            all_admins = []
+            for chat_data in data.values():
+                if isinstance(chat_data, dict) and 'admins' in chat_data:
+                    all_admins.extend(chat_data['admins'])
+            return all_admins
         except Exception as e:
             logger.error(f"Ошибка при загрузке администраторов: {e}", exc_info=True)
             return []

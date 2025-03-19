@@ -26,6 +26,8 @@ import subprocess
 from decimal import Decimal
 from typing import Dict, List, Optional, Union, Any
 import urllib.parse
+from routers.shifts import router as shifts_router
+from data.reserves import add_reserve as db_add_reserve, delete_reserve as db_delete_reserve, get_reserve
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -199,13 +201,28 @@ config = {
 }
 
 app = Flask(__name__)
+# Настраиваем CORS для всех маршрутов
+CORS(app, resources={
+    r"/api/*": {
+        "origins": [
+            "http://localhost:3000",
+            "https://auckland-wishlist-being-welsh.trycloudflare.com",
+            "https://doc-panels-bizarre-three.trycloudflare.com"
+        ],
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# Регистрируем маршруты для смен
+app.register_blueprint(shifts_router)
 
 # Настройки CORS
 cors = CORS(
     app,
     origins=[
         "https://conference-henderson-falls-investigation.trycloudflare.com",
-        "https://drum-converter-telephony-fireplace.trycloudflare.com",
+        "https://doc-panels-bizarre-three.trycloudflare.com",
         "https://workplace-cultures-guidelines-wins.trycloudflare.com",
         "http://localhost:3000"  # Для локальной разработки
     ],
@@ -221,15 +238,14 @@ cors = CORS(
 socketio = SocketIO(
     app,
     cors_allowed_origins=[
-        "https://conference-henderson-falls-investigation.trycloudflare.com",
-        "https://drum-converter-telephony-fireplace.trycloudflare.com",
-        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
-        "http://localhost:3000"  # Для локальной разработки
+        "https://auckland-wishlist-being-welsh.trycloudflare.com",
+        "https://doc-panels-bizarre-three.trycloudflare.com",
+        "http://localhost:3000"
     ],
     async_mode='gevent',
-    path='/ws/socket.io',
-    ping_timeout=20,
-    ping_interval=10000,
+    path='/socket.io',  # Убираем /ws/ из пути
+    ping_timeout=60,    # Увеличиваем таймауты
+    ping_interval=25,
     logger=True,
     engineio_logger=True,
     max_http_buffer_size=1e8,
@@ -237,7 +253,7 @@ socketio = SocketIO(
     transports=['websocket', 'polling'],
     always_connect=True,
     manage_session=True,
-    upgrade_timeout=10000,
+    upgrade_timeout=60000,
     allow_upgrades=True,
     cookie=None,
     cors_credentials=True
@@ -260,8 +276,9 @@ def handle_preflight():
         # Проверяем, что origin в списке разрешенных
         allowed_origins = [
             "https://conference-henderson-falls-investigation.trycloudflare.com",
-            "https://drum-converter-telephony-fireplace.trycloudflare.com",
-            "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+            "https://vp-ef-photographs-results.trycloudflare.com",
+            "https://auckland-wishlist-being-welsh.trycloudflare.com",
+            "https://doc-panels-bizarre-three.trycloudflare.com",
             "http://localhost:3000"
         ]
         if origin in allowed_origins:
@@ -1774,7 +1791,7 @@ def generate_excel(chat_id):
         response.headers["X-Download-Options"] = "noopen"
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
+        response.headers.set('Expires', '0')
         
         logger.info('=== Excel файл успешно сгенерирован ===')
         return response
@@ -1864,8 +1881,8 @@ def scheduler_proxy(path):
             origin = request.headers.get('Origin', '')
             allowed_origins = [
                 "https://conference-henderson-falls-investigation.trycloudflare.com",
-                "https://drum-converter-telephony-fireplace.trycloudflare.com",
-                "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+                "https://doc-panels-bizarre-three.trycloudflare.com",
+                "https://auckland-wishlist-being-welsh.trycloudflare.com",
                 "http://localhost:3000"
             ]
             if origin in allowed_origins:
@@ -2052,7 +2069,7 @@ def handle_connect():
     """Обработчик подключения клиента"""
     logger.info('🔌 WebSocket подключение установлено')
     logger.info(f'👤 Сессия: {request.sid}')
-    emit('connected', {'status': 'success'})
+    emit('connected', {'status': 'success', 'sid': request.sid})
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -2975,8 +2992,8 @@ def set_cors_headers(response):
     origin = request.headers.get('Origin', '')
     allowed_origins = [
         "https://conference-henderson-falls-investigation.trycloudflare.com",
-        "https://drum-converter-telephony-fireplace.trycloudflare.com",
-        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+        "https://doc-panels-bizarre-three.trycloudflare.com",
+        "https://auckland-wishlist-being-welsh.trycloudflare.com",
         "http://localhost:3000"
     ]
     if origin in allowed_origins:
@@ -3401,6 +3418,639 @@ def generate_write_off_document_compat():
     """Совместимый эндпоинт для генерации DOCX файла акта списания (без дефиса)"""
     logger.info("Вызов совместимого эндпоинта /api/writeoffs/generate-document")
     return _generate_write_off_document_internal()
+
+@app.route('/api/user/<int:user_id>/groups', methods=['GET'])
+def get_user_groups(user_id):
+    try:
+        logger.info(f'=== Получение групп пользователя {user_id} ===')
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        
+        # Проверяем существование директории
+        if not os.path.exists(courier_groups_dir):
+            logger.warning(f'Директория групп не найдена: {courier_groups_dir}')
+            response = jsonify({
+                'success': True,
+                'groups': []
+            })
+            return set_cors_headers(response)
+
+        user_groups = []
+        user_data = None
+        logger.info(f'Поиск групп в директории: {courier_groups_dir}')
+
+        # Проверяем каждый файл группы
+        for filename in os.listdir(courier_groups_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(courier_groups_dir, filename)
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        group_data = json.load(f)
+                        logger.info(f'Проверка файла группы: {filename}')
+                        
+                        # Ищем пользователя в списке участников
+                        member = next(
+                            (m for m in group_data.get('members', []) 
+                             if str(m.get('user_id')) == str(user_id)),
+                            None
+                        )
+                        
+                        if member:
+                            # Если это первая найденная группа, сохраняем данные пользователя
+                            if user_data is None:
+                                user_data = {
+                                    'first_name': member.get('first_name', ''),
+                                    'last_name': member.get('last_name', ''),
+                                    'photo_url': member.get('photo_url')
+                                }
+                            
+                            user_groups.append({
+                                'chat_id': group_data.get('chat_id'),
+                                'chat_title': group_data.get('chat_title'),
+                                'group_type': 'courier'
+                            })
+                            logger.info(f'Пользователь найден в группе: {group_data.get("chat_title")}')
+                except Exception as e:
+                    logger.error(f'Ошибка при чтении файла {filename}: {str(e)}')
+                    continue
+
+        logger.info(f'Найдено групп: {len(user_groups)}')
+        response = jsonify({
+            'success': True,
+            'groups': user_groups,
+            'user_data': user_data
+        })
+        return set_cors_headers(response)
+
+    except Exception as e:
+        logger.error(f'Ошибка при получении групп пользователя: {str(e)}')
+        logger.error(traceback.format_exc())
+        response = jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+        return set_cors_headers(response[0]), response[1]
+
+@app.route('/api/courier/profile/<int:user_id>', methods=['PUT', 'OPTIONS'])
+def update_courier_profile(user_id):
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+        response.headers.add('Access-Control-Allow-Methods', 'PUT')
+        return response
+
+    try:
+        data = request.get_json()
+        first_name = data.get('firstName')
+        last_name = data.get('lastName')
+
+        if not first_name or not last_name:
+            return jsonify({'error': 'Необходимо указать имя и фамилию'}), 400
+
+        # Путь к файлу с данными курьеров
+        courier_data_path = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        logger.info(f'📁 Путь к директории групп курьеров: {courier_data_path}')
+        logger.info(f'📁 Директория существует: {os.path.exists(courier_data_path)}')
+
+        if not os.path.exists(courier_data_path):
+            logger.error(f'❌ Директория групп курьеров не найдена: {courier_data_path}')
+            return jsonify({'error': 'Директория с данными курьеров не найдена'}), 500
+
+        # Обновляем информацию во всех группах курьеров
+        updated = False
+        for filename in os.listdir(courier_data_path):
+            if filename.endswith('.json'):
+                file_path = os.path.join(courier_data_path, filename)
+                logger.info(f'📄 Обработка файла: {filename}')
+                
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        group_data = json.load(f)
+                        
+                        # Обновляем данные в списке участников
+                        for member in group_data.get('members', []):
+                            if member.get('user_id') == user_id:
+                                member['first_name'] = first_name
+                                member['last_name'] = last_name
+                                updated = True
+                                logger.info(f'✅ Обновлены данные пользователя в группе {group_data.get("chat_title")}')
+                        
+                        # Обновляем данные в списке администраторов
+                        for admin in group_data.get('admins', []):
+                            if admin.get('user_id') == user_id:
+                                admin['first_name'] = first_name
+                                admin['last_name'] = last_name
+                                updated = True
+                                logger.info(f'✅ Обновлены данные администратора в группе {group_data.get("chat_title")}')
+
+                    # Сохраняем обновленные данные только если были изменения
+                    if updated:
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            json.dump(group_data, f, indent=2, ensure_ascii=False)
+                            logger.info(f'💾 Сохранены обновленные данные в файл {filename}')
+                except Exception as e:
+                    logger.error(f'❌ Ошибка при обработке файла {filename}: {str(e)}')
+                    continue
+
+        if not updated:
+            logger.error(f'❌ Пользователь {user_id} не найден в группах курьеров')
+            return jsonify({'error': 'Пользователь не найден в группах курьеров'}), 404
+
+        logger.info('✅ Профиль курьера успешно обновлен')
+        return jsonify({
+            'success': True,
+            'data': {
+                'user_id': user_id,
+                'first_name': first_name,
+                'last_name': last_name,
+                'updated_at': datetime.now().isoformat()
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обновлении профиля курьера: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+# Маршруты для работы со сменами
+@app.route('/api/shifts', methods=['GET'])
+def get_shifts():
+    """Получение всех смен"""
+    try:
+        shifts = db.session.query(Shift).all()
+        
+        # Добавляем информацию о пользователях к сменам
+        response_shifts = []
+        for shift in shifts:
+            user = db.session.query(User).filter(User.id == shift.user_id).first()
+            if user:
+                response_shifts.append({
+                    'id': shift.id,
+                    'user_id': shift.user_id,
+                    'date': shift.date.isoformat(),
+                    'shift_type': shift.shift_type,
+                    'slot_index': shift.slot_index,
+                    'avatar_url': user.photo_url,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'created_at': shift.created_at.isoformat(),
+                    'updated_at': shift.updated_at.isoformat()
+                })
+        
+        return jsonify(response_shifts)
+    except Exception as e:
+        logger.error(f'Error getting shifts: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shifts/book', methods=['POST'])
+def book_shift():
+    """Запись на смену"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        date = datetime.fromisoformat(data.get('date'))
+        shift_type = data.get('shift_type')
+        slot_index = data.get('slot_index')
+
+        # Проверяем, существует ли пользователь
+        user = db.session.query(User).filter(User.id == user_id).first()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Проверяем, не записан ли уже пользователь на эту смену
+        existing_shift = db.session.query(Shift).filter(
+            Shift.date == date,
+            Shift.user_id == user_id
+        ).first()
+        
+        if existing_shift:
+            return jsonify({'error': 'User already has a shift on this date'}), 400
+
+        # Проверяем количество записей на эту смену
+        shifts_count = db.session.query(Shift).filter(
+            Shift.date == date,
+            Shift.shift_type == shift_type
+        ).count()
+
+        max_slots = 4 if shift_type == 'day' else 2
+        if shifts_count >= max_slots:
+            return jsonify({'error': 'No available slots for this shift'}), 400
+
+        # Создаем новую смену
+        new_shift = Shift(
+            user_id=user_id,
+            date=date,
+            shift_type=shift_type,
+            slot_index=slot_index
+        )
+        
+        db.session.add(new_shift)
+        db.session.commit()
+
+        # Создаем ответ с информацией о пользователе
+        response = {
+            'id': new_shift.id,
+            'user_id': new_shift.user_id,
+            'date': new_shift.date.isoformat(),
+            'shift_type': new_shift.shift_type,
+            'slot_index': new_shift.slot_index,
+            'avatar_url': user.photo_url,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'created_at': new_shift.created_at.isoformat(),
+            'updated_at': new_shift.updated_at.isoformat()
+        }
+
+        # Отправляем уведомление через WebSocket
+        socketio.emit('shift_booked', response)
+
+        return jsonify(response)
+    except Exception as e:
+        logger.error(f'Error booking shift: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/shifts/<int:shift_id>', methods=['DELETE'])
+def cancel_shift(shift_id):
+    """Отменить смену курьера"""
+    try:
+        shifts_file = os.path.join(DATA_DIR, 'shifts.json')
+        if not os.path.exists(shifts_file):
+            return jsonify({"error": "Shifts file not found"}), 404
+            
+        # Загружаем смены
+        with open(shifts_file, 'r', encoding='utf-8') as f:
+            shifts = json.load(f)
+            
+        # Ищем смену для удаления
+        for i, shift in enumerate(shifts):
+            if shift.get('id') == shift_id:
+                # Удаляем смену
+                removed_shift = shifts.pop(i)
+                
+                # Сохраняем обновленные смены
+                with open(shifts_file, 'w', encoding='utf-8') as f:
+                    json.dump(shifts, f, ensure_ascii=False, indent=2)
+                    
+                return jsonify({"status": "success", "shift": removed_shift})
+                
+        return jsonify({"error": "Shift not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/reserves', methods=['GET'])
+def get_reserves():
+    """Получить список резервов"""
+    try:
+        # Загружаем файл резервов
+        reserves_file = os.path.join(DATA_DIR, 'reserves.json')
+        
+        if not os.path.exists(reserves_file):
+            # Если файла нет, возвращаем пустой список
+            return jsonify([])
+            
+        with open(reserves_file, 'r', encoding='utf-8') as f:
+            reserves = json.load(f)
+            
+        return jsonify(reserves)
+    except Exception as e:
+        logger.error(f"Error getting reserves: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@socketio.on('book_shift')
+def handle_book_shift(data):
+    """Обработчик события бронирования смены через WebSocket"""
+    try:
+        logger.info('=== 📝 Обработка WebSocket события book_shift ===')
+        logger.info(f'📊 Данные: {json.dumps(data, ensure_ascii=False)}')
+        
+        # Получаем данные из запроса
+        date = data.get('date')
+        shift_type = data.get('shift_type')
+        slot_index = data.get('slot_index')
+        user_id = data.get('user_id')
+        photo_url = data.get('photo_url')  # Используем photo_url вместо avatar_url
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        
+        # Проверяем обязательные поля
+        if not all([date, shift_type, slot_index is not None, user_id]):  # Изменена проверка slot_index
+            logger.error('❌ Отсутствуют обязательные поля')
+            missing_fields = []
+            if not date: missing_fields.append('date')
+            if not shift_type: missing_fields.append('shift_type')
+            if slot_index is None: missing_fields.append('slot_index')
+            if not user_id: missing_fields.append('user_id')
+            emit('error', {'message': f'Missing required fields: {", ".join(missing_fields)}'})
+            return
+            
+        # Загружаем текущие смены
+        shifts_file = DATA_DIR / 'shifts.json'
+        shifts = []
+        if shifts_file.exists():
+            with open(shifts_file, 'r', encoding='utf-8') as f:
+                shifts = json.load(f)
+        
+        # Проверяем, не записан ли уже пользователь на эту дату
+        user_shifts = [s for s in shifts if str(s['user_id']) == str(user_id) and s['date'] == date]
+        if user_shifts:
+            logger.error('❌ У пользователя уже есть смена на эту дату')
+            emit('error', {'message': 'User already has a shift on this date'})
+            return
+            
+        # Проверяем количество записей на эту смену
+        date_shifts = [s for s in shifts if s['date'] == date and s['shift_type'] == shift_type]
+        max_slots = 4 if shift_type == 'day' else 2
+        if len(date_shifts) >= max_slots:
+            logger.error('❌ Нет свободных слотов на эту смену')
+            emit('error', {'message': 'No available slots for this shift'})
+            return
+            
+        # Создаем новую смену
+        new_shift = {
+            'id': str(uuid.uuid4()),
+            'user_id': str(user_id),
+            'date': date,
+            'shift_type': shift_type,
+            'slot_index': slot_index,
+            'photo_url': photo_url,  # Используем photo_url
+            'first_name': first_name,
+            'last_name': last_name,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Если данные пользователя не были предоставлены, пытаемся найти их
+        if not all([photo_url, first_name, last_name]):
+            members_data = load_bot_data('members.json')
+            for chat_data in members_data.values():
+                for member in chat_data.get('members', []):
+                    if str(member.get('user_id')) == str(user_id):
+                        new_shift.update({
+                            'first_name': member.get('first_name', ''),
+                            'last_name': member.get('last_name', ''),
+                            'photo_url': member.get('photo_url')
+                        })
+                        break
+        
+        # Создаем директорию, если её нет
+        os.makedirs(os.path.dirname(shifts_file), exist_ok=True)
+        
+        # Добавляем смену в список и сохраняем
+        shifts.append(new_shift)
+        with open(shifts_file, 'w', encoding='utf-8') as f:
+            json.dump(shifts, f, ensure_ascii=False, indent=2)
+            
+        logger.info('✅ Смена успешно создана')
+        logger.info(f'📊 Данные смены: {json.dumps(new_shift, ensure_ascii=False)}')
+        
+        # Отправляем уведомление всем клиентам
+        emit('shift_booked', new_shift, broadcast=True)
+        
+        # Отправляем подтверждение создателю
+        emit('shift_booking_confirmed', {
+            'status': 'success',
+            'shift': new_shift
+        })
+        
+    except Exception as e:
+        logger.error(f'❌ Ошибка при бронировании смены: {str(e)}')
+        logger.error(traceback.format_exc())
+        emit('error', {'message': str(e)})
+
+@socketio.on('cancel_shift')
+def handle_cancel_shift(data):
+    """Обработчик события отмены смены через WebSocket"""
+    try:
+        # Отменяем смену
+        deleted_shift = cancel_shift(data['shift_id'])
+        
+        # Отправляем уведомление всем клиентам
+        emit('shift_cancelled', {'shift_id': data['shift_id']}, broadcast=True)
+        
+    except Exception as e:
+        logger.error(f'Error cancelling shift: {str(e)}')
+        emit('error', {'message': str(e)})
+
+@socketio.on('update_shift')
+def handle_update_shift(data):
+    """Обработчик события обновления смены через WebSocket"""
+    try:
+        logger.info('=== 🔄 Обработка WebSocket события update_shift ===')
+        logger.info(f'📊 Данные: {json.dumps(data, ensure_ascii=False)}')
+        
+        # Получаем данные из запроса
+        shift_id = data.get('shift_id')
+        date = data.get('date')
+        shift_type = data.get('shift_type')
+        slot_index = data.get('slot_index')
+        user_id = data.get('user_id')
+        photo_url = data.get('photo_url')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        
+        # Проверяем обязательные поля
+        if not all([shift_id, date, shift_type, slot_index is not None, user_id]):
+            logger.error('❌ Отсутствуют обязательные поля')
+            missing_fields = []
+            if not shift_id: missing_fields.append('shift_id')
+            if not date: missing_fields.append('date')
+            if not shift_type: missing_fields.append('shift_type')
+            if slot_index is None: missing_fields.append('slot_index')
+            if not user_id: missing_fields.append('user_id')
+            emit('error', {'message': f'Missing required fields: {", ".join(missing_fields)}'})
+            return
+            
+        # Загружаем текущие смены
+        shifts_file = DATA_DIR / 'shifts.json'
+        shifts = []
+        if shifts_file.exists():
+            with open(shifts_file, 'r', encoding='utf-8') as f:
+                shifts = json.load(f)
+        
+        # Находим смену для обновления
+        shift_index = next((i for i, s in enumerate(shifts) if s['id'] == shift_id), None)
+        if shift_index is None:
+            logger.error('❌ Смена не найдена')
+            emit('error', {'message': 'Shift not found'})
+            return
+            
+        # Проверяем, принадлежит ли смена пользователю
+        if str(shifts[shift_index]['user_id']) != str(user_id):
+            logger.error('❌ Смена принадлежит другому пользователю')
+            emit('error', {'message': 'Cannot update shift: belongs to another user'})
+            return
+            
+        # Проверяем количество записей на новую смену
+        date_shifts = [s for s in shifts if s['date'] == date and s['shift_type'] == shift_type and s['id'] != shift_id]
+        max_slots = 4 if shift_type == 'day' else 2
+        if len(date_shifts) >= max_slots:
+            logger.error('❌ Нет свободных слотов на эту смену')
+            emit('error', {'message': 'No available slots for this shift'})
+            return
+            
+        # Обновляем смену
+        shifts[shift_index].update({
+            'date': date,
+            'shift_type': shift_type,
+            'slot_index': slot_index,
+            'photo_url': photo_url,
+            'first_name': first_name,
+            'last_name': last_name,
+            'updated_at': datetime.now().isoformat()
+        })
+        
+        # Сохраняем обновленные смены
+        with open(shifts_file, 'w', encoding='utf-8') as f:
+            json.dump(shifts, f, ensure_ascii=False, indent=2)
+            
+        logger.info('✅ Смена успешно обновлена')
+        logger.info(f'📊 Обновленные данные: {json.dumps(shifts[shift_index], ensure_ascii=False)}')
+        
+        # Отправляем уведомление всем клиентам
+        emit('shift_updated', shifts[shift_index], broadcast=True)
+        
+        # Отправляем подтверждение создателю
+        emit('shift_update_confirmed', {
+            'status': 'success',
+            'shift': shifts[shift_index]
+        })
+        
+    except Exception as e:
+        logger.error(f'❌ Ошибка при обновлении смены: {str(e)}')
+        logger.error(traceback.format_exc())
+        emit('error', {'message': str(e)})
+
+@socketio.on('add_to_reserve')
+def add_to_reserve(data):
+    """Добавить курьера в резерв"""
+    try:
+        logger.info(f"📊 Получены данные для резерва: {json.dumps(data, ensure_ascii=False)}")
+        
+        # Учитываем оба варианта именования поля - userId и user_id
+        user_id = data.get('user_id') or data.get('userId')
+        date = data.get('date')
+        photo_url = data.get('photo_url')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        
+        if not user_id or not date:
+            logger.error("❌ Отсутствуют обязательные поля: user_id или date")
+            return {'status': 'error', 'message': 'Missing required fields: user_id or date'}
+        
+        logger.info(f"✅ Поля user_id: {user_id} и date: {date} успешно получены")
+        
+        # Проверяем формат даты
+        try:
+            datetime.strptime(date, '%Y-%m-%d')
+        except ValueError:
+            logger.error(f"❌ Неверный формат даты: {date}")
+            return {'status': 'error', 'message': f'Invalid date format: {date}'}
+            
+        # Загружаем текущие резервы
+        reserves_file = os.path.join(DATA_DIR, 'reserves.json')
+        reserves = []
+        
+        if os.path.exists(reserves_file):
+            try:
+                with open(reserves_file, 'r', encoding='utf-8') as f:
+                    reserves = json.load(f)
+            except json.JSONDecodeError:
+                logger.error("❌ Ошибка чтения файла резервов, создаем новый.")
+                reserves = []
+        
+        # Создаем запись в резерве
+        reserve = {
+            'id': str(uuid.uuid4()),
+            'user_id': user_id,
+            'date': date,
+            'photo_url': photo_url,
+            'first_name': first_name,
+            'last_name': last_name,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Добавляем новый резерв
+        reserves.append(reserve)
+        
+        # Сохраняем обновленные резервы
+        with open(reserves_file, 'w', encoding='utf-8') as f:
+            json.dump(reserves, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"✅ Резерв успешно создан: {json.dumps(reserve, ensure_ascii=False)}")
+        
+        # Оповещаем всех клиентов о новом резерве
+        socketio.emit('reserve_added', reserve)
+        
+        return {'status': 'success', 'data': reserve}
+    except Exception as e:
+        logger.error(f"Error adding to reserve: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {'status': 'error', 'message': str(e)}
+
+@socketio.on('remove_from_reserve')
+def remove_from_reserve(data):
+    """Удалить курьера из резерва"""
+    try:
+        logger.info(f"📊 Получены данные для удаления резерва: {json.dumps(data, ensure_ascii=False)}")
+        
+        # Учитываем оба варианта именования поля
+        reserve_id = data.get('reserve_id') or data.get('reserveId')
+        user_id = data.get('user_id') or data.get('userId')
+        
+        if not reserve_id:
+            logger.error("❌ Отсутствует обязательное поле: reserve_id")
+            return {'status': 'error', 'message': 'Missing required field: reserve_id'}
+        
+        logger.info(f"✅ Поле reserve_id: {reserve_id} успешно получено")
+        
+        # Загружаем текущие резервы
+        reserves_file = os.path.join(DATA_DIR, 'reserves.json')
+        
+        if not os.path.exists(reserves_file):
+            logger.error("❌ Файл резервов не найден")
+            return {'status': 'error', 'message': 'Reserves file not found'}
+            
+        try:
+            with open(reserves_file, 'r', encoding='utf-8') as f:
+                reserves = json.load(f)
+        except json.JSONDecodeError:
+            logger.error("❌ Ошибка чтения файла резервов")
+            return {'status': 'error', 'message': 'Failed to read reserves file'}
+            
+        # Находим резерв для удаления
+        reserve_index = None
+        for i, reserve in enumerate(reserves):
+            if reserve.get('id') == reserve_id:
+                reserve_index = i
+                break
+                
+        if reserve_index is None:
+            logger.error(f"❌ Резерв с ID {reserve_id} не найден")
+            return {'status': 'error', 'message': 'Reserve not found'}
+            
+        # Проверяем, принадлежит ли резерв пользователю (если указан user_id)
+        if user_id and str(reserves[reserve_index].get('user_id')) != str(user_id):
+            logger.error(f"❌ Резерв принадлежит другому пользователю")
+            return {'status': 'error', 'message': 'Not authorized to remove this reserve'}
+            
+        # Удаляем резерв
+        removed_reserve = reserves.pop(reserve_index)
+        
+        # Сохраняем обновленные резервы
+        with open(reserves_file, 'w', encoding='utf-8') as f:
+            json.dump(reserves, f, ensure_ascii=False, indent=2)
+            
+        logger.info(f"✅ Резерв успешно удален: {json.dumps(removed_reserve, ensure_ascii=False)}")
+        
+        # Оповещаем всех клиентов об удалении
+        socketio.emit('reserve_deleted', {'reserve_id': reserve_id})
+        
+        return {'status': 'success', 'data': removed_reserve}
+    except Exception as e:
+        logger.error(f"Error removing from reserve: {str(e)}")
+        logger.error(traceback.format_exc())
+        return {'status': 'error', 'message': str(e)}
+
 
 if __name__ == '__main__':
     try:

@@ -559,4 +559,41 @@ export const api = {
     writeOff: writeOffApi,
     history: historyApi,
     user: userApi
+};
+
+const API_BASE_URL = config.API_URL;
+
+export interface UpdateProfileData {
+    firstName: string;
+    lastName: string;
+}
+
+export const updateCourierProfile = async (userId: number, data: UpdateProfileData) => {
+    try {
+        console.log('📡 Отправка запроса на обновление профиля:', {
+            url: `${API_BASE_URL}/courier/profile/${userId}`,
+            data: data
+        });
+
+        const response = await axios.put(`${API_BASE_URL}/courier/profile/${userId}`, data);
+        console.log('✅ Профиль успешно обновлен:', response.data);
+        return response.data;
+    } catch (error) {
+        console.error('❌ Ошибка при обновлении профиля:', error);
+        
+        if (axios.isAxiosError(error)) {
+            if (error.code === 'ERR_NETWORK') {
+                throw new Error('Ошибка сети. Пожалуйста, проверьте подключение к интернету');
+            }
+            if (error.response?.status === 403) {
+                throw new Error('Доступ запрещен. У вас нет прав для выполнения этого действия');
+            }
+            if (error.response?.status === 404) {
+                throw new Error('Пользователь не найден в группах курьеров');
+            }
+            throw new Error(error.response?.data?.error || 'Ошибка при обновлении профиля');
+        }
+        
+        throw new Error('Произошла неизвестная ошибка');
+    }
 }; 

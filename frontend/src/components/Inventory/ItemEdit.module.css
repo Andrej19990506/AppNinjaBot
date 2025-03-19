@@ -32,9 +32,22 @@
     background: var(--card-background);
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
-    transition: var(--transition-normal);
     position: relative;
     z-index: 5;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.item.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.item.exit {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
 }
 
 .item:hover {
@@ -429,7 +442,14 @@
     justify-content: center;
     gap: 8px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out, background-color 0.2s ease, color 0.2s ease, border 0.2s ease;
+}
+
+.addSemifinishedButton.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .addSemifinishedButton:hover {
@@ -441,6 +461,11 @@
 .addSemifinishedButton:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.addSemifinishedButton.exit {
+    opacity: 0;
+    transform: translateY(20px);
 }
 
 .plusIcon {
@@ -470,9 +495,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.3s ease;
     opacity: 1;
-    transform: scale(1);
     z-index: 2;
 }
 
@@ -480,29 +503,21 @@
     background: var(--error-color);
     border-color: var(--error-color);
     color: white;
-    transform: scale(1.1) rotate(90deg);
 }
 
 .deleteButton svg {
     width: 16px;
     height: 16px;
-    transition: all 0.3s ease;
-}
-
-.deleteButton:hover svg {
-    transform: scale(0.9);
 }
 
 /* Стили для устройств с поддержкой hover (десктопы) */
 @media (hover: hover) and (min-width: 769px) {
     .deleteButton {
         opacity: 0;
-        transform: scale(0.8);
     }
 
     .item:hover .deleteButton {
         opacity: 1;
-        transform: scale(1);
     }
 }
 
@@ -510,7 +525,6 @@
 @media (max-width: 768px) {
     .deleteButton {
         opacity: 1 !important;
-        transform: scale(1) !important;
         width: 28px;
         height: 28px;
         pointer-events: auto !important;
@@ -519,7 +533,6 @@
 
     .item .deleteButton {
         opacity: 1 !important;
-        transform: scale(1) !important;
         pointer-events: auto !important;
         visibility: visible !important;
     }

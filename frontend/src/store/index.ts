@@ -4,6 +4,8 @@ import inventoryReducer from './slices/inventorySlice';
 import notificationReducer from './slices/notificationSlice';
 import writeOffReducer from './slices/writeOffSlice';
 import userReducer from './slices/userSlice';
+import courierReducer from './slices/courierSlice';
+import shiftsReducer from './slices/shiftsSlice';
 
 export const store = configureStore({
     reducer: {
@@ -11,7 +13,9 @@ export const store = configureStore({
         inventory: inventoryReducer,
         notification: notificationReducer,
         writeOff: writeOffReducer,
-        user: userReducer
+        user: userReducer,
+        courier: courierReducer,
+        shifts: shiftsReducer
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

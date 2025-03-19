@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { WebSocketMessage } from '../types';
 import config from '../config';
+import { logger } from '../utils/logger';
 
 interface QueuedMessage {
     eventType: string;
@@ -12,12 +13,13 @@ class SocketService {
     private socket: Socket | null = null;
     private static instance: SocketService;
     private connectionPromise: Promise<boolean> | null = null;
-    private messageQueue: QueuedMessage[] = [];
+    private messageQueue: { event: string; data: any }[] = [];
     private maxRetryAttempts = 3;
     private isConnecting: boolean = false;
     private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    private reconnectAttempts = 0;
-    private maxReconnectAttempts = config.SOCKET_CONFIG?.reconnectionAttempts || 5;
+    private reconnectAttempts: number = 0;
+    private maxReconnectAttempts: number = 10;
+    private baseDelay: number = 1000;
 
     private constructor() {}
 
@@ -28,122 +30,166 @@ class SocketService {
         return SocketService.instance;
     }
 
-    connect(): Promise<boolean> {
-        // Если уже подключены, сразу возвращаем успешное обещание
+    private getSocketUrl(): string {
+        return process.env.REACT_APP_WS_URL || 'http://localhost:3001';
+    }
+
+    private async initializeSocket(): Promise<Socket> {
+        const url = this.getSocketUrl();
+        logger.info('🔧 Инициализируем Socket.IO:');
+        logger.info(`🔗 URL: ${url}`);
+        logger.info(`🛤️ Путь: /socket.io`);
+        logger.info(`🚗 Транспорт: websocket, polling`);
+
+        return io(url, {
+            transports: ['websocket', 'polling'],
+            path: '/socket.io',
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            reconnectionAttempts: 10,
+            timeout: 60000,
+            forceNew: true,
+            autoConnect: false
+        });
+    }
+
+    public async connect(): Promise<void> {
         if (this.socket?.connected) {
-            console.log('🔌 Socket.IO уже подключен, ID:', this.socket.id);
-            return Promise.resolve(true);
+            logger.info('✅ Socket.IO уже подключен');
+            return;
         }
 
-        // Если уже идет процесс подключения, возвращаем текущее обещание
-        if (this.isConnecting && this.connectionPromise) {
-            console.log('🔄 Socket.IO подключение уже в процессе...');
-            return this.connectionPromise;
-        }
-
-        // Сбрасываем таймер переподключения, если он был запущен
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
+        if (this.isConnecting) {
+            logger.info('🔄 Socket.IO подключение уже в процессе...');
+            return;
         }
 
         this.isConnecting = true;
-        this.connectionPromise = new Promise((resolve) => {
-            const wsUrl = new URL(config.WS_URL);
+
+        try {
+            logger.info('🔌 Попытка соединения с WebSocket ' + this.getSocketUrl());
             
-            console.log(`🔌 Попытка соединения с WebSocket ${wsUrl.toString()}`);
-            
-            // Очищаем предыдущее соединение если оно есть
-            if (this.socket) {
-                this.socket.removeAllListeners();
-                this.socket.disconnect();
+            // Инициализируем сокет
+            this.socket = await this.initializeSocket();
+
+            // Устанавливаем обработчики событий
+            this.socket.on('connect', () => {
+                logger.info('✅ Socket.IO подключение установлено');
+                this.isConnecting = false;
+                this.reconnectAttempts = 0;
+                this.processMessageQueue();
+            });
+
+            this.socket.on('connect_error', (error) => {
+                logger.error('❌ Ошибка подключения к Socket.IO:', error);
+                this.handleConnectionError();
+            });
+
+            this.socket.on('disconnect', (reason) => {
+                logger.warn('🔌 Socket.IO отключен:', reason);
+                this.handleDisconnect(reason);
+            });
+
+            this.socket.on('error', (error) => {
+                logger.error('❌ Socket.IO ошибка:', error);
+                this.handleConnectionError();
+            });
+
+            // Подключаемся
+            this.socket.connect();
+
+        } catch (error) {
+            logger.error('❌ Ошибка при инициализации Socket.IO:', error);
+            this.handleConnectionError();
+        }
+    }
+
+    private handleConnectionError() {
+        this.isConnecting = false;
+        this.reconnectAttempts++;
+
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            const delay = Math.min(this.baseDelay * Math.pow(1.5, this.reconnectAttempts - 1), 5000);
+            logger.info(`⏳ Планирование переподключения (попытка ${this.reconnectAttempts}/${this.maxReconnectAttempts}) через ${delay}ms`);
+            setTimeout(() => this.reconnect(), delay);
+        } else {
+            logger.error('❌ Превышено максимальное количество попыток переподключения');
+        }
+    }
+
+    private handleDisconnect(reason: string) {
+        this.isConnecting = false;
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+            this.reconnect();
+        }
+    }
+
+    private reconnect() {
+        logger.info(`🔄 Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+        this.connect();
+    }
+
+    private processMessageQueue() {
+        if (!this.socket?.connected) return;
+
+        while (this.messageQueue.length > 0) {
+            const message = this.messageQueue.shift();
+            if (message) {
+                this.socket.emit(message.event, message.data);
+                logger.info(`📨 Отправлено отложенное сообщение: ${message.event}`);
             }
-            
-            // Более гибкая обработка различных форматов URL
-            let socketUrl = '';
-            let socketPath = '';
-            
-            // Корректное формирование URL и пути для работы с сервером Flask-SocketIO
-            socketUrl = wsUrl.origin;
-            socketPath = '/ws/socket.io'; // Явно указываем полный путь, используемый на сервере
-            
-            console.log(`🔧 Инициализируем Socket.IO:`);
-            console.log(`🔗 URL: ${socketUrl}`);
-            console.log(`🛤️ Путь: ${socketPath}`);
-            console.log(`🚗 Транспорт: websocket, polling`);
-            
-            // Функция для инициализации основного соединения
-            const initializeMainConnection = () => {
-                // Создаем основное соединение
-                this.socket = io(socketUrl, {
-                    path: socketPath,
-                    transports: ['websocket', 'polling'],
-                    timeout: 30000, // Увеличиваем таймаут до 30 секунд
-                    autoConnect: config.SOCKET_CONFIG?.autoConnect !== false,
-                    reconnection: true,
-                    reconnectionAttempts: config.SOCKET_CONFIG?.reconnectionAttempts || 5,
-                    reconnectionDelay: config.SOCKET_CONFIG?.reconnectionDelay || 1000,
-                    secure: wsUrl.protocol === 'wss:',
-                    forceNew: config.SOCKET_CONFIG?.forceNew || false,
-                    extraHeaders: {
-                        "X-Client-Version": "1.0.0"
-                    },
-                    query: {
-                        "client": "frontend-app",
-                        "t": Date.now().toString() // Предотвращаем кеширование
-                    }
-                });
+        }
+    }
 
-                // Обработчик успешного подключения
-                this.socket.on('connect', () => {
-                    console.log('✅ Socket.IO успешно подключено, ID:', this.socket?.id);
-                    this.isConnecting = false;
-                    this.reconnectAttempts = 0; // Сбрасываем счетчик попыток после успешного подключения
-                    
-                    // Обрабатываем очередь сообщений при успешном подключении
-                    if (this.messageQueue.length > 0) {
-                        this.processMessageQueue();
-                    }
-                    
-                    resolve(true);
-                });
+    public emit(event: string, data: any): void {
+        if (!this.socket?.connected) {
+            logger.warn('⚠️ Сокет не подключен. Сообщение добавлено в очередь.');
+            this.messageQueue.push({ event, data });
+            logger.info(`📝 Добавление сообщения в очередь: ${event}`);
+            this.connect();
+            return;
+        }
 
-                // Обработчик ошибки подключения
-                this.socket.on('connect_error', (error) => {
-                    console.error('❌ Ошибка подключения к Socket.IO:', error);
-                    this.isConnecting = false;
-                    
-                    // Планируем переподключение при ошибке
-                    this.scheduleReconnect();
-                    
-                    resolve(false);
-                });
+        this.socket.emit(event, data);
+    }
 
-                // Обработчик отключения
-                this.socket.on('disconnect', (reason) => {
-                    console.warn('🔌 Socket.IO отключен:', reason);
-                    
-                    // Если отключение не было инициировано пользователем, пытаемся переподключиться
-                    if (reason !== 'io client disconnect') {
-                        this.scheduleReconnect();
-                    }
-                });
-                
-                // Обработчик пинга (для мониторинга задержки)
-                this.socket.on('ping', () => {
-                    const timestamp = Date.now();
-                    console.log(`📡 Отправлен PING (${timestamp})`);
-                    
-                    // Отправляем pong в ответ
-                    this.socket?.emit('pong', { timestamp });
-                });
-            };
+    public emitWithAck(event: string, data: any, callback: (response: any) => void): void {
+        if (!this.socket?.connected) {
+            logger.warn('⚠️ Сокет не подключен при попытке отправки с подтверждением.');
+            this.connect().then(() => {
+                if (this.socket?.connected) {
+                    logger.info(`📡 Отправка сообщения с подтверждением после переподключения: ${event}`);
+                    this.socket.emit(event, data, callback);
+                } else {
+                    logger.error(`❌ Не удалось подключиться для отправки сообщения: ${event}`);
+                    callback({ error: 'Failed to connect to server' });
+                }
+            });
+            return;
+        }
 
-            // Инициализируем соединение
-            initializeMainConnection();
-        });
+        logger.info(`📡 Отправка сообщения с подтверждением: ${event}`);
+        this.socket.emit(event, data, callback);
+    }
 
-        return this.connectionPromise;
+    public on(event: string, callback: (data: any) => void): void {
+        if (!this.socket) {
+            this.connect().then(() => {
+                this.socket?.on(event, callback);
+            });
+            return;
+        }
+        this.socket.on(event, callback);
+    }
+
+    public off(event: string, callback?: (data: any) => void): void {
+        if (!this.socket) return;
+        if (callback) {
+            this.socket.off(event, callback);
+        } else {
+            this.socket.off(event);
+        }
     }
 
     isConnected(): boolean {
@@ -192,90 +238,6 @@ class SocketService {
         }
     }
 
-    // Обрабатывает очередь сообщений
-    private processMessageQueue(): void {
-        if (this.messageQueue.length === 0) {
-            return;
-        }
-        
-        console.log(`📩 Обработка очереди сообщений: ${this.messageQueue.length} сообщений`);
-        
-        if (this.isConnected()) {
-            // Создаем копию очереди и очищаем оригинал перед обработкой
-            // чтобы избежать бесконечных циклов если возникнет ошибка при отправке
-            const queueCopy = [...this.messageQueue];
-            this.messageQueue = [];
-            
-            for (const item of queueCopy) {
-                try {
-                    console.log(`📨 Отправка отложенного сообщения: ${item.eventType}`);
-                    this.socket?.emit(item.eventType, item.data);
-                } catch (error) {
-                    console.error(`❌ Ошибка при отправке сообщения из очереди: ${item.eventType}`, error);
-                    
-                    // Увеличиваем счетчик попыток и добавляем обратно в очередь,
-                    // если не превышен лимит попыток
-                    item.attempts++;
-                    if (item.attempts < this.maxRetryAttempts) {
-                        this.messageQueue.push(item);
-                    } else {
-                        console.error(`❌ Сообщение ${item.eventType} отброшено после ${item.attempts} попыток`);
-                    }
-                }
-            }
-            
-            console.log('✅ Очередь сообщений обработана');
-        } else {
-            console.warn('⚠️ Не удалось обработать очередь: сокет не подключен');
-        }
-    }
-
-    // Добавляет сообщение в очередь
-    private enqueueMessage(eventType: string, data: any): void {
-        console.log(`📝 Добавление сообщения в очередь: ${eventType}`);
-        
-        this.messageQueue.push({
-            eventType,
-            data,
-            attempts: 0
-        });
-    }
-
-    // Улучшенный метод emit, который поддерживает очередь
-    async emit(eventType: string, data: any): Promise<boolean> {
-        // Если сокет подключен, отправляем сообщение сразу
-        if (this.socket?.connected) {
-            try {
-                this.socket.emit(eventType, data);
-                console.log(`📤 Сообщение "${eventType}" отправлено:`, data);
-                return Promise.resolve(true);
-            } catch (error) {
-                console.error(`❌ Ошибка при отправке сообщения "${eventType}":`, error);
-                // В случае ошибки добавляем сообщение в очередь
-                this.enqueueMessage(eventType, data);
-                return Promise.resolve(false);
-            }
-        }
-
-        // Если сокет не подключен
-        console.warn(`⚠️ Сокет не подключен. Сообщение "${eventType}" добавлено в очередь.`);
-        
-        // Если не идет процесс подключения, запускаем его
-        if (!this.isConnecting) {
-            console.log(`🔄 Попытка подключения перед отправкой сообщения "${eventType}"`);
-            this.connect().then(connected => {
-                if (connected) {
-                    // Если подключились, обрабатываем очередь сообщений
-                    this.processMessageQueue();
-                }
-            });
-        }
-        
-        // Добавляем сообщение в очередь
-        this.enqueueMessage(eventType, data);
-        return Promise.resolve(false);
-    }
-
     joinRoom(chatId: string): void {
         if (this.socket) {
             this.socket.emit('join_room', { chatId });
@@ -286,34 +248,6 @@ class SocketService {
         if (this.socket) {
             this.socket.emit('leave_room', { chatId });
         }
-    }
-
-    // Интеллектуальное переподключение с экспоненциальной задержкой
-    private scheduleReconnect(): void {
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-        }
-        
-        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-            console.error(`❌ Достигнуто максимальное количество попыток переподключения (${this.maxReconnectAttempts})`);
-            this.isConnecting = false;
-            return;
-        }
-        
-        this.reconnectAttempts++;
-        
-        // Экспоненциальная задержка с минимальным временем 1 секунда и максимальным 30 секунд
-        const delay = Math.min(
-            1000 * Math.pow(1.5, this.reconnectAttempts - 1),
-            30000
-        );
-        
-        console.log(`⏳ Планирование переподключения (попытка ${this.reconnectAttempts}/${this.maxReconnectAttempts}) через ${delay}ms`);
-        
-        this.reconnectTimer = setTimeout(() => {
-            console.log(`🔄 Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-            this.connect();
-        }, delay);
     }
 }
 

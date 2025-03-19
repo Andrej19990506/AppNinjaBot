@@ -27,9 +27,12 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [isAddingItem, setIsAddingItem] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [item, setItem] = useState<InventoryItem>(initialItem);
-    const [isOutOfStock, setIsOutOfStock] = useState(initialItem.raw.isOutOfStock || false);
+    const [isOutOfStock, setIsOutOfStock] = useState(initialItem.raw?.isOutOfStock || false);
     const [currentActiveItem, setCurrentActiveItem] = useState<{ type: 'raw' | 'semifinished', operation: 'add' | 'subtract' } | null>(null);
     const [currentInputValue, setCurrentInputValue] = useState('');
+    const [isExiting, setIsExiting] = useState(false);
+    const [isVisible, setIsVisible] = useState(false);
+    const [isCardExiting, setIsCardExiting] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const currentTypes = ['raw', item.semifinished ? 'semifinished' : null].filter(Boolean) as ('raw' | 'semifinished')[];
     
@@ -44,6 +47,13 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             setIsOutOfStock(currentItem.raw.isOutOfStock || false);
         }
     }, [currentInventory, category, itemId, item]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setIsVisible(true);
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
@@ -108,6 +118,10 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         try {
             setIsLoading(true);
             setError(null);
+            setIsExiting(true);
+
+            // Ждем завершения анимации исчезновения кнопки
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             const newItem: InventoryItem = {
                 ...item,
@@ -147,6 +161,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             setItem(initialItem);
         } finally {
             setIsLoading(false);
+            setIsExiting(false);
         }
     };
 
@@ -351,6 +366,10 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         try {
             setIsLoading(true);
             setError(null);
+            setIsCardExiting(true);
+
+            // Ждем завершения анимации исчезновения карточки
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             const newItem: InventoryItem = {
                 ...item,
@@ -387,6 +406,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             setItem(initialItem);
         } finally {
             setIsLoading(false);
+            setIsCardExiting(false);
         }
     };
 
@@ -399,13 +419,11 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         const showOutOfStock = type === 'raw' && isOutOfStock;
 
         return (
-            <div key={type} className={styles.item}>
+            <div key={type} className={`${styles.item} ${isVisible ? styles.visible : ''} ${type === 'semifinished' && isCardExiting ? styles.exit : ''}`}>
                 {type === 'semifinished' && (
-                    <motion.button
+                    <button
                         className={styles.deleteButton}
                         onClick={() => handleDeleteSemifinished()}
-                        whileHover={{ scale: 1.1, rotate: 90 }}
-                        whileTap={{ scale: 0.9 }}
                     >
                         <svg 
                             width="16" 
@@ -419,7 +437,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                         >
                             <path d="M18 6L6 18M6 6l12 12"/>
                         </svg>
-                    </motion.button>
+                    </button>
                 )}
                 <div className={styles.label}>
                     {type === 'semifinished' ? 'Полуфабрикат' : 'Сырье'}
@@ -516,33 +534,23 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             {renderCards}
             
             {!item.semifinished && (
-                <motion.button
-                    className={styles.addSemifinishedButton}
+                <button
+                    className={`${styles.addSemifinishedButton} ${isVisible ? styles.visible : ''} ${isExiting ? styles.exit : ''}`}
                     onClick={handleAddSemifinished}
                     disabled={isLoading}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
                 >
-                    <motion.div
-                        className={styles.plusIcon}
-                        animate={isLoading ? { rotate: 180 } : { rotate: 0 }}
-                    >
+                    <div className={styles.plusIcon}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <motion.path
+                            <path
                                 d="M12 5v14M5 12h14"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                initial={{ pathLength: 0 }}
-                                animate={{ pathLength: 1 }}
-                                transition={{ duration: 0.5 }}
                             />
                         </svg>
-                    </motion.div>
+                    </div>
                     Добавить полуфабрикат
-                </motion.button>
+                </button>
             )}
         </div>
     );

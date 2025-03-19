@@ -1,28 +1,18 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { WebApp } from '../../types/telegram';
-import { User } from '../../types/user';
+import { User, UserState } from '../../types/user';
 import { Admin } from '../../types/inventory';
 import { ChatContext } from './chatSlice';
 
-interface UserState {
-    id: number | null;
-    isAdmin: boolean;
-    adminRights: Admin | null;
-    photo_url: string | null;
-    first_name: string | null;
-    branchName: string | null;
-    isLoading: boolean;
-    error: string | null;
+interface Group {
+    chat_id: string;
+    chat_title: string;
+    group_type?: string;
 }
 
 const initialState: UserState = {
-    id: null,
-    isAdmin: false,
-    adminRights: null,
-    photo_url: null,
-    first_name: null,
-    branchName: null,
-    isLoading: false,
+    user: null,
+    isInitialized: false,
     error: null
 };
 
@@ -44,8 +34,64 @@ export const initializeFromTelegram = createAsyncThunk(
             throw new Error('Telegram WebApp user data not available');
         }
 
-        console.log('✅ Получены данные пользователя:', webApp.initDataUnsafe.user);
-        return webApp.initDataUnsafe.user;
+        const userId = webApp.initDataUnsafe.user.id;
+
+        // Создаем базовый объект пользователя
+        const user = {
+            id: userId,
+            first_name: null,
+            last_name: null,
+            username: webApp.initDataUnsafe.user.username?.trim() || null,
+            photo_url: null,
+            isAdmin: false,
+            adminRights: null,
+            groups: []
+        };
+
+        try {
+            // Запрашиваем группы пользователя с сервера
+            console.log('🔄 Загрузка групп пользователя...');
+            const baseUrl = process.env.REACT_APP_API_URL?.replace(/\/+$/, '');
+            console.log('🌐 Базовый URL:', baseUrl);
+            const response = await fetch(`${baseUrl}/user/${userId}/groups`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                // Логируем тело ответа для отладки
+                const errorText = await response.text();
+                console.error('❌ Ошибка при загрузке групп:', response.status, errorText);
+                throw new Error(`Ошибка при загрузке групп: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.success) {
+                user.groups = data.groups;
+                // Используем данные пользователя из файла группы
+                if (data.user_data) {
+                    user.first_name = data.user_data.first_name;
+                    user.last_name = data.user_data.last_name;
+                    user.photo_url = data.user_data.photo_url;
+                }
+                console.log('✅ Данные пользователя загружены:', {
+                    groups: data.groups,
+                    user_data: data.user_data
+                });
+            } else {
+                console.error('❌ Ошибка при загрузке данных:', data.error);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка при загрузке данных:', error);
+            // Продолжаем работу без групп и данных пользователя
+        }
+
+        console.log('✅ Получены данные пользователя:', user);
+        return user;
     }
 );
 
@@ -86,41 +132,54 @@ const userSlice = createSlice({
     name: 'user',
     initialState,
     reducers: {
+        updateUser: (state, action: PayloadAction<User>) => {
+            state.user = action.payload;
+        },
         clearUserData: (state) => {
-            state.id = null;
-            state.isAdmin = false;
-            state.adminRights = null;
-            state.photo_url = null;
-            state.first_name = null;
+            state.user = null;
+            state.isInitialized = false;
+            state.error = null;
         },
         updateAdminStatus: (state, action) => {
             const { isAdmin, adminRights } = action.payload;
-            state.isAdmin = isAdmin;
-            state.adminRights = adminRights;
+            if (state.user) {
+                state.user.isAdmin = isAdmin;
+                state.user.adminRights = adminRights;
+            }
         }
     },
     extraReducers: (builder) => {
         builder
             .addCase(initializeFromTelegram.pending, (state) => {
-                state.isLoading = true;
+                state.isInitialized = false;
                 state.error = null;
+                console.log('🔄 Инициализация пользователя в процессе...');
             })
             .addCase(initializeFromTelegram.fulfilled, (state, action) => {
-                state.isLoading = false;
-                state.id = action.payload.id;
-                state.photo_url = action.payload.photo_url || null;
-                state.first_name = action.payload.first_name;
+                console.log('✅ Инициализация пользователя успешна:', {
+                    payload: action.payload,
+                    first_name: action.payload.first_name,
+                    last_name: action.payload.last_name,
+                    first_name_empty: !action.payload.first_name?.trim(),
+                    last_name_empty: !action.payload.last_name?.trim()
+                });
+                state.user = action.payload;
+                state.isInitialized = true;
+                state.error = null;
             })
             .addCase(initializeFromTelegram.rejected, (state, action) => {
-                state.isLoading = false;
-                state.error = action.error.message || 'Failed to initialize user';
+                console.error('❌ Ошибка инициализации пользователя:', action.error);
+                state.isInitialized = true;
+                state.error = action.error.message || 'Ошибка инициализации';
             })
             .addCase(checkAdminRights.rejected, (state) => {
-                state.isAdmin = false;
-                state.adminRights = null;
+                if (state.user) {
+                    state.user.isAdmin = false;
+                    state.user.adminRights = null;
+                }
             });
     }
 });
 
-export const { clearUserData, updateAdminStatus } = userSlice.actions;
+export const { updateUser, clearUserData, updateAdminStatus } = userSlice.actions;
 export default userSlice.reducer; 

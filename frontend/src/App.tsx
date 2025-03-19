@@ -8,6 +8,8 @@ import './styles/base/variables.css';
 import MainMenu from './components/MainMenu/MainMenu';
 import Inventory from './components/Inventory/Inventory';
 import WriteOff from './components/WriteOff/WriteOff';
+import CourierSchedule from './components/CourierSchedule/CourierSchedule';
+import ProtectedCourierRoute from './components/common/ProtectedCourierRoute';
 import { useWebSocket } from './hooks/useWebSocket';
 import { socketService } from './services/socket';
 import { useAppDispatch, useAppSelector } from './store/hooks';
@@ -59,6 +61,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     const dispatch = useAppDispatch();
     const [isInitialized, setIsInitialized] = useState(false);
     const [initError, setInitError] = useState<string | null>(null);
+    const { user } = useAppSelector((state) => state.user);
 
     useEffect(() => {
         const initializeApp = async () => {
@@ -69,6 +72,15 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
                 console.debug('🔄 Начало инициализации данных пользователя...');
                 const initResult = await dispatch(initializeFromTelegram()).unwrap();
                 console.debug('✅ Результат инициализации данных:', initResult);
+                
+                // Инициализация WebSocket подключения
+                console.debug('🔄 Инициализация WebSocket подключения...');
+                const socketConnected = await socketService.connect();
+                if (socketConnected) {
+                    console.debug('✅ WebSocket подключение установлено');
+                } else {
+                    console.warn('⚠️ Не удалось установить WebSocket подключение');
+                }
                 
                 setIsInitialized(true);
                 console.debug('🎉 Инициализация приложения завершена успешно');
@@ -82,6 +94,11 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
         if (!isInitialized && !initError) {
             initializeApp();
         }
+
+        // Отключаем WebSocket при размонтировании
+        return () => {
+            socketService.disconnect();
+        };
     }, [dispatch, isInitialized, initError]);
 
     if (initError) {
@@ -121,12 +138,10 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Компонент для управления WebSocket соединением
 const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const websocket = useWebSocket();
-    // Делаем безопасные деструктуризации с проверками
     const socket = websocket?.socket;
     const isConnectedFunc = websocket?.isConnected;
     const joinGlobalRoomFunc = websocket?.joinGlobalRoom;
     
-    // Функции-обертки с проверками
     const isConnected = useCallback(() => {
         return typeof isConnectedFunc === 'function' ? isConnectedFunc() : false;
     }, [isConnectedFunc]);
@@ -139,35 +154,32 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
     
     const [connectionAttempts, setConnectionAttempts] = useState(0);
     const dispatch = useAppDispatch();
-    const currentUser = useAppSelector((state) => state.user);
+    const { user } = useAppSelector((state) => state.user);
     const MAX_CONNECTION_ATTEMPTS = 3;
 
     // Инициализируем соединение при старте
     useEffect(() => {
         const initConnection = async () => {
-            if (!socket && currentUser.id) {
+            if (!socket && user?.id) {
                 console.log('🚀 Инициализируем подключение WebSocket');
                 try {
                     // Проверяем наличие текущего пользователя
-                    if (!currentUser.id) {
+                    if (!user.id) {
                         console.warn('⚠️ Нет данных о текущем пользователе, подключение отложено');
                         return;
                     }
 
                     // При успешном соединении присоединяемся к глобальной комнате
                     joinGlobalRoom({
-                        first_name: currentUser.first_name || '',
-                        isAdmin: currentUser.isAdmin || false,
-                        id: currentUser.id
+                        first_name: user.first_name || '',
+                        isAdmin: user.isAdmin || false,
+                        id: user.id
                     });
                 } catch (error: any) {
                     console.error('❌ Ошибка при инициализации WebSocket:', error);
                     
-                    // Увеличиваем счетчик попыток подключения
                     setConnectionAttempts(prev => {
                         const newAttempts = prev + 1;
-                        
-                        // Показываем уведомление о проблеме, если превышен порог попыток
                         if (newAttempts >= MAX_CONNECTION_ATTEMPTS) {
                             dispatch(addNotification({
                                 id: generateUniqueNotificationId('socket-error'),
@@ -176,7 +188,6 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
                                 duration: 10000
                             }));
                         }
-                        
                         return newAttempts;
                     });
                 }
@@ -184,7 +195,7 @@ const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }
         };
 
         initConnection();
-    }, [currentUser, dispatch, socket, joinGlobalRoom, MAX_CONNECTION_ATTEMPTS]);
+    }, [user, dispatch, socket, joinGlobalRoom, MAX_CONNECTION_ATTEMPTS]);
 
     // Отслеживаем изменение состояния соединения
     useEffect(() => {
@@ -257,6 +268,14 @@ const App: React.FC = () => {
                                     <Route path="/inventory/:chatId" element={<Inventory />} />
                                     <Route path="/inventory" element={<Inventory />} />
                                     <Route path="/write-off" element={<WriteOff />} />
+                                    <Route 
+                                        path="/courier-schedule" 
+                                        element={
+                                            <ProtectedCourierRoute>
+                                                <CourierSchedule />
+                                            </ProtectedCourierRoute>
+                                        } 
+                                    />
                                 </Routes>
                             </Router>
                         </WebSocketProvider>

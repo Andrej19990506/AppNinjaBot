@@ -13,8 +13,6 @@
     left: 0;
     right: 0;
     bottom: 0;
-    align-items: center;
-    will-change: opacity, transform;
 }
 
 .title {
@@ -49,7 +47,7 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal);
     color: var(--text-color);
     height: 120px;
 }
@@ -115,7 +113,7 @@
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal);
 }
 
 .themeButton:hover {

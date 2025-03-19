@@ -41,12 +41,12 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         const items = inventory[category] || {};
         return Object.values(items).every(item => {
             // Если товар помечен как "нет в наличии", он считается заполненным
-            if (item.raw.isOutOfStock) {
+            if (item.raw?.isOutOfStock) {
                 return true;
             }
 
             // Проверяем заполненность сырья (должно быть filled === true ИЛИ quantity > 0)
-            const isRawFilled = item.raw.filled === true || (item.raw.quantity ?? 0) > 0;
+            const isRawFilled = item.raw?.filled === true || (item.raw?.quantity ?? 0) > 0;
             
             // Проверяем наличие и заполненность полуфабриката
             const hasSemifinished = Boolean(item.semifinished);
@@ -60,6 +60,16 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
             return isRawFilled && (!hasSemifinished || isSemifinishedFilled);
         });
     }, [inventory]);
+
+    // Сортируем категории: незаполненные вверху
+    const sortedCategories = [...categories].sort((a, b) => {
+        const aFilled = isCategoryFilled(a);
+        const bFilled = isCategoryFilled(b);
+        
+        if (aFilled && !bFilled) return 1;
+        if (!aFilled && bFilled) return -1;
+        return a.localeCompare(b);
+    });
 
     // Анимация для контейнера
     const containerVariants = {
@@ -101,7 +111,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         >
             <motion.div className={styles.grid}>
                 <AnimatePresence mode="sync">
-                    {categories.map((category, index) => {
+                    {sortedCategories.map((category, index) => {
                         const isFilled = isCategoryFilled(category);
                         return (
                             <motion.div

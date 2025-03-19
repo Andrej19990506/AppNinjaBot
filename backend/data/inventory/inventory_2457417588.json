@@ -1,56 +1,10 @@
 {
   "inventory": {
     "Бакалея": {
-      "123": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        },
-        "semifinished": null
-      },
-      "321": {
-        "raw": {
-          "filled": true,
-          "quantity": 5
-        },
-        "semifinished": null
-      },
-      "555": {
-        "raw": {
-          "filled": true,
-          "quantity": 5
-        },
-        "semifinished": null
-      },
-      "777": {
-        "raw": {
-          "filled": true,
-          "quantity": 50
-        },
-        "semifinished": null
-      },
-      "Афигетт": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Димон красава": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
       "Мука (гр.)": {
         "raw": {
           "filled": true,
           "quantity": 50
-        }
-      },
-      "Перец": {
-        "raw": {
-          "filled": true,
-          "quantity": 100
         }
       },
       "Сахар (гр.)": {
@@ -58,34 +12,19 @@
           "filled": true,
           "quantity": 25
         },
-        "semifinished": {
-          "filled": true,
-          "quantity": 55
-        }
-      },
-      "Смотрим": {
-        "raw": {
-          "filled": true,
-          "isOutOfStock": false,
-          "quantity": 1
-        }
+        "semifinished": null
       },
       "Соль (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 36
+        },
+        "semifinished": null
       },
       "Сухари панировачные (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Такс": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Уксус (гр.)": {
@@ -95,24 +34,6 @@
         }
       },
       "Уксус винный (гр.)": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Урааа": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Фигасе": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Хаха": {
         "raw": {
           "filled": false,
           "quantity": 0
@@ -132,20 +53,8 @@
       },
       "Яйцо куриное (шт.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "вау": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "прверь": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 75
         }
       }
     },
@@ -191,18 +100,6 @@
           "quantity": 5
         }
       },
-      "Проверка": {
-        "raw": {
-          "filled": true,
-          "quantity": 25
-        }
-      },
-      "Салют": {
-        "raw": {
-          "filled": true,
-          "quantity": 52
-        }
-      },
       "Чизкейк \"Малиновый вихрь\" (шт)": {
         "raw": {
           "filled": true,
@@ -217,26 +114,21 @@
       },
       "Чизкейк Фисташковый (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 12
         }
       },
       "Чизкейк Шоколад (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "Чупа чупс": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
+          "filled": true,
+          "quantity": 22
+        },
+        "semifinished": null
       },
       "Эклер с варёным сгущённым молоком (шт)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 1
         }
       }
     },
@@ -272,7 +164,8 @@
         "raw": {
           "filled": false,
           "quantity": 0
-        }
+        },
+        "semifinished": null
       },
       "Паста Том Ям (гр.)": {
         "raw": {
@@ -281,19 +174,7 @@
         },
         "semifinished": null
       },
-      "Привет": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
       "Томатная паста (гр.)": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
-      "мпмпр": {
         "raw": {
           "filled": false,
           "quantity": 0
@@ -304,7 +185,7 @@
       "Молоко (гр.)": {
         "raw": {
           "filled": true,
-          "quantity": 75
+          "quantity": 125
         }
       },
       "Сливки (гр.)": {
@@ -340,10 +221,7 @@
           "filled": false,
           "quantity": 0
         },
-        "semifinished": {
-          "filled": false,
-          "quantity": 0
-        }
+        "semifinished": null
       },
       "Сыр Моцарелла (гр.)": {
         "raw": {
@@ -435,7 +313,8 @@
         "raw": {
           "filled": false,
           "quantity": 0
-        }
+        },
+        "semifinished": null
       },
       "Набор для бульона (гр.)": {
         "raw": {
@@ -731,12 +610,6 @@
       }
     },
     "Полуфабрикаты": {
-      "nfr": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
       "Бульон куриный (гр.)": {
         "raw": {
           "filled": false,
@@ -765,7 +638,8 @@
         "raw": {
           "filled": false,
           "quantity": 0
-        }
+        },
+        "semifinished": null
       },
       "Замес на Жюльен (гр.)": {
         "raw": {
@@ -851,12 +725,6 @@
           "quantity": 0
         }
       },
-      "Пц": {
-        "raw": {
-          "filled": false,
-          "quantity": 0
-        }
-      },
       "Свекла на Чафан (гр.)": {
         "raw": {
           "filled": false,
@@ -913,8 +781,8 @@
       },
       "Сыр сборный (Гауда и Моцарелла) (гр.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Сырные палочки (гр.)": {
@@ -931,8 +799,8 @@
       },
       "Тесто (кг.)": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 50
         }
       }
     },
@@ -1053,8 +921,8 @@
       },
       "Орегано": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 25
         }
       },
       "Паприка (гр.)": {
@@ -1127,8 +995,8 @@
       },
       "Коробки д/снеков": {
         "raw": {
-          "filled": false,
-          "quantity": 0
+          "filled": true,
+          "quantity": 95
         }
       },
       "Коробки для Фрай-бокса": {
@@ -1176,7 +1044,7 @@
     }
   },
   "metadata": {
-    "lastUpdated": "2025-03-16T00:14:53.531Z",
+    "lastUpdated": "2025-03-17T06:40:01.845Z",
     "chat_id": "2457417588"
   }
 }

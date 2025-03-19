@@ -8,6 +8,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import styles from './MainMenu.module.css';
+import { useAppSelector } from '../../store/hooks';
+import { RootState } from '../../store/store';
 
 const menuItems = [
     { id: 'events', title: 'События', path: '/events', icon: EventIcon },
@@ -84,11 +86,10 @@ const MainMenu: React.FC = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
     const [isVisible, setIsVisible] = useState(true);
+    const { user } = useAppSelector((state: RootState) => state.user);
 
-    // Создаем порядок анимации элементов, идентичный скелетону
-    const getItemDelay = (index: number) => {
-        return { delay: 0.1 + index * 0.1 };
-    };
+    // Проверяем, является ли пользователь курьером
+    const isCourierMember = user?.groups?.some(group => group.group_type === "courier") ?? false;
 
     return (
         <AnimatePresence mode="wait">
@@ -113,7 +114,7 @@ const MainMenu: React.FC = () => {
                     </motion.h1>
                     
                     <motion.div className={styles.menuGrid}>
-                        {menuItems.map((item, index) => {
+                        {!isCourierMember && menuItems.map((item, index) => {
                             const Icon = item.icon;
                             return (
                                 <motion.div
@@ -149,6 +150,39 @@ const MainMenu: React.FC = () => {
                                 </motion.div>
                             );
                         })}
+                        {isCourierMember && (
+                            <motion.div
+                                className={styles.menuItem}
+                                onClick={() => navigate('/courier-schedule')}
+                                variants={itemVariants}
+                                data-courier="true"
+                                whileHover={{ 
+                                    scale: 1.03, 
+                                    boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
+                                    transition: { duration: 0.2 }
+                                }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <motion.div 
+                                    className={styles.iconWrapper}
+                                    style={{
+                                        width: menuPositions.icon.width,
+                                        height: menuPositions.icon.height
+                                    }}
+                                >
+                                    <EventIcon />
+                                </motion.div>
+                                <motion.span 
+                                    className={styles.menuTitle}
+                                    style={{
+                                        minWidth: menuPositions.text.width,
+                                        minHeight: menuPositions.text.height
+                                    }}
+                                >
+                                    Записаться
+                                </motion.span>
+                            </motion.div>
+                        )}
                     </motion.div>
                     
                     <motion.div 

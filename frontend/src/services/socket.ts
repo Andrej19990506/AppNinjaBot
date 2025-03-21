@@ -151,6 +151,20 @@ class SocketService {
             return;
         }
 
+        // Добавляем логирование для события book_shift
+        if (event === 'book_shift') {
+            // Убедимся, что is_senior_courier имеет правильный логический тип
+            if (data.is_senior_courier !== undefined) {
+                data.is_senior_courier = Boolean(data.is_senior_courier);
+            }
+            
+            console.info('📡 Отправка book_shift через WebSocket:', {
+                event,
+                data,
+                isSeniorCourier: data.is_senior_courier
+            });
+        }
+
         this.socket.emit(event, data);
     }
 

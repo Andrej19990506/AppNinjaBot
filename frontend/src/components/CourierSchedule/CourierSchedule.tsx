@@ -7,10 +7,12 @@ import CourierCalendar from './CourierCalendar';
 import { updateCourierProfile } from '../../services/api';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import { updateUser } from '../../store/slices/userSlice';
-import { bookShift } from '../../store/slices/shiftsSlice';
+import { bookShift, fetchShifts } from '../../store/slices/shiftsSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store/store';
 import { format } from 'date-fns';
+import config from '../../config';
+import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
 
 const Container = styled.div`
     padding: 20px;
@@ -41,12 +43,69 @@ const ScheduleSection = styled.div`
     margin-top: 32px;
 `;
 
+const SeniorCourierBadge = styled.div`
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+`;
+
 const CourierSchedule: React.FC = () => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
     const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     const [showCalendar, setShowCalendar] = useState(false);
+    
+    // Функция для получения статуса старшего курьера
+    const fetchCourierStatus = async () => {
+        if (!user?.id) return;
+        
+        try {
+            const chatId = user.groups && user.groups.length > 0 
+                ? user.groups[0].chat_id : undefined;
+                
+            if (!chatId) return;
+            
+            console.log('📡 Запрашиваем статус курьера при рендеринге CourierSchedule');
+            const response = await fetch(`${config.API_URL}/couriers/${user.id}/status?chat_id=${chatId}`);
+            
+            if (!response.ok) {
+                throw new Error('Не удалось получить статус курьера');
+            }
+            
+            const data = await response.json();
+            
+            if (data.is_senior_courier !== undefined && user.isSeniorCourier !== data.is_senior_courier) {
+                console.log('📊 Обновляем статус старшего курьера:', data.is_senior_courier);
+                
+                // Используем специальный редьюсер для обновления статуса старшего курьера
+                dispatch(updateSeniorCourierStatus(data.is_senior_courier));
+                
+                // Также нужно обновить весь объект пользователя для совместимости
+                dispatch(updateUser({
+                    ...user,
+                    isSeniorCourier: data.is_senior_courier
+                }));
+            }
+            
+            // Загружаем свежие данные о сменах
+            dispatch(fetchShifts());
+            
+        } catch (error) {
+            console.error('❌ Ошибка при получении статуса курьера:', error);
+        }
+    };
     
     // Временные данные для демонстрации (замените на реальные данные с API)
     const [shifts] = useState([
@@ -72,16 +131,42 @@ const CourierSchedule: React.FC = () => {
         }
     }, [user]);
 
-    const handleProfileSave = async (data: { firstName: string; lastName: string }) => {
+    // Получаем статус курьера при монтировании компонента и при изменении пользователя
+    // Явно указываем зависимости, чтобы избежать предупреждений линтера
+    useEffect(() => {
+        if (user?.id && user.groups && user.groups.length > 0) {
+            // Используем мемоизированную версию для избежания проблем с зависимостями
+            const getCourierStatus = async () => {
+                await fetchCourierStatus();
+            };
+            
+            getCourierStatus();
+        }
+    }, [user, dispatch]);
+
+    const handleProfileSave = async (data: { 
+        firstName: string; 
+        lastName: string; 
+        isSeniorCourier?: boolean; 
+        seniorPassword?: string;
+    }) => {
         if (!user?.id) return;
 
         try {
-            const result = await updateCourierProfile(user.id, data);
+            // Добавляем chat_id, если пользователь состоит в группе
+            const chatId = user.groups && user.groups.length > 0 
+                ? user.groups[0].chat_id : undefined;
+                
+            const result = await updateCourierProfile(user.id, {
+                ...data,
+                chatId
+            });
             
             dispatch(updateUser({
                 ...user,
                 first_name: data.firstName,
-                last_name: data.lastName
+                last_name: data.lastName,
+                isSeniorCourier: data.isSeniorCourier || false
             }));
 
             dispatch(addNotification({
@@ -167,11 +252,13 @@ const CourierSchedule: React.FC = () => {
                         currentUserAvatar={user?.photo_url || undefined}
                         currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
                         onClose={() => setShowCalendar(false)}
+                        chatId={user?.groups && user.groups.length > 0 ? user.groups[0].chat_id : undefined}
                     />
                 </ScheduleSection>
             ) : (
                 <CourierProfile 
                     onRegisterClick={() => setShowCalendar(true)}
+                    isSeniorCourier={user?.isSeniorCourier}
                 />
             )}
 

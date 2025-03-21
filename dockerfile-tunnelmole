@@ -1,0 +1,10 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Установка Tunnelmole
+RUN npm install -g tunnelmole
+
+# Команда запуска
+ENTRYPOINT ["tmole"]
+CMD ["--help"] 

@@ -11,6 +11,28 @@ const axiosInstance = axios.create({
     }
 });
 
+// Helper function to wrap socket emission in a Promise
+const emitSocketEvent = (event: string, data: any): Promise<boolean> => {
+    return new Promise((resolve) => {
+        // Check if socket is connected first
+        if (!socketService.isConnected()) {
+            console.warn('⚠️ Socket not connected for event:', event);
+            resolve(false);
+            return;
+        }
+        
+        // Use emitWithAck to get acknowledgement
+        socketService.emitWithAck(event, data, (response: any) => {
+            if (response && response.error) {
+                console.error('❌ Socket event error:', response.error);
+                resolve(false);
+            } else {
+                resolve(true);
+            }
+        });
+    });
+};
+
 // API для работы со списаниями
 const writeOffApi = {
     // Получение списка чатов
@@ -131,7 +153,7 @@ const writeOffApi = {
                 socketService.subscribe('writeoff_update_error', errorHandler);
                 
                 // Отправляем событие
-                socketService.emit('writeoff_update', {
+                emitSocketEvent('writeoff_update', {
                     action: 'create',
                     chatId: chatId,
                     writeOffItem: {
@@ -141,7 +163,7 @@ const writeOffApi = {
                         description: data.description || '',
                         unitType: data.unitType || 'шт'
                     }
-                }).then(success => {
+                }).then((success: boolean) => {
                     if (!success && !isResolved) {
                         console.error('❌ Не удалось отправить сообщение через WebSocket');
                         isResolved = true;
@@ -153,7 +175,7 @@ const writeOffApi = {
                         // Fallback на REST API
                         fallbackToREST();
                     }
-                }).catch(error => {
+                }).catch((error: Error) => {
                     if (!isResolved) {
                         console.error('❌ Ошибка при отправке через WebSocket:', error);
                         isResolved = true;
@@ -265,7 +287,7 @@ const writeOffApi = {
                 socketService.subscribe('writeoff_update_error', errorHandler);
                 
                 // Отправляем событие
-                socketService.emit('writeoff_update', {
+                emitSocketEvent('writeoff_update', {
                     action: 'update',
                     chatId: chatId,
                     writeOffId: writeOffId,
@@ -276,7 +298,7 @@ const writeOffApi = {
                         description: data.description || '',
                         unitType: data.unitType || 'шт'
                     }
-                }).then(success => {
+                }).then((success: boolean) => {
                     if (!success && !isResolved) {
                         console.error('❌ Не удалось отправить сообщение через WebSocket');
                         isResolved = true;
@@ -288,7 +310,7 @@ const writeOffApi = {
                         // Fallback на REST API
                         fallbackToREST();
                     }
-                }).catch(error => {
+                }).catch((error: Error) => {
                     if (!isResolved) {
                         console.error('❌ Ошибка при отправке через WebSocket:', error);
                         isResolved = true;
@@ -400,11 +422,11 @@ const writeOffApi = {
                 socketService.subscribe('writeoff_update_error', errorHandler);
                 
                 // Отправляем событие
-                socketService.emit('writeoff_update', {
+                emitSocketEvent('writeoff_update', {
                     action: 'delete',
                     chatId: chatId,
                     writeOffId: writeOffId
-                }).then(success => {
+                }).then((success: boolean) => {
                     if (!success && !isResolved) {
                         console.error('❌ Не удалось отправить сообщение через WebSocket');
                         isResolved = true;
@@ -416,7 +438,7 @@ const writeOffApi = {
                         // Fallback на REST API
                         fallbackToREST();
                     }
-                }).catch(error => {
+                }).catch((error: Error) => {
                     if (!isResolved) {
                         console.error('❌ Ошибка при отправке через WebSocket:', error);
                         isResolved = true;
@@ -566,6 +588,9 @@ const API_BASE_URL = config.API_URL;
 export interface UpdateProfileData {
     firstName: string;
     lastName: string;
+    isSeniorCourier?: boolean;
+    seniorPassword?: string;
+    chatId?: string;
 }
 
 export const updateCourierProfile = async (userId: number, data: UpdateProfileData) => {
@@ -575,7 +600,13 @@ export const updateCourierProfile = async (userId: number, data: UpdateProfileDa
             data: data
         });
 
-        const response = await axios.put(`${API_BASE_URL}/courier/profile/${userId}`, data);
+        const response = await axios.put(`${API_BASE_URL}/courier/profile/${userId}`, {
+            firstName: data.firstName,
+            lastName: data.lastName,
+            isSeniorCourier: data.isSeniorCourier,
+            seniorPassword: data.seniorPassword,
+            chatId: data.chatId
+        });
         console.log('✅ Профиль успешно обновлен:', response.data);
         return response.data;
     } catch (error) {
@@ -590,6 +621,9 @@ export const updateCourierProfile = async (userId: number, data: UpdateProfileDa
             }
             if (error.response?.status === 404) {
                 throw new Error('Пользователь не найден в группах курьеров');
+            }
+            if (error.response?.status === 401) {
+                throw new Error('Неверный пароль старшего курьера');
             }
             throw new Error(error.response?.data?.error || 'Ошибка при обновлении профиля');
         }

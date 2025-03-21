@@ -27,8 +27,10 @@ interface ReservePanelProps {
     nightShifts: ShiftSlot[];
     onSwitchToShifts: () => void;
     onReserveSelect: () => Promise<any>;
+    onCancelReserve: (reserveId: string) => Promise<void>;
     forceUpdate: () => void;
     showSuccessMessage: (message: string) => void;
+    chatId?: string;
 }
 
 // Обновляем интерфейс для типизации dayShifts и nightShifts
@@ -81,7 +83,7 @@ const SlotButton = styled.button<{ $isOccupied?: boolean }>`
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 
     &:hover {
         transform: ${props => props.$isOccupied ? 'none' : 'scale(1.05)'};
@@ -244,6 +246,47 @@ const ReserveButtonWithLoader = styled(SlotButton)`
     }
 `;
 
+// Добавляем стиль для значка старшего курьера
+const SeniorBadge = styled.div`
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: linear-gradient(45deg, #FFC107, #FF9800);
+    color: #333;
+    font-size: 10px;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(255, 193, 7, 0.5);
+    z-index: 10;
+    animation: pulse 2s infinite;
+    pointer-events: auto;
+    
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 0 rgba(255, 193, 7, 0.7);
+        }
+        70% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px 5px rgba(255, 193, 7, 0);
+        }
+        100% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 0 rgba(255, 193, 7, 0);
+        }
+    }
+    
+    /* Увеличиваем размер на больших экранах */
+    @media (min-width: 768px) {
+        top: -6px;
+        right: -6px;
+        height: 22px;
+        width: 22px;
+        font-size: 12px;
+    }
+`;
+
 // Компонент панели резервов
 const ReservePanel: React.FC<ReservePanelProps> = ({
     date,
@@ -255,8 +298,10 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     nightShifts,
     onSwitchToShifts,
     onReserveSelect,
+    onCancelReserve,
     forceUpdate,
-    showSuccessMessage
+    showSuccessMessage,
+    chatId
 }) => {
     const dispatch = useDispatch<AppDispatch>();
     const [localReserves, setLocalReserves] = useState<ReserveShift[]>(reserves);
@@ -484,67 +529,42 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         // }, 3000);
     };
 
-    const handleCancelReserve = async () => {
-        console.log('[ReservePanel] handleCancelReserve called');
-        
-        // Показываем только индикатор удаления, а не полный экран загрузки
-        setIsRemoveLoading(true);
-        startLoadingSafetyTimeout();
+    const handleCancelReserve = async (reserveId: string) => {
+        if (!reserveId) {
+            console.error('[ReservePanel] Reserve ID is required');
+            return;
+        }
         
         try {
-            // Определяем ID резерва для отмены из списка резервов
-            if (userReserve && userReserve.id) {
-                const reserveId = String(userReserve.id);
-                
-                // Проверяем, находимся ли мы в режиме подтверждения для этого резерва
-                if (confirmDelete === reserveId) {
-                    console.log('[ReservePanel] Confirming cancellation for reserve ID:', reserveId);
-                    
-                    // Оптимистическое обновление UI до получения ответа от сервера
-                    setLocalReserves(prevReserves => 
-                        prevReserves.filter(reserve => reserve.id !== reserveId)
-                    );
-                    
-                    // Вызываем dispatch для отправки WebSocket события
-                    await dispatch(removeFromReserve({
-                        reserveId: reserveId,
-                        userId: String(currentUserId)
-                    }));
-                    
-                    console.log('[ReservePanel] Reserve cancellation dispatched via WebSocket');
-                    showSuccessMessage("Вы были успешно удалены из резерва");
-                    
-                    // Сбрасываем режим подтверждения
-                    setConfirmDelete(null);
-                    
-                    // Принудительно обновляем компонент
-                    forceUpdate();
-                    
-                    // Немедленно обновляем данные в Redux
-                    dispatch(forceFetchReserves());
-                } else {
-                    // Первый клик - показываем подтверждение
-                    handleStartDeleteReserve(reserveId);
-                }
-            } else {
-                console.log('[ReservePanel] No valid reserve ID to cancel');
+            setIsRemoveLoading(true);
+            
+            console.log('[ReservePanel] Removing from reserve with ID:', reserveId);
+            
+            // Проверяем, доступен ли chatId
+            if (!chatId) {
+                console.log('[ReservePanel] Warning: No chatId provided for reserve cancellation');
             }
             
-            setIsRemoveLoading(false);
-            // Очищаем таймаут, так как запрос успешно завершен
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
+            // Оптимистично удаляем резерв из визуального списка
+            const reserveToRemove = userReserve;
+            setLocalReserves(prev => prev.filter(r => r.id !== reserveId));
+            
+            // Отправляем запрос на удаление, используя chatId
+            await onCancelReserve(reserveId);
+            
+            // Показываем успешное сообщение
+            showSuccessMessage('Вы удалены из резерва');
+            
+            console.log('[ReservePanel] Successfully removed from reserve');
         } catch (error) {
-            console.error('[ReservePanel] Error canceling reserve:', error);
+            console.error('[ReservePanel] Failed to remove from reserve:', error);
             
+            // Визуально отменяем оптимистичное обновление
+            setLocalReserves(reserves);
+            
+            showSuccessMessage('Не удалось удалить резерв');
+        } finally {
             setIsRemoveLoading(false);
-            // Очищаем таймаут, так как произошла ошибка
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
         }
     };
 
@@ -592,7 +612,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                         background: userHasBothShiftAndReserve ? 'rgba(255, 193, 7, 0.1)' : 'rgba(76, 175, 80, 0.1)',
                                         position: 'relative'
                                     }}
-                                    onClick={!isRemoveLoading ? handleCancelReserve : undefined}
+                                    onClick={!isRemoveLoading ? () => handleCancelReserve(reserveId) : undefined}
                                     ref={isDeleteMode ? deleteSlotRef : undefined}
                                     disabled={isRemoveLoading}
                                 >
@@ -611,6 +631,14 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                             img.src = defaultAvatar;
                                         }}
                                     />
+                                    {reserve.isSeniorCourier && (
+                                        <SeniorBadge title="Старший курьер">
+                                            <span style={{ 
+                                                fontSize: '12px', 
+                                                fontWeight: 'bold' 
+                                            }}>⭐</span>
+                                        </SeniorBadge>
+                                    )}
                                     <DeleteButton 
                                         className="delete-reserve-button"
                                         style={{
@@ -619,7 +647,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                         onClick={(e) => {
                                             if (isRemoveLoading) return;
                                             e.stopPropagation();
-                                            handleCancelReserve();
+                                            handleCancelReserve(reserveId);
                                         }}
                                     >
                                         ×
@@ -646,13 +674,45 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                                             img.src = defaultAvatar;
                                         }}
                                     />
+                                    {reserve.isSeniorCourier && (
+                                        <SeniorBadge title="Старший курьер">
+                                            <span style={{ 
+                                                fontSize: '12px', 
+                                                fontWeight: 'bold' 
+                                            }}>⭐</span>
+                                        </SeniorBadge>
+                                    )}
                                 </SlotButton>
                             )}
                             <SlotTooltip>
                                 {isCurrentUser ? 
                                     (userHasBothShiftAndReserve ? 'Вы (уже есть смена)' : 
                                      isDeleteMode ? 'Нажмите еще раз для удаления' : 'Нажмите для удаления') 
-                                    : `${reserve.firstName} ${reserve.lastName}`}
+                                    : (
+                                        <div style={{ 
+                                            display: 'flex', 
+                                            flexDirection: 'column',
+                                            alignItems: 'center'
+                                        }}>
+                                            {reserve.isSeniorCourier && (
+                                                <span style={{
+                                                    display: 'inline-block',
+                                                    background: 'linear-gradient(45deg, #FFC107, #FF9800)',
+                                                    color: '#333',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '10px',
+                                                    fontSize: '11px',
+                                                    fontWeight: 'bold',
+                                                    marginBottom: '5px',
+                                                    boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                                }}>
+                                                    ⭐ Старший курьер
+                                                </span>
+                                            )}
+                                            <span>{reserve.firstName} {reserve.lastName}</span>
+                                        </div>
+                                    )
+                                }
                             </SlotTooltip>
                         </SlotButtonWrapper>
                     );

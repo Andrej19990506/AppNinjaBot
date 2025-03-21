@@ -14,12 +14,37 @@ import {
     LoadingOverlay,
     LoadingSpinner
 } from './CourierProfile.styles';
+import styled from 'styled-components';
+
+// Добавляем стили для значка старшего курьера
+const SeniorCourierBadge = styled.div`
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: var(--primary-color);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &::before {
+        content: '⭐';
+        font-size: 10px;
+    }
+`;
 
 interface CourierProfileProps {
     onRegisterClick: () => void;
+    isSeniorCourier?: boolean;
 }
 
-const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick }) => {
+const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick, isSeniorCourier }) => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
     const isRegistered = useAppSelector(selectIsRegistered);
@@ -90,6 +115,9 @@ const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick }) => {
                         src={user?.photo_url || defaultAvatar} 
                         alt={`${user?.first_name} ${user?.last_name}`} 
                     />
+                    {isSeniorCourier && (
+                        <SeniorCourierBadge>Старший курьер</SeniorCourierBadge>
+                    )}
                     {isLoading && (
                         <LoadingOverlay>
                             <LoadingSpinner />
@@ -98,6 +126,7 @@ const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick }) => {
                 </AvatarContainer>
                 <CourierName>
                     {user?.first_name} {user?.last_name}
+                    {isSeniorCourier && ' ⭐'}
                 </CourierName>
                 <StatusText isRegistered={isRegistered}>
                     {isRegistered 
@@ -116,10 +145,9 @@ const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick }) => {
 
             {isCalendarOpen && (
                 <CourierCalendar
-                    shifts={shifts}
                     onShiftSelect={handleShiftSelect}
-                    currentUserId={user?.id || 0}
-                    currentUserAvatar={user?.photo_url}
+                    currentUserId={String(user?.id || 0)}
+                    currentUserAvatar={user?.photo_url || undefined}
                     currentUserName={`${user?.first_name} ${user?.last_name}`}
                     onClose={() => setIsCalendarOpen(false)}
                 />

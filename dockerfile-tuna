@@ -1,0 +1,7 @@
+FROM yuccastream/tuna:latest
+
+WORKDIR /app
+
+# Точка входа с добавленными параметрами для повышения стабильности
+ENTRYPOINT ["tuna"]
+CMD ["--help"] 

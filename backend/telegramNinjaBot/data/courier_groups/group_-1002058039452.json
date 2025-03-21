@@ -1,0 +1,150 @@
+{
+  "chat_id": "-1002058039452",
+  "chat_title": "КУРЬЕРЫ СЛОВЦОВА",
+  "members": [
+    {
+      "user_id": 784135710,
+      "username": "ArtRakov",
+      "first_name": "Артём",
+      "last_name": "Раков",
+      "status": "administrator",
+      "joined_date": "2025-03-21T15:51:52.825247",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_68.jpg",
+      "senior_courier": true
+    },
+    {
+      "user_id": 836104828,
+      "username": "nesterova111",
+      "first_name": "Ира",
+      "last_name": "Шустова",
+      "status": "administrator",
+      "joined_date": "2025-03-21T15:51:52.930972",
+      "is_bot": false,
+      "senior_courier": null
+    },
+    {
+      "user_id": 5154339172,
+      "username": null,
+      "first_name": "",
+      "last_name": "",
+      "status": "administrator",
+      "joined_date": "2025-03-21T15:51:53.211147",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_69.jpg",
+      "senior_courier": null
+    },
+    {
+      "user_id": 1682142222,
+      "username": "andrejnikolaevich1999",
+      "first_name": "Андрей",
+      "last_name": "Малахов",
+      "status": "member",
+      "joined_date": "2025-03-21T15:03:05.798431",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_66.jpg",
+      "senior_courier": null
+    },
+    {
+      "user_id": 1101504679,
+      "username": "Oboltys228",
+      "first_name": "Владислав",
+      "last_name": "Валов",
+      "status": "member",
+      "joined_date": "2025-03-21T15:10:51.199598",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_70.jpg",
+      "senior_courier": null
+    },
+    {
+      "user_id": 817031409,
+      "username": null,
+      "first_name": "Денис",
+      "last_name": "Сотников",
+      "status": "member",
+      "joined_date": "2025-03-21T15:36:17.376737",
+      "is_bot": false,
+      "senior_courier": null
+    },
+    {
+      "user_id": 1353726604,
+      "username": "dxlaan",
+      "first_name": "долаан",
+      "last_name": "сенди",
+      "status": "member",
+      "joined_date": "2025-03-21T15:36:30.206416",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_73.jpg",
+      "senior_courier": null
+    },
+    {
+      "user_id": 918287546,
+      "username": "mrstepanofficial",
+      "first_name": "Степан",
+      "last_name": "Романенко",
+      "status": "member",
+      "joined_date": "2025-03-21T15:51:53.766511",
+      "is_bot": false,
+      "senior_courier": null
+    }
+  ],
+  "admins": [
+    {
+      "user_id": 784135710,
+      "username": "ArtRakov",
+      "first_name": "",
+      "last_name": "",
+      "status": "administrator",
+      "is_bot": false,
+      "can_manage_chat": true,
+      "can_delete_messages": true,
+      "can_manage_voice_chats": true,
+      "can_restrict_members": true,
+      "can_promote_members": false,
+      "can_change_info": true,
+      "can_invite_users": true,
+      "can_pin_messages": true,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_68.jpg"
+    },
+    {
+      "user_id": 836104828,
+      "username": "nesterova111",
+      "first_name": "",
+      "last_name": "",
+      "status": "administrator",
+      "is_bot": false,
+      "can_manage_chat": true,
+      "can_delete_messages": true,
+      "can_manage_voice_chats": true,
+      "can_restrict_members": true,
+      "can_promote_members": false,
+      "can_change_info": true,
+      "can_invite_users": true,
+      "can_pin_messages": true
+    },
+    {
+      "user_id": 5154339172,
+      "username": null,
+      "first_name": "",
+      "last_name": "",
+      "status": "creator",
+      "is_bot": false,
+      "can_manage_chat": true,
+      "can_delete_messages": true,
+      "can_manage_voice_chats": true,
+      "can_restrict_members": true,
+      "can_promote_members": true,
+      "can_change_info": true,
+      "can_invite_users": true,
+      "can_pin_messages": true,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_69.jpg"
+    }
+  ],
+  "last_updated": "2025-03-21T15:51:53.772520",
+  "group_type": "courier",
+  "metadata": {
+    "total_members": 8,
+    "total_admins": 3,
+    "created_at": "2025-03-21T15:51:53.772528"
+  }
+}

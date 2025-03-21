@@ -9,6 +9,7 @@ import { removeFromReserve } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 import { ReserveShift } from '../../types/shifts';
 import LoadingOverlay from './LoadingOverlay';
+import CourierProfileDialog from '../CourierProfileDialog/CourierProfileDialog';
 
 // Интерфейсы
 interface ShiftSlot {
@@ -19,6 +20,7 @@ interface ShiftSlot {
     lastName?: string;
     shiftType?: 'day' | 'night';
     slotIndex: number;
+    isSeniorCourier?: boolean;
 }
 
 interface ShiftPanelProps {
@@ -35,6 +37,7 @@ interface ShiftPanelProps {
     forceUpdate: () => void;
     reserves: ReserveShift[];
     showSuccessMessage: (message: string) => void;
+    chatId?: string;
 }
 
 // Стили (которые нужны только для этого компонента)
@@ -79,7 +82,7 @@ const SlotButton = styled.button<{ $isOccupied?: boolean }>`
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 
     &:hover {
         transform: ${props => props.$isOccupied ? 'none' : 'scale(1.05)'};
@@ -233,8 +236,87 @@ const ReserveLink = styled.a`
     }
 `;
 
+// Добавляем стиль для значка старшего курьера
+const SeniorBadge = styled.div`
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: linear-gradient(45deg, #FFC107, #FF9800);
+    color: #333;
+    font-size: 10px;
+    height: 20px;
+    width: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px rgba(255, 193, 7, 0.5);
+    z-index: 10;
+    animation: pulse 2s infinite;
+    pointer-events: auto;
+    
+    @keyframes pulse {
+        0% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 0 rgba(255, 193, 7, 0.7);
+        }
+        70% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 10px 5px rgba(255, 193, 7, 0);
+        }
+        100% {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 0 0 0 rgba(255, 193, 7, 0);
+        }
+    }
+    
+    /* Увеличиваем размер на больших экранах */
+    @media (min-width: 768px) {
+        top: -6px;
+        right: -6px;
+        height: 22px;
+        width: 22px;
+        font-size: 12px;
+    }
+`;
+
+// Добавляем компонент для инструкции
+const LongPressHint = styled.div`
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    text-align: center;
+    margin-top: 16px;
+    padding: 10px;
+    background-color: rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius);
+    animation: fadeIn 1s ease;
+    border-left: 3px solid var(--primary-color);
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+`;
+
+// Компонент для визуальной обратной связи при долгом нажатии
+const PressAnimation = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: scale(0);
+    transition: transform 0.5s ease, opacity 0.5s ease;
+    pointer-events: none;
+    
+    &.active {
+        transform: scale(1);
+        opacity: 1;
+    }
+`;
+
 // Компонент панели смен обернутый в React.memo для предотвращения ненужных перерисовок
-const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
+const ShiftPanel = React.memo(({
     date,
     dayShifts,
     nightShifts,
@@ -247,12 +329,37 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     onSwitchToReserve,
     forceUpdate,
     reserves,
-    showSuccessMessage
-}) => {
+    showSuccessMessage,
+    chatId
+}: ShiftPanelProps) => {
     const dispatch = useDispatch<AppDispatch>();
     // Создаем локальное состояние для смен, чтобы контролировать UI независимо от props
     const [localDayShifts, setLocalDayShifts] = useState(dayShifts);
     const [localNightShifts, setLocalNightShifts] = useState(nightShifts);
+    
+    // Добавляем состояние для управления диалогом
+    const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+    const [selectedCourier, setSelectedCourier] = useState<{
+        id: number | string;
+        name: string;
+        avatar?: string;
+        isSeniorCourier?: boolean;
+    } | null>(null);
+    
+    // Состояние для отображения тултипа при клике
+    const [hoveredSlot, setHoveredSlot] = useState<{
+        shiftType: 'day' | 'night', 
+        slotIndex: number,
+        showTooltip: boolean
+    } | null>(null);
+    
+    // Таймер для определения долгого нажатия
+    const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
+    
+    // Добавляем состояние для анимации долгого нажатия
+    const [pressAnimationActive, setPressAnimationActive] = useState(false);
+    const [pressAnimationSlot, setPressAnimationSlot] = useState<number | null>(null);
+    const [pressAnimationShiftType, setPressAnimationShiftType] = useState<'day' | 'night' | null>(null);
     
     // Синхронизируем локальное состояние с props при изменении props
     useEffect(() => {
@@ -327,6 +434,14 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
 
     const handleSlotSelect = async (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
         console.log('[ShiftPanel] handleSlotSelect called:', { shiftType, slotIndex, existingShiftId });
+        
+        // Проверим атрибут data-avatar-click, который мы устанавливаем при клике на аватар
+        // Если клик был по аватару, то не выполняем действие слота
+        const isAvatarClick = document.body.hasAttribute('data-avatar-click');
+        if (isAvatarClick) {
+            document.body.removeAttribute('data-avatar-click');
+            return;
+        }
         
         // Если слот принадлежит текущему пользователю, отменяем смену
         if (existingShiftId && ((shiftType === 'day' && userDayShift) || (shiftType === 'night' && userNightShift))) {
@@ -423,8 +538,16 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 // Показываем уведомление об успешной отмене до выполнения запроса
                 showSuccessMessage('Смена успешно отменена');
                 
-                // Вызываем dispatch для отмены смены на сервере
-                await dispatch(cancelShift(String(userShift.id)));
+                // Проверяем, есть ли chatId
+                if (!chatId) {
+                    console.log('[ShiftPanel] Warning: No chatId provided for canceling shift, using default');
+                }
+                
+                // Вызываем dispatch для отмены смены на сервере с параметром chatId
+                await dispatch(cancelShift({
+                    shiftId: String(userShift.id),
+                    chatId: chatId
+                }));
                 
                 console.log('[ShiftPanel] Shift cancellation successful');
                 
@@ -446,6 +569,118 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
         }
     };
 
+    // Обработчик клика на аватар курьера (короткое нажатие)
+    const handleCourierAvatarClick = (
+        event: React.MouseEvent | React.TouchEvent,
+        courier: { 
+            userId?: string; 
+            firstName?: string; 
+            lastName?: string; 
+            photo_url?: string | null;
+            isSeniorCourier?: boolean;
+        },
+        shiftType: 'day' | 'night',
+        slotIndex: number
+    ) => {
+        // Предотвращаем срабатывание onClick родительской кнопки
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Устанавливаем атрибут, показывающий, что был клик по аватару
+        document.body.setAttribute('data-avatar-click', 'true');
+        
+        // Показываем стандартный черный тултип над аватаром
+        setHoveredSlot({
+            shiftType,
+            slotIndex,
+            showTooltip: true
+        });
+        
+        // Автоматически скрываем тултип через 2 секунды
+        setTimeout(() => {
+            setHoveredSlot(null);
+        }, 2000);
+    };
+    
+    // Обработчик долгого нажатия на аватар курьера
+    const handleCourierAvatarPress = (
+        event: React.MouseEvent | React.TouchEvent,
+        courier: { 
+            userId?: string; 
+            firstName?: string; 
+            lastName?: string; 
+            photo_url?: string | null;
+            isSeniorCourier?: boolean;
+        },
+        shiftType: 'day' | 'night',
+        slotIndex: number
+    ) => {
+        // Предотвращаем срабатывание onClick родительской кнопки
+        event.preventDefault();
+        event.stopPropagation();
+        
+        // Устанавливаем атрибут, показывающий, что был клик по аватару
+        document.body.setAttribute('data-avatar-click', 'true');
+        
+        // Активируем анимацию для визуальной обратной связи
+        setPressAnimationActive(true);
+        setPressAnimationSlot(slotIndex);
+        setPressAnimationShiftType(shiftType);
+        
+        // Устанавливаем таймер для долгого нажатия
+        const timer = setTimeout(() => {
+            if (courier.userId) {
+                setSelectedCourier({
+                    id: courier.userId || '',
+                    name: `${courier.firstName || ''} ${courier.lastName || ''}`.trim(),
+                    avatar: courier.photo_url || undefined,
+                    isSeniorCourier: courier.isSeniorCourier || false
+                });
+                setProfileDialogOpen(true);
+                
+                // Для отладки
+                console.log('[ShiftPanel] Открытие профиля курьера:', {
+                    courier, 
+                    isSeniorCourier: courier.isSeniorCourier
+                });
+                
+                // Сбрасываем анимацию
+                setPressAnimationActive(false);
+                setPressAnimationSlot(null);
+                setPressAnimationShiftType(null);
+            }
+        }, 500); // 500ms для долгого нажатия
+        
+        setPressTimer(timer);
+    };
+    
+    // Обработчик отпускания нажатия
+    const handleCourierAvatarRelease = () => {
+        // Очищаем таймер при отпускании, чтобы отменить открытие диалога,
+        // если пользователь отпустил раньше, чем через 500ms
+        if (pressTimer) {
+            clearTimeout(pressTimer);
+            setPressTimer(null);
+        }
+        
+        // Сбрасываем анимацию
+        setPressAnimationActive(false);
+        setPressAnimationSlot(null);
+        setPressAnimationShiftType(null);
+    };
+    
+    // Скрываем тултип при клике вне аватара
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setHoveredSlot(null);
+        };
+        
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, []);
+
     // Оптимизированная функция renderSlots для ShiftPanel
     const renderSlots = useMemo(() => {
         console.log('[ShiftPanel] Re-rendering slots');
@@ -453,6 +688,10 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
         // Используем локальное состояние вместо пропсов для предотвращения лишних перерисовок
         const localDayShifts = [...dayShifts];
         const localNightShifts = [...nightShifts];
+        
+        // Проверяем, есть ли пользователя с флагом старшего курьера
+        const seniorCourierShifts = localDayShifts.concat(localNightShifts).filter(shift => shift.isSeniorCourier);
+        console.info('[ShiftPanel] Смены старших курьеров:', seniorCourierShifts);
         
         // Проверяем, есть ли у пользователя уже смена данного типа
         const userHasDayShift = localDayShifts.some(shift => String(shift.userId) === String(currentUserId));
@@ -474,6 +713,12 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 // 2. Пользователь уже имеет смену этого типа (дневную/ночную) и это не его слот
                 const isDisabled = (!!existingShift && !isCurrentUser) || (userHasThisTypeShift && !isCurrentUser);
                 
+                // Проверяем, нужно ли показать тултип принудительно (при клике)
+                const showTooltip = hoveredSlot && 
+                                   hoveredSlot.shiftType === shiftType && 
+                                   hoveredSlot.slotIndex === index && 
+                                   hoveredSlot.showTooltip;
+                
                 return (
                     <SlotButtonWrapper key={`${shiftType}-${index}`} style={{
                         willChange: 'transform',
@@ -491,26 +736,87 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                                 transform: 'translateZ(0)',
                                 // Добавляем визуальный индикатор блокировки
                                 opacity: isDisabled && !existingShift ? 0.5 : 1,
-                                cursor: isDisabled ? 'not-allowed' : 'pointer'
+                                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                                position: 'relative'
                             }}
                         >
                             {existingShift ? (
-                                <CourierAvatar 
-                                    src={existingShift.photo_url || defaultAvatar} 
-                                    alt={`${existingShift.firstName || 'Курьер'}`}
-                                    style={{
-                                        willChange: 'transform',
-                                        transform: 'translateZ(0)'
-                                    }}
-                                />
+                                <React.Fragment>
+                                    <CourierAvatar 
+                                        src={existingShift.photo_url || defaultAvatar} 
+                                        alt={`${existingShift.firstName || 'Курьер'}`}
+                                        style={{
+                                            willChange: 'transform',
+                                            transform: 'translateZ(0)'
+                                        }}
+                                        // Обработчик клика для информационного тултипа
+                                        onClick={(e) => handleCourierAvatarClick(e, existingShift, shiftType, index)}
+                                        // Добавляем обработчики для долгого нажатия
+                                        onMouseDown={(e) => handleCourierAvatarPress(e, existingShift, shiftType, index)}
+                                        onMouseUp={handleCourierAvatarRelease}
+                                        onMouseLeave={handleCourierAvatarRelease}
+                                        onTouchStart={(e) => handleCourierAvatarPress(e, existingShift, shiftType, index)}
+                                        onTouchEnd={handleCourierAvatarRelease}
+                                        onTouchCancel={handleCourierAvatarRelease}
+                                    />
+                                    {/* Анимация при долгом нажатии */}
+                                    {pressAnimationActive && 
+                                     pressAnimationSlot === index && 
+                                     pressAnimationShiftType === shiftType && (
+                                        <PressAnimation className={pressAnimationActive ? 'active' : ''} />
+                                    )}
+                                    {existingShift.isSeniorCourier && (
+                                        <SeniorBadge 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedCourier({
+                                                    id: existingShift.userId || '',
+                                                    name: `${existingShift.firstName || ''} ${existingShift.lastName || ''}`.trim(),
+                                                    avatar: existingShift.photo_url || undefined,
+                                                    isSeniorCourier: existingShift.isSeniorCourier
+                                                });
+                                                setProfileDialogOpen(true);
+                                                console.info('⭐ Клик по значку старшего курьера:', existingShift);
+                                            }}
+                                            style={{ cursor: 'pointer' }}
+                                            title="Открыть профиль старшего курьера"
+                                        >
+                                            <span style={{ 
+                                                fontSize: '12px', 
+                                                fontWeight: 'bold' 
+                                            }}>⭐</span>
+                                        </SeniorBadge>
+                                    )}
+                                </React.Fragment>
                             ) : (
                                 <PlusIcon>+</PlusIcon>
                             )}
                         </SlotButton>
                         
                         {existingShift && (
-                            <SlotTooltip>
-                                {existingShift.firstName || 'Курьер'} {existingShift.lastName || ''}
+                            <SlotTooltip style={{ opacity: showTooltip ? 1 : undefined }}>
+                                <div style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column',
+                                    alignItems: 'center'
+                                }}>
+                                    {existingShift.isSeniorCourier && (
+                                        <span style={{
+                                            display: 'inline-block',
+                                            background: 'linear-gradient(45deg, #FFC107, #FF9800)',
+                                            color: '#333',
+                                            padding: '2px 6px',
+                                            borderRadius: '10px',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold',
+                                            marginBottom: '5px',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                        }}>
+                                            ⭐ Старший курьер
+                                        </span>
+                                    )}
+                                    <span>{existingShift.firstName || 'Курьер'} {existingShift.lastName || ''}</span>
+                                </div>
                             </SlotTooltip>
                         )}
                         
@@ -523,7 +829,8 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 );
             });
         };
-    }, [dayShifts, nightShifts, currentUserId, handleSlotSelect]);
+    }, [dayShifts, nightShifts, currentUserId, handleSlotSelect, handleCourierAvatarPress, handleCourierAvatarRelease, 
+        pressAnimationActive, pressAnimationSlot, pressAnimationShiftType, handleCourierAvatarClick, hoveredSlot]);
 
     return (
         <React.Fragment key="shift-panel-root">
@@ -550,6 +857,11 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 </SlotsGrid>
             </ShiftSection>
 
+            {/* Добавляем подсказку о длительном нажатии */}
+            <LongPressHint>
+                💡 Совет: Удерживайте аватар курьера для просмотра расширенного профиля и управления статусом
+            </LongPressHint>
+
             {isFullyBooked && !userHasShift && (
                 <NoSlotsMessage
                     key="no-slots-message"
@@ -561,6 +873,19 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                     Все смены уже заняты.<br/>
                     Вы можете записаться в резерв.
                 </NoSlotsMessage>
+            )}
+            
+            {/* Диалог профиля курьера (при долгом нажатии) */}
+            {selectedCourier && (
+                <CourierProfileDialog
+                    open={profileDialogOpen}
+                    onClose={() => setProfileDialogOpen(false)}
+                    courierId={Number(selectedCourier.id)}
+                    courierName={selectedCourier.name}
+                    courierAvatar={selectedCourier.avatar}
+                    chatId={chatId}
+                    isSeniorCourier={selectedCourier.isSeniorCourier}
+                />
             )}
         </React.Fragment>
     );

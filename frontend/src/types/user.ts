@@ -13,6 +13,7 @@ export interface User {
     groups?: Group[];
     isAdmin: boolean;
     adminRights: any | null;
+    isSeniorCourier?: boolean;
 }
 
 export interface UserState {

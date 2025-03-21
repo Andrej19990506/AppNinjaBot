@@ -1,0 +1,41 @@
+[
+  {
+    "id": 1,
+    "user_id": "1682142222",
+    "date": "2025-03-28",
+    "shift_type": "day",
+    "slot_index": 0,
+    "chat_id": "-1004610354973",
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_66.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-20T23:07:01.497526",
+    "updated_at": "2025-03-20T23:22:12.024473"
+  },
+  {
+    "id": 2,
+    "user_id": "1682142222",
+    "date": "2025-03-29",
+    "shift_type": "day",
+    "slot_index": 0,
+    "chat_id": "-1004610354973",
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_66.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-20T23:09:58.354822",
+    "updated_at": "2025-03-20T23:09:58.354834"
+  },
+  {
+    "id": 3,
+    "user_id": "1682142222",
+    "date": "2025-03-30",
+    "shift_type": "day",
+    "slot_index": 0,
+    "chat_id": "-1004610354973",
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_66.jpg",
+    "first_name": "Андрей",
+    "last_name": "Малахов",
+    "created_at": "2025-03-20T23:15:11.408397",
+    "updated_at": "2025-03-20T23:15:11.408408"
+  }
+]

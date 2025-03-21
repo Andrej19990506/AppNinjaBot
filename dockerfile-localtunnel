@@ -1,0 +1,10 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Установка localtunnel
+RUN npm install -g localtunnel
+
+# Команда запуска
+ENTRYPOINT ["lt"]
+CMD ["--help"] 

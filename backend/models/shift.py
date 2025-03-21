@@ -1,6 +1,20 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+class Shift(BaseModel):
+    """Модель смены курьера"""
+    id: str
+    user_id: str
+    date: str
+    shift_type: str
+    slot_index: int
+    chat_id: str
+    photo_url: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class ShiftBase(BaseModel):
     date: str

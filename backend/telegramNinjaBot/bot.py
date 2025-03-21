@@ -4,6 +4,7 @@ import logging
 from telegramNinjaBot.config.config import Config
 from telegramNinjaBot.services.json_service import JsonService
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
+from telegramNinjaBot.handlers.message_handlers import MessageHandler as BotMessageHandler
 from telegram.constants import ChatMemberStatus
 from telegram import Update, Bot, MenuButton, MenuButtonWebApp, WebAppInfo
 from telegram.ext import ContextTypes
@@ -792,6 +793,9 @@ async def run_bot():
 
         # Создаем групповой обработчик
         group_handler = GroupHandler(bot_application, json_service)
+        
+        # Создаем обработчик сообщений
+        message_handler = BotMessageHandler(config.DATA_DIR)
 
         # Добавляем логирование всех входящих обновлений
         async def log_update(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -863,6 +867,12 @@ async def run_bot():
         # Обработчик callback-запросов
         bot_application.add_handler(CallbackQueryHandler(handle_deletion_callback))
         
+        # Обработчик личных сообщений для смены пароля
+        bot_application.add_handler(MessageHandler(
+            filters.TEXT & filters.ChatType.PRIVATE,
+            message_handler.handle_private_message
+        ))
+        
         # Команды и веб-приложение
         bot_application.add_handler(CommandHandler("start", handle_start))
         bot_application.add_handler(CommandHandler("send_love", send_love))
@@ -876,6 +886,15 @@ async def run_bot():
         bot_application.broadcast_item_deletion = broadcast_item_deletion
 
         logger.info("✅ Все обработчики успешно зарегистрированы")
+
+        # Обновляем структуру файлов групп
+        logger.info("Обновление структуры файлов групп...")
+        courier_service = group_handler.courier_service
+        if courier_service:
+            updated = await courier_service.update_all_groups_structure()
+            logger.info(f"✅ Обновлено {updated} файлов групп курьеров")
+        else:
+            logger.warning("Экземпляр CourierService не доступен для обновления файлов групп")
 
         # Сохраняем экземпляр бота в общей директории
         save_bot_instance()

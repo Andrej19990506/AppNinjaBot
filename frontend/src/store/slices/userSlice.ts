@@ -45,6 +45,7 @@ export const initializeFromTelegram = createAsyncThunk(
             photo_url: null,
             isAdmin: false,
             adminRights: null,
+            isSeniorCourier: false,
             groups: []
         };
 
@@ -77,10 +78,12 @@ export const initializeFromTelegram = createAsyncThunk(
                     user.first_name = data.user_data.first_name;
                     user.last_name = data.user_data.last_name;
                     user.photo_url = data.user_data.photo_url;
+                    user.isSeniorCourier = data.user_data.is_senior_courier || false;
                 }
-                console.log('✅ Данные пользователя загружены:', {
+                console.log('✅ Данные пользователя загружены с информацией о статусе старшего курьера:', {
                     groups: data.groups,
-                    user_data: data.user_data
+                    user_data: data.user_data,
+                    isSeniorCourier: user.isSeniorCourier
                 });
             } else {
                 console.error('❌ Ошибка при загрузке данных:', data.error);
@@ -146,6 +149,12 @@ const userSlice = createSlice({
                 state.user.isAdmin = isAdmin;
                 state.user.adminRights = adminRights;
             }
+        },
+        updateSeniorCourierStatus: (state, action: PayloadAction<boolean>) => {
+            if (state.user) {
+                state.user.isSeniorCourier = action.payload;
+                console.log('🌟 Обновлен статус старшего курьера в хранилище:', action.payload);
+            }
         }
     },
     extraReducers: (builder) => {
@@ -181,5 +190,5 @@ const userSlice = createSlice({
     }
 });
 
-export const { updateUser, clearUserData, updateAdminStatus } = userSlice.actions;
+export const { updateUser, clearUserData, updateAdminStatus, updateSeniorCourierStatus } = userSlice.actions;
 export default userSlice.reducer; 

@@ -36,6 +36,7 @@ interface CourierShift {
     date: string;
     shiftType: 'day' | 'night';
     slotIndex: number;
+    isSeniorCourier?: boolean;
 }
 
 interface CourierCalendarProps {
@@ -45,6 +46,7 @@ interface CourierCalendarProps {
     currentUserAvatar?: string;
     currentUserName?: string;
     onClose: () => void;
+    chatId?: string;
 }
 
 const CalendarContainer = styled.div`
@@ -220,6 +222,7 @@ const EmptySlotIndicator = styled.div`
     position: relative;
     transition: all 0.3s ease;
     aspect-ratio: 1;
+    overflow: visible;
 
     &::before {
         content: '';
@@ -577,7 +580,7 @@ const ReserveIcon = styled.div`
     color: white;
     font-size: 12px;
     font-weight: bold;
-    z-index: 5;
+    z-index: 10;
     cursor: pointer;
     box-shadow: 0 2px 6px rgba(255, 149, 0, 0.4);
     border: 1.5px solid white;
@@ -822,7 +825,8 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     currentUserId,
     currentUserAvatar,
     currentUserName,
-    onClose
+    onClose,
+    chatId
 }) => {
     const dispatch = useDispatch<AppDispatch>();
     const shifts = useSelector((state: RootState) => state.shifts.shifts);
@@ -1018,7 +1022,10 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             shift.date === dateStr && 
             shift.shiftType === 'day'
         );
-        console.log(`[CourierCalendar] Day shifts for ${dateStr}:`, dateShifts);
+        // Логируем только если есть смены или это текущая дата календаря
+        if (dateShifts.length > 0 || isToday(date)) {
+            console.log(`[CourierCalendar] Day shifts for ${dateStr}:`, dateShifts);
+        }
         return dateShifts;
     };
 
@@ -1028,7 +1035,10 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             shift.date === dateStr && 
             shift.shiftType === 'night'
         );
-        console.log(`[CourierCalendar] Night shifts for ${dateStr}:`, dateShifts);
+        // Логируем только если есть смены или это текущая дата календаря
+        if (dateShifts.length > 0 || isToday(date)) {
+            console.log(`[CourierCalendar] Night shifts for ${dateStr}:`, dateShifts);
+        }
         return dateShifts;
     };
 
@@ -1048,8 +1058,8 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         // Фильтруем резервы для указанной даты
         const filteredReserves = reserves.filter(reserve => reserve.date === dateStr);
         
-        // Логируем только если есть резервы на эту дату или если это текущая дата (для отладки)
-        if (filteredReserves.length > 0 || dateStr === format(new Date(), 'yyyy-MM-dd')) {
+        // Логируем только если есть резервы на эту дату
+        if (filteredReserves.length > 0) {
             console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
                 filteredCount: filteredReserves.length,
                 reservesData: filteredReserves
@@ -1211,12 +1221,18 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 }
             }
             
+            // Проверяем, доступен ли chatId
+            if (!chatId) {
+                console.log('[CourierCalendar] Warning: No chatId provided for shift booking, using default chat ID');
+            }
+            
             console.log('[CourierCalendar] Booking/updating shift:', {
                 date: dateString,
                 shiftType,
                 slotIndex,
                 userId: currentUserId,
-                existingShiftId: validShiftId
+                existingShiftId: validShiftId,
+                chatId: chatId || 'not provided'
             });
             
             // Диспатчим экшен без await, чтобы не блокировать UI
@@ -1226,7 +1242,8 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 shiftType,
                 slotIndex,
                 userId: currentUserId,
-                existingShiftId: validShiftId
+                existingShiftId: validShiftId,
+                chatId: chatId
             }));
             
             // Отложенно обновим UI через 500мс, чтобы дать время для обработки UI в ShiftPanel
@@ -1253,9 +1270,19 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         
         try {
             console.log('[CourierCalendar] Adding to reserve...');
+
+            // Получаем chat_id из props или из данных WebApp
+            if (!chatId) {
+                console.error('[CourierCalendar] Error: No chat ID provided');
+                throw new Error('Не удалось определить ID чата. Отсутствует идентификатор чата.');
+            }
+            
+            console.log('[CourierCalendar] Using chat ID:', chatId);
+            
             const result = await dispatch(addToReserve({
                 date: format(selectedDateForDialog, 'yyyy-MM-dd'),
-                userId: currentUserId
+                userId: currentUserId,
+                chatId: chatId
             }));
             
             console.log('[CourierCalendar] Successfully added to reserve, result:', result);
@@ -1272,13 +1299,22 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         try {
             console.log('[CourierCalendar] Canceling reserve with ID:', reserveId);
             
+            // Проверяем наличие chat_id
+            if (!chatId) {
+                console.error('[CourierCalendar] Error: No chat ID provided');
+                throw new Error('Не удалось определить ID чата. Отсутствует идентификатор чата.');
+            }
+            
+            console.log('[CourierCalendar] Using chat ID for cancellation:', chatId);
+            
             // Оптимистично обновляем UI до получения ответа от сервера
             setLastUpdateTime(Date.now());
             
             // Отправляем запрос на удаление из резерва
             await dispatch(removeFromReserve({
                 reserveId,
-                userId: currentUserId
+                userId: currentUserId,
+                chatId: chatId
             }));
             
             // Оптимистично обновляем Redux-состояние
@@ -1313,25 +1349,17 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         const dateStr = format(date, 'yyyy-MM-dd');
         const dateReserves = getReservesForDate(date);
         
-        // Расширенная проверка с логами для отладки
-        const isInReserve = dateReserves.some(reserve => {
-            const match = String(reserve.userId) === String(currentUserId);
-            if (match) {
-                console.log(`[CourierCalendar] User ${currentUserId} is in reserve for ${dateStr}`, reserve);
-            }
-            return match;
-        });
+        // Поиск первого резерва пользователя на эту дату
+        const userReserve = dateReserves.find(reserve => 
+            String(reserve.userId) === String(currentUserId)
+        );
         
-        if (dateStr === format(new Date(), 'yyyy-MM-dd')) {
-            console.log(`[CourierCalendar] userIsInReserve check for today:`, {
-                date: dateStr,
-                currentUserId,
-                dateReserves,
-                isInReserve
-            });
+        // Логируем только если пользователь найден в резерве
+        if (userReserve) {
+            console.log(`[CourierCalendar] User ${currentUserId} is in reserve for ${dateStr}`, userReserve);
         }
         
-        return isInReserve;
+        return !!userReserve;
     };
 
     // Проверка доступности смен на дату
@@ -1370,9 +1398,12 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             // Получаем информацию о доступности смен
             const slotsInfo = getSlotsInfo(date);
             
+            // Используем переменную для хранения содержимого, которое будет возвращено
+            let content;
+            
             if (currentUserShift) {
                 // Если пользователь имеет смену на эту дату
-                return (
+                content = (
                     <CourierAvatar 
                         src={currentUserShift.photo_url || currentUserAvatar || defaultAvatar}
                         alt={`${currentUserShift.firstName || ''} ${currentUserShift.lastName || ''}`}
@@ -1384,10 +1415,9 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                     />
                 );
             }
-            
-            if (inReserve) {
+            else if (inReserve) {
                 // Если пользователь в резерве на эту дату
-                return (
+                content = (
                     <ReserveSlotIndicator key={`${dateStr}-reserve`}>
                         <DayNumber $isAvailable={true} style={{
                             color: '#FF9500',
@@ -1403,17 +1433,16 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                     </ReserveSlotIndicator>
                 );
             }
-            
             // Проверяем доступность даты и наличие свободных мест
-            if (isDateAvailable(date)) {
+            else if (isDateAvailable(date)) {
                 if (slotsInfo.hasAvailableSlots) {
-                    return (
+                    content = (
                         <EmptySlotIndicator key={`${dateStr}-empty`}>
                             <DayNumber $isAvailable={true}>{format(date, 'd')}</DayNumber>
                         </EmptySlotIndicator>
                     );
                 } else {
-                    return (
+                    content = (
                         <OccupiedSlotIndicator key={`${dateStr}-occupied`}>
                             <DayNumber 
                                 $isAvailable={false} 
@@ -1448,8 +1477,11 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                     );
                 }
             }
+            else {
+                content = <DayNumber $isAvailable={false} key={`${dateStr}-unavailable`}>{format(date, 'd')}</DayNumber>;
+            }
             
-            return <DayNumber $isAvailable={false} key={`${dateStr}-unavailable`}>{format(date, 'd')}</DayNumber>;
+            return content;
         };
     }, [shifts, reserves, currentUserId, currentUserAvatar, isDateAvailable, lastUpdateTime]);
 

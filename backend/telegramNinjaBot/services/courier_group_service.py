@@ -71,24 +71,75 @@ class CourierGroupService:
             if not self.is_courier_group(chat_title):
                 logger.info(f"Группа {chat_title} не является группой курьеров")
                 return
+                    
+            # Добавляем поле "senior_courier" для каждого участника
+            for member in members:
+                if "senior_courier" not in member:
+                    member["senior_courier"] = None
 
+            # Проверяем, существует ли уже файл группы
+            file_path = self.get_group_file_path(chat_id)
+            existing_members = []
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        existing_data = json.load(f)
+                        if 'members' in existing_data:
+                            existing_members = existing_data.get('members', [])
+                    logger.info(f"Загружено {len(existing_members)} существующих участников из файла")
+                except Exception as e:
+                    logger.error(f"Ошибка при чтении существующего файла группы: {e}")
+
+            # Объединяем списки участников
+            # Создаем словарь для существующих участников по user_id
+            existing_members_dict = {m['user_id']: m for m in existing_members}
+            
+            # Обновляем существующих участников или добавляем новых
+            for member in members:
+                user_id = member['user_id']
+                if user_id in existing_members_dict:
+                    # Если пользователь уже существует, сохраняем существующие поля
+                    # и обновляем только те, которые пришли не пустыми в новых данных
+                    existing_member = existing_members_dict[user_id]
+                    
+                    # Сохраняем важные поля, которые могут быть пустыми в новых данных
+                    for field in ['first_name', 'last_name', 'photo_url', 'senior_courier']:
+                        if field in existing_member and (
+                            field not in member or 
+                            member[field] is None or 
+                            (isinstance(member[field], str) and not member[field].strip())
+                        ):
+                            # Подробное логирование для отладки
+                            logger.info(f"Поле {field} для пользователя {user_id}: старое='{existing_member.get(field)}', новое='{member.get(field)}'")
+                            
+                            # Сохраняем существующее значение
+                            member[field] = existing_member[field]
+                            logger.info(f"Сохранено существующее значение {field} для пользователя {user_id}")
+                
+                # Обновляем или добавляем пользователя
+                existing_members_dict[user_id] = member
+                logger.info(f"Обновлен/добавлен пользователь {user_id} ({member.get('username', 'Без имени')})")
+            
+            # Конвертируем обратно в список
+            merged_members = list(existing_members_dict.values())
+            logger.info(f"После объединения: {len(merged_members)} участников")
+                    
             # Создаем структуру данных группы
             group_data = {
                 "chat_id": chat_id,
                 "chat_title": chat_title,
-                "members": members,
+                "members": merged_members,  # Используем объединенный список
                 "admins": admins,
                 "last_updated": datetime.now().isoformat(),
                 "group_type": "courier",
                 "metadata": {
-                    "total_members": len(members),
+                    "total_members": len(merged_members),
                     "total_admins": len(admins),
                     "created_at": datetime.now().isoformat()
                 }
             }
 
             # Сохраняем данные группы
-            file_path = self.get_group_file_path(chat_id)
             logger.info(f"Путь к файлу данных: {file_path}")
             
             # Создаем директорию, если она не существует
@@ -127,6 +178,18 @@ class CourierGroupService:
             with open(file_path, 'r', encoding='utf-8') as f:
                 current_data = json.load(f)
 
+            # Убедимся, что поле senior_courier есть у каждого участника
+            if "members" in current_data:
+                for member in current_data["members"]:
+                    if "senior_courier" not in member:
+                        member["senior_courier"] = None
+                        logger.info(f"Добавлено поле senior_courier участнику {member.get('username', member.get('user_id'))}")
+
+            # Удаляем поле senior_courier из корня группы, если оно существует
+            if "senior_courier" in current_data:
+                del current_data["senior_courier"]
+                logger.info(f"Удалено поле senior_courier из корня группы {chat_id}")
+
             # Обновляем данные
             current_data.update(update_data)
             current_data["last_updated"] = datetime.now().isoformat()
@@ -146,6 +209,50 @@ class CourierGroupService:
         except Exception as e:
             logger.error(f"❌ Ошибка при обновлении данных группы: {e}")
             raise
+
+    async def update_all_groups_structure(self) -> None:
+        """Обновляет структуру всех файлов групп курьеров, добавляя отсутствующие поля"""
+        try:
+            logger.info("Начало обновления структуры всех файлов групп курьеров")
+            index_data = self._load_index()
+            updated_count = 0
+
+            for chat_id, index_info in index_data.items():
+                file_path = index_info["file_path"]
+                if os.path.exists(file_path):
+                    # Загружаем данные
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        group_data = json.load(f)
+                    
+                    # Проверяем наличие поля senior_courier у каждого участника
+                    structure_updated = False
+                    if "members" in group_data:
+                        for member in group_data["members"]:
+                            if "senior_courier" not in member:
+                                member["senior_courier"] = None
+                                structure_updated = True
+                                logger.info(f"Добавлено поле senior_courier участнику {member.get('username', member.get('user_id'))}")
+                    
+                    # Удаляем поле senior_courier из самой группы, если оно было добавлено ранее
+                    if "senior_courier" in group_data:
+                        del group_data["senior_courier"]
+                        structure_updated = True
+                        logger.info(f"Удалено поле senior_courier из корня группы {chat_id}")
+                    
+                    # Сохраняем обновленные данные, если были изменения
+                    if structure_updated:
+                        group_data["last_updated"] = datetime.now().isoformat()
+                        with open(file_path, 'w', encoding='utf-8') as f:
+                            json.dump(group_data, f, ensure_ascii=False, indent=2)
+                        updated_count += 1
+                        logger.info(f"Обновлена структура файла группы {chat_id}")
+            
+            logger.info(f"✅ Обновлено {updated_count} файлов групп курьеров")
+            return updated_count
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обновлении структуры файлов групп: {e}")
+            logger.error(traceback.format_exc())
+            return 0
 
     def get_group_data(self, chat_id: str) -> Optional[Dict[str, Any]]:
         """Получает данные группы курьеров"""

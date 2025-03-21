@@ -9,6 +9,7 @@ import { socketService } from '../../services/socket';
 import ShiftPanel from './ShiftPanel';
 import ReservePanel from './ReservePanel';
 import LoadingOverlay from './LoadingOverlay';
+import { ru } from 'date-fns/locale';
 
 // Анимация для мини-индикатора загрузки
 const spin = keyframes`
@@ -33,6 +34,7 @@ interface ShiftSlot {
     photo_url?: string | null;
     firstName?: string;
     lastName?: string;
+    date?: string;
     shiftType?: 'day' | 'night';
     slotIndex: number;
 }
@@ -213,6 +215,8 @@ const CheckIcon = styled.span`
 `;
 
 const SlotTooltip = styled.div`
+    display: flex;
+    flex-direction: column-reverse;
     position: absolute;
     bottom: calc(100% + 8px);
     left: 50%;
@@ -361,23 +365,6 @@ const DialogFooter = styled.div`
     margin-top: 24px;
 `;
 
-interface ShiftSelectionDialogProps {
-    isOpen: boolean;
-    onClose: () => void;
-    date: Date;
-    dayShifts: ShiftSlot[];
-    nightShifts: ShiftSlot[];
-    maxDaySlots: number;
-    maxNightSlots: number;
-    currentUserId: string;
-    currentUserAvatar?: string;
-    currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => void;
-    onReserveSelect: () => Promise<any>;
-    onCancelReserve?: (reserveId: string) => void;
-    reserves: ReserveShift[];
-}
-
 const ModeSwitchContainer = styled.div`
     display: flex;
     margin-bottom: 20px;
@@ -401,6 +388,77 @@ const ModeButton = styled.button<{ active: boolean }>`
     }
 `;
 
+const TabsContainer = styled.div`
+    display: flex;
+    margin-bottom: 20px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+`;
+
+const Tab = styled.button<{ $isActive: boolean }>`
+    flex: 1;
+    padding: 10px;
+    background: ${props => props.$isActive ? 'var(--primary-color)' : 'transparent'};
+    color: ${props => props.$isActive ? 'white' : 'var(--text-color)'};
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: ${props => props.$isActive ? '600' : '400'};
+
+    &:hover {
+        background: ${props => props.$isActive ? 'var(--primary-color)' : 'var(--hover-color)'};
+    }
+`;
+
+const SuccessMessage = styled.div`
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(76, 175, 80, 0.95);
+    color: white;
+    padding: 12px 24px;
+    border-radius: 24px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(76, 175, 80, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideDown 0.3s ease;
+    z-index: 1200;
+
+    @keyframes slideDown {
+        from {
+            transform: translate(-50%, -100%);
+            opacity: 0;
+        }
+        to {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+    }
+`;
+
+interface ShiftSelectionDialogProps {
+    isOpen: boolean;
+    onClose: () => void;
+    date: Date;
+    dayShifts: ShiftSlot[];
+    nightShifts: ShiftSlot[];
+    maxDaySlots: number;
+    maxNightSlots: number;
+    currentUserId: string;
+    currentUserAvatar?: string;
+    currentUserName?: string;
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => Promise<any>;
+    onReserveSelect: () => Promise<any>;
+    onCancelReserve: (reserveId: string) => Promise<void>;
+    reserves: ReserveShift[];
+    chatId?: string;
+}
+
 const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     isOpen,
     onClose,
@@ -415,11 +473,11 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     onSlotSelect,
     onReserveSelect,
     onCancelReserve,
-    reserves = []
+    reserves,
+    chatId
 }) => {
     const dispatch = useDispatch<AppDispatch>();
     const [isReserveMode, setIsReserveMode] = useState<boolean>(false);
-    // Вместо общего состояния загрузки, используем специфичные состояния
     const [isBookingLoading, setIsBookingLoading] = useState<boolean>(false);
     const [isReserveActionLoading, setIsReserveActionLoading] = useState<boolean>(false);
     const wsEventsRef = useRef({
@@ -637,6 +695,7 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                             onSwitchToShifts={() => setIsReserveMode(false)}
                             showSuccessMessage={showSuccessMessage}
                             forceUpdate={forceUpdate}
+                            chatId={chatId}
                         />
                     </div> :
                     <div 
@@ -662,6 +721,7 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                             date={date}
                             reserves={actualReserves}
                             showSuccessMessage={showSuccessMessage}
+                            chatId={chatId}
                         />
                     </div>
                 }

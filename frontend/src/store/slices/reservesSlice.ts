@@ -16,6 +16,7 @@ export interface ReserveShift {
     firstName: string;
     lastName: string;
     created_at: string;
+    isSeniorCourier: boolean;
 }
 
 interface ReserveState {
@@ -56,8 +57,18 @@ export const fetchReserves = createAsyncThunk(
                     photo_url: reserve.photo_url || null,
                     firstName: reserve.first_name || '',
                     lastName: reserve.last_name || '',
-                    created_at: reserve.created_at || new Date().toISOString()
+                    created_at: reserve.created_at || new Date().toISOString(),
+                    isSeniorCourier: reserve.is_senior_courier || false
                 }));
+                
+                // Добавим более подробное логирование для проверки статуса курьера
+                if (reservesData.length > 0 && formattedReserves.length > 0) {
+                    console.log('[reservesSlice] Пример резерва:', {
+                        original: reservesData[0],
+                        formatted: formattedReserves[0],
+                        isSeniorCourier: formattedReserves[0].isSeniorCourier
+                    });
+                }
                 
                 return formattedReserves;
             }
@@ -96,7 +107,8 @@ export const forceFetchReserves = createAsyncThunk(
                     photo_url: reserve.photo_url || null,
                     firstName: reserve.first_name || '',
                     lastName: reserve.last_name || '',
-                    created_at: reserve.created_at || new Date().toISOString()
+                    created_at: reserve.created_at || new Date().toISOString(),
+                    isSeniorCourier: reserve.is_senior_courier || false
                 }));
                 
                 return formattedReserves;
@@ -113,9 +125,9 @@ export const forceFetchReserves = createAsyncThunk(
 // Функция для добавления в резерв
 export const addToReserve = createAsyncThunk(
     'reserves/addToReserve',
-    async ({ userId, date }: { userId: string; date: string }, { rejectWithValue, getState }) => {
+    async ({ userId, date, chatId }: { userId: string; date: string; chatId: string }, { rejectWithValue, getState }) => {
         try {
-            console.log('[reservesSlice] Добавление в резерв:', { userId, date });
+            console.log('[reservesSlice] Добавление в резерв:', { userId, date, chatId });
             
             // Получаем информацию о пользователе из хранилища
             const state = getState() as RootState;
@@ -129,6 +141,7 @@ export const addToReserve = createAsyncThunk(
             socketService.emit('add_to_reserve', {
                 user_id: userId,
                 date: date,
+                chat_id: chatId,
                 // Добавляем информацию о пользователе
                 photo_url: user?.photo_url || null,
                 first_name: user?.first_name || '',
@@ -140,6 +153,7 @@ export const addToReserve = createAsyncThunk(
                 success: true,
                 userId,
                 date,
+                chatId,
                 photo_url: user?.photo_url || null,
                 firstName: user?.first_name || '',
                 lastName: user?.last_name || ''
@@ -154,14 +168,15 @@ export const addToReserve = createAsyncThunk(
 // Функция для удаления из резерва
 export const removeFromReserve = createAsyncThunk(
     'reserves/removeFromReserve',
-    async ({ reserveId, userId }: { reserveId: string; userId: string }, { rejectWithValue }) => {
+    async ({ reserveId, userId, chatId }: { reserveId: string; userId: string; chatId?: string }, { rejectWithValue }) => {
         try {
-            console.log('[reservesSlice] Удаление из резерва:', { reserveId, userId });
+            console.log('[reservesSlice] Удаление из резерва:', { reserveId, userId, chatId });
             
             // Отправляем событие WebSocket
             socketService.emit('remove_from_reserve', {
                 reserve_id: reserveId,
-                user_id: userId
+                user_id: userId,
+                chat_id: chatId // Добавляем chat_id в запрос, если он есть
             });
             
             // Также отправляем HTTP запрос для надежности
@@ -177,14 +192,16 @@ export const removeFromReserve = createAsyncThunk(
                 return {
                     success: true,
                     reserveId,
-                    userId
+                    userId,
+                    chatId
                 };
             }, 300);
             
             return {
                 success: true,
                 reserveId,
-                userId
+                userId,
+                chatId
             };
         } catch (error) {
             console.error('[reservesSlice] Ошибка при удалении из резерва:', error);
@@ -201,6 +218,14 @@ const reservesSlice = createSlice({
             const reserveData = action.payload;
             console.log('[reservesSlice] Processing reserveAdded action:', reserveData);
             
+            // Логируем детали для отладки полей is_senior_courier/isSeniorCourier
+            console.log('[reservesSlice] Senior courier details:', {
+                is_senior_courier: reserveData.is_senior_courier,
+                is_senior_courier_type: typeof reserveData.is_senior_courier,
+                isSeniorCourier: reserveData.isSeniorCourier,
+                isSeniorCourier_type: typeof reserveData.isSeniorCourier
+            });
+            
             // Преобразуем данные в формат ReserveShift
             const newReserve: ReserveShift = {
                 id: reserveData.id,
@@ -209,8 +234,11 @@ const reservesSlice = createSlice({
                 photo_url: reserveData.photo_url || null,
                 firstName: reserveData.first_name || reserveData.firstName || '',
                 lastName: reserveData.last_name || reserveData.lastName || '',
-                created_at: reserveData.created_at || reserveData.createdAt || new Date().toISOString()
+                created_at: reserveData.created_at || reserveData.createdAt || new Date().toISOString(),
+                isSeniorCourier: reserveData.is_senior_courier === true || reserveData.isSeniorCourier === true
             };
+            
+            console.log('[reservesSlice] Processed reserve with isSeniorCourier:', newReserve.isSeniorCourier);
 
             // Проверяем, существует ли уже резерв с таким ID
             const existingReserveIndex = state.reserves.findIndex(reserve => 

@@ -28,6 +28,7 @@ from typing import Dict, List, Optional, Union, Any
 import urllib.parse
 from routers.shifts import router as shifts_router
 from data.reserves import add_reserve as db_add_reserve, delete_reserve as db_delete_reserve, get_reserve
+import hashlib  # Добавим импорт в начало файла, если его еще нет
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -206,8 +207,8 @@ CORS(app, resources={
     r"/api/*": {
         "origins": [
             "http://localhost:3000",
-            "https://auckland-wishlist-being-welsh.trycloudflare.com",
-            "https://doc-panels-bizarre-three.trycloudflare.com"
+            "https://ourselves-suzuki-ft-phantom.trycloudflare.com",
+            "https://hate-cape-basically-helena.trycloudflare.com"
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -215,15 +216,15 @@ CORS(app, resources={
 })
 
 # Регистрируем маршруты для смен
-app.register_blueprint(shifts_router)
+app.register_blueprint(shifts_router, name='shifts_initial')
 
 # Настройки CORS
 cors = CORS(
     app,
     origins=[
-        "https://conference-henderson-falls-investigation.trycloudflare.com",
-        "https://doc-panels-bizarre-three.trycloudflare.com",
-        "https://workplace-cultures-guidelines-wins.trycloudflare.com",
+        "https://hate-cape-basically-helena.trycloudflare.com",
+        "https://ourselves-suzuki-ft-phantom.trycloudflare.com",
+        "https://constitute-handling-texas-interference.trycloudflare.com",
         "http://localhost:3000"  # Для локальной разработки
     ],
     allow_headers=["Content-Type", "Authorization", "Origin", "Accept", "X-Requested-With"],
@@ -238,8 +239,8 @@ cors = CORS(
 socketio = SocketIO(
     app,
     cors_allowed_origins=[
-        "https://auckland-wishlist-being-welsh.trycloudflare.com",
-        "https://doc-panels-bizarre-three.trycloudflare.com",
+        "https://ourselves-suzuki-ft-phantom.trycloudflare.com",
+        "https://hate-cape-basically-helena.trycloudflare.com",
         "http://localhost:3000"
     ],
     async_mode='gevent',
@@ -275,10 +276,10 @@ def handle_preflight():
         origin = request.headers.get('Origin', '')
         # Проверяем, что origin в списке разрешенных
         allowed_origins = [
-            "https://conference-henderson-falls-investigation.trycloudflare.com",
-            "https://vp-ef-photographs-results.trycloudflare.com",
-            "https://auckland-wishlist-being-welsh.trycloudflare.com",
-            "https://doc-panels-bizarre-three.trycloudflare.com",
+            "https://hate-cape-basically-helena.trycloudflare.com",
+            "@https://ourselves-suzuki-ft-phantom.trycloudflare.com",
+            "https://constitute-handling-texas-interference.trycloudflare.com",
+            "https://quiet-non-consistent-emissions.trycloudflare.com",
             "http://localhost:3000"
         ]
         if origin in allowed_origins:
@@ -1880,9 +1881,9 @@ def scheduler_proxy(path):
             response = app.make_default_options_response()
             origin = request.headers.get('Origin', '')
             allowed_origins = [
-                "https://conference-henderson-falls-investigation.trycloudflare.com",
-                "https://doc-panels-bizarre-three.trycloudflare.com",
-                "https://auckland-wishlist-being-welsh.trycloudflare.com",
+                "https://ourselves-suzuki-ft-phantom.trycloudflare.com ",
+                "https://hate-cape-basically-helena.trycloudflare.com",
+                "https://constitute-handling-texas-interference.trycloudflare.com",
                 "http://localhost:3000"
             ]
             if origin in allowed_origins:
@@ -2078,7 +2079,7 @@ def handle_disconnect():
     logger.info(f'👤 Сессия: {request.sid}')
     
     # Удаляем пользователя из всех комнат
-    for room in active_users:
+    for room in list(active_users.keys()):  # Создаем копию ключей словаря
         for user_id, user_info in list(active_users[room].items()):
             if request.sid == user_info.get('socket_id'):
                 del active_users[room][user_id]
@@ -2991,9 +2992,9 @@ def set_cors_headers(response):
     """Установка правильных CORS заголовков для ответа"""
     origin = request.headers.get('Origin', '')
     allowed_origins = [
-        "https://conference-henderson-falls-investigation.trycloudflare.com",
-        "https://doc-panels-bizarre-three.trycloudflare.com",
-        "https://auckland-wishlist-being-welsh.trycloudflare.com",
+        "https://hate-cape-basically-helena.trycloudflare.com",
+        "https://ourselves-suzuki-ft-phantom.trycloudflare.com ",
+        "https://quiet-non-consistent-emissions.trycloudflare.com",
         "http://localhost:3000"
     ]
     if origin in allowed_origins:
@@ -3460,7 +3461,8 @@ def get_user_groups(user_id):
                                 user_data = {
                                     'first_name': member.get('first_name', ''),
                                     'last_name': member.get('last_name', ''),
-                                    'photo_url': member.get('photo_url')
+                                    'photo_url': member.get('photo_url'),
+                                    'is_senior_courier': member.get('senior_courier', False)
                                 }
                             
                             user_groups.append({
@@ -3503,6 +3505,7 @@ def update_courier_profile(user_id):
         data = request.get_json()
         first_name = data.get('firstName')
         last_name = data.get('lastName')
+        is_senior_courier = data.get('isSeniorCourier', False)
 
         if not first_name or not last_name:
             return jsonify({'error': 'Необходимо указать имя и фамилию'}), 400
@@ -3532,8 +3535,16 @@ def update_courier_profile(user_id):
                             if member.get('user_id') == user_id:
                                 member['first_name'] = first_name
                                 member['last_name'] = last_name
+                                
+                                # Обновляем статус старшего курьера
+                                if 'senior_courier' in member:
+                                    member['senior_courier'] = True if is_senior_courier else None
+                                else:
+                                    member['senior_courier'] = True if is_senior_courier else None
+                                    
                                 updated = True
                                 logger.info(f'✅ Обновлены данные пользователя в группе {group_data.get("chat_title")}')
+                                logger.info(f'✅ Статус старшего курьера: {member["senior_courier"]}')
                         
                         # Обновляем данные в списке администраторов
                         for admin in group_data.get('admins', []):
@@ -3563,6 +3574,7 @@ def update_courier_profile(user_id):
                 'user_id': user_id,
                 'first_name': first_name,
                 'last_name': last_name,
+                'is_senior_courier': is_senior_courier,
                 'updated_at': datetime.now().isoformat()
             }
         })
@@ -3575,104 +3587,217 @@ def update_courier_profile(user_id):
 # Маршруты для работы со сменами
 @app.route('/api/shifts', methods=['GET'])
 def get_shifts():
-    """Получение всех смен"""
     try:
-        shifts = db.session.query(Shift).all()
+        # Получаем chat_id, если он передан
+        chat_id = request.args.get('chat_id')
         
-        # Добавляем информацию о пользователях к сменам
-        response_shifts = []
+        logger.info(f"Получение списка смен, фильтрация по chat_id: {chat_id}")
+        
+        if not chat_id:
+            logger.warning("Запрос смен без указания chat_id")
+            return jsonify([])
+        
+        # Загружаем файл смен
+        shifts_file = os.path.join(DATA_DIR, 'shifts.json')
+        
+        if not os.path.exists(shifts_file):
+            # Если файла нет, возвращаем пустой список
+            return jsonify([])
+            
+        with open(shifts_file, 'r', encoding='utf-8') as f:
+            shifts = json.load(f)
+            
+        # Фильтруем смены по chat_id
+        filtered_shifts = []
         for shift in shifts:
-            user = db.session.query(User).filter(User.id == shift.user_id).first()
-            if user:
-                response_shifts.append({
-                    'id': shift.id,
-                    'user_id': shift.user_id,
-                    'date': shift.date.isoformat(),
-                    'shift_type': shift.shift_type,
-                    'slot_index': shift.slot_index,
-                    'avatar_url': user.photo_url,
-                    'first_name': user.first_name,
-                    'last_name': user.last_name,
-                    'created_at': shift.created_at.isoformat(),
-                    'updated_at': shift.updated_at.isoformat()
-                })
-        
-        return jsonify(response_shifts)
+            if shift.get('chat_id') == chat_id:
+                # Получаем статус старшего курьера для этого пользователя
+                user_id = shift.get('user_id', '')
+                is_senior_courier = False
+                
+                # Проверяем статус курьера в группе
+                courier_status = get_courier_status_in_chat(user_id, chat_id)
+                is_senior_courier = courier_status.get('is_senior_courier', False)
+                
+                # Добавляем информацию о статусе старшего курьера
+                shift_copy = shift.copy()
+                shift_copy['is_senior_courier'] = is_senior_courier
+                filtered_shifts.append(shift_copy)
+                
+        return jsonify(filtered_shifts)
     except Exception as e:
-        logger.error(f'Error getting shifts: {str(e)}')
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting shifts: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/api/shifts/book', methods=['POST'])
 def book_shift():
     """Запись на смену"""
     try:
         data = request.get_json()
+        logger.info(f"=== 📅 Запрос на бронирование смены ===")
+        logger.info(f"Данные запроса: {json.dumps(data, ensure_ascii=False)}")
+        
         user_id = data.get('user_id')
-        date = datetime.fromisoformat(data.get('date'))
+        date = data.get('date')
         shift_type = data.get('shift_type')
         slot_index = data.get('slot_index')
-
-        # Проверяем, существует ли пользователь
-        user = db.session.query(User).filter(User.id == user_id).first()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-
+        chat_id = data.get('chat_id')
+        is_senior_courier = data.get('is_senior_courier', False)
+        
+        logger.info(f"⭐ Статус старшего курьера из WebSocket запроса: {is_senior_courier} (тип: {type(is_senior_courier).__name__})")
+        
+        # Проверяем обязательные поля
+        if not all([date, shift_type, slot_index is not None, user_id]):  # Изменена проверка slot_index
+            logger.error('❌ Отсутствуют обязательные поля')
+            missing_fields = []
+            if not date: missing_fields.append('date')
+            if not shift_type: missing_fields.append('shift_type')
+            if slot_index is None: missing_fields.append('slot_index')
+            if not user_id: missing_fields.append('user_id')
+            emit('error', {'message': f'Missing required fields: {", ".join(missing_fields)}'})
+            return
+            
+        if not chat_id:
+            logger.error('❌ Отсутствует обязательное поле: chat_id')
+            emit('error', {'message': 'Missing required field: chat_id'})
+            return
+            
+        # Загружаем текущие смены
+        shifts_file = os.path.join(DATA_DIR, 'shifts.json')
+        shifts = []
+        
+        if os.path.exists(shifts_file):
+            try:
+                with open(shifts_file, 'r', encoding='utf-8') as f:
+                    shifts = json.load(f)
+            except json.JSONDecodeError:
+                logger.error('❌ Ошибка чтения файла смен, создаем новый.')
+                shifts = []
+        
         # Проверяем, не записан ли уже пользователь на эту смену
-        existing_shift = db.session.query(Shift).filter(
-            Shift.date == date,
-            Shift.user_id == user_id
-        ).first()
-        
-        if existing_shift:
-            return jsonify({'error': 'User already has a shift on this date'}), 400
-
+        user_shifts = [s for s in shifts if str(s.get('user_id')) == str(user_id) and s.get('date') == date and s.get('chat_id') == chat_id]
+        if user_shifts:
+            logger.error('❌ У пользователя уже есть смена на эту дату')
+            emit('error', {'message': 'User already has a shift on this date'})
+            return
+            
         # Проверяем количество записей на эту смену
-        shifts_count = db.session.query(Shift).filter(
-            Shift.date == date,
-            Shift.shift_type == shift_type
-        ).count()
-
+        date_shifts = [s for s in shifts if s['date'] == date and s['shift_type'] == shift_type]
         max_slots = 4 if shift_type == 'day' else 2
-        if shifts_count >= max_slots:
-            return jsonify({'error': 'No available slots for this shift'}), 400
+        if len(date_shifts) >= max_slots:
+            logger.error('❌ Нет свободных слотов на эту смену')
+            emit('error', {'message': 'No available slots for this shift'})
+            return
 
-        # Создаем новую смену
-        new_shift = Shift(
-            user_id=user_id,
-            date=date,
-            shift_type=shift_type,
-            slot_index=slot_index
-        )
+        # Проверяем данные пользователя в файле группы (для статуса старшего курьера)
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+        db_senior_status = False
         
-        db.session.add(new_shift)
-        db.session.commit()
-
-        # Создаем ответ с информацией о пользователе
-        response = {
-            'id': new_shift.id,
-            'user_id': new_shift.user_id,
-            'date': new_shift.date.isoformat(),
-            'shift_type': new_shift.shift_type,
-            'slot_index': new_shift.slot_index,
-            'avatar_url': user.photo_url,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'created_at': new_shift.created_at.isoformat(),
-            'updated_at': new_shift.updated_at.isoformat()
+        if os.path.exists(group_file):
+            with open(group_file, 'r', encoding='utf-8') as f:
+                group_data = json.load(f)
+                for member in group_data.get('members', []):
+                    if str(member.get('user_id')) == str(user_id):
+                        db_senior_status = bool(member.get('senior_courier'))
+                        logger.info(f"⭐ Статус старшего курьера из базы данных (файл group_data): {db_senior_status}")
+                        break
+        
+        # Используем статус из запроса, если он явно передан, иначе из базы данных
+        final_senior_status = is_senior_courier if is_senior_courier is not None else db_senior_status
+        logger.info(f"⭐ Итоговый статус старшего курьера для смены: {final_senior_status}")
+            
+        # Создаем новую смену
+        new_shift = {
+            'id': str(uuid.uuid4()),
+            'user_id': str(user_id),
+            'date': date,
+            'shift_type': shift_type,
+            'slot_index': slot_index,
+            'chat_id': chat_id,
+            'photo_url': user_data.get('photo_url'),  # Используем photo_url
+            'first_name': user_data.get('first_name'),
+            'last_name': user_data.get('last_name'),
+            'is_senior_courier': final_senior_status,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
         }
-
-        # Отправляем уведомление через WebSocket
-        socketio.emit('shift_booked', response)
-
-        return jsonify(response)
+        
+        # Если данные пользователя не были предоставлены, пытаемся найти их
+        if not all([user_data.get('photo_url'), user_data.get('first_name'), user_data.get('last_name')]):
+            members_data = load_bot_data('members.json')
+            for chat_data in members_data.values():
+                for member in chat_data.get('members', []):
+                    if str(member.get('user_id')) == str(user_id):
+                        new_shift.update({
+                            'first_name': member.get('first_name', ''),
+                            'last_name': member.get('last_name', ''),
+                            'photo_url': member.get('photo_url')
+                        })
+                        break
+        
+        # Создаем директорию, если её нет
+        os.makedirs(os.path.dirname(shifts_file), exist_ok=True)
+        
+        # Добавляем смену в список и сохраняем
+        shifts.append(new_shift)
+        with open(shifts_file, 'w', encoding='utf-8') as f:
+            json.dump(shifts, f, ensure_ascii=False, indent=2)
+            
+        logger.info('✅ Смена успешно создана')
+        logger.info(f'📊 Данные смены: {json.dumps(new_shift, ensure_ascii=False)}')
+        
+        # Отправляем уведомление всем клиентам
+        emit('shift_booked', new_shift, broadcast=True)
+        
+        # Отправляем подтверждение создателю
+        emit('shift_booking_confirmed', {
+            'status': 'success',
+            'shift': new_shift
+        })
+        
     except Exception as e:
-        logger.error(f'Error booking shift: {str(e)}')
+        logger.error(f"❌ Ошибка при бронировании смены: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
+        
+def get_user_data(user_id):
+    """Получает данные пользователя из файлов с группами курьеров"""
+    try:
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        
+        if not os.path.exists(courier_groups_dir):
+            return {'first_name': None, 'last_name': None, 'photo_url': None}
+            
+        for filename in os.listdir(courier_groups_dir):
+            if filename.endswith('.json'):
+                file_path = os.path.join(courier_groups_dir, filename)
+                
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    group_data = json.load(f)
+                    
+                    for member in group_data.get('members', []):
+                        if str(member.get('user_id')) == str(user_id):
+                            return {
+                                'first_name': member.get('first_name'),
+                                'last_name': member.get('last_name'),
+                                'photo_url': member.get('photo_url')
+                            }
+        
+        return {'first_name': None, 'last_name': None, 'photo_url': None}
+    except Exception as e:
+        logger.error(f'Error getting user data: {str(e)}')
+        return {'first_name': None, 'last_name': None, 'photo_url': None}
 
 @app.route('/api/shifts/<int:shift_id>', methods=['DELETE'])
 def cancel_shift(shift_id):
     """Отменить смену курьера"""
     try:
+        chat_id = request.args.get('chat_id')
+        
+        if not chat_id:
+            return jsonify({"error": "chat_id parameter is required"}), 400
+            
         shifts_file = os.path.join(DATA_DIR, 'shifts.json')
         if not os.path.exists(shifts_file):
             return jsonify({"error": "Shifts file not found"}), 404
@@ -3681,9 +3806,9 @@ def cancel_shift(shift_id):
         with open(shifts_file, 'r', encoding='utf-8') as f:
             shifts = json.load(f)
             
-        # Ищем смену для удаления
+        # Ищем смену для удаления (учитывая chat_id)
         for i, shift in enumerate(shifts):
-            if shift.get('id') == shift_id:
+            if shift.get('id') == str(shift_id) and shift.get('chat_id') == chat_id:
                 # Удаляем смену
                 removed_shift = shifts.pop(i)
                 
@@ -3691,16 +3816,26 @@ def cancel_shift(shift_id):
                 with open(shifts_file, 'w', encoding='utf-8') as f:
                     json.dump(shifts, f, ensure_ascii=False, indent=2)
                     
+                # Отправляем уведомление через WebSocket
+                socketio.emit('shift_cancelled', removed_shift)
+                    
                 return jsonify({"status": "success", "shift": removed_shift})
                 
-        return jsonify({"error": "Shift not found"}), 404
+        return jsonify({"error": "Shift not found or not in specified chat"}), 404
     except Exception as e:
+        logger.error(f'Error canceling shift: {str(e)}')
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/reserves', methods=['GET'])
 def get_reserves():
     """Получить список резервов"""
     try:
+        chat_id = request.args.get('chat_id')
+        
+        if not chat_id:
+            logger.warning("Запрос резервов без указания chat_id")
+            return jsonify([])
+        
         # Загружаем файл резервов
         reserves_file = os.path.join(DATA_DIR, 'reserves.json')
         
@@ -3711,7 +3846,24 @@ def get_reserves():
         with open(reserves_file, 'r', encoding='utf-8') as f:
             reserves = json.load(f)
             
-        return jsonify(reserves)
+        # Фильтруем резервы по chat_id и добавляем статус старшего курьера
+        filtered_reserves = []
+        for reserve in reserves:
+            if reserve.get('chat_id') == chat_id:
+                # Получаем статус старшего курьера для этого пользователя
+                user_id = reserve.get('user_id', '')
+                is_senior_courier = False
+                
+                # Проверяем статус курьера в группе
+                courier_status = get_courier_status_in_chat(user_id, chat_id)
+                is_senior_courier = courier_status.get('is_senior_courier', False)
+                
+                # Добавляем информацию о статусе старшего курьера
+                reserve_copy = reserve.copy()
+                reserve_copy['is_senior_courier'] = is_senior_courier
+                filtered_reserves.append(reserve_copy)
+            
+        return jsonify(filtered_reserves)
     except Exception as e:
         logger.error(f"Error getting reserves: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -3731,6 +3883,11 @@ def handle_book_shift(data):
         photo_url = data.get('photo_url')  # Используем photo_url вместо avatar_url
         first_name = data.get('first_name')
         last_name = data.get('last_name')
+        chat_id = data.get('chat_id')
+        is_senior_courier = data.get('is_senior_courier', False)
+        
+        # Добавляем подробную информацию о статусе старшего курьера
+        logger.info(f"⭐ Статус старшего курьера из WebSocket запроса: {is_senior_courier} (тип: {type(is_senior_courier).__name__})")
         
         # Проверяем обязательные поля
         if not all([date, shift_type, slot_index is not None, user_id]):  # Изменена проверка slot_index
@@ -3743,15 +3900,25 @@ def handle_book_shift(data):
             emit('error', {'message': f'Missing required fields: {", ".join(missing_fields)}'})
             return
             
+        if not chat_id:
+            logger.error('❌ Отсутствует обязательное поле: chat_id')
+            emit('error', {'message': 'Missing required field: chat_id'})
+            return
+            
         # Загружаем текущие смены
-        shifts_file = DATA_DIR / 'shifts.json'
+        shifts_file = os.path.join(DATA_DIR, 'shifts.json')
         shifts = []
-        if shifts_file.exists():
-            with open(shifts_file, 'r', encoding='utf-8') as f:
-                shifts = json.load(f)
         
-        # Проверяем, не записан ли уже пользователь на эту дату
-        user_shifts = [s for s in shifts if str(s['user_id']) == str(user_id) and s['date'] == date]
+        if os.path.exists(shifts_file):
+            try:
+                with open(shifts_file, 'r', encoding='utf-8') as f:
+                    shifts = json.load(f)
+            except json.JSONDecodeError:
+                logger.error('❌ Ошибка чтения файла смен, создаем новый.')
+                shifts = []
+        
+        # Проверяем, не записан ли уже пользователь на эту смену
+        user_shifts = [s for s in shifts if str(s.get('user_id')) == str(user_id) and s.get('date') == date and s.get('chat_id') == chat_id]
         if user_shifts:
             logger.error('❌ У пользователя уже есть смена на эту дату')
             emit('error', {'message': 'User already has a shift on this date'})
@@ -3764,6 +3931,24 @@ def handle_book_shift(data):
             logger.error('❌ Нет свободных слотов на эту смену')
             emit('error', {'message': 'No available slots for this shift'})
             return
+
+        # Проверяем данные пользователя в файле группы (для статуса старшего курьера)
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+        db_senior_status = False
+        
+        if os.path.exists(group_file):
+            with open(group_file, 'r', encoding='utf-8') as f:
+                group_data = json.load(f)
+                for member in group_data.get('members', []):
+                    if str(member.get('user_id')) == str(user_id):
+                        db_senior_status = bool(member.get('senior_courier'))
+                        logger.info(f"⭐ Статус старшего курьера из базы данных (файл group_data): {db_senior_status}")
+                        break
+        
+        # Используем статус из запроса, если он явно передан, иначе из базы данных
+        final_senior_status = is_senior_courier if is_senior_courier is not None else db_senior_status
+        logger.info(f"⭐ Итоговый статус старшего курьера для смены: {final_senior_status}")
             
         # Создаем новую смену
         new_shift = {
@@ -3772,9 +3957,11 @@ def handle_book_shift(data):
             'date': date,
             'shift_type': shift_type,
             'slot_index': slot_index,
+            'chat_id': chat_id,
             'photo_url': photo_url,  # Используем photo_url
             'first_name': first_name,
             'last_name': last_name,
+            'is_senior_courier': final_senior_status,
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat()
         }
@@ -3813,19 +4000,53 @@ def handle_book_shift(data):
         })
         
     except Exception as e:
-        logger.error(f'❌ Ошибка при бронировании смены: {str(e)}')
+        logger.error(f"❌ Ошибка при бронировании смены: {str(e)}")
         logger.error(traceback.format_exc())
-        emit('error', {'message': str(e)})
+        return jsonify({'error': str(e)}), 500
 
 @socketio.on('cancel_shift')
 def handle_cancel_shift(data):
     """Обработчик события отмены смены через WebSocket"""
     try:
-        # Отменяем смену
-        deleted_shift = cancel_shift(data['shift_id'])
+        shift_id = data.get('shift_id')
+        chat_id = data.get('chat_id')
         
-        # Отправляем уведомление всем клиентам
-        emit('shift_cancelled', {'shift_id': data['shift_id']}, broadcast=True)
+        if not shift_id:
+            raise ValueError("Missing shift_id in request")
+            
+        if not chat_id:
+            raise ValueError("Missing chat_id in request")
+            
+        logger.info(f'Отмена смены через WebSocket: shift_id={shift_id}, chat_id={chat_id}')
+        
+        # Загружаем файл смен
+        shifts_file = os.path.join(DATA_DIR, 'shifts.json')
+        
+        if not os.path.exists(shifts_file):
+            raise FileNotFoundError("Shifts file not found")
+            
+        # Загружаем смены
+        with open(shifts_file, 'r', encoding='utf-8') as f:
+            shifts = json.load(f)
+            
+        # Ищем смену для удаления
+        shift_found = False
+        for i, shift in enumerate(shifts):
+            if str(shift.get('id')) == str(shift_id) and shift.get('chat_id') == chat_id:
+                # Удаляем смену
+                deleted_shift = shifts.pop(i)
+                shift_found = True
+                
+                # Сохраняем обновленные смены
+                with open(shifts_file, 'w', encoding='utf-8') as f:
+                    json.dump(shifts, f, ensure_ascii=False, indent=2)
+                
+                # Отправляем уведомление всем клиентам
+                emit('shift_cancelled', deleted_shift, broadcast=True)
+                break
+                
+        if not shift_found:
+            raise ValueError(f"Shift not found or not in specified chat: shift_id={shift_id}, chat_id={chat_id}")
         
     except Exception as e:
         logger.error(f'Error cancelling shift: {str(e)}')
@@ -3932,12 +4153,21 @@ def add_to_reserve(data):
         photo_url = data.get('photo_url')
         first_name = data.get('first_name')
         last_name = data.get('last_name')
+        chat_id = data.get('chat_id')
+        is_senior_courier = data.get('is_senior_courier', False)
+        
+        # Логируем данные о статусе старшего курьера
+        logger.info(f"⭐ Статус старшего курьера из запроса: {is_senior_courier} (тип: {type(is_senior_courier).__name__})")
         
         if not user_id or not date:
             logger.error("❌ Отсутствуют обязательные поля: user_id или date")
             return {'status': 'error', 'message': 'Missing required fields: user_id or date'}
         
-        logger.info(f"✅ Поля user_id: {user_id} и date: {date} успешно получены")
+        if not chat_id:
+            logger.error("❌ Отсутствует обязательное поле: chat_id")
+            return {'status': 'error', 'message': 'Missing required field: chat_id'}
+        
+        logger.info(f"✅ Поля user_id: {user_id}, date: {date}, chat_id: {chat_id} успешно получены")
         
         # Проверяем формат даты
         try:
@@ -3958,16 +4188,63 @@ def add_to_reserve(data):
                 logger.error("❌ Ошибка чтения файла резервов, создаем новый.")
                 reserves = []
         
+        # Проверяем статус старшего курьера в файле группы, если не передан явно или равен False
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+        db_senior_status = False
+        
+        logger.info(f"🔍 Проверяем файл группы: {group_file}")
+        if os.path.exists(group_file):
+            logger.info(f"✅ Файл группы найден: {group_file}")
+            try:
+                with open(group_file, 'r', encoding='utf-8') as f:
+                    group_data = json.load(f)
+                    logger.info(f"👥 Количество участников в группе: {len(group_data.get('members', []))}")
+                    
+                    # Поиск пользователя в списке участников
+                    user_found = False
+                    for idx, member in enumerate(group_data.get('members', [])):
+                        if str(member.get('user_id')) == str(user_id):
+                            user_found = True
+                            db_senior_status = bool(member.get('senior_courier'))
+                            logger.info(f"👤 Пользователь найден в позиции {idx}")
+                            logger.info(f"⭐ ID пользователя в группе: {member.get('user_id')} (тип: {type(member.get('user_id')).__name__})")
+                            logger.info(f"⭐ Сравнение ID: {str(member.get('user_id'))} == {str(user_id)}")
+                            logger.info(f"⭐ Статус старшего курьера из базы данных: {db_senior_status}")
+                            logger.info(f"⭐ Сырое значение senior_courier: {member.get('senior_courier')}")
+                            break
+                    
+                    if not user_found:
+                        logger.warning(f"⚠️ Пользователь с ID {user_id} не найден в файле группы")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при чтении файла группы: {str(e)}")
+        else:
+            logger.warning(f"⚠️ Файл группы не найден: {group_file}")
+            
+        # Используем значение из запроса, если оно есть и true, иначе используем значение из файла группы
+        if is_senior_courier is True:
+            # Если в запросе передан True, используем его
+            final_senior_status = True
+        else:
+            # Иначе используем значение из файла группы
+            final_senior_status = db_senior_status
+            
+        logger.info(f"⭐ Решение по статусу: is_senior_courier из запроса ({is_senior_courier}) или из БД ({db_senior_status}) => {final_senior_status}")
+            
         # Создаем запись в резерве
         reserve = {
             'id': str(uuid.uuid4()),
             'user_id': user_id,
             'date': date,
+            'chat_id': chat_id,
             'photo_url': photo_url,
             'first_name': first_name,
             'last_name': last_name,
+            'is_senior_courier': final_senior_status,
             'created_at': datetime.now().isoformat()
         }
+        
+        logger.info(f"⭐ Итоговый статус старшего курьера для резерва: {reserve['is_senior_courier']}")
         
         # Добавляем новый резерв
         reserves.append(reserve)
@@ -4051,7 +4328,929 @@ def remove_from_reserve(data):
         logger.error(traceback.format_exc())
         return {'status': 'error', 'message': str(e)}
 
+@app.route('/api/courier/password/change-request/<int:user_id>', methods=['POST'])
+def courier_password_change_request(user_id):
+    """Обрабатывает запрос на смену пароля старшего курьера для конкретного чата"""
+    try:
+        # Получаем chat_id из тела запроса
+        data = request.get_json()
+        chat_id = data.get('chat_id')
+        
+        if not chat_id:
+            logger.error("Chat ID не указан в запросе")
+            return jsonify({'error': 'Необходимо указать ID чата в запросе'}), 400
+        
+        # Проверяем, существует ли пользователь и является ли он старшим курьером в этом чате
+        courier_data_path = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        is_senior_courier = False
+        user_data = None
+        chat_title = None
+        
+        # Получаем информацию о пользователе из групп курьеров
+        for filename in os.listdir(courier_data_path):
+            if filename.endswith('.json'):
+                file_path = os.path.join(courier_data_path, filename)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    group_data = json.load(f)
+                    
+                    # Проверяем только нужный чат
+                    if str(group_data.get('chat_id')) == str(chat_id):
+                        chat_title = group_data.get('chat_title', 'чат курьеров')
+                        
+                        for member in group_data.get('members', []):
+                            if member.get('user_id') == user_id:
+                                user_data = member
+                                if member.get('senior_courier'):
+                                    is_senior_courier = True
+                                break
+                        
+                        break  # Нашли нужный чат, останавливаем поиск
+        
+        if not user_data:
+            logger.error(f"Пользователь {user_id} не найден в чате {chat_id}")
+            return jsonify({'error': 'Пользователь не найден в указанном чате'}), 404
+        
+        if not is_senior_courier:
+            logger.error(f"Пользователь {user_id} не является старшим курьером в чате {chat_id}")
+            return jsonify({'error': 'Пользователь не имеет статуса старшего курьера в указанном чате'}), 403
+        
+        # Путь к файлу с паролями
+        passwords_file = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'senior_courier_passwords.json')
+        
+        # Создаем файл с нужной структурой, если он не существует
+        if not os.path.exists(passwords_file):
+            with open(passwords_file, 'w', encoding='utf-8') as f:
+                json.dump({"chat_passwords": {}}, f, ensure_ascii=False, indent=2)
+        
+        # Запускаем процесс смены пароля через бот
+        logger.info(f"Инициирую процесс смены пароля для пользователя {user_id} в чате {chat_id}")
+        
+        # Отправляем сообщение через бота
+        telegram_token = os.environ.get("BOT_TOKEN")
+        
+        if not telegram_token:
+            logger.error("Telegram Bot Token не найден в переменных окружения")
+            return jsonify({'error': 'Ошибка конфигурации бота'}), 500
+        
+        # Создаем запрос к API Telegram для отправки сообщения
+        message_text = (
+            "🔐 *Запрос на смену пароля старших курьеров*\n\n"
+            f"Вы запросили смену пароля для чата *{chat_title}*. Следуйте инструкциям:\n"
+            "1. Введите *новый пароль*\n"
+            "2. Повторите *новый пароль* для подтверждения\n\n"
+            "⚠️ Обратите внимание, что этот пароль будут использовать все старшие курьеры в данном чате.\n\n"
+            "Отправьте каждый пароль в отдельном сообщении."
+        )
+        
+        url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+        msg_data = {
+            "chat_id": user_id,
+            "text": message_text,
+            "parse_mode": "Markdown"
+        }
+        
+        response = requests.post(url, json=msg_data)
+        
+        if response.status_code != 200:
+            logger.error(f"Ошибка при отправке сообщения: {response.text}")
+            return jsonify({'error': 'Ошибка при отправке сообщения через бота'}), 500
+        
+        # Регистрируем процесс смены пароля, чтобы бот мог его продолжить
+        password_change_requests_file = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'password_change_requests.json')
+        
+        if not os.path.exists(password_change_requests_file):
+            password_change_requests = {}
+        else:
+            try:
+                with open(password_change_requests_file, 'r', encoding='utf-8') as f:
+                    password_change_requests = json.load(f)
+            except:
+                password_change_requests = {}
+        
+        # Добавляем запрос на смену пароля с информацией о чате
+        password_change_requests[str(user_id)] = {
+            'status': 'waiting_new_password',
+            'timestamp': datetime.now().isoformat(),
+            'attempts': 0,
+            'chat_id': str(chat_id),
+            'chat_title': chat_title
+        }
+        
+        with open(password_change_requests_file, 'w', encoding='utf-8') as f:
+            json.dump(password_change_requests, f, ensure_ascii=False, indent=2)
+        
+        logger.info(f"✅ Запрос на смену пароля для пользователя {user_id} в чате {chat_id} успешно отправлен")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Запрос на смену пароля для чата "{chat_title}" отправлен. Проверьте сообщения от бота.'
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при запросе смены пароля: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
 
+@app.route('/api/courier/password/verify', methods=['POST'])
+def verify_courier_password():
+    """Проверяет пароль старшего курьера для конкретного чата"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        password = data.get('password')
+        chat_id = data.get('chat_id')
+        
+        if not user_id or not password:
+            return jsonify({'error': 'Необходимо указать ID пользователя и пароль'}), 400
+            
+        if not chat_id:
+            return jsonify({'error': 'Необходимо указать ID чата'}), 400
+            
+        # Путь к файлу с паролями
+        passwords_file = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'senior_courier_passwords.json')
+        
+        # Проверяем существование файла
+        if not os.path.exists(passwords_file):
+            logger.error(f"Файл с паролями не найден: {passwords_file}")
+            return jsonify({'error': 'Файл с паролями не найден'}), 500
+            
+        # Загружаем пароли
+        with open(passwords_file, 'r', encoding='utf-8') as f:
+            passwords = json.load(f)
+            
+        # Проверяем структуру файла
+        if "chat_passwords" not in passwords:
+            passwords["chat_passwords"] = {}
+            
+        # Проверяем наличие пароля для данного чата
+        chat_id_str = str(chat_id)
+        if chat_id_str not in passwords["chat_passwords"]:
+            # Если пароля для чата еще нет, используем дефолтный пароль 1234
+            is_valid = hashlib.sha256(password.encode()).hexdigest() == hashlib.sha256('1234'.encode()).hexdigest()
+            logger.info(f"Проверка дефолтного пароля для пользователя {user_id} в чате {chat_id}: {'успешно' if is_valid else 'неудачно'}")
+            return jsonify({'valid': is_valid})
+            
+        # Проверяем пароль для конкретного чата
+        stored_hash = passwords["chat_passwords"][chat_id_str]
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        is_valid = password_hash == stored_hash
+        
+        logger.info(f"Проверка пароля для пользователя {user_id} в чате {chat_id}: {'успешно' if is_valid else 'неудачно'}")
+        
+        return jsonify({'valid': is_valid})
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при проверке пароля: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/reserves/add', methods=['POST'])
+def add_to_reserve():
+    """Добавить пользователя в резерв"""
+    try:
+        data = request.get_json()
+        user_id = data.get('user_id')
+        date = data.get('date')
+        chat_id = data.get('chat_id')
+        
+        if not user_id or not date or not chat_id:
+            return jsonify({'error': 'Missing required fields'}), 400
+            
+        # Загружаем файл резервов
+        reserves_file = os.path.join(DATA_DIR, 'reserves.json')
+        
+        if not os.path.exists(reserves_file):
+            # Если файл не существует, создаем его с пустым списком
+            reserves = []
+        else:
+            # Загружаем существующие резервы
+            with open(reserves_file, 'r', encoding='utf-8') as f:
+                reserves = json.load(f)
+                
+        # Проверяем, не записан ли уже пользователь в резерв на эту дату в этом чате
+        for reserve in reserves:
+            if (reserve.get('user_id') == user_id and 
+                reserve.get('date') == date and 
+                reserve.get('chat_id') == chat_id):
+                return jsonify({
+                    'error': 'User already in reserve for this date in this chat',
+                    'reserve': reserve
+                }), 400
+                
+        # Получаем данные о пользователе
+        user_data = get_user_data(user_id)
+        
+        # Получаем информацию о статусе старшего курьера
+        is_senior_courier = False
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+        if os.path.exists(group_file):
+            with open(group_file, 'r', encoding='utf-8') as f:
+                group_data = json.load(f)
+                for member in group_data.get('members', []):
+                    if str(member.get('user_id')) == str(user_id):
+                        is_senior_courier = bool(member.get('senior_courier'))
+                        break
+        
+        # Создаем уникальный ID для нового резерва
+        import uuid
+        new_reserve_id = str(uuid.uuid4())
+        
+        # Создаем новый резерв
+        new_reserve = {
+            'id': new_reserve_id,
+            'user_id': user_id,
+            'date': date,
+            'chat_id': chat_id,
+            'photo_url': user_data.get('photo_url'),
+            'first_name': user_data.get('first_name'),
+            'last_name': user_data.get('last_name'),
+            'is_senior_courier': is_senior_courier,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        # Добавляем новый резерв
+        reserves.append(new_reserve)
+        
+        # Сохраняем обновленные резервы
+        with open(reserves_file, 'w', encoding='utf-8') as f:
+            json.dump(reserves, f, ensure_ascii=False, indent=2)
+            
+        # Отправляем уведомление через WebSocket
+        socketio.emit('reserve_added', new_reserve)
+        
+        return jsonify(new_reserve)
+    except Exception as e:
+        logger.error(f'Error adding to reserve: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+# Для регистрации маршрутов смен и резервов
+from routers.shifts import router as shifts_router
+
+# Регистрируем blueprint для смен и резервов
+app.register_blueprint(shifts_router, name='shifts_api')
+
+# WebSocket обработчик для смен
+@socketio.on('shift_update')
+def handle_shift_update(data):
+    """Обработчик WebSocket события обновления смены"""
+    try:
+        logger.info('=== 📅 Получено обновление смены ===')
+        logger.info(f'👤 Отправитель (Socket ID): {request.sid}')
+
+        if not data or not isinstance(data, dict):
+            logger.error('❌ Некорректный формат данных')
+            return
+
+        # Получаем основные данные
+        action = data.get('action')  # book, update, cancel
+        chat_id = data.get('chatId')
+        shift_id = data.get('shiftId')
+        shift_data = data.get('shiftData', {})
+
+        if not chat_id:
+            logger.error('❌ Отсутствует ID чата')
+            return
+
+        if not action:
+            logger.error('❌ Отсутствует действие')
+            return
+
+        # Обработка в зависимости от типа действия
+        if action == 'book':
+            # Проверяем обязательные поля
+            required_fields = ['user_id', 'date', 'shift_type', 'slot_index']
+            if not all(field in shift_data for field in required_fields):
+                logger.error('❌ Не все обязательные поля заполнены')
+                socketio.emit('shift_update_error', {
+                    'status': 'error',
+                    'message': 'Не все обязательные поля заполнены',
+                    'action': action
+                }, room=request.sid)
+                return
+            
+            # Добавляем chat_id в данные смены
+            shift_data['chat_id'] = chat_id
+            
+            # Бронируем смену
+            try:
+                from data.shifts import book_shift
+                from data.reserves import delete_user_reserve
+                
+                # Проверяем, есть ли пользователь в резерве
+                try:
+                    reserve_deleted = delete_user_reserve(
+                        shift_data['user_id'], 
+                        shift_data['date'], 
+                        chat_id
+                    )
+                    if reserve_deleted:
+                        logger.info(f"✅ Пользователь {shift_data['user_id']} удален из резерва перед записью на смену")
+                        
+                        # Отправляем уведомление о удалении из резерва
+                        socketio.emit('reserve_deleted', {
+                            'userId': shift_data['user_id'],
+                            'date': shift_data['date'],
+                            'chatId': chat_id
+                        }, room=f'shifts_{chat_id}')
+                except Exception as reserve_error:
+                    logger.error(f"❌ Ошибка при удалении из резерва: {str(reserve_error)}")
+                
+                # Бронируем смену
+                booked_shift = book_shift(
+                    shift_data['user_id'],
+                    shift_data['date'],
+                    shift_data['shift_type'],
+                    shift_data['slot_index'],
+                    chat_id,
+                    {
+                        'photo_url': shift_data.get('photo_url'),
+                        'first_name': shift_data.get('first_name'),
+                        'last_name': shift_data.get('last_name')
+                    }
+                )
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('shift_booked', booked_shift, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('shift_update_sent', {
+                    'status': 'success',
+                    'action': 'book',
+                    'chatId': chat_id,
+                    'shiftId': booked_shift['id'],
+                    'message': 'Смена успешно забронирована'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Смена на {shift_data['date']} успешно забронирована для пользователя {shift_data['user_id']}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при бронировании смены: {str(e)}")
+                socketio.emit('shift_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'update':
+            if not shift_id:
+                logger.error('❌ Отсутствует ID смены для обновления')
+                return
+                
+            try:
+                from data.shifts import update_shift, get_shift
+                
+                # Проверяем существование смены
+                existing_shift = get_shift(shift_id)
+                if not existing_shift:
+                    logger.error(f"❌ Смена с ID {shift_id} не найдена")
+                    socketio.emit('shift_update_error', {
+                        'status': 'error',
+                        'message': f'Смена с ID {shift_id} не найдена',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Проверяем принадлежность смены к чату
+                if existing_shift.get('chat_id') != chat_id:
+                    logger.error(f"❌ Смена с ID {shift_id} не принадлежит чату {chat_id}")
+                    socketio.emit('shift_update_error', {
+                        'status': 'error',
+                        'message': 'Доступ запрещен',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Обновляем смену
+                updated_shift = update_shift(shift_id, shift_data)
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('shift_updated', updated_shift, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('shift_update_sent', {
+                    'status': 'success',
+                    'action': 'update',
+                    'chatId': chat_id,
+                    'shiftId': shift_id,
+                    'message': 'Смена успешно обновлена'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Смена с ID {shift_id} успешно обновлена")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при обновлении смены: {str(e)}")
+                socketio.emit('shift_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'cancel':
+            if not shift_id:
+                logger.error('❌ Отсутствует ID смены для отмены')
+                return
+                
+            try:
+                from data.shifts import cancel_shift, get_shift
+                
+                # Проверяем существование смены
+                existing_shift = get_shift(shift_id)
+                if not existing_shift:
+                    logger.error(f"❌ Смена с ID {shift_id} не найдена")
+                    socketio.emit('shift_update_error', {
+                        'status': 'error',
+                        'message': f'Смена с ID {shift_id} не найдена',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Проверяем принадлежность смены к чату
+                if existing_shift.get('chat_id') != chat_id:
+                    logger.error(f"❌ Смена с ID {shift_id} не принадлежит чату {chat_id}")
+                    socketio.emit('shift_update_error', {
+                        'status': 'error',
+                        'message': 'Доступ запрещен',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Отменяем смену
+                deleted_shift = cancel_shift(shift_id)
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('shift_cancelled', {
+                    'shift_id': shift_id,  # Используем shift_id вместо shiftId для соответствия фронтенду
+                    'date': existing_shift['date'],
+                    'userId': existing_shift['user_id'],
+                    'chatId': chat_id
+                }, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('shift_update_sent', {
+                    'status': 'success',
+                    'action': 'cancel',
+                    'chatId': chat_id,
+                    'shiftId': shift_id,
+                    'message': 'Смена успешно отменена'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Смена с ID {shift_id} успешно отменена")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при отмене смены: {str(e)}")
+                socketio.emit('shift_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+        else:
+            logger.error(f"❌ Неизвестное действие: {action}")
+            socketio.emit('shift_update_error', {
+                'status': 'error',
+                'message': f'Неизвестное действие: {action}',
+                'action': action
+            }, room=request.sid)
+            
+    except Exception as e:
+        logger.error('❌ Ошибка обработки обновления смены')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+
+# WebSocket обработчик для резервов
+@socketio.on('reserve_update')
+def handle_reserve_update(data):
+    """Обработчик WebSocket события обновления резерва"""
+    try:
+        logger.info('=== 📋 Получено обновление резерва ===')
+        logger.info(f'👤 Отправитель (Socket ID): {request.sid}')
+
+        if not data or not isinstance(data, dict):
+            logger.error('❌ Некорректный формат данных')
+            return
+
+        # Получаем основные данные
+        action = data.get('action')  # add, update, delete
+        chat_id = data.get('chatId')
+        reserve_id = data.get('reserveId')
+        reserve_data = data.get('reserveData', {})
+
+        if not chat_id:
+            logger.error('❌ Отсутствует ID чата')
+            return
+
+        if not action:
+            logger.error('❌ Отсутствует действие')
+            return
+
+        # Обработка в зависимости от типа действия
+        if action == 'add':
+            # Проверяем обязательные поля
+            required_fields = ['user_id', 'date']
+            if not all(field in reserve_data for field in required_fields):
+                logger.error('❌ Не все обязательные поля заполнены')
+                socketio.emit('reserve_update_error', {
+                    'status': 'error',
+                    'message': 'Не все обязательные поля заполнены',
+                    'action': action
+                }, room=request.sid)
+                return
+            
+            # Добавляем chat_id в данные резерва
+            reserve_data['chat_id'] = chat_id
+            
+            # Добавляем в резерв
+            try:
+                from data.reserves import add_reserve
+                
+                # Добавляем в резерв
+                new_reserve = add_reserve(reserve_data)
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('reserve_added', new_reserve, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('reserve_update_sent', {
+                    'status': 'success',
+                    'action': 'add',
+                    'chatId': chat_id,
+                    'reserveId': new_reserve['id'],
+                    'message': 'Пользователь успешно добавлен в резерв'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Пользователь {reserve_data['user_id']} добавлен в резерв на {reserve_data['date']}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при добавлении в резерв: {str(e)}")
+                socketio.emit('reserve_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'update':
+            if not reserve_id:
+                logger.error('❌ Отсутствует ID резерва для обновления')
+                return
+                
+            try:
+                from data.reserves import update_reserve, get_reserve
+                
+                # Проверяем существование резерва
+                existing_reserve = get_reserve(reserve_id)
+                if not existing_reserve:
+                    logger.error(f"❌ Резерв с ID {reserve_id} не найден")
+                    socketio.emit('reserve_update_error', {
+                        'status': 'error',
+                        'message': f'Резерв с ID {reserve_id} не найден',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Проверяем принадлежность резерва к чату
+                if existing_reserve.get('chat_id') != chat_id:
+                    logger.error(f"❌ Резерв с ID {reserve_id} не принадлежит чату {chat_id}")
+                    socketio.emit('reserve_update_error', {
+                        'status': 'error',
+                        'message': 'Доступ запрещен',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Обновляем резерв
+                updated_reserve = update_reserve(reserve_id, reserve_data)
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('reserve_updated', updated_reserve, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('reserve_update_sent', {
+                    'status': 'success',
+                    'action': 'update',
+                    'chatId': chat_id,
+                    'reserveId': reserve_id,
+                    'message': 'Резерв успешно обновлен'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Резерв с ID {reserve_id} успешно обновлен")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при обновлении резерва: {str(e)}")
+                socketio.emit('reserve_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+                
+        elif action == 'delete':
+            if not reserve_id and not (reserve_data.get('user_id') and reserve_data.get('date')):
+                logger.error('❌ Недостаточно данных для удаления из резерва')
+                return
+                
+            try:
+                from data.reserves import delete_reserve, delete_user_reserve, get_reserve
+                
+                deleted = False
+                deleted_reserve = None
+                
+                # Удаление по ID
+                if reserve_id:
+                    # Проверяем существование резерва
+                    existing_reserve = get_reserve(reserve_id)
+                    if not existing_reserve:
+                        logger.error(f"❌ Резерв с ID {reserve_id} не найден")
+                        socketio.emit('reserve_update_error', {
+                            'status': 'error',
+                            'message': f'Резерв с ID {reserve_id} не найден',
+                            'action': action
+                        }, room=request.sid)
+                        return
+                    
+                    # Проверяем принадлежность резерва к чату
+                    if existing_reserve.get('chat_id') != chat_id:
+                        logger.error(f"❌ Резерв с ID {reserve_id} не принадлежит чату {chat_id}")
+                        socketio.emit('reserve_update_error', {
+                            'status': 'error',
+                            'message': 'Доступ запрещен',
+                            'action': action
+                        }, room=request.sid)
+                        return
+                    
+                    # Удаляем резерв
+                    deleted = delete_reserve(reserve_id)
+                    if deleted:
+                        deleted_reserve = existing_reserve
+                
+                # Удаление по пользователю и дате
+                elif reserve_data.get('user_id') and reserve_data.get('date'):
+                    deleted_reserve = delete_user_reserve(
+                        reserve_data['user_id'], 
+                        reserve_data['date'], 
+                        chat_id
+                    )
+                    deleted = deleted_reserve is not None
+                
+                if not deleted:
+                    logger.error(f"❌ Не удалось удалить из резерва")
+                    socketio.emit('reserve_update_error', {
+                        'status': 'error',
+                        'message': 'Не удалось удалить из резерва',
+                        'action': action
+                    }, room=request.sid)
+                    return
+                
+                # Отправляем событие всем клиентам в комнате
+                socketio.emit('reserve_deleted', {
+                    'reserveId': reserve_id or deleted_reserve['id'],
+                    'date': deleted_reserve['date'],
+                    'userId': deleted_reserve['user_id'],
+                    'chatId': chat_id
+                }, room=f'shifts_{chat_id}')
+                
+                # Отправляем подтверждение отправителю
+                socketio.emit('reserve_update_sent', {
+                    'status': 'success',
+                    'action': 'delete',
+                    'chatId': chat_id,
+                    'reserveId': reserve_id or deleted_reserve['id'],
+                    'message': 'Пользователь успешно удален из резерва'
+                }, room=request.sid)
+                
+                logger.info(f"✅ Пользователь удален из резерва")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при удалении из резерва: {str(e)}")
+                socketio.emit('reserve_update_error', {
+                    'status': 'error',
+                    'message': str(e),
+                    'action': action
+                }, room=request.sid)
+        else:
+            logger.error(f"❌ Неизвестное действие: {action}")
+            socketio.emit('reserve_update_error', {
+                'status': 'error',
+                'message': f'Неизвестное действие: {action}',
+                'action': action
+            }, room=request.sid)
+            
+    except Exception as e:
+        logger.error('❌ Ошибка обработки обновления резерва')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+
+# Обработчик подключения к комнате смен
+@socketio.on('join_shifts_room')
+def handle_join_shifts_room(data):
+    """Обработчик подключения к комнате смен чата"""
+    try:
+        logger.info('=== 🔄 Подключение к комнате смен ===')
+        
+        chat_id = data.get('chatId')
+        if not chat_id:
+            logger.error('❌ Отсутствует ID чата')
+            return
+        
+        room = f'shifts_{chat_id}'
+        join_room(room)
+        
+        logger.info(f'✅ Пользователь {request.sid} подключен к комнате {room}')
+        
+        # Отправляем подтверждение пользователю
+        emit('joined_shifts_room', {
+            'status': 'success',
+            'room': room,
+            'message': f'Подключено к комнате смен чата {chat_id}'
+        })
+    except Exception as e:
+        logger.error('❌ Ошибка при подключении к комнате смен')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+
+# Обработчик отключения от комнаты смен
+@socketio.on('leave_shifts_room')
+def handle_leave_shifts_room(data):
+    """Обработчик отключения от комнаты смен чата"""
+    try:
+        logger.info('=== 🔄 Отключение от комнаты смен ===')
+        
+        chat_id = data.get('chatId')
+        if not chat_id:
+            logger.error('❌ Отсутствует ID чата')
+            return
+        
+        room = f'shifts_{chat_id}'
+        leave_room(room)
+        
+        logger.info(f'✅ Пользователь {request.sid} отключен от комнаты {room}')
+        
+        # Отправляем подтверждение пользователю
+        emit('left_shifts_room', {
+            'status': 'success',
+            'room': room,
+            'message': f'Отключено от комнаты смен чата {chat_id}'
+        })
+    except Exception as e:
+        logger.error('❌ Ошибка при отключении от комнаты смен')
+        logger.error(f'Описание: {str(e)}')
+        logger.error(traceback.format_exc())
+
+@app.route('/api/couriers/<int:courier_id>/status', methods=['GET'])
+def get_courier_status(courier_id):
+    """Получение статуса курьера (включая статус старшего курьера)"""
+    try:
+        chat_id = request.args.get('chat_id')
+        logger.info(f"Запрос статуса курьера: courier_id={courier_id}, chat_id={chat_id}")
+
+        # Ищем статус курьера в файлах групп
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        is_senior_courier = False
+        user_data = None
+
+        # Если указан конкретный чат, ищем только в нем
+        if chat_id:
+            group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+            if os.path.exists(group_file):
+                with open(group_file, 'r', encoding='utf-8') as f:
+                    group_data = json.load(f)
+                    for member in group_data.get('members', []):
+                        if str(member.get('user_id')) == str(courier_id):
+                            is_senior_courier = bool(member.get('senior_courier'))
+                            user_data = {
+                                'first_name': member.get('first_name'),
+                                'last_name': member.get('last_name'),
+                                'photo_url': member.get('photo_url'),
+                                'chat_id': chat_id
+                            }
+                            break
+        else:
+            # Если чат не указан, ищем во всех группах
+            for filename in os.listdir(courier_groups_dir):
+                if filename.endswith('.json'):
+                    file_path = os.path.join(courier_groups_dir, filename)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        group_data = json.load(f)
+                        for member in group_data.get('members', []):
+                            if str(member.get('user_id')) == str(courier_id):
+                                is_senior_courier = bool(member.get('senior_courier'))
+                                user_data = {
+                                    'first_name': member.get('first_name'),
+                                    'last_name': member.get('last_name'),
+                                    'photo_url': member.get('photo_url'),
+                                    'chat_id': group_data.get('chat_id')
+                                }
+                                break
+                        if user_data:
+                            break
+
+        if not user_data:
+            logger.warning(f"Курьер с ID {courier_id} не найден в группах")
+            return jsonify({
+                'found': False,
+                'is_senior_courier': False
+            })
+
+        logger.info(f"Статус курьера: courier_id={courier_id}, is_senior_courier={is_senior_courier}")
+        return jsonify({
+            'found': True,
+            'is_senior_courier': is_senior_courier,
+            'user_data': user_data
+        })
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении статуса курьера: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/couriers/<int:courier_id>/promote', methods=['POST'])
+def promote_courier(courier_id):
+    """Повышение курьера до старшего курьера"""
+    try:
+        data = request.get_json()
+        chat_id = data.get('chat_id')
+
+        if not chat_id:
+            return jsonify({'error': 'Необходимо указать ID чата'}), 400
+
+        # Ищем файл группы
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+
+        if not os.path.exists(group_file):
+            return jsonify({'error': 'Группа не найдена'}), 404
+
+        # Загружаем данные группы
+        with open(group_file, 'r', encoding='utf-8') as f:
+            group_data = json.load(f)
+
+        # Ищем курьера в списке участников
+        courier_found = False
+        for member in group_data.get('members', []):
+            if str(member.get('user_id')) == str(courier_id):
+                member['senior_courier'] = True
+                courier_found = True
+                courier_name = f"{member.get('first_name')} {member.get('last_name')}"
+                break
+
+        if not courier_found:
+            return jsonify({'error': 'Курьер не найден в группе'}), 404
+
+        # Сохраняем обновленные данные
+        with open(group_file, 'w', encoding='utf-8') as f:
+            json.dump(group_data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"Курьер {courier_id} успешно повышен до старшего курьера в группе {chat_id}")
+        return jsonify({
+            'success': True,
+            'message': f'Курьер {courier_name} назначен старшим курьером'
+        })
+
+    except Exception as e:
+        logger.error(f"Ошибка при повышении курьера: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+
+@app.route('/api/couriers/<int:courier_id>/demote', methods=['POST'])
+def demote_courier(courier_id):
+    """Снятие статуса старшего курьера"""
+    try:
+        data = request.get_json()
+        chat_id = data.get('chat_id')
+
+        if not chat_id:
+            return jsonify({'error': 'Необходимо указать ID чата'}), 400
+
+        # Ищем файл группы
+        courier_groups_dir = os.path.join(APP_DIR, 'telegramNinjaBot', 'data', 'courier_groups')
+        group_file = os.path.join(courier_groups_dir, f'group_{chat_id}.json')
+
+        if not os.path.exists(group_file):
+            return jsonify({'error': 'Группа не найдена'}), 404
+
+        # Загружаем данные группы
+        with open(group_file, 'r', encoding='utf-8') as f:
+            group_data = json.load(f)
+
+        # Ищем курьера в списке участников
+        courier_found = False
+        for member in group_data.get('members', []):
+            if str(member.get('user_id')) == str(courier_id):
+                member['senior_courier'] = None
+                courier_found = True
+                courier_name = f"{member.get('first_name')} {member.get('last_name')}"
+                break
+
+        if not courier_found:
+            return jsonify({'error': 'Курьер не найден в группе'}), 404
+
+        # Сохраняем обновленные данные
+        with open(group_file, 'w', encoding='utf-8') as f:
+            json.dump(group_data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"У курьера {courier_id} снят статус старшего курьера в группе {chat_id}")
+        return jsonify({
+            'success': True,
+            'message': f'У курьера {courier_name} снят статус старшего курьера'
+        })
+
+    except Exception as e:
+        logger.error(f"Ошибка при снятии статуса старшего курьера: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({'error': 'Внутренняя ошибка сервера'}), 500
+    
 if __name__ == '__main__':
     try:
         HOST = os.getenv('HOST', '0.0.0.0')

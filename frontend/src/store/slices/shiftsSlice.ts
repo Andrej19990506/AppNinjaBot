@@ -28,6 +28,7 @@ interface CourierShift {
     date: string;
     shiftType: 'day' | 'night';
     slotIndex: number;
+    isSeniorCourier: boolean;
 }
 
 interface BookShiftParams {
@@ -36,6 +37,7 @@ interface BookShiftParams {
     shiftType: 'day' | 'night';
     slotIndex: number;
     existingShiftId?: string;
+    chatId?: string;
 }
 
 interface ShiftBookedPayload {
@@ -47,6 +49,7 @@ interface ShiftBookedPayload {
     date: string;
     shift_type: 'day' | 'night';
     slot_index: number;
+    is_senior_courier?: boolean;
 }
 
 const initialState: ShiftState = {
@@ -58,9 +61,21 @@ const initialState: ShiftState = {
 // Асинхронные thunks
 export const fetchShifts = createAsyncThunk(
     'shifts/fetchShifts',
-    async () => {
+    async (_, { getState }) => {
         try {
-            const response = await fetch(`${API_BASE_URL}/shifts`);
+            // Получаем chat_id из state
+            const state = getState() as RootState;
+            const chatId = state.user.user?.groups && state.user.user.groups.length > 0 
+                ? state.user.user.groups[0].chat_id 
+                : undefined;
+
+            if (!chatId) {
+                console.warn('[shiftsSlice] No chat_id available, cannot fetch shifts');
+                return [];
+            }
+
+            console.log('[shiftsSlice] Fetching shifts for chat_id:', chatId);
+            const response = await fetch(`${API_BASE_URL}/shifts?chat_id=${chatId}`);
             const contentType = response.headers.get('content-type');
             
             if (!response.ok) {
@@ -79,8 +94,18 @@ export const fetchShifts = createAsyncThunk(
                     lastName: shift.last_name,
                     date: shift.date,
                     shiftType: shift.shift_type,
-                    slotIndex: shift.slot_index
+                    slotIndex: shift.slot_index,
+                    isSeniorCourier: shift.is_senior_courier || false  // Получаем флаг статуса старшего курьера
                 }));
+                
+                // Добавим более подробное логирование для проверки статуса курьера
+                if (data.length > 0 && shifts.length > 0) {
+                    console.log('[shiftsSlice] Пример смены:', {
+                        original: data[0],
+                        formatted: shifts[0],
+                        isSeniorCourier: shifts[0].isSeniorCourier
+                    });
+                }
             }
             
             console.log('[shiftsSlice] Fetched and formatted shifts:', shifts);
@@ -111,10 +136,11 @@ export const bookShift = createAsyncThunk(
                 console.log('[shiftsSlice] User is in reserve, removing from reserve first:', userReserve.id);
                 
                 try {
-                    // Удаляем пользователя из резерва
+                    // Удаляем пользователя из резерва, используя chatId из параметров если доступен
                     await dispatch(removeFromReserve({
                         reserveId: String(userReserve.id),
-                        userId: String(bookingData.userId)
+                        userId: String(bookingData.userId),
+                        chatId: bookingData.chatId
                     }));
                     
                     // Обновляем список резервов
@@ -142,8 +168,17 @@ export const bookShift = createAsyncThunk(
                 user_id: bookingData.userId,
                 photo_url: user.photo_url || null,
                 first_name: user.first_name || '',
-                last_name: user.last_name || ''
+                last_name: user.last_name || '',
+                chat_id: bookingData.chatId,
+                is_senior_courier: user.isSeniorCourier || false
             };
+
+            // Добавляем подробное логирование статуса старшего курьера
+            console.info('[shiftsSlice] Подготовка данных для WebSocket:', {
+                userData: user,
+                isSeniorCourier: user.isSeniorCourier,
+                socketData: socketData
+            });
 
             // Получаем существующие АКТИВНЫЕ смены пользователя на эту дату
             // Важно использовать именно те смены, которые есть в Redux store на данный момент
@@ -200,24 +235,44 @@ export const bookShift = createAsyncThunk(
 
 export const cancelShift = createAsyncThunk(
     'shifts/cancelShift',
-    async (shiftId: string, { rejectWithValue }) => {
+    async (shiftId: string | { shiftId: string, chatId?: string }, { rejectWithValue }) => {
         try {
-            // Отправляем событие через WebSocket
-            socketService.emit('cancel_shift', { shift_id: shiftId });
+            // Извлекаем shiftId и chatId из параметров
+            let actualShiftId: string;
+            let chatId: string | undefined;
+            
+            if (typeof shiftId === 'object') {
+                actualShiftId = shiftId.shiftId;
+                chatId = shiftId.chatId;
+            } else {
+                actualShiftId = shiftId;
+            }
+            
+            console.log('[shiftsSlice] Canceling shift:', { 
+                shiftId: actualShiftId, 
+                chatId: chatId || 'not provided' 
+            });
+            
+            // Отправляем событие через WebSocket с chatId, если он доступен
+            socketService.emit('cancel_shift', { 
+                shift_id: actualShiftId,
+                chat_id: chatId
+            });
             
             // Также отправляем HTTP запрос для надежности
-            const response = await fetch(`${API_BASE_URL}/shifts/${shiftId}`, {
+            const response = await fetch(`${API_BASE_URL}/shifts/${actualShiftId}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                body: chatId ? JSON.stringify({ chat_id: chatId }) : undefined
             });
 
             if (!response.ok) {
                 throw new Error('Failed to cancel shift');
             }
 
-            return shiftId;
+            return actualShiftId;
         } catch (error) {
             console.error('Error canceling shift:', error);
             return rejectWithValue(error instanceof Error ? error.message : 'Failed to cancel shift');
@@ -231,7 +286,17 @@ const shiftsSlice = createSlice({
     reducers: {
         shiftBooked(state, action: PayloadAction<ShiftBookedPayload>) {
             const shiftData = action.payload;
-            console.log('[shiftsSlice] Processing shiftBooked action:', shiftData);
+            console.info('[shiftsSlice] Processing shiftBooked action:', shiftData);
+            
+            // Проверяем наличие флага старшего курьера
+            const isSeniorCourier = shiftData.is_senior_courier !== undefined ? 
+                shiftData.is_senior_courier : false;
+                
+            console.info('[shiftsSlice] Статус старшего курьера из данных:', {
+                hasFlag: shiftData.is_senior_courier !== undefined,
+                value: isSeniorCourier,
+                rawData: shiftData.is_senior_courier
+            });
             
             // Преобразуем данные в формат CourierShift
             const newShift: CourierShift = {
@@ -242,8 +307,16 @@ const shiftsSlice = createSlice({
                 lastName: shiftData.last_name,
                 date: shiftData.date,
                 shiftType: shiftData.shift_type,
-                slotIndex: shiftData.slot_index
+                slotIndex: shiftData.slot_index,
+                isSeniorCourier: isSeniorCourier
             };
+            
+            // Добавляем отладочную информацию
+            console.info('[shiftsSlice] Создание объекта смены со статусом курьера:', {
+                original: shiftData,
+                transformed: newShift,
+                isSeniorCourier: newShift.isSeniorCourier
+            });
 
             // Сначала удаляем все существующие смены пользователя на эту дату
             // независимо от типа смены (дневная или вечерняя)

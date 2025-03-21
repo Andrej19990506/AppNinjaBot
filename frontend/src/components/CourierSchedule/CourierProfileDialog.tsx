@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
+import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 
 interface CourierProfileDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { firstName: string; lastName: string }) => void;
+    onSave: (data: { firstName: string; lastName: string; isSeniorCourier?: boolean; seniorPassword?: string; }) => void;
 }
 
 const slideIn = keyframes`
@@ -194,6 +195,36 @@ const Input = styled.input`
     }
 `;
 
+const CheckboxGroup = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+`;
+
+const CheckboxLabel = styled.label`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+`;
+
+const Checkbox = styled.input`
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+`;
+
+const PasswordNoteText = styled.p`
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin: 4px 0;
+    font-style: italic;
+`;
+
 const Button = styled.button`
     padding: 12px;
     border-radius: var(--radius);
@@ -268,11 +299,15 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
     onSave,
 }) => {
     const user = useAppSelector((state) => state.user.user);
+    const dispatch = useAppDispatch();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [isSeniorCourier, setIsSeniorCourier] = useState(false);
+    const [seniorPassword, setSeniorPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isClosing, setIsClosing] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [passwordValid, setPasswordValid] = useState(true);
 
     useEffect(() => {
         if (isOpen) {
@@ -280,9 +315,22 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
             setIsSuccess(false);
             setFirstName(user?.first_name || '');
             setLastName(user?.last_name || '');
+            setIsSeniorCourier(user?.isSeniorCourier || false);
+            setSeniorPassword('');
             setError(null);
+            setPasswordValid(true);
         }
     }, [isOpen, user]);
+
+    // Валидация пароля старшего курьера
+    useEffect(() => {
+        if (isSeniorCourier) {
+            // Минимальная длина 6 символов
+            setPasswordValid(seniorPassword.length >= 6);
+        } else {
+            setPasswordValid(true);
+        }
+    }, [seniorPassword, isSeniorCourier]);
 
     const handleClose = () => {
         setIsClosing(true);
@@ -303,11 +351,42 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
             return;
         }
 
+        if (isSeniorCourier && !seniorPassword) {
+            setError('Для старшего курьера необходимо указать пароль');
+            return;
+        }
+
+        if (isSeniorCourier && !passwordValid) {
+            setError('Пароль должен содержать минимум 6 символов');
+            return;
+        }
+
         try {
-            await onSave({ firstName: trimmedFirstName, lastName: trimmedLastName });
+            const data = {
+                firstName: trimmedFirstName,
+                lastName: trimmedLastName
+            };
+
+            // Добавляем данные старшего курьера только если включен чекбокс
+            if (isSeniorCourier) {
+                Object.assign(data, {
+                    isSeniorCourier: true,
+                    seniorPassword: seniorPassword
+                });
+            }
+
+            // Обновляем статус старшего курьера в Redux
+            dispatch(updateSeniorCourierStatus(isSeniorCourier));
+            console.log('🌟 Обновлен статус старшего курьера в профиле:', isSeniorCourier);
+
+            await onSave(data);
             setIsSuccess(true);
         } catch (error) {
-            setError('Ошибка при сохранении данных');
+            if (error instanceof Error) {
+                setError(error.message);
+            } else {
+                setError('Ошибка при сохранении данных');
+            }
         }
     };
 
@@ -322,7 +401,7 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
                             <Title>Профиль курьера</Title>
                             <Subtitle>Пожалуйста, заполните ваши данные</Subtitle>
                         </Header>
-                        <ProfileImage />
+                        <ProfileImage $url={user?.photo_url || undefined} />
                         {error && <ErrorMessage>{error}</ErrorMessage>}
                         <Form onSubmit={handleSubmit}>
                             <InputGroup>
@@ -345,6 +424,37 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
                                     placeholder="Введите вашу фамилию"
                                 />
                             </InputGroup>
+                            
+                            <CheckboxGroup>
+                                <CheckboxLabel>
+                                    <Checkbox
+                                        type="checkbox"
+                                        checked={isSeniorCourier}
+                                        onChange={(e) => setIsSeniorCourier(e.target.checked)}
+                                    />
+                                    Старший курьер
+                                </CheckboxLabel>
+                            </CheckboxGroup>
+
+                            {isSeniorCourier && (
+                                <InputGroup>
+                                    <Label htmlFor="seniorPassword">Пароль старшего курьера</Label>
+                                    <Input
+                                        id="seniorPassword"
+                                        type="password"
+                                        value={seniorPassword}
+                                        onChange={(e) => setSeniorPassword(e.target.value)}
+                                        placeholder="Введите пароль"
+                                        style={{
+                                            borderColor: passwordValid ? '' : 'var(--error-color)'
+                                        }}
+                                    />
+                                    <PasswordNoteText>
+                                        Пароль должен содержать минимум 6 символов
+                                    </PasswordNoteText>
+                                </InputGroup>
+                            )}
+                            
                             <Button type="submit">Сохранить</Button>
                         </Form>
                     </>

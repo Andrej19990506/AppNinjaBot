@@ -1,20 +1,24 @@
 [
   {
-    "id": "b2198c59-a485-4447-8774-8d1788a6d69b",
-    "user_id": "1682142222",
-    "date": "2025-03-22",
+    "id": "731e3e38-7a19-4a20-bb37-96a73934c8d5",
+    "user_id": "836104828",
+    "date": "2025-04-01",
+    "chat_id": "-1002058039452",
     "photo_url": null,
-    "first_name": null,
-    "last_name": null,
-    "created_at": "2025-03-19T21:37:02.060172"
+    "first_name": "Ира",
+    "last_name": "Шустова",
+    "is_senior_courier": false,
+    "created_at": "2025-03-21T15:25:18.507321"
   },
   {
-    "id": "69d63630-71fe-46fd-a2d5-7b64145cdfc8",
-    "user_id": "1682142222",
-    "date": "2025-03-23",
-    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_61.jpg",
-    "first_name": "Андрей",
-    "last_name": "Малахов",
-    "created_at": "2025-03-19T22:02:00.791154"
+    "id": "892837b9-2728-47df-be43-f368af4d78c5",
+    "user_id": "784135710",
+    "date": "2025-04-03",
+    "chat_id": "-1002058039452",
+    "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_68.jpg",
+    "first_name": "Артём",
+    "last_name": "Раков",
+    "is_senior_courier": true,
+    "created_at": "2025-03-21T15:44:25.066039"
   }
 ]

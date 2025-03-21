@@ -17,6 +17,7 @@ export interface ReserveShift {
     firstName: string;
     lastName: string;
     created_at: string;
+    isSeniorCourier?: boolean;
 }
 
 export interface ShiftState {

@@ -1096,15 +1096,50 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
     const isDateAvailable = (date: Date) => {
         if (!date) return false;
         
-        const today = new Date();
-        const thursday = new Date(today);
-        const daysUntilThursday = (4 - today.getDay() + 7) % 7;
-        thursday.setDate(today.getDate() + daysUntilThursday);
+        const now = new Date();
         
-        const nextThursday = new Date(thursday);
-        nextThursday.setDate(thursday.getDate() + 7);
+        // Определяем день недели (0 - воскресенье, 1 - понедельник, ..., 6 - суббота)
+        const todayDayOfWeek = now.getDay();
         
-        return date >= thursday && date < nextThursday;
+        // Находим текущий четверг этой недели
+        const thisWeekThursday = new Date(now);
+        // Если сегодня до четверга, то берем четверг текущей недели, иначе - следующей
+        if (todayDayOfWeek < 4) { // до четверга (пн, вт, ср)
+            thisWeekThursday.setDate(now.getDate() + (4 - todayDayOfWeek));
+        } else if (todayDayOfWeek > 4) { // после четверга (пт, сб, вс)
+            thisWeekThursday.setDate(now.getDate() - (todayDayOfWeek - 4));
+        }
+        // Устанавливаем время 12:00
+        thisWeekThursday.setHours(12, 0, 0, 0);
+        
+        // Определяем следующий понедельник
+        const nextMonday = new Date(thisWeekThursday);
+        nextMonday.setDate(thisWeekThursday.getDate() + (8 - thisWeekThursday.getDay()) % 7);
+        nextMonday.setHours(0, 0, 0, 0);
+        
+        // Определяем следующее воскресенье
+        const nextSunday = new Date(nextMonday);
+        nextSunday.setDate(nextMonday.getDate() + 6);
+        nextSunday.setHours(23, 59, 59, 999);
+        
+        // Запись доступна если сейчас уже после 12:00 четверга и дата находится в диапазоне следующей недели
+        const isAfterThursdayNoon = now >= thisWeekThursday;
+        const isDateInNextWeek = date >= nextMonday && date <= nextSunday;
+        
+        // Отладочное логирование
+        console.log('[CourierCalendar] Date Availability:', {
+            today: now.toLocaleString(),
+            todayDayOfWeek,
+            thisWeekThursday: thisWeekThursday.toLocaleString(),
+            nextMonday: nextMonday.toLocaleString(),
+            nextSunday: nextSunday.toLocaleString(),
+            selectedDate: date.toLocaleString(),
+            isAfterThursdayNoon,
+            isDateInNextWeek,
+            isAvailable: isAfterThursdayNoon && isDateInNextWeek
+        });
+        
+        return isAfterThursdayNoon && isDateInNextWeek;
     };
 
     const months = [

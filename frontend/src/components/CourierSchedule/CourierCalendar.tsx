@@ -1201,8 +1201,11 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         }
     };
 
-    const handleShiftSelect = async (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
-        if (!selectedDateForDialog) return;
+    const handleShiftSelect = async (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction = false) => {
+        if (!selectedDateForDialog) {
+            console.error('[CourierCalendar] No selected date for dialog, aborting shift select');
+            return;
+        }
         
         try {
             const dateString = format(selectedDateForDialog, 'yyyy-MM-dd');
@@ -1232,36 +1235,63 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
                 slotIndex,
                 userId: currentUserId,
                 existingShiftId: validShiftId,
-                chatId: chatId || 'not provided'
+                chatId: chatId || 'not provided',
+                isDragAction
             });
             
-            // Диспатчим экшен без await, чтобы не блокировать UI
-            // Это позволит избежать перерисовки до завершения действия
-            const dispatchPromise = dispatch(bookShift({
-                date: dateString,
-                shiftType,
-                slotIndex,
-                userId: currentUserId,
-                existingShiftId: validShiftId,
-                chatId: chatId
-            }));
-            
-            // Отложенно обновим UI через 500мс, чтобы дать время для обработки UI в ShiftPanel
-            setTimeout(() => {
-                console.log('[CourierCalendar] Delayed UI update after booking shift');
-            }, 500);
-            
-            // Асинхронно обрабатываем результат без блокировки UI
-            dispatchPromise.then(() => {
-                console.log('[CourierCalendar] Shift booking completed successfully');
-            }).catch(error => {
-                console.error('[CourierCalendar] Error in background shift booking:', error);
-            });
-            
-            // Возвращаем промис для кода, которому нужно дождаться завершения
-            return dispatchPromise;
+            // Для drag-and-drop операций важно дождаться результата
+            if (isDragAction) {
+                console.log('[CourierCalendar] Processing drag-and-drop operation, waiting for completion');
+                
+                // Диспатчим экшен с await для перетаскивания, чтобы гарантировать завершение
+                try {
+                    const result = await dispatch(bookShift({
+                        date: dateString,
+                        shiftType,
+                        slotIndex,
+                        userId: currentUserId,
+                        existingShiftId: validShiftId,
+                        chatId: chatId,
+                        isDragAction
+                    })).unwrap();
+                    
+                    console.log('[CourierCalendar] Drag-and-drop operation completed successfully:', result);
+                    return result;
+                } catch (error) {
+                    console.error('[CourierCalendar] Error in drag-and-drop operation:', error);
+                    throw error; // Пробрасываем ошибку для обработки в компоненте ShiftPanel
+                }
+            } else {
+                // Для обычного выбора смены - не блокируем UI
+                console.log('[CourierCalendar] Regular shift selection, not blocking UI');
+                const dispatchPromise = dispatch(bookShift({
+                    date: dateString,
+                    shiftType,
+                    slotIndex,
+                    userId: currentUserId,
+                    existingShiftId: validShiftId,
+                    chatId: chatId,
+                    isDragAction
+                }));
+                
+                // Отложенно обновим UI через 500мс, чтобы дать время для обработки UI в ShiftPanel
+                setTimeout(() => {
+                    console.log('[CourierCalendar] Delayed UI update after booking shift');
+                }, 500);
+                
+                // Асинхронно обрабатываем результат без блокировки UI
+                dispatchPromise.then(() => {
+                    console.log('[CourierCalendar] Shift booking completed successfully');
+                }).catch(error => {
+                    console.error('[CourierCalendar] Error in background shift booking:', error);
+                });
+                
+                // Возвращаем промис для кода, которому нужно дождаться завершения
+                return dispatchPromise;
+            }
         } catch (error) {
-            console.error('Error booking/updating shift:', error);
+            console.error('[CourierCalendar] Error in handleShiftSelect:', error);
+            throw error; // Пробрасываем ошибку дальше
         }
     };
 

@@ -10,7 +10,7 @@ export interface CourierShift {
 }
 
 export interface ReserveShift {
-    id: string;
+    id?: string;
     userId: string;
     date: string;
     photo_url: string | null;
@@ -48,4 +48,15 @@ export interface AddToReserveParams {
 export interface RemoveFromReserveParams {
     reserveId: string;
     userId: string;
+}
+
+export interface ShiftSlot {
+    id?: string;
+    userId?: string;
+    photo_url?: string | null;
+    firstName?: string;
+    lastName?: string;
+    shiftType?: 'day' | 'night';
+    slotIndex: number;
+    isSeniorCourier?: boolean;
 } 

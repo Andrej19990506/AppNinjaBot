@@ -231,6 +231,44 @@ const App: React.FC = () => {
     // Добавляем состояние для контроля загрузки главного меню
     const [isMainMenuLoading, setIsMainMenuLoading] = useState(true);
 
+    // Глобальный обработчик для предотвращения контекстного меню и сброса состояний
+    useEffect(() => {
+        const preventContextMenu = (e: Event) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Сбрасываем все состояния, связанные с drag-and-drop
+            const dragElements = document.querySelectorAll('.dragging');
+            dragElements.forEach(el => el.classList.remove('dragging'));
+            
+            // Сбрасываем выделение текста
+            if (window.getSelection) {
+                window.getSelection()?.removeAllRanges();
+            }
+            
+            return false;
+        };
+
+        // Добавляем обработчики для всех событий, которые могут вызвать контекстное меню
+        document.addEventListener('contextmenu', preventContextMenu);
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 1) {
+                preventContextMenu(e);
+            }
+        }, { passive: false });
+        document.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 1) {
+                preventContextMenu(e);
+            }
+        }, { passive: false });
+
+        return () => {
+            document.removeEventListener('contextmenu', preventContextMenu);
+            document.removeEventListener('touchstart', preventContextMenu);
+            document.removeEventListener('touchmove', preventContextMenu);
+        };
+    }, []);
+
     // Имитируем загрузку данных при первом рендере
     useEffect(() => {
         console.log('🔄 Инициализация главного меню...');

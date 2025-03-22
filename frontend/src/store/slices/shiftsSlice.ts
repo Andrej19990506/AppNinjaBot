@@ -38,6 +38,7 @@ interface BookShiftParams {
     slotIndex: number;
     existingShiftId?: string;
     chatId?: string;
+    isDragAction?: boolean;
 }
 
 interface ShiftBookedPayload {
@@ -131,8 +132,18 @@ export const bookShift = createAsyncThunk(
                            reserve.date === bookingData.date
             );
             
-            // Если пользователь в резерве, удаляем его оттуда перед записью на смену
-            if (userReserve && userReserve.id) {
+            // Проверяем, является ли пользователь старшим курьером
+            const user = state.user.user;
+            const isCurrentUserSenior = user?.isSeniorCourier || false;
+            
+            console.log(`[shiftsSlice] isDragAction: ${bookingData.isDragAction}, isCurrentUserSenior: ${isCurrentUserSenior}`);
+            
+            // Если это drag action и пользователь старший, пропускаем проверки резерва
+            if (bookingData.isDragAction && isCurrentUserSenior) {
+                console.log('[shiftsSlice] Senior user drag action - bypassing reserve checks');
+            }
+            // Для обычных действий проверяем резерв
+            else if (userReserve && userReserve.id) {
                 console.log('[shiftsSlice] User is in reserve, removing from reserve first:', userReserve.id);
                 
                 try {
@@ -154,8 +165,6 @@ export const bookShift = createAsyncThunk(
             }
             
             // Получаем текущего пользователя
-            const user = state.user.user;
-
             if (!user) {
                 throw new Error('User not found in state');
             }
@@ -189,6 +198,75 @@ export const bookShift = createAsyncThunk(
             
             console.log('[shiftsSlice] Active shifts for user on this date:', existingShifts);
             
+            // Если это операция перетаскивания (drag-and-drop)
+            if (bookingData.isDragAction) {
+                console.log('[shiftsSlice] Processing drag-and-drop operation with existingShiftId:', bookingData.existingShiftId);
+                
+                if (bookingData.existingShiftId) {
+                    // Для drag-and-drop мы должны сохранить оригинальные данные курьера
+                    // Находим оригинальную смену в store
+                    const originalShift = (state.shifts.shifts as CourierShift[]).find(
+                        shift => shift.id === bookingData.existingShiftId
+                    );
+                    
+                    if (originalShift) {
+                        console.log('[shiftsSlice] Found original shift data for drag-and-drop:', originalShift);
+                        // Сохраняем оригинальные данные курьера
+                        const dragData = {
+                            date: bookingData.date,
+                            shift_type: bookingData.shiftType,
+                            slot_index: bookingData.slotIndex,
+                            // Сохраняем оригинальные данные пользователя
+                            user_id: originalShift.userId,
+                            photo_url: originalShift.photo_url,
+                            first_name: originalShift.firstName,
+                            last_name: originalShift.lastName,
+                            chat_id: bookingData.chatId,
+                            is_senior_courier: originalShift.isSeniorCourier,
+                            // Флаги для старшего курьера
+                            is_senior_update: isCurrentUserSenior,
+                            is_drag_action: true,
+                            shift_id: bookingData.existingShiftId,
+                        };
+                        
+                        console.log('[shiftsSlice] Updating shift via drag-and-drop with preserved user data:', dragData);
+                        socketService.emit('update_shift', dragData);
+                        return {
+                            ...dragData,
+                            userId: dragData.user_id,
+                            firstName: dragData.first_name,
+                            lastName: dragData.last_name,
+                            shiftType: dragData.shift_type,
+                            slotIndex: dragData.slot_index,
+                            id: dragData.shift_id,
+                            isSeniorCourier: dragData.is_senior_courier,
+                        };
+                    } else {
+                        console.log('[shiftsSlice] Original shift not found in store, using available data');
+                        // Если не нашли оригинальную смену, используем стандартную логику
+                        socketService.emit('update_shift', {
+                            ...socketData,
+                            shift_id: bookingData.existingShiftId,
+                            is_senior_update: isCurrentUserSenior,
+                            is_drag_action: true
+                        });
+                        return socketData;
+                    }
+                } else if (existingShifts.length > 0) {
+                    // Если id не передан, но есть смена пользователя на эту дату
+                    const existingShift = existingShifts[0];
+                    console.log('[shiftsSlice] Found existing shift to update via drag-and-drop:', existingShift.id);
+                    socketService.emit('update_shift', {
+                        ...socketData,
+                        shift_id: existingShift.id,
+                        is_senior_update: isCurrentUserSenior,
+                        is_drag_action: true
+                    });
+                    return socketData;
+                }
+            }
+            
+            // Далее стандартная логика для обычных (не drag-and-drop) операций
             // Если передан конкретный ID существующей смены
             if (bookingData.existingShiftId) {
                 // Проверяем, действительно ли такая смена существует в Redux store
@@ -198,7 +276,9 @@ export const bookShift = createAsyncThunk(
                     console.log('[shiftsSlice] Updating existing shift:', bookingData.existingShiftId);
                     socketService.emit('update_shift', {
                         ...socketData,
-                        shift_id: bookingData.existingShiftId
+                        shift_id: bookingData.existingShiftId,
+                        is_senior_update: isCurrentUserSenior && bookingData.isDragAction, // Флаг для разрешения старшим курьерам перемещать чужие смены
+                        is_drag_action: bookingData.isDragAction // Явно указываем, что это drag-and-drop операция
                     });
                 } else {
                     // Если такой смены нет, значит она была отменена
@@ -217,7 +297,9 @@ export const bookShift = createAsyncThunk(
                 console.log('[shiftsSlice] Found existing shift to update:', existingShift.id);
                 socketService.emit('update_shift', {
                     ...socketData,
-                    shift_id: existingShift.id
+                    shift_id: existingShift.id,
+                    is_senior_update: isCurrentUserSenior && bookingData.isDragAction, // Флаг для разрешения старшим курьерам перемещать чужие смены
+                    is_drag_action: bookingData.isDragAction // Явно указываем, что это drag-and-drop операция
                 });
             } else {
                 // Если нет существующей смены, создаем новую
@@ -276,6 +358,45 @@ export const cancelShift = createAsyncThunk(
         } catch (error) {
             console.error('Error canceling shift:', error);
             return rejectWithValue(error instanceof Error ? error.message : 'Failed to cancel shift');
+        }
+    }
+);
+
+// Функция для подтверждения смены
+export const confirmShift = createAsyncThunk(
+    'shifts/confirmShift',
+    async (data: { shiftId: string; chatId?: string }, { rejectWithValue }) => {
+        try {
+            const { shiftId, chatId } = data;
+            
+            console.log('[shiftsSlice] Confirming shift:', { 
+                shiftId, 
+                chatId: chatId || 'not provided' 
+            });
+            
+            // Отправляем событие через WebSocket с chatId, если он доступен
+            socketService.emit('confirm_shift', { 
+                shift_id: shiftId,
+                chat_id: chatId
+            });
+            
+            // По аналогии с cancel можно добавить HTTP запрос
+            const response = await fetch(`${API_BASE_URL}/shifts/${shiftId}/confirm`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: chatId ? JSON.stringify({ chat_id: chatId }) : undefined
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to confirm shift');
+            }
+
+            return shiftId;
+        } catch (error) {
+            console.error('Error confirming shift:', error);
+            return rejectWithValue(error instanceof Error ? error.message : 'Failed to confirm shift');
         }
     }
 );

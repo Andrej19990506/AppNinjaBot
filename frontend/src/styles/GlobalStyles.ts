@@ -226,4 +226,13 @@ export const GlobalStyles = createGlobalStyle`
   input, button, textarea, select {
     font: inherit;
   }
+
+  /* Разрешаем выделение текста в полях ввода и текстовых областях */
+  input, textarea {
+    -webkit-user-select: text;
+    -khtml-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
 `; 

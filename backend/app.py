@@ -4068,6 +4068,8 @@ def handle_update_shift(data):
         photo_url = data.get('photo_url')
         first_name = data.get('first_name')
         last_name = data.get('last_name')
+        is_senior_update = data.get('is_senior_update', False)  # Новый флаг для операций старших курьеров
+        is_drag_action = data.get('is_drag_action', False)  # Новый флаг для drag-and-drop операций
         
         # Проверяем обязательные поля
         if not all([shift_id, date, shift_type, slot_index is not None, user_id]):
@@ -4096,10 +4098,17 @@ def handle_update_shift(data):
             return
             
         # Проверяем, принадлежит ли смена пользователю
-        if str(shifts[shift_index]['user_id']) != str(user_id):
+        # Если это старший курьер и drag-and-drop операция - разрешаем обновление чужих смен
+        if str(shifts[shift_index]['user_id']) != str(user_id) and not is_senior_update:
             logger.error('❌ Смена принадлежит другому пользователю')
+            logger.error(f'is_senior_update: {is_senior_update}, is_drag_action: {is_drag_action}')
             emit('error', {'message': 'Cannot update shift: belongs to another user'})
             return
+        
+        # Для операций старших курьеров добавляем дополнительное логирование
+        if is_senior_update and is_drag_action:
+            logger.info('🔑 Операция старшего курьера: разрешено перемещение чужой смены')
+            logger.info(f'🔄 Перемещение смены ID {shift_id} от пользователя {shifts[shift_index]["user_id"]} курьером {user_id}')
             
         # Проверяем количество записей на новую смену
         date_shifts = [s for s in shifts if s['date'] == date and s['shift_type'] == shift_type and s['id'] != shift_id]
@@ -4120,6 +4129,11 @@ def handle_update_shift(data):
             'updated_at': datetime.now().isoformat()
         })
         
+        # Если это операция старшего курьера, сохраняем информацию о том, кто последний изменял запись
+        if is_senior_update:
+            shifts[shift_index]['last_modified_by'] = user_id
+            shifts[shift_index]['modified_by_senior'] = True
+        
         # Сохраняем обновленные смены
         with open(shifts_file, 'w', encoding='utf-8') as f:
             json.dump(shifts, f, ensure_ascii=False, indent=2)
@@ -4137,7 +4151,8 @@ def handle_update_shift(data):
         })
         
     except Exception as e:
-        logger.error(f'❌ Ошибка при обновлении смены: {str(e)}')
+        logger.error('❌ Ошибка при обновлении смены')
+        logger.error(f'Описание: {str(e)}')
         logger.error(traceback.format_exc())
         emit('error', {'message': str(e)})
 

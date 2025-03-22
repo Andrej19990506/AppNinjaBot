@@ -452,7 +452,7 @@ interface ShiftSelectionDialogProps {
     currentUserId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => Promise<any>;
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => Promise<any>;
     onReserveSelect: () => Promise<any>;
     onCancelReserve: (reserveId: string) => Promise<void>;
     reserves: ReserveShift[];
@@ -611,18 +611,25 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
     }, [shiftsLoading, reservesLoading, isBookingLoading, isReserveActionLoading]);
 
     // Модифицируем wrapper для SlotSelect и ReserveSelect
-    const handleSlotSelectWrapper = (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
+    const handleSlotSelectWrapper = (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction = false) => {
         setIsBookingLoading(true);
-        // Вызываем оригинальную функцию
-        onSlotSelect(shiftType, slotIndex, existingShiftId);
         
-        // Защитный таймаут для отдельного действия
-        setTimeout(() => {
-            if (isBookingLoading) {
-                console.log('[ShiftSelectionDialog] Booking action seems to be taking too long, resetting loading state');
+        console.log('[ShiftSelectionDialog] Selecting slot, isDragAction:', isDragAction);
+        
+        onSlotSelect(shiftType, slotIndex, existingShiftId, isDragAction)
+            .then(() => {
                 setIsBookingLoading(false);
-            }
-        }, 3000);
+                if (isDragAction) {
+                    console.log('[ShiftSelectionDialog] Drag-and-drop operation completed successfully');
+                } else {
+                    showSuccessMessage('Запись на смену успешно выполнена');
+                }
+            })
+            .catch(error => {
+                console.error('[ShiftSelectionDialog] Error booking shift:', error);
+                setIsBookingLoading(false);
+                showToast('Произошла ошибка при записи на смену');
+            });
     };
     
     const handleReserveSelectWrapper = async () => {
@@ -686,6 +693,7 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                         <ReservePanel 
                             reserves={actualReserves}
                             onReserveSelect={handleReserveSelectWrapper}
+                            onCancelReserve={onCancelReserve}
                             currentUserId={currentUserId}
                             currentUserAvatar={currentUserAvatar}
                             currentUserName={currentUserName}

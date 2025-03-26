@@ -265,4 +265,38 @@ class SocketService {
     }
 }
 
-export const socketService = SocketService.getInstance(); 
+export const socketService = SocketService.getInstance();
+
+// Константы для комнат
+export const GLOBAL_ROOM = 'inventory_global';  // Общая комната для всех чатов
+export const CHAT_ROOM_PREFIX = 'inventory_';   // Префикс для комнат конкретных чатов
+
+/**
+ * Возвращает имя комнаты для указанного chat_id, 
+ * согласованное с серверной логикой
+ * @param chat_id ID чата или 'global' для глобальной комнаты
+ * @returns Имя комнаты
+ */
+export function getServerRoomName(chat_id: string): string {
+    return chat_id === 'global' 
+        ? GLOBAL_ROOM 
+        : `${CHAT_ROOM_PREFIX}${chat_id}`;
+}
+
+/**
+ * Возвращает имя комнаты смен для указанного chat_id
+ * @param chat_id ID чата
+ * @returns Имя комнаты смен
+ */
+export function getShiftsRoomName(chat_id: string): string {
+    return `${CHAT_ROOM_PREFIX}shifts_${chat_id}`;
+}
+
+/**
+ * Возвращает имя комнаты резервов для указанного chat_id
+ * @param chat_id ID чата
+ * @returns Имя комнаты резервов
+ */
+export function getReservesRoomName(chat_id: string): string {
+    return `${CHAT_ROOM_PREFIX}reserves_${chat_id}`;
+} 

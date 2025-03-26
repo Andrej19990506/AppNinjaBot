@@ -4,6 +4,7 @@ from data.shifts import (get_all_shifts, get_shifts_by_chat, get_shift,
                          book_shift, update_shift, cancel_shift, cancel_user_shift)
 from data.reserves import (get_all_reserves, get_reserves_by_chat, get_reserves_by_date, 
                           add_reserve, update_reserve, delete_reserve, delete_user_reserve)
+from data.users import get_user_data
 import logging
 
 # Настраиваем логирование
@@ -49,7 +50,6 @@ def book_new_shift():
         
         # Если данные пользователя не предоставлены, получаем их из базы данных
         if not all([user_data['photo_url'], user_data['first_name'], user_data['last_name']]):
-            from app import get_user_data
             user_info = get_user_data(user_id)
             if user_info:
                 # Обновляем только отсутствующие поля

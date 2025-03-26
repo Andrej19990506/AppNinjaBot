@@ -10,6 +10,7 @@ import { useShiftsSync } from '../../hooks/useShiftsSync';
 import { useReservesSync } from '../../hooks/useReservesSync';
 import { Snackbar, Alert } from '@mui/material';
 import { bookShift } from '../../store/slices/shiftsSlice';
+import { socketService } from '../../services/socket';
 
 // Стили
 const Container = styled.div`
@@ -189,25 +190,45 @@ const ScheduleContainer: React.FC = () => {
                 return;
             }
             
-            // Создаем данные для запроса
-            const reserveData = {
+            console.log('[ScheduleContainer] Добавление в резерв:', {
                 user_id: String(user.id),
                 date: formattedDate,
-                first_name: user.first_name || '',
-                last_name: user.last_name || '',
-                photo_url: user.photo_url || '',
-                is_senior_courier: user.isSeniorCourier || false
-            };
+                chatId,
+                isSeniorCourier: user.isSeniorCourier
+            });
             
-            // Отправляем запрос на добавление в резерв
-            reserveSync.addToReserve(reserveData);
+            // Используем хук для добавления в резерв с исправленными параметрами
+            const result = await reserveSync.addToReserve(
+                formattedDate,
+                user,
+                chatId
+            );
+            
+            console.log('[ScheduleContainer] Результат добавления в резерв:', result);
+            
+            // Добавляем прямое событие для отладки
+            socketService.emit("echo", { 
+                message: "reserve-added",
+                user_id: String(user.id),
+                date: formattedDate,
+                chat_id: chatId,
+                timestamp: new Date().toISOString()
+            });
             
             setSuccessMessage('Вы успешно добавлены в резерв');
+            
+            // Принудительно обновляем данные через небольшую задержку
+            setTimeout(() => {
+                reserveSync.loadReserves();
+            }, 500);
+            
+            return result;
         } catch (error) {
             console.error('Ошибка при добавлении в резерв:', error);
             setSuccessMessage('Ошибка при добавлении в резерв');
+            throw error;
         }
-    }, [user, formattedDate, reservesForDate, shiftsForDate, reserveSync]);
+    }, [user, formattedDate, reservesForDate, shiftsForDate, reserveSync, chatId]);
     
     // Обработчик удаления из резерва
     const handleRemoveFromReserve = useCallback(async (reserveId: string) => {

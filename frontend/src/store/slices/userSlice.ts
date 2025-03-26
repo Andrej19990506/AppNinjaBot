@@ -54,7 +54,7 @@ export const initializeFromTelegram = createAsyncThunk(
             console.log('🔄 Загрузка групп пользователя...');
             const baseUrl = process.env.REACT_APP_API_URL?.replace(/\/+$/, '');
             console.log('🌐 Базовый URL:', baseUrl);
-            const response = await fetch(`${baseUrl}/user/${userId}/groups`, {
+            const response = await fetch(`${baseUrl}/couriers/${userId}/groups`, {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',

@@ -13,6 +13,7 @@ import { RootState } from '../../store/store';
 import { format } from 'date-fns';
 import config from '../../config';
 import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
+import axios from 'axios';
 
 const Container = styled.div`
     padding: 20px;
@@ -69,22 +70,29 @@ const CourierSchedule: React.FC = () => {
     
     // Функция для получения статуса старшего курьера
     const fetchCourierStatus = async () => {
-        if (!user?.id) return;
+        if (!user?.id) {
+            console.log('❌ Нет ID пользователя для запроса статуса курьера');
+            return;
+        }
         
         try {
             const chatId = user.groups && user.groups.length > 0 
                 ? user.groups[0].chat_id : undefined;
                 
-            if (!chatId) return;
-            
-            console.log('📡 Запрашиваем статус курьера при рендеринге CourierSchedule');
-            const response = await fetch(`${config.API_URL}/couriers/${user.id}/status?chat_id=${chatId}`);
-            
-            if (!response.ok) {
-                throw new Error('Не удалось получить статус курьера');
+            if (!chatId) {
+                console.log('❌ Нет chat_id для запроса статуса курьера');
+                return;
             }
             
-            const data = await response.json();
+            // Используем относительный URL вместо полного
+            const url = `/api/couriers/${user.id}/status?chat_id=${chatId}`;
+            console.log('📡 Запрашиваем статус курьера при рендеринге CourierSchedule по URL:', url);
+            
+            // Используем axios вместо fetch для согласованности
+            const response = await axios.get(url);
+            console.log('✅ Получен ответ от API:', response.data);
+            
+            const data = response.data;
             
             if (data.is_senior_courier !== undefined && user.isSeniorCourier !== data.is_senior_courier) {
                 console.log('📊 Обновляем статус старшего курьера:', data.is_senior_courier);
@@ -104,6 +112,7 @@ const CourierSchedule: React.FC = () => {
             
         } catch (error) {
             console.error('❌ Ошибка при получении статуса курьера:', error);
+            // Не выбрасываем ошибку дальше, чтобы не блокировать UI
         }
     };
     

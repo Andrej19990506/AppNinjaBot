@@ -8,13 +8,16 @@ import {
     removeFromReserve, 
     forceFetchReserves, 
     subscribeToReserveEvents, 
-    unsubscribeFromReserveEvents 
+    unsubscribeFromReserveEvents,
+    reserveAdded,
+    reserveDeleted
 } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 import { ReserveShift } from '../../types/shifts';
 import { selectAllReserves } from '../../store/slices/reservesSlice';
 import { RootState as ReduxRootState } from '../../store/store';
 import LoadingOverlay from './LoadingOverlay';
+import { socketService } from '../../services/socket';
 
 // Интерфейсы
 interface ReservePanelProps {
@@ -394,18 +397,76 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     useEffect(() => {
         console.log('[ReservePanel] Setting up WebSocket events subscription for reserves');
         
-        // Подписываемся на события WebSocket
-        subscribeToReserveEvents(dispatch);
+        // Добавим проверку подключения WebSocket
+        const isSocketConnected = socketService.isConnected();
+        console.log(`[ReservePanel] 🔌 WebSocket connected: ${isSocketConnected}`);
+        
+        // Подписываемся на события WebSocket с дополнительными логами
+        const unsubscribe = subscribeToReserveEvents(dispatch);
+        
+        // Подписываемся напрямую на события для отладки
+        socketService.subscribe('reserve_added', (data) => {
+            console.log('[ReservePanel] 🟢 DIRECT reserve_added event received:', data);
+            forceUpdate(); // Принудительно обновляем компонент
+        });
+        
+        socketService.subscribe('reserve_update', (data) => {
+            console.log('[ReservePanel] 🔄 DIRECT reserve_update event received:', data);
+            forceUpdate(); // Принудительно обновляем компонент
+        });
+        
+        socketService.subscribe('reserve_update_all', (data) => {
+            console.log('[ReservePanel] 📣 DIRECT broadcast reserve_update_all received:', data);
+            forceUpdate(); // Принудительно обновляем компонент
+            
+            // Дополнительно проверяем дату резерва и текущую отображаемую дату
+            if (data.data && data.data.date) {
+                const reserveDate = data.data.date;
+                const currentDateStr = format(date, 'yyyy-MM-dd');
+                
+                if (reserveDate === currentDateStr) {
+                    console.log('[ReservePanel] 🔄 Broadcast event matches current date, forcing reserves refresh');
+                    // Загружаем обновленные данные
+                    dispatch(forceFetchReserves());
+                }
+            }
+        });
+        
+        // Принудительно подключимся к комнате резервов
+        if (chatId) {
+            console.log(`[ReservePanel] 🏠 Explicitly joining reserves room for chat: ${chatId}`);
+            socketService.emit('join_reserves_room', { chatId });
+        }
         
         // Делаем начальную загрузку резервов
-        dispatch(forceFetchReserves());
+        dispatch(forceFetchReserves())
+            .then(() => {
+                console.log('[ReservePanel] ✅ Force loaded reserves successfully');
+            })
+            .catch((err) => {
+                console.error('[ReservePanel] ❌ Error loading reserves:', err);
+            });
         
         // При размонтировании отписываемся от событий
         return () => {
             console.log('[ReservePanel] Cleaning up WebSocket events subscription for reserves');
+            
+            // Отписываемся от прямых подписок
+            socketService.unsubscribe('reserve_added');
+            socketService.unsubscribe('reserve_update');
+            socketService.unsubscribe('reserve_update_all');
+            
+            // Отписываемся от основных событий
+            if (unsubscribe) unsubscribe();
             unsubscribeFromReserveEvents();
+            
+            // Покидаем комнату резервов
+            if (chatId) {
+                console.log(`[ReservePanel] 🏠 Leaving reserves room for chat: ${chatId}`);
+                socketService.emit('leave_reserves_room', { chatId });
+            }
         };
-    }, [dispatch]);
+    }, [dispatch, chatId, date]);
     
     // Обновляем UI при изменении даты 
     useEffect(() => {
@@ -472,6 +533,9 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             if (optimisticReserve) {
                 console.log('[ReservePanel] Adding optimistic reserve to local state:', optimisticReserve);
                 setLocalReserves(prev => [...prev, optimisticReserve]);
+                
+                // Добавляем оптимистичное обновление прямо в Redux для большей надежности
+                dispatch(reserveAdded(optimisticReserve));
             }
             
             // Отправляем запрос на сервер
@@ -482,7 +546,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             if (result) {
                 // Заменяем оптимистичный резерв на реальный без моргания UI
                 setLocalReserves(prev => {
-                    const filtered = prev.filter(r => r.id !== optimisticReserve?.id);
+                    const filtered = prev.filter(r => r.id && optimisticReserve ? r.id !== optimisticReserve.id : true);
                     return [...filtered, result];
                 });
                 
@@ -501,11 +565,17 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         } catch (error) {
             console.error('[ReservePanel] Error adding to reserve:', error);
             
+            // Создаем временную переменную для идентификатора оптимистичного резерва
+            const tempId = `temp-${Date.now()}`;
+            
             // В случае ошибки, удаляем оптимистичный резерв
             if (userInfo) {
                 setLocalReserves(prev => 
-                    prev.filter(r => !r.id.toString().startsWith('temp-'))
+                    prev.filter(r => r.id && !r.id.toString().startsWith('temp-'))
                 );
+                
+                // Также удаляем оптимистичное обновление из Redux
+                dispatch(reserveDeleted({ id: tempId }));
             }
             
             setIsAddLoading(false);

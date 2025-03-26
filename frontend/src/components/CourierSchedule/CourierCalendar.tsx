@@ -969,16 +969,9 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
 
     // Add a new useEffect hook to handle real-time updates
     useEffect(() => {
-        // Используем debounce для плавного обновления без моргания
-        // Вместо немедленного обновления, будем ждать небольшое время 
-        // на случай, если придет несколько обновлений подряд
-        const timer = setTimeout(() => {
-            console.log('[CourierCalendar] Data has been updated, smoothly refreshing calendar UI');
-            setLastUpdateTime(Date.now());
-        }, 500); // Увеличиваем таймаут для большей плавности
-        
-        // Очищаем таймер при изменении зависимостей
-        return () => clearTimeout(timer);
+        // Вместо автоматического обновления по таймеру, просто обновляем при изменении данных
+        // console.log('[CourierCalendar] Data has been updated, smoothly refreshing calendar UI');
+        setLastUpdateTime(Date.now());
     }, [shifts, reserves]);
 
     // Отслеживаем загрузку и устанавливаем initialLoading в false после первой загрузки
@@ -1023,9 +1016,9 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             shift.shiftType === 'day'
         );
         // Логируем только если есть смены или это текущая дата календаря
-        if (dateShifts.length > 0 || isToday(date)) {
-            console.log(`[CourierCalendar] Day shifts for ${dateStr}:`, dateShifts);
-        }
+        // if (dateShifts.length > 0 || isToday(date)) {
+        //     console.log(`[CourierCalendar] Day shifts for ${dateStr}:`, dateShifts);
+        // }
         return dateShifts;
     };
 
@@ -1036,9 +1029,9 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
             shift.shiftType === 'night'
         );
         // Логируем только если есть смены или это текущая дата календаря
-        if (dateShifts.length > 0 || isToday(date)) {
-            console.log(`[CourierCalendar] Night shifts for ${dateStr}:`, dateShifts);
-        }
+        // if (dateShifts.length > 0 || isToday(date)) {
+        //     console.log(`[CourierCalendar] Night shifts for ${dateStr}:`, dateShifts);
+        // }
         return dateShifts;
     };
 
@@ -1059,12 +1052,12 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         const filteredReserves = reserves.filter(reserve => reserve.date === dateStr);
         
         // Логируем только если есть резервы на эту дату
-        if (filteredReserves.length > 0) {
-            console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
-                filteredCount: filteredReserves.length,
-                reservesData: filteredReserves
-            });
-        }
+        // if (filteredReserves.length > 0) {
+        //     console.log(`[CourierCalendar] Reserves for ${dateStr}:`, {
+        //         filteredCount: filteredReserves.length,
+        //         reservesData: filteredReserves
+        //     });
+        // }
         
         return filteredReserves;
     };
@@ -1098,46 +1091,43 @@ const CourierCalendar: React.FC<CourierCalendarProps> = ({
         
         const now = new Date();
         
-        // Определяем день недели (0 - воскресенье, 1 - понедельник, ..., 6 - суббота)
-        const todayDayOfWeek = now.getDay();
+        // Сегодняшний день и время
+        const today = new Date(now);
         
-        // Находим текущий четверг этой недели
-        const thisWeekThursday = new Date(now);
-        // Если сегодня до четверга, то берем четверг текущей недели, иначе - следующей
-        if (todayDayOfWeek < 4) { // до четверга (пн, вт, ср)
-            thisWeekThursday.setDate(now.getDate() + (4 - todayDayOfWeek));
-        } else if (todayDayOfWeek > 4) { // после четверга (пт, сб, вс)
-            thisWeekThursday.setDate(now.getDate() - (todayDayOfWeek - 4));
-        }
-        // Устанавливаем время 12:00
-        thisWeekThursday.setHours(12, 0, 0, 0);
+        // Находим ближайший прошедший четверг (или сегодня, если сегодня четверг)
+        const lastThursday = new Date(today);
+        const daysSinceLastThursday = (today.getDay() + 3) % 7; // Сколько дней прошло с последнего четверга
+        lastThursday.setDate(today.getDate() - daysSinceLastThursday);
+        lastThursday.setHours(12, 0, 0, 0); // Устанавливаем время 12:00
         
-        // Определяем следующий понедельник
-        const nextMonday = new Date(thisWeekThursday);
-        nextMonday.setDate(thisWeekThursday.getDate() + (8 - thisWeekThursday.getDay()) % 7);
-        nextMonday.setHours(0, 0, 0, 0);
+        // Рассчитываем границы следующей недели (пн-вс)
+        const nextMonday = new Date(lastThursday);
+        nextMonday.setDate(lastThursday.getDate() + 4); // +4 дня от четверга = следующий понедельник
+        nextMonday.setHours(0, 0, 0, 0); // Начало дня
         
-        // Определяем следующее воскресенье
         const nextSunday = new Date(nextMonday);
-        nextSunday.setDate(nextMonday.getDate() + 6);
-        nextSunday.setHours(23, 59, 59, 999);
+        nextSunday.setDate(nextMonday.getDate() + 6); // +6 дней от понедельника = воскресенье
+        nextSunday.setHours(23, 59, 59, 999); // Конец дня
         
-        // Запись доступна если сейчас уже после 12:00 четверга и дата находится в диапазоне следующей недели
-        const isAfterThursdayNoon = now >= thisWeekThursday;
+        // Проверяем условия доступности:
+        // 1. Сейчас уже после 12:00 четверга
+        // 2. Выбранная дата находится в диапазоне следующей недели
+        const isAfterThursdayNoon = now >= lastThursday;
         const isDateInNextWeek = date >= nextMonday && date <= nextSunday;
         
-        // Отладочное логирование
-        console.log('[CourierCalendar] Date Availability:', {
-            today: now.toLocaleString(),
-            todayDayOfWeek,
-            thisWeekThursday: thisWeekThursday.toLocaleString(),
-            nextMonday: nextMonday.toLocaleString(),
-            nextSunday: nextSunday.toLocaleString(),
-            selectedDate: date.toLocaleString(),
-            isAfterThursdayNoon,
-            isDateInNextWeek,
-            isAvailable: isAfterThursdayNoon && isDateInNextWeek
-        });
+        // Подробное логирование для отладки
+        // console.log('[CourierCalendar] Date Availability Check:', {
+        //     now: now.toLocaleString(),
+        //     today: today.toLocaleString(),
+        //     lastThursday: lastThursday.toLocaleString(),
+        //     nextMonday: nextMonday.toLocaleString(),
+        //     nextSunday: nextSunday.toLocaleString(),
+        //     selectedDate: date.toLocaleString(),
+        //     daysSinceLastThursday,
+        //     isAfterThursdayNoon,
+        //     isDateInNextWeek,
+        //     isAvailable: isAfterThursdayNoon && isDateInNextWeek
+        // });
         
         return isAfterThursdayNoon && isDateInNextWeek;
     };

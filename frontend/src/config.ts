@@ -1,6 +1,6 @@
 const config = {
-    API_URL: process.env.REACT_APP_API_URL || 'https://ourselves-suzuki-ft-phantom.trycloudflare.com',
-    WS_URL: process.env.REACT_APP_WS_URL || 'wss://ourselves-suzuki-ft-phantom.trycloudflare.com',
+    API_URL: process.env.REACT_APP_API_URL || 'https://nowhere-permissions-finder-conscious.trycloudflare.com',
+    WS_URL: process.env.REACT_APP_WS_URL || 'wss://nowhere-permissions-finder-conscious.trycloudflare.com',
     ENV: process.env.NODE_ENV || 'development',
     DEBUG: process.env.REACT_APP_DEBUG === 'true',
     SOCKET_CONFIG: {

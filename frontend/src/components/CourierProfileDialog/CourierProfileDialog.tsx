@@ -117,13 +117,18 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
       console.log('[CourierProfileDialog] Fetching courier status from:', url);
       const response = await axios.get(url);
       
-      if (response.data && response.data.found) {
+      if (response.data) {
         console.log('[CourierProfileDialog] Courier status:', {
           isSeniorCourier: response.data.is_senior_courier,
-          userData: response.data.user_data
+          userData: response.data
         });
+        
+        // Если получаем данные для текущего пользователя, обновляем его статус в хранилище Redux
+        if (user && user.id === courierId && response.data.is_senior_courier !== undefined) {
+          dispatch(updateSeniorCourierStatus(response.data.is_senior_courier));
+        }
       } else {
-        console.warn('[CourierProfileDialog] Courier not found or status not available');
+        console.warn('[CourierProfileDialog] Courier status not available');
       }
     } catch (error) {
       console.error('[CourierProfileDialog] Error fetching courier status:', error);

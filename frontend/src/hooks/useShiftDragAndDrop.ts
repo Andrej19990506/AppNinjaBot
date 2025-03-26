@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { DraggableProvided, DroppableProvided, DropResult } from '@hello-pangea/dnd';
 import { ShiftSlot } from '../types/shifts';
 
 interface UseShiftDragAndDropProps {
     isSeniorUser: boolean;
-    onItemMove: (
+    onItemMove?: (
         item: ShiftSlot,
         sourceType: 'day' | 'night',
         sourceIndex: number,
@@ -15,7 +15,7 @@ interface UseShiftDragAndDropProps {
     longPressDelay?: number;
 }
 
-interface UseShiftDragAndDropResult {
+export interface UseShiftDragAndDropResult {
     // Функции для react-beautiful-dnd
     onDragEnd: (result: DropResult) => void;
     
@@ -32,6 +32,7 @@ interface UseShiftDragAndDropResult {
     pressAnimationActive: boolean;
     pressAnimationSlot: number | null;
     pressAnimationShiftType: 'day' | 'night' | null;
+    isDragging: boolean;
     
     // Функции для рендеринга
     getDraggableProps: (provided: DraggableProvided) => any;
@@ -46,152 +47,276 @@ export const useShiftDragAndDrop = ({
 }: UseShiftDragAndDropProps): UseShiftDragAndDropResult => {
     console.log('[useShiftDragAndDrop] Initializing with props:', { isSeniorUser, longPressDelay });
     
+    // Состояния для анимации долгого нажатия
     const [pressAnimationActive, setPressAnimationActive] = useState(false);
     const [pressAnimationSlot, setPressAnimationSlot] = useState<number | null>(null);
     const [pressAnimationShiftType, setPressAnimationShiftType] = useState<'day' | 'night' | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    // Добавляем новое состояние для отслеживания последней операции перетаскивания
+    const [lastDragOperation, setLastDragOperation] = useState<{
+        sourceType: 'day' | 'night';
+        sourceIndex: number;
+        targetType: 'day' | 'night';
+        targetIndex: number;
+        timestamp: number;
+    } | null>(null);
+    
+    // Реф для таймера и флаг для отслеживания перетаскивания
     const pressTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const isDraggingRef = useRef(false);
+    const draggedItemRef = useRef<{
+        item: ShiftSlot,
+        type: 'day' | 'night',
+        index: number
+    } | null>(null);
+    const draggingInProgressRef = useRef(false);
+    
+    // Очистить таймер при размонтировании
+    useEffect(() => {
+        return () => {
+            if (pressTimerRef.current) {
+                clearTimeout(pressTimerRef.current);
+            }
+        };
+    }, []);
+    
+    // Эффект для сброса состояния перетаскивания, если компонент размонтирован во время перетаскивания
+    useEffect(() => {
+        // Функция для сброса перетаскивания при выходе
+        const handleUnload = () => {
+            if (draggingInProgressRef.current) {
+                draggingInProgressRef.current = false;
+                setIsDragging(false);
+            }
+        };
+        
+        // Функция для сброса перетаскивания при завершении из ShiftPanelContainer
+        const handleCustomDragEnd = () => {
+            console.log('[useShiftDragAndDrop] Received customDragEnd event');
+            setIsDragging(false);
+            draggingInProgressRef.current = false;
+            setPressAnimationActive(false);
+            setPressAnimationSlot(null);
+            setPressAnimationShiftType(null);
+            
+            // Удаляем класс dragging со всех элементов
+            const draggingElements = document.querySelectorAll('.dragging');
+            draggingElements.forEach(el => {
+                if (el.classList) {
+                    el.classList.remove('dragging');
+                }
+            });
+        };
+        
+        // Добавляем обработчики событий
+        window.addEventListener('beforeunload', handleUnload);
+        document.addEventListener('customDragEnd', handleCustomDragEnd);
+        
+        return () => {
+            window.removeEventListener('beforeunload', handleUnload);
+            document.removeEventListener('customDragEnd', handleCustomDragEnd);
+        };
+    }, []);
 
+    // Обработчик окончания перетаскивания
     const onDragEnd = useCallback((result: DropResult) => {
         console.log('[useShiftDragAndDrop] onDragEnd called with result:', result);
         
-        const { source, destination, draggableId, reason } = result;
-        
-        if (!destination) {
-            console.log('[useShiftDragAndDrop] No destination, cancelling drag');
-            return;
-        }
-        
-        if (reason === 'CANCEL') {
-            console.log('[useShiftDragAndDrop] Drag cancelled by user');
-            return;
-        }
-        
-        if (!isSeniorUser) {
-            console.log('[useShiftDragAndDrop] User is not senior, cancelling drag');
-            return;
-        }
-
-        const sourceType = source.droppableId as 'day' | 'night';
-        const targetType = destination.droppableId as 'day' | 'night';
-        const sourceIndex = source.index;
-        const targetIndex = destination.index;
-        
-        console.log('[useShiftDragAndDrop] Processing drag:', {
-            sourceType,
-            targetType,
-            sourceIndex,
-            targetIndex,
-            draggableId
-        });
-        
-        const [shiftType, index] = draggableId.split('-');
-        const draggedItem: ShiftSlot = {
-            shiftType: shiftType as 'day' | 'night',
-            slotIndex: parseInt(index, 10)
-        };
-        
-        console.log('[useShiftDragAndDrop] Calling onItemMove with:', draggedItem);
-        onItemMove(draggedItem, sourceType, sourceIndex, targetType, targetIndex);
-        
-        // Reset animation states after drag
+        // Сбрасываем состояние перетаскивания и флаги
+        setIsDragging(false);
+        draggingInProgressRef.current = false;
         setPressAnimationActive(false);
         setPressAnimationSlot(null);
         setPressAnimationShiftType(null);
-        isDraggingRef.current = false;
+        
+        // Отправляем событие customDragEnd для синхронизации состояния компонентов
+        const customDragEndEvent = new CustomEvent('customDragEnd', {
+            bubbles: true,
+            cancelable: true,
+            detail: { result }
+        });
+        document.dispatchEvent(customDragEndEvent);
+        
+        // Если нет назначения, или перетаскивание было отменено
+        if (!result.destination || result.reason === 'CANCEL') {
+            console.log('[useShiftDragAndDrop] Drag cancelled or no destination');
+            return;
+        }
+
+        // Проверяем, является ли пользователь старшим курьером
+        if (!isSeniorUser) {
+            console.log('[useShiftDragAndDrop] User is not senior, cannot move items');
+            return;
+        }
+
+        // Извлекаем информацию о начальной и конечной позиции
+        const sourceType = result.source.droppableId === 'day-shift' ? 'day' : 'night';
+        const targetType = result.destination.droppableId === 'day-shift' ? 'day' : 'night';
+        const sourceIndex = result.source.index;
+        const targetIndex = result.destination.index;
+        
+        // Получаем информацию о перетаскиваемом элементе
+        const draggedId = result.draggableId;
+        const [itemType, itemIndex] = draggedId.split('-');
+        const draggedItem = draggedItemRef.current?.item || {
+            shiftType: itemType as 'day' | 'night',
+            slotIndex: parseInt(itemIndex)
+        };
+        
+        console.log('[useShiftDragAndDrop] Moving item:', {
+            item: draggedItem,
+            sourceType,
+            sourceIndex,
+            targetType,
+            targetIndex
+        });
+        
+        // Генерируем уникальный ID для операции перетаскивания
+        const operationId = `drag-${Date.now()}-${draggedItem.userId || 'unknown'}`;
+        
+        // Сохраняем информацию о текущей операции перетаскивания
+        setLastDragOperation({
+            sourceType,
+            sourceIndex,
+            targetType,
+            targetIndex,
+            timestamp: Date.now()
+        });
+
+        // Создаем и рассылаем событие, уведомляющее о начале изменения состояния
+        const dragStartEvent = new CustomEvent('dragOperationStart', {
+            detail: {
+                sourceType,
+                sourceIndex,
+                targetType,
+                targetIndex,
+                item: draggedItem,
+                operationId,
+                isDragOperation: true
+            },
+            bubbles: true
+        });
+        document.dispatchEvent(dragStartEvent);
+        
+        // Вызываем обработчик перемещения если он предоставлен
+        if (onItemMove) {
+            onItemMove(draggedItem, sourceType, sourceIndex, targetType, targetIndex);
+        }
+        
+        // Очищаем референс перетаскиваемого элемента
+        draggedItemRef.current = null;
+        
+        // Отправляем событие завершения через 5 секунд, чтобы убедиться,
+        // что все операции были обработаны правильно и UI обновлен
+        setTimeout(() => {
+            const dragEndEvent = new CustomEvent('dragOperationComplete', {
+                detail: {
+                    operationId,
+                    sourceType,
+                    sourceIndex,
+                    targetType,
+                    targetIndex,
+                    item: draggedItem,
+                },
+                bubbles: true
+            });
+            document.dispatchEvent(dragEndEvent);
+            console.log('[useShiftDragAndDrop] Final cleanup for drag operation:', operationId);
+        }, 5000);
     }, [isSeniorUser, onItemMove]);
 
+    // Обработчик нажатия на элемент
     const handleItemPress = useCallback((
         event: React.MouseEvent | React.TouchEvent,
         item: ShiftSlot,
         type: 'day' | 'night',
         index: number
     ) => {
-        console.log('[useShiftDragAndDrop] handleItemPress called:', {
-            item,
-            type,
-            index,
-            isSeniorUser,
-            isDragging: isDraggingRef.current
-        });
+        console.log('[useShiftDragAndDrop] handleItemPress called:', { item, type, index });
         
-        event.preventDefault();
-        event.stopPropagation();
+        // Если перетаскивание уже началось, ничего не делаем
+        if (draggingInProgressRef.current) {
+            console.log('[useShiftDragAndDrop] Drag already in progress, ignoring press');
+            return;
+        }
+
+        // Сохраняем информацию о текущем элементе
+        draggedItemRef.current = { item, type, index };
         
-        // Clear any existing timer
+        // Очищаем существующий таймер если он есть
         if (pressTimerRef.current) {
-            console.log('[useShiftDragAndDrop] Clearing existing press timer');
             clearTimeout(pressTimerRef.current);
         }
         
-        // Set animation state
+        // Устанавливаем состояние анимации
         setPressAnimationActive(true);
         setPressAnimationSlot(index);
         setPressAnimationShiftType(type);
         
-        console.log('[useShiftDragAndDrop] Animation states set:', {
-            pressAnimationActive: true,
-            pressAnimationSlot: index,
-            pressAnimationShiftType: type
-        });
-        
-        // Start long press timer
+        // Создаем таймер для долгого нажатия
         pressTimerRef.current = setTimeout(() => {
-            console.log('[useShiftDragAndDrop] Long press timer triggered');
+            console.log('[useShiftDragAndDrop] Long press detected');
             
+            // Разные действия для старшего и обычного курьера
             if (isSeniorUser) {
-                console.log('[useShiftDragAndDrop] Senior user long press - enabling drag');
-                isDraggingRef.current = true;
+                // Для старшего курьера - начинаем перетаскивание
+                console.log('[useShiftDragAndDrop] Senior user - starting drag');
+                setIsDragging(true);
+                draggingInProgressRef.current = true;
                 
-                // Get the target element
-                const target = event.target as HTMLElement;
-                const avatarContainer = target.closest('.courier-avatar-container') || target;
+                // Добавляем класс dragging для визуального эффекта
+                const elements = document.querySelectorAll('.courier-avatar-container');
+                elements.forEach(el => {
+                    if (el.contains(event.target as Node)) {
+                        el.classList.add('dragging');
+                    }
+                });
                 
-                if (avatarContainer) {
-                    // Add dragging class to avatar container
-                    avatarContainer.classList.add('dragging');
-                    
-                    // Create custom drag start event
-                    const customEvent = new CustomEvent('customDragStart', {
-                        detail: {
-                            item,
-                            type,
-                            index,
-                            position: 'touches' in event 
-                                ? { x: event.touches[0].clientX, y: event.touches[0].clientY }
-                                : { x: event.clientX, y: event.clientY }
-                        },
-                        bubbles: true
-                    });
-                    
-                    // Dispatch the custom event
-                    avatarContainer.dispatchEvent(customEvent);
-                    
-                    console.log('[useShiftDragAndDrop] Dispatched custom drag start event:', customEvent);
-                }
-            } else if (onLongPressNonSenior) {
-                console.log('[useShiftDragAndDrop] Non-senior user long press - showing profile');
+                // Рассылаем событие для компонента ShiftPanel, чтобы он начал отслеживать перетаскивание
+                const customEvent = new CustomEvent('customDragStart', { 
+                    detail: {
+                        item, 
+                        type, 
+                        index,
+                        position: 'touches' in event 
+                            ? { x: event.touches[0].clientX, y: event.touches[0].clientY } 
+                            : { x: event.clientX, y: event.clientY }
+                    },
+                    bubbles: true, 
+                    cancelable: true 
+                });
+                document.dispatchEvent(customEvent);
+                console.log('[useShiftDragAndDrop] Dispatched customDragStart event');
+            } 
+            else if (onLongPressNonSenior) {
+                // Для обычного курьера - показываем профиль
+                console.log('[useShiftDragAndDrop] Non-senior user - showing profile');
                 onLongPressNonSenior(item);
-                // Reset animation for non-senior users
+                
+                // Сбрасываем анимацию
                 setPressAnimationActive(false);
                 setPressAnimationSlot(null);
                 setPressAnimationShiftType(null);
             }
         }, longPressDelay);
         
-    }, [isSeniorUser, onLongPressNonSenior, longPressDelay]);
+        // Добавляем глобальные обработчики для отслеживания окончания нажатия
+        if ('touches' in event) {
+            // Для мобильных устройств
+            document.addEventListener('touchend', handleItemRelease, { once: true });
+            document.addEventListener('touchcancel', handleItemRelease, { once: true });
+        } else {
+            // Для настольных устройств
+            document.addEventListener('mouseup', handleItemRelease, { once: true });
+            document.addEventListener('mouseleave', handleItemRelease, { once: true });
+        }
+    }, [isSeniorUser, longPressDelay, onLongPressNonSenior]);
 
+    // Обработчик отпускания элемента
     const handleItemRelease = useCallback(() => {
-        console.log('[useShiftDragAndDrop] handleItemRelease called with animation state:', {
-            pressAnimationActive,
-            pressAnimationSlot,
-            pressAnimationShiftType,
-            isDragging: isDraggingRef.current
-        });
+        console.log('[useShiftDragAndDrop] handleItemRelease called');
         
-        // Останавливаем анимацию, если она есть
+        // Очищаем таймер долгого нажатия
         if (pressTimerRef.current) {
-            console.log('[useShiftDragAndDrop] Clearing press timer');
             clearTimeout(pressTimerRef.current);
             pressTimerRef.current = null;
         }
@@ -201,42 +326,21 @@ export const useShiftDragAndDrop = ({
         setPressAnimationSlot(null);
         setPressAnimationShiftType(null);
         
-        // Проверяем наличие элементов с классом dragging
+        // Удаляем класс dragging со всех элементов
         const draggingElements = document.querySelectorAll('.dragging');
-        console.log(`[useShiftDragAndDrop] Found ${draggingElements.length} elements with dragging class`);
+        draggingElements.forEach(el => {
+            el.classList.remove('dragging');
+        });
         
-        if (isDraggingRef.current) {
-            console.log('[useShiftDragAndDrop] Stopping drag operation, isDraggingRef was true');
-            isDraggingRef.current = false;
-            
-            // Очищаем обработчики событий на document - не делаем это здесь, так как
-            // эти обработчики не доступны в этом контексте
-            console.log('[useShiftDragAndDrop] Note: Event listeners should be cleaned up elsewhere');
-            
-            // Убираем класс dragging со всех элементов, у которых он есть
-            document.querySelectorAll('.dragging').forEach(el => {
-                console.log('[useShiftDragAndDrop] Removing dragging class from element:', el);
-                el.classList.remove('dragging');
-            });
-        } else if (draggingElements.length > 0) {
-            console.log('[useShiftDragAndDrop] Drag ref was false but found dragging elements, cleaning up');
-            
-            draggingElements.forEach(el => {
-                console.log('[useShiftDragAndDrop] Removing dragging class from orphaned element:', el);
-                el.classList.remove('dragging');
-            });
-        }
-    }, [
-        pressAnimationActive, 
-        pressAnimationSlot, 
-        pressAnimationShiftType, 
-        isDraggingRef,
-        pressTimerRef
-    ]);
+        // Удаляем глобальные обработчики
+        document.removeEventListener('mouseup', handleItemRelease);
+        document.removeEventListener('mouseleave', handleItemRelease);
+        document.removeEventListener('touchend', handleItemRelease);
+        document.removeEventListener('touchcancel', handleItemRelease);
+    }, []);
 
     // Хелперы для props react-beautiful-dnd
     const getDraggableProps = useCallback((provided: DraggableProvided) => {
-        console.log('[useShiftDragAndDrop] Getting draggable props');
         return {
             ...provided.draggableProps,
             ...provided.dragHandleProps,
@@ -245,7 +349,6 @@ export const useShiftDragAndDrop = ({
     }, []);
 
     const getDroppableProps = useCallback((provided: DroppableProvided) => {
-        console.log('[useShiftDragAndDrop] Getting droppable props');
         return {
             ...provided.droppableProps,
             ref: provided.innerRef,
@@ -259,6 +362,7 @@ export const useShiftDragAndDrop = ({
         pressAnimationActive,
         pressAnimationSlot,
         pressAnimationShiftType,
+        isDragging,
         getDraggableProps,
         getDroppableProps,
     };

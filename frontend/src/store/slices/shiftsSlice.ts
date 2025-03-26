@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { socketService } from '../../services/socket';
 import config from '../../config';
+import { format } from 'date-fns';
 
 // Импортируем действия из резервов для удаления оттуда при записи на смену
 import { removeFromReserve, forceFetchReserves } from './reservesSlice';
@@ -17,6 +18,7 @@ interface ShiftState {
     shifts: CourierShift[];
     loading: boolean;
     error: string | null;
+    shift_days: ShiftDayType[];
 }
 
 interface CourierShift {
@@ -53,10 +55,87 @@ interface ShiftBookedPayload {
     is_senior_courier?: boolean;
 }
 
+// Обновим интерфейс ShiftDayType для включения дополнительных полей
+interface ShiftDayType {
+    date: string;
+    day_shifts: ShiftType[];
+    night_shifts: ShiftType[];
+    // Другие поля, если есть
+}
+
+// Обновим интерфейс для локальных данных, которые приходят из компонента
+interface ShiftTypeLocal {
+    id?: string;
+    userId?: string | number;
+    user_id?: string | number;
+    photo_url?: string | null;
+    firstName?: string;
+    first_name?: string;
+    lastName?: string;
+    last_name?: string;
+    isSeniorCourier?: boolean;
+    is_senior_courier?: boolean;
+    slotIndex?: number;
+    slot_index?: number;
+    date?: string;
+    shift_type?: 'day' | 'night';
+}
+
+// Обновим интерфейс ShiftType для включения всех необходимых полей
+interface ShiftType {
+    id?: string;
+    user_id: string | number;
+    photo_url?: string | null;
+    first_name?: string;
+    last_name?: string;
+    is_senior_courier?: boolean;
+    slot_index: number;
+    date?: string;
+    shift_type?: 'day' | 'night';
+    // Другие поля, если есть
+}
+
 const initialState: ShiftState = {
     shifts: [],
     loading: false,
-    error: null
+    error: null,
+    shift_days: []
+};
+
+// Глобальный EventEmitter для синхронизации компонентов
+export const shiftEvents = {
+  listeners: new Map<string, Set<Function>>(),
+  
+  emit(event: string, data: any) {
+    console.log(`[shiftEvents] 📣 Emitting event ${event}:`, data);
+    const listeners = this.listeners.get(event);
+    if (listeners) {
+      listeners.forEach(listener => {
+        try {
+          listener(data);
+        } catch (error) {
+          console.error(`[shiftEvents] Error in listener for ${event}:`, error);
+        }
+      });
+    }
+  },
+  
+  on(event: string, callback: Function) {
+    console.log(`[shiftEvents] 👂 Adding listener for ${event}`);
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
+    
+    // Возвращаем функцию отписки
+    return () => {
+      console.log(`[shiftEvents] 🚫 Removing listener for ${event}`);
+      const listeners = this.listeners.get(event);
+      if (listeners) {
+        listeners.delete(callback);
+      }
+    };
+  }
 };
 
 // Асинхронные thunks
@@ -156,6 +235,15 @@ export const bookShift = createAsyncThunk(
                     
                     // Обновляем список резервов
                     dispatch(forceFetchReserves());
+                    
+                    // Эмитируем событие о переходе из резерва в смену для синхронизации компонентов
+                    shiftEvents.emit('userMovedFromReserveToShift', {
+                        userId: bookingData.userId,
+                        date: bookingData.date,
+                        chatId: bookingData.chatId,
+                        shiftType: bookingData.shiftType,
+                        slotIndex: bookingData.slotIndex
+                    });
                     
                     console.log('[shiftsSlice] User successfully removed from reserve');
                 } catch (reserveError) {
@@ -466,7 +554,142 @@ const shiftsSlice = createSlice({
             } else {
                 console.log('[shiftsSlice] Warning: Incomplete data for shift cancellation:', action.payload);
             }
-        }
+        },
+        // Удаление курьера из дневной смены
+        removeDayShift: (state, action: PayloadAction<{ userId: string, slotIndex: number }>) => {
+            console.log('shiftsSlice: Removing day shift', action.payload);
+            // Находим день в массиве shift_days
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
+            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+
+            if (dayIndex !== -1) {
+                const day = state.shift_days[dayIndex];
+                // Фильтруем дневные смены
+                day.day_shifts = day.day_shifts.filter((shift: ShiftType) => 
+                    !(String(shift.user_id) === String(action.payload.userId) && 
+                      shift.slot_index === action.payload.slotIndex)
+                );
+                state.shift_days[dayIndex] = day;
+            }
+        },
+
+        // Удаление курьера из ночной смены
+        removeNightShift: (state, action: PayloadAction<{ userId: string, slotIndex: number }>) => {
+            console.log('shiftsSlice: Removing night shift', action.payload);
+            // Находим день в массиве shift_days
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
+            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+
+            if (dayIndex !== -1) {
+                const day = state.shift_days[dayIndex];
+                // Фильтруем ночные смены
+                day.night_shifts = day.night_shifts.filter((shift: ShiftType) => 
+                    !(String(shift.user_id) === String(action.payload.userId) && 
+                      shift.slot_index === action.payload.slotIndex)
+                );
+                state.shift_days[dayIndex] = day;
+            }
+        },
+
+        // Удаление пользователя из всех смен
+        removeUserFromAllShifts: (state, action: PayloadAction<{ userId: string }>) => {
+            console.log('shiftsSlice: Removing user from all shifts', action.payload);
+            // Находим день в массиве shift_days
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
+            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+
+            if (dayIndex !== -1) {
+                const day = state.shift_days[dayIndex];
+                // Удаляем пользователя из всех смен
+                day.day_shifts = day.day_shifts.filter((shift: ShiftType) => 
+                    String(shift.user_id) !== String(action.payload.userId)
+                );
+                day.night_shifts = day.night_shifts.filter((shift: ShiftType) => 
+                    String(shift.user_id) !== String(action.payload.userId)
+                );
+                state.shift_days[dayIndex] = day;
+            }
+        },
+
+        // Добавление смены в дневной слот
+        addDayShift: (state, action: PayloadAction<ShiftTypeLocal>) => {
+            console.log('shiftsSlice: Adding day shift', action.payload);
+            // Находим день в массиве shift_days
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
+            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+
+            if (dayIndex !== -1) {
+                const day = state.shift_days[dayIndex];
+                
+                // Конвертируем формат данных из локального состояния в формат Redux
+                const shiftData: ShiftType = {
+                    id: action.payload.id,
+                    user_id: action.payload.user_id || action.payload.userId || '',
+                    photo_url: action.payload.photo_url,
+                    first_name: action.payload.first_name || action.payload.firstName || '',
+                    last_name: action.payload.last_name || action.payload.lastName || '',
+                    is_senior_courier: action.payload.is_senior_courier || action.payload.isSeniorCourier || false,
+                    slot_index: action.payload.slot_index || action.payload.slotIndex || 0,
+                    date: currentDate,
+                    shift_type: 'day'
+                };
+                
+                // Проверяем наличие дубликатов
+                const existingShiftIndex = day.day_shifts.findIndex((shift: ShiftType) => 
+                    String(shift.user_id) === String(shiftData.user_id) && 
+                    shift.slot_index === shiftData.slot_index
+                );
+                
+                // Если такая смена уже есть, обновляем её, иначе добавляем новую
+                if (existingShiftIndex !== -1) {
+                    day.day_shifts[existingShiftIndex] = shiftData;
+                } else {
+                    day.day_shifts.push(shiftData);
+                }
+                
+                state.shift_days[dayIndex] = day;
+            }
+        },
+
+        // Добавление смены в ночной слот
+        addNightShift: (state, action: PayloadAction<ShiftTypeLocal>) => {
+            console.log('shiftsSlice: Adding night shift', action.payload);
+            // Находим день в массиве shift_days
+            const currentDate = format(new Date(), 'yyyy-MM-dd');
+            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+
+            if (dayIndex !== -1) {
+                const day = state.shift_days[dayIndex];
+                
+                // Конвертируем формат данных из локального состояния в формат Redux
+                const shiftData: ShiftType = {
+                    id: action.payload.id,
+                    user_id: action.payload.user_id || action.payload.userId || '',
+                    photo_url: action.payload.photo_url,
+                    first_name: action.payload.first_name || action.payload.firstName || '',
+                    last_name: action.payload.last_name || action.payload.lastName || '',
+                    is_senior_courier: action.payload.is_senior_courier || action.payload.isSeniorCourier || false,
+                    slot_index: action.payload.slot_index || action.payload.slotIndex || 0,
+                    date: currentDate,
+                    shift_type: 'night'
+                };
+                
+                // Проверяем наличие дубликатов
+                const existingShiftIndex = day.night_shifts.findIndex((shift: ShiftType) => 
+                    String(shift.user_id) === String(shiftData.user_id) && 
+                    shift.slot_index === shiftData.slot_index
+                );
+                
+                // Если такая смена уже есть, обновляем её, иначе добавляем новую
+                if (existingShiftIndex !== -1) {
+                    day.night_shifts[existingShiftIndex] = shiftData;
+                } else {
+                    day.night_shifts.push(shiftData);
+                }
+                
+                state.shift_days[dayIndex] = day;
+            }
+        },
     },
     extraReducers: (builder) => {
         builder

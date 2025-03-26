@@ -44,39 +44,153 @@ def load_reserves() -> List[Dict]:
 def save_reserves(reserves: List[Dict]):
     """Сохраняет все резервы в файл с атомарной записью"""
     try:
+        logger.info(f"💾 Сохранение {len(reserves)} резервов в файл {RESERVES_FILE}")
+        
+        # Выводим первые 3 резерва для отладки
+        sample_reserves = reserves[:min(3, len(reserves))] if reserves else []
+        logger.info(f"📊 Примеры резервов для сохранения: {json.dumps(sample_reserves, ensure_ascii=False)}")
+        
         # Создаем резервную копию текущего файла (если он существует)
         if os.path.exists(RESERVES_FILE):
             try:
-                shutil.copy2(RESERVES_FILE, f"{RESERVES_FILE}.bak")
+                backup_path = str(RESERVES_FILE) + '.bak'
+                shutil.copy2(RESERVES_FILE, backup_path)
+                logger.info(f"📑 Создана резервная копия файла резервов: {backup_path}")
             except Exception as e:
-                logger.error(f"Ошибка при создании резервной копии: {e}")
+                logger.error(f"❌ Ошибка при создании резервной копии: {e}")
         
+        # Проверяем, существует ли директория, и создаем её при необходимости
+        directory = os.path.dirname(RESERVES_FILE)
+        logger.info(f"📁 Директория для сохранения: {directory}")
+        if not os.path.exists(directory):
+            os.makedirs(directory, exist_ok=True)
+            logger.info(f"📁 Создана директория для хранения резервов: {directory}")
+            
         # Атомарная запись через временный файл
         try:
             # Создаем временный файл в том же каталоге для атомарной записи
-            directory = os.path.dirname(RESERVES_FILE)
-            fd, temp_path = tempfile.mkstemp(dir=directory)
+            fd, temp_path = tempfile.mkstemp(dir=directory, suffix='.json.tmp')
+            logger.info(f"📄 Создан временный файл для атомарной записи: {temp_path}")
             
             try:
-                with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                    json.dump(reserves, f, ensure_ascii=False, indent=2)
+                # Подготавливаем JSON данные
+                json_data = json.dumps(reserves, ensure_ascii=False, indent=2)
+                logger.info(f"📊 Размер JSON данных: {len(json_data)} байт")
                 
-                # На Windows может потребоваться удалить целевой файл перед переименованием
-                if os.name == 'nt' and os.path.exists(RESERVES_FILE):
-                    os.replace(temp_path, RESERVES_FILE)
+                # Записываем данные в файл
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write(json_data)
+                    f.flush()  # Принудительная запись на диск
+                    os.fsync(f.fileno())  # Синхронизация с диском
+                    logger.info(f"✅ Данные успешно записаны во временный файл")
+                
+                # Проверяем, что временный файл создан и содержит данные
+                if os.path.exists(temp_path):
+                    temp_size = os.path.getsize(temp_path)
+                    logger.info(f"✅ Временный файл создан, размер: {temp_size} байт")
+                    
+                    # Проверяем содержимое временного файла
+                    try:
+                        with open(temp_path, 'r', encoding='utf-8') as f:
+                            temp_content = f.read()
+                            # Проверяем базовый размер
+                            if len(temp_content) < 10 and len(reserves) > 0:
+                                logger.error(f"❌ Подозрительно маленький размер временного файла: {len(temp_content)} байт")
+                                raise ValueError("Неполная запись временного файла")
+                            
+                            # Проверяем валидность JSON
+                            json.loads(temp_content)
+                            logger.info("✅ Валидация JSON прошла успешно")
+                    except json.JSONDecodeError as json_err:
+                        logger.error(f"❌ Временный файл содержит невалидный JSON: {json_err}")
+                        raise json_err
                 else:
-                    # Атомарная операция переименования
-                    os.rename(temp_path, RESERVES_FILE)
+                    logger.error(f"❌ Временный файл не существует после записи: {temp_path}")
+                    raise IOError("Временный файл не создан")
+                
+                # Атомарная операция переименования с учетом платформы
+                try:
+                    # На Windows может потребоваться удалить целевой файл перед переименованием
+                    if os.name == 'nt' and os.path.exists(RESERVES_FILE):
+                        logger.info(f"🔄 Используем os.replace для Windows")
+                        # Проверяем существование целевого файла перед удалением
+                        if os.path.exists(RESERVES_FILE):
+                            # На всякий случай делаем еще одну резервную копию перед заменой
+                            try:
+                                emergency_backup = str(RESERVES_FILE) + '.emergency'
+                                shutil.copy2(RESERVES_FILE, emergency_backup)
+                                logger.info(f"📑 Создана экстренная копия перед заменой: {emergency_backup}")
+                            except Exception as bk_err:
+                                logger.warning(f"⚠️ Не удалось создать экстренную копию: {bk_err}")
+                        
+                        os.replace(temp_path, RESERVES_FILE)
+                        logger.info(f"✅ Файл успешно заменен (Windows)")
+                    else:
+                        # Атомарная операция переименования на POSIX
+                        logger.info(f"🔄 Используем os.rename для POSIX")
+                        os.rename(temp_path, RESERVES_FILE)
+                        logger.info(f"✅ Файл успешно переименован (POSIX)")
+                except Exception as rename_err:
+                    logger.error(f"❌ Ошибка при переименовании файла: {rename_err}")
+                    # Пробуем аварийное копирование содержимого
+                    try:
+                        logger.info(f"🔄 Пробуем аварийное копирование содержимого...")
+                        with open(temp_path, 'r', encoding='utf-8') as src:
+                            content = src.read()
+                        with open(RESERVES_FILE, 'w', encoding='utf-8') as dst:
+                            dst.write(content)
+                            dst.flush()
+                            os.fsync(dst.fileno())
+                        logger.info(f"✅ Аварийное копирование успешно выполнено")
+                    except Exception as copy_err:
+                        logger.error(f"❌ Ошибка при аварийном копировании: {copy_err}")
+                        raise copy_err
+                
+                # Проверяем, что файл действительно был создан/обновлен
+                if os.path.exists(RESERVES_FILE):
+                    file_size = os.path.getsize(RESERVES_FILE)
+                    logger.info(f"✅ Файл резервов успешно сохранен, размер: {file_size} байт")
+                    
+                    # Читаем сохраненный файл и проверяем содержимое
+                    try:
+                        with open(RESERVES_FILE, 'r', encoding='utf-8') as f:
+                            saved_data = json.load(f)
+                            logger.info(f"✅ Успешно прочитано {len(saved_data)} резервов из сохраненного файла")
+                    except Exception as read_err:
+                        logger.error(f"❌ Ошибка при чтении сохраненного файла: {read_err}")
+                else:
+                    logger.error(f"❌ Файл {RESERVES_FILE} не существует после сохранения!")
                     
             except Exception as e:
-                os.unlink(temp_path)  # Удаляем временный файл в случае ошибки
+                logger.error(f"❌ Ошибка при записи в файл: {e}")
+                if os.path.exists(temp_path):
+                    try:
+                        os.unlink(temp_path)  # Удаляем временный файл в случае ошибки
+                        logger.info(f"🧹 Временный файл {temp_path} удален после ошибки")
+                    except Exception as unlink_err:
+                        logger.warning(f"⚠️ Не удалось удалить временный файл: {unlink_err}")
+                import traceback
+                logger.error(f"📊 Трассировка ошибки:\n{traceback.format_exc()}")
                 raise e
                 
         except Exception as e:
-            logger.error(f"Ошибка при сохранении файла резервов: {e}")
-            raise e
+            logger.error(f"❌ Ошибка при создании временного файла: {e}")
+            
+            # Попытка прямой записи при сбое временного файла
+            try:
+                logger.info(f"🔄 Пробуем прямую запись в файл без временного файла...")
+                with open(RESERVES_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(reserves, f, ensure_ascii=False, indent=2)
+                    f.flush()
+                    os.fsync(f.fileno())
+                logger.info(f"✅ Прямая запись успешно выполнена")
+            except Exception as direct_err:
+                logger.error(f"❌ Ошибка при прямой записи: {direct_err}")
+                raise direct_err
     except Exception as e:
-        logger.error(f"Error saving reserves: {e}")
+        logger.error(f"❌ Критическая ошибка при сохранении резервов: {e}")
+        import traceback
+        logger.error(f"📊 Полная трассировка ошибки:\n{traceback.format_exc()}")
 
 def get_all_reserves() -> List[Dict]:
     """Получает все резервы"""

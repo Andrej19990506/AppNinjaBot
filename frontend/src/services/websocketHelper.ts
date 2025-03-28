@@ -79,16 +79,15 @@ export function joinChatRoom(chatId: string, userInfo: any): void {
     if (!socketService.isConnected()) {
         console.warn('⚠️ [WebSocketHelper] WebSocket не подключен');
         socketService.connect()
-            .then(connected => {
-                if (connected) {
-                    console.log('✅ [WebSocketHelper] WebSocket подключен, присоединяемся к комнате');
-                    socketService.emit('join', { 
-                        chat_id: chatId, 
-                        user_info: userInfo
-                    });
-                } else {
-                    console.error('❌ [WebSocketHelper] Не удалось подключить WebSocket');
-                }
+            .then(() => {
+                console.log('✅ [WebSocketHelper] WebSocket подключение выполнено, присоединяемся к комнате');
+                socketService.emit('join', { 
+                    chat_id: chatId, 
+                    user_info: userInfo
+                });
+            })
+            .catch(error => {
+                console.error('❌ [WebSocketHelper] Ошибка при подключении WebSocket:', error);
             });
     } else {
         socketService.emit('join', { 
@@ -112,9 +111,25 @@ export function leaveChatRoom(chatId: string, userInfo: any): void {
     }
 }
 
+/**
+ * Присоединение к комнате курьеров через WebSocket
+ */
+export function joinCourierRoom(chatId: string, userInfo: any): void {
+    console.log(`🔌 [WebSocketHelper] Присоединение к комнате курьеров: ${chatId}`);
+    
+    if (!chatId) {
+        console.error('❌ [WebSocketHelper] Отсутствует chatId для присоединения к комнате курьеров');
+        return;
+    }
+    
+    // Используем метод socketService
+    socketService.joinCourierRoom(chatId, userInfo);
+}
+
 export default {
     subscribeToEvent,
     unsubscribeFromEvent,
     joinChatRoom,
-    leaveChatRoom
+    leaveChatRoom,
+    joinCourierRoom
 }; 

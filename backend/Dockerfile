@@ -10,19 +10,20 @@ RUN pip install --no-cache-dir -r requirements.txt --timeout 180
 # Создаем необходимые директории
 RUN mkdir -p /app/data/templates \
     && mkdir -p /app/data/inventory \
+    && mkdir -p /app/data/scheduler \
     && mkdir -p /app/telegramNinjaBot/data
 
 # Устанавливаем PYTHONPATH
 ENV PYTHONPATH=/app
 
-# Копируем все файлы приложения
-COPY . .
-
 # Копируем шаблон инвентаризации
 COPY data/templates/inventory_template.json /app/data/templates/
 
 FROM base as development
+# В development stage копируем все файлы
+COPY . .
 CMD ["python", "-u", "app.py"]
 
 FROM base as production
-CMD ["python", "app.py"] 
+# В production stage не копируем файлы, они будут монтироваться через volumes
+CMD ["python", "scheduler/app.py"] 

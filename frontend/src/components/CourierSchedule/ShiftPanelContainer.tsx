@@ -17,7 +17,7 @@ import { useShiftDragAndDrop } from '../../hooks/useShiftDragAndDrop';
 // Импортируем компоненты
 import ShiftSlot from './components/ShiftSlot';
 import ShiftConfirmationDialog from './components/ShiftConfirmationDialog';
-import CourierProfileDialog from '../CourierProfileDialog/CourierProfileDialog';
+
 
 // Интерфейсы
 interface ShiftSlotLocal {
@@ -1129,15 +1129,15 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                 uiState.pendingShift.existingShiftId
             );
             
-            // Закрываем окно подтверждения
-            uiState.closeConfirmation();
+            // Не закрываем окно подтверждения сразу, а показываем сообщение об успехе
+            // Закрытие произойдет только после нажатия кнопки OK в SuccessOverlay
             
             console.log('[ShiftPanel] Slot selection successful');
             
         } catch (error) {
-            console.error('[ShiftPanel] Error confirming shift:', error);
+            console.error('[ShiftPanel] Error in handleConfirmShift:', error);
             
-            // Закрываем окно подтверждения в случае ошибки
+            // В случае ошибки закрываем окно подтверждения
             uiState.closeConfirmation();
         }
     }, [uiState, onSlotSelect]);
@@ -1960,123 +1960,116 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         }, 100);
     };
 
+    // Добавляем обработчики для DragDropContext
+    const handleDragStart = useCallback((initial: any) => {
+        console.log('[ShiftPanel] DragDropContext onDragStart', initial);
+    }, []);
+
+    const handleDragEnd = useCallback((result: DropResult) => {
+        console.log('[ShiftPanel] DragDropContext onDragEnd', result);
+        if (!result.destination) return;
+        
+        const { source, destination, draggableId } = result;
+        
+        // Получаем тип и индекс источника и назначения
+        const sourceType = source.droppableId === 'day-shift' ? 'day' : 'night';
+        const destType = destination.droppableId === 'day-shift' ? 'day' : 'night';
+        
+        // Получаем индексы слотов
+        const sourceIndex = source.index;
+        const destIndex = destination.index;
+        
+        // Получаем ID курьера
+        const courierId = draggableId;
+        
+        // Если есть функция обработки перемещения, вызываем её
+        if (onSlotSelect) {
+            onSlotSelect(destType, destIndex, courierId, true);
+        }
+    }, [onSlotSelect]);
+
     return (
         <>
             <GlobalStyles />
             <DragDropContext 
-                onDragStart={(initial) => {
-                    console.log('[ShiftPanel] DragDropContext onDragStart', initial);
-                    // Можно делегировать оригинальной функции если нужно
-                }}
-                onDragEnd={(result) => {
-                    console.log('[ShiftPanel] DragDropContext onDragEnd', result);
-                    if (!result.destination) return;
-                    
-                    const { source, destination, draggableId } = result;
-                    
-                    // Получаем тип и индекс источника и назначения
-                    const sourceType = source.droppableId === 'day-shift' ? 'day' : 'night';
-                    const destType = destination.droppableId === 'day-shift' ? 'day' : 'night';
-                    
-                    // Получаем индексы слотов
-                    const sourceIndex = source.index;
-                    const destIndex = destination.index;
-                    
-                    // Получаем ID курьера
-                    const courierId = draggableId;
-                    
-                    // Если есть функция обработки перемещения, вызываем её
-                    if (onSlotSelect) {
-                        onSlotSelect(destType, destIndex, courierId, true);
-                    }
-                }}
-        >
-            <React.Fragment key="shift-panel-root">
-                <DialogHeader>
-                    <DialogTitle>Выбор смены</DialogTitle>
-                    <DialogDate>{format(date, 'dd MMMM yyyy', { locale: ru })}</DialogDate>
-                </DialogHeader>
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
+                <React.Fragment key="shift-panel-root">
+                    {/* Показываем либо основной контент, либо диалог подтверждения */}
+                    {uiState.confirmationOpen ? (
+                        <ShiftConfirmationDialog
+                            date={date}
+                            pendingShift={uiState.pendingShift}
+                            onConfirm={handleConfirmShift}
+                            onCancel={() => uiState.closeConfirmation()}
+                            isOpen={true}
+                            userName={currentUserName}
+                            userAvatar={currentUserAvatar}
+                        />
+                    ) : (
+                        <>
+                            <ShiftSection key="day-shift-section">
+                                <ShiftTitle>
+                                    <ShiftIcon>☀️</ShiftIcon> Дневная смена
+                                </ShiftTitle>
+                                <Droppable droppableId="day-shift">
+                                    {(provided) => (
+                                        <SlotsGrid
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            style={{ minHeight: '80px' }}
+                                        >
+                                            {renderSlots('day', maxDaySlots)}
+                                            {provided.placeholder}
+                                        </SlotsGrid>
+                                    )}
+                                </Droppable>
+                            </ShiftSection>
 
-                <ShiftSection key="day-shift-section">
-                    <ShiftTitle>
-                        <ShiftIcon>☀️</ShiftIcon> Дневная смена
-                    </ShiftTitle>
-                    <Droppable droppableId="day-shift">
-                        {(provided) => (
-                            <SlotsGrid
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                style={{ minHeight: '80px' }}
-                            >
-                                {renderSlots('day', maxDaySlots)}
-                                {provided.placeholder}
-                            </SlotsGrid>
-                        )}
-                    </Droppable>
-                </ShiftSection>
+                            <ShiftSection key="night-shift-section">
+                                <ShiftTitle>
+                                    <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
+                                </ShiftTitle>
+                                <Droppable droppableId="night-shift">
+                                    {(provided) => (
+                                        <SlotsGrid
+                                            ref={provided.innerRef}
+                                            {...provided.droppableProps}
+                                            style={{ minHeight: '80px' }}
+                                        >
+                                            {renderSlots('night', maxNightSlots)}
+                                            {provided.placeholder}
+                                        </SlotsGrid>
+                                    )}
+                                </Droppable>
+                            </ShiftSection>
 
-                <ShiftSection key="night-shift-section">
-                    <ShiftTitle>
-                        <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
-                    </ShiftTitle>
-                    <Droppable droppableId="night-shift">
-                        {(provided) => (
-                            <SlotsGrid
-                                    ref={provided.innerRef}
-                                    {...provided.droppableProps}
-                                style={{ minHeight: '80px' }}
-                            >
-                                {renderSlots('night', maxNightSlots)}
-                                {provided.placeholder}
-                            </SlotsGrid>
-                        )}
-                    </Droppable>
-                </ShiftSection>
+                            {/* Подсказки */}
+                            {isCurrentUserSenior && (
+                                <SeniorHint>
+                                    Вы - старший курьер. У вас есть возможность управлять сменами других курьеров.
+                                </SeniorHint>
+                            )}
+                            
+                            {!isCurrentUserSenior && (
+                                <LongPressHint>
+                                    Совет: Удерживайте аватар курьера для просмотра расширенного профиля
+                                </LongPressHint>
+                            )}
+                            
+                            {isFullyBooked && !userHasShift && (
+                                <NoSlotsMessage key="no-slots-message">
+                                    Все смены уже заняты.<br/>
+                                    Вы можете записаться в резерв.
+                                </NoSlotsMessage>
+                            )}
+                        </>
+                    )}
 
-                {/* Подсказка для старших курьеров */}
-                {isCurrentUserSenior && (
-                    <SeniorHint>
-                        Вы - старший курьер. У вас есть возможность управлять сменами других курьеров.
-                    </SeniorHint>
-                )}
-                
-                {/* Обычная подсказка о долгом нажатии для обычных курьеров */}
-                {!isCurrentUserSenior && (
-                    <LongPressHint>
-                            Совет: Удерживайте аватар курьера для просмотра расширенного профиля
-                    </LongPressHint>
-                )}
-                
-                {isFullyBooked && !userHasShift && (
-                    <NoSlotsMessage key="no-slots-message">
-                        Все смены уже заняты.<br/>
-                        Вы можете записаться в резерв.
-                    </NoSlotsMessage>
-                )}
-                
-                {/* Диалог профиля курьера (при долгом нажатии) */}
-                {uiState.selectedCourier && (
-                    <CourierProfileDialog
-                        open={uiState.profileDialogOpen}
-                        onClose={() => uiState.closeProfileDialog()}
-                        courierId={Number(uiState.selectedCourier.id)}
-                        courierName={uiState.selectedCourier.name}
-                        courierAvatar={uiState.selectedCourier.avatar}
-                        chatId={chatId}
-                        isSeniorCourier={uiState.selectedCourier.isSeniorCourier}
-                    />
-                )}
-                
-                {/* Модальное окно подтверждения записи на смену */}
-                <ShiftConfirmationDialog
-                    date={date}
-                    pendingShift={uiState.pendingShift}
-                    onConfirm={handleConfirmShift}
-                    onCancel={() => uiState.closeConfirmation()}
-                    isOpen={uiState.confirmationOpen}
-                />
-            </React.Fragment>
-        </DragDropContext>
+
+                </React.Fragment>
+            </DragDropContext>
         </>
     );
 };

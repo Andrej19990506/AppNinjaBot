@@ -26,9 +26,12 @@ import subprocess
 from decimal import Decimal
 from typing import Dict, List, Optional, Union, Any
 import urllib.parse
+from routers.notifications import notifications_bp
 from routers.shifts import router as shifts_router
-from data.reserves import add_reserve as db_add_reserve, delete_reserve as db_delete_reserve, get_reserve
-import hashlib  # Добавим импорт в начало файла, если его еще нет
+from services import CourierService
+from telegramNinjaBot.bot import bot_application
+# Импортируем маршруты для настроек доступа к сменам
+from api.shifts.routes import shifts_bp as shifts_access_bp
 
 # Импортируем функции WebSocket из модуля
 from ws_module.broadcasters import (
@@ -44,7 +47,7 @@ from ws_module.broadcasters import (
 # import ws_module.events
 # Прямой импорт функции регистрации обработчиков событий вебсокета
 from ws_module.events import register_handlers
-from ws_module.rooms import active_users, GLOBAL_ROOM, CHAT_ROOM_PREFIX, join_user_to_room, update_user_in_room, remove_user_from_room, get_active_users_in_room, cleanup_inactive_users
+from ws_module.rooms import active_users, GLOBAL_ROOM, CHAT_ROOM_PREFIX, join_user_to_room, update_user_in_room, remove_user_from_room, get_active_users_in_room, cleanup_inactive_users, get_courier_room_name
 
 # Импортируем ItemHistory из нового модуля data.history
 from data.history import ItemHistory
@@ -74,8 +77,8 @@ CORS(app, resources={
     r"/api/*": {
         "origins": [
             "http://localhost:3000",
-            "https://nowhere-permissions-finder-conscious.trycloudflare.com ",
-            "https://consequently-iowa-brought-slide.trycloudflare.com",
+            "https://reform-hand-simple-invisible.trycloudflare.com",
+            "https://pearl-roy-hugo-equity.trycloudflare.com"
         ],
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"]
@@ -85,36 +88,25 @@ CORS(app, resources={
 # Регистрируем маршруты для смен
 app.register_blueprint(shifts_router, name='shifts_initial')
 
+# Регистрируем маршруты для уведомлений
+app.register_blueprint(notifications_bp)
+
 # Регистрируем API маршруты
 app.register_blueprint(api_bp)
+
+# Регистрируем маршруты для настроек доступа к сменам
+app.register_blueprint(shifts_access_bp, url_prefix='/api/shifts')
 
 # Регистрируем маршруты для курьеров - больше не нужно, т.к. курьеры зарегистрированы внутри api_bp
 # app.register_blueprint(couriers_bp, url_prefix='/api')
 
-# Инициализация Socket.IO с правильными настройками
-socketio = SocketIO(
-    app,
-    cors_allowed_origins=[
-        "https://nowhere-permissions-finder-conscious.trycloudflare.com ",
-        "https://consequently-iowa-brought-slide.trycloudflare.com",
-        "http://localhost:3000"
-    ],
-    async_mode='gevent',
-    path='/socket.io',  # Убираем /ws/ из пути
-    ping_timeout=60,    # Увеличиваем таймауты
-    ping_interval=25,
-    logger=True,
-    engineio_logger=True,
-    max_http_buffer_size=1e8,
-    async_handlers=True,
-    transports=['websocket', 'polling'],
-    always_connect=True,
-    manage_session=True,
-    upgrade_timeout=60000,
-    allow_upgrades=True,
-    cookie=None,
-    cors_credentials=True
-)
+# Исходное объявление socketio
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent', logger=True)
+socketio_instance = socketio  # Экспортируем для других модулей
+
+# Также делаем доступным через app
+app.socketio = socketio
+logger.info(f"🌐 SocketIO instance initialized with id {id(socketio)}")
 
 # Регистрируем все обработчики событий WebSocket
 register_handlers(socketio)
@@ -126,6 +118,8 @@ active_users = {}
 GLOBAL_ROOM = 'inventory_global'  # Общая комната для всех чатов
 CHAT_ROOM_PREFIX = 'inventory_'   # Префикс для комнат конкретных чатов
 
+# Инициализация сервисов
+courier_service = CourierService()
 
 @app.before_request
 def handle_preflight():
@@ -135,8 +129,8 @@ def handle_preflight():
         origin = request.headers.get('Origin', '')
         # Проверяем, что origin в списке разрешенных
         allowed_origins = [
-            "https://nowhere-permissions-finder-conscious.trycloudflare.com ",
-            "https://consequently-iowa-brought-slide.trycloudflare.com",
+            "https://reform-hand-simple-invisible.trycloudflare.com",
+            "https://pearl-roy-hugo-equity.trycloudflare.com",
             "https://constitute-handling-texas-interference.trycloudflare.com",
             "https://quiet-non-consistent-emissions.trycloudflare.com",
             "http://localhost:3000"
@@ -1978,6 +1972,10 @@ def set_cors_headers(response):
     allowed_origins = [
         "https://nowhere-permissions-finder-conscious.trycloudflare.com",
         "https://consequently-iowa-brought-slide.trycloudflare.com",
+        "https://reform-hand-simple-invisible.trycloudflare.com",
+        "https://pearl-roy-hugo-equity.trycloudflare.com",
+        "https://constitute-handling-texas-interference.trycloudflare.com",
+        "https://quiet-non-consistent-emissions.trycloudflare.com",
         "http://localhost:3000"
     ]
     if origin in allowed_origins:
@@ -2161,6 +2159,260 @@ app.register_blueprint(shifts_router, name='shifts_api')
 # и доступен по адресу /api/couriers/<int:user_id>/groups
 # Импорт и регистрация couriers_bp происходят через api_bp
 
+# Регистрируем обработчики WebSocket-событий
+from ws_module import register_handlers, check_handlers
+register_handlers(socketio)
+
+# Выполняем проверку зарегистрированных обработчиков после их регистрации
+logger.info("========== ПРОВЕРКА ЗАРЕГИСТРИРОВАННЫХ ОБРАБОТЧИКОВ WEBSOCKET ==========")
+check_handlers(socketio)
+
+# Явно регистрируем обработчик для комнаты курьеров
+@socketio.on('join_courier_room')
+def direct_join_courier_room(data):
+    logger.info(f"========== ПРЯМОЙ ВЫЗОВ ОБРАБОТЧИКА join_courier_room ==========")
+    logger.info(f"Входящие данные: {data}")
+    try:
+        # Прямой импорт всего модуля events и вызов функции
+        import ws_module.events as events
+        # Проверяем наличие функции
+        if hasattr(events, 'handle_join_courier_room'):
+            logger.info("Функция handle_join_courier_room найдена в модуле events")
+            return events.handle_join_courier_room(data)
+        else:
+            # Выводим список доступных функций в модуле
+            module_functions = [name for name in dir(events) if callable(getattr(events, name)) and name.startswith('handle_')]
+            logger.error(f"Функция handle_join_courier_room НЕ найдена в модуле events. Доступные функции: {module_functions}")
+            return {"status": "error", "message": "Обработчик join_courier_room не найден в системе"}
+    except Exception as e:
+        logger.error(f"Ошибка при вызове handle_join_courier_room: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"status": "error", "message": str(e)}
+
+# Логирование всех входящих событий Socket.IO
+@socketio.on('*')
+def handle_all_events(event, data):
+    logger.info(f"⭐ ПОЛУЧЕНО SOCKET.IO СОБЫТИЕ: {event}")
+    logger.info(f"⭐ ДАННЫЕ: {data}")
+    logger.info(f"⭐ КЛИЕНТ: {request.sid}")
+    
+    # Всегда логируем входящее событие, даже если обработчик не найден
+    if event == 'connect' or event == 'disconnect':
+        return  # Не логируем стандартные события connect/disconnect, так как они часто встречаются
+        
+    try:
+        import json
+        logger.info(f"⭐ ДАННЫЕ JSON: {json.dumps(data, ensure_ascii=False)}")
+    except:
+        logger.info(f"⭐ ДАННЫЕ НЕ МОГУТ БЫТЬ ПРЕОБРАЗОВАНЫ В JSON")
+    
+    try:
+        # Проверяем, есть ли обработчик для данного события
+        handlers = socketio.handlers.get('/', {})
+        event_handler_exists = event in handlers
+        logger.info(f"⭐ ОБРАБОТЧИК ДЛЯ СОБЫТИЯ {event} {'СУЩЕСТВУЕТ' if event_handler_exists else 'НЕ СУЩЕСТВУЕТ'}")
+        
+        # Логируем все зарегистрированные обработчики
+        logger.info(f"⭐ ЗАРЕГИСТРИРОВАННЫЕ ОБРАБОТЧИКИ: {list(handlers.keys())}")
+    except Exception as e:
+        logger.error(f"⭐ ОШИБКА ПРИ ПРОВЕРКЕ ОБРАБОТЧИКОВ: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+# Прямая регистрация обработчика для join_courier_room для отладки
+@socketio.on('join_courier_room')
+def debug_join_courier_room(data):
+    logger.info(f"🔔 ПРЯМОЙ ВЫЗОВ debug_join_courier_room В APP.PY")
+    logger.info(f"🔍 ВХОДНЫЕ ДАННЫЕ: {json.dumps(data, ensure_ascii=False)}")
+    logger.info(f"🔑 SOCKET ID: {request.sid}")
+    
+    # Явно проверяем наличие chat_id в любом формате
+    chat_id = None
+    if isinstance(data, dict):
+        for key in ['chatId', 'chat_id', 'roomId', 'room_id', 'id']:
+            if key in data and data[key]:
+                chat_id = data[key]
+                logger.info(f"🔑 НАЙДЕН ИДЕНТИФИКАТОР КОМНАТЫ: {chat_id} (ключ: {key})")
+                break
+    
+    if chat_id is None and isinstance(data.get('test'), bool) and data.get('test') == True:
+        chat_id = "-1004721237800"  # Тестовый ID чата для debug
+        logger.info(f"🔧 ИСПОЛЬЗУЕМ ТЕСТОВЫЙ CHAT_ID: {chat_id}")
+    
+    # Вызываем обработчик с необходимым параметром
+    try:
+        from ws_module.events import handle_join_courier_room
+        if chat_id:
+            # Добавляем chat_id если его нет
+            if isinstance(data, dict) and not (data.get('chatId') or data.get('chat_id')):
+                data['chat_id'] = chat_id
+                data['chatId'] = chat_id
+                logger.info(f"🔧 ДОБАВЛЕН CHAT_ID В ДАННЫЕ: {chat_id}")
+        
+        logger.info(f"🔄 ВЫЗОВ ОБРАБОТЧИКА handle_join_courier_room С ДАННЫМИ: {json.dumps(data, ensure_ascii=False)}")
+        result = handle_join_courier_room(data)
+        logger.info(f"✅ РЕЗУЛЬТАТ: {json.dumps(result, ensure_ascii=False)}")
+        return result
+    except Exception as e:
+        logger.error(f"❌ ОШИБКА: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return {"status": "error", "message": str(e)}
+
+# Перехватчик для всех остальных сообщений Socket.IO, которые не имеют своего обработчика
+@socketio.on_error_default
+def default_error_handler(e):
+    logger.error(f"❌ ОШИБКА В ОБРАБОТЧИКЕ SOCKETIO: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc())
+
+# Универсальный перехватчик любых событий, не обрабатываемых явно
+def handle_any_event(event_name, *args, **kwargs):
+    logger.info(f"❓ ПОЛУЧЕНО НЕИЗВЕСТНОЕ СОБЫТИЕ: {event_name}")
+    logger.info(f"❓ АРГУМЕНТЫ: {args}")
+    logger.info(f"❓ KEYWORD ARGS: {kwargs}")
+    logger.info(f"❓ SOCKET ID: {request.sid if hasattr(request, 'sid') else 'N/A'}")
+    return {"status": "received", "message": f"Event {event_name} received but no handler found"}
+
+# Регистрируем обработчик для отлова всех событий после других регистраций
+def register_catch_all_handlers():
+    logger.info("🔍 РЕГИСТРАЦИЯ ПЕРЕХВАТЧИКА ВСЕХ СОБЫТИЙ")
+    # Получаем все зарегистрированные события
+    registered_events = []
+    
+    # Безопасно проверяем тип handlers и логируем его
+    if hasattr(socketio, 'handlers'):
+        logger.info(f"🔧 Тип объекта socketio.handlers: {type(socketio.handlers)}")
+        
+        # Разные способы получения данных в зависимости от типа
+        if isinstance(socketio.handlers, dict):
+            for namespace, handlers in socketio.handlers.items():
+                registered_events.extend(list(handlers.keys()))
+        elif isinstance(socketio.handlers, list):
+            registered_events = [f"event-{i}" for i in range(len(socketio.handlers))]
+            logger.info(f"🔧 socketio.handlers это список длиной {len(socketio.handlers)}")
+        else:
+            logger.warning(f"🔧 Неожиданный тип socketio.handlers: {type(socketio.handlers)}")
+            logger.warning(f"🔧 Директории объекта: {dir(socketio.handlers)}")
+    else:
+        logger.warning("🔧 socketio не имеет атрибута handlers")
+        logger.warning(f"🔧 Директории объекта socketio: {dir(socketio)}")
+    
+    # Логируем все найденные обработчики
+    handlers = {}
+    for rule in app.url_map.iter_rules():
+        handlers[rule.endpoint] = rule.rule
+    logger.info(f"🔍 Flask URL обработчики: {handlers}")
+    
+    # Добавляем обработчик всех событий напрямую через декоратор
+    try:
+        @socketio.on('*')
+        def catch_all(event, *args, **kwargs):
+            logger.info(f"⭐ ПОЛУЧЕНО СОБЫТИЕ '*': {event}")
+            logger.info(f"⭐ АРГУМЕНТЫ: {args}")
+            logger.info(f"⭐ KEYWORDS: {kwargs}")
+            return {"status": "received"}
+        
+        logger.info("✅ Добавлен обработчик 'catch_all'")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при добавлении обработчика 'catch_all': {str(e)}")
+    
+    logger.info(f"🔍 ЗАРЕГИСТРИРОВАННЫЕ СОБЫТИЯ: {registered_events}")
+    
+    # Пытаемся добавить универсальный обработчик другим способом
+    try:
+        socketio.on('*')(handle_any_event)
+        logger.info("✅ ОБРАБОТЧИК '*' УСПЕШНО ЗАРЕГИСТРИРОВАН")
+    except Exception as e:
+        logger.error(f"❌ ОШИБКА ПРИ РЕГИСТРАЦИИ ОБРАБОТЧИКА '*': {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+
+# Вызываем функцию напрямую
+register_catch_all_handlers()
+
+# Добавляем прямые обработчики для диагностики
+@socketio.on('join_courier_room')
+def handle_join_courier_room_app(data):
+    logger.info(f"📩 [APP.PY] ПОЛУЧЕНО СОБЫТИЕ join_courier_room: {data}")
+    
+    # Извлекаем chat_id из различных возможных полей
+    chat_id = None
+    if isinstance(data, dict):
+        chat_id = data.get('chat_id') or data.get('chatId')
+        logger.info(f"🔍 chat_id из data: {chat_id}")
+        
+        if not chat_id and 'data' in data and isinstance(data['data'], dict):
+            chat_id = data['data'].get('chat_id') or data['data'].get('chatId')
+            logger.info(f"🔍 chat_id из data.data: {chat_id}")
+    
+    logger.info(f"📋 Итоговый chat_id: {chat_id}")
+    
+    # Проверяем наличие chat_id
+    if not chat_id:
+        logger.error("❌ Не указан идентификатор чата (chat_id)")
+        emit('error', {'status': 'error', 'message': 'Не указан идентификатор чата (chat_id)'})
+        return
+        
+    # Извлекаем информацию о пользователе
+    user_info = data.get('user_info', {})
+    logger.info(f"👤 Информация о пользователе: {user_info}")
+    
+    # Формируем имя комнаты
+    room_name = get_courier_room_name(chat_id)
+    
+    logger.info(f"🏠 Пользователь присоединяется к комнате: {room_name}")
+    
+    # Присоединяем пользователя к комнате
+    try:
+        join_room(room_name)
+        logger.info(f"✅ Пользователь успешно присоединился к комнате {room_name}")
+        
+        # Добавляем пользователя в список активных пользователей комнаты
+        user_id = user_info.get('id')
+        if not user_id:
+            import uuid
+            user_id = str(uuid.uuid4())
+            user_info['id'] = user_id
+        
+        join_result = join_user_to_room(chat_id, user_id, user_info)
+        
+        # Получаем список активных пользователей комнаты
+        active_users = get_active_users_in_room(chat_id)
+        
+        # Отправляем подтверждение подключения
+        emit('joined', {
+            'status': 'success',
+            'message': f'Вы присоединились к комнате {room_name}',
+            'room': room_name,
+            'chat_id': chat_id,
+            'active_users': active_users
+        })
+        
+        # Уведомляем всех в комнате о новом пользователе
+        emit('user_joined', {
+            'user': user_info,
+            'room': room_name,
+            'active_users': active_users,
+            'timestamp': datetime.now().isoformat()
+        }, room=room_name)
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при присоединении к комнате: {str(e)}")
+        logger.exception("Трассировка ошибки:")
+        emit('error', {'status': 'error', 'message': f'Ошибка при присоединении к комнате: {str(e)}'})
+
+@socketio.on('echo')
+def handle_echo(data):
+    logger.info(f"📢 [APP.PY] ПОЛУЧЕНО ЭХО-СОБЫТИЕ: {data}")
+    emit('echo_response', {
+        'status': 'success',
+        'received': data,
+        'timestamp': datetime.now().isoformat(),
+        'server_id': id(socketio)
+    })
+
 if __name__ == '__main__':
     try:
         host = os.environ.get('HOST', '0.0.0.0')
@@ -2173,3 +2425,15 @@ if __name__ == '__main__':
         logger.error(f"Error starting server: {str(e)}")
         print(f"❌ Error starting server: {str(e)}")
         sys.exit(1)
+
+    # Добавляем проверку и логи:
+    if __name__ == '__main__':
+        try:
+            logger.info(f"✅ Проверка инициализации SocketIO: {id(socketio_instance)}")
+            logger.info(f"✅ socketio доступен через app: {hasattr(app, 'socketio')}")
+            logger.info(f"✅ app.socketio id: {id(app.socketio) if hasattr(app, 'socketio') else 'недоступно'}")
+            # ... existing code ...
+        except Exception as e:
+            logger.error(f"Error checking SocketIO: {str(e)}")
+            print(f"❌ Error checking SocketIO: {str(e)}")
+            sys.exit(1)

@@ -1,12 +1,14 @@
 """
 Обработчики событий Socket.IO
 """
-from flask import request, current_app
+from flask import request, current_app, g
 from flask_socketio import emit, join_room, leave_room
 import json
 from datetime import datetime
 import os
 from pathlib import Path
+import traceback  # Убедимся, что traceback импортирован в начале файла
+import inspect
 
 from config import logger, DATA_DIR
 # Прямой импорт, чтобы обойти проблему с null bytes
@@ -16,14 +18,69 @@ from config import logger, DATA_DIR
 # from core.extensions import socketio
 from .rooms import (
     join_user_to_room, update_user_in_room, remove_user_from_room,
-    get_room_name, active_users, GLOBAL_ROOM, CHAT_ROOM_PREFIX
+    get_room_name, active_users, GLOBAL_ROOM, CHAT_ROOM_PREFIX, 
+    get_courier_room_name
 )
+
+# Логируем загрузку модуля
+logger.info("========== МОДУЛЬ СОБЫТИЙ WS_MODULE/EVENTS.PY ЗАГРУЖЕН ==========")
+
+# Тестовый обработчик для проверки работы socketio
+def test_socketio_handler(socketio):
+    @socketio.on('test_event')
+    def handle_test_event(data):
+        logger.info(f"===== ПОЛУЧЕНО ТЕСТОВОЕ СОБЫТИЕ: {data} =====")
+        emit('test_response', {'status': 'success', 'message': 'Тестовое событие получено'})
+
+# Проверка наличия обработчика join_courier_room
+def check_handlers(socketio):
+    if hasattr(socketio, 'handlers'):
+        logger.info(f"===== ЗАРЕГИСТРИРОВАННЫЕ ОБРАБОТЧИКИ: {socketio.handlers} =====")
+    else:
+        logger.info("===== НЕ УДАЛОСЬ ПОЛУЧИТЬ ИНФОРМАЦИЮ О ЗАРЕГИСТРИРОВАННЫХ ОБРАБОТЧИКАХ =====")
 
 # Регистрация обработчиков будет происходить через функции, которые импортируются в app.py
 def register_handlers(socketio):
     """
     Регистрирует все обработчики событий на экземпляре socketio
     """
+    
+    # Добавляем тестовый обработчик
+    test_socketio_handler(socketio)
+    
+    # Регистрируем перехватчик всех событий
+    register_catch_all_handler(socketio)
+    
+    # Логируем информацию об объекте socketio для отладки
+    logger.info(f"===== РЕГИСТРАЦИЯ ОБРАБОТЧИКОВ НА ОБЪЕКТЕ {id(socketio)} =====")
+    logger.info(f"===== ТИП ОБЪЕКТА SOCKETIO: {type(socketio)} =====")
+    
+    # Явно логируем регистрацию каждого обработчика
+    logger.info("===== РЕГИСТРАЦИЯ ОБРАБОТЧИКА handle_connect =====")
+    
+    # Получаем список всех функций-обработчиков в текущем модуле
+    import inspect
+    import sys
+    
+    # Получаем все функции из текущего модуля
+    current_module = sys.modules[__name__]
+    handlers = [name for name, obj in inspect.getmembers(current_module) 
+               if name.startswith('handle_') and callable(obj)]
+    
+    logger.info(f"Доступные обработчики: {handlers}")
+    
+    # Проверяем, есть ли handle_join_courier_room среди доступных обработчиков
+    if 'handle_join_courier_room' in handlers:
+        logger.info("===== ОБРАБОТЧИК handle_join_courier_room НАЙДЕН =====")
+        # Явная регистрация обработчика
+        @socketio.on('join_courier_room')
+        def _handle_join_courier_room(data):
+            return current_module.handle_join_courier_room(data)
+    else:
+        logger.error("===== ОБРАБОТЧИК handle_join_courier_room НЕ НАЙДЕН =====")
+    
+    # Логируем информацию о регистрации обработчиков
+    logger.info(f"Регистрация обработчиков на экземпляре socketio {id(socketio)}")
     
     @socketio.on('connect')
     def handle_connect():
@@ -1115,4 +1172,607 @@ def register_handlers(socketio):
             return {
                 'status': 'error',
                 'message': f'Ошибка: {str(e)}'
-            } 
+            }
+
+    @socketio.on('access_settings_update')
+    def handle_access_settings_update(data):
+        """
+        Обработчик обновления настроек доступа
+        """
+        try:
+            logger.info(f'🔄 Получено событие ACCESS_SETTINGS_UPDATE: {json.dumps(data, ensure_ascii=False)}')
+            
+            # Получаем данные
+            chat_id = data.get('chat_id')
+            user_id = data.get('user_id')
+            settings = data.get('settings', {})
+            
+            # Проверяем наличие данных
+            if not chat_id:
+                logger.error('❌ Ошибка обновления настроек доступа: отсутствует chat_id')
+                emit('access_settings_updated', {
+                    'status': 'error',
+                    'message': 'Отсутствует chat_id'
+                })
+                return
+            
+            # Добавляем информацию о том, кто обновил настройки
+            if not settings.get('updatedBy') and user_id:
+                settings['updatedBy'] = user_id
+            
+            # Добавляем таймстамп обновления
+            settings['lastUpdated'] = datetime.now().isoformat()
+            
+            # Формируем данные для отправки
+            event_data = {
+                'status': 'success',
+                'chat_id': chat_id,
+                'settings': settings,
+                'timestamp': datetime.now().isoformat(),
+                'user_id': user_id
+            }
+            
+            # Отправляем данные в глобальную комнату
+            room = GLOBAL_ROOM
+            emit('access_settings_updated', event_data, room=room, broadcast=True)
+            
+            # Отправляем данные в комнату чата
+            chat_room = f"{CHAT_ROOM_PREFIX}{chat_id}"
+            emit('access_settings_updated', event_data, room=chat_room, broadcast=True)
+            
+            logger.info(f'✅ Событие access_settings_updated отправлено в комнаты {room} и {chat_room}')
+            
+            # Отправляем подтверждение отправителю
+            emit('access_settings_updated', {
+                'status': 'success',
+                'message': 'Настройки доступа обновлены и разосланы клиентам',
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f'❌ Ошибка при обработке обновления настроек доступа: {str(e)}')
+            emit('access_settings_updated', {
+                'status': 'error',
+                'message': f'Ошибка при обработке обновления настроек доступа: {str(e)}'
+            })
+    
+    @socketio.on('check_dates_availability')
+    def handle_check_dates_availability(data):
+        """
+        Обработчик проверки доступности дат для записи
+        """
+        try:
+            logger.info(f'🔄 Получено событие CHECK_DATES_AVAILABILITY: {json.dumps(data, ensure_ascii=False)}')
+            
+            # Получаем данные
+            user_id = data.get('user_id')
+            dates = data.get('dates', [])
+            
+            # Проверяем наличие данных
+            if not dates:
+                logger.error('❌ Ошибка проверки доступности дат: отсутствуют даты')
+                emit('dates_availability_checked', {
+                    'status': 'error',
+                    'message': 'Отсутствуют даты для проверки'
+                })
+                return
+            
+            # Импортируем сервис для проверки доступности дат
+            from services.access_settings_service import AccessSettingsService
+            
+            # Проверяем каждую дату
+            available_dates = []
+            for date_str in dates:
+                if AccessSettingsService.is_date_available(date_str, user_id):
+                    available_dates.append(date_str)
+            
+            # Отправляем результаты
+            emit('dates_availability_checked', {
+                'status': 'success',
+                'user_id': user_id,
+                'checked_dates': dates,
+                'available_dates': available_dates,
+                'count': len(available_dates),
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            logger.info(f'✅ Проверка доступности дат для пользователя {user_id}: {len(available_dates)} из {len(dates)} доступно')
+            
+        except Exception as e:
+            logger.error(f'❌ Ошибка при проверке доступности дат: {str(e)}')
+            emit('dates_availability_checked', {
+                'status': 'error',
+                'message': f'Ошибка при проверке доступности дат: {str(e)}'
+            })
+
+    @socketio.on('join_courier_room')
+    def handle_join_courier_room(data):
+        """
+        Обработчик для присоединения к комнате курьеров
+        """
+        try:
+            logger.info(f"===== ОБРАБОТКА ЗАПРОСА НА ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+            logger.info(f"Данные запроса: {data}")
+            
+            # Получаем информацию о пользователе из запроса
+            user_info = data.get('user_info', {})
+            
+            # Проверка всех возможных источников chat_id с подробным логированием
+            logger.info(f"Проверка всех возможных источников chat_id...")
+            
+            chat_id = None
+            
+            # Варианты извлечения chat_id
+            chat_id_sources = [
+                ('chatId', data.get('chatId')),
+                ('chat_id', data.get('chat_id')),
+                ('chat', data.get('chat')),
+                ('room', data.get('room')),
+                ('roomId', data.get('roomId'))
+            ]
+            
+            # Проверяем каждый возможный источник
+            for source_name, source_value in chat_id_sources:
+                logger.info(f"Проверка источника '{source_name}': {source_value}")
+                if source_value:
+                    chat_id = source_value
+                    logger.info(f"Найден chat_id в источнике '{source_name}': {chat_id}")
+                    break
+            
+            if not chat_id:
+                logger.error("Не указан идентификатор чата (chat_id) в данных запроса")
+                return {"status": "error", "message": "Не указан идентификатор чата"}
+            
+            logger.info(f"===== ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+            logger.info(f"Chat ID: {chat_id}")
+            logger.info(f"Пользователь: {user_info}")
+            
+            # Получаем имя комнаты курьеров
+            room_name = get_courier_room_name(chat_id)
+            logger.info(f"Имя комнаты курьеров: {room_name}")
+            
+            # Проверяем, есть ли у пользователя ID
+            user_id = user_info.get('id')
+            if not user_id:
+                # Если нет ID, создаем случайный
+                import uuid
+                user_id = str(uuid.uuid4())
+                user_info['id'] = user_id
+                logger.info(f"Создан временный ID пользователя: {user_id}")
+            
+            # Добавляем socket_id в информацию о пользователе
+            user_info['socket_id'] = request.sid
+            
+            # Добавляем пользователя в комнату
+            join_room(room_name)
+            logger.info(f"Пользователь присоединен к комнате {room_name}")
+            
+            # Добавляем пользователя в список активных пользователей комнаты
+            # Используем force_rejoin=True только для тестовых подключений
+            force_rejoin = data.get('test', False)
+            join_result = join_user_to_room(f'courier_{chat_id}', user_id, user_info, force_rejoin)
+            
+            # Отправляем подтверждение о присоединении к комнате
+            response = {
+                "status": "success",
+                "message": f"Вы присоединились к комнате {room_name}",
+                "room": room_name,
+                "chat_id": chat_id,
+                "active_users": join_result['active_users']
+            }
+            
+            # Отправляем всем пользователям в комнате информацию об обновлении списка участников
+            emit('room_users_updated', {
+                'chat_id': chat_id,
+                "room": room_name, 
+                'active_users': join_result['active_users'],
+                'user_count': len(join_result['active_users'])
+            }, room=room_name)
+            
+            logger.info(f"Ответ: {response}")
+            logger.info(f"===== УСПЕШНОЕ ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+            
+            return response
+        except Exception as e:
+            logger.error(f"Ошибка при присоединении к комнате курьеров: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {"status": "error", "message": str(e)}
+
+    @socketio.on('leave_courier_room')
+    def handle_leave_courier_room(data):
+        """
+        Обработчик покидания общей комнаты курьеров
+        """
+        try:
+            chat_id = data.get('chatId') or data.get('chat_id')
+            user_info = data.get('user_info', {})
+            user_id = user_info.get('id') if user_info else None
+            
+            if not chat_id:
+                logger.error('❌ Не указан ID чата для покидания комнаты курьеров')
+                return {
+                    'status': 'error',
+                    'message': 'Не указан ID чата'
+                }
+            
+            # Получаем идентификатор комнаты курьеров
+            room = get_room_name(f'courier_{chat_id}')
+            
+            # Пользователь покидает комнату
+            logger.info(f'👋 Пользователь покидает комнату курьеров {room}')
+            leave_room(room)
+            
+            # Удаляем пользователя из списка активных, если есть его ID
+            if user_id and room in active_users and user_id in active_users[room]:
+                user = active_users[room][user_id]
+                del active_users[room][user_id]
+                logger.info(f'👤 Пользователь {user.get("first_name", "Неизвестный")} с ID {user_id} удален из комнаты {room}')
+                
+                # Формируем список оставшихся активных пользователей
+                active_users_in_room = list(active_users[room].values())
+                users_count = len(active_users_in_room)
+                
+                logger.info(f'👥 Количество пользователей в комнате {room} после выхода: {users_count}')
+                
+                # Оповещаем остальных пользователей об уходе участника
+                emit('courier_user_left', {
+                    'user': user,
+                    'room': room,
+                    'active_users': active_users_in_room,
+                    'timestamp': datetime.now().isoformat()
+                }, room=room)
+                
+                # Если комната пуста, удаляем ее
+                if not active_users[room]:
+                    del active_users[room]
+                    logger.info(f'🗑️ Комната {room} удалена (нет активных пользователей)')
+            
+            return {
+                'status': 'success',
+                'message': f'Покинул комнату {room}'
+            }
+        except Exception as e:
+            logger.error(f'❌ Ошибка при покидании комнаты курьеров: {str(e)}')
+            return {
+                'status': 'error',
+                'message': f'Ошибка: {str(e)}'
+            }
+
+    # Добавляем новый обработчик для уведомлений о доступности
+    @socketio.on('availability_update')
+    def handle_availability_update(data):
+        """
+        Обработчик получения уведомления о доступности дат.
+        Отправляет уведомление в комнату курьеров.
+        Данные должны содержать:
+        - chat_id: id чата
+        - message: сообщение о доступности
+        - date_range: диапазон дат
+        """
+        try:
+            logger.info(f"📅 Получено уведомление о доступности: {data}")
+            
+            if not isinstance(data, dict):
+                logger.error(f"❌ Неверный формат данных уведомления: {data}")
+                emit('error', {'status': 'error', 'message': 'Неверный формат данных'})
+                return
+                
+            chat_id = data.get('chat_id')
+            if not chat_id:
+                logger.error("❌ Не указан chat_id в уведомлении о доступности")
+                emit('error', {'status': 'error', 'message': 'Не указан chat_id'})
+                return
+
+            # Загружаем актуальные настройки доступности
+            try:
+                settings_path = DATA_DIR / 'access_settings' / f'settings_{chat_id}.json'
+                if settings_path.exists():
+                    with open(settings_path, 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                else:
+                    logger.error(f"❌ Файл настроек не найден: {settings_path}")
+                    settings = {}
+            except Exception as e:
+                logger.error(f"❌ Ошибка при загрузке настроек: {str(e)}")
+                settings = {}
+                
+            # Создаем данные для отправки
+            notification_data = {
+                'type': 'notification',
+                'timestamp': datetime.now().isoformat(),
+                'chat_id': chat_id,
+                'data': {
+                    'message': data.get('message', 'Обновлены настройки доступности дат'),
+                    'parse_mode': 'HTML',
+                    'sent_at': datetime.now().isoformat(),
+                    'source': data.get('source', 'scheduler'),
+                    'status': 'success'
+                }
+            }
+
+            # Создаем данные обновления календаря
+            calendar_update_data = {
+                'type': 'calendar_update',
+                'timestamp': datetime.now().isoformat(),
+                'chat_id': chat_id,
+                'settings': settings,  # Отправляем актуальные настройки
+                'refresh_required': True,
+                'date_range': data.get('date_range', {}),
+                'source': data.get('source', 'scheduler')
+            }
+            
+            # Получаем имя комнаты для курьеров
+            room_name = get_courier_room_name(chat_id)
+            logger.info(f"📡 Отправка данных в комнату {room_name}")
+            
+            # Отправляем уведомление в комнату курьеров
+            emit('notification', notification_data, room=room_name)
+            logger.info(f"✅ Уведомление отправлено в комнату {room_name}")
+
+            # Отправляем обновление календаря
+            emit('calendar_update', calendar_update_data, room=room_name)
+            logger.info(f"✅ Обновление календаря отправлено в комнату {room_name}")
+            
+            # Отправляем в индивидуальную комнату отправителя
+            emit('availability_update_sent', {'status': 'success', 'room': room_name})
+            
+            return {'status': 'success'}
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке уведомления о доступности: {str(e)}")
+            logger.error(traceback.format_exc())
+            emit('error', {'status': 'error', 'message': f'Ошибка: {str(e)}'})
+            return {'status': 'error', 'message': str(e)}
+
+    # Обработчик прямых команд на обновление календаря
+    @socketio.on('refresh_calendar')
+    def handle_refresh_calendar(data):
+        """
+        Обработчик команды на обновление календаря.
+        Отправляет команду клиентам в указанной комнате.
+        """
+        try:
+            logger.info(f"🔄 Получена команда на обновление календаря: {data}")
+            
+            if not isinstance(data, dict):
+                logger.error(f"❌ Неверный формат данных команды: {data}")
+                emit('error', {'status': 'error', 'message': 'Неверный формат данных'})
+                return
+                
+            # Получаем chat_id из данных или из комнаты отправителя
+            chat_id = data.get('chat_id')
+            
+            # Если chat_id не передан в данных, пытаемся найти его в комнатах отправителя
+            if not chat_id:
+                # Получаем все комнаты, в которых находится отправитель
+                rooms = socketio.server.manager.rooms.get(request.sid, [])
+                logger.info(f"🔍 Поиск chat_id в комнатах отправителя: {rooms}")
+                
+                # Ищем комнату курьеров
+                for room in rooms:
+                    if room.startswith('courier_'):
+                        chat_id = room.replace('courier_', '')
+                        logger.info(f"✅ Найден chat_id из комнаты курьеров: {chat_id}")
+                        break
+                    elif room.startswith('shifts_'):
+                        chat_id = room.replace('shifts_', '')
+                        logger.info(f"✅ Найден chat_id из комнаты смен: {chat_id}")
+                        break
+                    elif room.startswith('reserves_'):
+                        chat_id = room.replace('reserves_', '')
+                        logger.info(f"✅ Найден chat_id из комнаты резервов: {chat_id}")
+                        break
+                
+                if not chat_id:
+                    logger.error("❌ Не удалось определить chat_id из комнат отправителя")
+                    emit('error', {'status': 'error', 'message': 'Не удалось определить chat_id'})
+                    return
+            
+            # Загружаем актуальные настройки доступности
+            try:
+                settings_path = DATA_DIR / 'access_settings' / f'settings_{chat_id}.json'
+                if settings_path.exists():
+                    with open(settings_path, 'r', encoding='utf-8') as f:
+                        settings = json.load(f)
+                        logger.info(f"✅ Загружены настройки для чата {chat_id}")
+                else:
+                    logger.error(f"❌ Файл настроек не найден: {settings_path}")
+                    settings = {}
+            except Exception as e:
+                logger.error(f"❌ Ошибка при загрузке настроек: {str(e)}")
+                settings = {}
+            
+            # Создаем данные обновления календаря
+            calendar_update_data = {
+                'type': 'calendar_update',
+                'timestamp': datetime.now().isoformat(),
+                'chat_id': chat_id,
+                'settings': settings,
+                'refresh_required': True,
+                'source': data.get('source', 'api'),
+                'force': data.get('force', False)
+            }
+            
+            # Получаем имя комнаты
+            room_name = get_courier_room_name(chat_id)
+            logger.info(f"📡 Отправка обновления календаря в комнату {room_name}")
+            
+            # Отправляем обновление календаря
+            emit('calendar_update', calendar_update_data, room=room_name)
+            logger.info(f"✅ Обновление календаря отправлено в комнату {room_name}")
+            
+            # Подтверждаем отправителю
+            emit('refresh_command_sent', {
+                'status': 'success', 
+                'room': room_name,
+                'chat_id': chat_id,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return {'status': 'success'}
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке команды обновления календаря: {str(e)}")
+            logger.error(traceback.format_exc())
+            emit('error', {'status': 'error', 'message': f'Ошибка: {str(e)}'})
+            return {'status': 'error', 'message': str(e)}
+
+# Простая проверка, существует ли функция handle_join_courier_room
+try:
+    # Пытаемся получить функцию из текущего модуля
+    import inspect
+    import sys
+    
+    current_module = sys.modules[__name__]
+    handle_join_courier_room_exists = hasattr(current_module, 'handle_join_courier_room') and callable(getattr(current_module, 'handle_join_courier_room'))
+    
+    logger.info(f"===== ПРОВЕРКА СУЩЕСТВОВАНИЯ handle_join_courier_room: {handle_join_courier_room_exists} =====")
+    
+    # Если функции нет, определяем её
+    if not handle_join_courier_room_exists:
+        logger.warning("===== ФУНКЦИЯ handle_join_courier_room НЕ НАЙДЕНА, СОЗДАЁМ ЕЁ =====")
+        
+        def handle_join_courier_room(data):
+            """
+            Обработчик для присоединения к комнате курьеров
+            """
+            try:
+                logger.info(f"===== ОБРАБОТКА ЗАПРОСА НА ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+                logger.info(f"Данные запроса: {data}")
+                
+                # Получаем информацию о пользователе из запроса
+                user_info = data.get('user_info', {})
+                
+                # Проверка всех возможных источников chat_id с подробным логированием
+                logger.info(f"Проверка всех возможных источников chat_id...")
+                
+                chat_id = None
+                
+                # Варианты извлечения chat_id
+                chat_id_sources = [
+                    ('chatId', data.get('chatId')),
+                    ('chat_id', data.get('chat_id')),
+                    ('chat', data.get('chat')),
+                    ('room', data.get('room')),
+                    ('roomId', data.get('roomId'))
+                ]
+                
+                # Проверяем каждый возможный источник
+                for source_name, source_value in chat_id_sources:
+                    logger.info(f"Проверка источника '{source_name}': {source_value}")
+                    if source_value:
+                        chat_id = source_value
+                        logger.info(f"Найден chat_id в источнике '{source_name}': {chat_id}")
+                        break
+                
+                if not chat_id:
+                    logger.error("Не указан идентификатор чата (chat_id) в данных запроса")
+                    return {"status": "error", "message": "Не указан идентификатор чата"}
+                
+                logger.info(f"===== ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+                logger.info(f"Chat ID: {chat_id}")
+                logger.info(f"Пользователь: {user_info}")
+                
+                # Получаем имя комнаты курьеров
+                room_name = get_courier_room_name(chat_id)
+                logger.info(f"Имя комнаты курьеров: {room_name}")
+                
+                # Проверяем, есть ли у пользователя ID
+                user_id = user_info.get('id')
+                if not user_id:
+                    # Если нет ID, создаем случайный
+                    import uuid
+                    user_id = str(uuid.uuid4())
+                    user_info['id'] = user_id
+                    logger.info(f"Создан временный ID пользователя: {user_id}")
+                
+                # Добавляем socket_id в информацию о пользователе
+                user_info['socket_id'] = request.sid
+                
+                # Добавляем пользователя в комнату
+                join_room(room_name)
+                logger.info(f"Пользователь присоединен к комнате {room_name}")
+                
+                # Добавляем пользователя в список активных пользователей комнаты
+                # Используем force_rejoin=True только для тестовых подключений
+                force_rejoin = data.get('test', False)
+                join_result = join_user_to_room(f'courier_{chat_id}', user_id, user_info, force_rejoin)
+                
+                # Отправляем подтверждение о присоединении к комнате
+                response = {
+                    "status": "success",
+                    "message": f"Вы присоединились к комнате {room_name}",
+                    "room": room_name,
+                    "chat_id": chat_id,
+                    "active_users": join_result['active_users']
+                }
+                
+                # Отправляем всем пользователям в комнате информацию об обновлении списка участников
+                emit('room_users_updated', {
+                    'chat_id': chat_id,
+                    "room": room_name, 
+                    'active_users': join_result['active_users'],
+                    'user_count': len(join_result['active_users'])
+                }, room=room_name)
+                
+                logger.info(f"Ответ: {response}")
+                logger.info(f"===== УСПЕШНОЕ ПРИСОЕДИНЕНИЕ К КОМНАТЕ КУРЬЕРОВ =====")
+                
+                return response
+            except Exception as e:
+                logger.error(f"Ошибка при присоединении к комнате курьеров: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return {"status": "error", "message": str(e)}
+        
+        # Делаем функцию видимой глобально в модуле
+        globals()['handle_join_courier_room'] = handle_join_courier_room
+        
+        logger.info("===== ФУНКЦИЯ handle_join_courier_room СОЗДАНА =====")
+except Exception as e:
+    logger.error(f"Ошибка при проверке функции handle_join_courier_room: {str(e)}")
+    import traceback
+    logger.error(traceback.format_exc()) 
+
+# Функция для регистрации глобального обработчика всех событий
+def register_catch_all_handler(socketio):
+    """
+    Регистрирует обработчик, который перехватывает все события
+    """
+    @socketio.on('*')
+    def catch_all_handler(event, data):
+        """
+        Обрабатывает все события, даже если для них нет специального обработчика
+        """
+        from flask import request
+        
+        logger.info(f"🔄 RECEIVED EVENT: {event}")
+        logger.info(f"📊 DATA: {data}")
+        logger.info(f"🆔 CLIENT: {request.sid}")
+        
+        # Для событий присоединения к комнате
+        if 'join' in event:
+            logger.info(f"🚪 ПОПЫТКА ПРИСОЕДИНЕНИЯ К КОМНАТЕ: {event}")
+            
+            try:
+                from json import dumps
+                logger.info(f"📦 ДАННЫЕ: {dumps(data, ensure_ascii=False)}")
+            except:
+                logger.info(f"📦 ДАННЫЕ (не JSON): {data}")
+            
+            # Проверяем наличие chat_id
+            chat_id = None
+            
+            if isinstance(data, dict):
+                for key in ['chatId', 'chat_id', 'roomId', 'room_id', 'id']:
+                    if key in data and data[key]:
+                        chat_id = data[key]
+                        logger.info(f"🔑 НАЙДЕН ИДЕНТИФИКАТОР КОМНАТЫ: {chat_id} (ключ: {key})")
+                        break
+            
+            if not chat_id:
+                logger.warning(f"⚠️ НЕ НАЙДЕН ИДЕНТИФИКАТОР КОМНАТЫ В СОБЫТИИ {event}")
+        
+        # Для пользовательских событий
+        return {"status": "received"}

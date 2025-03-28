@@ -1,15 +1,20 @@
 """
 Обслуживание комнат и активных пользователей в Socket.IO
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import request
 from flask_socketio import emit, join_room, leave_room
+import json
+import traceback
 
 from config import logger
 
 # Константы для комнат
 GLOBAL_ROOM = 'inventory_global'  # Общая комната для всех чатов
 CHAT_ROOM_PREFIX = 'inventory_'   # Префикс для комнат конкретных чатов
+SHIFTS_ROOM_PREFIX = 'shifts_'    # Префикс для комнат смен конкретных чатов
+RESERVES_ROOM_PREFIX = 'reserves_'  # Префикс для комнат резервов конкретных чатов
+COURIER_ROOM_PREFIX = 'courier_'  # Префикс для общих комнат курьеров конкретного чата
 
 # Словарь для хранения активных пользователей по комнатам
 active_users = {}
@@ -24,66 +29,160 @@ def get_room_name(chat_id):
     Returns:
         str: Имя комнаты
     """
-    return GLOBAL_ROOM if chat_id == 'global' else f'{CHAT_ROOM_PREFIX}{chat_id}'
+    if chat_id == 'global':
+        return GLOBAL_ROOM
+    elif chat_id.startswith('shifts_'):
+        return f'{SHIFTS_ROOM_PREFIX}{chat_id[7:]}'
+    elif chat_id.startswith('reserves_'):
+        return f'{RESERVES_ROOM_PREFIX}{chat_id[9:]}'
+    elif chat_id.startswith('courier_'):
+        return f'{COURIER_ROOM_PREFIX}{chat_id[8:]}'
+    else:
+        return f'{CHAT_ROOM_PREFIX}{chat_id}'
 
-def join_user_to_room(chat_id, user_id, user_info, force_rejoin=False):
+def get_courier_room_name(chat_id):
     """
-    Добавляет пользователя в комнату и обновляет список активных пользователей
+    Возвращает имя общей комнаты курьеров для указанного chat_id
     
     Args:
-        chat_id (str): ID чата или 'global' для глобальной комнаты
-        user_id (int): ID пользователя
-        user_info (dict): Информация о пользователе
-        force_rejoin (bool): Принудительное переподключение
+        chat_id (str): ID чата
         
     Returns:
-        dict: Информация о комнате и пользователях
+        str: Имя комнаты курьеров
     """
-    room = get_room_name(chat_id)
+    # Убираем префикс courier_ если он есть
+    if chat_id.startswith('courier_'):
+        chat_id = chat_id[8:]
+    return f'{COURIER_ROOM_PREFIX}{chat_id}'
+
+def get_user_rooms(user_id):
+    """
+    Возвращает список комнат, в которых находится пользователь
     
-    if force_rejoin:
-        logger.info(f'🔄 Принудительное переподключение пользователя к комнате {room}')
-    
-    # Обновляем информацию о пользователе, если он уже в комнате
-    if room in active_users and user_id in active_users[room]:
-        # Обновляем socket_id и last_activity
-        active_users[room][user_id]['socket_id'] = request.sid
-        active_users[room][user_id]['last_activity'] = datetime.now().isoformat()
-    else:
-        # Добавляем пользователя в комнату
-        if room not in active_users:
-            active_users[room] = {}
+    Args:
+        user_id (str): ID пользователя
         
-        # Сохраняем информацию о пользователе
-        active_users[room][user_id] = {
-            **user_info,
+    Returns:
+        list: Список комнат, в которых находится пользователь
+    """
+    user_rooms = []
+    for room_name, users in active_users.items():
+        if user_id in users:
+            user_rooms.append(room_name)
+    
+    logger.info(f'🔍 Комнаты пользователя {user_id}: {user_rooms}')
+    return user_rooms
+
+def join_user_to_room(chat_id: str, user_id: str = None, user_info: dict = None, force_rejoin: bool = False) -> dict:
+    """
+    Добавляет пользователя в комнату
+    """
+    logger.info("===== НАЧАЛО join_user_to_room =====")
+    logger.info("Входные параметры:")
+    logger.info(f"chat_id: {chat_id}")
+    logger.info(f"user_id: {user_id}")
+    logger.info(f"user_info: {json.dumps(user_info, ensure_ascii=False)}")
+    logger.info(f"force_rejoin: {force_rejoin}")
+
+    # Определяем тип комнаты
+    room_type = "courier" if chat_id.startswith("courier_") else "inventory"
+    logger.info(f"Определен тип комнаты: {room_type} (без префикса)")
+
+    # Получаем имя комнаты
+    room = get_room_name(chat_id)
+    logger.info(f"Имя комнаты: {room}")
+
+    # Если user_id не передан, но есть в user_info
+    if not user_id and user_info and user_info.get('id'):
+        user_id = str(user_info['id'])
+        logger.info(f"Использован user_id из user_info: {user_id}")
+
+    # Проверяем существование комнаты
+    if room not in active_users:
+        active_users[room] = {}
+        logger.info(f"Создана новая комната: {room}")
+
+    # Проверяем наличие пользователя
+    existing_user = None
+    if user_id:
+        existing_user = active_users[room].get(user_id)
+    else:
+        # Ищем по socket_id если нет user_id
+        for user in active_users[room].values():
+            if user.get('socket_id') == user_info.get('socket_id'):
+                existing_user = user
+                user_id = user.get('id')
+                break
+
+    if existing_user:
+        logger.info(f"Пользователь {user_id} уже существует в комнате {room}")
+        
+        if force_rejoin:
+            logger.info("force_rejoin=True, удаляем старую запись пользователя")
+            if user_id:
+                del active_users[room][user_id]
+        else:
+            logger.info("force_rejoin=False, обновляем информацию о пользователе")
+            # Обновляем только timestamp и socket_id
+            existing_user.update({
+                'socket_id': user_info.get('socket_id'),
+                'last_activity': datetime.now().isoformat()
+            })
+            logger.info(f"Обновленная информация о пользователе: {json.dumps(existing_user, ensure_ascii=False)}")
+            return {
+                'status': 'success',
+                'active_users': list(active_users[room].values())
+            }
+
+    # Добавляем пользователя
+    if user_id:
+        logger.info(f"Добавляем пользователя {user_id} в комнату {room}")
+        user_data = {
             'id': user_id,
-            'socket_id': request.sid,
+            'socket_id': user_info.get('socket_id'),
             'last_activity': datetime.now().isoformat()
         }
-        
-        # Присоединяем к комнате Socket.IO
-        join_room(room)
-        
-        # Отправляем уведомление всем в комнате
-        emit('user_joined', {
-            'user': active_users[room][user_id],
-            'active_users': list(active_users[room].values())
-        }, room=room)
+        # Добавляем дополнительную информацию
+        user_data.update({k: v for k, v in user_info.items() if k not in ['id', 'socket_id']})
+        active_users[room][user_id] = user_data
+        logger.info(f"Информация о пользователе после добавления: {json.dumps(user_data, ensure_ascii=False)}")
+
+    # Удаляем дубликаты по socket_id
+    socket_ids = set()
+    users_to_remove = []
+    for uid, user in active_users[room].items():
+        if user['socket_id'] in socket_ids:
+            users_to_remove.append(uid)
+        else:
+            socket_ids.add(user['socket_id'])
     
-    # Отправляем подтверждение присоединения
-    emit('joined', {
-        'status': 'ok',
-        'chat_id': chat_id,
-        'room': room,
-        'active_users': list(active_users[room].values()),
-        'user_id': user_id
-    })
+    for uid in users_to_remove:
+        del active_users[room][uid]
+        logger.info(f"Удален дубликат пользователя с ID {uid}")
+
+    # Очищаем неактивные подключения
+    current_time = datetime.now()
+    timeout = timedelta(minutes=5)
+    inactive_users = []
     
-    logger.info(f'👋 Пользователь {user_info.get("first_name")} присоединился к комнате {room}')
+    for uid, user in list(active_users[room].items()):
+        try:
+            last_activity = datetime.fromisoformat(user['last_activity'])
+            if current_time - last_activity > timeout:
+                inactive_users.append(uid)
+        except (ValueError, KeyError):
+            inactive_users.append(uid)
     
+    for uid in inactive_users:
+        del active_users[room][uid]
+        logger.info(f"Удален неактивный пользователь с ID {uid}")
+
+    logger.info(f"Количество активных пользователей в комнате: {len(active_users[room])}")
+    logger.info(f"Список активных пользователей: {json.dumps(list(active_users[room].values()), ensure_ascii=False)}")
+    logger.info("===== КОНЕЦ join_user_to_room =====")
+
     return {
-        'room': room,
+        'status': 'success',
         'active_users': list(active_users[room].values())
     }
 

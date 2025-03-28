@@ -6,7 +6,8 @@ export enum NotificationTypes {
     INFO = 'info',
     WARNING = 'warning',
     ERROR = 'error',
-    SYSTEM = 'system'
+    SYSTEM = 'system',
+    SUGGESTION_STATUS = 'suggestion_status'
 }
 
 export interface Notification {
@@ -19,6 +20,7 @@ export interface Notification {
     read?: boolean;
     timestamp?: string;
     isToast?: boolean;
+    payload?: any;
 }
 
 interface NotificationState {

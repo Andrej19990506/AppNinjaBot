@@ -8,6 +8,9 @@ import { addNotification, removeNotification, NotificationTypes } from '../store
 import { socketService } from '../services/socket';
 import axios from 'axios';
 import { store, RootState } from '../store';
+import { Notification } from '../store/slices/notificationSlice';
+import { User, UserState } from '../types/user';
+import { updateAccessSettings } from '../store/slices/shiftsSlice';
 
 const PING_INTERVAL = 10000;
 const PING_TIMEOUT = 5000;
@@ -208,16 +211,17 @@ export const useWebSocket = (chatId?: string) => {
         
         console.log(`⏳ Повторная попытка (${joinRoomAttempts.current[chatId]}/${MAX_JOIN_ATTEMPTS}) подключения к комнате ${chatId} через ${delay}ms`);
         
-        setTimeout(() => {
-            if (socketService.isConnected()) {
+        setTimeout(async () => {
+            const socket = socketService['socket'];
+            if (socket) {
                 const roomName = `inventory_${chatId}`;
                 if (!activeRooms.current.has(roomName)) {
                     activeRooms.current.add(roomName);
-                    socketService.emit('join', { 
+                    socket.emit('join', { 
                         chat_id: chatId, 
                         user_info: {
                             ...userInfo,
-                            socket_id: globalSocket.current?.id
+                            socket_id: socket.id
                         }
                     });
                     console.log(`🔄 Повторное подключение к комнате ${roomName}`);
@@ -225,16 +229,18 @@ export const useWebSocket = (chatId?: string) => {
                     joinRoomAttempts.current[chatId] = 0;
                 }
             } else {
-                // Еще не подключен, пробуем переподключиться к сокету и затем повторяем
-                socketService.connect().then(connected => {
-                    if (connected) {
-                        // Рекурсивно вызываем retryJoinRoom с небольшой задержкой
-                        retryJoinRoom(chatId, userInfo, 1000);
-                    } else {
-                        // Увеличиваем задержку для следующей попытки
-                        retryJoinRoom(chatId, userInfo, Math.min(delay * 1.5, 15000));
+                try {
+                    // Пробуем подключиться
+                    await socketService.connect();
+                    const newSocket = socketService['socket'];
+                    if (newSocket) {
+                        // Если успешно, пробуем снова через небольшую задержку
+                        setTimeout(() => retryJoinRoom(chatId, userInfo, 1000), 100);
                     }
-                });
+                } catch (error) {
+                    // Если не удалось, увеличиваем задержку
+                    setTimeout(() => retryJoinRoom(chatId, userInfo, Math.min(delay * 1.5, 15000)), 100);
+                }
             }
         }, delay);
     };
@@ -243,8 +249,9 @@ export const useWebSocket = (chatId?: string) => {
     const retryJoinGlobalRoom = (userInfo: any, delay: number = 2000) => {
         console.log(`⏳ Повторная попытка подключения к глобальной комнате через ${delay}ms`);
         
-        setTimeout(() => {
-            if (socketService.isConnected()) {
+        setTimeout(async () => {
+            const socket = socketService['socket'];
+            if (socket) {
                 // Всегда пытаемся переподключиться, даже если уже подключены
                 const forceReconnect = true;
                 
@@ -252,29 +259,31 @@ export const useWebSocket = (chatId?: string) => {
                 activeRooms.current.add(GLOBAL_ROOM);
                 
                 // Отправляем запрос с force=true
-                socketService.emit('join', { 
+                socket.emit('join', { 
                     chat_id: GLOBAL_ROOM_ID,
                     user_info: {
                         ...userInfo,
-                        socket_id: globalSocket.current?.id
+                        socket_id: socket.id
                     },
                     force: forceReconnect
                 });
                 
                 console.log(`🔄 Повторное подключение к глобальной комнате ${GLOBAL_ROOM}`);
-                console.log(`🔄 Socket ID: ${globalSocket.current?.id}`);
+                console.log(`🔄 Socket ID: ${socket.id}`);
                 console.log(`🔄 Принудительное переподключение: ${forceReconnect}`);
             } else {
-                // Еще не подключен, пробуем переподключиться к сокету и затем повторяем
-                socketService.connect().then(connected => {
-                    if (connected) {
-                        // Рекурсивно вызываем retryJoinGlobalRoom с небольшой задержкой
-                        retryJoinGlobalRoom(userInfo, 1000);
-                    } else {
-                        // Увеличиваем задержку для следующей попытки
-                        retryJoinGlobalRoom(userInfo, Math.min(delay * 1.5, 15000));
+                try {
+                    // Пробуем подключиться
+                    await socketService.connect();
+                    const newSocket = socketService['socket'];
+                    if (newSocket) {
+                        // Если успешно, пробуем снова через небольшую задержку
+                        setTimeout(() => retryJoinGlobalRoom(userInfo, 1000), 100);
                     }
-                });
+                } catch (error) {
+                    // Если не удалось, увеличиваем задержку
+                    setTimeout(() => retryJoinGlobalRoom(userInfo, Math.min(delay * 1.5, 15000)), 100);
+                }
             }
         }, delay);
     };
@@ -326,8 +335,31 @@ export const useWebSocket = (chatId?: string) => {
             userId: data.userId || (data.source && data.source.userId)
         });
 
-        // Получаем правильное значение получателей (иногда приходит как число, иногда как массив)
+        // Получаем правильное значение получателей
         const recipientsCount = Array.isArray(data.recipients) ? data.recipients.length : (typeof data.recipients === 'number' ? data.recipients : 0);
+        
+        // Если это предложение товара, проверяем текущего пользователя
+        if (data.type === 'item_suggestion' && data.source && data.source.userId) {
+            // Получаем текущего пользователя напрямую из store для синхронного доступа
+            const currentUser = store.getState().user.user;
+            
+            if (currentUser && currentUser.id && 
+                String(currentUser.id) === String(data.source.userId)) {
+                console.log(`🔍 Текущий пользователь (${currentUser.id}) является инициатором уведомления, не показываем`);
+                return;
+            }
+        }
+
+        // Проверка ответа на предложение
+        if (data.originalSource && data.originalSource.userId) {
+            const currentUser = store.getState().user.user;
+            
+            if (currentUser && currentUser.id && 
+                String(currentUser.id) === String(data.originalSource.userId)) {
+                console.log('✅ Получен ответ на наше предложение товара');
+                // ... остальной код обработки ...
+            }
+        }
         
         // Определяем заголовок чата
         let targetChatTitle = '';
@@ -551,7 +583,7 @@ export const useWebSocket = (chatId?: string) => {
             // Для item_suggestion особая логика - не показываем инициатору
             if (data.type === 'item_suggestion' && data.source && data.source.userId) {
                 // Получаем текущего пользователя напрямую из store для синхронного доступа
-                const currentUser = store.getState().user;
+                const currentUser = store.getState().user.user;
                 
                 if (currentUser && currentUser.id && 
                     String(currentUser.id) === String(data.source.userId)) {
@@ -607,7 +639,7 @@ export const useWebSocket = (chatId?: string) => {
                 }
                 
                 // Получаем текущего пользователя
-                const currentUser = store.getState().user;
+                const currentUser = store.getState().user.user;
                 
                 // Проверяем, что это ответ на наше предложение
                 if (data.originalSource && data.originalSource.userId && 
@@ -655,8 +687,6 @@ export const useWebSocket = (chatId?: string) => {
                         timestamp: data.timestamp || new Date().toISOString(),
                         autoHideDuration: 10000
                     }));
-                    
-                    console.log('✅ Создано уведомление о статусе предложения с ID:', notificationId);
                     
                     // Показываем toast-уведомление
                     const toastId = generateUniqueNotificationId('suggestion-response-toast');
@@ -917,19 +947,272 @@ export const useWebSocket = (chatId?: string) => {
         console.log('✅ Данные отправлены в Redux для обновления');
     }, [dispatch]);
 
+    // Функция для присоединения к комнате смен
+    const joinShiftsRoomCallback = useCallback((chatId: string) => {
+        if (!socketService.isConnected()) {
+            console.warn('⚠️ WebSocket не подключен, невозможно присоединиться к комнате смен');
+            return;
+        }
+        
+        socketService.emit('join_shifts_room', { chatId });
+        console.log(`🔌 Отправлен запрос на присоединение к комнате смен для чата ${chatId}`);
+    }, []);
+    
+    // Функция для присоединения к комнате резервов
+    const joinReservesRoomCallback = useCallback((chatId: string) => {
+        if (!socketService.isConnected()) {
+            console.warn('⚠️ WebSocket не подключен, невозможно присоединиться к комнате резервов');
+            return;
+        }
+        
+        socketService.emit('join_reserves_room', { chatId });
+        console.log(`🔌 Отправлен запрос на присоединение к комнате резервов для чата ${chatId}`);
+    }, []);
+    
+    // Функция для присоединения к комнате курьеров (публичная)
+    const joinCourierRoom = useCallback((chatId: string, userInfo: any) => {
+        console.log(`🌟 joinCourierRoom вызвана с параметрами: chatId=${chatId}`);
+        
+        if (!chatId) {
+            console.error('❌ Невозможно присоединиться к комнате курьеров - chatId не указан');
+            return;
+        }
+        
+        // Проверяем соединение
+        if (!socketService.isConnected()) {
+            console.warn('⚠️ Socket не подключен, пытаемся переподключиться...');
+            socketService.connect().then(connected => {
+                if (connected) {
+                    console.log('🔄 Socket подключен, повторяем присоединение к комнате');
+                    // Используем retryJoinRoom вместо рекурсивного вызова
+                    retryCourierRoomJoin(chatId, userInfo, 1000);
+                } else {
+                    // Если не удалось подключиться, планируем повторную попытку
+                    retryCourierRoomJoin(chatId, userInfo, 3000);
+                }
+            });
+            return;
+        }
+
+        const socket = socketService['socket'];
+        if (!socket) {
+            console.error('❌ Socket не инициализирован');
+            return;
+        }
+        
+        try {
+            // Получаем информацию о пользователе из store
+            const state = store.getState();
+            const userState = state.user;
+            
+            if (!userState?.user) {
+                console.warn('⚠️ Нет данных о текущем пользователе');
+                return;
+            }
+            
+            // Отправляем запрос на присоединение к комнате
+            const data = {
+                chatId: String(chatId),
+                chat_id: String(chatId),
+                user_info: {
+                    ...userInfo,
+                    id: userState.user.id,
+                    first_name: userState.user.first_name,
+                    last_name: userState.user.last_name || '',
+                    socket_id: socket.id || 'unknown'
+                }
+            };
+            
+            console.log('📦 Данные запроса:', data);
+            socket.emit('join_courier_room', data);
+            console.log('📤 join_courier_room отправлен');
+            
+            // Добавляем комнату в список активных
+            const roomName = `courier_${chatId}`;
+            activeRooms.current.add(roomName);
+            console.log(`✅ Комната ${roomName} добавлена в список активных комнат`);
+            console.log('📋 Текущие активные комнаты:', Array.from(activeRooms.current));
+            
+        } catch (error) {
+            console.error('❌ Ошибка при отправке события join_courier_room:', error);
+        }
+    }, []);
+
+    // Функция для повторных попыток подключения к комнате курьеров
+    const retryCourierRoomJoin = (chatId: string, userInfo: any, delay: number = 2000) => {
+        const currentAttempts = joinRoomAttempts.current[chatId] || 0;
+        
+        if (currentAttempts >= MAX_JOIN_ATTEMPTS) {
+            console.error(`❌ Превышено максимальное количество попыток (${MAX_JOIN_ATTEMPTS}) подключения к комнате курьеров ${chatId}`);
+            joinRoomAttempts.current[chatId] = 0;
+            return;
+        }
+        
+        joinRoomAttempts.current[chatId] = currentAttempts + 1;
+        
+        console.log(`⏳ Повторная попытка (${joinRoomAttempts.current[chatId]}/${MAX_JOIN_ATTEMPTS}) подключения к комнате курьеров ${chatId} через ${delay}ms`);
+        
+        setTimeout(async () => {
+            const socket = socketService['socket'];
+            if (socket?.connected) {
+                const roomName = `courier_${chatId}`;
+                if (!activeRooms.current.has(roomName)) {
+                    const state = store.getState();
+                    const userState = state.user;
+                    
+                    if (!userState?.user) {
+                        console.warn('⚠️ Нет данных о текущем пользователе при повторной попытке');
+                        return;
+                    }
+                    
+                    activeRooms.current.add(roomName);
+                    console.log(`✅ Комната ${roomName} добавлена в список активных комнат при повторной попытке`);
+                    console.log('📋 Текущие активные комнаты:', Array.from(activeRooms.current));
+                    
+                    socket.emit('join_courier_room', { 
+                        chatId: String(chatId),
+                        chat_id: String(chatId),
+                        user_info: {
+                            ...userInfo,
+                            id: userState.user.id,
+                            first_name: userState.user.first_name,
+                            last_name: userState.user.last_name || '',
+                            socket_id: socket.id
+                        }
+                    });
+                    console.log(`🔄 Повторное подключение к комнате курьеров ${roomName}`);
+                    // Сбрасываем счетчик попыток после успешного подключения
+                    joinRoomAttempts.current[chatId] = 0;
+                }
+            } else {
+                try {
+                    // Пробуем подключиться
+                    const connected = await socketService.connect();
+                    if (connected) {
+                        // Если успешно, пробуем снова через небольшую задержку
+                        setTimeout(() => retryCourierRoomJoin(chatId, userInfo, 1000), 100);
+                    } else {
+                        // Если не удалось, увеличиваем задержку
+                        setTimeout(() => retryCourierRoomJoin(chatId, userInfo, Math.min(delay * 1.5, 15000)), 100);
+                    }
+                } catch (error) {
+                    console.error('❌ Ошибка при попытке переподключения:', error);
+                    // Планируем следующую попытку
+                    setTimeout(() => retryCourierRoomJoin(chatId, userInfo, Math.min(delay * 1.5, 15000)), 100);
+                }
+            }
+        }, delay);
+    };
+
+    // Обработчик для обновления календаря
+    const handleCalendarUpdate = useCallback((data: any) => {
+        console.log('=== 📅 Получено обновление календаря ===');
+        console.log('📊 Данные:', data);
+        
+        // Проверяем наличие настроек в данных
+        if (data.settings) {
+            console.log('⚙️ Получены настройки доступности:', data.settings);
+            // Обновляем настройки в Redux
+            dispatch(updateAccessSettings(data.settings));
+            
+            // Показываем уведомление об обновлении настроек
+            const toastId = generateUniqueNotificationId('settings-update');
+            dispatch(addNotification({
+                id: toastId,
+                type: NotificationTypes.INFO,
+                message: 'Обновлены настройки доступности смен',
+                autoHideDuration: 5000,
+                isToast: true
+            }));
+        }
+        
+        // Проверяем, что это уведомление о доступности смен
+        if (data.type === 'notification' && data.data?.message?.includes('Открылась запись на смены')) {
+            console.log('🎉 Получено уведомление об открытии записи на смены');
+            console.log('🏠 Чат:', data.chat_id);
+            
+            // Отправляем команду на обновление календаря
+            if (globalSocket.current && data.chat_id) {
+                console.log(`🔄 Отправка запроса на обновление календаря для чата ${data.chat_id}`);
+                globalSocket.current.emit('refresh_calendar', {
+                    chat_id: data.chat_id,
+                    force: true,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            // Показываем уведомление
+            const toastId = generateUniqueNotificationId('calendar-update');
+            dispatch(addNotification({
+                id: toastId,
+                type: NotificationTypes.INFO,
+                message: 'Доступны новые смены! Обновите календарь.',
+                autoHideDuration: 5000,
+                isToast: true
+            }));
+        } else if (data.type === 'calendar_update') {
+            console.log('📅 Получено обновление календаря с данными:', data);
+            
+            // Если есть настройки в ответе, обновляем их
+            if (data.settings) {
+                console.log('⚙️ Обновление настроек из ответа календаря:', data.settings);
+                dispatch(updateAccessSettings(data.settings));
+            }
+            
+            // Если есть данные календаря, обновляем их
+            if (data.calendar) {
+                console.log('📅 Обновление данных календаря');
+                // Здесь можно добавить dispatch для обновления данных календаря в Redux
+            }
+        } else {
+            console.log('⚠️ Получены данные не в формате уведомления о доступности смен или обновления календаря');
+        }
+    }, [dispatch]);
+
+    // Обработчик для уведомлений о доступности смен
+    const handleAvailabilityNotification = useCallback((data: any) => {
+        console.log('=== 🔔 Получено уведомление о доступности смен ===');
+        console.log('📊 Данные:', data);
+        
+        // Показываем уведомление
+        const toastId = generateUniqueNotificationId('availability');
+        dispatch(addNotification({
+            id: toastId,
+            type: NotificationTypes.INFO,
+            message: data.message || 'Доступны новые смены!',
+            autoHideDuration: 10000,
+            isToast: true
+        }));
+        
+        // Вызываем обновление календаря
+        handleCalendarUpdate(data);
+    }, [dispatch, handleCalendarUpdate]);
+
     // Далее идут все useEffect
     useEffect(() => {
         // Инициализируем сокет только если его еще нет
         if (!socketService.isConnected()) {
-            initializeSocket();
+            // Используем async/await для обработки Promise
+            const initSocket = async () => {
+                try {
+                    await socketService.connect();
+                    // После успешного подключения обновляем состояние
+                    const socket = socketService['socket'];
+                    if (socket) {
+                        globalSocket.current = socket;
+                        setIsConnected(true);
+                    }
+                } catch (error) {
+                    console.error('❌ Ошибка при инициализации WebSocket:', error);
+                    setIsConnected(false);
+                }
+            };
+            
+            initSocket();
         } else {
             // Если сокет уже существует, обновляем ссылку
             globalSocket.current = socketService['socket'];
             setIsConnected(true);
-            
-            // Проверяем, что подключены к глобальной комнате
-            console.log('🔍 Проверка подключения к глобальной комнате при инициализации');
-            console.log('🔍 Текущие активные комнаты:', Array.from(activeRooms.current));
         }
         
         // Добавляем обработчик для отслеживания статуса соединения
@@ -959,7 +1242,7 @@ export const useWebSocket = (chatId?: string) => {
             socketService.unsubscribe('connect');
             socketService.unsubscribe('disconnect');
         };
-    }, [initializeSocket]);
+    }, []);
 
     useEffect(() => {
         if (!globalSocket.current) return;
@@ -1024,6 +1307,49 @@ export const useWebSocket = (chatId?: string) => {
         
         globalSocket.current.on('notification_updated', handleNotificationUpdated);
         
+        // Добавляем обработчик для успешного присоединения к комнате курьеров
+        const handleJoinedCourierRoom = (data: any) => {
+            console.log('=== 👥 Присоединение к общей комнате курьеров успешно ===');
+            console.log('🏠 Комната:', data.room);
+            console.log('🏠 ID чата:', data.chat_id);
+            console.log('👥 Кол-во пользователей:', data.active_users?.length || 0);
+            console.log('👤 Активные пользователи:', data.active_users);
+            console.log('🚦 Статус:', data.status);
+            
+            // Проверяем, что комната добавлена в список активных
+            const roomName = `courier_${data.chat_id}`;
+            if (!activeRooms.current.has(roomName)) {
+                activeRooms.current.add(roomName);
+                console.log(`✅ Комната ${roomName} добавлена в список активных комнат после подтверждения`);
+            }
+            console.log('📋 Текущие активные комнаты:', Array.from(activeRooms.current));
+        };
+        
+        globalSocket.current.on('joined_courier_room', handleJoinedCourierRoom);
+        
+        // Добавляем обработчик для событий комнаты курьеров
+        const handleCourierRoomEvent = (data: any) => {
+            console.log('=== 🔔 Событие в комнате курьеров ===');
+            console.log('📋 Тип события:', data.event_type);
+            console.log('🏠 Комната:', data.room);
+            console.log('👤 Отправитель:', data.sender);
+            console.log('📄 Данные:', data.data);
+        };
+        
+        globalSocket.current.on('courier_room_event', handleCourierRoomEvent);
+        
+        // Добавляем обработчик для входа/выхода пользователей из комнаты курьеров
+        const handleCourierUserUpdate = (data: any) => {
+            console.log(`=== 👤 ${data.action === 'joined' ? 'Вход' : 'Выход'} пользователя в комнате курьеров ===`);
+            console.log('🏠 Комната:', data.room);
+            console.log('👤 Пользователь:', data.user);
+            console.log('👥 Текущие пользователи:', data.active_users);
+            console.log('👥 Всего пользователей:', data.active_users?.length || 0);
+        };
+        
+        globalSocket.current.on('courier_user_joined', (data: any) => handleCourierUserUpdate({...data, action: 'joined'}));
+        globalSocket.current.on('courier_user_left', (data: any) => handleCourierUserUpdate({...data, action: 'left'}));
+        
         // Загружаем уведомления для всех комнат, к которым присоединились
         if (joinedRooms.current.length > 0) {
             joinedRooms.current.forEach(roomId => {
@@ -1040,6 +1366,10 @@ export const useWebSocket = (chatId?: string) => {
             globalSocket.current?.off('notification_sent', handleNotificationSent);
             globalSocket.current?.off('inventory_notification', handleInventoryNotification);
             globalSocket.current?.off('notification_updated', handleNotificationUpdated);
+            globalSocket.current?.off('joined_courier_room', handleJoinedCourierRoom);
+            globalSocket.current?.off('courier_room_event', handleCourierRoomEvent);
+            globalSocket.current?.off('courier_user_joined');
+            globalSocket.current?.off('courier_user_left');
         };
     }, [globalSocket.current, dispatch, chatId, joinedRooms.current]);
 
@@ -1053,6 +1383,21 @@ export const useWebSocket = (chatId?: string) => {
             };
         }
     }, [handleInventoryUpdate]);
+
+    useEffect(() => {
+        if (!globalSocket.current) return;
+
+        // Подписываемся на обновления календаря и уведомления
+        globalSocket.current.on('notification', handleAvailabilityNotification);
+        globalSocket.current.on('global_notification', handleAvailabilityNotification);
+        globalSocket.current.on('calendar_update', handleCalendarUpdate);
+        
+        return () => {
+            globalSocket.current?.off('notification', handleAvailabilityNotification);
+            globalSocket.current?.off('global_notification', handleAvailabilityNotification);
+            globalSocket.current?.off('calendar_update', handleCalendarUpdate);
+        };
+    }, [handleAvailabilityNotification, handleCalendarUpdate]);
 
     // Очистка при размонтировании компонента
     useEffect(() => {
@@ -1093,6 +1438,38 @@ export const useWebSocket = (chatId?: string) => {
         };
     }, []);
 
+    useEffect(() => {
+        if (!globalSocket.current) return;
+        
+        // Обработчик успешного присоединения к комнате
+        const handleJoined = (data: any) => {
+            console.log('✅ Успешное присоединение к комнате:', data);
+            if (data.active_users) {
+                console.log('👥 Активные пользователи:', data.active_users);
+            }
+        };
+        
+        // Обработчик обновления списка пользователей
+        const handleUserJoined = (data: any) => {
+            console.log('👤 Новый пользователь присоединился:', data);
+            if (data.active_users) {
+                console.log('👥 Обновленный список пользователей:', data.active_users);
+            }
+        };
+        
+        // Регистрируем обработчики
+        globalSocket.current.on('joined', handleJoined);
+        globalSocket.current.on('user_joined', handleUserJoined);
+        
+        // Очистка при размонтировании
+        return () => {
+            if (globalSocket.current) {
+                globalSocket.current.off('joined', handleJoined);
+                globalSocket.current.off('user_joined', handleUserJoined);
+            }
+        };
+    }, []);
+
     // Возвращаем объект с нужными свойствами и методами
     return {
         socket: globalSocket.current,
@@ -1102,6 +1479,9 @@ export const useWebSocket = (chatId?: string) => {
         leaveGlobalRoom: leaveGlobalRoomCallback,
         leaveRoom: leaveRoomCallback,
         handleSuggestionStatusUpdate,
-        clearNotifications: clearNotificationsCallback
+        clearNotifications: clearNotificationsCallback,
+        joinShiftsRoom: joinShiftsRoomCallback,
+        joinReservesRoom: joinReservesRoomCallback,
+        joinCourierRoom: joinCourierRoom
     };
 }; 

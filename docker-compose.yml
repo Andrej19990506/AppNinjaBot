@@ -16,7 +16,7 @@ services:
       - ./backend/telegramNinjaBot/.env
     environment:
       - PYTHONUNBUFFERED=1
-      - API_URL=https://nowhere-permissions-finder-conscious.trycloudflare.com
+      - API_URL=https://reform-hand-simple-invisible.trycloudflare.com
     restart: "no"
     deploy:
       replicas: 1
@@ -46,8 +46,8 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
-      - API_BASE_URL=https://nowhere-permissions-finder-conscious.trycloudflare.com
-      - SOCKET_URL=wss://nowhere-permissions-finder-conscious.trycloudflare.com/ws
+      - API_BASE_URL=https://reform-hand-simple-invisible.trycloudflare.com
+      - SOCKET_URL=wss://reform-hand-simple-invisible.trycloudflare.com/ws
       - PYTHONPYCACHEPREFIX=/tmp/pycache
       - PYTHONPATH=/app
 
@@ -56,10 +56,10 @@ services:
       context: ./backend
       target: development
     volumes:
-      - ./backend:/app
+      - ./backend/scheduler:/app/scheduler
+      - ./backend/data:/app/data
       - /app/__pycache__
       - /app/*/__pycache__
-      - ./backend/data/inventory:/app/data/inventory
       - shared-data:/app/shared
     depends_on:
       - server
@@ -83,8 +83,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=https://nowhere-permissions-finder-conscious.trycloudflare.com/api
-      - REACT_APP_WS_URL=wss://nowhere-permissions-finder-conscious.trycloudflare.com
+      - REACT_APP_API_URL=https://reform-hand-simple-invisible.trycloudflare.com/api
+      - REACT_APP_WS_URL=wss://reform-hand-simple-invisible.trycloudflare.com
       - NODE_ENV=${NODE_ENV:-development}
       - REACT_APP_ENV=${NODE_ENV:-development}
       - REACT_APP_DEBUG=true

@@ -54,15 +54,15 @@ class SocketService {
         });
     }
 
-    public async connect(): Promise<void> {
+    public async connect(): Promise<boolean> {
         if (this.socket?.connected) {
             logger.info('✅ Socket.IO уже подключен');
-            return;
+            return true;
         }
 
         if (this.isConnecting) {
             logger.info('🔄 Socket.IO подключение уже в процессе...');
-            return;
+            return false;
         }
 
         this.isConnecting = true;
@@ -73,35 +73,51 @@ class SocketService {
             // Инициализируем сокет
             this.socket = await this.initializeSocket();
 
-            // Устанавливаем обработчики событий
-            this.socket.on('connect', () => {
-                logger.info('✅ Socket.IO подключение установлено');
-                this.isConnecting = false;
-                this.reconnectAttempts = 0;
-                this.processMessageQueue();
-            });
+            // Создаем Promise для ожидания подключения
+            return new Promise((resolve) => {
+                // Устанавливаем обработчики событий
+                this.socket!.on('connect', () => {
+                    logger.info('✅ Socket.IO подключение установлено');
+                    this.isConnecting = false;
+                    this.reconnectAttempts = 0;
+                    this.processMessageQueue();
+                    resolve(true);
+                });
 
-            this.socket.on('connect_error', (error) => {
-                logger.error('❌ Ошибка подключения к Socket.IO:', error);
-                this.handleConnectionError();
-            });
+                this.socket!.on('connect_error', (error) => {
+                    logger.error('❌ Ошибка подключения к Socket.IO:', error);
+                    this.handleConnectionError();
+                    resolve(false);
+                });
 
-            this.socket.on('disconnect', (reason) => {
-                logger.warn('🔌 Socket.IO отключен:', reason);
-                this.handleDisconnect(reason);
-            });
+                this.socket!.on('disconnect', (reason) => {
+                    logger.warn('🔌 Socket.IO отключен:', reason);
+                    this.handleDisconnect(reason);
+                });
 
-            this.socket.on('error', (error) => {
-                logger.error('❌ Socket.IO ошибка:', error);
-                this.handleConnectionError();
-            });
+                this.socket!.on('error', (error) => {
+                    logger.error('❌ Socket.IO ошибка:', error);
+                    this.handleConnectionError();
+                    resolve(false);
+                });
 
-            // Подключаемся
-            this.socket.connect();
+                // Подключаемся
+                this.socket!.connect();
+
+                // Устанавливаем таймаут
+                setTimeout(() => {
+                    if (this.isConnecting) {
+                        logger.error('❌ Таймаут подключения к Socket.IO');
+                        this.isConnecting = false;
+                        resolve(false);
+                    }
+                }, 5000);
+            });
 
         } catch (error) {
             logger.error('❌ Ошибка при инициализации Socket.IO:', error);
             this.handleConnectionError();
+            return false;
         }
     }
 
@@ -261,6 +277,52 @@ class SocketService {
     leaveRoom(chatId: string): void {
         if (this.socket) {
             this.socket.emit('leave_room', { chatId });
+        }
+    }
+
+    // Новый метод для присоединения к комнате курьеров
+    joinCourierRoom(chatId: string, userInfo: any): void {
+        console.log(`🚀 [SocketService] Присоединение к комнате курьеров для чата ${chatId}`);
+        
+        if (!this.socket?.connected) {
+            console.warn(`⚠️ [SocketService] Socket не подключен. Подключаемся и пробуем снова.`);
+            this.connect().then(() => {
+                if (this.socket?.connected) {
+                    this.sendJoinCourierRoomEvent(chatId, userInfo);
+                } else {
+                    console.error(`❌ [SocketService] Не удалось подключиться для присоединения к комнате курьеров: ${chatId}`);
+                }
+            });
+            return;
+        }
+        
+        this.sendJoinCourierRoomEvent(chatId, userInfo);
+    }
+
+    private sendJoinCourierRoomEvent(chatId: string, userInfo: any): void {
+        if (!this.socket) return;
+        
+        try {
+            console.log(`📤 [SocketService] Отправка события join_courier_room для чата ${chatId}`);
+            
+            // Формируем данные события
+            const eventData = {
+                chatId: String(chatId), // Добавляем в двух форматах для совместимости
+                chat_id: String(chatId),
+                user_info: userInfo || {
+                    id: null,
+                    first_name: 'Unknown',
+                    last_name: ''
+                }
+            };
+            
+            console.log(`📋 [SocketService] Данные события join_courier_room:`, eventData);
+            
+            // Отправляем событие
+            this.socket.emit('join_courier_room', eventData);
+            console.log(`✅ [SocketService] Событие join_courier_room отправлено`);
+        } catch (error) {
+            console.error(`❌ [SocketService] Ошибка при отправке события join_courier_room:`, error);
         }
     }
 }

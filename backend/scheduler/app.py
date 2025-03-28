@@ -3,6 +3,7 @@ from scheduler import scheduler
 import logging
 from datetime import datetime
 import traceback
+from scheduler import InventoryScheduler
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -12,6 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger('SchedulerService')
 
 app = Flask(__name__)
+scheduler = InventoryScheduler()
 
 @app.route('/health')
 def health_check():
@@ -117,8 +119,132 @@ def schedule_reset():
         logger.error(f"Error scheduling reset: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
+@app.route('/schedule/availability', methods=['POST'])
+def schedule_availability():
+    """Планирование уведомления о доступности смен"""
+    try:
+        # Получаем chat_id из запроса
+        data = request.json
+        chat_id = data.get('chat_id') if data else None
+        
+        logger.info(f"Запрос на планирование доступности смен для чата {chat_id if chat_id else 'по умолчанию'}")
+        
+        # Вызываем apply_access_settings вместо ensure_availability_task
+        result = scheduler.apply_access_settings(chat_id)
+        
+        if result:
+            return jsonify({
+                "status": "success",
+                "message": f"Задача уведомления о доступности смен успешно создана для чата {chat_id if chat_id else 'по умолчанию'}"
+            })
+        else:
+            return jsonify({
+                "status": "error", 
+                "message": f"Не удалось создать задачу для чата {chat_id if chat_id else 'по умолчанию'}"
+            }), 500
+    except Exception as e:
+        logger.error(f"Ошибка при планировании уведомления: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/schedule/availability/status', methods=['GET'])
+def get_availability_status():
+    """Получение статуса задачи уведомлений о доступности"""
+    try:
+        status = scheduler.get_availability_status()
+        return jsonify(status)
+    except Exception as e:
+        logger.error(f"Ошибка при получении статуса задачи уведомлений: {str(e)}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+@app.route('/scheduler/availability/status', methods=['GET'])
+def get_scheduler_status():
+    """Получение статуса планировщика и активных задач"""
+    try:
+        status = {
+            'is_running': scheduler.is_running(),
+            'active_tasks': []
+        }
+        
+        if scheduler.is_running():
+            # Получаем информацию о задаче уведомления о доступности
+            if scheduler.availability_job:
+                job = scheduler.scheduler.get_job(scheduler.availability_job)
+                if job:
+                    status['active_tasks'].append({
+                        'id': job.id,
+                        'name': job.name,
+                        'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
+                        'trigger': str(job.trigger)
+                    })
+            
+            # Получаем информацию о задачах сброса инвентаризации
+            for chat_id, job_id in scheduler.reset_jobs.items():
+                job = scheduler.scheduler.get_job(job_id)
+                if job:
+                    status['active_tasks'].append({
+                        'id': job.id,
+                        'name': job.name,
+                        'next_run_time': job.next_run_time.isoformat() if job.next_run_time else None,
+                        'trigger': str(job.trigger),
+                        'chat_id': chat_id
+                    })
+        
+        return jsonify(status), 200
+        
+    except Exception as e:
+        logger.error(f"Ошибка при получении статуса планировщика: {str(e)}")
+        return jsonify({
+            'error': str(e),
+            'status': 'error'
+        }), 500
+
+@app.route('/scheduler/reload-tasks', methods=['POST'])
+def reload_tasks():
+    """Принудительная перезагрузка запланированных задач"""
+    try:
+        success = scheduler.reload_scheduled_tasks()
+        if success:
+            return jsonify({"status": "success", "message": "Задачи успешно перезагружены"})
+        else:
+            return jsonify({"status": "error", "message": "Не удалось перезагрузить задачи"})
+    except Exception as e:
+        logger.error(f"Ошибка при перезагрузке задач: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/apply-access-settings', methods=['POST'])
+def apply_access_settings():
+    """Запускает задачу применения настроек доступа к сменам"""
+    try:
+        logger.info("📬 Запрос на применение настроек доступа")
+        
+        # Получаем chat_id из запроса
+        data = request.json
+        chat_id = data.get('chat_id') if data else None
+        
+        if not chat_id:
+            logger.warning("⚠️ chat_id не указан в запросе, применяем общие настройки")
+        else:
+            logger.info(f"🆔 Применяем настройки доступа для чата: {chat_id}")
+        
+        # Запуск задачи
+        result = scheduler.apply_access_settings(chat_id)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Настройки доступа успешно применены',
+            'chat_id': chat_id,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при применении настроек доступа: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Ошибка при применении настроек доступа: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
-    # Запускаем планировщик
+    # Запускаем планировщик при старте приложения
     scheduler.start()
     try:
         # Запускаем сервис на порту 8002

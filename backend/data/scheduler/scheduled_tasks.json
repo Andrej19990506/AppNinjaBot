@@ -1,1 +1,20 @@
-{}
+{
+  "availability_2025-04-03": {
+    "job_id": "availability_20250328015034",
+    "next_run_time": "2025-04-03T05:09:00+07:00",
+    "chat_id": "2025-04-03",
+    "type": "availability"
+  },
+  "availability_-1004754142211": {
+    "job_id": "availability_-1004754142211_20250328020330",
+    "next_run_time": "2025-04-04T09:00:00+07:00",
+    "chat_id": "-1004754142211",
+    "type": "availability"
+  },
+  "availability_-1004721237800": {
+    "job_id": "availability_-1004721237800_20250328211134",
+    "next_run_time": "2025-03-29T04:15:00+07:00",
+    "chat_id": "-1004721237800",
+    "type": "availability"
+  }
+}

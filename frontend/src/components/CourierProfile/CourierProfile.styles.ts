@@ -19,6 +19,7 @@ const fadeInUp = keyframes`
 `;
 
 export const ProfileContainer = styled.div`
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -42,16 +43,11 @@ export const ProfileContainer = styled.div`
     }
 `;
 
-export const AvatarContainer = styled.div`
+export const AvatarWrapper = styled.div`
+    position: relative;
     width: 140px;
     height: 140px;
-    border-radius: 50%;
-    overflow: hidden;
     margin-bottom: 20px;
-    border: 3px solid var(--primary-color);
-    position: relative;
-    box-shadow: var(--shadow-md);
-    transition: all var(--transition-normal);
 
     @media (max-width: 768px) {
         width: 120px;
@@ -63,6 +59,17 @@ export const AvatarContainer = styled.div`
         height: 100px;
         margin-bottom: 16px;
     }
+`;
+
+export const AvatarContainer = styled.div`
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary-color);
+    position: relative;
+    box-shadow: var(--shadow-md);
+    transition: all var(--transition-normal);
 
     &:hover {
         transform: var(--hover-transform);

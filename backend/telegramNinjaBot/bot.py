@@ -1040,6 +1040,97 @@ async def handle_send_love():
         logger.error(f"Error sending love messages: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/send_message', methods=['POST'])
+async def send_message():
+    """API endpoint для отправки сообщений через бота"""
+    try:
+        data = request.get_json()
+        chat_id = data.get('chat_id')
+        text = data.get('text')
+        parse_mode = data.get('parse_mode', 'HTML')
+        
+        if not chat_id or not text:
+            return jsonify({"error": "chat_id и text обязательны"}), 400
+            
+        # Преобразуем chat_id в строку и пробуем разные форматы
+        chat_id_str = str(chat_id)
+        chat_id_formats = []
+        
+        # Определяем форматы ID для попыток
+        if chat_id_str.startswith('-'):
+            if chat_id_str.startswith('-100'):
+                chat_id_formats = [chat_id_str, f"-{chat_id_str[4:]}"]
+            else:
+                chat_id_formats = [chat_id_str, f"-100{chat_id_str[1:]}"]
+        else:
+            chat_id_formats = [f"-{chat_id_str}", f"-100{chat_id_str}"]
+        
+        # Создаем новый event loop для каждого запроса
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        try:
+            # Пробуем каждый формат ID
+            success = False
+            last_error = None
+            
+            for format_id in chat_id_formats:
+                try:
+                    # Проверяем, является ли бот участником чата
+                    try:
+                        chat_member = await bot_application.bot.get_chat_member(format_id, bot_application.bot.id)
+                        if chat_member.status not in ['administrator', 'creator', 'member']:
+                            logger.error(f"Бот не является участником чата {format_id}")
+                            continue
+                    except Exception as e:
+                        logger.error(f"Ошибка при проверке участника чата {format_id}: {str(e)}")
+                        continue
+                    
+                    # Отправляем сообщение
+                    await bot_application.bot.send_message(
+                        chat_id=format_id,
+                        text=text,
+                        parse_mode=parse_mode
+                    )
+                    success = True
+                    logger.info(f"✅ Сообщение успешно отправлено в чат {format_id}")
+                    break
+                except Exception as e:
+                    last_error = e
+                    logger.error(f"❌ Ошибка при отправке сообщения в чат {format_id}: {str(e)}")
+                    continue
+                    
+            if not success:
+                error_msg = f"Не удалось отправить сообщение ни в один из форматов чата. Последняя ошибка: {str(last_error)}"
+                logger.error(error_msg)
+                return jsonify({"error": error_msg}), 500
+                
+            return jsonify({"status": "success"})
+        finally:
+            # Завершаем и закрываем event loop
+            try:
+                # Закрываем все незавершенные задачи
+                pending = asyncio.all_tasks(loop=loop)
+                for task in pending:
+                    task.cancel()
+                
+                # Выполняем асинхронное завершение
+                if sys.version_info >= (3, 9):
+                    # В Python 3.9+ используем shutdown_default_executor
+                    loop.run_until_complete(loop.shutdown_asyncgens())
+                    loop.run_until_complete(loop.shutdown_default_executor())
+                else:
+                    # В более ранних версиях только shutdown_asyncgens
+                    loop.run_until_complete(loop.shutdown_asyncgens())
+                
+                loop.close()
+            except Exception as e:
+                logger.error(f"Ошибка при закрытии event loop: {str(e)}")
+        
+    except Exception as e:
+        logger.error(f"Ошибка при отправке сообщения: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 async def run_flask():
     """Запуск Flask сервера"""
     config = HyperConfig()

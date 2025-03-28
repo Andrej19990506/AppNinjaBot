@@ -1,0 +1,19 @@
+{
+  "registrationStartDay": 6,
+  "registrationStartHour": 4,
+  "registrationStartMinute": 15,
+  "lastUpdated": "2025-03-28T21:11:34.904561",
+  "allowMultipleShifts": false,
+  "autoApprove": false,
+  "allowSameDay": false,
+  "offsetType": "days",
+  "offsetAmount": 4,
+  "periodLength": 7,
+  "isAlwaysActive": true,
+  "activeStartDate": "",
+  "activeEndDate": "",
+  "daysAhead": 14,
+  "enabledDates": [],
+  "restrictedUsers": [],
+  "chat_id": "-1004721237800"
+}

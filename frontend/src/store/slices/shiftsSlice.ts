@@ -14,11 +14,52 @@ const subscribeToEvent = (event: string, callback: (data: any) => void) => {
     socketService.subscribe(event, callback);
 };
 
+export interface AccessSettings {
+    // ID чата
+    chat_id?: string;              // ID чата для которого применяются настройки
+    
+    // Общие настройки
+    allowMultipleShifts?: boolean;     // Разрешить запись на несколько смен
+    autoApprove?: boolean;             // Автоматическое подтверждение записи
+    allowSameDay?: boolean;            // Разрешить запись на текущий день
+    
+    // Настройки периода регистрации
+    registrationStartDay?: number;     // День недели, с которого открывается запись (0-6)
+    registrationStartHour?: number;    // Час начала регистрации (0-23)
+    registrationStartMinute?: number;  // Минуты начала регистрации (0-59)
+    
+    // Гибкие настройки периода доступа
+    offsetType?: 'days' | 'weeks' | 'none';     // Тип смещения (дни или недели)
+    offsetAmount?: number;             // Величина смещения (сколько дней/недель)
+    periodLength?: number;             // Длительность периода доступа (в днях)
+    
+    // Период активности правила
+    isAlwaysActive?: boolean;          // Активно ли правило постоянно
+    activeStartDate?: string;          // Дата начала активности правила
+    activeEndDate?: string;            // Дата окончания активности правила
+    
+    // Старые поля (оставлены для обратной совместимости)
+    daysAhead?: number;                // Количество дней вперед, доступных для записи (устаревшее)
+    
+    // Список конкретных дат, на которые можно записываться
+    enabledDates?: string[];           // Массив дат в формате YYYY-MM-DD
+    
+    // Персональные ограничения
+    restrictedUsers?: (string | number)[];  // Список ID пользователей с ограниченным доступом
+    
+    // Метаданные
+    lastUpdated?: string;             // Время последнего обновления настроек
+    updatedBy?: string | number;      // ID пользователя, обновившего настройки
+}
+
 interface ShiftState {
     shifts: CourierShift[];
     loading: boolean;
     error: string | null;
     shift_days: ShiftDayType[];
+    accessSettings: AccessSettings;
+    isLoadingSettings: boolean;
+    settingsError: string | null;
 }
 
 interface CourierShift {
@@ -99,7 +140,31 @@ const initialState: ShiftState = {
     shifts: [],
     loading: false,
     error: null,
-    shift_days: []
+    shift_days: [],
+    accessSettings: {
+        allowMultipleShifts: false,
+        autoApprove: false,
+        allowSameDay: false,
+        
+        // Настройки периода регистрации
+        registrationStartDay: 4, // Четверг
+        registrationStartHour: 12, // 12:00
+        registrationStartMinute: 0,
+        
+        // Новые гибкие настройки периода
+        offsetType: 'weeks' as 'days' | 'weeks' | 'none',
+        offsetAmount: 1,
+        periodLength: 7,
+        isAlwaysActive: true,
+        
+        // Старые поля для обратной совместимости
+        daysAhead: 14, // 2 недели
+        
+        // Персональные ограничения
+        restrictedUsers: []
+    },
+    isLoadingSettings: false,
+    settingsError: null
 };
 
 // Глобальный EventEmitter для синхронизации компонентов
@@ -489,6 +554,65 @@ export const confirmShift = createAsyncThunk(
     }
 );
 
+// Thunk для загрузки настроек доступа к сменам
+export const fetchAccessSettings = createAsyncThunk(
+    'shifts/fetchAccessSettings',
+    async (params: { chatId?: string } = {}, { rejectWithValue }) => {
+        try {
+            const { chatId } = params;
+            console.log(`🔍 Запрос настроек доступа с сервера ${chatId ? `для чата ${chatId}` : ''}`);
+            const url = chatId 
+                ? `${API_BASE_URL}/shifts/access-settings?chat_id=${chatId}` 
+                : `${API_BASE_URL}/shifts/access-settings`;
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Failed to fetch shift access settings');
+            }
+            const data = await response.json();
+            console.log('✅ Получены настройки доступа:', data);
+            return data;
+        } catch (error: any) {
+            console.error('❌ Ошибка загрузки настроек доступа:', error);
+            return rejectWithValue(error.message || 'Failed to fetch shift access settings');
+        }
+    }
+);
+
+// Thunk для обновления настроек доступа к сменам
+export const updateAccessSettings = createAsyncThunk(
+    'shifts/updateAccessSettings',
+    async (settings: AccessSettings, { rejectWithValue }) => {
+        try {
+            // Проверяем наличие chat_id в настройках
+            const chat_id = settings.chat_id;
+            
+            console.log(`📊 Отправка настроек доступа на сервер ${chat_id ? `для чата ${chat_id}` : ''}:`, {
+                данные: JSON.stringify(settings, null, 2),
+                ключи: Object.keys(settings),
+                количествоПолей: Object.keys(settings).length
+            });
+            
+            const response = await fetch(`${API_BASE_URL}/shifts/access-settings`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(settings),
+            });
+            if (!response.ok) {
+                throw new Error('Failed to update shift access settings');
+            }
+            const data = await response.json();
+            console.log('✅ Ответ от сервера после сохранения настроек:', data);
+            return data;
+        } catch (error: any) {
+            console.error('❌ Ошибка при обновлении настроек доступа:', error);
+            return rejectWithValue(error.message || 'Failed to update shift access settings');
+        }
+    }
+);
+
 const shiftsSlice = createSlice({
     name: 'shifts',
     initialState,
@@ -721,6 +845,108 @@ const shiftsSlice = createSlice({
                 // При успешной отмене смены - удаляем её из Redux store по ID
                 console.log('[shiftsSlice] Removing shift with ID after cancelShift.fulfilled:', action.payload);
                 state.shifts = state.shifts.filter(shift => String(shift.id) !== String(action.payload));
+            })
+            .addCase(fetchAccessSettings.pending, (state) => {
+                state.isLoadingSettings = true;
+                state.settingsError = null;
+            })
+            .addCase(fetchAccessSettings.fulfilled, (state, action) => {
+                state.isLoadingSettings = false;
+                
+                // Убедимся, что абсолютно все настройки заменяются значениями из ответа сервера,
+                // чтобы не остались значения по умолчанию из initialState
+                const settings = action.payload;
+                
+                // Полностью заменяем все настройки (не используем простое присваивание, 
+                // чтобы избежать сохранения старых значений, которых нет в новом объекте)
+                state.accessSettings = {
+                    // Общие настройки
+                    allowMultipleShifts: settings.allowMultipleShifts,
+                    autoApprove: settings.autoApprove,
+                    allowSameDay: settings.allowSameDay,
+                    
+                    // Настройки периода регистрации
+                    registrationStartDay: settings.registrationStartDay,
+                    registrationStartHour: settings.registrationStartHour,
+                    registrationStartMinute: settings.registrationStartMinute,
+                    
+                    // Гибкие настройки периода доступа
+                    offsetType: settings.offsetType || 'days',
+                    offsetAmount: settings.offsetAmount,
+                    periodLength: settings.periodLength,
+                    
+                    // Период активности правила
+                    isAlwaysActive: settings.isAlwaysActive,
+                    activeStartDate: settings.activeStartDate,
+                    activeEndDate: settings.activeEndDate,
+                    
+                    // Старые поля
+                    daysAhead: settings.daysAhead,
+                    
+                    // Списки
+                    enabledDates: settings.enabledDates || [],
+                    restrictedUsers: settings.restrictedUsers || [],
+                    
+                    // Метаданные
+                    lastUpdated: settings.lastUpdated
+                };
+                
+                console.log('✅ Настройки доступа сохранены в Redux:', state.accessSettings);
+            })
+            .addCase(fetchAccessSettings.rejected, (state, action) => {
+                state.isLoadingSettings = false;
+                state.settingsError = action.payload as string;
+            })
+            .addCase(updateAccessSettings.pending, (state) => {
+                state.isLoadingSettings = true;
+                state.settingsError = null;
+            })
+            .addCase(updateAccessSettings.fulfilled, (state, action) => {
+                state.isLoadingSettings = false;
+                
+                // Убедимся, что абсолютно все настройки заменяются значениями из ответа сервера,
+                // чтобы не остались значения по умолчанию из initialState
+                const settings = action.payload;
+                
+                // Полностью заменяем все настройки (не используем простое присваивание, 
+                // чтобы избежать сохранения старых значений, которых нет в новом объекте)
+                state.accessSettings = {
+                    // Общие настройки
+                    allowMultipleShifts: settings.allowMultipleShifts,
+                    autoApprove: settings.autoApprove,
+                    allowSameDay: settings.allowSameDay,
+                    
+                    // Настройки периода регистрации
+                    registrationStartDay: settings.registrationStartDay,
+                    registrationStartHour: settings.registrationStartHour,
+                    registrationStartMinute: settings.registrationStartMinute,
+                    
+                    // Гибкие настройки периода доступа
+                    offsetType: settings.offsetType || 'days',
+                    offsetAmount: settings.offsetAmount,
+                    periodLength: settings.periodLength,
+                    
+                    // Период активности правила
+                    isAlwaysActive: settings.isAlwaysActive,
+                    activeStartDate: settings.activeStartDate,
+                    activeEndDate: settings.activeEndDate,
+                    
+                    // Старые поля
+                    daysAhead: settings.daysAhead,
+                    
+                    // Списки
+                    enabledDates: settings.enabledDates || [],
+                    restrictedUsers: settings.restrictedUsers || [],
+                    
+                    // Метаданные
+                    lastUpdated: settings.lastUpdated
+                };
+                
+                console.log('✅ Настройки доступа обновлены в Redux:', state.accessSettings);
+            })
+            .addCase(updateAccessSettings.rejected, (state, action) => {
+                state.isLoadingSettings = false;
+                state.settingsError = action.payload as string;
             });
     }
 });
@@ -731,6 +957,9 @@ export const selectShiftsByDate = (state: RootState, date: string) =>
     state.shifts.shifts.filter(shift => shift.date === date);
 export const selectIsLoading = (state: RootState) => state.shifts.loading;
 export const selectError = (state: RootState) => state.shifts.error;
+export const selectAccessSettings = (state: RootState) => state.shifts.accessSettings;
+export const selectIsLoadingSettings = (state: RootState) => state.shifts.isLoadingSettings;
+export const selectSettingsError = (state: RootState) => state.shifts.settingsError;
 
 export const shiftBooked = shiftsSlice.actions.shiftBooked;
 export const shiftCanceled = shiftsSlice.actions.shiftCanceled;

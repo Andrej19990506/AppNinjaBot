@@ -1,7 +1,8 @@
-import React from 'react';
-import styled from 'styled-components';
+import React, { useState } from 'react';
+import styled, { keyframes } from 'styled-components';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import defaultAvatar from '../../../assets/images/Ninja.jpg';
 
 interface ShiftConfirmationDialogProps {
     date: Date;
@@ -13,139 +14,350 @@ interface ShiftConfirmationDialogProps {
     onConfirm: () => void;
     onCancel: () => void;
     isOpen: boolean;
+    userName?: string;
+    userAvatar?: string;
 }
 
-// Стили
-const ConfirmationModal = styled.div`
-    position: fixed;
+const slideIn = keyframes`
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+`;
+
+const fadeIn = keyframes`
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+`;
+
+const successAnimation = keyframes`
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+`;
+
+const ConfirmationContainer = styled.div`
+    padding: 16px;
+    width: 100%;
+    animation: ${slideIn} 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    
+    @media (min-width: 768px) {
+        padding: 24px;
+    }
+`;
+
+const ConfirmationCard = styled.div`
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    
+    @media (min-width: 768px) {
+        padding: 24px;
+    }
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--gradient-primary);
+    }
+`;
+
+const SuccessOverlay = styled.div`
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--card-background);
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    padding: 20px;
-    animation: fadeIn 0.3s ease;
-    
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-`;
-
-const ConfirmationContent = styled.div`
-    background: white;
-    border-radius: 12px;
     padding: 24px;
-    max-width: 90%;
-    width: 350px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    animation: ${fadeIn} 0.3s ease-out;
+    z-index: 10;
+    height: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+`;
+
+const UserAvatar = styled.div`
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    margin-bottom: 24px;
     position: relative;
-    animation: scaleIn 0.3s ease;
+    animation: ${successAnimation} 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);
+    background: var(--card-background);
     
-    @keyframes scaleIn {
-        from { transform: scale(0.9); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
+    img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: opacity 0.3s ease;
+        border-radius: 50%;
+    }
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(45deg, rgba(var(--primary-rgb), 0.1), rgba(var(--primary-rgb), 0));
+        pointer-events: none;
+        border-radius: 50%;
     }
 `;
 
-const CloseIcon = styled.button`
+const SuccessIcon = styled.div`
     position: absolute;
-    top: 12px;
-    right: 12px;
-    background: none;
-    border: none;
-    font-size: 18px;
-    color: #666;
-    cursor: pointer;
-    padding: 5px;
+    bottom: -8px;
+    right: -8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    transition: all 0.2s ease;
+    border: 3px solid var(--card-background);
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+    z-index: 2;
     
-    &:hover {
-        background: rgba(0, 0, 0, 0.05);
-        color: #333;
+    svg {
+        width: 20px;
+        height: 20px;
+        stroke: white;
+        stroke-width: 2.5;
     }
 `;
 
-const ConfirmationTitle = styled.h3`
-    margin-top: 0;
-    margin-bottom: 16px;
-    font-weight: 500;
-    font-size: 1.3rem;
-    color: #333;
+const SuccessMessage = styled.div`
+    text-align: center;
+    margin-bottom: 24px;
+    animation: ${fadeIn} 0.3s ease-out 0.2s both;
+    width: 100%;
+    box-sizing: border-box;
+    
+    h3 {
+        color: var(--text-color);
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin: 0 0 12px 0;
+        background: var(--gradient-primary);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    p {
+        color: var(--text-secondary);
+        font-size: 1rem;
+        margin: 0;
+        line-height: 1.6;
+        white-space: pre-line;
+        
+        strong {
+            color: var(--primary-color);
+            font-weight: 500;
+        }
+    }
+`;
+
+const ConfirmationHeader = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 16px;
+    margin-bottom: 20px;
+    
+    @media (max-width: 360px) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
 `;
 
-const ShiftTypeIcon = styled.span`
-    font-size: 1.4rem;
+const ShiftTypeIcon = styled.div`
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 12px;
+    background: var(--primary-transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    
+    @media (max-width: 360px) {
+        width: 40px;
+        height: 40px;
+        min-width: 40px;
+        font-size: 20px;
+    }
 `;
 
-const ConfirmationText = styled.p`
-    margin-bottom: 24px;
-    color: #555;
+const HeaderContent = styled.div`
+    flex: 1;
+`;
+
+const Title = styled.h3`
+    margin: 0 0 4px 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-color);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    
+    @media (max-width: 360px) {
+        font-size: 1.1rem;
+    }
+`;
+
+const Subtitle = styled.div`
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    
+    @media (max-width: 360px) {
+        font-size: 0.9rem;
+    }
+`;
+
+const ConfirmationDetails = styled.div`
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--primary-transparent);
+    border-radius: var(--radius);
+    color: var(--text-color);
     font-size: 0.95rem;
     line-height: 1.5;
+    
+    @media (max-width: 360px) {
+        padding: 12px;
+        font-size: 0.9rem;
+        margin: 16px 0;
+    }
+    
+    strong {
+        color: var(--primary-color);
+        font-weight: 500;
+    }
 `;
 
-const ConfirmationButtons = styled.div`
-    display: flex;
-    justify-content: flex-end;
+const ButtonsContainer = styled.div`
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 12px;
+    margin-top: 24px;
+    
+    @media (max-width: 360px) {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 20px;
+    }
 `;
 
 const Button = styled.button`
-    padding: 8px 16px;
-    border-radius: 6px;
+    padding: 12px;
+    border-radius: var(--radius);
     font-weight: 500;
-    font-size: 0.9rem;
-    cursor: pointer;
+    font-size: 0.95rem;
     display: flex;
     align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-`;
-
-const CancelButton = styled(Button)`
-    background: #f1f1f1;
-    color: #555;
-    border: none;
+    justify-content: center;
+    gap: 8px;
+    transition: all var(--transition-normal);
+    will-change: transform;
+    white-space: nowrap;
+    width: 100%;
+    min-height: 48px;
     
-    &:hover {
-        background: #e5e5e5;
+    @media (max-width: 360px) {
+        font-size: 0.9rem;
+        min-height: 44px;
+    }
+    
+    svg {
+        width: 20px;
+        height: 20px;
+        stroke: currentColor;
+        stroke-width: 2;
+        
+        @media (max-width: 360px) {
+            width: 18px;
+            height: 18px;
+        }
     }
     
     &:active {
-        transform: scale(0.97);
+        transform: scale(0.98);
+    }
+`;
+
+const CancelButton = styled(Button)`
+    background: var(--gray-100);
+    color: var(--text-secondary);
+    border: none;
+    
+    &:hover {
+        background: var(--gray-200);
+    }
+    
+    @media (max-width: 360px) {
+        order: 2; // Меняем порядок кнопок на мобильных
     }
 `;
 
 const ConfirmButton = styled(Button)`
-    background: var(--primary-color);
+    background: var(--gradient-primary);
     color: white;
     border: none;
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2);
     
     &:hover {
-        background: var(--primary-dark);
+        box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.3);
+        transform: translateY(-1px);
     }
     
-    &:active {
-        transform: scale(0.97);
+    @media (max-width: 360px) {
+        order: 1; // Меняем порядок кнопок на мобильных
     }
-`;
-
-const ConfirmIcon = styled.span`
-    font-size: 1.1rem;
 `;
 
 const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
@@ -153,34 +365,107 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
     pendingShift,
     onConfirm,
     onCancel,
-    isOpen
+    isOpen,
+    userName,
+    userAvatar
 }) => {
+    const [showSuccess, setShowSuccess] = useState(false);
+
     if (!isOpen || !pendingShift) return null;
-    
+
+    const handleConfirm = async () => {
+        setShowSuccess(true);
+        await onConfirm();
+    };
+
+    const handleSuccessClose = () => {
+        setShowSuccess(false);
+        onCancel();
+    };
+
     return (
-        <ConfirmationModal onClick={onCancel}>
-            <ConfirmationContent onClick={e => e.stopPropagation()}>
-                <CloseIcon onClick={onCancel} title="Закрыть">✕</CloseIcon>
-                <ConfirmationTitle>
-                    <ShiftTypeIcon>
-                        {pendingShift.shiftType === 'day' ? '☀️' : '🌙'}
-                    </ShiftTypeIcon>
-                    Подтверждение записи
-                </ConfirmationTitle>
-                <ConfirmationText>
-                    Вы уверены, что хотите записаться на <strong>{pendingShift.shiftType === 'day' ? 'дневную' : 'вечернюю'}</strong> смену 
-                    <br />на <strong>{format(date, 'd MMMM yyyy', { locale: ru })}</strong>?
-                </ConfirmationText>
-                <ConfirmationButtons>
-                    <CancelButton onClick={onCancel}>
-                        <ConfirmIcon>✕</ConfirmIcon> Отмена
-                    </CancelButton>
-                    <ConfirmButton onClick={onConfirm}>
-                        <ConfirmIcon>✓</ConfirmIcon> Подтвердить
-                    </ConfirmButton>
-                </ConfirmationButtons>
-            </ConfirmationContent>
-        </ConfirmationModal>
+        <ConfirmationContainer>
+            <ConfirmationCard>
+                {showSuccess ? (
+                    <SuccessOverlay>
+                        <UserAvatar>
+                            <img 
+                                src={userAvatar || defaultAvatar} 
+                                alt={userName || 'Пользователь'}
+                                onError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.src = defaultAvatar;
+                                    img.style.opacity = '1';
+                                }}
+                                onLoad={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.style.opacity = '1';
+                                }}
+                                style={{ opacity: userAvatar ? '0' : '1' }}
+                            />
+                            <SuccessIcon>
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path 
+                                        d="M20 6L9 17l-5-5" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                            </SuccessIcon>
+                        </UserAvatar>
+                        <SuccessMessage>
+                            <h3>Запись подтверждена!</h3>
+                            <p>
+                                {userName ? `${userName}, вы` : 'Вы'} успешно записались на{' '}
+                                <strong>{pendingShift.shiftType === 'day' ? 'дневную' : 'вечернюю'}</strong> смену
+                                {'\n'}
+                                {format(date, 'd MMMM yyyy', { locale: ru })}
+                            </p>
+                        </SuccessMessage>
+                        <ConfirmButton onClick={handleSuccessClose}>
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            OK
+                        </ConfirmButton>
+                    </SuccessOverlay>
+                ) : (
+                    <>
+                        <ConfirmationHeader>
+                            <ShiftTypeIcon>
+                                {pendingShift.shiftType === 'day' ? '☀️' : '🌙'}
+                            </ShiftTypeIcon>
+                            <HeaderContent>
+                                <Title>Подтверждение записи</Title>
+                                <Subtitle>
+                                    {format(date, 'd MMMM yyyy', { locale: ru })}
+                                </Subtitle>
+                            </HeaderContent>
+                        </ConfirmationHeader>
+
+                        <ConfirmationDetails>
+                            Вы собираетесь записаться на <strong>{pendingShift.shiftType === 'day' ? 'дневную' : 'вечернюю'}</strong> смену.
+                            Пожалуйста, подтвердите ваш выбор.
+                        </ConfirmationDetails>
+
+                        <ButtonsContainer>
+                            <CancelButton onClick={onCancel}>
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Отмена
+                            </CancelButton>
+                            <ConfirmButton onClick={handleConfirm}>
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                Подтвердить
+                            </ConfirmButton>
+                        </ButtonsContainer>
+                    </>
+                )}
+            </ConfirmationCard>
+        </ConfirmationContainer>
     );
 };
 

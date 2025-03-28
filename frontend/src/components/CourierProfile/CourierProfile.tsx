@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { registerForShift, selectIsRegistered, selectIsLoading, selectError } from '../../store/slices/courierSlice';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
-import CourierCalendar from '../CourierSchedule/CourierCalendar';
+import SettingsTooltip from './SettingsTooltip';
+
+
 import {
     ProfileContainer,
+    AvatarWrapper,
     AvatarContainer,
     Avatar,
     CourierName,
@@ -21,56 +24,111 @@ const SeniorCourierBadge = styled.div`
     position: absolute;
     top: -8px;
     right: -8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
     background: var(--primary-color);
-    color: white;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    z-index: 5;
     display: flex;
     align-items: center;
-    gap: 4px;
-
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+    z-index: 5;
+    border: 3px solid var(--card-background);
+    
     &::before {
         content: '⭐';
-        font-size: 10px;
+        font-size: 20px;
+        line-height: 1;
     }
+`;
+
+interface SettingsIconProps {
+    isActive?: boolean;
+    onClick: (e: React.MouseEvent) => void;
+}
+
+// Добавляем стили для значка настроек
+const SettingsIconWrapper = styled.div<{ isActive?: boolean }>`
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: ${props => props.isActive ? 'var(--primary-dark)' : 'var(--primary-color)'};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: ${props => props.isActive 
+        ? '0 4px 12px rgba(var(--primary-rgb), 0.5)' 
+        : '0 2px 8px rgba(var(--primary-rgb), 0.3)'};
+    z-index: 5;
+    border: 3px solid var(--card-background);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    transform: ${props => props.isActive ? 'rotate(45deg)' : 'rotate(0deg)'};
+    
+    &::before {
+        content: '⚙️';
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    &:hover {
+        transform: rotate(45deg);
+        background: var(--primary-dark);
+        box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.5);
+    }
+    
+    &:active {
+        transform: rotate(90deg);
+        background: var(--primary-dark);
+    }
+`;
+
+const SettingsIcon = React.forwardRef<HTMLDivElement, SettingsIconProps>(
+    ({ isActive, onClick }, ref) => {
+        return (
+            <SettingsIconWrapper 
+                isActive={isActive} 
+                onClick={onClick} 
+                ref={ref}
+            />
+        );
+    }
+);
+
+// Добавляем контейнер для тултипа
+const TooltipWrapper = styled.div`
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 1000;
 `;
 
 interface CourierProfileProps {
     onRegisterClick: () => void;
     isSeniorCourier?: boolean;
+    onOpenShiftAccess?: () => void;
 }
 
-const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick, isSeniorCourier }) => {
+// Используем memo для предотвращения лишних рендеров
+const CourierProfile = memo(({ 
+    onRegisterClick, 
+    isSeniorCourier,
+    onOpenShiftAccess
+}: CourierProfileProps) => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
     const isRegistered = useAppSelector(selectIsRegistered);
     const isLoading = useAppSelector(selectIsLoading);
     const error = useAppSelector(selectError);
-    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
+    const [showAccessSettings, setShowAccessSettings] = useState(false);
+    const settingsRef = useRef<HTMLDivElement>(null);
 
-    // Временные данные для демонстрации (замените на реальные данные из API)
-    const [shifts] = useState([
-        {
-            userId: 1,
-            firstName: "Иван",
-            lastName: "Петров",
-            date: "2024-03-15",
-            avatarUrl: undefined
-        },
-        {
-            userId: 2,
-            firstName: "Анна",
-            lastName: "Сидорова",
-            date: "2024-03-15",
-            avatarUrl: undefined
-        }
-    ]);
-
-    const handleRegisterClick = async () => {
+    // Мемоизируем обработчик регистрации для предотвращения лишних рендеров
+    const handleRegisterClick = useCallback(async () => {
         console.log('[CourierProfile] handleRegisterClick called');
         try {
             await dispatch(registerForShift()).unwrap();
@@ -84,49 +142,70 @@ const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick, isSeni
                 duration: 5000
             }));
         }
-    };
+    }, [dispatch, onRegisterClick]);
 
-    const handleShiftSelect = async (date: Date, shiftType: 'day' | 'night', slotIndex: number) => {
-        console.log('[CourierProfile] handleShiftSelect called:', { date, shiftType, slotIndex });
-        try {
-            console.log('[CourierProfile] Dispatching registerForShift');
-            await dispatch(registerForShift()).unwrap();
-            console.log('[CourierProfile] registerForShift success');
-            dispatch(addNotification({
-                type: NotificationTypes.SUCCESS,
-                message: `Вы успешно записались на ${shiftType === 'day' ? 'дневную' : 'вечернюю'} смену ${date.toLocaleDateString()}`,
-                duration: 3000
-            }));
-        } catch (error) {
-            console.error('[CourierProfile] Error in handleShiftSelect:', error);
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: error instanceof Error ? error.message : 'Ошибка при записи на смену',
-                duration: 5000
-            }));
+    // Мемоизируем обработчик клика по иконке настроек
+    const handleSettingsClick = useCallback((e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowSettings(true);
+    }, []);
+
+    // Мемоизируем обработчик клика вне тултипа
+    const handleClickOutside = useCallback((event: MouseEvent) => {
+        if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
+            setShowSettings(false);
         }
-    };
+    }, []);
+
+    // Эффект для обработки клика вне тултипа
+    useEffect(() => {
+        document.addEventListener('click', handleClickOutside);
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [handleClickOutside]);
+
+    // Обработчик открытия модального окна настроек доступа
+    const handleOpenShiftAccess = useCallback(() => {
+        setShowSettings(false);
+        if (onOpenShiftAccess) {
+            onOpenShiftAccess();
+        }
+    }, [onOpenShiftAccess]);
+
+    console.log('CourierProfile рендерится, showSettings =', showSettings);
 
     return (
         <>
             <ProfileContainer>
-                <AvatarContainer>
-                    <Avatar 
-                        src={user?.photo_url || defaultAvatar} 
-                        alt={`${user?.first_name} ${user?.last_name}`} 
-                    />
-                    {isSeniorCourier && (
-                        <SeniorCourierBadge>Старший курьер</SeniorCourierBadge>
+                <AvatarWrapper>
+                    <AvatarContainer>
+                        <Avatar 
+                            src={user?.photo_url || defaultAvatar} 
+                            alt={`${user?.first_name} ${user?.last_name}`}
+                            onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.src = defaultAvatar;
+                            }}
+                        />
+                        {isLoading && (
+                            <LoadingOverlay>
+                                <LoadingSpinner />
+                            </LoadingOverlay>
+                        )}
+                    </AvatarContainer>
+                    {isSeniorCourier ? (
+                        <SettingsIcon 
+                            onClick={handleSettingsClick}
+                            isActive={showSettings}
+                            ref={settingsRef}
+                        />
+                    ) : (
+                        <SeniorCourierBadge />
                     )}
-                    {isLoading && (
-                        <LoadingOverlay>
-                            <LoadingSpinner />
-                        </LoadingOverlay>
-                    )}
-                </AvatarContainer>
+                </AvatarWrapper>
                 <CourierName>
                     {user?.first_name} {user?.last_name}
-                    {isSeniorCourier && ' ⭐'}
                 </CourierName>
                 <StatusText isRegistered={isRegistered}>
                     {isRegistered 
@@ -143,17 +222,17 @@ const CourierProfile: React.FC<CourierProfileProps> = ({ onRegisterClick, isSeni
                 )}
             </ProfileContainer>
 
-            {isCalendarOpen && (
-                <CourierCalendar
-                    onShiftSelect={handleShiftSelect}
-                    currentUserId={String(user?.id || 0)}
-                    currentUserAvatar={user?.photo_url || undefined}
-                    currentUserName={`${user?.first_name} ${user?.last_name}`}
-                    onClose={() => setIsCalendarOpen(false)}
-                />
+            {showSettings && (
+                <TooltipWrapper>
+                    <SettingsTooltip 
+                        onClose={() => setShowSettings(false)}
+                        onOpenShiftAccess={handleOpenShiftAccess}
+                    />
+                </TooltipWrapper>
             )}
+
         </>
     );
-};
+});
 
 export default CourierProfile; 

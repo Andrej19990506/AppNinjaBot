@@ -71,6 +71,8 @@ def set_cors_headers(response):
         "https://consequently-iowa-brought-slide.trycloudflare.com",
         "https://constitute-handling-texas-interference.trycloudflare.com",
         "https://quiet-non-consistent-emissions.trycloudflare.com",
+        "https://reform-hand-simple-invisible.trycloudflare.com",
+        "https://pearl-roy-hugo-equity.trycloudflare.com",
         "http://localhost:3000"
     ]
     
@@ -91,13 +93,16 @@ def get_courier_status(courier_id):
     try:
         # Получаем chat_id из параметров запроса
         request_chat_id = request.args.get('chat_id')
-        logger.info(f"Получение статуса курьера {courier_id} для чата {request_chat_id}")
+        logger.info(f"=== Получение статуса курьера {courier_id} ===")
+        logger.info(f"Chat ID из запроса: {request_chat_id}")
         
         # Загружаем данные об админах
         admins_data = current_app.load_bot_data('admins.json')
+        logger.info(f"Данные об админах: {admins_data}")
         
         # Загружаем данные о пользователе
         user_data = get_user_data(courier_id)
+        logger.info(f"Данные пользователя: {user_data}")
         
         if not user_data:
             logger.error(f"Пользователь {courier_id} не найден")
@@ -108,6 +113,7 @@ def get_courier_status(courier_id):
         
         # Используем chat_id из запроса, если он передан, иначе из данных пользователя
         chat_id = request_chat_id or user_data.get('chat_id')
+        logger.info(f"Используемый chat_id: {chat_id}")
         
         if not chat_id:
             logger.error(f"Не удалось определить chat_id для пользователя {courier_id}")
@@ -116,11 +122,10 @@ def get_courier_status(courier_id):
                 'status': 'not_found'
             }), 404
             
-        logger.info(f"Используем chat_id: {chat_id}")
-        
         # Получаем статус курьера в чате
         if request_chat_id:
             courier_status = get_courier_status_in_chat(courier_id, request_chat_id)
+            logger.info(f"Статус курьера в чате: {courier_status}")
             is_senior_courier = courier_status.get('is_senior_courier', False)
         else:
             is_senior_courier = user_data.get('is_senior_courier', False)
@@ -128,6 +133,7 @@ def get_courier_status(courier_id):
         # Проверяем, является ли пользователь админом
         is_admin = False
         chat_admins = admins_data.get(str(chat_id), {}).get('admins', [])
+        logger.info(f"Админы чата: {chat_admins}")
         
         if courier_id in chat_admins:
             is_admin = True

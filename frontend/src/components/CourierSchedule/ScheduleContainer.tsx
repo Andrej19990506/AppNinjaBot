@@ -314,7 +314,7 @@ const ScheduleContainer: React.FC = () => {
                     maxDaySlots={4}
                     maxNightSlots={2}
                     currentUserId={user?.id ? String(user.id) : ''}
-                    currentUserAvatar={user?.photo_url || ''}
+                    currentUserAvatar={user?.photo_url || undefined}
                     currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
                     onSlotSelect={handleSlotSelect}
                     onSwitchToReserve={switchToReserves}
@@ -328,7 +328,7 @@ const ScheduleContainer: React.FC = () => {
                     reserves={reservesForDate}
                     currentUserId={user?.id ? String(user.id) : ''}
                     onCancelReserve={handleRemoveFromReserve}
-                    currentUserAvatar={user?.photo_url || ''}
+                    currentUserAvatar={user?.photo_url || undefined}
                     currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
                     dayShifts={dayShifts.map(shift => ({
                         id: shift.id,

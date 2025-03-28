@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import CourierProfile from '../CourierProfile/CourierProfile';
 import CourierProfileDialog from './CourierProfileDialog';
-import CourierCalendar from './CourierCalendar';
+import { CourierCalendar } from './CourierCalendar/index';
 import { updateCourierProfile } from '../../services/api';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import { updateUser } from '../../store/slices/userSlice';
@@ -14,6 +14,8 @@ import { format } from 'date-fns';
 import config from '../../config';
 import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
 import axios from 'axios';
+import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
+
 
 const Container = styled.div`
     padding: 20px;
@@ -61,12 +63,51 @@ const SeniorCourierBadge = styled.div`
     gap: 4px;
 `;
 
+const SettingsButton = styled.button`
+    display: flex;
+    align-items: center;
+    background: var(--primary-transparent);
+    color: var(--primary-color);
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    margin-left: auto;
+    
+    &:hover {
+        background: var(--primary-light);
+        transform: var(--hover-transform);
+    }
+    
+    &:active {
+        transform: var(--active-transform);
+    }
+`;
+
+const SettingsIcon = styled.span`
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-right: 8px;
+    
+    &::before {
+        content: '⚙️';
+        font-size: 16px;
+    }
+`;
+
 const CourierSchedule: React.FC = () => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
     const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     const [showCalendar, setShowCalendar] = useState(false);
+    const [showSeniorActions, setShowSeniorActions] = useState(false);
+    const [isRemoving, setIsRemoving] = useState(false);
+    const [showShiftAccessSettings, setShowShiftAccessSettings] = useState(false);
     
     // Функция для получения статуса старшего курьера
     const fetchCourierStatus = async () => {
@@ -87,6 +128,12 @@ const CourierSchedule: React.FC = () => {
             // Используем относительный URL вместо полного
             const url = `/api/couriers/${user.id}/status?chat_id=${chatId}`;
             console.log('📡 Запрашиваем статус курьера при рендеринге CourierSchedule по URL:', url);
+            console.log('👤 Текущий пользователь:', {
+                id: user.id,
+                name: `${user.first_name} ${user.last_name}`,
+                isSeniorCourier: user.isSeniorCourier,
+                groups: user.groups
+            });
             
             // Используем axios вместо fetch для согласованности
             const response = await axios.get(url);
@@ -95,7 +142,10 @@ const CourierSchedule: React.FC = () => {
             const data = response.data;
             
             if (data.is_senior_courier !== undefined && user.isSeniorCourier !== data.is_senior_courier) {
-                console.log('📊 Обновляем статус старшего курьера:', data.is_senior_courier);
+                console.log('📊 Обновляем статус старшего курьера:', {
+                    old: user.isSeniorCourier,
+                    new: data.is_senior_courier
+                });
                 
                 // Используем специальный редьюсер для обновления статуса старшего курьера
                 dispatch(updateSeniorCourierStatus(data.is_senior_courier));
@@ -105,6 +155,11 @@ const CourierSchedule: React.FC = () => {
                     ...user,
                     isSeniorCourier: data.is_senior_courier
                 }));
+            } else {
+                console.log('ℹ️ Статус старшего курьера не изменился:', {
+                    current: user.isSeniorCourier,
+                    fromApi: data.is_senior_courier
+                });
             }
             
             // Загружаем свежие данные о сменах
@@ -245,11 +300,41 @@ const CourierSchedule: React.FC = () => {
         }
     };
 
+    // Обработчик для открытия модального окна настроек доступа к сменам
+    const handleOpenShiftAccessSettings = () => {
+        console.log('Opening shift access settings');
+        setShowShiftAccessSettings(true);
+    };
+
+    // Обработчик для закрытия модального окна настроек доступа к сменам
+    const handleCloseShiftAccessSettings = () => {
+        console.log('Closing shift access settings');
+        setShowShiftAccessSettings(false);
+    };
+
+    // Получаем chatId для передачи в компоненты
+    const chatId = useMemo(() => {
+        if (user?.groups && user.groups.length > 0) {
+            const id = user.groups[0].chat_id;
+            console.log('📱 Используем chat_id для настроек доступа:', id);
+            return id;
+        }
+        console.log('⚠️ У пользователя нет chat_id для настроек доступа');
+        return undefined;
+    }, [user]);
+
     return (
         <Container>
             <Header>
                 <Title>Запись на смену</Title>
                 <Subtitle>Выберите удобную дату для работы</Subtitle>
+                
+                {user?.isSeniorCourier && (
+                    <SettingsButton onClick={handleOpenShiftAccessSettings}>
+                        <SettingsIcon />
+                        Настройки записи
+                    </SettingsButton>
+                )}
             </Header>
 
             {showCalendar ? (
@@ -261,13 +346,14 @@ const CourierSchedule: React.FC = () => {
                         currentUserAvatar={user?.photo_url || undefined}
                         currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
                         onClose={() => setShowCalendar(false)}
-                        chatId={user?.groups && user.groups.length > 0 ? user.groups[0].chat_id : undefined}
+                        chatId={chatId}
                     />
                 </ScheduleSection>
             ) : (
                 <CourierProfile 
                     onRegisterClick={() => setShowCalendar(true)}
                     isSeniorCourier={user?.isSeniorCourier}
+                    onOpenShiftAccess={handleOpenShiftAccessSettings}
                 />
             )}
 
@@ -275,6 +361,12 @@ const CourierSchedule: React.FC = () => {
                 isOpen={isProfileDialogOpen}
                 onClose={() => setIsProfileDialogOpen(false)}
                 onSave={handleProfileSave}
+            />
+
+            <ShiftAccessModal 
+                isOpen={showShiftAccessSettings}
+                onClose={handleCloseShiftAccessSettings}
+                chatId={chatId}
             />
         </Container>
     );

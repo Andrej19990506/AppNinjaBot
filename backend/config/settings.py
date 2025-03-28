@@ -15,8 +15,8 @@ SCHEDULER_URL = os.getenv('SCHEDULER_URL', 'http://scheduler:8002')
 
 # Настройки CORS
 CORS_ALLOWED_ORIGINS = [
-    "https://nowhere-permissions-finder-conscious.trycloudflare.com",
-    "https://consequently-iowa-brought-slide.trycloudflare.com",
+    "https://reform-hand-simple-invisible.trycloudflare.com",
+    "https://pearl-roy-hugo-equity.trycloudflare.com",
     "http://localhost:3000"
 ]
 

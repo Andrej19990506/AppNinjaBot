@@ -1,0 +1,20 @@
+FROM nginx:alpine
+
+# Установка certbot и его nginx плагина
+RUN apk add --no-cache certbot certbot-nginx
+
+# Копирование конфигурации Nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Создание директории для SSL-сертификатов
+RUN mkdir -p /etc/nginx/ssl/live/appninjabot.com
+
+# Открываем порты для HTTP и HTTPS
+EXPOSE 80 443
+
+# Скрипт для обновления SSL-сертификатов
+COPY update-ssl.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/update-ssl.sh
+
+# Запуск Nginx
+CMD ["nginx", "-g", "daemon off;"] 

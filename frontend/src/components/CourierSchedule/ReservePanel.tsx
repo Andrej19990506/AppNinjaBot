@@ -1,21 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
-    removeFromReserve, 
+    // Закомментируем неиспользуемое
+    // removeFromReserve, 
     forceFetchReserves, 
     subscribeToReserveEvents, 
-    unsubscribeFromReserveEvents,
+    // unsubscribeFromReserveEvents,
     reserveAdded,
-    reserveDeleted
+    // reserveDeleted
 } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
+// import { RootState as ReduxRootState } from '../../store/store';
 import { ReserveShift } from '../../types/shifts';
 import { selectAllReserves } from '../../store/slices/reservesSlice';
-import { RootState as ReduxRootState } from '../../store/store';
 import LoadingOverlay from './LoadingOverlay';
 import { socketService } from '../../services/socket';
 
@@ -34,6 +35,7 @@ interface ReservePanelProps {
     forceUpdate: () => void;
     showSuccessMessage: (message: string) => void;
     chatId?: string;
+    isLoading?: boolean;
 }
 
 // Обновляем интерфейс для типизации dayShifts и nightShifts
@@ -158,7 +160,8 @@ const NoSlotsMessage = styled.div`
     margin-bottom: 24px;
 `;
 
-const DialogFooter = styled.div`
+// Комментируем неиспользуемые стили
+/* const DialogFooter = styled.div`
     margin-top: 24px;
 `;
 
@@ -188,7 +191,7 @@ const ModeButton = styled.button`
     &:active {
         transform: translateY(0);
     }
-`;
+`; */
 
 const CurrentUserReserve = styled(SlotButton)`
     &:hover .current-user-avatar {
@@ -223,8 +226,8 @@ const DeleteButton = styled.div`
     transition: opacity 0.3s ease;
 `;
 
-// Добавляем стиль для мини-индикатора загрузки
-const MiniLoader = styled.div`
+// Комментируем неиспользуемый компонент
+/* const MiniLoader = styled.div`
     display: inline-block;
     width: 20px;
     height: 20px;
@@ -237,7 +240,7 @@ const MiniLoader = styled.div`
     @keyframes spin {
         to { transform: rotate(360deg); }
     }
-`;
+`; */
 
 // Стилизованная кнопка для добавления в резерв с индикатором загрузки
 const ReserveButtonWithLoader = styled(SlotButton)`
@@ -293,49 +296,31 @@ const SeniorBadge = styled.div`
 // Компонент панели резервов
 const ReservePanel: React.FC<ReservePanelProps> = ({
     date,
-    reserves,
+    reserves = [],
     currentUserId,
     currentUserAvatar,
     currentUserName,
-    dayShifts,
-    nightShifts,
+    dayShifts = [],
+    nightShifts = [],
     onSwitchToShifts,
     onReserveSelect,
     onCancelReserve,
     forceUpdate,
     showSuccessMessage,
-    chatId
+    chatId,
+    isLoading = false
 }) => {
     const dispatch = useDispatch<AppDispatch>();
-    const [localReserves, setLocalReserves] = useState<ReserveShift[]>(reserves);
-    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+    const [localReserves, setLocalReserves] = useState<ReserveShift[]>([]);
+    const [confirmDelete] = useState<string | null>(null);
     const [isAddLoading, setIsAddLoading] = useState<boolean>(false);
     const [isRemoveLoading, setIsRemoveLoading] = useState<boolean>(false);
+    const [, setUpdateCounter] = useState(0);
+    const [pendingReserve, setPendingReserve] = useState<ReserveShift | null>(null);
     const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
     // Создаем ref для хранения ссылки на текущий слот в режиме удаления
     const deleteSlotRef = useRef<HTMLButtonElement>(null);
-    
-    // Обработчик кликов по документу для сброса режима удаления при клике вне слота
-    useEffect(() => {
-        if (confirmDelete) {
-            const handleClickOutside = (event: MouseEvent) => {
-                // Если у нас есть ссылка на элемент и клик был вне этого элемента
-                if (deleteSlotRef.current && !deleteSlotRef.current.contains(event.target as Node)) {
-                    console.log('[ReservePanel] Click outside delete slot, resetting delete mode');
-                    setConfirmDelete(null);
-                }
-            };
-            
-            // Добавляем обработчик события
-            document.addEventListener('mousedown', handleClickOutside);
-            
-            // Очищаем при размонтировании
-            return () => {
-                document.removeEventListener('mousedown', handleClickOutside);
-            };
-        }
-    }, [confirmDelete]);
     
     // Получаем информацию о пользователе заранее
     const userInfo = useSelector((state: RootState) => state.user.user);
@@ -348,50 +333,57 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     // Получаем все резервы напрямую из Redux для максимальной актуальности
     const allReduxReserves = useSelector(selectAllReserves);
     
+    // Форматируем дату в UTC для корректного сравнения
+    const formattedDate = format(date, "yyyy-MM-dd'T'17:00:00.000'Z'");
+    
     // Проверяем, есть ли другие резервы в Redux, соответствующие текущей дате
-    const formattedDate = format(date, 'yyyy-MM-dd');
     const currentDateReserves = allReduxReserves.filter(
-        reserve => reserve.date === formattedDate
+        reserve => {
+            // Сравниваем только даты без времени
+            const reserveDate = reserve.date.split('T')[0];
+            const formattedDateOnly = formattedDate.split('T')[0];
+            return reserveDate === formattedDateOnly;
+        }
     );
     
-    console.log('[ReservePanel] Redux reserves by date:', {
-        formattedDate,
-        allReduxReserves: allReduxReserves.length,
-        currentDateReserves: currentDateReserves.length,
-        reservesData: currentDateReserves
-    });
+    // Логируем только если есть резервы для текущей даты
+    if (currentDateReserves.length > 0) {
+        console.log('[ReservePanel] Found reserves for date:', {
+            date: formattedDate,
+            reserves: currentDateReserves
+        });
+    }
     
-    // Всегда используем данные из Redux, поскольку они должны быть актуальными
-    // благодаря подписке на WebSocket события
+    // Всегда используем данные из Redux
     const displayReserves = currentDateReserves;
-    
-    console.log('[ReservePanel] Reserves data:', {
-        propsReserves: reserves.length,
-        localReserves: localReserves.length,
-        reduxReserves: currentDateReserves.length,
-        displayReserves: displayReserves.length
-    });
 
     // Определяем, имеет ли текущий пользователь резерв в списке reserves
     const userHasReserveInList = displayReserves.some(
         reserve => String(reserve.userId) === String(currentUserId)
     );
     
-    // Найдем резерв пользователя из входных параметров
+    // Найдем резерв пользователя
     const userReserve = userHasReserveInList ? 
         displayReserves.find(
             reserve => String(reserve.userId) === String(currentUserId)
         ) : null;
     
     // Проверка на активные смены у пользователя
-    const userHasActiveShift = dayShifts.some(shift => String(shift.userId) === String(currentUserId)) || 
-                              nightShifts.some(shift => String(shift.userId) === String(currentUserId));
+    const userHasActiveShift = (dayShifts || []).some(shift => String(shift.userId) === String(currentUserId)) || 
+                              (nightShifts || []).some(shift => String(shift.userId) === String(currentUserId));
 
     console.log('[ReservePanel] State:', {
         userHasReserveInList,
         userReserve,
-        userHasActiveShift
+        userHasActiveShift,
+        dayShifts: dayShifts?.length || 0,
+        nightShifts: nightShifts?.length || 0
     });
+
+    // Функция для локального обновления состояния
+    const triggerUpdate = useCallback(() => {
+        setUpdateCounter(prev => prev + 1);
+    }, []);
 
     // Подписываемся на WebSocket-события для обновления резервов в реальном времени
     useEffect(() => {
@@ -404,88 +396,49 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         // Подписываемся на события WebSocket с дополнительными логами
         const unsubscribe = subscribeToReserveEvents(dispatch);
         
-        // Подписываемся напрямую на события для отладки
-        socketService.subscribe('reserve_added', (data) => {
-            console.log('[ReservePanel] 🟢 DIRECT reserve_added event received:', data);
-            forceUpdate(); // Принудительно обновляем компонент
-        });
-        
-        socketService.subscribe('reserve_update', (data) => {
-            console.log('[ReservePanel] 🔄 DIRECT reserve_update event received:', data);
-            forceUpdate(); // Принудительно обновляем компонент
-        });
-        
-        socketService.subscribe('reserve_update_all', (data) => {
-            console.log('[ReservePanel] 📣 DIRECT broadcast reserve_update_all received:', data);
-            forceUpdate(); // Принудительно обновляем компонент
-            
-            // Дополнительно проверяем дату резерва и текущую отображаемую дату
-            if (data.data && data.data.date) {
-                const reserveDate = data.data.date;
-                const currentDateStr = format(date, 'yyyy-MM-dd');
-                
-                if (reserveDate === currentDateStr) {
-                    console.log('[ReservePanel] 🔄 Broadcast event matches current date, forcing reserves refresh');
-                    // Загружаем обновленные данные
-                    dispatch(forceFetchReserves());
-                }
-            }
-        });
-        
-        // Принудительно подключимся к комнате резервов
-        if (chatId) {
-            console.log(`[ReservePanel] 🏠 Explicitly joining reserves room for chat: ${chatId}`);
-            socketService.emit('join_reserves_room', { chatId });
-        }
-        
-        // Делаем начальную загрузку резервов
-        dispatch(forceFetchReserves())
-            .then(() => {
-                console.log('[ReservePanel] ✅ Force loaded reserves successfully');
-            })
-            .catch((err) => {
-                console.error('[ReservePanel] ❌ Error loading reserves:', err);
-            });
-        
         // При размонтировании отписываемся от событий
         return () => {
             console.log('[ReservePanel] Cleaning up WebSocket events subscription for reserves');
-            
-            // Отписываемся от прямых подписок
-            socketService.unsubscribe('reserve_added');
-            socketService.unsubscribe('reserve_update');
-            socketService.unsubscribe('reserve_update_all');
-            
-            // Отписываемся от основных событий
             if (unsubscribe) unsubscribe();
-            unsubscribeFromReserveEvents();
-            
-            // Покидаем комнату резервов
-            if (chatId) {
-                console.log(`[ReservePanel] 🏠 Leaving reserves room for chat: ${chatId}`);
-                socketService.emit('leave_reserves_room', { chatId });
-            }
         };
     }, [dispatch, chatId, date]);
-    
-    // Обновляем UI при изменении даты 
-    useEffect(() => {
-        console.log('[ReservePanel] Date changed, refreshing reserves');
-        dispatch(forceFetchReserves());
-    }, [dispatch, date]);
 
-    // При изменении состояния резерва пользователя или активной смены, принудительно обновляем UI
+    // Отдельный эффект для обработки временных резервов
+    useEffect(() => {
+        if (!pendingReserve) return;
+
+        const handleReserveAdded = (data: any) => {
+            if (data.userId === currentUserId && data.date === format(date, 'yyyy-MM-dd')) {
+                console.log('[ReservePanel] ✅ Received confirmation for pending reserve');
+                // Удаляем временный резерв из локального состояния
+                setLocalReserves(prev => prev.filter(r => r.id !== pendingReserve.id));
+                setPendingReserve(null);
+                setIsAddLoading(false);
+                triggerUpdate();
+                dispatch(forceFetchReserves());
+            }
+        };
+
+        socketService.subscribe('reserve_added', handleReserveAdded);
+
+        return () => {
+            socketService.unsubscribe('reserve_added');
+        };
+    }, [pendingReserve, currentUserId, date, dispatch, triggerUpdate]);
+
+    // При изменении состояния резерва пользователя или активной смены, обновляем UI
     const prevUserHasReserveInList = useRef(false);
     useEffect(() => {
         if (userHasReserveInList !== prevUserHasReserveInList.current) {
-            console.log('[ReservePanel] User reserve state changed, forcing update');
-            forceUpdate();
+            console.log('[ReservePanel] User reserve state changed, triggering update');
+            triggerUpdate();
             prevUserHasReserveInList.current = userHasReserveInList;
         }
-    }, [userHasReserveInList, forceUpdate]);
+    }, [userHasReserveInList, triggerUpdate]);
 
     // Добавляем защитный таймаут для сброса состояния загрузки
-    const startLoadingSafetyTimeout = () => {
+    // Комментируем неиспользуемую функцию
+    /* const startLoadingSafetyTimeout = () => {
         // Сначала очищаем существующий таймаут, если он есть
         if (loadingTimeoutRef.current) {
             clearTimeout(loadingTimeoutRef.current);
@@ -497,97 +450,51 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             setIsAddLoading(false);
             setIsRemoveLoading(false);
         }, 5000); // 5 секунд максимум для загрузки
-    };
+    }; */
     
     // Очищаем таймаут при размонтировании компонента
     useEffect(() => {
+        // Копируем значение ref в локальную переменную внутри эффекта
+        const timeoutId = loadingTimeoutRef.current;
+        
         return () => {
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
+            if (timeoutId) {
+                clearTimeout(timeoutId);
             }
         };
     }, []);
 
-    const handleReserveClick = async () => {
+    // Обработчик добавления в резерв
+    const handleReserveClick = useCallback(() => {
+        if (!date) return;
+        
         console.log('[ReservePanel] handleReserveClick called');
         
-        // Показываем только локальный индикатор для кнопки добавления
-        setIsAddLoading(true);
-        startLoadingSafetyTimeout();
+        // Создаем временный резерв с данными пользователя
+        const tempReserve = {
+            id: `temp-${Date.now()}`,
+            date: format(date, "yyyy-MM-dd'T'17:00:00.000'Z'"),
+            userId: currentUserId,
+            user_id: currentUserId,
+            firstName: userInfo?.first_name || currentUserName?.split(' ')[0] || '',
+            lastName: userInfo?.last_name || currentUserName?.split(' ')[1] || '',
+            photo_url: userInfo?.photo_url || currentUserAvatar || null,
+            isSeniorCourier: userInfo?.is_senior_courier || false,
+            created_at: new Date().toISOString()
+        };
         
-        try {
-            console.log('[ReservePanel] Calling onReserveSelect to add to reserve');
-            
-            // Сначала добавляем оптимистичный резерв в локальное состояние,
-            // чтобы UI мгновенно отреагировал без моргания
-            const optimisticReserve = userInfo ? {
-                id: `temp-${Date.now()}`, // временный ID для оптимистичного обновления
-                userId: currentUserId,
-                date: format(date, 'yyyy-MM-dd'),
-                photo_url: userInfo.photo_url || null,
-                firstName: userInfo.first_name || '',
-                lastName: userInfo.last_name || '',
-                created_at: new Date().toISOString()
-            } : null;
-            
-            if (optimisticReserve) {
-                console.log('[ReservePanel] Adding optimistic reserve to local state:', optimisticReserve);
-                setLocalReserves(prev => [...prev, optimisticReserve]);
-                
-                // Добавляем оптимистичное обновление прямо в Redux для большей надежности
-                dispatch(reserveAdded(optimisticReserve));
-            }
-            
-            // Отправляем запрос на сервер
-            const result = await onReserveSelect();
-            console.log('[ReservePanel] Reserve added successfully via onReserveSelect, result:', result);
-            
-            // Обновляем локальное состояние с актуальными данными с сервера
-            if (result) {
-                // Заменяем оптимистичный резерв на реальный без моргания UI
-                setLocalReserves(prev => {
-                    const filtered = prev.filter(r => r.id && optimisticReserve ? r.id !== optimisticReserve.id : true);
-                    return [...filtered, result];
-                });
-                
-                // Тихое обновление данных из Redux без перерисовки
-                setTimeout(() => {
-                    dispatch(forceFetchReserves());
-                }, 300);
-            }
-            
-            setIsAddLoading(false);
-            // Очищаем таймаут, так как запрос успешно завершен
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
-        } catch (error) {
-            console.error('[ReservePanel] Error adding to reserve:', error);
-            
-            // Создаем временную переменную для идентификатора оптимистичного резерва
-            const tempId = `temp-${Date.now()}`;
-            
-            // В случае ошибки, удаляем оптимистичный резерв
-            if (userInfo) {
-                setLocalReserves(prev => 
-                    prev.filter(r => r.id && !r.id.toString().startsWith('temp-'))
-                );
-                
-                // Также удаляем оптимистичное обновление из Redux
-                dispatch(reserveDeleted({ id: tempId }));
-            }
-            
-            setIsAddLoading(false);
-            // Очищаем таймаут, так как произошла ошибка
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
-        }
-    };
+        console.log('[ReservePanel] Creating temporary reserve:', tempReserve);
+        
+        // Добавляем временный резерв в Redux
+        dispatch(reserveAdded(tempReserve));
+        
+        // Вызываем callback для добавления в резерв
+        console.log('[ReservePanel] Calling onReserveSelect to add to reserve');
+        onReserveSelect();
+    }, [date, currentUserId, currentUserName, currentUserAvatar, dispatch, onReserveSelect, userInfo]);
 
-    const handleStartDeleteReserve = (reserveId: string) => {
+    // Комментируем неиспользуемую функцию
+    /* const handleStartDeleteReserve = (reserveId: string) => {
         console.log('[ReservePanel] handleStartDeleteReserve called for ID:', reserveId);
         
         // Включаем режим подтверждения для этого резерва
@@ -597,7 +504,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         // setTimeout(() => {
         //     setConfirmDelete(null);
         // }, 3000);
-    };
+    }; */
 
     const handleCancelReserve = async (reserveId: string) => {
         if (!reserveId) {
@@ -616,7 +523,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             }
             
             // Оптимистично удаляем резерв из визуального списка
-            const reserveToRemove = userReserve;
+            // const reserveToRemove = userReserve; // Неиспользуемая переменная
             setLocalReserves(prev => prev.filter(r => r.id !== reserveId));
             
             // Отправляем запрос на удаление, используя chatId
@@ -638,13 +545,48 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         }
     };
 
-    // Удаляем полноэкранную загрузку - теперь используем локальные индикаторы
-    // if (isLocalLoading) {
-    //     return <LoadingOverlay context="reserve" />;
-    // }
+    // Обновляем отображение резервов с учетом временного резерва
+    const displayReservesWithPending = useMemo(() => {
+        if (!localReserves.length) return [];
+        
+        // Если есть ожидающий резерв, добавляем его в список только если пользователь еще не в резерве
+        if (pendingReserve && !userHasReserveInList) {
+            return [...localReserves, pendingReserve];
+        }
+        
+        return localReserves;
+    }, [localReserves, pendingReserve, userHasReserveInList]);
+
+    // Показываем loading только при начальной загрузке компонента
+    if (isLoading) {
+        return <LoadingOverlay />;
+    }
+
+    // Добавляем индикатор загрузки для операций с резервами
+    const renderLoadingIndicator = () => {
+        if (isAddLoading || isRemoveLoading) {
+            return (
+                <div style={{
+                    position: 'fixed',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    color: 'white',
+                    padding: '10px 20px',
+                    borderRadius: '5px',
+                    zIndex: 1000
+                }}>
+                    {isAddLoading ? 'Добавление в резерв...' : 'Удаление из резерва...'}
+                </div>
+            );
+        }
+        return null;
+    };
 
     return (
         <>
+            {renderLoadingIndicator()}
             <DialogHeader>
                 <DialogTitle>Запись в резерв</DialogTitle>
                 <DialogDate>{format(date, 'dd MMMM yyyy', { locale: ru })}</DialogDate>
@@ -652,7 +594,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
 
             <ReserveGrid>
                 {/* Отображаем существующие резервы */}
-                {displayReserves.map((reserve) => {
+                {displayReservesWithPending.map((reserve) => {
                     const isCurrentUser = String(reserve.userId) === String(currentUserId);
                     const reserveId = String(reserve.id);
                     const isDeleteMode = confirmDelete === reserveId;
@@ -803,7 +745,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 )}
             </ReserveGrid>
 
-            {displayReserves.length === 0 && !userHasReserveInList && !userHasActiveShift && (
+            {displayReservesWithPending.length === 0 && !userHasReserveInList && !userHasActiveShift && (
                 <NoSlotsMessage>
                     В резерве пока никого нет.<br/>
                     Нажмите на "+" чтобы записаться первым.

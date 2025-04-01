@@ -15,6 +15,8 @@ export interface InventoryItemData {
 export interface InventoryItem {
     name: string;
     quantity: number;
+    unit?: string;
+    lowStockThreshold?: number;
     raw?: {
         quantity: number;
         filled: boolean;
@@ -164,7 +166,7 @@ export interface InventoryState {
         isLoading: boolean;
         error: string | null;
     };
-    lastSentItemSuggestion?: {
+    lastSentItemSuggestion: {
         item?: {
             category?: string;
             itemId?: string;
@@ -178,7 +180,7 @@ export interface InventoryState {
         };
         timestamp?: string;
         type?: string;
-    };
+    } | null;
 }
 
 export interface ItemHistoryEntry {

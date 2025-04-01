@@ -3,8 +3,7 @@ import {
     ModalHeader as Header,
     ModalTitle,
     HeaderIcon,
-    CloseButton,
-    closeButtonVariants
+    CloseButton
 } from '../../ShiftAccessModal.styles';
 import { CalendarIcon } from '../icons';
 
@@ -29,11 +28,6 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({
         {showCloseButton && (
             <CloseButton 
                 onClick={onClose}
-                initial="initial"
-                animate="animate"
-                whileHover="hover"
-                whileTap="tap"
-                variants={closeButtonVariants}
                 aria-label="Закрыть"
             />
         )}

@@ -20,6 +20,12 @@ const Container = styled(motion.div)`
     padding: 24px;
     text-align: center;
     width: 100%;
+    position: relative;
+    z-index: 1002;
+    pointer-events: auto;
+    background: var(--card-background);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
 `;
 
 const IconWrapper = styled(motion.div)`
@@ -119,6 +125,16 @@ const ResultItem = styled.li`
 
 const ButtonContainer = styled.div`
     margin-top: 20px;
+    position: relative;
+    z-index: 1003;
+    pointer-events: auto;
+`;
+
+const ConfirmButton = styled(ActionButton)`
+    pointer-events: auto;
+    cursor: pointer;
+    position: relative;
+    z-index: 1003;
 `;
 
 // Варианты анимации для контейнера
@@ -160,19 +176,6 @@ const resultsContainerVariants = {
             damping: 25,
             stiffness: 300,
             delay: 0.3
-        }
-    }
-};
-
-// Анимация галочки внутри иконки
-const checkVariants = {
-    hidden: { pathLength: 0, opacity: 0 },
-    visible: { 
-        pathLength: 1, 
-        opacity: 1,
-        transition: { 
-            duration: 0.6,
-            ease: "easeInOut"
         }
     }
 };
@@ -273,9 +276,9 @@ const SuccessNotification = memo(({ message, onConfirm }: SuccessNotificationPro
             </ResultsContainer>
             
             <ButtonContainer>
-                <ActionButton onClick={onConfirm}>
+                <ConfirmButton onClick={onConfirm}>
                     OK
-                </ActionButton>
+                </ConfirmButton>
             </ButtonContainer>
         </Container>
     );

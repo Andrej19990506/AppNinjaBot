@@ -2,8 +2,6 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
-import Tooltip from '@mui/material/Tooltip';
-import Zoom from '@mui/material/Zoom';
 import styles from '../WriteOffList.module.css';
 
 interface AddWriteOffButtonProps {

@@ -3,9 +3,14 @@
 """
 from flask import request
 from flask_socketio import emit
+import json
 
 from config import logger
-from .rooms import get_room_name
+from .rooms import (
+    join_user_to_room, update_user_in_room, remove_user_from_room,
+    get_room_name, active_users, GLOBAL_ROOM, CHAT_ROOM_PREFIX, 
+    get_courier_room_name, get_active_users_in_room
+)
 
 def broadcast_notification(chat_id, notification):
     """
@@ -111,114 +116,93 @@ def broadcast_write_off_update(chat_id, write_off_data, action, skip_sid=None):
     
     logger.info(f'Списание {action_text} в комнате {room}')
 
-def broadcast_shift_update(chat_id, shift_data, action, skip_sid=None):
+def broadcast_shift_update(chat_id: str, shift_data: dict, action: str = 'update'):
     """
-    Отправляет обновление смен всем пользователям в комнате, кроме отправителя
-    
-    Args:
-        chat_id (str): ID чата
-        shift_data (dict): Данные смены
-        action (str): Тип действия (create, update, delete, book, cancel)
-        skip_sid (str): ID сокета, который нужно пропустить (обычно отправитель)
+    Рассылает обновление смены всем пользователям в комнате курьеров
     """
-    room = get_room_name(chat_id)
-    room_shifts = get_room_name(f'shifts_{chat_id}')
-    room_reserves = get_room_name(f'reserves_{chat_id}')
-    
-    # Опционально пропускаем отправителя
-    skip = skip_sid or request.sid
-    
-    # Убеждаемся что у данных смены есть необходимые поля для фронтенда
-    if shift_data and not shift_data.get('userId') and shift_data.get('user_id'):
-        shift_data['userId'] = shift_data['user_id']
-    if shift_data and not shift_data.get('firstName') and shift_data.get('first_name'):
-        shift_data['firstName'] = shift_data['first_name']
-    if shift_data and not shift_data.get('lastName') and shift_data.get('last_name'):
-        shift_data['lastName'] = shift_data['last_name']
-    if shift_data and not shift_data.get('isSeniorCourier') and shift_data.get('is_senior_courier') is not None:
-        shift_data['isSeniorCourier'] = shift_data['is_senior_courier']
-    
-    # Формируем данные для отправки
-    data = {
-        'type': 'shift_update',
-        'action': action,
-        'chat_id': chat_id,
-        'data': shift_data
-    }
-    
-    logger.info(f'🧾 Активные пользователи в комнатах:')
-    from .rooms import active_users
-    for room_name, users in active_users.items():
-        if chat_id in room_name:
-            logger.info(f'🏠 Комната {room_name}: {len(users)} пользователей')
-            for user_id, user_info in users.items():
-                logger.info(f'  👤 ID: {user_id}, SID: {user_info.get("socket_id")}, Имя: {user_info.get("first_name")}')
-    
-    # Отправляем обновление смен в комнату смен
-    logger.info(f'🔄 Отправка события shift_update в комнаты {room}, {room_shifts} и {room_reserves}')
-    
     try:
-        emit('shift_update', data, room=room_shifts, skip_sid=skip)
-        logger.info(f'✅ Отправлено в комнату смен {room_shifts}')
-    except Exception as e:
-        logger.error(f'❌ Ошибка отправки в комнату смен {room_shifts}: {str(e)}')
-    
-    # Отправляем обновление в обычную комнату чата
-    try:
-        emit('shift_update', data, room=room, skip_sid=skip)
-        logger.info(f'✅ Отправлено в основную комнату {room}')
-    except Exception as e:
-        logger.error(f'❌ Ошибка отправки в основную комнату {room}: {str(e)}')
-    
-    # Отправляем обновление в комнату резервов
-    try:
-        emit('shift_update', data, room=room_reserves, skip_sid=skip)
-        logger.info(f'✅ Отправлено в комнату резервов {room_reserves}')
-    except Exception as e:
-        logger.error(f'❌ Ошибка отправки в комнату резервов {room_reserves}: {str(e)}')
-    
-    # Дополнительно отправляем в глобальную комнату для всех клиентов
-    try:
-        from .rooms import GLOBAL_ROOM
-        emit('shift_update', data, room=GLOBAL_ROOM, skip_sid=skip)
-        logger.info(f'✅ Отправлено в глобальную комнату {GLOBAL_ROOM}')
-    except Exception as e:
-        logger.error(f'❌ Ошибка отправки в глобальную комнату: {str(e)}')
-    
-    # Отправляем специфические события в зависимости от действия
-    if action == 'book' or action == 'create' or action == 'update':
-        logger.info(f'🔄 Отправка события shift_booked всем клиентам')
+        logger.info('=== 📢 Начало рассылки обновления смены ===')
+        logger.info(f'🏠 Чат: {chat_id}')
+        logger.info(f'🔄 Действие: {action}')
+        logger.info(f'📊 Данные смены: {json.dumps(shift_data, ensure_ascii=False)}')
+
+        # Получаем все комнаты для чата
+        room = get_room_name(chat_id)
+        room_shifts = get_room_name(f'shifts_{chat_id}')
+        room_courier = get_courier_room_name(chat_id)
+        
+        logger.info(f'🏠 Комнаты для рассылки:')
+        logger.info(f'📝 Основная комната: {room}')
+        logger.info(f'📝 Комната смен: {room_shifts}')
+        logger.info(f'📝 Комната курьеров: {room_courier}')
+
+        # Собираем информацию о пользователе из всех комнат чата
+        user_id = shift_data.get('user_id') or shift_data.get('userId')
+        user_info = None
+        
+        if user_id:
+            # Ищем пользователя во всех комнатах чата
+            for room_name, users in active_users.items():
+                if chat_id in room_name and user_id in users:
+                    user_info = users[user_id]
+                    logger.info(f'👤 Найден пользователь в комнате {room_name}: {user_info}')
+                    break
+
+        # Нормализуем данные для отправки
+        normalized_data = {
+            'id': shift_data.get('id'),
+            'date': shift_data.get('date'),
+            'shift_type': shift_data.get('shift_type'),
+            'slot_index': shift_data.get('slot_index'),
+            'user_id': shift_data.get('user_id'),
+            'chat_id': shift_data.get('chat_id'),
+            'created_at': shift_data.get('created_at'),
+            'updated_at': shift_data.get('updated_at'),
+            'firstName': shift_data.get('firstName'),
+            'lastName': shift_data.get('lastName'),
+            'photo_url': shift_data.get('photo_url'),
+            'isSeniorCourier': shift_data.get('isSeniorCourier'),
+            'last_modified_by': shift_data.get('last_modified_by'),
+            'modified_by_senior': shift_data.get('modified_by_senior')
+        }
+        logger.info(f'📊 Нормализованные данные: {json.dumps(normalized_data, ensure_ascii=False)}')
+
+        # Отправляем обновление во все комнаты
+        logger.info(f'🔄 Отправка события shift_update во все комнаты')
+        
         try:
-            emit('shift_booked', shift_data, broadcast=True)
-            logger.info(f'✅ Событие shift_booked отправлено всем')
+            emit('shift_update', normalized_data, room=room)
+            logger.info(f'✅ Отправлено в основную комнату {room}')
         except Exception as e:
-            logger.error(f'❌ Ошибка broadcast-отправки shift_booked: {str(e)}')
-    elif action == 'cancel' or action == 'delete':
-        logger.info(f'🔄 Отправка события shift_cancelled всем клиентам')
+            logger.error(f'❌ Ошибка отправки в комнату {room}: {str(e)}')
+        
         try:
-            emit('shift_cancelled', shift_data, broadcast=True)
-            logger.info(f'✅ Событие shift_cancelled отправлено всем')
+            emit('shift_update', normalized_data, room=room_shifts)
+            logger.info(f'✅ Отправлено в комнату смен {room_shifts}')
         except Exception as e:
-            logger.error(f'❌ Ошибка broadcast-отправки shift_cancelled: {str(e)}')
-    
-    # Отправляем broadcast-событие shift_update_all для всех клиентов независимо от комнат
-    logger.info(f'🔄 Отправка broadcast-события shift_update_all всем клиентам')
-    try:
-        emit('shift_update_all', data, broadcast=True, skip_sid=skip)
-        logger.info(f'✅ Отправлено всем клиентам через broadcast')
+            logger.error(f'❌ Ошибка отправки в комнату {room_shifts}: {str(e)}')
+        
+        try:
+            emit('shift_update', normalized_data, room=room_courier)
+            logger.info(f'✅ Отправлено в комнату курьеров {room_courier}')
+        except Exception as e:
+            logger.error(f'❌ Ошибка отправки в комнату {room_courier}: {str(e)}')
+        
+        # Отправляем в глобальную комнату для всех клиентов
+        try:
+            emit('shift_update', normalized_data, room=GLOBAL_ROOM)
+            logger.info(f'✅ Отправлено в глобальную комнату {GLOBAL_ROOM}')
+        except Exception as e:
+            logger.error(f'❌ Ошибка отправки в глобальную комнату: {str(e)}')
+
+        logger.info('=== ✅ Рассылка обновления смены завершена ===')
+        logger.info('✅ Обновление успешно разослано')
+
     except Exception as e:
-        logger.error(f'❌ Ошибка broadcast-отправки: {str(e)}')
-    
-    # Логируем действие
-    action_text = {
-        'create': 'создана',
-        'update': 'обновлена',
-        'delete': 'удалена',
-        'book': 'забронирована',
-        'cancel': 'отменена'
-    }.get(action, action)
-    
-    logger.info(f'Смена {action_text} в комнатах {room}, {room_shifts} и {room_reserves}')
+        logger.error('❌ Ошибка при рассылке обновления смены')
+        logger.error(f'Описание: {str(e)}')
+        import traceback
+        logger.error(f'📊 Трассировка ошибки:\n{traceback.format_exc()}')
 
 def broadcast_reserve_update(chat_id, reserve_data, action, skip_sid=None):
     """
@@ -238,14 +222,35 @@ def broadcast_reserve_update(chat_id, reserve_data, action, skip_sid=None):
     skip = skip_sid or request.sid
     
     # Логируем активных пользователей
-    from .rooms import active_users
     logger.info(f'🧾 Активные пользователи в комнатах:')
     
-    for room_name, users in active_users.items():
-        if chat_id in room_name:
-            logger.info(f'🏠 Комната {room_name}: {len(users)} пользователей')
-            for user_id, user_info in users.items():
-                logger.info(f'  👤 ID: {user_id}, SID: {user_info.get("socket_id")}, Имя: {user_info.get("first_name")}')
+    # Собираем информацию о пользователе из всех комнат чата
+    user_id = reserve_data.get('user_id') or reserve_data.get('userId')
+    user_info = None
+    
+    if user_id:
+        # Ищем пользователя во всех комнатах чата
+        for room_name, users in active_users.items():
+            if chat_id in room_name and user_id in users:
+                user_info = users[user_id]
+                logger.info(f'👤 Найден пользователь в комнате {room_name}: {user_info}')
+                break
+    
+    # Нормализуем данные резерва
+    if reserve_data and user_info:
+        # Обновляем данные резерва информацией о пользователе, сохраняя оба формата
+        reserve_data.update({
+            # camelCase формат
+            'photo_url': user_info.get('photo_url') or reserve_data.get('photo_url'),
+            'firstName': user_info.get('first_name') or reserve_data.get('firstName') or reserve_data.get('first_name'),
+            'lastName': user_info.get('last_name') or reserve_data.get('lastName') or reserve_data.get('last_name'),
+            'isSeniorCourier': user_info.get('is_senior_courier') or reserve_data.get('isSeniorCourier') or reserve_data.get('is_senior_courier', False),
+            # snake_case формат для совместимости
+            'first_name': user_info.get('first_name') or reserve_data.get('first_name') or reserve_data.get('firstName'),
+            'last_name': user_info.get('last_name') or reserve_data.get('last_name') or reserve_data.get('lastName'),
+            'is_senior_courier': user_info.get('is_senior_courier') or reserve_data.get('is_senior_courier') or reserve_data.get('isSeniorCourier', False)
+        })
+        logger.info(f'📝 Обновленные данные резерва: {json.dumps(reserve_data, ensure_ascii=False)}')
     
     # Формируем данные для отправки
     data = {
@@ -254,14 +259,6 @@ def broadcast_reserve_update(chat_id, reserve_data, action, skip_sid=None):
         'chat_id': chat_id,
         'data': reserve_data
     }
-    
-    # Убеждаемся что у данных резерва есть необходимые поля для фронтенда
-    if reserve_data and not reserve_data.get('userId') and reserve_data.get('user_id'):
-        reserve_data['userId'] = reserve_data['user_id']
-    if reserve_data and not reserve_data.get('firstName') and reserve_data.get('first_name'):
-        reserve_data['firstName'] = reserve_data['first_name']
-    if reserve_data and not reserve_data.get('lastName') and reserve_data.get('last_name'):
-        reserve_data['lastName'] = reserve_data['last_name']
     
     # Отправляем обновление резервов в соответствующие комнаты через общее событие reserve_update
     logger.info(f'🔄 Отправка события reserve_update в комнаты {room}, {room_shifts} и {room_reserves}')
@@ -286,7 +283,6 @@ def broadcast_reserve_update(chat_id, reserve_data, action, skip_sid=None):
     
     # Дополнительно отправляем в глобальную комнату для всех клиентов
     try:
-        from .rooms import GLOBAL_ROOM
         emit('reserve_update', data, room=GLOBAL_ROOM, skip_sid=skip)
         logger.info(f'✅ Отправлено в глобальную комнату {GLOBAL_ROOM}')
     except Exception as e:

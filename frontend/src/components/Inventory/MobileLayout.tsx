@@ -11,6 +11,7 @@ import SearchBar from './SearchBar';
 import { InventoryItem } from '../../types/inventory';
 import { SearchResult } from '../../types/search';
 import styles from './Inventory.module.css';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface MobileLayoutProps {
   categories: string[];
@@ -128,7 +129,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
       
       {/* Главный контент */}
       <div className={styles.mainSection}>
-        <AnimatePresence mode="wait">
+        <AnimatePresenceWrapper mode="wait">
           {selectedItem ? (
             <motion.div
               key="itemEdit"
@@ -199,11 +200,11 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
               </div>
             </motion.div>
           )}
-        </AnimatePresence>
+        </AnimatePresenceWrapper>
       </div>
       
       {/* Боковое меню */}
-      <AnimatePresence>
+      <AnimatePresenceWrapper>
         {isMenuOpen && (
           <>
             <motion.div
@@ -244,10 +245,10 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresenceWrapper>
       
       {/* Панель поиска */}
-      <AnimatePresence>
+      <AnimatePresenceWrapper>
         {isSearchOpen && (
           <>
             <motion.div
@@ -283,7 +284,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
             </motion.div>
           </>
         )}
-      </AnimatePresence>
+      </AnimatePresenceWrapper>
     </div>
   );
 };

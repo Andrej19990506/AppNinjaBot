@@ -1,9 +1,8 @@
 import React, { Profiler, useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
 import CloseIcon from '@mui/icons-material/Close';
-import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { WriteOffReason } from '../../../../types/writeOff';
@@ -25,10 +24,30 @@ export const InfoModal: React.FC<InfoModalProps> = ({
   variants,
   onRenderCallback
 }) => {
-  if (!reason) return null;
-  
   // Состояние для кнопки закрытия
   const [isCloseHovered, setIsCloseHovered] = useState(false);
+  
+  // Обработка нажатия клавиши Escape для закрытия модального окна
+  useEffect(() => {
+    const handleEscKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleEscKeyPress);
+    
+    return () => {
+      window.removeEventListener('keydown', handleEscKeyPress);
+    };
+  }, [onClose]);
+  
+  // Обработчики для кнопки закрытия
+  const handleCloseMouseEnter = () => setIsCloseHovered(true);
+  const handleCloseMouseLeave = () => setIsCloseHovered(false);
+  
+  // Early return if no reason is provided
+  if (!reason) return null;
   
   // Определяем анимацию для контента
   const contentVariants = {
@@ -99,25 +118,6 @@ export const InfoModal: React.FC<InfoModalProps> = ({
       rotate: 90 
     }
   };
-  
-  // Обработка нажатия клавиши Escape для закрытия модального окна
-  useEffect(() => {
-    const handleEscKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    
-    window.addEventListener('keydown', handleEscKeyPress);
-    
-    return () => {
-      window.removeEventListener('keydown', handleEscKeyPress);
-    };
-  }, [onClose]);
-  
-  // Обработчики для кнопки закрытия
-  const handleCloseMouseEnter = () => setIsCloseHovered(true);
-  const handleCloseMouseLeave = () => setIsCloseHovered(false);
   
   return (
     <Profiler id="InfoModal" onRender={onRenderCallback}>

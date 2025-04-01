@@ -1,66 +1,16 @@
-import React, { useRef, useState, useEffect, memo, useCallback } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Footer.module.css';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { AnimatePresence } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { Chat } from '../../types/chat';
 import Button from '@mui/material/Button';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import DescriptionIcon from '@mui/icons-material/Description';
-
-// Функция для получения инициалов из названия чата
-const getChatInitials = (chatName: string): string => {
-    if (!chatName) return '';
-    
-    const specialCases: Record<string, string> = {
-        'словцова': 'СЛ',
-        'баумана': 'БМ',
-        'ленина': 'ЛН',
-        'московская': 'МС',
-        'республики': 'РП',
-        'пушкина': 'ПШ',
-        'горького': 'ГР',
-        'гагарина': 'ГГ',
-        'кирова': 'КР',
-        'советская': 'СВ',
-        'победы': 'ПБ',
-        'мира': 'МР',
-        'центральная': 'ЦТ',
-        'заводская': 'ЗВ',
-        'фабричная': 'ФБ',
-        'школьная': 'ШК',
-        'молодежная': 'МЛ',
-        'набережная': 'НБ',
-        'парковая': 'ПР',
-        'садовая': 'СД'
-    };
-
-    const normalizedName = chatName.toLowerCase().trim();
-    
-    for (const [key, value] of Object.entries(specialCases)) {
-        if (normalizedName.includes(key)) {
-            return value;
-        }
-    }
-
-    const words = chatName.split(' ');
-    if (words.length >= 2) {
-        return (words[0][0] + words[1][0]).toUpperCase();
-    }
-
-    const firstLetter = chatName[0].toUpperCase();
-    const consonants = 'БВГДЖЗКЛМНПРСТФХЦЧШЩ';
-    for (let i = 1; i < chatName.length; i++) {
-        const letter = chatName[i].toUpperCase();
-        if (consonants.includes(letter)) {
-            return firstLetter + letter;
-        }
-    }
-
-    return chatName.substring(0, 2).toUpperCase();
-};
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface ChatButtonProps {
     selectedChat: Chat | null;
@@ -130,7 +80,7 @@ const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
                     </motion.g>
                 </motion.svg>
 
-                <AnimatePresence>
+                <AnimatePresenceWrapper>
                     {showTooltip && (
                         <motion.div 
                             ref={tooltipRef}
@@ -168,7 +118,7 @@ const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
                             </div>
                         </motion.div>
                     )}
-                </AnimatePresence>
+                </AnimatePresenceWrapper>
             </div>
         </motion.button>
     );

@@ -7,21 +7,7 @@ import {
   updateProgress 
 } from '../store/slices/inventorySlice';
 import { useNavigate } from 'react-router-dom';
-import { Inventory, ChatResponse, Admin } from '../types/inventory';
-import { useWebSocket } from './useWebSocket';
-
-interface ChatData {
-    inventory: any;
-    metadata: {
-        lastUpdated: string;
-        progress: number;
-    };
-    admins: Array<{
-        user_id: number;
-        first_name: string;
-        status: string;
-    }>;
-}
+import { ChatResponse, Admin } from '../types/inventory';
 
 interface UseInventoryLoaderProps {
   chatId?: string;
@@ -44,14 +30,15 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
   const isInitialized = useRef<boolean>(false);
   const templateApplied = useRef<boolean>(false);
   const retryCount = useRef<number>(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const maxRetries = 3;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const chats = useAppSelector(state => state.inventory.items);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
-  // Инициализируем WebSocket хук
-  const { socket } = useWebSocket(chatId);
 
   // Обработчик обновлений инвентаря через WebSocket
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleInventoryUpdate = useCallback((data: any) => {
     const updateData = data.data || data;
     const chatId = updateData.metadata?.chat_id || updateData.chatId;
@@ -91,16 +78,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
     dispatch(updateProgress());
   }, [dispatch]);
 
-  // Подписываемся на обновления через WebSocket
-  useEffect(() => {
-    if (socket) {
-      socket.on('inventory_update', handleInventoryUpdate);
-      
-      return () => {
-        socket.off('inventory_update', handleInventoryUpdate);
-      };
-    }
-  }, [socket, handleInventoryUpdate]);
+
 
   // Функция для загрузки шаблона инвентаря из JSON-файла
   const loadInventoryTemplate = useCallback(async () => {
@@ -121,7 +99,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
       setIsLoading(false);
       console.log('⏳ Загрузка шаблона завершена');
     }
-  }, [dispatch]);
+  }, [dispatch, chatId, currentUserId, isAdmin]);
   
   // Функция для проверки и применения шаблона инвентаря, если инвентарь пуст
   const checkAndApplyTemplate = useCallback(async (currentState: InventoryState) => {
@@ -156,7 +134,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
     } else {
       console.log('✅ Инвентарь уже содержит данные:', inventoryKeys);
     }
-  }, [loadInventoryTemplate]);
+  }, [loadInventoryTemplate, chatId]);
 
   // Основная функция загрузки инвентаря
   const loadInventoryData = useCallback(async (forceReload = false) => {
@@ -216,7 +194,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
         await new Promise(resolve => setTimeout(resolve, 500));
         setIsLoading(false);
     }
-}, [chatId, currentUserId, isAdmin, dispatch]);
+}, [dispatch, chatId, currentUserId, isAdmin]);
 
   // Эффект для инициализации приложения
   useEffect(() => {
@@ -247,7 +225,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
     return () => {
       isMounted = false;
     };
-  }, [currentUserId, loadInventoryData]);
+  }, [currentUserId, loadInventoryData, chatId, isAdmin]);
   
   // Добавляем новый эффект для принудительной проверки пустого инвентаря
   useEffect(() => {
@@ -319,6 +297,7 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
     isInitialized: isInitialized.current,
     loadInventoryData,
     loadInventoryTemplate,
-    loadingProgress
+    loadingProgress,
+    isAdmin
   };
 } 

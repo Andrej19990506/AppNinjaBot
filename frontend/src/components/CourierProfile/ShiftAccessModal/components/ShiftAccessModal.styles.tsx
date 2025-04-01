@@ -1,10 +1,9 @@
 import styled from 'styled-components';
-import { motion } from 'framer-motion';
 
 // Стили для главного модального окна настроек доступа к сменам
 
 // Оверлей (затемненный фон) для модального окна
-export const Overlay = styled(motion.div)`
+export const Overlay = styled.div`
     position: fixed;
     top: 0;
     left: 0;
@@ -18,8 +17,8 @@ export const Overlay = styled(motion.div)`
     z-index: 1000;
 `;
 
-// Контейнер модального окна с анимацией
-export const ModalContainer = styled(motion.div)`
+// Контейнер модального окна
+export const ModalContainer = styled.div`
     background: var(--card-background);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: var(--shadow-lg);
@@ -99,7 +98,7 @@ export const HeaderIcon = styled.div`
 `;
 
 // Кнопка закрытия модального окна с улучшенным дизайном и анимациями
-export const CloseButton = styled(motion.button)`
+export const CloseButton = styled.button`
     background: var(--hover-overlay);
     border: none;
     cursor: pointer;
@@ -137,6 +136,39 @@ export const CloseButton = styled(motion.button)`
     }
 `;
 
+// Варианты анимации для кнопки закрытия
+export const closeButtonVariants = {
+    initial: { 
+        opacity: 0, 
+        scale: 0.8,
+        rotate: -90 
+    },
+    animate: { 
+        opacity: 1, 
+        scale: 1,
+        rotate: 0,
+        transition: { 
+            duration: 0.3,
+            ease: "easeOut" 
+        } 
+    },
+    hover: { 
+        scale: 1.1,
+        backgroundColor: "rgba(239, 68, 68, 0.1)",
+        color: "#EF4444",
+        transition: { 
+            duration: 0.2 
+        } 
+    },
+    tap: { 
+        scale: 0.95,
+        backgroundColor: "rgba(239, 68, 68, 0.2)",
+        transition: { 
+            duration: 0.1 
+        } 
+    }
+};
+
 // Основной контент модального окна
 export const ModalContent = styled.div`
     padding: 28px 24px;
@@ -150,6 +182,8 @@ export const ModalContent = styled.div`
     align-items: center;
     justify-content: center;
     text-align: center;
+    position: relative;
+    z-index: 1001;
 `;
 
 // Секция внутри содержимого модального окна
@@ -186,68 +220,12 @@ export const ModalFooter = styled.div`
     background: var(--card-background);
 `;
 
-// Варианты анимации для кнопки закрытия
-export const closeButtonVariants = {
-    initial: { 
-        scale: 0.8, 
-        rotate: -90,
-        opacity: 0 
-    },
-    animate: { 
-        scale: 1, 
-        rotate: 0,
-        opacity: 1,
-        transition: {
-            type: "spring",
-            stiffness: 500,
-            damping: 20
-        }
-    },
-    hover: { 
-        scale: 1.1,
-        rotate: 180,
-        transition: {
-            type: "spring",
-            stiffness: 400,
-            damping: 10
-        }
-    },
-    tap: { 
-        scale: 0.9,
-        transition: {
-            type: "spring",
-            stiffness: 800,
-            damping: 15
-        }
-    }
-};
-
-// Предустановленные варианты анимации
-export const animationVariants = {
-    // Варианты анимации для фона
-    overlay: {
-        hidden: { opacity: 0 },
-        visible: { opacity: 1 }
-    },
-    
-    // Варианты анимации для модального окна
-    modal: {
-        hidden: { y: "100%" },
-        visible: { y: 0 }
-    }
-};
-
-// Настройки анимации для плавного появления/исчезновения
-export const animationTransition = {
-    // Для фона
-    overlay: { 
-        duration: 0.3 
-    },
-    
-    // Для модального окна (пружинная анимация)
-    modal: {
-        type: "spring",
-        damping: 30,
-        stiffness: 300
-    }
-}; 
+// Add new styles for success notification
+export const SuccessNotificationContainer = styled.div`
+    position: relative;
+    z-index: 1002;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    pointer-events: auto;
+`; 

@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../store/store';
-import { ReserveShift, ShiftSlot } from '../../types/shifts';
+import React from 'react';
+import { ReserveShift } from '../../types/shifts';
 import ShiftPanelContainer from './ShiftPanelContainer';
 
 // Интерфейсы
@@ -31,6 +29,9 @@ interface ShiftPanelProps {
     reserves: ReserveShift[];
     showSuccessMessage: (message: string) => void;
     chatId?: string;
+    isLoading?: boolean;
+    loadingSlot?: number | null;
+    loadingType?: 'day' | 'night' | null;
 }
 
 /**
@@ -54,8 +55,11 @@ const ShiftPanel = React.memo(({
     forceUpdate,
     reserves,
     showSuccessMessage,
-    chatId
-}: ShiftPanelProps): React.ReactNode => {
+    chatId,
+    isLoading,
+    loadingSlot,
+    loadingType
+}: ShiftPanelProps): JSX.Element => {
     
     // Просто передаем все пропсы в ShiftPanelContainer
     return (
@@ -74,6 +78,8 @@ const ShiftPanel = React.memo(({
             reserves={reserves}
             showSuccessMessage={showSuccessMessage}
             chatId={chatId}
+            loadingSlot={loadingSlot}
+            loadingType={loadingType}
         />
     );
 });

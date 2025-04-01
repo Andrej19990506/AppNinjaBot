@@ -787,7 +787,7 @@ class GroupHandler:
             logger.error(f"Ошибка при получении списка администраторов: {str(e)}")
             return []
 
-    async def _standardize_chat_id(self, chat_id: int | str) -> str:
+    async def _standardize_chat_id(self, chat_id: Union[int, str]) -> str:
         """Стандартизация ID чата"""
         chat_id_str = str(chat_id)
         
@@ -891,17 +891,18 @@ class GroupHandler:
                     members.append(admin)
                     logger.info(f"Администратор {admin['username'] or admin['user_id']} добавлен в список участников")
             
-            if is_courier:
-                # Для курьерских групп сохраняем в системе курьеров
-                await self.courier_service.save_group_data(
-                    chat_id=original_chat_id,
-                    chat_title=chat.title,
-                    members=members,
-                    admins=admins
-                )
-                logger.info(f"✅ Данные курьерской группы {chat.title} успешно сохранены")
+            # Используем courier_service (который на самом деле является group_service после замены в инициализации бота)
+            # для всех типов групп, а не только для курьерских
+            await self.courier_service.save_group_data(
+                chat_id=original_chat_id,
+                chat_title=chat.title,
+                members=members,
+                admins=admins
+            )
+            logger.info(f"✅ Данные группы {chat.title} успешно сохранены")
 
-                # Обновляем список доступа к веб-приложению
+            # Если это курьерская группа, обновляем список доступа к веб-приложению
+            if is_courier:
                 courier_access_file = os.path.join(self.json_service.data_dir, 'courier_webapp_access.json')
                 try:
                     # Загружаем текущие данные о доступе
@@ -929,11 +930,6 @@ class GroupHandler:
                 except Exception as e:
                     logger.error(f"❌ Ошибка при обновлении списка доступа: {str(e)}")
                     logger.error(traceback.format_exc())
-            else:
-                # Для обычных групп сохраняем в общие файлы
-                await self.json_service.save_members(original_chat_id, chat.title, members)
-                await self.json_service.save_admins(original_chat_id, chat.title, admins)
-                logger.info(f"✅ Данные группы {chat.title} успешно сохранены")
             
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке добавления бота: {str(e)}")

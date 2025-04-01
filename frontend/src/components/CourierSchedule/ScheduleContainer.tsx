@@ -3,12 +3,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import styled from 'styled-components';
 import ShiftPanel from './ShiftPanel';
 import ReservePanel from './ReservePanel';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
+import addDays from 'date-fns/addDays';
 import { ru } from 'date-fns/locale';
 import { AppDispatch, RootState } from '../../store/store';
 import { useShiftsSync } from '../../hooks/useShiftsSync';
 import { useReservesSync } from '../../hooks/useReservesSync';
-import { Snackbar, Alert } from '@mui/material';
 import { bookShift } from '../../store/slices/shiftsSlice';
 import { socketService } from '../../services/socket';
 
@@ -56,6 +56,74 @@ const DateButton = styled.button<{ $active?: boolean }>`
         background: ${props => props.$active ? 'var(--primary-light)' : 'var(--hover-color)'};
     }
 `;
+
+// Компоненты уведомлений
+const SnackbarContainer = styled.div<{ isOpen: boolean }>`
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: ${props => props.isOpen ? 'block' : 'none'};
+`;
+
+const AlertContainer = styled.div`
+    padding: 12px 24px;
+    background-color: #4caf50;
+    color: white;
+    border-radius: 4px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+`;
+
+const AlertMessage = styled.div`
+    margin-right: 12px;
+`;
+
+const CloseButton = styled.button`
+    background: transparent;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+`;
+
+// Наши собственные компоненты вместо MUI
+const Snackbar: React.FC<{
+    open: boolean;
+    autoHideDuration?: number;
+    onClose: () => void;
+    children: React.ReactNode;
+}> = ({ open, autoHideDuration = 4000, onClose, children }) => {
+    useEffect(() => {
+        if (open && autoHideDuration) {
+            const timer = setTimeout(onClose, autoHideDuration);
+            return () => clearTimeout(timer);
+        }
+    }, [open, autoHideDuration, onClose]);
+
+    return (
+        <SnackbarContainer isOpen={open}>
+            {children}
+        </SnackbarContainer>
+    );
+};
+
+const Alert: React.FC<{
+    onClose: () => void;
+    severity: 'success' | 'error' | 'warning' | 'info';
+    sx?: React.CSSProperties;
+    children: React.ReactNode;
+}> = ({ onClose, severity, children, sx }) => {
+    return (
+        <AlertContainer style={sx}>
+            <AlertMessage>{children}</AlertMessage>
+            <CloseButton onClick={onClose}>×</CloseButton>
+        </AlertContainer>
+    );
+};
 
 const ScheduleContainer: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
@@ -115,7 +183,7 @@ const ScheduleContainer: React.FC = () => {
             // Журналируем статус старшего курьера перед созданием данных
             console.info('[ScheduleContainer] Обработка выбора смены:', {
                 userId: user.id,
-                isSeniorCourier: user.isSeniorCourier,
+                is_senior_courier: user.is_senior_courier,
                 date: formattedDate,
                 shiftType,
                 slotIndex
@@ -131,7 +199,7 @@ const ScheduleContainer: React.FC = () => {
                 last_name: user.last_name || '',
                 photo_url: user.photo_url || '',
                 chat_id: chatId,
-                is_senior_courier: user.isSeniorCourier || false
+                is_senior_courier: user.is_senior_courier || false
             };
             
             // Журналируем перед отправкой на сервер
@@ -194,7 +262,7 @@ const ScheduleContainer: React.FC = () => {
                 user_id: String(user.id),
                 date: formattedDate,
                 chatId,
-                isSeniorCourier: user.isSeniorCourier
+                is_senior_courier: user.is_senior_courier
             });
             
             // Используем хук для добавления в резерв с исправленными параметрами
@@ -261,7 +329,7 @@ const ScheduleContainer: React.FC = () => {
         // Отладочная информация о статусе пользователя
         console.log('👤 Данные пользователя в ScheduleContainer:', {
             user,
-            isSeniorCourier: user?.isSeniorCourier,
+            is_senior_courier: user?.is_senior_courier,
         });
     }, [chatId, forceUpdate, user]);
     

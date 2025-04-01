@@ -1,5 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { WriteOffState, WriteOffChat, WriteOffReason, CreateWriteOffData, WriteOffItem } from '../../types/writeOff';
+import { WriteOffState, WriteOffChat, WriteOffReason, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  CreateWriteOffData, 
+  WriteOffItem } from '../../types/writeOff';
 import { RootState } from '../index';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
@@ -33,7 +36,7 @@ export const fetchWriteOffChats = createAsyncThunk(
             console.log('✅ Получены данные:', response.data);
 
             const state = getState() as RootState;
-            const userId = state.user.id;
+            const userId = state.user.user?.id;
 
             if (!response.data || !Array.isArray(response.data)) {
                 throw new Error('Некорректный формат данных от сервера');
@@ -111,7 +114,7 @@ export const selectWriteOffChat = createAsyncThunk(
         const state = getState() as RootState;
         const chat = state.writeOff.chats.find(c => c.chat_id === chatId);
         
-        if (!chat || !state.user.id) {
+        if (!chat || !state.user.user?.id) {
             console.log('❌ Чат не найден или ID пользователя отсутствует');
             throw new Error('Чат не найден или нет доступа');
         }
@@ -126,7 +129,7 @@ export const selectWriteOffChat = createAsyncThunk(
             }));
 
             await dispatch(checkAdminRights({
-                userId: state.user.id,
+                userId: state.user.user.id,
                 chatId,
                 admins: formattedAdmins,
                 members: chat.members,
@@ -415,6 +418,7 @@ export const setupWriteOffWebSocket = (store: any) => {
         // Проверяем, есть ли флаг локального удаления для этого элемента
         // Если флаг существует, значит удаление инициировано этим клиентом
         // и мы должны игнорировать удаленное событие от сервера
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const localUpdateFlag = `local_delete_${data.writeOffId}_${Date.now().toString().slice(0, -3)}`;
         const hasLocalFlag = Object.keys(sessionStorage).some(key => 
             key.startsWith(`local_delete_${data.writeOffId}_`) && 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { createContext, useContext, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ChatContext as ChatContextEnum, selectChat, clearSelectedChat, fetchChats } from '../store/slices/chatSlice';

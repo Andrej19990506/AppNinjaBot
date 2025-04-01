@@ -29,7 +29,7 @@ export function useDeviceDetection() {
     return () => {
       window.removeEventListener('resize', checkMobile);
     };
-  }, [windowWidth]);
+  }, [windowWidth, isMobile]);
   
   return { isMobile, isDesktop: !isMobile, windowWidth };
 } 

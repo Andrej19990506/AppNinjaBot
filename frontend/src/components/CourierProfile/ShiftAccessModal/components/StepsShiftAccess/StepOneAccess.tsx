@@ -10,13 +10,6 @@ const Container = styled.div`
     width: 100%;
 `;
 
-const Title = styled.h3`
-    font-size: 18px;
-    margin-bottom: 24px;
-    color: var(--text-color);
-    text-align: center;
-`;
-
 const FormContainer = styled.div`
     width: 100%;
     display: flex;

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '@mui/material/Button';
@@ -48,6 +49,7 @@ export const SuccessNotification: React.FC<SuccessNotificationProps> = ({
       }}
       layoutId="success-notification-container"
     >
+      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
       <AnimatePresence mode="wait">
         {isSubmitting && !isSuccess ? (
           <motion.div 

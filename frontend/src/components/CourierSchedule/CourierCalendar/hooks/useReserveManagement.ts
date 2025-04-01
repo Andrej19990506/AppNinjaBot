@@ -1,22 +1,42 @@
 import { useCallback } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch } from '../../../../store/store';
+import { useSelector } from 'react-redux';
 import { 
-    addToReserve, 
-    removeFromReserve, 
+    // Неиспользуемые функции закомментированы
+    // addToReserve, 
+    // removeFromReserve, 
     selectAllReserves,
-    forceFetchReserves,
-    reserveDeleted
+    // forceFetchReserves,
+    // reserveDeleted
 } from '../../../../store/slices/reservesSlice';
-import { formatDateForAPI } from '../utils/dateUtils';
+import { format } from 'date-fns';
+import { socketService } from '../../../../services/socket';
+import { logger } from '../../../../utils/logger';
 
-export const useReserveManagement = (currentUserId: string, chatId?: string) => {
-    const dispatch = useDispatch<AppDispatch>();
+export const useReserveManagement = (currentUserId: string, chatId: string) => {
+    // Неиспользуемый dispatch удалён
     const reserves = useSelector(selectAllReserves);
+    // Получаем данные пользователя из Redux
+    const userInfo = useSelector((state: any) => state.user.user);
 
-    const getReservesForDate = useCallback((date: Date) => {
-        const dateStr = formatDateForAPI(date);
-        return reserves.filter(reserve => reserve.date === dateStr);
+    const getReservesForDate = useCallback((targetDate: Date) => {
+        const formattedDate = format(targetDate, "yyyy-MM-dd'T'17:00:00.000'Z'");
+        
+        const dateReserves = reserves.filter(reserve => {
+            // Сравниваем только даты без времени
+            const reserveDate = reserve.date.split('T')[0];
+            const formattedDateOnly = formattedDate.split('T')[0];
+            return reserveDate === formattedDateOnly;
+        });
+        
+        // Логируем только если есть резервы для даты
+        if (dateReserves.length > 0) {
+            console.log('[useReserveManagement] Found reserves for date:', {
+                date: formattedDate,
+                reserves: dateReserves
+            });
+        }
+        
+        return dateReserves;
     }, [reserves]);
 
     const userIsInReserve = useCallback((date: Date) => {
@@ -27,44 +47,46 @@ export const useReserveManagement = (currentUserId: string, chatId?: string) => 
     }, [currentUserId, getReservesForDate]);
 
     const handleAddToReserve = useCallback(async (date: Date) => {
-        if (!chatId) {
-            throw new Error('Не удалось определить ID чата. Отсутствует идентификатор чата.');
-        }
-
         try {
-            const result = await dispatch(addToReserve({
-                date: formatDateForAPI(date),
-                userId: currentUserId,
-                chatId: chatId
-            })).unwrap();
+            // Создаем объект с данными резерва, включая все данные пользователя
+            const reserveData = {
+                date: format(date, "yyyy-MM-dd'T'17:00:00.000'Z'"),
+                user_id: currentUserId,
+                userId: currentUserId, // Для совместимости
+                chat_id: chatId,
+                // Добавляем все данные пользователя
+                firstName: userInfo?.first_name || '',
+                lastName: userInfo?.last_name || '',
+                photo_url: userInfo?.photo_url || null,
+                isSeniorCourier: userInfo?.is_senior_courier || false,
+                // Добавляем snake_case версии для совместимости
+                first_name: userInfo?.first_name || '',
+                last_name: userInfo?.last_name || '',
+                is_senior_courier: userInfo?.is_senior_courier || false
+            };
 
-            await dispatch(forceFetchReserves());
-            return result;
+            console.log('[useReserveManagement] Отправка данных резерва на сервер:', reserveData);
+            socketService.emit('add_to_reserve', reserveData);
+            return true;
         } catch (error) {
-            console.error('[Calendar] Error adding to reserve:', error);
-            throw error;
+            logger.error('❌ Ошибка при добавлении в резерв:', error);
+            return false;
         }
-    }, [dispatch, currentUserId, chatId]);
+    }, [currentUserId, chatId, userInfo]);
 
-    const handleCancelReserve = useCallback(async (reserveId: string) => {
-        if (!chatId) {
-            throw new Error('Не удалось определить ID чата. Отсутствует идентификатор чата.');
-        }
-
+    const handleCancelReserve = useCallback(async (reserveId: string): Promise<void> => {
         try {
-            await dispatch(removeFromReserve({
-                reserveId,
-                userId: currentUserId,
-                chatId: chatId
-            }));
+            const reserveData = {
+                reserve_id: reserveId,
+                user_id: currentUserId,
+                chat_id: chatId
+            };
 
-            dispatch(reserveDeleted({ id: reserveId }));
-            await dispatch(forceFetchReserves());
+            socketService.emit('cancel_reserve', reserveData);
         } catch (error) {
-            console.error('[Calendar] Error canceling reserve:', error);
-            throw error;
+            logger.error('❌ Ошибка при отмене резерва:', error);
         }
-    }, [dispatch, currentUserId, chatId]);
+    }, [currentUserId, chatId]);
 
     return {
         reserves,

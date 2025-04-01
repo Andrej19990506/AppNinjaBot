@@ -1,5 +1,6 @@
 import axios from 'axios';
 import config from '../config';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { WriteOffReason, CreateWriteOffData } from '../types/writeOff';
 import { socketService } from './socket';
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import styled from 'styled-components';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import CourierProfile from '../CourierProfile/CourierProfile';
@@ -8,10 +8,7 @@ import { updateCourierProfile } from '../../services/api';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import { updateUser } from '../../store/slices/userSlice';
 import { bookShift, fetchShifts } from '../../store/slices/shiftsSlice';
-import { useDispatch, useSelector } from 'react-redux';
-import { RootState } from '../../store/store';
 import { format } from 'date-fns';
-import config from '../../config';
 import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
 import axios from 'axios';
 import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
@@ -44,23 +41,6 @@ const Subtitle = styled.p`
 
 const ScheduleSection = styled.div`
     margin-top: 32px;
-`;
-
-const SeniorCourierBadge = styled.div`
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background: var(--primary-color);
-    color: white;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 8px;
-    border-radius: 12px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: 4px;
 `;
 
 const SettingsButton = styled.button`
@@ -103,14 +83,12 @@ const CourierSchedule: React.FC = () => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
     const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+    const [selectedDate] = useState<Date | undefined>(undefined);
     const [showCalendar, setShowCalendar] = useState(false);
-    const [showSeniorActions, setShowSeniorActions] = useState(false);
-    const [isRemoving, setIsRemoving] = useState(false);
     const [showShiftAccessSettings, setShowShiftAccessSettings] = useState(false);
     
-    // Функция для получения статуса старшего курьера
-    const fetchCourierStatus = async () => {
+    // Функция для получения статуса старшего курьера, обернутая в useCallback
+    const fetchCourierStatus = useCallback(async () => {
         if (!user?.id) {
             console.log('❌ Нет ID пользователя для запроса статуса курьера');
             return;
@@ -131,7 +109,7 @@ const CourierSchedule: React.FC = () => {
             console.log('👤 Текущий пользователь:', {
                 id: user.id,
                 name: `${user.first_name} ${user.last_name}`,
-                isSeniorCourier: user.isSeniorCourier,
+                is_senior_courier: user.is_senior_courier,
                 groups: user.groups
             });
             
@@ -141,9 +119,9 @@ const CourierSchedule: React.FC = () => {
             
             const data = response.data;
             
-            if (data.is_senior_courier !== undefined && user.isSeniorCourier !== data.is_senior_courier) {
+            if (data.is_senior_courier !== undefined && user.is_senior_courier !== data.is_senior_courier) {
                 console.log('📊 Обновляем статус старшего курьера:', {
-                    old: user.isSeniorCourier,
+                    old: user.is_senior_courier,
                     new: data.is_senior_courier
                 });
                 
@@ -153,11 +131,11 @@ const CourierSchedule: React.FC = () => {
                 // Также нужно обновить весь объект пользователя для совместимости
                 dispatch(updateUser({
                     ...user,
-                    isSeniorCourier: data.is_senior_courier
+                    is_senior_courier: data.is_senior_courier
                 }));
             } else {
                 console.log('ℹ️ Статус старшего курьера не изменился:', {
-                    current: user.isSeniorCourier,
+                    current: user.is_senior_courier,
                     fromApi: data.is_senior_courier
                 });
             }
@@ -169,25 +147,7 @@ const CourierSchedule: React.FC = () => {
             console.error('❌ Ошибка при получении статуса курьера:', error);
             // Не выбрасываем ошибку дальше, чтобы не блокировать UI
         }
-    };
-    
-    // Временные данные для демонстрации (замените на реальные данные с API)
-    const [shifts] = useState([
-        {
-            userId: 1,
-            firstName: "Иван",
-            lastName: "Петров",
-            date: "2024-03-15",
-            avatarUrl: undefined
-        },
-        {
-            userId: 2,
-            firstName: "Анна",
-            lastName: "Сидорова",
-            date: "2024-03-15",
-            avatarUrl: undefined
-        }
-    ]);
+    }, [user, dispatch]);
 
     useEffect(() => {
         if (user && (!user.first_name?.trim() || !user.last_name?.trim())) {
@@ -206,7 +166,7 @@ const CourierSchedule: React.FC = () => {
             
             getCourierStatus();
         }
-    }, [user, dispatch]);
+    }, [user, dispatch, fetchCourierStatus]);
 
     const handleProfileSave = async (data: { 
         firstName: string; 
@@ -230,7 +190,7 @@ const CourierSchedule: React.FC = () => {
                 ...user,
                 first_name: data.firstName,
                 last_name: data.lastName,
-                isSeniorCourier: data.isSeniorCourier || false
+                is_senior_courier: data.isSeniorCourier || false
             }));
 
             dispatch(addNotification({
@@ -329,7 +289,7 @@ const CourierSchedule: React.FC = () => {
                 <Title>Запись на смену</Title>
                 <Subtitle>Выберите удобную дату для работы</Subtitle>
                 
-                {user?.isSeniorCourier && (
+                {user?.is_senior_courier && (
                     <SettingsButton onClick={handleOpenShiftAccessSettings}>
                         <SettingsIcon />
                         Настройки записи
@@ -352,7 +312,7 @@ const CourierSchedule: React.FC = () => {
             ) : (
                 <CourierProfile 
                     onRegisterClick={() => setShowCalendar(true)}
-                    isSeniorCourier={user?.isSeniorCourier}
+                    isSeniorCourier={user?.is_senior_courier}
                     onOpenShiftAccess={handleOpenShiftAccessSettings}
                 />
             )}

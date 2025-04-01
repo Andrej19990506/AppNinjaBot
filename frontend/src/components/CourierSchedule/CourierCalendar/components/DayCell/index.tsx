@@ -46,12 +46,10 @@ const DayCell: React.FC<DayCellProps> = ({
     const lastTapRef = useRef<number>(0);
     const touchStartPosRef = useRef<{x: number, y: number} | null>(null);
 
-    if (!date) {
-        return <DayCellContainer as="div" />;
-    }
-
     // Улучшенные обработчики тач-событий для iOS
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (!date) return;
+        
         // Запоминаем позицию первого касания
         if (e.touches.length === 1) {
             touchStartPosRef.current = {
@@ -63,9 +61,11 @@ const DayCell: React.FC<DayCellProps> = ({
         // Отменяем действия по умолчанию для предотвращения зума
         e.preventDefault();
         e.stopPropagation();
-    }, []);
+    }, [date]);
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!date) return;
+        
         // Отменяем действия, если это не скролл
         if (touchStartPosRef.current) {
             const diffX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
@@ -77,9 +77,11 @@ const DayCell: React.FC<DayCellProps> = ({
                 e.stopPropagation();
             }
         }
-    }, []);
+    }, [date]);
 
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!date) return;
+        
         // Обработка двойного тапа
         const now = Date.now();
         const DOUBLE_TAP_DELAY = 300; // ms
@@ -104,7 +106,11 @@ const DayCell: React.FC<DayCellProps> = ({
         
         // Сбрасываем позицию касания
         touchStartPosRef.current = null;
-    }, [onClick]);
+    }, [date, onClick]);
+
+    if (!date) {
+        return <DayCellContainer as="div" />;
+    }
 
     // Функция для рендеринга содержимого ячейки
     const renderContent = () => {

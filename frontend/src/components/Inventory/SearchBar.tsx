@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import CategoryIcon from '@mui/icons-material/Category';
@@ -7,6 +7,7 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import { InventoryItem } from '../../types/inventory';
 import { SearchResult } from '../../types/search';
 import styles from './SearchBar.module.css';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface SearchBarProps {
   onSearch: (query: string) => void;
@@ -133,7 +134,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}
       />
-      <AnimatePresence>
+      <AnimatePresenceWrapper>
         {query && (
           <motion.button
             className={`${styles.clearButton} ${query ? styles.clearButtonVisible : ''}`}
@@ -147,9 +148,9 @@ const SearchBar: React.FC<SearchBarProps> = ({
             <CloseIcon />
           </motion.button>
         )}
-      </AnimatePresence>
+      </AnimatePresenceWrapper>
 
-      <AnimatePresence>
+      <AnimatePresenceWrapper>
         {showResults && (
           <motion.div
             ref={dropdownRef}
@@ -211,7 +212,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
             ) : null}
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresenceWrapper>
     </div>
   );
 };

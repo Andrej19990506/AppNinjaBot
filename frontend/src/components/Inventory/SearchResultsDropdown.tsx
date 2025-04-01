@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import { InventoryItem } from '../../types/inventory';
 import HistoryIcon from '@mui/icons-material/History';
 import SearchIcon from '@mui/icons-material/Search';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
 import styles from './InventorySearch.module.css';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface SearchResult {
   category: string;
@@ -145,7 +147,7 @@ const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({
   console.log('🔍 Рендеринг выпадающего списка - видимость:', isVisible || isHovering);
 
   return (
-    <AnimatePresence>
+    <AnimatePresenceWrapper>
       <motion.div 
         ref={dropdownRef}
         className={styles.searchDropdown}
@@ -232,10 +234,10 @@ const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({
                           </span>
                         </div>
                         <div className={styles.resultItemStatus}>
-                          {result.item.raw.filled && (
+                          {result.item.raw?.filled && (
                             <span className={styles.filledStatus}>Заполнен</span>
                           )}
-                          {result.item.raw.isOutOfStock && (
+                          {result.item.raw?.isOutOfStock && (
                             <span className={styles.outOfStockStatus}>Нет в наличии</span>
                           )}
                         </div>
@@ -287,7 +289,7 @@ const SearchResultsDropdown: React.FC<SearchResultsDropdownProps> = ({
           )}
         </div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresenceWrapper>
   );
 };
 

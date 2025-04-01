@@ -10,14 +10,30 @@ export interface CourierShift {
 }
 
 export interface ReserveShift {
-    id?: string;
+    id: string;
     userId: string;
     date: string;
     photo_url: string | null;
     firstName: string;
     lastName: string;
     created_at: string;
+    isSeniorCourier: boolean;
+}
+
+export interface IncomingReserveData {
+    id: string;
+    userId?: string;
+    user_id?: string;
+    date: string;
+    photo_url: string | null;
+    firstName?: string;
+    first_name?: string;
+    lastName?: string;
+    last_name?: string;
+    created_at?: string;
+    createdAt?: string;
     isSeniorCourier?: boolean;
+    is_senior_courier?: boolean;
 }
 
 export interface ShiftState {

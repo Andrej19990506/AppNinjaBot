@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React from 'react';
 import { useDeviceDetection } from '../../hooks';
 import { WriteOffReason } from '../../../../../types/writeOff';

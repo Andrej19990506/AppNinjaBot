@@ -1,364 +1,529 @@
 import { io, Socket } from 'socket.io-client';
-import { WebSocketMessage } from '../types';
-import config from '../config';
 import { logger } from '../utils/logger';
 
-interface QueuedMessage {
-    eventType: string;
-    data: any;
-    attempts: number;
+// Базовые типы событий
+export type SocketEvent = 
+  | 'connect'
+  | 'disconnect'
+  | 'connect_error'
+  | 'message'
+  | 'users_list'
+  | 'room_joined'
+  | 'room_left'
+  | 'room_users'
+  | 'room_users_update'
+  | 'user_joined'
+  | 'writeoff_created'
+  | 'writeoff_updated'
+  | 'writeoff_deleted'
+  | 'ping'
+  | 'pong'
+  | 'user_away'
+  | 'user_back'
+  | 'user_disconnected';
+
+// Состояние сокета
+export type SocketState = {
+  connected: boolean;
+  id?: string;
+  socketId?: string;
+  error?: string;
+  transport?: string;
+};
+
+// Типы событий Socket.io
+export interface ServerToClientEvents {
+  connect: () => void;
+  disconnect: (reason: string) => void;
+  connect_error: (error: Error) => void;
+  message: (data: { text: string; room: string; user?: any }) => void;
+  users_list: (data: any[]) => void;
+  room_joined: (data: { room: string; status: string }) => void;
+  room_left: (data: { room: string }) => void;
+  room_users: (data: { room: string; users: any[] }) => void;
+  room_users_update: (data: { room: string; users: any[] }) => void;
+  user_joined: (data: { room: string; user: any }) => void;
+  ping: (data: { timestamp: string }) => void;
+  user_away: (data: { sid: string; user_info: any }) => void;
+  user_back: (data: { sid: string; user_info: any }) => void;
+  user_disconnected: (data: { sid: string; reason: 'manual' | 'timeout'; user_info: any }) => void;
+}
+
+export interface ClientToServerEvents {
+  join_room: (data: { room: string; user_info?: any }, callback: (response: any) => void) => void;
+  leave_room: (data: { room: string }, callback: (response: any) => void) => void;
+  get_room_users: (data: { room: string }) => void;
+  message: (data: { text: string; room: string }) => void;
+  pong: (data: { timestamp: string }) => void;
 }
 
 class SocketService {
-    private socket: Socket | null = null;
-    private static instance: SocketService;
-    private connectionPromise: Promise<boolean> | null = null;
-    private messageQueue: { event: string; data: any }[] = [];
-    private maxRetryAttempts = 3;
-    private isConnecting: boolean = false;
-    private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    private reconnectAttempts: number = 0;
-    private maxReconnectAttempts: number = 10;
-    private baseDelay: number = 1000;
+  private socket: Socket | null = null;
+  private isConnecting = false;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+  private baseReconnectDelay = 1000;
+  // Отслеживание присоединенных комнат
+  private joinedRooms: Set<string> = new Set();
+  // Храним последний использованный URL
+  private lastUsedUrl: string = 'ws://localhost/socket.io';
 
-    private constructor() {}
+  // Инициализация Socket.IO
+  init(wsUrl: string = 'ws://localhost/socket.io'): Socket | null {
+    // Нормализуем URL, чтобы удалить возможные дублирования пути
+    const normalizedUrl = wsUrl.includes('/socket.io') 
+      ? wsUrl.split('/socket.io')[0] 
+      : wsUrl;
+    
+    // Предотвращаем множественные попытки подключения
+    if (this.isConnecting) {
+      logger.warn('⚠️ Подключение уже в процессе');
+      return this.socket;
+    }
 
-    static getInstance(): SocketService {
-        if (!SocketService.instance) {
-            SocketService.instance = new SocketService();
+    // Возвращаем существующее подключение если оно активно
+    if (this.socket?.connected) {
+      logger.log('✅ Сокет уже подключен');
+      return this.socket;
+    }
+
+    try {
+      this.isConnecting = true;
+      this.lastUsedUrl = normalizedUrl;
+      logger.log('🔄 Инициализация Socket.IO:', normalizedUrl);
+
+      // Отключаем предыдущий сокет если есть
+      if (this.socket) {
+        logger.log('🧹 Очищаем существующий сокет перед новым подключением');
+        try {
+          this.socket.removeAllListeners();
+          this.socket.disconnect();
+        } catch (e) {
+          logger.error('❌ Ошибка при очистке старого сокета:', e);
         }
-        return SocketService.instance;
-    }
+        this.socket = null;
+      }
 
-    private getSocketUrl(): string {
-        return process.env.REACT_APP_WS_URL || 'http://localhost:3001';
-    }
-
-    private async initializeSocket(): Promise<Socket> {
-        const url = this.getSocketUrl();
-        logger.info('🔧 Инициализируем Socket.IO:');
-        logger.info(`🔗 URL: ${url}`);
-        logger.info(`🛤️ Путь: /socket.io`);
-        logger.info(`🚗 Транспорт: websocket, polling`);
-
-        return io(url, {
-            transports: ['websocket', 'polling'],
-            path: '/socket.io',
-            reconnection: true,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-            reconnectionAttempts: 10,
-            timeout: 60000,
-            forceNew: true,
-            autoConnect: false
+      logger.log('🛠️ Создаем новый экземпляр Socket.IO');
+      try {
+        // Попробуем создать сокет с более простой конфигурацией
+        this.socket = io(normalizedUrl, {
+          transports: ['websocket'],
+          reconnection: false, // Отключаем автоматическое переподключение
+          autoConnect: false,
+          forceNew: true,
+          timeout: 10000,
+          path: '/socket.io/',
         });
-    }
 
-    public async connect(): Promise<boolean> {
-        if (this.socket?.connected) {
-            logger.info('✅ Socket.IO уже подключен');
-            return true;
-        }
-
-        if (this.isConnecting) {
-            logger.info('🔄 Socket.IO подключение уже в процессе...');
-            return false;
-        }
-
-        this.isConnecting = true;
-
-        try {
-            logger.info('🔌 Попытка соединения с WebSocket ' + this.getSocketUrl());
-            
-            // Инициализируем сокет
-            this.socket = await this.initializeSocket();
-
-            // Создаем Promise для ожидания подключения
-            return new Promise((resolve) => {
-                // Устанавливаем обработчики событий
-                this.socket!.on('connect', () => {
-                    logger.info('✅ Socket.IO подключение установлено');
-                    this.isConnecting = false;
-                    this.reconnectAttempts = 0;
-                    this.processMessageQueue();
-                    resolve(true);
-                });
-
-                this.socket!.on('connect_error', (error) => {
-                    logger.error('❌ Ошибка подключения к Socket.IO:', error);
-                    this.handleConnectionError();
-                    resolve(false);
-                });
-
-                this.socket!.on('disconnect', (reason) => {
-                    logger.warn('🔌 Socket.IO отключен:', reason);
-                    this.handleDisconnect(reason);
-                });
-
-                this.socket!.on('error', (error) => {
-                    logger.error('❌ Socket.IO ошибка:', error);
-                    this.handleConnectionError();
-                    resolve(false);
-                });
-
-                // Подключаемся
-                this.socket!.connect();
-
-                // Устанавливаем таймаут
-                setTimeout(() => {
-                    if (this.isConnecting) {
-                        logger.error('❌ Таймаут подключения к Socket.IO');
-                        this.isConnecting = false;
-                        resolve(false);
-                    }
-                }, 5000);
-            });
-
-        } catch (error) {
-            logger.error('❌ Ошибка при инициализации Socket.IO:', error);
-            this.handleConnectionError();
-            return false;
-        }
-    }
-
-    private handleConnectionError() {
-        this.isConnecting = false;
-        this.reconnectAttempts++;
-
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-            const delay = Math.min(this.baseDelay * Math.pow(1.5, this.reconnectAttempts - 1), 5000);
-            logger.info(`⏳ Планирование переподключения (попытка ${this.reconnectAttempts}/${this.maxReconnectAttempts}) через ${delay}ms`);
-            setTimeout(() => this.reconnect(), delay);
-        } else {
-            logger.error('❌ Превышено максимальное количество попыток переподключения');
-        }
-    }
-
-    private handleDisconnect(reason: string) {
-        this.isConnecting = false;
-        if (reason === 'io server disconnect' || reason === 'transport close') {
-            this.reconnect();
-        }
-    }
-
-    private reconnect() {
-        logger.info(`🔄 Попытка переподключения ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
-        this.connect();
-    }
-
-    private processMessageQueue() {
-        if (!this.socket?.connected) return;
-
-        while (this.messageQueue.length > 0) {
-            const message = this.messageQueue.shift();
-            if (message) {
-                this.socket.emit(message.event, message.data);
-                logger.info(`📨 Отправлено отложенное сообщение: ${message.event}`);
-            }
-        }
-    }
-
-    public emit(event: string, data: any): void {
-        if (!this.socket?.connected) {
-            logger.warn('⚠️ Сокет не подключен. Сообщение добавлено в очередь.');
-            this.messageQueue.push({ event, data });
-            logger.info(`📝 Добавление сообщения в очередь: ${event}`);
-            this.connect();
-            return;
-        }
-
-        // Добавляем логирование для события book_shift
-        if (event === 'book_shift') {
-            // Убедимся, что is_senior_courier имеет правильный логический тип
-            if (data.is_senior_courier !== undefined) {
-                data.is_senior_courier = Boolean(data.is_senior_courier);
-            }
-            
-            console.info('📡 Отправка book_shift через WebSocket:', {
-                event,
-                data,
-                isSeniorCourier: data.is_senior_courier
-            });
-        }
-
-        this.socket.emit(event, data);
-    }
-
-    public emitWithAck(event: string, data: any, callback: (response: any) => void): void {
-        if (!this.socket?.connected) {
-            logger.warn('⚠️ Сокет не подключен при попытке отправки с подтверждением.');
-            this.connect().then(() => {
-                if (this.socket?.connected) {
-                    logger.info(`📡 Отправка сообщения с подтверждением после переподключения: ${event}`);
-                    this.socket.emit(event, data, callback);
-                } else {
-                    logger.error(`❌ Не удалось подключиться для отправки сообщения: ${event}`);
-                    callback({ error: 'Failed to connect to server' });
-                }
-            });
-            return;
-        }
-
-        logger.info(`📡 Отправка сообщения с подтверждением: ${event}`);
-        this.socket.emit(event, data, callback);
-    }
-
-    public on(event: string, callback: (data: any) => void): void {
         if (!this.socket) {
-            this.connect().then(() => {
-                this.socket?.on(event, callback);
-            });
-            return;
+          throw new Error('Не удалось создать объект сокета');
         }
-        this.socket.on(event, callback);
-    }
 
-    public off(event: string, callback?: (data: any) => void): void {
-        if (!this.socket) return;
-        if (callback) {
-            this.socket.off(event, callback);
-        } else {
-            this.socket.off(event);
-        }
-    }
+        // Логируем детали сокета после создания
+        logger.log('🔍 Детали сокета после создания:', {
+          id: this.socket.id,
+          connected: this.socket.connected,
+          disconnected: this.socket.disconnected,
+          engine: !!this.socket.io?.engine
+        });
 
-    isConnected(): boolean {
-        return this.socket?.connected ?? false;
-    }
-
-    disconnect(): void {
-        if (this.socket) {
-            this.socket.disconnect();
-            this.socket = null;
-        }
-        
-        if (this.reconnectTimer) {
-            clearTimeout(this.reconnectTimer);
-            this.reconnectTimer = null;
-        }
-        
-        this.connectionPromise = null;
+        this.setupEventHandlers();
+        logger.log('✅ Socket.IO инициализирован успешно, id:', this.socket.id);
+        return this.socket;
+      } catch (initError) {
+        logger.error('❌ Ошибка при создании сокета:', initError);
+        this.socket = null;
         this.isConnecting = false;
-        this.reconnectAttempts = 0;
+        return null;
+      }
+    } catch (error) {
+      this.isConnecting = false;
+      logger.error('❌ Ошибка при инициализации Socket.IO:', error);
+      return null;
+    }
+  }
+
+  // Настройка обработчиков событий
+  private setupEventHandlers(): void {
+    if (!this.socket) return;
+
+    this.socket.on('connect', () => {
+      this.isConnecting = false;
+      logger.log('✅ Socket.IO подключен, id:', this.socket?.id);
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      this.isConnecting = false;
+      logger.warn(`⚠️ Socket.IO отключен: ${reason}`);
+    });
+
+    this.socket.on('connect_error', (error) => {
+      this.isConnecting = false;
+      
+      // Более детальное логирование различных типов ошибок
+      const errorDetails = {
+        message: error.message || String(error),
+        name: error.name || 'Unknown',
+        stack: error.stack,
+        code: (error as any).code,
+        type: (error as any).type,
+        description: (error as any).description,
+      };
+      
+      logger.error('❌ Ошибка подключения Socket.IO:', errorDetails);
+    });
+
+    this.socket.on('error', (error) => {
+      // Более детальное логирование различных типов ошибок
+      const errorDetails = error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      } : error;
+      
+      logger.error('❌ Ошибка сокета:', errorDetails);
+    });
+
+    // Обработка системных сообщений
+    this.socket.on('message', (data: any) => {
+      if (data.isSystem) {
+        logger.log('📢 Системное сообщение:', data.data);
+      }
+    });
+
+    // Добавляем отслеживание состояния подключения
+    this.socket.io.on("reconnect_attempt", (attempt) => {
+      logger.log(`🔄 Попытка переподключения #${attempt}`);
+      
+      // Принудительно устанавливаем WebSocket в качестве транспорта при переподключении
+      if (this.socket && this.socket.io && this.socket.io.opts) {
+        this.socket.io.opts.transports = ['websocket'];
+        logger.log('🔄 Принудительно устанавливаем WebSocket при переподключении');
+      }
+    });
+
+    this.socket.io.on("reconnect", (attempt) => {
+      logger.log(`✅ Успешное переподключение после ${attempt} попыток`);
+    });
+
+    this.socket.io.on("reconnect_error", (error) => {
+      logger.error('❌ Ошибка переподключения:', error);
+    });
+
+    this.socket.io.on("reconnect_failed", () => {
+      logger.error('❌ Все попытки переподключения исчерпаны');
+    });
+    
+    // Вызываем также установку обработчиков Engine.IO
+    this.setupEngineHandlers();
+    
+    // Добавляем обработчик для отладки первого handshake
+    if (this.socket.io?.engine) {
+      this.socket.io.engine.on('handshake', (data: any) => {
+        logger.log('🤝 Socket.IO handshake:', {
+          sid: data.sid,
+          upgrades: data.upgrades,
+          pingInterval: data.pingInterval,
+          pingTimeout: data.pingTimeout
+        });
+      });
     }
 
-    subscribe(event: string, callback: (data: any) => void): void {
-        console.log(`🔌 Подписка на WebSocket событие: ${event}`);
+    // Добавляем обработчик ping событий
+    this.socket.on('ping', (data: { timestamp: string }) => {
+      logger.log('📍 Получен ping от сервера:', data.timestamp);
+      // Немедленно отправляем pong обратно
+      this.socket?.emit('pong', { 
+        timestamp: data.timestamp,
+        client_time: Date.now().toString()
+      });
+      logger.log('📍 Отправлен pong на сервер');
+    });
+  }
+
+  // Новый метод для настройки обработчиков Engine.IO
+  private setupEngineHandlers(): void {
+    if (!this.socket?.io?.engine) return;
+
+    this.socket.io.engine.on('upgrading', () => {
+      const transport = this.socket?.io.engine.transport;
+      logger.log('🔄 Начало upgrade транспорта:', {
+        current: transport?.name
+      });
+    });
+
+    this.socket.io.engine.on('upgrade', () => {
+      const transport = this.socket?.io.engine.transport;
+      logger.log('🔄 Upgrade успешен, новый транспорт:', {
+        name: transport?.name
+      });
+    });
+
+    this.socket.io.engine.on('upgradeError', (err) => {
+      logger.error('❌ Ошибка при upgrade транспорта:', err);
+    });
+
+    // Отслеживаем изменение транспорта через ping/pong
+    this.socket.io.engine.on('packet', (packet: any) => {
+      if (packet.type === 'ping' || packet.type === 'pong') {
+        const transport = this.socket?.io.engine.transport;
+        logger.log(`📡 Транспорт при ${packet.type}:`, {
+          name: transport?.name
+        });
+      }
+    });
+  }
+
+  // Публичные методы
+  public getSocket(): Socket | null {
+    return this.socket;
+  }
+
+  public getState(): SocketState {
+    return {
+      connected: this.socket?.connected || false,
+      id: this.socket?.id,
+      socketId: this.socket?.id,
+      transport: this.socket?.io?.engine?.transport?.name,
+      error: undefined
+    };
+  }
+
+  public async connect(): Promise<boolean> {
+    if (!this.socket) {
+      logger.error('❌ Сокет не инициализирован');
+      return false;
+    }
+
+    if (this.socket.connected) {
+      logger.log('✅ Сокет уже подключен, повторное подключение не требуется');
+      return true;
+    }
+
+    // Защита от параллельных попыток подключения
+    if (this.isConnecting) {
+      logger.warn('⚠️ Подключение уже в процессе, ожидаем завершения');
+      // Ожидаем завершения текущей попытки (максимум 6 секунд)
+      for (let i = 0; i < 6; i++) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (this.socket?.connected) {
+          logger.log('✅ Сокет подключился во время ожидания');
+          return true;
+        }
+        if (!this.isConnecting) break;
+      }
+      
+      // Если после ожидания сокет всё ещё пытается подключиться,
+      // принудительно сбрасываем флаг для повторной попытки
+      if (this.isConnecting) {
+        logger.warn('⚠️ Сброс зависшей попытки подключения');
+        this.isConnecting = false;
+      }
+    }
+
+    this.isConnecting = true;
+    logger.log('🔄 Начинаем подключение сокета...');
+
+    return new Promise((resolve) => {
+      if (!this.socket) {
+        this.isConnecting = false;
+        resolve(false);
+        return;
+      }
+
+      // Устанавливаем таймаут для подключения
+      const timeout = setTimeout(() => {
         if (this.socket) {
-            // Добавляем обертку для логирования всех событий
-            const wrappedCallback = (data: any) => {
-                console.log(`📡 Получено WebSocket событие: ${event}`, data);
-                callback(data);
-            };
-            
-            this.socket.on(event, wrappedCallback);
-            console.log(`✅ Успешно подписались на событие: ${event}`);
+          this.socket.off('connect');
+          this.socket.off('connect_error');
+        }
+        logger.error('❌ Таймаут соединения (5 секунд)');
+        this.isConnecting = false;
+        resolve(false);
+      }, 5000);
+
+      // Сохраняем локальную ссылку на сокет перед добавлением обработчиков
+      const socket = this.socket;
+      
+      socket.once('connect', () => {
+        clearTimeout(timeout);
+        this.isConnecting = false;
+        logger.log('✅ Socket.IO успешно подключен');
+        resolve(true);
+      });
+
+      socket.once('connect_error', (error) => {
+        clearTimeout(timeout);
+        this.isConnecting = false;
+        logger.error('❌ Ошибка при попытке подключения:', error);
+        resolve(false);
+      });
+
+      try {
+        logger.log('🔌 Вызов метода socket.connect()');
+        socket.connect();
+      } catch (error) {
+        clearTimeout(timeout);
+        this.isConnecting = false;
+        logger.error('❌ Исключение при подключении:', error);
+        resolve(false);
+      }
+    });
+  }
+
+  public disconnect(): void {
+    this.isConnecting = false;
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
+
+  public on<T = any>(event: string, callback: (data: T) => void): void {
+    this.socket?.on(event, callback);
+  }
+
+  public subscribe<T = any>(event: string, callback: (data: T) => void): void {
+    this.socket?.on(event, callback);
+  }
+
+  public off(event: string): void {
+    this.socket?.off(event);
+  }
+
+  public unsubscribe(event: string): void {
+    this.socket?.off(event);
+  }
+
+  public emit<T = any>(event: string, data?: T): void {
+    this.socket?.emit(event, data);
+  }
+
+  public emitWithAck<T = any, R = any>(
+    event: string, 
+    data: T, 
+    callback: (response: R) => void
+  ): void {
+    this.socket?.emit(event, data, callback);
+  }
+
+  public isConnected(): boolean {
+    return this.socket?.connected || false;
+  }
+
+  public async joinRoom(room: string, userInfo?: Record<string, any>): Promise<boolean> {
+    if (!this.socket?.connected) {
+      logger.error('❌ Попытка присоединиться к комнате при отключенном сокете');
+      return false;
+    }
+
+    return new Promise((resolve) => {
+      this.socket?.emit('join_room', { room, user_info: userInfo }, (response: any) => {
+        if (response?.error) {
+          logger.error('❌ Ошибка при присоединении к комнате:', response.error);
+          resolve(false);
         } else {
-            console.warn(`⚠️ Не удалось подписаться на событие ${event}: сокет не инициализирован`);
+          logger.log(`✅ Успешно присоединились к комнате: ${room}`);
+          this.joinedRooms.add(room);
+          resolve(true);
         }
+      });
+    });
+  }
+
+  public async leaveRoom(room: string): Promise<boolean> {
+    if (!this.socket?.connected) {
+      logger.error('❌ Попытка покинуть комнату при отключенном сокете');
+      return false;
     }
 
-    unsubscribe(event: string): void {
-        console.log(`🔌 Отписка от WebSocket события: ${event}`);
-        if (this.socket) {
-            this.socket.off(event);
-            console.log(`✅ Успешно отписались от события: ${event}`);
+    return new Promise((resolve) => {
+      this.socket?.emit('leave_room', { room }, (response: any) => {
+        if (response?.error) {
+          logger.error('❌ Ошибка при выходе из комнаты:', response.error);
+          resolve(false);
         } else {
-            console.warn(`⚠️ Не удалось отписаться от события ${event}: сокет не инициализирован`);
+          logger.log(`✅ Успешно покинули комнату: ${room}`);
+          this.joinedRooms.delete(room);
+          resolve(true);
         }
+      });
+    });
+  }
+
+  public getRoomUsers(room: string): void {
+    this.socket?.emit('get_room_users', { room });
+  }
+
+  // Тестирование соединения
+  async testConnection(): Promise<boolean> {
+    if (!this.socket?.connected) {
+      logger.warn('⚠️ Сокет не подключен');
+      return false;
     }
 
-    joinRoom(chatId: string): void {
-        if (this.socket) {
-            this.socket.emit('join_room', { chatId });
-        }
-    }
+    const socket = this.socket; // Сохраняем ссылку на сокет
+    return new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        logger.error('❌ Таймаут эхо-теста');
+        resolve(false);
+      }, 5000);
 
-    leaveRoom(chatId: string): void {
-        if (this.socket) {
-            this.socket.emit('leave_room', { chatId });
+      socket.emit('echo', { test: true, timestamp: Date.now() }, (response: any) => {
+        clearTimeout(timeout);
+        if (response?.status === 'success') {
+          logger.log('✅ Эхо-тест успешен:', response);
+          resolve(true);
+        } else {
+          logger.error('❌ Эхо-тест неуспешен:', response);
+          resolve(false);
         }
-    }
+      });
+    });
+  }
 
-    // Новый метод для присоединения к комнате курьеров
-    joinCourierRoom(chatId: string, userInfo: any): void {
-        console.log(`🚀 [SocketService] Присоединение к комнате курьеров для чата ${chatId}`);
-        
-        if (!this.socket?.connected) {
-            console.warn(`⚠️ [SocketService] Socket не подключен. Подключаемся и пробуем снова.`);
-            this.connect().then(() => {
-                if (this.socket?.connected) {
-                    this.sendJoinCourierRoomEvent(chatId, userInfo);
-                } else {
-                    console.error(`❌ [SocketService] Не удалось подключиться для присоединения к комнате курьеров: ${chatId}`);
-                }
-            });
-            return;
-        }
-        
-        this.sendJoinCourierRoomEvent(chatId, userInfo);
+  // Метод для подписки на все события сокета (для отладки)
+  debugAllEvents(): void {
+    if (!this.socket) {
+      logger.error('❌ Невозможно отслеживать события: сокет не инициализирован');
+      return;
     }
-
-    private sendJoinCourierRoomEvent(chatId: string, userInfo: any): void {
-        if (!this.socket) return;
-        
-        try {
-            console.log(`📤 [SocketService] Отправка события join_courier_room для чата ${chatId}`);
-            
-            // Формируем данные события
-            const eventData = {
-                chatId: String(chatId), // Добавляем в двух форматах для совместимости
-                chat_id: String(chatId),
-                user_info: userInfo || {
-                    id: null,
-                    first_name: 'Unknown',
-                    last_name: ''
-                }
-            };
-            
-            console.log(`📋 [SocketService] Данные события join_courier_room:`, eventData);
-            
-            // Отправляем событие
-            this.socket.emit('join_courier_room', eventData);
-            console.log(`✅ [SocketService] Событие join_courier_room отправлено`);
-        } catch (error) {
-            console.error(`❌ [SocketService] Ошибка при отправке события join_courier_room:`, error);
-        }
+    
+    logger.log('🔍 Включаем отладку всех событий Socket.IO');
+    
+    // Обычные события сокета
+    const commonEvents = [
+      'connect', 'disconnect', 'connect_error', 'error', 'message',
+      'users_list', 'room_joined', 'room_left', 'room_users', 'user_joined', 
+      'room_users_update'
+    ];
+    
+    commonEvents.forEach(event => {
+      this.socket?.on(event as any, (data: any) => {
+        logger.log(`🔄 [DEBUG] Событие ${event}:`, data);
+      });
+    });
+    
+    // События Engine.IO
+    if (this.socket.io?.engine) {
+      const engineEvents = [
+        'open', 'close', 'packet', 'error', 'upgrade', 'upgradeError'
+      ];
+      
+      engineEvents.forEach(event => {
+        this.socket?.io?.engine?.on(event as any, (...args: any[]) => {
+          logger.log(`🔧 [DEBUG] Engine событие ${event}:`, args);
+        });
+      });
     }
+    
+    logger.log('✅ Отладка событий включена');
+  }
 }
 
-export const socketService = SocketService.getInstance();
-
-// Константы для комнат
-export const GLOBAL_ROOM = 'inventory_global';  // Общая комната для всех чатов
-export const CHAT_ROOM_PREFIX = 'inventory_';   // Префикс для комнат конкретных чатов
-
-/**
- * Возвращает имя комнаты для указанного chat_id, 
- * согласованное с серверной логикой
- * @param chat_id ID чата или 'global' для глобальной комнаты
- * @returns Имя комнаты
- */
-export function getServerRoomName(chat_id: string): string {
-    return chat_id === 'global' 
-        ? GLOBAL_ROOM 
-        : `${CHAT_ROOM_PREFIX}${chat_id}`;
-}
-
-/**
- * Возвращает имя комнаты смен для указанного chat_id
- * @param chat_id ID чата
- * @returns Имя комнаты смен
- */
-export function getShiftsRoomName(chat_id: string): string {
-    return `${CHAT_ROOM_PREFIX}shifts_${chat_id}`;
-}
-
-/**
- * Возвращает имя комнаты резервов для указанного chat_id
- * @param chat_id ID чата
- * @returns Имя комнаты резервов
- */
-export function getReservesRoomName(chat_id: string): string {
-    return `${CHAT_ROOM_PREFIX}reserves_${chat_id}`;
-} 
+// Создаем и экспортируем единственный экземпляр сервиса
+export const socketService = new SocketService();
+export default socketService; 

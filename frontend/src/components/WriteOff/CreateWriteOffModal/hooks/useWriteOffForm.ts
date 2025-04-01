@@ -45,7 +45,7 @@ export function useWriteOffForm(callbacks?: WriteOffFormCallbacks) {
       console.log('✅ [handleNameChange] Вызов внешнего обработчика');
       callbacks.onNameChange(newName);
     }
-  }, [dispatch, callbacks?.onNameChange, writeOffName]);
+  }, [dispatch, writeOffName, callbacks]);
 
   // Обработчик выбора причины
   const handleReasonSelect = useCallback((reason: WriteOffReason) => {
@@ -55,7 +55,7 @@ export function useWriteOffForm(callbacks?: WriteOffFormCallbacks) {
       console.log('✅ [handleReasonSelect] Вызов внешнего обработчика');
       callbacks.onReasonChange(reason);
     }
-  }, [dispatch, callbacks?.onReasonChange, selectedReason]);
+  }, [dispatch, selectedReason, callbacks]);
 
   // Обработчик изменения количества
   const handleQuantityChange = useCallback((value: number) => {
@@ -65,7 +65,7 @@ export function useWriteOffForm(callbacks?: WriteOffFormCallbacks) {
       console.log('✅ [handleQuantityChange] Вызов внешнего обработчика');
       callbacks.onQuantityChange(value);
     }
-  }, [dispatch, callbacks?.onQuantityChange, quantity]);
+  }, [dispatch, quantity, callbacks]);
 
   // Обработчик изменения текстового поля количества
   const handleQuantityInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,7 +96,7 @@ export function useWriteOffForm(callbacks?: WriteOffFormCallbacks) {
     if (callbacks?.onUnitTypeChange) {
       callbacks.onUnitTypeChange(newUnitType);
     }
-  }, [dispatch, callbacks?.onUnitTypeChange]);
+  }, [dispatch, callbacks]);
 
   // Обработчик изменения описания
   const handleDescriptionChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -106,7 +106,7 @@ export function useWriteOffForm(callbacks?: WriteOffFormCallbacks) {
     if (callbacks?.onDescriptionChange) {
       callbacks.onDescriptionChange(newDescription);
     }
-  }, [dispatch, callbacks?.onDescriptionChange]);
+  }, [dispatch, callbacks]);
 
   // Обработчик начала отправки формы
   const handleStartSubmitting = useCallback(() => {

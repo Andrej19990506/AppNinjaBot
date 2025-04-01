@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import CategoriesList from './CategoriesList';
 import ItemEdit from './ItemEdit';
@@ -16,6 +17,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import CloseIcon from '@mui/icons-material/Close';
 import TuneIcon from '@mui/icons-material/Tune';
 import { SearchResult } from '../../types/search';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface DesktopLayoutProps {
     categories: string[];
@@ -332,7 +334,7 @@ const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                 )}
             </div>
 
-            <AnimatePresence>
+            <AnimatePresenceWrapper>
                 {showHistory && (
                     <motion.div 
                         className={styles.historyPanel}
@@ -366,7 +368,7 @@ const DesktopLayout: React.FC<DesktopLayoutProps> = ({
                         )}
                     </motion.div>
                 )}
-            </AnimatePresence>
+            </AnimatePresenceWrapper>
         </div>
     );
 };

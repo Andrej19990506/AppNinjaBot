@@ -315,7 +315,7 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
             setIsSuccess(false);
             setFirstName(user?.first_name || '');
             setLastName(user?.last_name || '');
-            setIsSeniorCourier(user?.isSeniorCourier || false);
+            setIsSeniorCourier(user?.is_senior_courier || false);
             setSeniorPassword('');
             setError(null);
             setPasswordValid(true);

@@ -3,12 +3,43 @@ import { WebApp } from '../../types/telegram';
 import { User, UserState } from '../../types/user';
 import { Admin } from '../../types/inventory';
 import { ChatContext } from './chatSlice';
+import config from '../../config';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Group {
     chat_id: string;
     chat_title: string;
     group_type?: string;
 }
+
+// Тестовые данные для режима разработки
+const DEV_MODE_USER_DATA: User = {
+    id: 1682142222, // ID тестового пользователя (Андрей Николаевич)
+    first_name: "Андрей",
+    last_name: "Николаевич",
+    username: "andrejnikolaevich1999",
+    photo_url: "https://api.telegram.org/file/bot7878489788:AAHupjPYeWpzVwo77F_BCR6fIA1I_P8p_Uc/photos/file_0.jpg",
+    isAdmin: false,
+    adminRights: null,
+    is_senior_courier: true,
+    groups: [
+        {
+            chat_id: "-1004755640016",
+            chat_title: "Повара Словцова",
+            group_type: "chef"
+        },
+        {
+            chat_id: "-1004611898635",
+            chat_title: "Курьеры Высотная",
+            group_type: "courier"
+        },
+        {
+            chat_id: "-1004721237800",
+            chat_title: "Курьеры Баумана",
+            group_type: "courier"
+        }
+    ]
+};
 
 const initialState: UserState = {
     user: null,
@@ -22,12 +53,20 @@ export const initializeFromTelegram = createAsyncThunk(
     async () => {
         console.log('=== 👤 Инициализация пользователя из Telegram ===');
         const webApp = window.Telegram?.WebApp as WebApp | undefined;
+        const isDevelopmentMode = process.env.NODE_ENV === 'development' || process.env.REACT_APP_ENV === 'development';
         
         console.log('📱 WebApp данные:', {
             available: !!webApp,
             hasUser: !!webApp?.initDataUnsafe?.user,
-            initData: webApp?.initDataUnsafe
+            initData: webApp?.initDataUnsafe,
+            isDevelopmentMode
         });
+
+        // Если мы в режиме разработки и нет данных WebApp, используем тестовые данные
+        if (isDevelopmentMode && !webApp?.initDataUnsafe?.user?.id) {
+            console.log('🔧 Режим разработки - используем тестовые данные пользователя');
+            return DEV_MODE_USER_DATA;
+        }
 
         if (!webApp?.initDataUnsafe?.user?.id) {
             console.error('❌ Данные пользователя Telegram недоступны');
@@ -37,22 +76,22 @@ export const initializeFromTelegram = createAsyncThunk(
         const userId = webApp.initDataUnsafe.user.id;
 
         // Создаем базовый объект пользователя
-        const user = {
+        const user: User = {
             id: userId,
-            first_name: null,
-            last_name: null,
-            username: webApp.initDataUnsafe.user.username?.trim() || null,
-            photo_url: null,
+            first_name: "",
+            last_name: "",
+            username: webApp.initDataUnsafe.user.username?.trim() || "",
+            photo_url: "",
             isAdmin: false,
             adminRights: null,
-            isSeniorCourier: false,
+            is_senior_courier: false,
             groups: []
         };
 
         try {
             // Запрашиваем группы пользователя с сервера
             console.log('🔄 Загрузка групп пользователя...');
-            const baseUrl = process.env.REACT_APP_API_URL?.replace(/\/+$/, '');
+            const baseUrl = config.API_URL?.replace(/\/+$/, '');
             console.log('🌐 Базовый URL:', baseUrl);
             const response = await fetch(`${baseUrl}/couriers/${userId}/groups`, {
                 method: 'GET',
@@ -75,15 +114,15 @@ export const initializeFromTelegram = createAsyncThunk(
                 user.groups = data.groups;
                 // Используем данные пользователя из файла группы
                 if (data.user_data) {
-                    user.first_name = data.user_data.first_name;
-                    user.last_name = data.user_data.last_name;
-                    user.photo_url = data.user_data.photo_url;
-                    user.isSeniorCourier = data.user_data.is_senior_courier || false;
+                    user.first_name = data.user_data.first_name || "";
+                    user.last_name = data.user_data.last_name || "";
+                    user.photo_url = data.user_data.photo_url || "";
+                    user.is_senior_courier = data.user_data.is_senior_courier || false;
                 }
                 console.log('✅ Данные пользователя загружены с информацией о статусе старшего курьера:', {
                     groups: data.groups,
                     user_data: data.user_data,
-                    isSeniorCourier: user.isSeniorCourier
+                    isSeniorCourier: user.is_senior_courier
                 });
             } else {
                 console.error('❌ Ошибка при загрузке данных:', data.error);
@@ -124,7 +163,7 @@ export const checkAdminRights = createAsyncThunk<void, {
                 }
             }
 
-            throw `У вас нет прав для ${context === 'inventory' ? 'инвентаризации' : context === 'writeoff' ? 'списания' : 'просмотра событий'} в этом чате`;
+            throw new Error(`У вас нет прав для ${context === 'inventory' ? 'инвентаризации' : context === 'writeoff' ? 'списания' : 'просмотра событий'} в этом чате`);
         } catch (error) {
             throw error;
         }
@@ -152,7 +191,7 @@ const userSlice = createSlice({
         },
         updateSeniorCourierStatus: (state, action: PayloadAction<boolean>) => {
             if (state.user) {
-                state.user.isSeniorCourier = action.payload;
+                state.user.is_senior_courier = action.payload;
                 console.log('🌟 Обновлен статус старшего курьера в хранилище:', action.payload);
             }
         }

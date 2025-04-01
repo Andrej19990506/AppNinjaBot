@@ -16,5 +16,41 @@ EXPOSE 80 443
 COPY update-ssl.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/update-ssl.sh
 
+# Копируем статические файлы
+COPY test_client.html /usr/share/nginx/html/test_client.html
+
+# Установка необходимых утилит
+RUN apk add --no-cache curl
+
+# Создаем entrypoint скрипт
+COPY <<EOF /docker-entrypoint.d/40-wait-for-services.sh
+#!/bin/sh
+set -e
+
+echo "Waiting for frontend service..."
+until ping -c1 frontend &>/dev/null; do
+    echo "Waiting for frontend..."
+    sleep 1
+done
+echo "Frontend service is up"
+
+echo "Waiting for server service..."  
+until ping -c1 server &>/dev/null; do
+    echo "Waiting for server..."
+    sleep 1
+done
+echo "Server service is up"
+
+echo "Waiting for websocket service..."
+until ping -c1 websocket &>/dev/null; do
+    echo "Waiting for websocket..."
+    sleep 1
+done
+echo "Websocket service is up"
+EOF
+
+# Делаем скрипт исполняемым
+RUN chmod +x /docker-entrypoint.d/40-wait-for-services.sh
+
 # Запуск Nginx
 CMD ["nginx", "-g", "daemon off;"] 

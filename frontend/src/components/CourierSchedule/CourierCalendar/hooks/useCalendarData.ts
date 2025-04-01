@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../../../../store/store';
+import { AppDispatch } from '../../../../store/store';
 import { 
     fetchShifts, 
     selectAllShifts,
@@ -10,7 +10,6 @@ import {
     unsubscribeFromShiftEvents
 } from '../../../../store/slices/shiftsSlice';
 import { formatDateForAPI } from '../utils/dateUtils';
-import { CourierShift } from '../types';
 
 export const useCalendarData = (currentUserId: string) => {
     const dispatch = useDispatch<AppDispatch>();

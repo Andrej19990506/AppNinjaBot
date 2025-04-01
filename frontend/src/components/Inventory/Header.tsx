@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Header.module.css';
 import ChatNotification from './ChatNotification';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface HeaderProps {
     title: string;
@@ -85,7 +87,7 @@ const Header: React.FC<HeaderProps> = ({
                             : 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                 />
-                <AnimatePresence mode="wait">
+                <AnimatePresenceWrapper mode="wait">
                     <motion.span
                         key={displayedProgress}
                         initial={{ opacity: 0, y: 10 }}
@@ -95,7 +97,7 @@ const Header: React.FC<HeaderProps> = ({
                     >
                         {displayedProgress}%
                     </motion.span>
-                </AnimatePresence>
+                </AnimatePresenceWrapper>
             </motion.div>
         </motion.div>
     );

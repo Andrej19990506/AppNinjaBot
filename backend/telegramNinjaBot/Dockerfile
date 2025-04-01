@@ -1,38 +1,40 @@
-FROM python:3.11-slim as base
+# Используем базовый образ Python
+FROM python:3.9-slim as base
 
+# Устанавливаем рабочую директорию
 WORKDIR /app
 
-# Копируем requirements.txt из текущей директории
-COPY requirements.txt .
+# Копируем файлы зависимостей
+COPY ./requirements.txt requirements.txt
 
-# Устанавливаем зависимости с увеличенным таймаутом
-RUN pip install --no-cache-dir -r requirements.txt --timeout 180
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Создаем директории для данных и кэша
-RUN mkdir -p telegramNinjaBot/data && \
-    mkdir -p telegramNinjaBot/data/photos && \
-    mkdir -p telegramNinjaBot/handlers && \
-    mkdir -p telegramNinjaBot/services && \
-    mkdir -p telegramNinjaBot/config
+# Создаем директорию для общего использования
+RUN mkdir -p /app/shared
 
-# Создаем пустой __init__.py для пакета telegramNinjaBot
-RUN touch telegramNinjaBot/__init__.py
-
-# Устанавливаем PYTHONPATH с использованием точки для текущей директории
-ENV PYTHONPATH=/app
-
+# Stage для разработки
 FROM base as development
-# Копируем код приложения в правильную структуру
-COPY . /app/telegramNinjaBot/
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=development
 
-# В режиме разработки используем python с флагом -u для вывода логов без буферизации
-WORKDIR /app
-CMD ["python", "-u", "-m", "telegramNinjaBot.bot"]
-
+# Stage для продакшена
 FROM base as production
-# Копируем код приложения в правильную структуру
-COPY . /app/telegramNinjaBot/
+ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=production
 
-# В продакшене используем обычный запуск
-WORKDIR /app
+# Копируем все файлы приложения
+COPY . /app
+
+# Создаем директории для данных
+RUN mkdir -p /app/data/photos
+RUN mkdir -p /app/data/videos
+RUN mkdir -p /app/data/inventory
+RUN mkdir -p /app/data/courier_groups
+
+# Настраиваем правильные разрешения
+RUN chmod -R 777 /app/data
+
+# Запускаем бота
 CMD ["python", "-m", "telegramNinjaBot.bot"] 

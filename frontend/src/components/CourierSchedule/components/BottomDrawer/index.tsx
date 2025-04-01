@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import styled, { keyframes, css } from 'styled-components';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import styled, { keyframes } from 'styled-components';
 
 // Обновляем анимации
 const slideUp = keyframes`
@@ -40,15 +40,6 @@ const fadeOut = keyframes`
     opacity: 0;
     backdrop-filter: blur(0);
   }
-`;
-
-// Общие стили для анимации
-const animationStyles = css<{ isOpen: boolean; isClosing: boolean }>`
-  animation: ${props => {
-    if (props.isClosing) return fadeOut;
-    return props.isOpen ? fadeIn : 'none';
-  }} var(--transition-normal) ease-in-out;
-  animation-fill-mode: forwards;
 `;
 
 // Обновляем стили для Overlay
@@ -215,15 +206,34 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isClosing, setIsClosing] = useState(false);
+  const [isVisible, setIsVisible] = useState(isOpen);
+  const [shouldRender, setShouldRender] = useState(isOpen);
 
-  const handleClose = () => {
+  // Обновляем видимость при изменении isOpen
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      // Небольшая задержка для анимации появления
+      requestAnimationFrame(() => {
+        setIsVisible(true);
+        setIsClosing(false);
+      });
+    }
+  }, [isOpen]);
+
+  const handleClose = useCallback(() => {
     setIsClosing(true);
     // Ждем завершения анимации перед вызовом onClose
     setTimeout(() => {
       setIsClosing(false);
-      onClose();
-    }, 300); // Время должно совпадать с длительностью анимации
-  };
+      setIsVisible(false);
+      // Дополнительная задержка перед полным удалением из DOM
+      setTimeout(() => {
+        setShouldRender(false);
+        onClose();
+      }, 50);
+    }, 300);
+  }, [onClose]);
 
   // Обработка клика вне контейнера
   useEffect(() => {
@@ -240,7 +250,7 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Предотвращение прокрутки body при открытом drawer
   useEffect(() => {
@@ -255,13 +265,6 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     };
   }, [isOpen]);
 
-  // Сброс состояния закрытия при открытии
-  useEffect(() => {
-    if (isOpen) {
-      setIsClosing(false);
-    }
-  }, [isOpen]);
-
   // Обработка нажатия клавиши Escape
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -274,14 +277,42 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     return () => {
       document.removeEventListener('keydown', handleEscape);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
-  if (!isOpen && !isClosing) return null;
+  // Очистка при размонтировании
+  useEffect(() => {
+    return () => {
+      setIsClosing(false);
+      setIsVisible(false);
+      setShouldRender(false);
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
+
+  if (!shouldRender) return null;
 
   return (
     <>
-      <Overlay isOpen={isOpen} isClosing={isClosing} onClick={handleClose} />
-      <DrawerContainer ref={drawerRef} isOpen={isOpen} isClosing={isClosing}>
+      <Overlay 
+        isOpen={isOpen} 
+        isClosing={isClosing} 
+        onClick={handleClose}
+        style={{ 
+          visibility: isVisible ? 'visible' : 'hidden',
+          opacity: isVisible ? 1 : 0,
+          transition: 'visibility 0s, opacity 0.3s ease-in-out'
+        }}
+      />
+      <DrawerContainer 
+        ref={drawerRef} 
+        isOpen={isOpen} 
+        isClosing={isClosing}
+        style={{ 
+          visibility: isVisible ? 'visible' : 'hidden',
+          transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
+          transition: 'visibility 0s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+        }}
+      >
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
           <CloseButton onClick={handleClose} aria-label="Close">

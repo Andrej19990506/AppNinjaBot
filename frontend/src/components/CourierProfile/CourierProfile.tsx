@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { registerForShift, selectIsRegistered, selectIsLoading, selectError } from '../../store/slices/courierSlice';
+import { registerForShift, selectIsRegistered, selectIsLoading } from '../../store/slices/courierSlice';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 import SettingsTooltip from './SettingsTooltip';
@@ -109,7 +109,8 @@ const TooltipWrapper = styled.div`
 interface CourierProfileProps {
     onRegisterClick: () => void;
     isSeniorCourier?: boolean;
-    onOpenShiftAccess?: () => void;
+    onOpenShiftAccess: () => void;
+    isLoadingSettings?: boolean;
 }
 
 // Используем memo для предотвращения лишних рендеров
@@ -122,9 +123,7 @@ const CourierProfile = memo(({
     const { user } = useAppSelector((state) => state.user);
     const isRegistered = useAppSelector(selectIsRegistered);
     const isLoading = useAppSelector(selectIsLoading);
-    const error = useAppSelector(selectError);
     const [showSettings, setShowSettings] = useState(false);
-    const [showAccessSettings, setShowAccessSettings] = useState(false);
     const settingsRef = useRef<HTMLDivElement>(null);
 
     // Мемоизируем обработчик регистрации для предотвращения лишних рендеров

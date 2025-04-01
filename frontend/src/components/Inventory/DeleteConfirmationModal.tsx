@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './DeleteConfirmationModal.module.css';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface DeleteConfirmationModalProps {
     isOpen: boolean;
@@ -60,7 +62,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
     }, [onConfirm]);
 
     return (
-        <AnimatePresence>
+        <AnimatePresenceWrapper>
             {isOpen && (
                 <motion.div
                     className={styles.overlay}
@@ -140,7 +142,7 @@ const DeleteConfirmationModal: React.FC<DeleteConfirmationModalProps> = ({
                     </motion.div>
                 </motion.div>
             )}
-        </AnimatePresence>
+        </AnimatePresenceWrapper>
     );
 };
 

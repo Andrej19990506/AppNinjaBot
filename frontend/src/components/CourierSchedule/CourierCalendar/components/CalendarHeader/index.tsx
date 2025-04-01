@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { WEEK_DAYS, SLOTS_CONFIG } from '../../constants';
 import {
     HeaderContainer,
@@ -22,8 +22,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ onClose }) => {
     const slotsContainerRef = useRef<HTMLDivElement>(null);
     const [hasShownScrollHint, setHasShownScrollHint] = useState(false);
 
-    // Функция для анимации скролла
-    const showScrollHint = () => {
+    // Оборачиваем функцию в useCallback для предотвращения ее пересоздания при каждом рендере
+    const showScrollHint = useCallback(() => {
         if (!slotsContainerRef.current || hasShownScrollHint) return;
 
         const container = slotsContainerRef.current;
@@ -43,11 +43,11 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({ onClose }) => {
                 setHasShownScrollHint(true);
             }, 2000);
         }, 1000);
-    };
+    }, [hasShownScrollHint]);
 
     useEffect(() => {
         showScrollHint();
-    }, []);
+    }, [showScrollHint]);
 
     return (
         <HeaderContainer>

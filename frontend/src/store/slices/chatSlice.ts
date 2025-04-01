@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import axios from 'axios';
 import { Chat } from '../../types';
+import config from '../../config';
 
 // Типы контекстов для работы с чатами
 export type ChatContext = 'inventory' | 'writeoff' | 'events';
@@ -31,7 +32,7 @@ interface ChatMetadata {
     contextData?: ContextData;
 }
 
-// Расширенный интерфейс чата с контекстными данными
+// Интерфейс для чата с контекстными данными
 interface ChatWithContext extends Chat {
     contextData?: ContextData;
 }
@@ -65,7 +66,7 @@ export const fetchChats = createAsyncThunk(
         console.log(`🔄 Начало загрузки списка чатов${context ? ` для контекста ${context}` : ''}`);
         
         // Базовый URL для получения чатов
-        let url = `${process.env.REACT_APP_API_URL}/api/chats`;
+        let url = `${config.API_URL}/chats`;
         
         // Если указан контекст, добавляем его в запрос
         if (context) {
@@ -85,7 +86,7 @@ export const fetchChats = createAsyncThunk(
 export const updateChatInventory = createAsyncThunk(
     'chats/updateInventory',
     async ({ chatId, inventory }: { chatId: string; inventory: any }) => {
-        const response = await axios.put(`http://localhost:5000/api/inventory/${chatId}`, inventory);
+        const response = await axios.put(`${config.API_URL}/inventory/${chatId}`, inventory);
         return { chatId, inventory: response.data };
     }
 );

@@ -1,6 +1,10 @@
 import React from 'react';
-import { motion, AnimatePresence, LazyMotion, domAnimation } from 'framer-motion';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { createPortal } from 'react-dom';
 import styles from './ConfirmDialog.module.css';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { motion, AnimatePresence, domAnimation, LazyMotion } from 'framer-motion';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface ConfirmDialogProps {
     isOpen: boolean;
@@ -26,7 +30,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     return (
         <LazyMotion features={domAnimation}>
             <div>
-                <AnimatePresence mode="sync">
+                <AnimatePresenceWrapper mode="sync">
                     {isOpen && (
                         <React.Fragment key="dialog">
                             <motion.div
@@ -72,7 +76,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                             </motion.div>
                         </React.Fragment>
                     )}
-                </AnimatePresence>
+                </AnimatePresenceWrapper>
             </div>
         </LazyMotion>
     );

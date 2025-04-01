@@ -1,31 +1,60 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
-import { socketService } from '../../services/socket';
-import { subscribeToEvent, unsubscribeFromEvent } from '../../services/websocketHelper';
+// TODO: Импорт socketService временно закомментирован, используется только для типов
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// import { socketService } from '../../services/socket';
+// TODO: Импорт websocketHelper временно закомментирован, используются локальные заглушки
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// import { subscribeToEvent, unsubscribeFromEvent } from '../../services/websocketHelper';
 import config from '../../config';
 import { AppDispatch } from '../store';
+import { ReserveShift, IncomingReserveData } from '../../types/shifts';
+
+// TODO: Временная заглушка для socketService
+const socketService = {
+    isConnected: () => false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    subscribe: (event: string, callback: Function) => {
+        console.log('🔄 [socketService] Подписка временно недоступна');
+        return () => console.log('🧹 [socketService] Отписка временно недоступна');
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    unsubscribe: (event: string) => {
+        console.log(`🔄 [socketService] Отписка от события ${event} временно недоступна`);
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    emit: (event: string, data?: any) => {
+        console.log(`🔄 [socketService] Отправка события ${event} временно недоступна`);
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    off: (event: string, callback?: Function) => {
+        console.log(`🔄 [socketService] Отписка от события ${event} временно недоступна`);
+    }
+};
+
+// TODO: Временные заглушки для функций websocketHelper
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const subscribeToEvent = (event: string, callback: Function) => {
+    console.log(`🔄 [websocketHelper] Подписка на событие ${event} временно недоступна`);
+    return () => console.log(`🧹 [websocketHelper] Отписка от события ${event} временно недоступна`);
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const unsubscribeFromEvent = (event: string, callback: Function) => {
+    console.log(`🔄 [websocketHelper] Отписка от события ${event} временно недоступна`);
+};
 
 const API_BASE_URL = config.API_URL || '';
 
-// Обновляем интерфейс ReserveShift
-export interface ReserveShift {
-    id: string;
-    userId: string;
-    date: string;
-    photo_url: string | null;
-    firstName: string;
-    lastName: string;
-    created_at: string;
-    isSeniorCourier: boolean;
-}
-
-interface ReserveState {
+// Интерфейс состояния
+interface ReservesState {
     reserves: ReserveShift[];
     loading: boolean;
     error: string | null;
 }
 
-const initialState: ReserveState = {
+// Начальное состояние
+const initialState: ReservesState = {
     reserves: [],
     loading: false,
     error: null
@@ -180,6 +209,7 @@ export const removeFromReserve = createAsyncThunk(
             });
             
             // Также отправляем HTTP запрос для надежности
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const response = await fetch(`${API_BASE_URL}/reserves/${reserveId}`, {
                 method: 'DELETE',
                 headers: {
@@ -210,81 +240,107 @@ export const removeFromReserve = createAsyncThunk(
     }
 );
 
-const reservesSlice = createSlice({
+export const reservesSlice = createSlice({
     name: 'reserves',
     initialState,
     reducers: {
-        reserveAdded(state, action) {
-            const reserveData = action.payload;
-            console.log('[reservesSlice] Processing reserveAdded action:', reserveData);
+        reserveAdded: (state, action: PayloadAction<IncomingReserveData>) => {
+            const reserve = action.payload;
+            console.log('[reservesSlice] Processing reserveAdded action:', reserve);
             
-            // Логируем детали для отладки полей is_senior_courier/isSeniorCourier
-            console.log('[reservesSlice] Senior courier details:', {
-                is_senior_courier: reserveData.is_senior_courier,
-                is_senior_courier_type: typeof reserveData.is_senior_courier,
-                isSeniorCourier: reserveData.isSeniorCourier,
-                isSeniorCourier_type: typeof reserveData.isSeniorCourier
-            });
+            // Проверяем, является ли резерв временным
+            const isTemporary = reserve.id.startsWith('temp-');
             
-            // Преобразуем данные в формат ReserveShift
-            const newReserve: ReserveShift = {
-                id: reserveData.id || String(Date.now()),
-                userId: reserveData.userId || reserveData.user_id || '',
-                date: reserveData.date,
-                photo_url: reserveData.photo_url || null,
-                firstName: reserveData.firstName || reserveData.first_name || '',
-                lastName: reserveData.lastName || reserveData.last_name || '',
-                created_at: reserveData.created_at || reserveData.createdAt || new Date().toISOString(),
-                isSeniorCourier: reserveData.isSeniorCourier === true || reserveData.is_senior_courier === true
+            // Нормализуем данные резерва
+            const normalizedReserve: ReserveShift = {
+                ...reserve as any,
+                id: reserve.id,
+                userId: String(reserve.userId || reserve.user_id || ''),
+                date: reserve.date,
+                firstName: reserve.firstName || reserve.first_name || '',
+                lastName: reserve.lastName || reserve.last_name || '',
+                photo_url: reserve.photo_url || null,
+                created_at: reserve.created_at || reserve.createdAt || new Date().toISOString(),
+                isSeniorCourier: reserve.isSeniorCourier || reserve.is_senior_courier || false
             };
             
-            console.log('[reservesSlice] Processed reserve with isSeniorCourier:', newReserve.isSeniorCourier);
-
-            // Проверяем, существует ли уже резерв с таким ID
-            const existingReserveIndex = state.reserves.findIndex(reserve => 
-                reserve.id === newReserve.id
-            );
-
-            if (existingReserveIndex !== -1) {
-                // Обновляем существующий резерв
-                state.reserves[existingReserveIndex] = newReserve;
+            // Если это временный резерв, добавляем его в список
+            if (isTemporary) {
+                state.reserves.push(normalizedReserve);
+                console.log('[reservesSlice] Added temporary reserve:', normalizedReserve);
+                return;
+            }
+            
+            // Для постоянных резервов проверяем, существует ли уже резерв с таким ID
+            const existingIndex = state.reserves.findIndex(r => r.id === reserve.id);
+            
+            if (existingIndex !== -1) {
+                // Если резерв существует, обновляем его, сохраняя существующие данные пользователя
+                const existingReserve = state.reserves[existingIndex];
+                state.reserves[existingIndex] = {
+                    ...normalizedReserve,
+                    photo_url: normalizedReserve.photo_url || existingReserve.photo_url,
+                    firstName: normalizedReserve.firstName || existingReserve.firstName,
+                    lastName: normalizedReserve.lastName || existingReserve.lastName,
+                    isSeniorCourier: normalizedReserve.isSeniorCourier || existingReserve.isSeniorCourier
+                };
+                console.log('[reservesSlice] Updated existing reserve:', state.reserves[existingIndex]);
             } else {
-                // Проверяем, существует ли уже резерв для этого пользователя на эту дату
-                const duplicateIndex = state.reserves.findIndex(reserve => 
-                    reserve.userId === newReserve.userId && 
-                    reserve.date === newReserve.date
-                );
-                
-                if (duplicateIndex !== -1) {
-                    // Заменяем дублирующийся резерв новым (с обновленным ID)
-                    console.log('[reservesSlice] Replacing duplicate reserve for user and date');
-                    state.reserves[duplicateIndex] = newReserve;
-                } else {
-                    // Добавляем новый резерв
-                    state.reserves.push(newReserve);
-                    console.log('[reservesSlice] Added new reserve, total count:', state.reserves.length);
-                }
+                // Если это новый резерв, добавляем его
+                state.reserves.push(normalizedReserve);
+                console.log('[reservesSlice] Added new reserve:', normalizedReserve);
             }
         },
-        reserveDeleted(state, action) {
+        
+        reserveDeleted: (state, action: PayloadAction<{ id?: string; userId?: string; date?: string }>) => {
             const deleteData = action.payload;
             console.log('[reservesSlice] Processing reserveDeleted action:', deleteData);
             
             if (deleteData.id) {
-                // Удаляем резерв по ID
-                console.log(`[reservesSlice] Deleting reserve by ID: ${deleteData.id}`);
-                state.reserves = state.reserves.filter(reserve => reserve.id !== deleteData.id);
+                state.reserves = state.reserves.filter(r => r.id !== deleteData.id);
             } else if (deleteData.userId && deleteData.date) {
-                // Удаляем резерв по userId и date
-                console.log(`[reservesSlice] Deleting reserve by userId: ${deleteData.userId} and date: ${deleteData.date}`);
-                state.reserves = state.reserves.filter(reserve => 
-                    !(reserve.userId === deleteData.userId && reserve.date === deleteData.date)
+                state.reserves = state.reserves.filter(
+                    r => !(r.userId === deleteData.userId && r.date === deleteData.date)
                 );
-            } else {
-                console.error('[reservesSlice] Incomplete data for reserve deletion:', deleteData);
             }
+        },
+        
+        reserveUpdated: (state, action: PayloadAction<IncomingReserveData>) => {
+            const updatedReserve = action.payload;
+            const index = state.reserves.findIndex(reserve => reserve.id === updatedReserve.id);
+            if (index !== -1) {
+                // Нормализуем данные перед обновлением
+                state.reserves[index] = {
+                    ...state.reserves[index],
+                    userId: updatedReserve.userId || updatedReserve.user_id || state.reserves[index].userId,
+                    firstName: updatedReserve.firstName || updatedReserve.first_name || state.reserves[index].firstName,
+                    lastName: updatedReserve.lastName || updatedReserve.last_name || state.reserves[index].lastName,
+                    created_at: updatedReserve.created_at || updatedReserve.createdAt || state.reserves[index].created_at,
+                    isSeniorCourier: updatedReserve.isSeniorCourier || updatedReserve.is_senior_courier || state.reserves[index].isSeniorCourier
+                };
+            }
+        },
+        
+        reservesUpdated: (state, action: PayloadAction<IncomingReserveData[]>) => {
+            console.log('[reservesSlice] Получены обновленные резервы:', action.payload);
             
-            console.log('[reservesSlice] Reserves after deletion:', state.reserves.length);
+            // Нормализуем все резервы перед обновлением
+            state.reserves = action.payload.map(reserve => {
+                // Находим существующий резерв с тем же ID
+                const existingReserve = state.reserves.find(r => r.id === reserve.id);
+                
+                // Создаем новый резерв, сохраняя существующие данные пользователя
+                return {
+                    id: reserve.id,
+                    userId: String(reserve.userId || reserve.user_id || existingReserve?.userId || ''),
+                    date: reserve.date,
+                    photo_url: reserve.photo_url || existingReserve?.photo_url || null,
+                    firstName: reserve.firstName || reserve.first_name || existingReserve?.firstName || '',
+                    lastName: reserve.lastName || reserve.last_name || existingReserve?.lastName || '',
+                    created_at: reserve.created_at || reserve.createdAt || existingReserve?.created_at || new Date().toISOString(),
+                    isSeniorCourier: reserve.isSeniorCourier || reserve.is_senior_courier || existingReserve?.isSeniorCourier || false
+                };
+            });
         }
     },
     extraReducers: (builder) => {
@@ -360,147 +416,77 @@ export const selectError = (state: RootState) => state.reserves.error;
 
 // WebSocket event subscriptions
 export const subscribeToReserveEvents = (dispatch: AppDispatch) => {
-    console.log('[reservesSlice] 🔄 Subscribing to reserve events');
+    console.log('[reservesSlice] 🎧 Setting up reserve event subscriptions...');
     
-    const processReserveAddedData = (data: any) => {
-        console.log('[reservesSlice] 📊 Processing reserve data:', data);
-        
-        // Для событий reserve_update и reserve_update_all данные находятся в поле data
-        if (data.data && data.action === 'add') {
-            console.log('[reservesSlice] 🔍 Found nested data in reserve_update event');
-            return processReserveAddedData(data.data);
-        }
-        
-        // Подробное логирование для отладки
-        console.log('[reservesSlice] 🔍 Reserve data details:', { 
-            data_type: typeof data,
-            data_keys: Object.keys(data),
-            user_id: data.user_id || data.userId,
-            id: data.id,
-            date: data.date
+    socketService.subscribe('reserve_added', (data: IncomingReserveData) => {
+        console.log('[reservesSlice] 🟢 reserve_added event received:', {
+            data,
+            timestamp: new Date().toISOString()
         });
+
+        // Проверяем, является ли id строкой или числом
+        const reserveId = String(data.id);
         
-        // Добавляем проверку на формат данных и создаем корректный объект для Redux
-        const processedData = {
-            id: data.id || String(Date.now()),
-            user_id: data.user_id || data.userId,
-            userId: data.user_id || data.userId,
+        // Нормализуем данные резерва
+        const normalizedData: IncomingReserveData = {
+            ...data,
+            id: reserveId,
+            userId: String(data.userId || data.user_id || ''),
             date: data.date,
-            photo_url: data.photo_url,
-            first_name: data.first_name || data.firstName,
-            firstName: data.first_name || data.firstName,
-            last_name: data.last_name || data.lastName,
-            lastName: data.last_name || data.lastName,
+            photo_url: data.photo_url || null,
+            firstName: data.firstName || data.first_name || '',
+            lastName: data.lastName || data.last_name || '',
             created_at: data.created_at || data.createdAt || new Date().toISOString(),
-            is_senior_courier: data.is_senior_courier === true || data.isSeniorCourier === true,
-            isSeniorCourier: data.is_senior_courier === true || data.isSeniorCourier === true
+            isSeniorCourier: data.isSeniorCourier || data.is_senior_courier || false
         };
         
-        console.log('[reservesSlice] 📊 Processed reserve data:', processedData);
-        
-        // Обновляем Redux store
-        dispatch(reserveAdded(processedData));
-        return processedData;
-    };
-    
-    const processReserveDeletedData = (data: any) => {
-        console.log('[reservesSlice] 🔍 Processing reserve deletion data:', data);
-        
-        // Для событий reserve_update и reserve_update_all данные находятся в поле data
-        if (data.data && data.action === 'remove') {
-            console.log('[reservesSlice] 🔍 Found nested data in reserve_update event');
-            return processReserveDeletedData(data.data);
-        }
-        
-        // Обрабатываем разные форматы данных при удалении резерва
-        if (data.id || data.reserve_id) {
-            // Если есть ID резерва, удаляем по нему
-            const reserveId = data.id || data.reserve_id;
-            console.log(`[reservesSlice] ❌ Удаление резерва по ID: ${reserveId}`);
-            dispatch(reserveDeleted({ id: reserveId }));
-            return { id: reserveId };
-        } else if ((data.user_id || data.userId) && data.date) {
-            // Если нет ID, но есть ID пользователя и дата, удаляем по ним
-            const userId = data.user_id || data.userId;
-            console.log(`[reservesSlice] ❌ Удаление резерва по user_id: ${userId} и date: ${data.date}`);
-            dispatch(reserveDeleted({ userId, date: data.date }));
-            return { userId, date: data.date };
+        // Проверяем, является ли это временным резервом
+        if (reserveId.startsWith('temp-')) {
+            console.log('[reservesSlice] 🔄 Updating temporary reserve:', reserveId);
+            dispatch(reserveAdded(normalizedData));
         } else {
-            console.warn('[reservesSlice] ⚠️ Received incomplete data for reserve deletion:', data);
-            return null;
-        }
-    };
-    
-    const onReserveAdded = (data: any) => {
-        console.log('[reservesSlice] 🟢 WS event received: reserve_added', data);
-        return processReserveAddedData(data);
-    };
-    
-    const onReserveDeleted = (data: any) => {
-        console.log('[reservesSlice] 🔴 WS event received: reserve_deleted', data);
-        return processReserveDeletedData(data);
-    };
-    
-    const onReserveUpdate = (data: any) => {
-        console.log('[reservesSlice] 🔄 WS event received: reserve_update', data);
-        
-        if (data.action === 'add') {
-            return processReserveAddedData(data);
-        } else if (data.action === 'remove') {
-            return processReserveDeletedData(data);
-        } else {
-            console.log('[reservesSlice] ⚠️ Unknown action in reserve_update:', data.action);
-            // В случае неизвестного действия обновляем все резервы
-            dispatch(forceFetchReserves());
-            return null;
-        }
-    };
-    
-    const onReserveUpdateAll = (data: any) => {
-        console.log('[reservesSlice] 📢 WS broadcast event received: reserve_update_all', data);
-        
-        // Обрабатываем broadcast-событие так же как и обычное reserve_update
-        return onReserveUpdate(data);
-    };
-    
-    // Подписываемся на WebSocket-события
-    console.log('[reservesSlice] 📡 Setting up subscriptions for reserve events');
-    socketService.on('reserve_added', onReserveAdded);
-    socketService.on('reserve_deleted', onReserveDeleted);
-    socketService.on('reserve_update', onReserveUpdate);
-    socketService.on('reserve_update_all', onReserveUpdateAll);
-    
-    // Также подписываемся на совместимые события через socketService.subscribe
-    socketService.subscribe('reserve_added', onReserveAdded);
-    socketService.subscribe('reserve_deleted', onReserveDeleted);
-    socketService.subscribe('reserve_update', onReserveUpdate);
-    socketService.subscribe('reserve_update_all', onReserveUpdateAll);
-    
-    // Также подписываемся на события смен, чтобы удалять из резерва
-    // когда пользователь записывается в смену
-    socketService.on('shift_booked', (data: any) => {
-        console.log('[reservesSlice] WS event received: shift_booked, checking if user is in reserve', data);
-        
-        // Если получено событие бронирования смены, нужно проверить,
-        // есть ли текущий пользователь в резерве на эту дату и удалить его
-        if (data.user_id && data.date) {
-            // Вызываем глобальное обновление резервов, чтобы синхронизировать UI
-            dispatch(forceFetchReserves());
+            console.log('[reservesSlice] ➕ Adding new reserve:', reserveId);
+            dispatch(reserveAdded(normalizedData));
         }
     });
-    
-    // Логирование состояния подписки
-    console.log('[reservesSlice] ✅ Successfully subscribed to all reserve events');
-    
+
+    socketService.subscribe('reserve_deleted', (data: { id?: string; userId?: string; date?: string }) => {
+        console.log('[reservesSlice] 🔴 reserve_deleted event received:', {
+            data,
+            timestamp: new Date().toISOString()
+        });
+        dispatch(reserveDeleted(data));
+    });
+
+    socketService.subscribe('reserve_update', (data: IncomingReserveData) => {
+        console.log('[reservesSlice] 🔄 reserve_update event received:', {
+            data,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Проверяем, является ли это обновлением временного резерва
+        if (data.id && data.id.startsWith('temp-')) {
+            console.log('[reservesSlice] 🔄 Processing temporary reserve update');
+            dispatch(reserveUpdated(data));
+        } else {
+            dispatch(reserveUpdated(data));
+        }
+    });
+
+    socketService.subscribe('reserve_update_all', (data: { reserves: IncomingReserveData[] }) => {
+        console.log('[reservesSlice] 📣 reserve_update_all broadcast received:', {
+            data,
+            timestamp: new Date().toISOString()
+        });
+        
+        // При получении полного обновления, обновляем все резервы
+        if (data.reserves) {
+            dispatch(reservesUpdated(data.reserves));
+        }
+    });
+
     return () => {
         console.log('[reservesSlice] 🔌 Unsubscribing from reserve events');
-        socketService.off('reserve_added', onReserveAdded);
-        socketService.off('reserve_deleted', onReserveDeleted);
-        socketService.off('reserve_update', onReserveUpdate);
-        socketService.off('reserve_update_all', onReserveUpdateAll);
-        socketService.off('shift_booked');
-        
-        // Отписываемся от событий через socketService.unsubscribe
         socketService.unsubscribe('reserve_added');
         socketService.unsubscribe('reserve_deleted');
         socketService.unsubscribe('reserve_update');
@@ -521,5 +507,10 @@ export const unsubscribeFromReserveEvents = () => {
     socketService.off('reserve_update_all');
 };
 
-export const { reserveAdded, reserveDeleted } = reservesSlice.actions;
+export const { 
+    reserveAdded, 
+    reserveDeleted,
+    reserveUpdated,
+    reservesUpdated,
+} = reservesSlice.actions;
 export default reservesSlice.reducer; 

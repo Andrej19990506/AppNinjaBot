@@ -1,0 +1,84 @@
+version: '3.8'
+
+services:
+  bot:
+    environment:
+      - API_URL=https://appninjabot.ru
+      - ENVIRONMENT=production
+    env_file:
+      - ./backend/telegramNinjaBot/.env.prod
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+
+  server:
+    environment:
+      - API_BASE_URL=https://appninjabot.ru/api
+      - SOCKET_URL=wss://appninjabot.ru
+      - DOMAIN=appninjabot.ru
+      - ALLOWED_ORIGINS=https://appninjabot.ru
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  scheduler:
+    environment:
+      - API_URL=https://appninjabot.ru/api
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  frontend:
+    environment:
+      - REACT_APP_API_URL=https://appninjabot.ru/api
+      - REACT_APP_WS_URL=wss://appninjabot.ru
+      - NODE_ENV=production
+      - REACT_APP_ENV=production
+      - REACT_APP_DEBUG=false
+    command: ./node_modules/.bin/serve -s build -l ${PORT:-3000}
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  websocket:
+    command: gunicorn src.asgi:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001 --workers 4
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  nginx:
+    volumes:
+      - ./websocket-service/nginx.conf.prod:/etc/nginx/nginx.conf:ro
+      - ./websocket-service/test_client.html:/usr/share/nginx/html/index.html:ro
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+  postgres:
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M 

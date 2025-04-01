@@ -16,7 +16,8 @@
     "@mui/icons-material": "^6.4.5",
     "@mui/material": "^6.4.5",
     "localtunnel": "^2.0.2",
-    "react-beautiful-dnd": "^13.1.1"
+    "react-beautiful-dnd": "^13.1.1",
+    "react-idle-timer": "^5.7.2"
   },
   "devDependencies": {
     "@mui/types": "^7.2.21",

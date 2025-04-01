@@ -1,7 +1,9 @@
 import React, { useCallback } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './CategoryGrid.module.css';
 import { Inventory } from '../../types/inventory';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface CategoryGridProps {
     categories: string[];
@@ -16,25 +18,6 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         inventory,
         selectedCategory
     });
-
-    if (!categories.length) {
-        return (
-            <motion.div 
-                className={styles.placeholder}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-            >
-                <p>Нет доступных категорий</p>
-            </motion.div>
-        );
-    }
-
-    const handleCategoryClick = (category: string) => {
-        console.log('Category clicked:', category);
-        console.log('Inventory for category:', inventory[category]);
-        onSelect(category);
-    };
 
     // Проверяем заполненность категории
     const isCategoryFilled = useCallback((category: string) => {
@@ -60,6 +43,25 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
             return isRawFilled && (!hasSemifinished || isSemifinishedFilled);
         });
     }, [inventory]);
+
+    if (!categories.length) {
+        return (
+            <motion.div 
+                className={styles.placeholder}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <p>Нет доступных категорий</p>
+            </motion.div>
+        );
+    }
+
+    const handleCategoryClick = (category: string) => {
+        console.log('Category clicked:', category);
+        console.log('Inventory for category:', inventory[category]);
+        onSelect(category);
+    };
 
     // Сортируем категории: незаполненные вверху
     const sortedCategories = [...categories].sort((a, b) => {
@@ -110,7 +112,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
             animate="show"
         >
             <motion.div className={styles.grid}>
-                <AnimatePresence mode="sync">
+                <AnimatePresenceWrapper mode="sync">
                     {sortedCategories.map((category, index) => {
                         const isFilled = isCategoryFilled(category);
                         return (
@@ -158,7 +160,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                             </motion.div>
                         );
                     })}
-                </AnimatePresence>
+                </AnimatePresenceWrapper>
             </motion.div>
         </motion.div>
     );

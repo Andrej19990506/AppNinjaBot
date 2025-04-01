@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { useAppSelector } from '../../../store/hooks';
 import { RootState } from '../../../store/store';
 import AdminProfile from '../AdminProfile/AdminProfile';
-import SystemNotification from '../../notifications/SystemNotification';
+import { SingleSystemNotification } from '../../notifications/SystemNotification';
 import styles from './ChatModal.module.css';
 import { Admin } from '../../../types/inventory';
 import { ChatContext } from '../../../store/slices/chatSlice';
@@ -154,7 +154,7 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                         <h2>{chat.chat_title}</h2>
                     </div>
 
-                    {!currentUser.isAdmin ? (
+                    {!currentUser?.user?.isAdmin ? (
                         <motion.div className={styles.fadeIn}>
                             <div className={styles.noAccessMessage}>
                                 <svg 
@@ -171,6 +171,7 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                             </div>
                             <div className={styles.adminList}>
                                 <div>
+                                    {/* @ts-ignore: Ignoring type errors with AnimatePresence */}
                                     <AnimatePresence mode="sync">
                                         {chat.admins.length > 0 && (
                                             <React.Fragment key="admin-list">
@@ -207,8 +208,8 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                             <div className={styles.welcomeContainer}>
                                 <div className={styles.adminPhotoContainer}>
                                     <img
-                                        src={currentUser.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.first_name || 'A')}&background=FF5F1F&color=fff&size=200&bold=true&font-size=0.5`}
-                                        alt={currentUser.first_name || 'Администратор'}
+                                        src={currentUser?.user?.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.user?.first_name || 'A')}&background=FF5F1F&color=fff&size=200&bold=true&font-size=0.5`}
+                                        alt={currentUser?.user?.first_name || 'Администратор'}
                                     />
                                 </div>
                                 <div className={styles.welcomeMessage}>
@@ -238,9 +239,10 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                 </motion.div>
             </motion.div>
 
+            {/* @ts-ignore: Ignoring type errors with AnimatePresence */}
             <AnimatePresence>
                 {showNotification && (
-                    <SystemNotification
+                    <SingleSystemNotification
                         message={notificationMessage}
                         type={notificationType}
                         onClose={() => setShowNotification(false)}

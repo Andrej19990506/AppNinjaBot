@@ -241,15 +241,31 @@ def add_reserve(reserve_data: Dict) -> Dict:
         except (ValueError, TypeError):
             continue
     
-    reserve_data['id'] = max_id + 1
+    # Создаем новый резерв с сохранением всех данных пользователя
+    new_reserve = {
+        'id': max_id + 1,
+        'user_id': user_id,
+        'userId': user_id,  # Для совместимости с фронтендом
+        'date': date,
+        'chat_id': chat_id,
+        'created_at': datetime.now().isoformat(),
+        # Сохраняем все поля пользователя, поддерживая оба формата (camelCase и snake_case)
+        'photo_url': reserve_data.get('photo_url'),
+        'firstName': reserve_data.get('firstName') or reserve_data.get('first_name'),
+        'lastName': reserve_data.get('lastName') or reserve_data.get('last_name'),
+        'isSeniorCourier': reserve_data.get('isSeniorCourier') or reserve_data.get('is_senior_courier', False),
+        # Дополнительные поля для совместимости
+        'first_name': reserve_data.get('first_name') or reserve_data.get('firstName'),
+        'last_name': reserve_data.get('last_name') or reserve_data.get('lastName'),
+        'is_senior_courier': reserve_data.get('is_senior_courier') or reserve_data.get('isSeniorCourier', False)
+    }
     
-    # Добавляем временную метку
-    if 'created_at' not in reserve_data:
-        reserve_data['created_at'] = datetime.now().isoformat()
+    # Логируем созданный резерв для отладки
+    logger.info(f'📝 Создан новый резерв: {json.dumps(new_reserve, ensure_ascii=False)}')
     
-    reserves.append(reserve_data)
+    reserves.append(new_reserve)
     save_reserves(reserves)
-    return reserve_data
+    return new_reserve
 
 def get_reserve(reserve_id: int) -> Optional[Dict]:
     """Получает резерв по ID"""

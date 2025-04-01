@@ -36,9 +36,11 @@ Base = declarative_base()
 class ActiveUser(Base):
     __tablename__ = "active_users"
 
-    user_id = Column(String, primary_key=True)
-    room = Column(String, primary_key=True)
-    user_data = Column(JSON, nullable=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    user_id = Column(String, index=True)
+    room = Column(String, index=True)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+    user_metadata = Column(JSONB, nullable=True)
 
 async def init_db():
     """Инициализация базы данных"""
@@ -75,7 +77,7 @@ async def get_active_users_in_room(room: str):
     try:
         db = SessionLocal()
         users = db.query(ActiveUser).filter(ActiveUser.room == room).all()
-        return [{"user_id": user.user_id, "metadata": user.user_data} for user in users]
+        return [{"user_id": user.user_id, "metadata": user.user_metadata} for user in users]
     except Exception as e:
         logger.error(f"Error getting active users: {e}")
         return []
@@ -86,7 +88,7 @@ async def add_user_to_room(user_id: str, room: str, metadata: dict = None):
     """Добавление пользователя в комнату"""
     try:
         db = SessionLocal()
-        user = ActiveUser(user_id=user_id, room=room, user_data=metadata)
+        user = ActiveUser(user_id=user_id, room=room, user_metadata=metadata)
         db.merge(user)
         db.commit()
         

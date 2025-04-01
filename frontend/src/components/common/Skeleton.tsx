@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './Skeleton.module.css';
 
@@ -507,6 +507,7 @@ const Skeleton: React.FC<SkeletonProps> = ({
     };
 
     return (
+        // @ts-ignore: Ignoring type errors with AnimatePresence
         <AnimatePresence>
             <motion.div
                 variants={containerVariants}

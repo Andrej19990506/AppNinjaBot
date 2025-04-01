@@ -17,8 +17,9 @@ FROM builder as development
 ENV NODE_ENV=development
 ENV PATH /app/node_modules/.bin:$PATH
 
-# Устанавливаем craco глобально
-RUN npm install -g @craco/craco
+# Устанавливаем craco глобально и даем права на выполнение
+RUN npm install -g @craco/craco && \
+    chmod -R 755 /app/node_modules/.bin
 
 # Создаем entrypoint скрипт
 RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
@@ -29,7 +30,7 @@ RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
     chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["craco", "start"]
+CMD ["npm", "start"]
 
 # Для продакшен сборки
 FROM builder as production-build

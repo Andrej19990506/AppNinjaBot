@@ -97,7 +97,7 @@ export function useInventoryView({
         clearTimeout(timerRef.current);
       }
     };
-  }, [isLoading, hasCategories, inventory]);
+  }, [isLoading, hasCategories, inventory, wasInventoryLoaded]);
   
   // Добавляем эффект для принудительной установки wasInventoryLoaded
   // после нескольких проверок, если инвентарь все еще пуст

@@ -1,23 +1,27 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import styled, { createGlobalStyle } from 'styled-components';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { useDispatch, useSelector } from 'react-redux';
-import { DragDropContext, Droppable, Draggable, DropResult, DraggableProvided } from '@hello-pangea/dnd';
-import { cancelShift } from '../../store/slices/shiftsSlice';
-import { removeFromReserve } from '../../store/slices/reservesSlice';
-import { AppDispatch, RootState } from '../../store/store';
-import { ShiftSlot as ShiftSlotType } from '../../types/shifts';
-
-// Импортируем кастомные хуки
-import { useShiftWebSockets } from './hooks/useShiftWebSockets';
+import { useSelector } from 'react-redux';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { RootState } from '../../store/store';
 import { useShiftUIState } from './hooks/useShiftUIState';
-import { useShiftDragAndDrop } from '../../hooks/useShiftDragAndDrop';
-
-// Импортируем компоненты
 import ShiftSlot from './components/ShiftSlot';
 import ShiftConfirmationDialog from './components/ShiftConfirmationDialog';
 
+// TODO: Временная заглушка для useWebSocket, будет заменена на реальную реализацию
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const useWebSocket = (chatId?: string) => ({
+    isConnected: false,
+    connect: () => console.log('🔄 [useWebSocket] Подключение временно недоступно'),
+    disconnect: () => console.log('🔄 [useWebSocket] Отключение временно недоступно'),
+    subscribe: () => {
+        console.log('🔄 [useWebSocket] Подписка временно недоступна');
+        return () => console.log('🧹 [useWebSocket] Отписка временно недоступна');
+    },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    joinShiftsRoom: (chatId: string) => {
+        console.log('🔄 [useWebSocket] Присоединение к комнате смен временно недоступно');
+    }
+});
 
 // Интерфейсы
 interface ShiftSlotLocal {
@@ -28,12 +32,7 @@ interface ShiftSlotLocal {
     lastName?: string;
     shiftType?: 'day' | 'night';
     slotIndex: number;
-    isSeniorCourier?: boolean;
-}
-
-// Расширяем интерфейс для поддержки оптимистичных обновлений
-interface ShiftSlotLocalWithOptimistic extends ShiftSlotLocal {
-    _isOptimistic?: boolean;
+    is_senior_courier?: boolean;
 }
 
 interface ShiftPanelContainerProps {
@@ -51,6 +50,9 @@ interface ShiftPanelContainerProps {
     reserves: any[];
     showSuccessMessage: (message: string) => void;
     chatId?: string;
+    isLoading?: boolean;
+    loadingSlot?: number | null;
+    loadingType?: 'day' | 'night' | null;
 }
 
 // Стили
@@ -118,22 +120,6 @@ const SlotHighlight = styled.div`
     }
 `;
 
-const DialogHeader = styled.div`
-    margin-bottom: 24px;
-`;
-
-const DialogTitle = styled.h2`
-    margin: 0 0 8px 0;
-    font-size: 1.5rem;
-    font-weight: 500;
-    color: var(--text-color);
-`;
-
-const DialogDate = styled.div`
-    color: var(--text-secondary);
-    font-size: 1.1rem;
-`;
-
 const SeniorHint = styled.div`
     margin-top: 16px;
     padding: 12px 16px;
@@ -165,15 +151,6 @@ const NoSlotsMessage = styled.div`
     text-align: center;
     line-height: 1.5;
 `;
-
-// Для типизации параметров функции рендера Draggable
-interface DraggableSnapshot {
-    isDragging: boolean;
-    isDropAnimating: boolean;
-    draggingOver: string | null;
-    dropAnimation: any | null;
-    mode: string;
-}
 
 const GlobalStyles = createGlobalStyle`
     .source-drag-slot {
@@ -323,50 +300,9 @@ const useDragAndDrop = () => {
         };
     }, []);
 
-    // Функция для очистки состояния перетаскивания
-    const cleanupDragState = useCallback(() => {
-        console.log('[useDragAndDrop] cleanupDragState: Cleaning up drag state');
-        
-        // Удаляем "призрак" перетаскивания, если он есть
-        if (dragGhostRef.current && dragGhostRef.current.parentNode) {
-            dragGhostRef.current.parentNode.removeChild(dragGhostRef.current);
-        }
-        
-        // Удаляем все обработчики событий, которые были добавлены
-        document.removeEventListener('mousemove', handleMouseMoveGlobal);
-        document.removeEventListener('touchmove', handleTouchMoveGlobal as EventListener);
-        
-        // Очищаем визуальные эффекты
-        document.querySelectorAll('.drop-target, .drop-active, .magnetic-target, .source-drag-slot').forEach(el => {
-            (el as HTMLElement).classList.remove('drop-target');
-            (el as HTMLElement).classList.remove('drop-active');
-            (el as HTMLElement).classList.remove('magnetic-target');
-            (el as HTMLElement).classList.remove('source-drag-slot');
-        });
-        
-        // Сбрасываем состояние перетаскивания
-        setIsDragging(false);
-        isDraggingRef.current = false;
-        
-        setDragElement(null);
-        dragElementRef.current = null;
-        
-        setDragGhost(null);
-        dragGhostRef.current = null;
-        
-        setDragCourier(null);
-        setDragSourceType(null);
-        setDragSourceIndex(null);
-        
-        // Отменяем все ожидающие анимационные фреймы
-        if (animationFrameRef.current) {
-            window.cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-        }
-    }, []);
-    
-    // Создаем ref для хранения ID запроса анимации
-    const animationFrameRef = useRef<number | null>(null);
+    // Создаем рефы для функций, чтобы разорвать циклические зависимости
+    const handleMouseMoveGlobalRef = useRef<(e: MouseEvent) => void>();
+    const handleTouchMoveGlobalRef = useRef<(e: TouchEvent) => void>();
     
     // Функция для плавного обновления позиции призрака перетаскивания
     const updateGhostPosition = useCallback((x: number, y: number) => {
@@ -424,6 +360,57 @@ const useDragAndDrop = () => {
         updateGhostPosition(touch.clientX, touch.clientY);
     }, [updateGhostPosition]);
 
+    // Сохраняем функции в рефы
+    useEffect(() => {
+        handleMouseMoveGlobalRef.current = handleMouseMoveGlobal;
+        handleTouchMoveGlobalRef.current = handleTouchMoveGlobal;
+    }, [handleMouseMoveGlobal, handleTouchMoveGlobal]);
+    
+    // Функция для очистки состояния перетаскивания
+    const cleanupDragState = useCallback(() => {
+        console.log('[useDragAndDrop] cleanupDragState: Cleaning up drag state');
+        
+        // Удаляем "призрак" перетаскивания, если он есть
+        if (dragGhostRef.current && dragGhostRef.current.parentNode) {
+            dragGhostRef.current.parentNode.removeChild(dragGhostRef.current);
+        }
+        
+        // Удаляем все обработчики событий, которые были добавлены
+        document.removeEventListener('mousemove', handleMouseMoveGlobalRef.current as EventListener);
+        document.removeEventListener('touchmove', handleTouchMoveGlobalRef.current as EventListener);
+        
+        // Очищаем визуальные эффекты
+        document.querySelectorAll('.drop-target, .drop-active, .magnetic-target, .source-drag-slot').forEach(el => {
+            (el as HTMLElement).classList.remove('drop-target');
+            (el as HTMLElement).classList.remove('drop-active');
+            (el as HTMLElement).classList.remove('magnetic-target');
+            (el as HTMLElement).classList.remove('source-drag-slot');
+        });
+        
+        // Сбрасываем состояние перетаскивания
+        setIsDragging(false);
+        isDraggingRef.current = false;
+        
+        setDragElement(null);
+        dragElementRef.current = null;
+        
+        setDragGhost(null);
+        dragGhostRef.current = null;
+        
+        setDragCourier(null);
+        setDragSourceType(null);
+        setDragSourceIndex(null);
+        
+        // Отменяем все ожидающие анимационные фреймы
+        if (animationFrameRef.current) {
+            window.cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+        }
+    }, []);
+    
+    // Создаем ref для хранения ID запроса анимации
+    const animationFrameRef = useRef<number | null>(null);
+    
     // Функция для окончания перетаскивания
     const handleDragEnd = useCallback((x: number, y: number, onSlotSelect: Function) => {
         if (!isDraggingRef.current) return;
@@ -447,273 +434,83 @@ const useDragAndDrop = () => {
             // Подсвечиваем целевой слот
             (dropTarget.slot as HTMLElement).classList.add('drop-active');
             
-            // Создаем ID операции для отслеживания
-            const operationId = `drag-${Date.now()}-${dragCourier.userId || 'unknown'}`;
-            
             // Находим исходный слот для создания анимации перемещения
             const sourceSlot = document.querySelector(`[data-testid="slot-${sourceType}-${sourceIndex}"]`);
-            const sourceAvatar = sourceSlot ? sourceSlot.querySelector('.courier-avatar-container') : null;
-            
-            // Удаляем призрак сразу же
-            if (dragGhostRef.current && dragGhostRef.current.parentNode) {
-                dragGhostRef.current.parentNode.removeChild(dragGhostRef.current);
-                dragGhostRef.current = null;
-            }
-            
-            // Если нашли исходный аватар, создаем "летящую" анимацию аватара
-            if (sourceAvatar) {
-                // Создаем копию аватара для анимации
+            if (sourceSlot && dragElementRef.current) {
+                // Создаем "летящий" аватар для анимации перемещения
                 const flyingAvatar = document.createElement('div');
-                const sourceRect = sourceAvatar.getBoundingClientRect();
-                
-                // Копируем стили и внешний вид аватара
+                flyingAvatar.className = 'flying-avatar';
                 flyingAvatar.style.position = 'fixed';
-                flyingAvatar.style.width = `${sourceRect.width}px`;
-                flyingAvatar.style.height = `${sourceRect.height}px`;
-                flyingAvatar.style.top = `${sourceRect.top}px`;
-                flyingAvatar.style.left = `${sourceRect.left}px`;
-                flyingAvatar.style.zIndex = '10000';
-                flyingAvatar.style.borderRadius = '50%';
-                flyingAvatar.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.3)';
-                flyingAvatar.style.transition = 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1.2)';
+                flyingAvatar.style.zIndex = '9999';
                 flyingAvatar.style.pointerEvents = 'none';
-                flyingAvatar.className = 'flying-avatar-animation';
                 
-                // Копируем внутреннее содержимое аватара
-                const sourceImg = sourceAvatar.querySelector('img');
-                if (sourceImg) {
-                    const img = document.createElement('img');
-                    img.src = sourceImg.src;
-                    img.style.width = '100%';
-                    img.style.height = '100%';
-                    img.style.borderRadius = '50%';
-                    img.style.objectFit = 'cover';
-                    img.style.display = 'block';
-                    flyingAvatar.appendChild(img);
+                // Копируем стили и содержимое из призрака перетаскивания
+                if (dragElementRef.current) {
+                    const ghostRect = dragElementRef.current.getBoundingClientRect();
                     
-                    // Копируем значок старшего курьера, если есть
-                    // Ищем по нескольким возможным селекторам, чтобы гарантировать нахождение
-                    const seniorBadge = sourceAvatar.querySelector('.senior-badge, div[class*="SeniorBadge"], div[class*="seniorBadge"]');
-                    if (seniorBadge || dragCourier?.isSeniorCourier) {
-                        // Создаем значок старшего курьера
-                        const badge = document.createElement('div');
-                        badge.className = 'senior-badge-flying';
-                        badge.style.position = 'absolute';
-                        badge.style.top = '-3px'; // Сдвигаем значок немного выше
-                        badge.style.right = '-3px'; // Сдвигаем значок немного правее
-                        badge.style.width = '16px';
-                        badge.style.height = '16px';
-                        badge.style.backgroundColor = '#FFD700'; // Ярко-желтый фон
-                        badge.style.borderRadius = '50%';
-                        badge.style.border = '1px solid rgba(0, 0, 0, 0.3)'; // Более темная граница
-                        badge.style.display = 'flex';
-                        badge.style.alignItems = 'center';
-                        badge.style.justifyContent = 'center';
-                        badge.style.fontSize = '11px';
-                        badge.style.fontWeight = 'bold';
-                        badge.style.color = '#FFFFFF'; // Белый цвет для лучшей видимости
-                        badge.style.textShadow = '0 0 1px rgba(0,0,0,0.5)'; // Тень для текста
-                        badge.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)'; // Более заметная тень
-                        badge.style.zIndex = '10'; // Высокий z-index чтобы всегда быть поверх
-                        badge.style.pointerEvents = 'none';
-                        badge.textContent = '★';
-                        
-                        flyingAvatar.appendChild(badge);
-                    }
-                }
-                
-                // Добавляем элемент на страницу
-                document.body.appendChild(flyingAvatar);
-                
-                // Скрываем исходный аватар, сделав слот пустым
-                (sourceSlot as HTMLElement).classList.add('source-drag-slot');
-                
-                // Анимация через таймаут для гарантированного запуска после рендеринга
-                setTimeout(() => {
-                    // Перемещаем аватар к целевому слоту
-                    flyingAvatar.style.transform = `translate(${targetCenterX - sourceRect.left - sourceRect.width/2}px, ${targetCenterY - sourceRect.top - sourceRect.height/2}px) scale(1.05)`;
-                }, 20);
-            }
-            
-            // Отправляем событие о начале перетаскивания
-            const dragStartEvent = new CustomEvent('dragOperationStart', {
-                detail: {
-                    sourceType,
-                    sourceIndex,
-                    targetType, 
-                    targetIndex,
-                    item: dragCourier,
-                    operationId,
-                    isDragOperation: true,
-                    timestamp: Date.now()
-                },
-                bubbles: true
-            });
-            document.dispatchEvent(dragStartEvent);
-            
-            // Оптимистично обновляем UI - создаем аватар в целевом слоте
-            // Предварительно находим целевой слот и проверяем, что он пуст
-            const targetSlotElement = document.querySelector(`[data-testid="slot-${targetType}-${targetIndex}"]`);
-            if (targetSlotElement && !targetSlotElement.querySelector('.courier-avatar-container')) {
-                // Находим изображение и значок в исходном аватаре для копирования в целевой
-                const sourceAvatar = sourceSlot ? sourceSlot.querySelector('.courier-avatar-container') : null;
-                const sourceImg = sourceAvatar ? sourceAvatar.querySelector('img') : null;
-                // Ищем значок старшего курьера всеми возможными способами
-                const seniorBadge = sourceAvatar ? sourceAvatar.querySelector('div[class*="SeniorBadge"], div[class*="seniorBadge"], .senior-badge') : null;
-                const isSeniorCourier = seniorBadge !== null || dragCourier?.isSeniorCourier;
-                
-                // Оптимистично добавляем аватар в целевой слот
-                const targetAvatarContainer = document.createElement('div');
-                targetAvatarContainer.className = 'courier-avatar-container optimistic-avatar';
-                targetAvatarContainer.style.width = '100%';
-                targetAvatarContainer.style.height = '100%';
-                targetAvatarContainer.style.position = 'relative';
-                targetAvatarContainer.style.borderRadius = '50%';
-                targetAvatarContainer.style.border = '2px solid var(--primary-color)';
-                targetAvatarContainer.style.opacity = '0'; // Изначально невидимый
-                targetAvatarContainer.style.overflow = 'visible'; // Важно! Используем overflow: visible чтобы значок не обрезался
-                
-                // Меняем класс для слота, чтобы он выглядел занятым
-                targetSlotElement.classList.add('occupied');
-                
-                // Создаем изображение
-                if (sourceImg) {
-                    const targetImg = document.createElement('img');
-                    targetImg.src = sourceImg.src;
-                    targetImg.style.width = '100%';
-                    targetImg.style.height = '100%';
-                    targetImg.style.borderRadius = '50%';
-                    targetImg.style.objectFit = 'cover';
-                    targetImg.style.display = 'block';
-                    targetImg.style.border = 'none'; // Убираем возможную границу
-                    targetImg.style.margin = '0'; // Убираем возможные отступы
-                    targetImg.style.padding = '0'; // Убираем возможные внутренние отступы
-                    targetImg.draggable = false; // Предотвращаем перетаскивание изображения
-                    targetAvatarContainer.appendChild(targetImg);
+                    // Устанавливаем начальную позицию и размеры
+                    flyingAvatar.style.width = `${ghostRect.width}px`;
+                    flyingAvatar.style.height = `${ghostRect.height}px`;
+                    flyingAvatar.style.top = `${ghostRect.top}px`;
+                    flyingAvatar.style.left = `${ghostRect.left}px`;
+                    flyingAvatar.style.borderRadius = '50%';
+                    flyingAvatar.style.overflow = 'visible';
                     
-                    // Копируем значок старшего курьера, если есть
-                    if (seniorBadge || isSeniorCourier) {
-                        const targetBadge = document.createElement('div');
-                        // Устанавливаем сразу правильное позиционирование
-                        targetBadge.className = 'senior-badge-optimistic';
-                        targetBadge.style.position = 'absolute';
-                        targetBadge.style.top = '-3px'; // Сдвигаем значок немного выше
-                        targetBadge.style.right = '-3px'; // Сдвигаем значок немного правее
-                        targetBadge.style.width = '16px';
-                        targetBadge.style.height = '16px';
-                        targetBadge.style.backgroundColor = '#FFD700'; // Ярко-желтый фон
-                        targetBadge.style.borderRadius = '50%';
-                        targetBadge.style.border = '1px solid rgba(0, 0, 0, 0.3)'; // Более темная граница
-                        targetBadge.style.display = 'flex';
-                        targetBadge.style.alignItems = 'center';
-                        targetBadge.style.justifyContent = 'center';
-                        targetBadge.style.fontSize = '11px';
-                        targetBadge.style.fontWeight = 'bold';
-                        targetBadge.style.color = '#FFFFFF'; // Белый цвет для лучшей видимости
-                        targetBadge.style.textShadow = '0 0 1px rgba(0,0,0,0.5)'; // Тень для текста
-                        targetBadge.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)'; // Более заметная тень
-                        targetBadge.style.zIndex = '10'; // Высокий z-index чтобы всегда быть поверх
-                        targetBadge.style.pointerEvents = 'none';
-                        targetBadge.textContent = '★';
-                        
-                        // Добавляем значок в контейнер аватара сразу
-                        targetAvatarContainer.appendChild(targetBadge);
-                    }
-                }
-                
-                // Временно заменяем содержимое целевого слота
-                // Ищем плюсик по классу или создаем селектор для всех дочерних элементов
-                const allChildElements = targetSlotElement.querySelectorAll('*');
-                allChildElements.forEach(el => {
-                    if (el.textContent === '+' || el.classList.contains('plus-icon')) {
-                        if (el instanceof HTMLElement) {
-                            el.style.display = 'none';
-                        }
-                    }
-                });
-                
-                // Добавляем аватар в целевой слот
-                targetSlotElement.appendChild(targetAvatarContainer);
-                
-                // Через небольшую задержку делаем аватар видимым
-                setTimeout(() => {
-                    targetAvatarContainer.style.opacity = '1';
-                    targetAvatarContainer.style.transition = 'opacity 0.3s ease-in';
-                }, 300); // Задержка должна быть немного меньше времени анимации летящего аватара
-            }
-            
-            // Вызываем API для обновления данных и обновляем UI
-            onSlotSelect(targetType, targetIndex, dragCourier.id, true);
-            
-            // Очищаем состояние перетаскивания
-            cleanupDragState();
-            
-            // По завершении анимации
-            setTimeout(() => {
-                // Удаляем летящий аватар
-                const flyingAvatar = document.querySelector('.flying-avatar-animation');
-                if (flyingAvatar && flyingAvatar.parentNode) {
-                    // Добавляем анимацию растворения перед удалением
-                    flyingAvatar.animate([
-                        { opacity: 1 },
-                        { opacity: 0 }
-                    ], { duration: 200, fill: 'forwards' });
+                    // Копируем содержимое из призрака (или используем базовые стили)
+                    flyingAvatar.innerHTML = dragElementRef.current.innerHTML;
                     
-                    // Удаляем элемент после анимации
+                    // Добавляем специальные эффекты
+                    flyingAvatar.style.transition = 'all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1.2)';
+                    flyingAvatar.style.transform = 'scale(1)';
+                    
+                    // Добавляем в DOM
+                    document.body.appendChild(flyingAvatar);
+                    
+                    // Сразу удаляем призрак перетаскивания, чтобы он не мешал
+                    if (dragElementRef.current.parentNode) {
+                        dragElementRef.current.style.opacity = '0';
+                    }
+                    
+                    // Запускаем анимацию перемещения к целевому слоту
                     setTimeout(() => {
-                        if (flyingAvatar.parentNode) {
-                            flyingAvatar.parentNode.removeChild(flyingAvatar);
-                        }
-                    }, 200);
+                        flyingAvatar.style.transform = 'scale(0.8)';
+                        flyingAvatar.style.top = `${targetCenterY - ghostRect.height / 2}px`;
+                        flyingAvatar.style.left = `${targetCenterX - ghostRect.width / 2}px`;
+                        
+                        // После завершения анимации удаляем летящий аватар
+                        setTimeout(() => {
+                            flyingAvatar.style.opacity = '0';
+                            setTimeout(() => {
+                                if (flyingAvatar.parentNode) {
+                                    flyingAvatar.parentNode.removeChild(flyingAvatar);
+                                }
+                                
+                                // Отправляем событие успешного переноса ПОСЛЕ завершения анимации
+                                // Это предотвратит мгновенное появление аватара в целевом слоте
+                                const dragEndEvent = new CustomEvent('dragOperationComplete', {
+                                    detail: {
+                                        success: true,
+                                        sourceType: dragSourceType,
+                                        sourceIndex: dragSourceIndex,
+                                        targetType: targetType,
+                                        targetIndex: targetIndex,
+                                        item: dragCourier,
+                                        animated: true // Флаг, что анимация уже выполнена
+                                    }
+                                });
+                                document.dispatchEvent(dragEndEvent);
+                                
+                            }, 300);
+                        }, 300);
+                    }, 10);
                 }
-                
-                // Очищаем визуальные эффекты
-                document.querySelectorAll('.drop-active, .magnetic-target').forEach(el => {
-                    (el as HTMLElement).classList.remove('drop-active');
-                    (el as HTMLElement).classList.remove('magnetic-target');
-                });
-                
-                document.querySelectorAll('.drop-target').forEach(el => {
-                    (el as HTMLElement).classList.remove('drop-target');
-                });
-                
-                document.querySelectorAll('.source-drag-slot').forEach(el => {
-                    (el as HTMLElement).classList.remove('source-drag-slot');
-                });
-                
-                // Отправляем событие о завершении перетаскивания
-                const dragEndEvent = new CustomEvent('customDragEnd', {
-                    detail: {
-                        success: true,
-                        sourceType,
-                        sourceIndex,
-                        targetType,
-                        targetIndex,
-                        item: dragCourier,
-                        operationId
-                    },
-                    bubbles: true
-                });
-                document.dispatchEvent(dragEndEvent);
-            }, 500); // Задержка для завершения анимации перемещения
-        } else {
-            // Возвращаем элемент обратно, если не нашли подходящий слот
-            if (dragGhostRef.current) {
-                dragGhostRef.current.style.transition = 'transform 0.3s ease';
-                dragGhostRef.current.style.transform = 'translate3d(0, 0, 0)';
             }
             
-            // Очищаем состояние после завершения анимации возврата
-            setTimeout(() => {
-                const dragEndEvent = new CustomEvent('customDragEnd', {
-                    detail: { success: false },
-                    bubbles: true
-                });
-                document.dispatchEvent(dragEndEvent);
-                
-                cleanupDragState();
-            }, 300);
+            // Вызываем API через props.onSlotSelect
+            onSlotSelect(targetType, targetIndex, dragCourier.id, true);
         }
+        
+        cleanupDragState();
     }, [dragCourier, dragSourceType, dragSourceIndex, findClosestDropTarget, cleanupDragState]);
 
     // Обработчик окончания перетаскивания мышью
@@ -990,10 +787,6 @@ const useDragAndDrop = () => {
         startDragOperation(target, courier, sourceType, sourceIndex, touch.clientX, touch.clientY, onSlotSelect);
     }, [startDragOperation]);
 
-    // Убираем теперь ненужные обработчики
-    const handleMouseMove = useCallback(() => {}, []);
-    const handleTouchMove = useCallback(() => {}, []);
-
     // При размонтировании компонента, очищаем состояние перетаскивания
     useEffect(() => {
         return () => {
@@ -1030,13 +823,14 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
     forceUpdate,
     reserves,
     showSuccessMessage,
-    chatId
+    chatId,
+    isLoading,
+    loadingSlot,
+    loadingType
 }) => {
-    const dispatch = useDispatch<AppDispatch>();
-    
-    // Получаем информацию о текущем пользователе
-    const { user } = useSelector((state: RootState) => state.user);
-    const isCurrentUserSenior = user?.isSeniorCourier || false;
+    // const dispatch = useDispatch<AppDispatch>(); // Закомментируем неиспользуемую переменную
+    const currentUser = useSelector((state: RootState) => state.user.user);
+    const isCurrentUserSenior = currentUser?.is_senior_courier || false;
     
     // Инициализируем хук для UI-состояния
     const uiState = useShiftUIState({
@@ -1044,26 +838,15 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         nightShifts
     });
     
-    // Функция обновления локальных смен из пропсов
-    const updateLocalShiftsFromProps = useCallback(() => {
-        uiState.updateLocalShiftsFromProps();
-    }, [uiState]);
+    // Используем useWebSocket вместо useShiftWebSockets
+    const { joinShiftsRoom } = useWebSocket(chatId);
     
-    // Инициализируем хук для WebSocket-соединений
-    const websockets = useShiftWebSockets({
-        date,
-        chatId,
-        forceUpdate,
-        updateLocalShifts: updateLocalShiftsFromProps,
-        setLocalDayShifts: uiState.setLocalDayShifts,
-        setLocalNightShifts: uiState.setLocalNightShifts,
-        dayShifts,
-        nightShifts,
-        currentUserAvatar,
-        currentUserName,
-        isCurrentUserSenior,
-        showSuccessMessage
-    });
+    // Подключаемся к комнате смен при монтировании
+    useEffect(() => {
+        if (chatId) {
+            joinShiftsRoom(chatId);
+        }
+    }, [chatId, joinShiftsRoom]);
     
     // Используем хук для управления drag-and-drop
     const dragAndDrop = useDragAndDrop();
@@ -1153,8 +936,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                 const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
                 const slotElement = elementsAtPoint.find(el => 
                     el.classList.contains('slot-button') || 
-                    el.hasAttribute('data-testid') && 
-                    (el.getAttribute('data-testid') || '').startsWith('slot-')
+                    (el.hasAttribute('data-testid') && 
+                    (el.getAttribute('data-testid') || '').startsWith('slot-'))
                 );
                 
                 if (slotElement) {
@@ -1193,8 +976,6 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                                 
                                 // Находим исходный слот для создания анимации перемещения
                                 const sourceSlot = document.querySelector(`[data-testid="slot-${sourceType}-${sourceIndex}"]`);
-                                const sourceAvatar = sourceSlot ? sourceSlot.querySelector('.courier-avatar-container') : null;
-                                
                                 if (sourceSlot && dragAndDrop.dragElement) {
                                     // Создаем "летящий" аватар для анимации перемещения
                                     const flyingAvatar = document.createElement('div');
@@ -1286,8 +1067,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                 const elementsAtPoint = document.elementsFromPoint(touch.clientX, touch.clientY);
                 const slotElement = elementsAtPoint.find(el => 
                     el.classList.contains('slot-button') || 
-                    el.hasAttribute('data-testid') && 
-                    (el.getAttribute('data-testid') || '').startsWith('slot-')
+                    (el.hasAttribute('data-testid') && 
+                    (el.getAttribute('data-testid') || '').startsWith('slot-'))
                 );
                 
                 if (slotElement) {
@@ -1325,8 +1106,6 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                                 
                                 // Находим исходный слот для создания анимации перемещения
                                 const sourceSlot = document.querySelector(`[data-testid="slot-${sourceType}-${sourceIndex}"]`);
-                                const sourceAvatar = sourceSlot ? sourceSlot.querySelector('.courier-avatar-container') : null;
-                                
                                 if (sourceSlot && dragAndDrop.dragElement) {
                                     // Создаем "летящий" аватар для анимации перемещения
                                     const flyingAvatar = document.createElement('div');
@@ -1419,6 +1198,10 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         };
     }, [dragAndDrop, onSlotSelect]);
     
+    // Добавляем состояние для отслеживания касания
+    const touchStartTimeRef = useRef<number>(0);
+    const isTouchMoveRef = useRef<boolean>(false);
+
     // Изменяем обработчики для поддержки долгого нажатия
     const handleCourierClick = useCallback((
         event: React.MouseEvent | React.TouchEvent,
@@ -1426,81 +1209,54 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         shiftType: 'day' | 'night',
         slotIndex: number
     ) => {
-        // Прекращаем всплытие события, чтобы не срабатывал клик по кнопке слота
+        // Прекращаем всплытие события
         event.stopPropagation();
-        
-        console.log('[ShiftPanel] handleCourierClick triggered', { courier, shiftType, slotIndex });
-        
-        // Для старших курьеров, запускаем обработку долгого нажатия
-        if (isCurrentUserSenior) {
-            console.log('[ShiftPanel] Current user is senior, initializing drag');
-            
-            try {
-                // Определяем тип события и вызываем соответствующий обработчик
-                if ('clientX' in event) {
-                    console.log('[ShiftPanel] Mouse event detected');
-                    dragAndDrop.initDragWithMouse(event, courier, shiftType, slotIndex, onSlotSelect);
-                } else if ('touches' in event) {
-                    console.log('[ShiftPanel] Touch event detected');
-                    dragAndDrop.initDragWithTouch(event, courier, shiftType, slotIndex, onSlotSelect);
-                }
-            } catch (error) {
-                console.error('[ShiftPanel] Error initializing drag:', error);
-            }
-            
-            return; // Завершаем выполнение функции, чтобы предотвратить открытие профиля
-        }
-        
-        // Для обычных пользователей или если это его собственный аватар - открываем профиль
-        if (courier.userId === currentUserId || !isCurrentUserSenior) {
-            console.log('[ShiftPanel] User clicked on avatar, showing profile');
-            uiState.openProfileDialog(courier);
-        }
-    }, [currentUserId, isCurrentUserSenior, uiState, dragAndDrop.initDragWithMouse, dragAndDrop.initDragWithTouch, onSlotSelect]);
-    
-    // Обработчик отмены смены
-    const handleCancelShift = useCallback(async () => {
-        try {
-            // Находим смену пользователя
-            const userShift = [...uiState.localDayShifts, ...uiState.localNightShifts]
-                .find(shift => shift.userId === currentUserId);
-            
-            if (!userShift || !userShift.id) {
-                console.log('[ShiftPanel] No user shift found to cancel');
+
+        // Если это touch событие
+        if ('touches' in event) {
+            // Если это touchstart, записываем время начала касания
+            if (event.type === 'touchstart') {
+                touchStartTimeRef.current = Date.now();
+                isTouchMoveRef.current = false;
                 return;
             }
             
-            console.log('[ShiftPanel] Cancelling shift:', userShift);
-            
-            // Отменяем смену через Redux
-            await dispatch(cancelShift({
-                shiftId: userShift.id,
-                chatId: chatId
-            }));
-            
-            // Показываем сообщение об успешной отмене
-            showSuccessMessage('Вы отменили смену');
-            
-            // Если требуется, переключаем на резерв
-            if (onSwitchToReserve) {
-                console.log('[ShiftPanel] Switching to reserve after cancellation');
-                onSwitchToReserve();
+            // Если это touchend, проверяем, было ли движение
+            if (event.type === 'touchend') {
+                // Если было движение, игнорируем клик
+                if (isTouchMoveRef.current) {
+                    return;
+                }
+                
+                // Проверяем длительность касания
+                const touchDuration = Date.now() - touchStartTimeRef.current;
+                
+                // Если касание длилось более 500мс и пользователь старший курьер,
+                // начинаем перетаскивание
+                if (touchDuration > 500 && isCurrentUserSenior) {
+                    dragAndDrop.initDragWithTouch(event, courier, shiftType, slotIndex, onSlotSelect);
+                    return;
+                }
             }
-            
-            console.log('[ShiftPanel] Shift cancellation successful');
-        } catch (error) {
-            console.error('[ShiftPanel] Error cancelling shift:', error);
         }
-    }, [
-        uiState.localDayShifts, 
-        uiState.localNightShifts, 
-        currentUserId, 
-        dispatch, 
-        chatId, 
-        showSuccessMessage, 
-        onSwitchToReserve
-    ]);
-    
+
+        // Для старших курьеров и событий мыши
+        if (isCurrentUserSenior && 'button' in event) {
+            dragAndDrop.initDragWithMouse(event, courier, shiftType, slotIndex, onSlotSelect);
+            return;
+        }
+
+        // Для обычных пользователей или если это его собственный аватар
+        if (courier.userId === currentUserId || !isCurrentUserSenior) {
+            uiState.openProfileDialog(courier);
+        }
+    }, [currentUserId, isCurrentUserSenior, uiState, onSlotSelect, dragAndDrop]);
+
+    // Добавляем обработчик touchmove
+    const handleTouchMove = useCallback(() => {
+        isTouchMoveRef.current = true;
+    }, []);
+
     // Изменяем функцию renderSlots для поддержки долгого нажатия
     const renderSlots = useCallback((shiftType: 'day' | 'night', slots: number) => {
         console.log('[ShiftPanel] renderSlots called:', { shiftType, slots, isCurrentUserSenior });
@@ -1515,9 +1271,6 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
             const courier = shiftsArray.find(shift => 
                 Number(shift.slotIndex) === index && shift.shiftType === shiftType
             );
-            
-            // Определяем, является ли это текущим пользователем
-            const isCurrentUser = courier?.userId === currentUserId;
             
             // Создаем ключ для анимации успеха
             const animationKey = `${shiftType}-${index}`;
@@ -1549,19 +1302,29 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                             const isDraggingThis = false;
                             
                             return (
-                                <ShiftSlot
-                                    shiftType={shiftType}
-                                    slotIndex={index}
-                                    courier={courier}
-                                    currentUserId={currentUserId}
-                                    isDraggable={draggable}
-                                    onSlotClick={handleSlotSelect}
-                                    onCourierClick={handleCourierClick}
-                                    successAnimation={showSuccessAnim}
-                                    pressAnimationActive={showPressAnim || false}
-                                    isDragging={isDraggingThis}
-                                    draggableProvided={provided}
-                                />
+                                <div 
+                                    key={`${shiftType}-${index}-container`} 
+                                    style={{ position: 'relative' }}
+                                    onTouchStart={(e) => courier && handleCourierClick(e, courier, shiftType, index)}
+                                    onTouchMove={handleTouchMove}
+                                    onTouchEnd={(e) => courier && handleCourierClick(e, courier, shiftType, index)}
+                                    onClick={(e) => courier && handleCourierClick(e, courier, shiftType, index)}
+                                >
+                                    <ShiftSlot
+                                        shiftType={shiftType}
+                                        slotIndex={index}
+                                        courier={courier}
+                                        currentUserId={currentUserId}
+                                        isDraggable={draggable}
+                                        onSlotClick={handleSlotSelect}
+                                        onCourierClick={handleCourierClick}
+                                        successAnimation={showSuccessAnim}
+                                        pressAnimationActive={showPressAnim || false}
+                                        isDragging={isDraggingThis}
+                                        draggableProvided={provided}
+                                    />
+                                    {!courier && <SlotHighlight className="slot-highlight" />}
+                                </div>
                             );
                         }}
                     </Draggable>
@@ -1582,6 +1345,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
                         onCourierClick={handleCourierClick}
                         successAnimation={showSuccessAnim}
                         pressAnimationActive={showPressAnim || false}
+                        isDragging={false}
                     />
                     {!courier && <SlotHighlight className="slot-highlight" />}
                 </div>
@@ -1596,7 +1360,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         currentUserId,
         isCurrentUserSenior,
         handleSlotSelect,
-        handleCourierClick
+        handleCourierClick,
+        handleTouchMove
     ]);
     
     // Добавляем функцию для проверки возможности перетаскивания в целевой слот
@@ -1648,7 +1413,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         // Находим слот под курсором
         const slotElement = elementsUnderPointer.find(el => 
             el.classList.contains('slot-button') || 
-            (el.hasAttribute('data-testid') && el.getAttribute('data-testid')?.startsWith('slot-'))
+            (el.hasAttribute('data-testid') && 
+            (el.getAttribute('data-testid') || '').startsWith('slot-'))
         );
         
         if (slotElement) {
@@ -1716,8 +1482,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
         const slotElement = elementsAtPoint.find(el => 
             el.classList.contains('slot-button') || 
-            el.hasAttribute('data-testid') && 
-            (el.getAttribute('data-testid') || '').startsWith('slot-')
+            (el.hasAttribute('data-testid') && 
+            (el.getAttribute('data-testid') || '').startsWith('slot-'))
         );
         
         if (slotElement) {
@@ -1848,8 +1614,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
         const elementsAtPoint = document.elementsFromPoint(clientX, clientY);
         const slotElement = elementsAtPoint.find(el => 
             el.classList.contains('slot-button') || 
-            el.hasAttribute('data-testid') && 
-            (el.getAttribute('data-testid') || '').startsWith('slot-')
+            (el.hasAttribute('data-testid') && 
+            (el.getAttribute('data-testid') || '').startsWith('slot-'))
         );
         
         if (slotElement) {
@@ -1966,17 +1732,14 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = ({
     }, []);
 
     const handleDragEnd = useCallback((result: DropResult) => {
-        console.log('[ShiftPanel] DragDropContext onDragEnd', result);
         if (!result.destination) return;
         
-        const { source, destination, draggableId } = result;
+        const { destination, draggableId } = result;
         
-        // Получаем тип и индекс источника и назначения
-        const sourceType = source.droppableId === 'day-shift' ? 'day' : 'night';
+        // Получаем тип назначения
         const destType = destination.droppableId === 'day-shift' ? 'day' : 'night';
         
-        // Получаем индексы слотов
-        const sourceIndex = source.index;
+        // Получаем индекс слота
         const destIndex = destination.index;
         
         // Получаем ID курьера

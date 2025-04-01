@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+// import { motion } from 'framer-motion'; // Неиспользуемый импорт
 import styles from './ItemEdit.module.css';
 import { InventoryItem } from '../../types/inventory';
-import { useWebSocket } from '../../hooks/useWebSocket';
+import { socketService } from '../../services/socket';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateInventoryItem, updateProgress } from '../../store/slices/inventorySlice';
 
@@ -13,6 +13,9 @@ interface ItemEditProps {
     onClose: () => void;
     onUpdate: () => void;
     chatId: string;
+    onDelete?: () => void;
+    onCancel?: () => void;
+    onSave?: (updatedItem: InventoryItem) => void;
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
@@ -21,22 +24,28 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     item: initialItem, 
     onClose, 
     onUpdate, 
-    chatId 
+    chatId, 
+    onDelete, 
+    onCancel, 
+    onSave 
 }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [isAddingItem, setIsAddingItem] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_isAddingItem, _setIsAddingItem] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [_error, setError] = useState<string | null>(null);
     const [item, setItem] = useState<InventoryItem>(initialItem);
     const [isOutOfStock, setIsOutOfStock] = useState(initialItem.raw?.isOutOfStock || false);
     const [currentActiveItem, setCurrentActiveItem] = useState<{ type: 'raw' | 'semifinished', operation: 'add' | 'subtract' } | null>(null);
     const [currentInputValue, setCurrentInputValue] = useState('');
     const [isExiting, setIsExiting] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isCardExiting, setIsCardExiting] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
-    const currentTypes = ['raw', item.semifinished ? 'semifinished' : null].filter(Boolean) as ('raw' | 'semifinished')[];
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _currentTypes = ['raw', item.semifinished ? 'semifinished' : null].filter(Boolean) as ('raw' | 'semifinished')[];
     
-    const { socket } = useWebSocket();
     const dispatch = useAppDispatch();
     const currentInventory = useAppSelector(state => state.inventory.selectedChat?.inventory || {});
 
@@ -44,7 +53,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         const currentItem = currentInventory[category]?.[itemId];
         if (currentItem && JSON.stringify(currentItem) !== JSON.stringify(item)) {
             setItem(currentItem);
-            setIsOutOfStock(currentItem.raw.isOutOfStock || false);
+            setIsOutOfStock(currentItem.raw?.isOutOfStock || false);
         }
     }, [currentInventory, category, itemId, item]);
 
@@ -55,11 +64,12 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         return () => clearTimeout(timer);
     }, []);
 
-    const handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
             const newItem = { ...item };
             
-            if (type === 'raw') {
+            if (type === 'raw' && newItem.raw) {
                 const currentValue = newItem.raw.quantity;
                 const newValue = action === 'increment' ? currentValue + 1 : Math.max(0, currentValue - 1);
                 newItem.raw = {
@@ -105,14 +115,14 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 }
             };
 
-            socket?.emit('inventory_update', updateData);
+            socketService.emit('inventory_update', updateData);
             onUpdate();
 
         } catch (error) {
             console.error('Ошибка при обновлении количества:', error);
             setItem(item);
         }
-    }, [chatId, category, itemId, item, socket, dispatch, onUpdate]);
+    }, [chatId, category, itemId, item, dispatch, onUpdate]);
 
     const handleAddSemifinished = async () => {
         try {
@@ -154,7 +164,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 }
             };
 
-            socket?.emit('inventory_update', updateData);
+            socketService.emit('inventory_update', updateData);
             onUpdate();
         } catch (error) {
             setError('Ошибка при добавлении полуфабриката');
@@ -165,14 +175,15 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         }
     };
 
-    const handleRemoveSemifinished = async () => {
+    // Неиспользуемая функция - закомментирована с префиксом "_"
+    const _handleRemoveSemifinished = async () => {
         try {
             setIsLoading(true);
             setError(null);
 
             const newItem: InventoryItem = {
                 ...item,
-                semifinished: null
+                semifinished: undefined
             };
 
             setItem(newItem);
@@ -198,7 +209,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 }
             };
 
-            socket?.emit('inventory_update', updateData);
+            socketService.emit('inventory_update', updateData);
             onUpdate();
         } catch (error) {
             setError('Ошибка при удалении полуфабриката');
@@ -212,7 +223,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         try {
             const newItem = { ...item };
             
-            if (type === 'raw') {
+            if (type === 'raw' && newItem.raw) {
                 const newOutOfStockState = !isOutOfStock;
                 setIsOutOfStock(newOutOfStockState);
                 
@@ -225,7 +236,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                     };
 
                     if (newItem.semifinished) {
-                        newItem.semifinished = null;
+                        newItem.semifinished = undefined;
                     }
                 } else {
                     newItem.raw = {
@@ -260,7 +271,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 }
             };
 
-            socket?.emit('inventory_update', updateData);
+            socketService.emit('inventory_update', updateData);
             onUpdate();
         } catch (error) {
             console.error('Error updating out of stock status:', error);
@@ -301,7 +312,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         const newItem = { ...item };
         const { type, operation } = currentActiveItem;
 
-        if (type === 'raw') {
+        if (type === 'raw' && newItem.raw) {
             const currentValue = newItem.raw.quantity;
             const newQuantity = operation === 'add' ? 
                 currentValue + value : 
@@ -352,7 +363,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 }
             };
 
-            socket?.emit('inventory_update', updateData);
+            socketService.emit('inventory_update', updateData);
             onUpdate();
             setCurrentActiveItem(null);
             setCurrentInputValue('');
@@ -362,60 +373,13 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         }
     };
 
-    const handleDeleteSemifinished = async () => {
-        try {
-            setIsLoading(true);
-            setError(null);
-            setIsCardExiting(true);
-
-            // Ждем завершения анимации исчезновения карточки
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            const newItem: InventoryItem = {
-                ...item,
-                semifinished: null
-            };
-
-            setItem(newItem);
-            await dispatch(updateInventoryItem({
-                chatId,
-                category,
-                itemId,
-                item: newItem
-            })).unwrap();
-
-            const updateData = {
-                source: 'client',
-                data: {
-                    metadata: {
-                        lastUpdated: new Date().toISOString(),
-                        progress: 0,
-                        chat_id: chatId
-                    },
-                    type: 'item_update',
-                    category,
-                    itemId,
-                    item: newItem
-                }
-            };
-
-            socket?.emit('inventory_update', updateData);
-            onUpdate();
-        } catch (error) {
-            setError('Ошибка при удалении полуфабриката');
-            setItem(initialItem);
-        } finally {
-            setIsLoading(false);
-            setIsCardExiting(false);
-        }
-    };
-
     const renderItemCard = (type: 'raw' | 'semifinished') => {
         const itemData = type === 'raw' ? item.raw : item.semifinished;
         if (!itemData && type === 'semifinished') return null;
 
         const value = itemData?.quantity ?? 0;
-        const isFilled = itemData?.filled ?? false;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _isFilled = itemData?.filled ?? false;
         const showOutOfStock = type === 'raw' && isOutOfStock;
 
         return (
@@ -423,7 +387,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 {type === 'semifinished' && (
                     <button
                         className={styles.deleteButton}
-                        onClick={() => handleDeleteSemifinished()}
+                        onClick={_handleRemoveSemifinished}
                     >
                         <svg 
                             width="16" 

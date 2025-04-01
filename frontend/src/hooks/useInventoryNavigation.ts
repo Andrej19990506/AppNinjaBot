@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useAppDispatch } from '../store/hooks';
-import { setSelectedItem as setReduxSelectedItem } from '../store/slices/inventorySlice';
 
 interface UseInventoryNavigationProps {
   initialCategory?: string | null;

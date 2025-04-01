@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import LinearProgress from '@mui/material/LinearProgress';
 import CheckCircle from '@mui/icons-material/CheckCircle';
 import PlayCircle from '@mui/icons-material/PlayCircle';
@@ -11,12 +11,20 @@ import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import styles from './ChatSelector.module.css';
 import { ChatListSkeleton } from '../Skeleton';
 import ConfirmDialog from '../../Inventory/ConfirmDialog';
-import SystemNotification from '../../notifications/SystemNotification';
+import { SingleSystemNotification } from '../../notifications/SystemNotification';
 import { checkAdminRights } from '../../../store/slices/userSlice';
 import { RootState } from '../../../store/store';
 import ChatModal from '../ChatModal/ChatModal';
 import { setSelectedChat, setContext, ChatContext } from '../../../store/slices/chatSlice';
 import { Admin } from '../../../types/inventory';
+
+// Расширение типа UserState для TypeScript
+interface User {
+    id: number;
+    first_name?: string;
+    photo_url?: string;
+    isAdmin?: boolean;
+}
 
 // Общий интерфейс для чата, который будет использоваться во всех режимах
 export interface ChatItem {
@@ -54,7 +62,9 @@ export interface ChatSelectorProps {
 }
 
 // Константы для свайпа
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const swipeConfidenceThreshold = 10000;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const swipePower = (offset: number, velocity: number) => {
     return Math.abs(offset) * velocity;
 };
@@ -82,11 +92,12 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     onHomeClick
 }) => {
     const dispatch = useAppDispatch();
-    const currentUser = useAppSelector((state: RootState) => state.user);
+    const currentUser = useAppSelector((state: RootState) => state.user) as unknown as User;
     const [resetConfirmation, setResetConfirmation] = useState<{ chatId: string; button: HTMLButtonElement } | null>(null);
     const [systemNotification, setSystemNotification] = useState<SystemNotificationType>({ message: '', type: 'success' });
     const [activeIndex, setActiveIndex] = useState(0);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [direction, setDirection] = useState(0);
     const [selectedChatLocal, setSelectedChatLocal] = useState<ChatItem | null>(null);
     const [showModal, setShowModal] = useState(false);
@@ -95,6 +106,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     const navigate = useNavigate();
     const [isNavigating, setIsNavigating] = useState(false);
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [error, setError] = useState<string | null>(null);
     const cardsContainerRef = useRef<HTMLDivElement>(null);
 
@@ -356,7 +368,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                         <h1 className={styles.title}>{title}</h1>
 
                         {systemNotification.message && (
-                            <SystemNotification 
+                            <SingleSystemNotification 
                                 message={systemNotification.message}
                                 type={systemNotification.type}
                                 duration={5000}

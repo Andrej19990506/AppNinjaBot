@@ -166,10 +166,13 @@ export const applyIOSFixes = () => {
   }
 };
 
-export default {
+// Создаем именованный объект перед экспортом
+const touchUtils = {
   disableDoubleTapZoom,
   disableInputZoom,
   isIOS,
   applyIOSFixes,
   disableAllZooming
-}; 
+};
+
+export default touchUtils; 

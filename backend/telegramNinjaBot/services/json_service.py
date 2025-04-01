@@ -148,7 +148,7 @@ class JsonService:
             logger.error(f"Ошибка при загрузке участников: {e}", exc_info=True)
             return []
 
-    def _standardize_chat_id(self, chat_id: int | str) -> str:
+    def _standardize_chat_id(self, chat_id: Union[int, str]) -> str:
         """Преобразует ID чата в стандартный формат"""
         str_id = str(chat_id)
         if str_id.startswith('-100'):

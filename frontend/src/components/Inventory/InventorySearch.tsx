@@ -3,8 +3,10 @@ import { InventoryItem } from '../../types/inventory';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import CircularProgress from '@mui/material/CircularProgress';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './InventorySearch.module.css';
+import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface SearchResult {
   category: string;
@@ -174,7 +176,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
           onBlur={handleBlur}
         />
         
-        <AnimatePresence>
+        <AnimatePresenceWrapper>
           {searchQuery && (
             <motion.button 
               className={styles.clearSearchButton}
@@ -188,7 +190,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
               <CloseIcon className={styles.clearSearchIcon} />
             </motion.button>
           )}
-        </AnimatePresence>
+        </AnimatePresenceWrapper>
         
         {isSearching && (
           <motion.div

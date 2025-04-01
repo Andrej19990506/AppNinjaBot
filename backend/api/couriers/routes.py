@@ -12,6 +12,13 @@ from typing import Dict, Any, Optional
 from . import couriers_bp
 from data.users import get_user_data, get_courier_status_in_chat, get_user_groups
 
+# Получаем глобальный экземпляр group_service
+try:
+    from telegramNinjaBot.bot import group_service as glob_group_service
+except ImportError:
+    # Для случаев, когда импорт невозможен
+    glob_group_service = None
+
 # Логгер
 logger = logging.getLogger(__name__)
 
@@ -49,7 +56,19 @@ def get_user_groups_route(user_id):
     """Получение списка групп, в которых состоит пользователь"""
     try:
         logger.info(f'Получение групп пользователя {user_id}')
-        result = get_user_groups(user_id)
+        
+        # Проверяем наличие group_service 
+        if hasattr(current_app, 'group_service') and current_app.group_service:
+            logger.info('Используем current_app.group_service для получения групп пользователя')
+            result = current_app.group_service.get_groups_by_user_id(user_id)
+        elif glob_group_service:
+            # Используем глобальный экземпляр group_service
+            logger.info('Используем глобальный group_service для получения групп пользователя')
+            result = glob_group_service.get_groups_by_user_id(user_id)
+        else:
+            # Для обратной совместимости используем старый метод
+            logger.info('group_service не найден, используем get_user_groups напрямую')
+            result = get_user_groups(user_id)
         
         # Устанавливаем CORS-заголовки
         response = jsonify(result)

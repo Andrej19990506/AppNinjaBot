@@ -1,15 +1,14 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import React, { useEffect, useCallback, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { 
     fetchInventory, 
-    initializeFromTelegram, 
     fetchChatInventory,
-    setSelectedItem,
     selectChat
 } from '../../store/slices/inventorySlice';
 import { checkAdminRights } from '../../store/slices/adminSlice';
-import { useWebSocket } from '../../hooks/useWebSocket';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import { socketService } from '../../services/socket';
 import ChatSelector, { ChatItem } from '../common/ChatSelector/ChatSelector';
 import ChatModal from '../common/ChatModal/ChatModal';
 import CategoryGrid from './CategoryGrid';
@@ -19,11 +18,11 @@ import ItemEdit from './ItemEdit';
 import InventoryCompleteDialog from '../InventoryCompleteDialog';
 import Header from './Header';
 import styles from './Inventory.module.css';
-import { InventoryItem, ChatInventory, ChatData, ChatResponse } from '../../types/inventory';
-import { AnimatePresence, motion } from 'framer-motion';
+import { InventoryItem } from '../../types/inventory';
+import { motion } from 'framer-motion';
 import Footer from './Footer';
 import { ChatListSkeleton } from '../common/Skeleton';
-import InventorySearch, { normalizeString } from './InventorySearch';
+import InventorySearch from './InventorySearch';
 import SearchResultsDropdown from './SearchResultsDropdown';
 import axios from 'axios';
 import config from '../../config';
@@ -33,17 +32,6 @@ import { useInventoryLoader } from '../../hooks/useInventoryLoader';
 import { useInventoryNavigation } from '../../hooks/useInventoryNavigation';
 import { useInventorySearch } from '../../hooks/useInventorySearch';
 import { useInventoryView } from '../../hooks/useInventoryView';
-
-// Интерфейс для результатов поиска
-interface SearchResult {
-  category: string;
-  itemId: string;
-  item: InventoryItem;
-  matches: {
-    field: string;
-    value: string;
-  }[];
-}
 
 // Добавляем интерфейс для преобразования ChatInventory в Chat
 interface Chat {
@@ -57,11 +45,9 @@ interface Chat {
 const Inventory: React.FC = () => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
-    const currentUrl = window.location.pathname;
-    const inventoryState = useAppSelector(state => state.inventory);
     const { chatId } = useParams<{ chatId?: string }>();
     const { error: reduxError, selectedChat, items } = useAppSelector(state => state.inventory);
-    const currentUser = useAppSelector(state => state.user);
+    const currentUser = useAppSelector(state => state.user.user);
     
     // Все состояния
     const [notifications, setNotifications] = useState<Array<{ id: string; type: string; message?: string; title?: string }>>([]);
@@ -70,16 +56,11 @@ const Inventory: React.FC = () => {
     const [showChatModal, setShowChatModal] = useState(false);
     const [selectedChatForModal, setSelectedChatForModal] = useState<ChatItem | null>(null);
     
-    // Состояние для отслеживания прямого перехода по URL
-    const [isDirectAccess] = useState(() => !!window.location.pathname.includes('/inventory/'));
-    
     // Все хуки должны быть вызваны до любых условных операторов
     const {
         isLoading: isInventoryLoading,
         error: loaderError,
-        loadInventoryData,
-        loadingProgress,
-        isInitialized
+        loadingProgress
     } = useInventoryLoader({
         chatId: chatId,
         currentUserId: currentUser?.id || null,
@@ -117,12 +98,9 @@ const Inventory: React.FC = () => {
         }
     });
     
-    const { joinRoom, leaveRoom } = useWebSocket();
-    
     const { 
         currentView, 
-        hasValidInventory,
-        wasInventoryLoaded
+        hasValidInventory
     } = useInventoryView({
         selectedCategory,
         selectedItem,
@@ -211,49 +189,23 @@ const Inventory: React.FC = () => {
         }
     }, [currentUser?.id, selectedChat, isInventoryLoading, dispatch]);
 
-    // Проверяем состояние инвентаря
     useEffect(() => {
-        if (!isInventoryLoading && selectedChat) {
-            const categoryCount = selectedChat.inventory ? Object.keys(selectedChat.inventory).length : 0;
-            console.log('📊 Состояние инвентаря:', {
-                chatId: selectedChat.chat_id,
-                categoryCount,
-                hasInventory: categoryCount > 0
-            });
-            
-            if (categoryCount === 0 && !error) {
-                console.log('⚠️ Инвентарь пуст после загрузки, пробуем загрузить еще раз через 2 секунды...');
-                
-                const timer = setTimeout(() => {
-                    console.log('🔄 Автоматическая повторная загрузка инвентаря...');
-                    loadInventoryData(true);
-                }, 2000);
-                
-                return () => clearTimeout(timer);
-            }
-        }
-    }, [isInventoryLoading, selectedChat, error, loadInventoryData]);
-
-    // Все useEffect хуки
-    useEffect(() => {
-        if (!currentUser?.id || !selectedChat) return;
-
+        if (!selectedChat || !currentUser?.id) return;
+        
         const userInfo = {
             id: currentUser.id,
             first_name: currentUser.first_name,
-            photo_url: currentUser.photo_url,
-            isAdmin: currentUser.isAdmin
+            photo_url: currentUser.photo_url
         };
-
-        joinRoom(selectedChat.chat_id, userInfo);
-
+        
+        // TODO: Восстановить функционал присоединения к комнате после реализации WebSocket
+        console.log('Должны подключиться к комнате:', selectedChat.chat_id, userInfo);
+        
         return () => {
-            leaveRoom(selectedChat.chat_id, {
-                ...userInfo,
-                isAdmin: currentUser.isAdmin
-            });
+            // TODO: Восстановить функционал отключения от комнаты после реализации WebSocket
+            console.log('Должны отключиться от комнаты:', selectedChat.chat_id, userInfo);
         };
-    }, [currentUser?.id, currentUser?.isAdmin, selectedChat, joinRoom, leaveRoom]);
+    }, [currentUser?.id, currentUser?.isAdmin, currentUser?.first_name, currentUser?.photo_url, selectedChat]);
 
     useEffect(() => {
         if (selectedChat?.metadata?.progress === 100 && chatId) {

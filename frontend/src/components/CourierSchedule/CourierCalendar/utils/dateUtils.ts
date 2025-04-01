@@ -43,7 +43,7 @@ export function isDateAvailable(date: Date, userId?: string | number, accessSett
     const user = state.user.user;
     
     // Проверяем, является ли пользователь старшим курьером
-    const isSeniorCourier = user?.isSeniorCourier || false;
+    const isSeniorCourier = user?.is_senior_courier || false;
     debugLog(`👤 Пользователь старший курьер: ${isSeniorCourier ? 'Да' : 'Нет'}`);
     
     // Для старших курьеров доступны все даты (если нет персональных ограничений)

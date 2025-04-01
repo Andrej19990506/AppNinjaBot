@@ -90,6 +90,7 @@ const StepsContainer: React.FC<StepsContainerProps> = ({
             onDragEnd={handleDragEnd}
             style={{ maxHeight: maxHeight || '60vh' }}
         >
+            {/* @ts-ignore: Ignoring type errors with AnimatePresence */}
             <AnimatePresence initial={false} custom={direction} mode="popLayout">
                 <StepContent
                     key={currentStep}

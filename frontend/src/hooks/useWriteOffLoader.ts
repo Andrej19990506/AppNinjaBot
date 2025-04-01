@@ -7,6 +7,7 @@ import {
     fetchWriteOffs
 } from '../store/slices/writeOffSlice';
 import { useNavigate } from 'react-router-dom';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { WriteOffItem, WriteOffChat as BaseWriteOffChat } from '../types/writeOff';
 
 interface UseWriteOffLoaderProps {
@@ -142,7 +143,7 @@ export const useWriteOffLoader = ({ chatId, currentUserId, isAdmin }: UseWriteOf
         return () => {
             isMounted = false;
         };
-    }, [currentUserId, loadWriteOffData]);
+    }, [currentUserId, loadWriteOffData, chatId, isAdmin]);
 
     // Эффект для проверки прав администратора
     useEffect(() => {

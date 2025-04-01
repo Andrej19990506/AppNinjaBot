@@ -20,4 +20,5 @@ flask-socketio==5.3.6
 python-socketio==5.10.0
 gevent==23.9.1
 gevent-websocket==0.10.1
-python-docx==1.0.1 
+python-docx==1.0.1
+psycopg2-binary==2.9.9 

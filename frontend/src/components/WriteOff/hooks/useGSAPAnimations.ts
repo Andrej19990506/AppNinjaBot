@@ -49,7 +49,9 @@ const useAnimations = () => {
 
     // Эффект для запуска анимаций при монтировании компонента
     useEffect(() => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const header = headerRef.current;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const listContainer = listContainerRef.current;
         
         // Здесь при необходимости можно добавить дополнительную логику

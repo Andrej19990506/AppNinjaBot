@@ -3,6 +3,9 @@ import asyncio
 import logging
 from telegramNinjaBot.config.config import Config
 from telegramNinjaBot.services.json_service import JsonService
+from telegramNinjaBot.services.courier_group_service import CourierGroupService
+from telegramNinjaBot.services.database_service import DatabaseService
+from telegramNinjaBot.services.group_service_adapter import GroupServiceAdapter
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
 from telegramNinjaBot.handlers.message_handlers import MessageHandler as BotMessageHandler
 from telegram.constants import ChatMemberStatus
@@ -27,17 +30,26 @@ from hypercorn.config import Config as HyperConfig
 from hypercorn.asyncio import serve
 import aiohttp
 
-# Настраиваем логирование
+# Определяем текущее окружение
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+
+# Настраиваем базовое логирование на уровне ERROR для всех окружений
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.ERROR
 )
 
-# Отключаем лишние предупреждения
-logging.getLogger('httpx').setLevel(logging.WARNING)
-logging.getLogger('telegram.ext.Application').setLevel(logging.WARNING)
+# Отключаем все лишние логи
+logging.getLogger('httpx').setLevel(logging.ERROR)
+logging.getLogger('telegram.ext.Application').setLevel(logging.ERROR)
+logging.getLogger('apscheduler').setLevel(logging.ERROR)
+logging.getLogger('asyncio').setLevel(logging.ERROR)
+logging.getLogger('telegram').setLevel(logging.ERROR)
 
+# Инициализируем логгер
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+logger.info(f"Бот запущен в окружении: {ENVIRONMENT}")
 
 # Создаем Flask приложение
 app = Flask(__name__)
@@ -47,6 +59,9 @@ CORS(app)
 bot_application = None
 group_handler = None
 json_service = None
+courier_service = None
+db_service = None
+group_service = None  # Новый адаптер для работы с группами
 deletion_requests = {}  # Добавляем словарь для хранения запросов на удаление
 
 # Путь к файлу для сохранения экземпляра бота
@@ -758,9 +773,43 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Ошибка при обработке callback: {str(e)}")
         logger.error(traceback.format_exc())
 
+async def run_flask():
+    """Запуск Flask сервера"""
+    config = HyperConfig()
+    config.bind = ["0.0.0.0:8001"]
+    config.use_reloader = False
+    await serve(app, config)
+
+def register_api_endpoints(bot):
+    """
+    Регистрирует эндпоинты API и делает сервисы доступными для Flask приложения.
+    
+    Args:
+        bot: Экземпляр Telegram бота
+    """
+    global app, group_service
+    
+    try:
+        logger.info("Регистрация API эндпоинтов и добавление сервисов в контекст Flask")
+        
+        # Добавляем group_service в контекст Flask приложения 
+        app.group_service = group_service
+        logger.info(f"✅ Сервис групп добавлен в контекст Flask: {app.group_service.__class__.__name__}")
+        
+        # Можно добавить дополнительные сервисы при необходимости
+        # app.db_service = db_service
+        # app.json_service = json_service
+        
+        # Передаем экземпляр бота в приложение Flask
+        app.telegram_bot = bot
+        logger.info("✅ API эндпоинты и сервисы успешно зарегистрированы")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при регистрации API эндпоинтов: {e}")
+        logger.error(traceback.format_exc())
+
 async def run_bot():
     """Асинхронный запуск бота"""
-    global bot_application, group_handler, json_service
+    global bot_application, group_handler, json_service, courier_service, db_service, group_service
     
     # Пытаемся получить блокировку
     lock_fd = acquire_lock()
@@ -772,6 +821,26 @@ async def run_bot():
         # Инициализация конфигурации и сервисов
         config = Config()
         json_service = JsonService(config.DATA_DIR)
+        courier_service = CourierGroupService(config.DATA_DIR)
+
+        use_database = os.getenv('USE_DATABASE', 'false').lower() == 'true'
+        logger.info(f"Использование базы данных: {use_database}")
+
+        # Если включено использование базы данных, инициализируем сервис БД
+        if use_database:
+            try:
+                db_service = DatabaseService()
+                logger.info(f"Сервис базы данных инициализирован")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при инициализации сервиса базы данных: {e}")
+                logger.error(traceback.format_exc())
+                db_service = None
+        else:
+            db_service = None
+        
+        # Инициализируем адаптер групп
+        group_service = GroupServiceAdapter(courier_service, db_service)
+        logger.info(f"Адаптер групп инициализирован")
 
         # Настраиваем планировщик с явным указанием часового пояса
         scheduler = AsyncIOScheduler(timezone=pytz.UTC)
@@ -794,6 +863,11 @@ async def run_bot():
         # Создаем групповой обработчик
         group_handler = GroupHandler(bot_application, json_service)
         
+        # Используем новый адаптер групп - ВАЖНО: заменяем courier_service на group_service
+        logger.info(f"Перед заменой: group_handler.courier_service = {group_handler.courier_service.__class__.__name__}")
+        group_handler.courier_service = group_service
+        logger.info(f"После замены: group_handler.courier_service = {group_handler.courier_service.__class__.__name__}")
+
         # Создаем обработчик сообщений
         message_handler = BotMessageHandler(config.DATA_DIR)
 
@@ -889,12 +963,8 @@ async def run_bot():
 
         # Обновляем структуру файлов групп
         logger.info("Обновление структуры файлов групп...")
-        courier_service = group_handler.courier_service
-        if courier_service:
-            updated = await courier_service.update_all_groups_structure()
-            logger.info(f"✅ Обновлено {updated} файлов групп курьеров")
-        else:
-            logger.warning("Экземпляр CourierService не доступен для обновления файлов групп")
+        updated = await group_handler.courier_service.update_all_groups_structure()
+        logger.info(f"✅ Обновлено {updated} файлов групп курьеров")
 
         # Сохраняем экземпляр бота в общей директории
         save_bot_instance()
@@ -972,171 +1042,64 @@ async def run_bot():
         # Освобождаем блокировку при завершении
         release_lock(lock_fd)
 
-@app.route('/api/photo/<path:photo_id>')
-async def get_photo(photo_id):
-    """Получение фотографии пользователя"""
-    try:
-        if photo_id.startswith('local:'):
-            user_id = photo_id.split(':')[1]
-            photos = await bot_application.bot.get_user_profile_photos(user_id, limit=1)
-            if photos and photos.photos:
-                file_id = photos.photos[0][-1].file_id
-                file = await bot_application.bot.get_file(file_id)
-                response = requests.get(file.file_path)
-                if response.status_code == 200:
-                    return send_file(
-                        BytesIO(response.content),
-                        mimetype='image/jpeg'
-                    )
-        return jsonify({'error': 'Photo not found'}), 404
-    except Exception as e:
-        logger.error(f"Error serving photo: {e}")
-        return jsonify({'error': str(e)}), 500
+def init_bot():
+    """Инициализация бота и сервисов"""
+    global bot_application, group_handler, json_service, courier_service, db_service, group_service
+    
+    # Настройки бота
+    config = Config()
+    logger.info(f"Конфигурация загружена")
 
-@app.route('/api/notify_deletion', methods=['POST'])
-async def handle_deletion_notification():
-    """Обработка запроса на рассылку уведомления об удалении"""
-    try:
-        data = request.get_json()
-        
-        if not all(key in data for key in ['deletion_id', 'branch_name', 'category', 'item']):
-            return jsonify({'error': 'Missing required fields'}), 400
-        
-        # Создаем новый event loop для этого запроса
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
+    use_database = os.getenv('USE_DATABASE', 'false').lower() == 'true'
+    logger.info(f"Использование базы данных: {use_database}")
+
+    # Инициализируем JSON сервис
+    json_service = JsonService(config.DATA_DIR)
+    logger.info(f"Сервис JSON инициализирован")
+
+    # Инициализируем сервис групп курьеров
+    courier_service = CourierGroupService(config.DATA_DIR)
+    logger.info(f"Сервис групп курьеров инициализирован")
+    
+    # Если включено использование базы данных, инициализируем сервис БД
+    if use_database:
         try:
-            # Запускаем broadcast_item_deletion в новом event loop
-            result = await broadcast_item_deletion(data)
-            return jsonify({
-                'status': 'success',
-                'initiator_message_id': result.get('initiator_message_id')
-            })
-        finally:
-            # Закрываем event loop
-            loop.close()
-            
-    except Exception as e:
-        logger.error(f"Ошибка при обработке уведомления об удалении: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': str(e)}), 500
+            db_service = DatabaseService()
+            logger.info(f"Сервис базы данных инициализирован")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при инициализации сервиса базы данных: {e}")
+            logger.error(traceback.format_exc())
+            db_service = None
+    else:
+        db_service = None
+    
+    # Инициализируем адаптер групп
+    group_service = GroupServiceAdapter(courier_service, db_service)
+    logger.info(f"Адаптер групп инициализирован")
 
-@app.route('/api/send_love', methods=['POST'])
-async def handle_send_love():
-    """Обработка запроса на отправку любовных сообщений"""
-    try:
-        data = request.get_json()
-        if not data.get('user_id'):
-            return jsonify({'error': 'user_id is required'}), 400
-            
-        await group_handler.send_love_messages(
-            bot_application.bot,
-            data['user_id'],
-            data.get('count', 100)
-        )
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        logger.error(f"Error sending love messages: {e}")
-        return jsonify({'error': str(e)}), 500
+    # Создаем экземпляр бота
+    token = config.TOKEN
+    application = Application.builder().token(token).build()
+    logger.info(f"✅ Экземпляр бота создан")
 
-@app.route('/api/send_message', methods=['POST'])
-async def send_message():
-    """API endpoint для отправки сообщений через бота"""
-    try:
-        data = request.get_json()
-        chat_id = data.get('chat_id')
-        text = data.get('text')
-        parse_mode = data.get('parse_mode', 'HTML')
-        
-        if not chat_id or not text:
-            return jsonify({"error": "chat_id и text обязательны"}), 400
-            
-        # Преобразуем chat_id в строку и пробуем разные форматы
-        chat_id_str = str(chat_id)
-        chat_id_formats = []
-        
-        # Определяем форматы ID для попыток
-        if chat_id_str.startswith('-'):
-            if chat_id_str.startswith('-100'):
-                chat_id_formats = [chat_id_str, f"-{chat_id_str[4:]}"]
-            else:
-                chat_id_formats = [chat_id_str, f"-100{chat_id_str[1:]}"]
-        else:
-            chat_id_formats = [f"-{chat_id_str}", f"-100{chat_id_str}"]
-        
-        # Создаем новый event loop для каждого запроса
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        
-        try:
-            # Пробуем каждый формат ID
-            success = False
-            last_error = None
-            
-            for format_id in chat_id_formats:
-                try:
-                    # Проверяем, является ли бот участником чата
-                    try:
-                        chat_member = await bot_application.bot.get_chat_member(format_id, bot_application.bot.id)
-                        if chat_member.status not in ['administrator', 'creator', 'member']:
-                            logger.error(f"Бот не является участником чата {format_id}")
-                            continue
-                    except Exception as e:
-                        logger.error(f"Ошибка при проверке участника чата {format_id}: {str(e)}")
-                        continue
-                    
-                    # Отправляем сообщение
-                    await bot_application.bot.send_message(
-                        chat_id=format_id,
-                        text=text,
-                        parse_mode=parse_mode
-                    )
-                    success = True
-                    logger.info(f"✅ Сообщение успешно отправлено в чат {format_id}")
-                    break
-                except Exception as e:
-                    last_error = e
-                    logger.error(f"❌ Ошибка при отправке сообщения в чат {format_id}: {str(e)}")
-                    continue
-                    
-            if not success:
-                error_msg = f"Не удалось отправить сообщение ни в один из форматов чата. Последняя ошибка: {str(last_error)}"
-                logger.error(error_msg)
-                return jsonify({"error": error_msg}), 500
-                
-            return jsonify({"status": "success"})
-        finally:
-            # Завершаем и закрываем event loop
-            try:
-                # Закрываем все незавершенные задачи
-                pending = asyncio.all_tasks(loop=loop)
-                for task in pending:
-                    task.cancel()
-                
-                # Выполняем асинхронное завершение
-                if sys.version_info >= (3, 9):
-                    # В Python 3.9+ используем shutdown_default_executor
-                    loop.run_until_complete(loop.shutdown_asyncgens())
-                    loop.run_until_complete(loop.shutdown_default_executor())
-                else:
-                    # В более ранних версиях только shutdown_asyncgens
-                    loop.run_until_complete(loop.shutdown_asyncgens())
-                
-                loop.close()
-            except Exception as e:
-                logger.error(f"Ошибка при закрытии event loop: {str(e)}")
-        
-    except Exception as e:
-        logger.error(f"Ошибка при отправке сообщения: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+    # Инициализируем обработчики
+    bot_application = application
+    
+    # Инициализируем обработчик групповых событий
+    group_handler = GroupHandler(application, json_service)
+    
+    # Используем новый адаптер групп
+    logger.info(f"Перед заменой: group_handler.courier_service = {group_handler.courier_service.__class__.__name__}")
+    group_handler.courier_service = group_service
+    logger.info(f"После замены: group_handler.courier_service = {group_handler.courier_service.__class__.__name__}")
+    
+    asyncio.get_event_loop().run_until_complete(group_handler.initialize())
+    logger.info(f"✅ Обработчик групповых событий инициализирован")
 
-async def run_flask():
-    """Запуск Flask сервера"""
-    config = HyperConfig()
-    config.bind = ["0.0.0.0:8001"]
-    config.use_reloader = False
-    await serve(app, config)
+    # Регистрируем REST API эндпоинты
+    register_api_endpoints(bot_application.bot)
+    
+    return application
 
 if __name__ == '__main__':
     try:

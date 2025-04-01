@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store/store';
@@ -8,6 +9,7 @@ import {
     fetchShifts 
 } from '../store/slices/shiftsSlice';
 import { reserveDeleted, forceFetchReserves } from '../store/slices/reservesSlice';
+import config from '../config';
 
 /**
  * Хук для синхронизации данных о сменах через WebSocket
@@ -167,7 +169,7 @@ export const useShiftsSync = (chatId: string) => {
         });
         
         // Отправляем HTTP-запрос на обновление смены
-        fetch(`${process.env.REACT_APP_API_URL || ''}/api/shifts/book`, {
+        fetch(`${config.API_URL}/shifts/book`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

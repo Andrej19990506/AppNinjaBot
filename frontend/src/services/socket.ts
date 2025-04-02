@@ -67,10 +67,10 @@ class SocketService {
   // Отслеживание присоединенных комнат
   private joinedRooms: Set<string> = new Set();
   // Храним последний использованный URL
-  private lastUsedUrl: string = 'ws://localhost/socket.io';
+  private lastUsedUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost/socket.io';
 
   // Инициализация Socket.IO
-  init(wsUrl: string = 'ws://localhost/socket.io'): Socket | null {
+  init(wsUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost/socket.io'): Socket | null {
     // Нормализуем URL, чтобы удалить возможные дублирования пути
     const normalizedUrl = wsUrl.includes('/socket.io') 
       ? wsUrl.split('/socket.io')[0] 

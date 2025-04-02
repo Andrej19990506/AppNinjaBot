@@ -567,7 +567,7 @@ async def handle_deletion_callback(update: Update, context: ContextTypes.DEFAULT
                                     
                                     # Создаем обновленное сообщение для инициатора
                                     status_message = (
-                                        "📤 Запрос на удаление товара\n\n"
+                                        "�� Запрос на удаление товара\n\n"
                                         f"Категория: {deletion_data['data']['category']}\n"
                                         f"Товар: {deletion_data['data']['item']}\n\n"
                                         "Статус подтверждений:\n"

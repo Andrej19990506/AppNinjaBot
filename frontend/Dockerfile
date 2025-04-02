@@ -41,8 +41,14 @@ RUN npm run build
 FROM nginx:alpine as production
 COPY --from=production-build /app/build /usr/share/nginx/html
 
-# Копируем конфигурацию nginx
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Создаем базовую конфигурацию nginx
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
 # Создаем entrypoint скрипт для подстановки переменных окружения
 RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \

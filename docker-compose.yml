@@ -6,13 +6,15 @@ services:
       context: ./backend/telegramNinjaBot
     volumes:
       - shared-data:/app/shared
+      - ./backend:/app
     env_file:
       - ./backend/telegramNinjaBot/.env.dev
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
     networks:
       - ninja_network
-    command: python -u -m telegramNinjaBot.bot
+    command: python -u /app/telegramNinjaBot/bot.py
 
   server:
     build:
@@ -31,7 +33,6 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app
 
   scheduler:
     build:
@@ -49,22 +50,31 @@ services:
   frontend:
     build:
       context: ./frontend
-      target: development
-    ports:
-      - "${PORT:-3000}:${PORT:-3000}"
-    environment:
-      - NODE_ENV=${NODE_ENV:-development}
-      - PORT=${PORT:-3000}
+      target: ${NODE_ENV:-development}
+    expose:
+      - 3000
+    env_file:
+      - ./frontend/.env${NODE_ENV:+.prod}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - server
+      - websocket
     networks:
       - ninja_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   websocket:
     build:
       context: ./websocket-service
-    ports:
-      - "8001:8001"
+    expose:
+      - "8001"
     environment:
       - PYTHONUNBUFFERED=1
       - PORT=8001
@@ -87,6 +97,9 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    volumes:
+      - ./websocket-service/nginx.conf.prod:/etc/nginx/nginx.conf
+      - ./websocket-service/test_client.html:/var/www/appninjabot/websocket-service/index.html
     depends_on:
       - frontend
       - server

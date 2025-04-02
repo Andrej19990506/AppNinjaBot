@@ -36,7 +36,7 @@ export const useWebSocketConnection = () => {
     }
 
     logger.log('🔄 [useWebSocketConnection] Инициализация сокета');
-    const wsUrl = 'ws://localhost';
+    const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost';
     const socket = socketService.init(wsUrl);
     if (socket) {
       isSocketInitialized = true;

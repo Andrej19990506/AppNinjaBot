@@ -25,5 +25,6 @@ COPY . .
 CMD ["python", "-u", "app.py"]
 
 FROM base as production
-# В production stage не копируем файлы, они будут монтироваться через volumes
-CMD ["python", "scheduler/app.py"] 
+# В production stage копируем все файлы
+COPY . .
+CMD ["python", "app.py"] 

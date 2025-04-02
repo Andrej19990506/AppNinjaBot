@@ -72,7 +72,7 @@ http {
 
         # Frontend
         location / {
-            proxy_pass http://localhost:3000;
+            proxy_pass http://frontend:3000;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
@@ -83,7 +83,7 @@ http {
         # API
         location /api {
             rewrite ^/api/(.*) /$1 break;
-            proxy_pass http://localhost:8000;
+            proxy_pass http://server:8000;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
@@ -93,7 +93,7 @@ http {
 
         # WebSocket endpoint
         location /socket.io/ {
-            proxy_pass http://localhost:8001;
+            proxy_pass http://websocket:8001;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
@@ -140,7 +140,7 @@ http {
 
         # Health check endpoint
         location /health {
-            proxy_pass http://localhost:8001;
+            proxy_pass http://websocket:8001;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -155,7 +155,7 @@ http {
 
         # Metrics endpoint
         location /metrics {
-            proxy_pass http://localhost:8001;
+            proxy_pass http://websocket:8001;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;

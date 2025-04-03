@@ -16,6 +16,6 @@ module.exports = {
         hot: true,
         client: {
             overlay: true,
-        },
+        }
     }
 }; 

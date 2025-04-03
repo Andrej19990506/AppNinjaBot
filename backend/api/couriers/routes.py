@@ -8,9 +8,10 @@ import os
 import datetime
 from flask import request, jsonify, current_app
 from typing import Dict, Any, Optional
+from psycopg2.extras import RealDictCursor
 
 from . import couriers_bp
-from data.users import get_user_data, get_courier_status_in_chat, get_user_groups
+from data.users import get_user_data, get_courier_status_in_chat, get_user_groups, get_postgres_connection
 
 # Получаем глобальный экземпляр group_service
 try:
@@ -21,35 +22,6 @@ except ImportError:
 
 # Логгер
 logger = logging.getLogger(__name__)
-
-# def get_user_data(user_id: int) -> Dict[str, Any]:
-#     """Получение данных пользователя из файлов members"""
-#     try:
-#         # Загружаем данные из members.json
-#         members_data = current_app.load_bot_data('members.json')
-#         
-#         # Ищем пользователя во всех группах
-#         for chat_id, chat_data in members_data.items():
-#             members = chat_data.get('members', [])
-#             
-#             for member in members:
-#                 if member.get('user_id') == user_id:
-#                     # Нашли пользователя
-#                     return {
-#                         'user_id': user_id,
-#                         'first_name': member.get('first_name', ''),
-#                         'last_name': member.get('last_name', ''),
-#                         'username': member.get('username', ''),
-#                         'photo_url': member.get('photo_url', ''),
-#                         'chat_id': chat_id,
-#                         'member_data': member
-#                     }
-#         
-#         # Пользователь не найден
-#         return None
-#     except Exception as e:
-#         logger.error(f"Error getting user data for user {user_id}: {str(e)}")
-#         return None
 
 @couriers_bp.route('/<int:user_id>/groups', methods=['GET'])
 def get_user_groups_route(user_id):
@@ -70,41 +42,14 @@ def get_user_groups_route(user_id):
             logger.info('group_service не найден, используем get_user_groups напрямую')
             result = get_user_groups(user_id)
         
-        # Устанавливаем CORS-заголовки
-        response = jsonify(result)
-        return set_cors_headers(response)
+        return jsonify(result)
     except Exception as e:
         logger.error(f'Ошибка при получении групп пользователя: {str(e)}')
         logger.error(traceback.format_exc())
-        response = jsonify({
+        return jsonify({
             'success': False,
             'error': str(e)
         }), 500
-        return set_cors_headers(response[0]), response[1]
-
-def set_cors_headers(response):
-    """Установка CORS-заголовков для ответа"""
-    origin = request.headers.get('Origin', '')
-    allowed_origins = [
-        "https://nowhere-permissions-finder-conscious.trycloudflare.com",
-        "https://consequently-iowa-brought-slide.trycloudflare.com",
-        "https://constitute-handling-texas-interference.trycloudflare.com",
-        "https://quiet-non-consistent-emissions.trycloudflare.com",
-        "https://reform-hand-simple-invisible.trycloudflare.com",
-        "https://pearl-roy-hugo-equity.trycloudflare.com",
-        "http://localhost:3000"
-    ]
-    
-    if origin in allowed_origins:
-        response.headers["Access-Control-Allow-Origin"] = origin
-    else:
-        response.headers["Access-Control-Allow-Origin"] = "http://localhost:3000"
-        
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
-    response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept"
-    response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Max-Age"] = "3600"
-    return response
 
 @couriers_bp.route('/<int:courier_id>/status', methods=['GET'])
 def get_courier_status(courier_id):
@@ -115,88 +60,65 @@ def get_courier_status(courier_id):
         logger.info(f"=== Получение статуса курьера {courier_id} ===")
         logger.info(f"Chat ID из запроса: {request_chat_id}")
         
-        # Загружаем данные об админах
-        admins_data = current_app.load_bot_data('admins.json')
-        logger.info(f"Данные об админах: {admins_data}")
-        
-        # Загружаем данные о пользователе
-        user_data = get_user_data(courier_id)
-        logger.info(f"Данные пользователя: {user_data}")
-        
-        if not user_data:
-            logger.error(f"Пользователь {courier_id} не найден")
-            return jsonify({
-                'error': 'User not found',
-                'status': 'not_found'
-            }), 404
-        
-        # Используем chat_id из запроса, если он передан, иначе из данных пользователя
-        chat_id = request_chat_id or user_data.get('chat_id')
-        logger.info(f"Используемый chat_id: {chat_id}")
-        
-        if not chat_id:
-            logger.error(f"Не удалось определить chat_id для пользователя {courier_id}")
-            return jsonify({
-                'error': 'Chat ID not found',
-                'status': 'not_found'
-            }), 404
-            
-        # Получаем статус курьера в чате
-        if request_chat_id:
-            courier_status = get_courier_status_in_chat(courier_id, request_chat_id)
-            logger.info(f"Статус курьера в чате: {courier_status}")
-            is_senior_courier = courier_status.get('is_senior_courier', False)
-        else:
-            is_senior_courier = user_data.get('is_senior_courier', False)
-        
-        # Проверяем, является ли пользователь админом
-        is_admin = False
-        chat_admins = admins_data.get(str(chat_id), {}).get('admins', [])
-        logger.info(f"Админы чата: {chat_admins}")
-        
-        if courier_id in chat_admins:
-            is_admin = True
-        
-        # Проверяем, есть ли у пользователя сессия
-        sessions_data = current_app.load_bot_data('sessions.json')
-        user_sessions = sessions_data.get(str(courier_id), [])
-        active_session = None
-        
-        # Если есть активные сессии, берем последнюю
-        if user_sessions:
-            latest_session = user_sessions[-1]
-            if latest_session.get('status') == 'active':
-                active_session = latest_session
-        
-        # Загружаем данные о кошельке
-        wallet_data = current_app.load_bot_data('wallets.json')
-        user_wallet = wallet_data.get(str(courier_id), {'balance': 0, 'transactions': []})
-        
-        # Формируем ответ
-        response = {
-            'user_id': courier_id,
-            'first_name': user_data.get('first_name', ''),
-            'last_name': user_data.get('last_name', ''),
-            'username': user_data.get('username', ''),
-            'photo_url': user_data.get('photo_url', ''),
-            'chat_id': chat_id,
-            'is_admin': is_admin,
-            'is_senior_courier': is_senior_courier,
-            'active_session': active_session,
-            'wallet': {
-                'balance': user_wallet.get('balance', 0),
-                'transactions_count': len(user_wallet.get('transactions', []))
-            },
-            'status': 'active'
-        }
-        
-        logger.info(f"Возвращаем статус курьера: {response}")
-        return set_cors_headers(jsonify(response))
+        # Подключаемся к базе данных
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'error': 'Ошибка подключения к базе данных'}), 500
+
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Получаем данные пользователя
+                cursor.execute("""
+                    SELECT m.id, m.user_id, m.first_name, m.last_name, m.username, m.photo_url,
+                           gm.role, g.chat_id
+                    FROM members m
+                    LEFT JOIN group_members gm ON m.id = gm.member_id
+                    LEFT JOIN groups g ON gm.group_id = g.id
+                    WHERE m.user_id = %s
+                    AND (g.chat_id = %s OR %s IS NULL)
+                    LIMIT 1
+                """, (courier_id, request_chat_id, request_chat_id))
+                
+                user_data = cursor.fetchone()
+                
+                if not user_data:
+                    logger.error(f"Пользователь {courier_id} не найден")
+                    return jsonify({
+                        'error': 'User not found',
+                        'status': 'not_found'
+                    }), 404
+
+                # Определяем статус пользователя
+                is_senior_courier = user_data.get('role') in ['senior_courier', 'admin', 'creator']
+                is_admin = user_data.get('role') in ['admin', 'creator']
+                
+                # Формируем ответ
+                response = {
+                    'user_id': courier_id,
+                    'first_name': user_data.get('first_name', ''),
+                    'last_name': user_data.get('last_name', ''),
+                    'username': user_data.get('username', ''),
+                    'photo_url': user_data.get('photo_url', ''),
+                    'chat_id': user_data.get('chat_id'),
+                    'is_admin': is_admin,
+                    'is_senior_courier': is_senior_courier,
+                    'active_session': None,
+                    'wallet': {
+                        'balance': 0,
+                        'transactions_count': 0
+                    },
+                    'status': 'active'
+                }
+                
+                logger.info(f"Возвращаем статус курьера: {response}")
+                return jsonify(response)
+        finally:
+            conn.close()
+
     except Exception as e:
         logger.error(f"Error getting courier status for courier {courier_id}: {str(e)}")
         logger.error(traceback.format_exc())
-        response = jsonify({'error': str(e)}), 500
-        return set_cors_headers(response[0]), response[1]
+        return jsonify({'error': str(e)}), 500
 
 @couriers_bp.route('/<int:courier_id>/promote', methods=['POST'])
 def promote_courier(courier_id):
@@ -208,55 +130,61 @@ def promote_courier(courier_id):
         if not auth_token:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Загружаем данные о пользователе
-        user_data = get_user_data(courier_id)
-        
-        if not user_data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        chat_id = user_data['chat_id']
-        
-        # Загружаем данные об админах
-        admins_data = current_app.load_bot_data('admins.json')
-        
-        # Проверяем, существует ли запись для чата
-        if str(chat_id) not in admins_data:
-            admins_data[str(chat_id)] = {
-                'chat_id': chat_id,
-                'chat_title': user_data.get('chat_title', f'Chat {chat_id}'),
-                'admins': []
-            }
-        
-        # Проверяем, является ли пользователь уже админом
-        chat_admins = admins_data[str(chat_id)].get('admins', [])
-        
-        if courier_id in chat_admins:
-            return jsonify({
-                'status': 'already_admin',
-                'message': 'User is already an admin'
-            })
-        
-        # Добавляем пользователя в список админов
-        chat_admins.append(courier_id)
-        admins_data[str(chat_id)]['admins'] = chat_admins
-        
-        # Сохраняем обновленные данные
-        current_app.save_bot_data('admins.json', admins_data)
-        
-        # Отправляем уведомление в бот
+        # Подключаемся к базе данных
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'error': 'Ошибка подключения к базе данных'}), 500
+
         try:
-            admin_user = get_user_data(int(auth_token))
-            admin_name = admin_user.get('first_name', 'Admin') if admin_user else 'Admin'
-            
-            message = f"🌟 {user_data.get('first_name', 'Courier')} был(а) повышен(а) до администратора пользователем {admin_name}"
-            current_app.send_telegram_message(chat_id, message)
-        except Exception as e:
-            logger.error(f"Error sending notification to Telegram: {str(e)}")
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'User promoted to admin successfully'
-        })
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Получаем данные пользователя
+                cursor.execute("""
+                    SELECT m.id, m.first_name, m.last_name,
+                           g.id as group_id, g.chat_id
+                    FROM members m
+                    JOIN group_members gm ON m.id = gm.member_id
+                    JOIN groups g ON gm.group_id = g.id
+                    WHERE m.user_id = %s
+                    LIMIT 1
+                """, (courier_id,))
+                
+                user_data = cursor.fetchone()
+                
+                if not user_data:
+                    return jsonify({'error': 'User not found'}), 404
+
+                # Проверяем, является ли пользователь уже админом
+                cursor.execute("""
+                    SELECT role
+                    FROM group_members
+                    WHERE member_id = %s AND group_id = %s
+                """, (user_data['id'], user_data['group_id']))
+                
+                member_role = cursor.fetchone()
+                
+                if member_role and member_role['role'] in ['admin', 'creator']:
+                    return jsonify({
+                        'status': 'already_admin',
+                        'message': 'User is already an admin'
+                    })
+
+                # Обновляем роль пользователя
+                cursor.execute("""
+                    UPDATE group_members
+                    SET role = 'admin'
+                    WHERE member_id = %s AND group_id = %s
+                    RETURNING role
+                """, (user_data['id'], user_data['group_id']))
+                
+                conn.commit()
+                
+                return jsonify({
+                    'status': 'success',
+                    'message': 'User promoted to admin successfully'
+                })
+        finally:
+            conn.close()
+
     except Exception as e:
         logger.error(f"Error promoting courier {courier_id}: {str(e)}")
         logger.error(traceback.format_exc())
@@ -272,54 +200,77 @@ def demote_courier(courier_id):
         if not auth_token:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Загружаем данные о пользователе
-        user_data = get_user_data(courier_id)
-        
-        if not user_data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        chat_id = user_data['chat_id']
-        
-        # Загружаем данные об админах
-        admins_data = current_app.load_bot_data('admins.json')
-        
-        # Проверяем, существует ли запись для чата
-        if str(chat_id) not in admins_data:
-            return jsonify({
-                'status': 'not_admin',
-                'message': 'User is not an admin'
-            })
-        
-        # Проверяем, является ли пользователь админом
-        chat_admins = admins_data[str(chat_id)].get('admins', [])
-        
-        if courier_id not in chat_admins:
-            return jsonify({
-                'status': 'not_admin',
-                'message': 'User is not an admin'
-            })
-        
-        # Удаляем пользователя из списка админов
-        chat_admins.remove(courier_id)
-        admins_data[str(chat_id)]['admins'] = chat_admins
-        
-        # Сохраняем обновленные данные
-        current_app.save_bot_data('admins.json', admins_data)
-        
-        # Отправляем уведомление в бот
+        # Подключаемся к базе данных
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'error': 'Ошибка подключения к базе данных'}), 500
+
         try:
-            admin_user = get_user_data(int(auth_token))
-            admin_name = admin_user.get('first_name', 'Admin') if admin_user else 'Admin'
-            
-            message = f"⬇️ {user_data.get('first_name', 'Courier')} был(а) лишен(а) прав администратора пользователем {admin_name}"
-            current_app.send_telegram_message(chat_id, message)
-        except Exception as e:
-            logger.error(f"Error sending notification to Telegram: {str(e)}")
-        
-        return jsonify({
-            'status': 'success',
-            'message': 'User demoted from admin successfully'
-        })
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Получаем данные пользователя
+                cursor.execute("""
+                    SELECT m.id, m.first_name, m.last_name,
+                           g.id as group_id, g.chat_id
+                    FROM members m
+                    JOIN group_members gm ON m.id = gm.member_id
+                    JOIN groups g ON gm.group_id = g.id
+                    WHERE m.user_id = %s
+                    LIMIT 1
+                """, (courier_id,))
+                
+                user_data = cursor.fetchone()
+                
+                if not user_data:
+                    return jsonify({'error': 'User not found'}), 404
+
+                # Проверяем, является ли пользователь админом
+                cursor.execute("""
+                    SELECT role
+                    FROM group_members
+                    WHERE member_id = %s AND group_id = %s
+                """, (user_data['id'], user_data['group_id']))
+                
+                member_role = cursor.fetchone()
+                
+                if not member_role or member_role['role'] not in ['admin']:
+                    return jsonify({
+                        'status': 'not_admin',
+                        'message': 'User is not an admin'
+                    })
+
+                # Понижаем пользователя до обычного курьера
+                cursor.execute("""
+                    UPDATE group_members
+                    SET role = 'courier'
+                    WHERE member_id = %s AND group_id = %s
+                """, (user_data['id'], user_data['group_id']))
+                
+                conn.commit()
+
+                # Отправляем уведомление в бот
+                try:
+                    # Получаем данные админа, который выполняет понижение
+                    cursor.execute("""
+                        SELECT first_name
+                        FROM members
+                        WHERE user_id = %s
+                    """, (auth_token,))
+                    
+                    admin_data = cursor.fetchone()
+                    admin_name = admin_data['first_name'] if admin_data else 'Admin'
+                    
+                    message = f"⬇️ {user_data['first_name']} {user_data['last_name']} был(а) понижен(а) из администраторов пользователем {admin_name}"
+                    current_app.send_telegram_message(user_data['chat_id'], message)
+                except Exception as e:
+                    logger.error(f"Error sending notification to Telegram: {str(e)}")
+
+                return jsonify({
+                    'status': 'success',
+                    'message': 'User demoted from admin successfully'
+                })
+        finally:
+            conn.close()
+
     except Exception as e:
         logger.error(f"Error demoting courier {courier_id}: {str(e)}")
         logger.error(traceback.format_exc())
@@ -344,44 +295,59 @@ def update_courier_profile(user_id):
         if not first_name or not last_name:
             return jsonify({'error': 'Необходимо указать имя и фамилию'}), 400
 
-        # Путь к файлу с данными курьеров
-        courier_data_path = os.path.join(current_app.config.get('APP_DIR', ''), 'telegramNinjaBot', 'data', 'courier_groups')
-        
-        # Загружаем данные пользователя
-        user_data = get_user_data(user_id)
-        
-        if not user_data:
-            return jsonify({'error': 'Пользователь не найден'}), 404
-            
-        chat_id = user_data.get('chat_id')
-        
-        # Загружаем данные из members.json
-        members_data = current_app.load_bot_data('members.json')
-        
-        # Обновляем данные пользователя
-        if str(chat_id) in members_data:
-            for member in members_data[str(chat_id)].get('members', []):
-                if member.get('user_id') == user_id:
-                    member['first_name'] = first_name
-                    member['last_name'] = last_name
-                    member['is_senior_courier'] = is_senior_courier
-                    break
-            
-            # Сохраняем обновленные данные
-            current_app.save_bot_data('members.json', members_data)
-            
-            return jsonify({
-                'status': 'success',
-                'message': 'Профиль успешно обновлен',
-                'user': {
-                    'user_id': user_id,
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'is_senior_courier': is_senior_courier
-                }
-            })
-        else:
-            return jsonify({'error': 'Чат не найден'}), 404
+        # Подключаемся к базе данных
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'error': 'Ошибка подключения к базе данных'}), 500
+
+        try:
+            with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+                # Проверяем существование пользователя
+                cursor.execute("""
+                    SELECT id, first_name, last_name, photo_url
+                    FROM members 
+                    WHERE user_id = %s
+                """, (user_id,))
+                
+                user = cursor.fetchone()
+                if not user:
+                    return jsonify({'error': 'Пользователь не найден'}), 404
+
+                # Обновляем данные пользователя
+                cursor.execute("""
+                    UPDATE members 
+                    SET first_name = %s, last_name = %s
+                    WHERE user_id = %s
+                    RETURNING id, first_name, last_name, photo_url
+                """, (first_name, last_name, user_id))
+                
+                conn.commit()
+                updated_user = cursor.fetchone()
+
+                # Если пользователь является старшим курьером, обновляем его роль во всех группах
+                if is_senior_courier:
+                    cursor.execute("""
+                        UPDATE group_members
+                        SET role = 'senior_courier'
+                        WHERE member_id = %s AND role = 'courier'
+                    """, (user['id'],))
+                    conn.commit()
+
+                return jsonify({
+                    'status': 'success',
+                    'message': 'Профиль успешно обновлен',
+                    'user': {
+                        'user_id': user_id,
+                        'first_name': updated_user['first_name'],
+                        'last_name': updated_user['last_name'],
+                        'photo_url': updated_user['photo_url'],
+                        'is_senior_courier': is_senior_courier
+                    }
+                })
+
+        finally:
+            conn.close()
+
     except Exception as e:
         logger.error(f"Error updating courier profile for user {user_id}: {str(e)}")
         logger.error(traceback.format_exc())

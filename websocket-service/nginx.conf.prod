@@ -72,7 +72,7 @@ http {
 
         # Frontend
         location / {
-            proxy_pass http://frontend:3000;
+            proxy_pass http://frontend:80;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
@@ -80,15 +80,63 @@ http {
             proxy_cache_bypass $http_upgrade;
         }
 
-        # API
+        # API without trailing slash
         location /api {
-            rewrite ^/api/(.*) /$1 break;
+            rewrite ^/api$ /api/ permanent;
+            rewrite ^/api([^/])(.*)$ /api/$1$2 permanent;
+        }
+
+        # API
+        location /api/ {
             proxy_pass http://server:8000;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
             proxy_set_header Host $host;
             proxy_cache_bypass $http_upgrade;
+            
+            # Заголовки для правильной работы API
+            proxy_set_header X-Real-IP $http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+
+            # CORS headers
+            add_header 'Access-Control-Allow-Origin' $http_origin always;
+            add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS' always;
+            add_header 'Access-Control-Allow-Headers' 'Origin, X-Requested-With, Content-Type, Accept, Authorization' always;
+            add_header 'Access-Control-Allow-Credentials' 'true' always;
+            add_header 'Access-Control-Max-Age' 3600 always;
+
+            # Preflight requests
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' $http_origin;
+                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
+                add_header 'Access-Control-Allow-Headers' 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
+                add_header 'Access-Control-Allow-Credentials' 'true';
+                add_header 'Access-Control-Max-Age' 3600;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+        }
+
+        # Маршрут для отправки сообщений от шедулера к боту
+        location /send_message {
+            proxy_pass http://bot:8001/api/send_message;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            
+            # Логи
+            access_log /var/log/nginx/scheduler_bot_proxy_access.log;
+            error_log /var/log/nginx/scheduler_bot_proxy_error.log warn;
         }
 
         # WebSocket endpoint

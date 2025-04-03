@@ -1,8 +1,11 @@
+import logging
 import socketio
 import engineio
-import logging
 import socket
 from socketio import ASGIApp
+from src.config.settings import CORS_ALLOWED_ORIGINS
+from engineio.payload import Payload
+from fastapi import FastAPI
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -17,17 +20,10 @@ except:
 
 logger.info(f"📡 Хост: {hostname}, IP: {ip_address}")
 
-# Конфигурация CORS и параметры сервера
-ALLOWED_ORIGINS = [
-    'http://localhost:3000',
-    'http://localhost',
-    'http://localhost:80'
-]
-
 # Создаем экземпляр Engine.IO сервера
 eio = engineio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins=ALLOWED_ORIGINS,
+    cors_allowed_origins=CORS_ALLOWED_ORIGINS,
     ping_timeout=60,
     ping_interval=25,
     max_http_buffer_size=1e8,
@@ -42,7 +38,7 @@ eio = engineio.AsyncServer(
 sio = socketio.AsyncServer(
     async_mode='asgi',
     engineio_server=eio,
-    cors_allowed_origins=ALLOWED_ORIGINS,
+    cors_allowed_origins=CORS_ALLOWED_ORIGINS,
     ping_timeout=180,
     ping_interval=60,
     max_http_buffer_size=1e8,
@@ -67,7 +63,7 @@ async def catch_all(event, sid, *args):
 
 # Логируем параметры инициализации
 logger.info("✅ Socket.IO сервер инициализирован c параметрами:")
-logger.info(f"🔒 CORS allowed origins: {ALLOWED_ORIGINS}")
+logger.info(f"🔒 CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 logger.info(f"⏱️ Ping timeout: 180s, interval: 60s")
 logger.info(f"🔄 Async mode: asgi")
 

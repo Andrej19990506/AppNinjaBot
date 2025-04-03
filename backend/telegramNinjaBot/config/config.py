@@ -35,6 +35,8 @@ if not BOT_TOKEN:
 
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 API_URL = os.getenv('API_URL', 'http://server:8000')
+USE_DATABASE = os.getenv('USE_DATABASE', 'false').lower() == 'true'
+print(f"Использование базы данных: {USE_DATABASE}")
 
 # Пути к файлам данных
 DATA_DIR = 'telegramNinjaBot/data'  # Используем путь относительно корня приложения
@@ -49,4 +51,5 @@ class Config:
     MEMBERS_FILE: str = MEMBERS_FILE
     DEBUG: bool = DEBUG
     ENVIRONMENT: str = ENVIRONMENT
-    API_URL: str = API_URL 
+    API_URL: str = API_URL
+    USE_DATABASE: bool = USE_DATABASE 

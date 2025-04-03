@@ -7,15 +7,18 @@ import tempfile
 import shutil
 from typing import List, Dict, Optional
 import uuid
+from models.shift import ShiftModel
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Пути к файлам с данными смен и резервов
+# Пути к файлам с данными смен и резервов - оставляем для обратной совместимости
 DATA_DIR = Path(__file__).parent.parent / 'data'
 SHIFTS_FILE = DATA_DIR / 'shifts.json'
-RESERVES_FILE = DATA_DIR / 'reserves.json'
+
+# Флаг для использования PostgreSQL (по умолчанию True)
+USE_POSTGRES = os.getenv('USE_POSTGRES', 'true').lower() == 'true'
 
 # Альтернативные пути для проверки
 ALT_DATA_DIRS = [
@@ -31,6 +34,9 @@ for alt_dir in ALT_DATA_DIRS:
 
 def _get_shifts_file_path():
     """Определяет доступный путь к файлу смен"""
+    # Выводим предупреждение о устаревшей функции
+    logger.warning("⚠️ Используется устаревшая функция _get_shifts_file_path(). Рекомендуется перейти на PostgreSQL.")
+    
     # Проверяем основной путь
     if SHIFTS_FILE.exists():
         return SHIFTS_FILE
@@ -76,6 +82,9 @@ def _get_shifts_file_path():
 
 def _ensure_shifts_file():
     """Проверяет существование файла смен и создает его при необходимости"""
+    # Выводим предупреждение о устаревшей функции
+    logger.warning("⚠️ Используется устаревшая функция _ensure_shifts_file(). Рекомендуется перейти на PostgreSQL.")
+    
     shifts_file = _get_shifts_file_path()
     
     if not shifts_file.exists():
@@ -88,6 +97,9 @@ def _ensure_shifts_file():
 
 def _load_shifts():
     """Загружает смены из файла"""
+    # Выводим предупреждение о устаревшей функции
+    logger.warning("⚠️ Используется устаревшая функция _load_shifts(). Рекомендуется перейти на PostgreSQL.")
+    
     _ensure_shifts_file()
     shifts_file = _get_shifts_file_path()
     
@@ -104,7 +116,10 @@ def _load_shifts():
         return []
 
 def _save_shifts(shifts):
-    """Сохраняет смены в файл с атомарной записью для предотвращения повреждения данных"""
+    """Сохраняет смены в файл"""
+    # Выводим предупреждение о устаревшей функции
+    logger.warning("⚠️ Используется устаревшая функция _save_shifts(). Рекомендуется перейти на PostgreSQL.")
+    
     try:
         shifts_file = _get_shifts_file_path()
         logger.info(f"💾 Сохранение {len(shifts)} смен в файл {shifts_file}")
@@ -255,17 +270,40 @@ def _save_shifts(shifts):
         import traceback
         logger.error(f"📊 Полная трассировка ошибки:\n{traceback.format_exc()}")
 
-def get_all_shifts():
+def get_all_shifts() -> List[Dict]:
     """Получает все смены"""
+    if USE_POSTGRES:
+        try:
+            return ShiftModel.get_all_shifts()
+        except Exception as e:
+            logger.error(f"❌ Ошибка при получении всех смен из PostgreSQL: {e}")
+            
+    # Fallback на JSON если PostgreSQL недоступен или не используется
     return _load_shifts()
 
 def get_shifts_by_chat(chat_id: str) -> List[Dict]:
     """Получает все смены для конкретного чата"""
+    if USE_POSTGRES:
+        try:
+            return ShiftModel.get_shifts_by_chat(chat_id)
+        except Exception as e:
+            logger.error(f"❌ Ошибка при получении смен для чата {chat_id} из PostgreSQL: {e}")
+    
+    # Fallback на JSON
     shifts = _load_shifts()
     return [s for s in shifts if s.get('chat_id') == chat_id]
 
 def get_shift(shift_id) -> Optional[Dict]:
     """Получает смену по ID (поддерживает как числовые, так и строковые ID)"""
+    if USE_POSTGRES:
+        try:
+            shift = ShiftModel.get_shift(shift_id)
+            if shift:
+                return shift
+        except Exception as e:
+            logger.error(f"❌ Ошибка при получении смены {shift_id} из PostgreSQL: {e}")
+    
+    # Fallback на JSON
     shifts = _load_shifts()
     
     # Преобразуем shift_id к строке для сравнения
@@ -282,6 +320,27 @@ def get_shift(shift_id) -> Optional[Dict]:
 def book_shift(user_id: str, date: str, shift_type: str, slot_index: int, 
               chat_id: str, user_data: Dict = None) -> Dict:
     """Бронирует смену с привязкой к чату"""
+    if USE_POSTGRES:
+        try:
+            # Проверяем, есть ли уже смена этого пользователя на эту дату
+            existing_shifts = ShiftModel.get_shifts_by_chat(chat_id)
+            for shift in existing_shifts:
+                if (shift['user_id'] == str(user_id) and 
+                    shift['date'] == date and 
+                    shift['chat_id'] == chat_id):
+                    logger.warning(f"⚠️ Пользователь {user_id} уже имеет смену на {date} в чате {chat_id}")
+                    return shift
+            
+            # Создаем новую смену в PostgreSQL
+            new_shift = ShiftModel.book_shift(
+                str(user_id), date, shift_type, slot_index, chat_id, user_data
+            )
+            logger.info(f"✅ Создана новая смена в PostgreSQL: {new_shift['id']}")
+            return new_shift
+        except Exception as e:
+            logger.error(f"❌ Ошибка при создании смены в PostgreSQL: {e}")
+    
+    # Fallback на JSON
     shifts = _load_shifts()
     
     # Проверяем, не записан ли уже пользователь на эту смену в этом чате
@@ -331,135 +390,89 @@ def book_shift(user_id: str, date: str, shift_type: str, slot_index: int,
 
 def update_shift(shift_id, update_data: Dict) -> Optional[Dict]:
     """Обновляет существующую смену (поддерживает как числовые, так и строковые ID)"""
-    logger.info(f"🔍 Вызов update_shift с ID: {shift_id}")
-    logger.info(f"📊 Данные обновления: {json.dumps(update_data, ensure_ascii=False)}")
+    if USE_POSTGRES:
+        try:
+            updated_shift = ShiftModel.update_shift(shift_id, update_data)
+            if updated_shift:
+                logger.info(f"✅ Смена {shift_id} успешно обновлена в PostgreSQL")
+                return updated_shift
+            else:
+                logger.error(f"❌ Смена {shift_id} не найдена в PostgreSQL")
+                return None
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обновлении смены {shift_id} в PostgreSQL: {e}")
     
-    try:
-        shifts = _load_shifts()
-        logger.info(f"📋 Загружено {len(shifts)} смен из файла")
-        
-        # Проверяем наличие смен в файле
-        if not shifts:
-            logger.warning("⚠️ Загружен пустой список смен!")
-        else:
-            # Выводим ID первых 5 смен для отладки
-            shift_ids = [str(s.get('id')) for s in shifts[:5]]
-            logger.info(f"🔑 Примеры ID смен: {', '.join(shift_ids)}")
-        
-        # Преобразуем shift_id к строке для сравнения
-        str_shift_id = str(shift_id)
-        
-        # Ведем подробный лог обновления
-        logger.info(f"🔄 Обновление смены с ID '{str_shift_id}'")
-        logger.info(f"📊 Данные для обновления: {json.dumps(update_data, ensure_ascii=False)}")
-        
-        # Находим смену для обновления
-        found_shift = False
-        for i, shift in enumerate(shifts):
-            # Выводим текущий проверяемый ID
-            current_id = str(shift.get('id', 'no_id'))
-            logger.info(f"🔍 Проверяем смену #{i}, ID: {current_id} == {str_shift_id}? {current_id == str_shift_id}")
+    # Fallback на JSON
+    shifts = _load_shifts()
+    
+    for i, shift in enumerate(shifts):
+        if shift.get('id') == shift_id:
+            # Обновляем только переданные поля
+            for key, value in update_data.items():
+                shifts[i][key] = value
             
-            # Сравниваем строковые представления ID для надежности
-            if str(shift.get('id', '')) == str_shift_id:
-                found_shift = True
-                logger.info(f"✅ Найдена смена для обновления (индекс {i})")
-                
-                # Создаем глубокую копию перед обновлением для логирования
-                old_shift = dict(shift)
-                
-                # Обновляем данные
-                for key, value in update_data.items():
-                    shift[key] = value
-                    logger.info(f"🔄 Обновлено поле {key}: {value}")
-                
-                # Обновляем временную метку, если она не была установлена в update_data
-                if 'updated_at' not in update_data:
-                    shift['updated_at'] = datetime.now().isoformat()
-                    logger.info(f"🕒 Обновлена временная метка: {shift['updated_at']}")
-                
-                # Логируем обновленную смену
-                logger.info(f"📄 Смена до обновления: {json.dumps(old_shift, ensure_ascii=False)}")
-                logger.info(f"📄 Смена после обновления: {json.dumps(shift, ensure_ascii=False)}")
-                
-                # Сохраняем изменения
-                logger.info("💾 Вызываем _save_shifts для сохранения...")
-                _save_shifts(shifts)
-                
-                logger.info(f"✅ Смена с ID '{str_shift_id}' успешно обновлена")
-                return shift
-        
-        if not found_shift:
-            logger.warning(f"⚠️ Смена с ID '{str_shift_id}' не найдена среди {len(shifts)} смен")
+            # Обновляем дату изменения
+            shifts[i]['updated_at'] = datetime.now().isoformat()
             
-        # Выводим все ID смен для отладки, если смена не найдена
-        all_shift_ids = [str(s.get('id', 'no_id')) for s in shifts]
-        logger.info(f"🔑 Все ID смен в файле: {', '.join(all_shift_ids)}")
-            
-        logger.warning(f"❌ Смена с ID '{str_shift_id}' не найдена для обновления")
-        return None
-        
-    except Exception as e:
-        logger.error(f"❌ Ошибка в функции update_shift: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return None
+            _save_shifts(shifts)
+            logger.info(f"✅ Смена {shift_id} успешно обновлена в JSON")
+            return shifts[i]
+    
+    logger.error(f"❌ Смена {shift_id} не найдена в JSON")
+    return None
 
 def cancel_shift(shift_id) -> Optional[Dict]:
     """Отменяет смену по ID (поддерживает как числовые, так и строковые ID)"""
+    if USE_POSTGRES:
+        try:
+            canceled_shift = ShiftModel.cancel_shift(shift_id)
+            if canceled_shift:
+                logger.info(f"✅ Смена {shift_id} успешно отменена в PostgreSQL")
+                return canceled_shift
+            else:
+                logger.error(f"❌ Смена {shift_id} не найдена в PostgreSQL")
+                return None
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отмене смены {shift_id} в PostgreSQL: {e}")
+    
+    # Fallback на JSON
     shifts = _load_shifts()
     
-    # Преобразуем shift_id к строке для сравнения
-    str_shift_id = str(shift_id)
-    
-    # Ведем подробный лог отмены
-    logger.info(f"Отмена смены с ID '{str_shift_id}'")
-    
-    # Находим смену для удаления
-    shift_index = None
-    deleted_shift = None
-    
     for i, shift in enumerate(shifts):
-        # Сравниваем строковые представления ID для надежности
-        if str(shift['id']) == str_shift_id:
-            shift_index = i
-            deleted_shift = shift
-            break
+        if shift.get('id') == shift_id:
+            canceled_shift = shifts.pop(i)
+            _save_shifts(shifts)
+            logger.info(f"✅ Смена {shift_id} успешно отменена в JSON")
+            return canceled_shift
     
-    if shift_index is None:
-        logger.warning(f"Смена с ID '{str_shift_id}' не найдена для отмены")
-        return None
-    
-    # Логируем отменяемую смену
-    logger.info(f"Удаляемая смена: {json.dumps(deleted_shift, ensure_ascii=False)}")
-    
-    # Удаляем смену
-    shifts.pop(shift_index)
-    _save_shifts(shifts)
-    
-    logger.info(f"Смена с ID '{str_shift_id}' успешно отменена")
-    return deleted_shift
+    logger.error(f"❌ Смена {shift_id} не найдена в JSON")
+    return None
 
 def cancel_user_shift(user_id: str, date: str, chat_id: str) -> Optional[Dict]:
     """Отменяет смену пользователя на конкретную дату в конкретном чате"""
+    if USE_POSTGRES:
+        try:
+            canceled_shift = ShiftModel.cancel_user_shift(str(user_id), date, chat_id)
+            if canceled_shift:
+                logger.info(f"✅ Смена пользователя {user_id} на {date} успешно отменена в PostgreSQL")
+                return canceled_shift
+            else:
+                logger.warning(f"⚠️ Смена пользователя {user_id} на {date} не найдена в PostgreSQL")
+                return None
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отмене смены пользователя {user_id} в PostgreSQL: {e}")
+    
+    # Fallback на JSON
     shifts = _load_shifts()
     
-    # Находим смену для удаления
-    shift_index = None
-    deleted_shift = None
-    
     for i, shift in enumerate(shifts):
-        if (shift['user_id'] == user_id and 
-            shift['date'] == date and 
+        if (shift.get('user_id') == str(user_id) and 
+            shift.get('date') == date and 
             shift.get('chat_id') == chat_id):
-            shift_index = i
-            deleted_shift = shift
-            break
+            canceled_shift = shifts.pop(i)
+            _save_shifts(shifts)
+            logger.info(f"✅ Смена пользователя {user_id} на {date} успешно отменена в JSON")
+            return canceled_shift
     
-    if shift_index is None:
-        return None
-    
-    # Удаляем смену
-    shifts.pop(shift_index)
-    _save_shifts(shifts)
-    return deleted_shift 
+    logger.warning(f"⚠️ Смена пользователя {user_id} на {date} не найдена в JSON")
+    return None 

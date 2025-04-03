@@ -221,7 +221,7 @@ export const fetchShifts = createAsyncThunk(
             }
 
             console.log('[shiftsSlice] Fetching shifts for chat_id:', chatId);
-            const response = await fetch(`${API_BASE_URL}/shifts?chat_id=${chatId}`);
+            const response = await fetch(`${API_BASE_URL}/couriers/shifts?chat_id=${chatId}`);
             const contentType = response.headers.get('content-type');
             
             if (!response.ok) {
@@ -563,19 +563,33 @@ export const fetchAccessSettings = createAsyncThunk(
             const { chatId } = params;
             console.log(`🔍 Запрос настроек доступа с сервера ${chatId ? `для чата ${chatId}` : ''}`);
             const url = chatId 
-                ? `${API_BASE_URL}/shifts/access-settings?chat_id=${chatId}` 
-                : `${API_BASE_URL}/shifts/access-settings`;
+                ? `${API_BASE_URL}/couriers/access/settings?chat_id=${chatId}` 
+                : `${API_BASE_URL}/couriers/access/settings`;
             
             const response = await fetch(url);
             if (!response.ok) {
-                throw new Error('Failed to fetch shift access settings');
+                const errorData = await response.json();
+                console.error('❌ Ошибка при загрузке настроек:', {
+                    status: response.status,
+                    error: errorData
+                });
+                
+                // Обработка конкретных кодов ошибок
+                switch(errorData.code) {
+                    case 'TABLE_NOT_EXISTS':
+                        return rejectWithValue('Таблица настроек не существует. Обратитесь к администратору.');
+                    case 'SETTINGS_NOT_FOUND':
+                        return rejectWithValue('Настройки не найдены для данного чата.');
+                    default:
+                        return rejectWithValue(errorData.error || 'Не удалось загрузить настройки доступа');
+                }
             }
             const data = await response.json();
             console.log('✅ Получены настройки доступа:', data);
             return data;
         } catch (error: any) {
             console.error('❌ Ошибка загрузки настроек доступа:', error);
-            return rejectWithValue(error.message || 'Failed to fetch shift access settings');
+            return rejectWithValue(error.message || 'Не удалось загрузить настройки доступа');
         }
     }
 );
@@ -585,7 +599,6 @@ export const updateAccessSettings = createAsyncThunk(
     'shifts/updateAccessSettings',
     async (settings: AccessSettings, { rejectWithValue }) => {
         try {
-            // Проверяем наличие chat_id в настройках
             const chat_id = settings.chat_id;
             
             console.log(`📊 Отправка настроек доступа на сервер ${chat_id ? `для чата ${chat_id}` : ''}:`, {
@@ -594,22 +607,42 @@ export const updateAccessSettings = createAsyncThunk(
                 количествоПолей: Object.keys(settings).length
             });
             
-            const response = await fetch(`${API_BASE_URL}/shifts/access-settings`, {
+            const response = await fetch(`${API_BASE_URL}/couriers/access/settings`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(settings),
             });
+            
             if (!response.ok) {
-                throw new Error('Failed to update shift access settings');
+                const errorData = await response.json();
+                console.error('❌ Ошибка при обновлении настроек:', {
+                    status: response.status,
+                    error: errorData
+                });
+                
+                // Обработка конкретных кодов ошибок
+                switch(errorData.code) {
+                    case 'NO_DATA':
+                        return rejectWithValue('Не предоставлены данные для обновления настроек.');
+                    case 'NO_CHAT_ID':
+                        return rejectWithValue('Не указан ID чата для настроек.');
+                    case 'TABLE_NOT_EXISTS':
+                        return rejectWithValue('Таблица настроек не существует. Обратитесь к администратору.');
+                    case 'SETTINGS_NOT_FOUND':
+                        return rejectWithValue('Настройки не найдены для данного чата.');
+                    default:
+                        return rejectWithValue(errorData.error || 'Не удалось обновить настройки доступа');
+                }
             }
+            
             const data = await response.json();
             console.log('✅ Ответ от сервера после сохранения настроек:', data);
             return data;
         } catch (error: any) {
             console.error('❌ Ошибка при обновлении настроек доступа:', error);
-            return rejectWithValue(error.message || 'Failed to update shift access settings');
+            return rejectWithValue(error.message || 'Не удалось обновить настройки доступа');
         }
     }
 );

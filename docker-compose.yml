@@ -7,8 +7,6 @@ services:
     volumes:
       - shared-data:/app/shared
       - ./backend:/app
-    env_file:
-      - ./backend/telegramNinjaBot/.env.dev
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
@@ -46,6 +44,12 @@ services:
     command: python scheduler/app.py
     environment:
       - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
 
   frontend:
     build:
@@ -54,7 +58,7 @@ services:
     expose:
       - 3000
     env_file:
-      - ./frontend/.env${NODE_ENV:+.prod}
+      - ./frontend/.env${NODE_ENV:+.production}
     volumes:
       - ./frontend:/app
       - /app/node_modules

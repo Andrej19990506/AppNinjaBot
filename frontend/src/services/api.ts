@@ -597,11 +597,11 @@ export interface UpdateProfileData {
 export const updateCourierProfile = async (userId: number, data: UpdateProfileData) => {
     try {
         console.log('📡 Отправка запроса на обновление профиля:', {
-            url: `${API_BASE_URL}/courier/profile/${userId}`,
+            url: `${API_BASE_URL}/couriers/profile/${userId}`,
             data: data
         });
 
-        const response = await axios.put(`${API_BASE_URL}/courier/profile/${userId}`, {
+        const response = await axiosInstance.put(`/couriers/profile/${userId}`, {
             firstName: data.firstName,
             lastName: data.lastName,
             isSeniorCourier: data.isSeniorCourier,

@@ -114,9 +114,18 @@ export const useAccessSettings = ({ chatId }: UseAccessSettingsProps = {}) => {
         } catch (error) {
             console.error('❌ Ошибка при сохранении настроек:', error);
             
+            let errorMessage = 'Ошибка при сохранении настроек доступа';
+            
+            // Проверяем, является ли ошибка строкой (от rejectWithValue)
+            if (typeof error === 'string') {
+                errorMessage = error;
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            
             dispatch(addNotification({
                 type: NotificationTypes.ERROR,
-                message: error instanceof Error ? error.message : 'Ошибка при сохранении настроек доступа',
+                message: errorMessage,
                 duration: 5000
             }));
             

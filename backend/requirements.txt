@@ -1,6 +1,6 @@
 flask==2.3.3
 flask-cors==4.0.0
-python-dotenv==0.19.0
+python-dotenv==1.0.1
 werkzeug==2.3.7
 python-telegram-bot==20.6
 pytz==2023.3.post1
@@ -17,8 +17,14 @@ openpyxl==3.1.2
 xlsxwriter==3.1.2
 numpy==1.24.3
 flask-socketio==5.3.6
-python-socketio==5.10.0
+python-socketio==5.11.1
 gevent==23.9.1
 gevent-websocket==0.10.1
 python-docx==1.0.1
-psycopg2-binary==2.9.9 
+psycopg2-binary==2.9.9
+gunicorn==21.2.0
+pydantic==2.6.1
+python-multipart==0.0.9
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+prometheus-client==0.19.0 

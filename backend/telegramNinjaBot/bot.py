@@ -29,6 +29,7 @@ import threading
 from hypercorn.config import Config as HyperConfig
 from hypercorn.asyncio import serve
 import aiohttp
+from telegramNinjaBot.handlers.api_handlers import ApiHandler
 
 # Определяем текущее окружение
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
@@ -36,7 +37,7 @@ ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 # Настраиваем базовое логирование на уровне ERROR для всех окружений
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.ERROR
+    level=logging.INFO
 )
 
 # Отключаем все лишние логи
@@ -48,12 +49,65 @@ logging.getLogger('telegram').setLevel(logging.ERROR)
 
 # Инициализируем логгер
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
+logger.setLevel(logging.INFO)
 logger.info(f"Бот запущен в окружении: {ENVIRONMENT}")
 
 # Создаем Flask приложение
 app = Flask(__name__)
 CORS(app)
+
+# Добавляем маршрут для отправки сообщений напрямую
+@app.route('/api/send_message', methods=['POST'])
+async def send_message_api():
+    """Прямой маршрут для отправки сообщений через Telegram бота"""
+    try:
+        logger.info("Получен прямой запрос на отправку сообщения")
+        data = request.get_json()
+        logger.info(f"Данные запроса: {data}")
+        
+        chat_id = data.get('chat_id')
+        text = data.get('text')
+        parse_mode = data.get('parse_mode', 'HTML')
+        
+        if not chat_id or not text:
+            logger.error("Не указан chat_id или текст сообщения")
+            return jsonify({"error": "Не указан chat_id или текст сообщения"}), 400
+        
+        # Преобразуем формат ID чата перед отправкой
+        try:
+            # Убираем префикс "-100" для супергрупп если он есть
+            if isinstance(chat_id, str) and chat_id.startswith('-100'):
+                # Преобразуем в int и уберем префикс -100
+                processed_chat_id = int(chat_id.replace('-100', '-'))
+                logger.info(f"ID чата преобразован из {chat_id} в {processed_chat_id}")
+            else:
+                processed_chat_id = chat_id
+                logger.info(f"ID чата оставлен без изменений: {chat_id}")
+        except Exception as e:
+            logger.error(f"Ошибка при преобразовании ID чата {chat_id}: {str(e)}")
+            processed_chat_id = chat_id
+        
+        # Получаем текущий экземпляр бота
+        if bot_application and bot_application.bot:
+            # Отправляем сообщение через бота
+            try:
+                await bot_application.bot.send_message(
+                    chat_id=processed_chat_id,
+                    text=text,
+                    parse_mode=parse_mode
+                )
+                logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id}")
+                return jsonify({"success": True, "message": "Сообщение успешно отправлено"})
+            except Exception as e:
+                logger.error(f"❌ Ошибка при отправке сообщения в чат {chat_id}: {str(e)}")
+                return jsonify({"error": f"Ошибка при отправке сообщения: {str(e)}"}), 500
+        else:
+            logger.error("❌ Экземпляр бота не доступен")
+            return jsonify({"error": "Экземпляр бота не доступен"}), 500
+                
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обработке запроса: {str(e)}")
+        return jsonify({"error": f"Ошибка при обработке запроса: {str(e)}"}), 500
 
 # Глобальные переменные для хранения экземпляров
 bot_application = None
@@ -567,10 +621,9 @@ async def handle_deletion_callback(update: Update, context: ContextTypes.DEFAULT
                                     
                                     # Создаем обновленное сообщение для инициатора
                                     status_message = (
-                                        "�� Запрос на удаление товара\n\n"
+                                        "📢 Результат запроса на удаление товара\n\n"
                                         f"Категория: {deletion_data['data']['category']}\n"
                                         f"Товар: {deletion_data['data']['item']}\n\n"
-                                        "Статус подтверждений:\n"
                                     )
                                     
                                     # Формируем статусы для всех чатов
@@ -796,13 +849,13 @@ def register_api_endpoints(bot):
         app.group_service = group_service
         logger.info(f"✅ Сервис групп добавлен в контекст Flask: {app.group_service.__class__.__name__}")
         
-        # Можно добавить дополнительные сервисы при необходимости
-        # app.db_service = db_service
-        # app.json_service = json_service
-        
         # Передаем экземпляр бота в приложение Flask
         app.telegram_bot = bot
+        
+        # Инициализируем обработчик API
+        api_handler = ApiHandler(app, bot)
         logger.info("✅ API эндпоинты и сервисы успешно зарегистрированы")
+
     except Exception as e:
         logger.error(f"❌ Ошибка при регистрации API эндпоинтов: {e}")
         logger.error(traceback.format_exc())
@@ -1050,9 +1103,6 @@ def init_bot():
     config = Config()
     logger.info(f"Конфигурация загружена")
 
-    use_database = os.getenv('USE_DATABASE', 'false').lower() == 'true'
-    logger.info(f"Использование базы данных: {use_database}")
-
     # Инициализируем JSON сервис
     json_service = JsonService(config.DATA_DIR)
     logger.info(f"Сервис JSON инициализирован")
@@ -1062,7 +1112,7 @@ def init_bot():
     logger.info(f"Сервис групп курьеров инициализирован")
     
     # Если включено использование базы данных, инициализируем сервис БД
-    if use_database:
+    if config.USE_DATABASE:
         try:
             db_service = DatabaseService()
             logger.info(f"Сервис базы данных инициализирован")

@@ -1,1 +1,12 @@
-{}
+{
+  "-1004721237800": {
+    "chat_title": "Курьеры Баумана",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004721237800.json",
+    "last_updated": "2025-04-02T12:52:34.588223"
+  },
+  "-1004611898635": {
+    "chat_title": "Курьеры Высотная",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004611898635.json",
+    "last_updated": "2025-04-03T02:36:46.507482"
+  }
+}

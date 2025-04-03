@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
 import axios from 'axios';
 import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
+import config from '../../config';
 
 
 const Container = styled.div`
@@ -103,8 +104,8 @@ const CourierSchedule: React.FC = () => {
                 return;
             }
             
-            // Используем относительный URL вместо полного
-            const url = `/api/couriers/${user.id}/status?chat_id=${chatId}`;
+            // Используем API_URL из конфигурации
+            const url = `${config.API_URL}/couriers/${user.id}/status?chat_id=${chatId}`;
             console.log('📡 Запрашиваем статус курьера при рендеринге CourierSchedule по URL:', url);
             console.log('👤 Текущий пользователь:', {
                 id: user.id,

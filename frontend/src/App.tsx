@@ -11,6 +11,7 @@ import WriteOff from './components/WriteOff/WriteOff';
 import CourierSchedule from './components/CourierSchedule/CourierSchedule';
 import ProtectedCourierRoute from './components/common/ProtectedCourierRoute';
 import ProtectedChefRoute from './components/common/ProtectedChefRoute';
+import TelegramAccessError from './components/common/TelegramAccessError';
 import { useAppDispatch,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useAppSelector 
@@ -66,32 +67,24 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     const dispatch = useAppDispatch();
     const [isInitialized, setIsInitialized] = useState(false);
     const [initError, setInitError] = useState<string | null>(null);
-    // Используем хук для WebSocket
     const { joinGlobalRoom, reinitializeSocket, connectToServer } = useWebSocketConnection();
 
     useEffect(() => {
         const initializeApp = async () => {
             try {
                 logger.log('🚀 Начало инициализации приложения...');
-                
-                // Инициализация данных пользователя
                 const initResult = await dispatch(initializeFromTelegram()).unwrap();
                 logger.log('✅ Данные пользователя инициализированы:', initResult);
-                
-                // Устанавливаем флаг инициализации сразу после получения данных пользователя
                 setIsInitialized(true);
 
-                // Инициализируем WebSocket асинхронно через хук
                 setTimeout(async () => {
                     try {
-                        // Убедимся, что сокет правильно инициализирован
                         const socket = reinitializeSocket();
                         if (!socket) {
                             logger.error('❌ Не удалось инициализировать Socket.IO в AppInitializer');
                             return;
                         }
                         
-                        // Устанавливаем соединение
                         logger.log('🔄 [AppInitializer] Установка WebSocket соединения...');
                         const connected = await connectToServer();
                         if (!connected) {
@@ -99,7 +92,6 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
                             return;
                         }
 
-                        // Подключаемся к глобальной комнате с информацией о пользователе
                         const userInfo = {
                             first_name: initResult?.first_name || 'Гость',
                             last_name: initResult?.last_name || '',
@@ -115,7 +107,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
                     } catch (error) {
                         logger.error('❌ Ошибка при подключении к WebSocket:', error);
                     }
-                }, 2000); // Задержка перед подключением
+                }, 2000);
                 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
@@ -134,21 +126,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     }, [dispatch, isInitialized, initError, joinGlobalRoom, reinitializeSocket, connectToServer]);
 
     if (initError) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                flexDirection: 'column',
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                height: '100vh',
-                padding: '20px',
-                textAlign: 'center',
-                color: '#ff4444'
-            }}>
-                <div>Ошибка при инициализации:</div>
-                <div style={{ marginTop: '10px' }}>{initError}</div>
-            </div>
-        );
+        return <TelegramAccessError error={initError} />;
     }
 
     if (!isInitialized) {

@@ -14,5 +14,5 @@ from .inventory import inventory_bp
 from .couriers import couriers_bp
 
 # Регистрируем подчиненные Blueprint'ы
-api_bp.register_blueprint(inventory_bp)
-api_bp.register_blueprint(couriers_bp) 
+api_bp.register_blueprint(inventory_bp, url_prefix='/inventory')
+api_bp.register_blueprint(couriers_bp, url_prefix='/couriers') 

@@ -18,14 +18,19 @@ services:
     restart: "no"
 
   server:
+    ports:
+      - "8000:8000"
     volumes:
       - ./backend:/app
       - ./backend/data/inventory:/app/data/inventory
+      - /app/__pycache__
+      - /app/*/__pycache__
     environment:
       - API_BASE_URL=http://server:8000/api
       - SOCKET_URL=ws://websocket:8001
       - PYTHONPYCACHEPREFIX=/tmp/pycache
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
+      - ENVIRONMENT=development
     restart: unless-stopped
 
   scheduler:
@@ -37,12 +42,14 @@ services:
       - /app/__pycache__
       - /app/*/__pycache__
     environment:
-      - API_URL=http://server:8000/api
+      - API_URL=http://nginx:80
+      - ENVIRONMENT=development
 
   frontend:
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
+      - /app/node_modules
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
@@ -54,17 +61,31 @@ services:
       - ./frontend/.env.docker
     command: ./node_modules/.bin/craco start
     restart: unless-stopped
+    ports:
+      - "3000:3000"
 
   websocket:
     volumes:
       - ./websocket-service:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
     ports:
       - "8001:8001"
     environment:
       - CORS_ALLOWED_ORIGINS=http://localhost,http://localhost:3000,http://localhost:80
+      - ENVIRONMENT=development
+      - PYTHONPATH=/app
     command: uvicorn src.asgi:app --host 0.0.0.0 --port 8001 --reload
+    depends_on:
+      - postgres
 
   nginx:
     volumes:
-      - ./websocket-service/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./websocket-service/test_client.html:/usr/share/nginx/html/index.html:ro 
+      - ./websocket-service/nginx.conf.dev:/etc/nginx/nginx.conf:ro
+      - ./websocket-service/test_client.html:/var/www/appninjabot/websocket-service/index.html:ro
+    ports:
+      - "80:80"
+    environment:
+      - NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx
+      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.conf.dev
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx 

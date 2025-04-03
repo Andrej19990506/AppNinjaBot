@@ -1,10 +1,4 @@
 {
-  "availability_2025-04-03": {
-    "job_id": "availability_20250401142922",
-    "next_run_time": "2025-04-03T05:09:00+07:00",
-    "chat_id": "2025-04-03",
-    "type": "availability"
-  },
   "availability_-1004754142211": {
     "job_id": "availability_-1004754142211_20250329025501",
     "next_run_time": "2025-04-05T09:55:00+07:00",

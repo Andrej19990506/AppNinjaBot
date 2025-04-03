@@ -2,14 +2,18 @@ version: '3.8'
 
 services:
   bot:
+    build: 
+      context: ./backend/telegramNinjaBot
+      target: production
     environment:
       - API_URL=https://appninjabot.ru
       - ENVIRONMENT=production
       - PYTHONPATH=/app
     volumes:
-      - ./backend:/app
+      - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env.prod
+    command: python -u /app/telegramNinjaBot/bot.py
     restart: unless-stopped
     deploy:
       replicas: 1
@@ -24,11 +28,23 @@ services:
           memory: 256M
 
   server:
+    build:
+      target: production
+    expose:
+      - 8000
+    command: gunicorn app:app -b 0.0.0.0:8000 --workers 4 --timeout 120
     environment:
       - API_BASE_URL=https://appninjabot.ru/api
+      - BOT_URL=http://bot:8001
+      - SCHEDULER_URL=http://scheduler:8002
+      - WEBSOCKET_SERVER_URL=http://websocket:8003
       - SOCKET_URL=wss://appninjabot.ru
       - DOMAIN=appninjabot.ru
       - ALLOWED_ORIGINS=https://appninjabot.ru
+      - PORT=8000
+      - HOST=0.0.0.0
+      - ENVIRONMENT=production
+      - JWT_SECRET_KEY=your_super_secret_key_here
     restart: unless-stopped
     deploy:
       resources:
@@ -39,7 +55,13 @@ services:
 
   scheduler:
     environment:
-      - API_URL=https://appninjabot.ru/api
+      - API_URL=http://nginx:80
+      - API_BASE_URL=https://appninjabot.ru/api
+      - BOT_URL=http://bot:8001
+      - SCHEDULER_URL=http://scheduler:8002
+      - WEBSOCKET_SERVER_URL=http://websocket:8003
+      - ENVIRONMENT=production
+      - JWT_SECRET_KEY=your_super_secret_key_here
     restart: unless-stopped
     deploy:
       resources:
@@ -47,6 +69,11 @@ services:
           memory: 256M
 
   frontend:
+    build:
+      target: production
+    expose:
+      - 80
+    volumes: []
     environment:
       - REACT_APP_API_URL=https://appninjabot.ru/api
       - REACT_APP_WS_URL=wss://appninjabot.ru
@@ -57,9 +84,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
         reservations:
-          memory: 256M
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
 
   websocket:
     command: gunicorn src.asgi:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001 --workers 4

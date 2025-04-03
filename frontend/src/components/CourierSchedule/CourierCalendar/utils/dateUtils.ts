@@ -155,213 +155,159 @@ export function getNextDayOfWeek(date: Date, dayOfWeek: number): Date {
 }
 
 /**
+ * Находит последний прошедший день регистрации
+ */
+function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number): Date {
+    const currentDay = now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const targetTime = targetHour * 60 + targetMinute;
+    
+    // Определяем, сколько дней нужно вычесть
+    let daysToSubtract;
+    
+    if (currentDay === targetDay) {
+        // Если сегодня день регистрации, проверяем время
+        if (currentTime >= targetTime) {
+            // Если время уже прошло, используем сегодня
+            daysToSubtract = 0;
+        } else {
+            // Если время еще не наступило, берем прошлую неделю
+            daysToSubtract = 7;
+        }
+    } else if (currentDay > targetDay) {
+        // Если день недели после дня регистрации
+        daysToSubtract = currentDay - targetDay;
+    } else {
+        // Если день недели до дня регистрации
+        daysToSubtract = 7 - (targetDay - currentDay);
+    }
+    
+    // Создаем дату последнего дня регистрации
+    const lastRegistrationDay = new Date(now);
+    lastRegistrationDay.setDate(now.getDate() - daysToSubtract);
+    lastRegistrationDay.setHours(targetHour, targetMinute, 0, 0);
+    
+    return lastRegistrationDay;
+}
+
+/**
+ * Находит следующий день регистрации
+ */
+function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number): Date {
+    const currentDay = now.getDay();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const targetTime = targetHour * 60 + targetMinute;
+    
+    // Определяем, сколько дней нужно добавить
+    let daysToAdd;
+    
+    if (currentDay === targetDay) {
+        // Если сегодня день регистрации, проверяем время
+        if (currentTime >= targetTime) {
+            // Если время уже прошло, берем следующую неделю
+            daysToAdd = 7;
+        } else {
+            // Если время еще не наступило, используем сегодня
+            daysToAdd = 0;
+        }
+    } else if (currentDay < targetDay) {
+        // Если день недели до дня регистрации
+        daysToAdd = targetDay - currentDay;
+    } else {
+        // Если день недели после дня регистрации
+        daysToAdd = 7 - (currentDay - targetDay);
+    }
+    
+    // Создаем дату следующего дня регистрации
+    const nextRegistrationDay = new Date(now);
+    nextRegistrationDay.setDate(now.getDate() + daysToAdd);
+    nextRegistrationDay.setHours(targetHour, targetMinute, 0, 0);
+    
+    return nextRegistrationDay;
+}
+
+/**
  * Рассчитывает доступные даты на основе настроек доступа
  * @param accessSettings Настройки доступа из Redux
  * @returns Массив доступных дат в формате YYYY-MM-DD
  */
 export function calculateAvailableDates(accessSettings?: AccessSettings): string[] {
     debugLog('📅 Расчет доступных дат...');
-    // Если настройки не переданы, получаем их из хранилища
     const settings = accessSettings || store.getState().shifts.accessSettings;
     
-    // Если настройки не загружены, возвращаем пустой массив
     if (!settings) {
         debugLog('❌ Настройки не загружены, расчет невозможен');
         return [];
     }
     
-    debugLog('📊 Настройки доступа перед расчетом:', settings);
-    
-    // Проверяем, активно ли правило
+    // Проверяем активность правила
     if (!settings.isAlwaysActive) {
-        // Если правило не всегда активно, проверяем, находимся ли мы в указанном диапазоне дат
         const currentDate = new Date();
         const startDate = settings.activeStartDate ? new Date(settings.activeStartDate) : null;
         const endDate = settings.activeEndDate ? new Date(settings.activeEndDate) : null;
         
-        if (
-            (startDate && isBefore(currentDate, startDate)) || 
-            (endDate && isAfter(currentDate, endDate))
-        ) {
-            // Мы находимся вне указанного диапазона, возвращаем пустой массив
+        if ((startDate && isBefore(currentDate, startDate)) || 
+            (endDate && isAfter(currentDate, endDate))) {
             debugLog('❌ Правило неактивно в текущий период');
             return [];
         }
     }
     
-    // Текущая дата для расчетов
     const now = new Date();
     debugLog(`⏰ Текущее время: ${now.toISOString()}`);
     
-    // Используем именно значения из настроек, игнорируя значения по умолчанию
-    const registrationDay = settings.registrationStartDay;
-    const registrationHour = settings.registrationStartHour;
-    const registrationMinute = settings.registrationStartMinute;
+    // Получаем настройки времени регистрации
+    const registrationDay = settings.registrationStartDay ?? 4; // Четверг по умолчанию
+    const registrationHour = settings.registrationStartHour ?? 12;
+    const registrationMinute = settings.registrationStartMinute ?? 0;
     
-    // Проверяем, что значения существуют, иначе используем резервные значения
-    if (registrationDay === undefined || registrationHour === undefined || registrationMinute === undefined) {
-        debugLog('⚠️ Критические значения отсутствуют в настройках, используем резервные');
-        
-        // Вывод всего объекта в консоль для диагностики
-        debugLog('🔍 Полный объект настроек:', JSON.stringify(settings, null, 2));
-        
-        // Используем резервные значения
-        const fallbackDay = 5; // Пятница
-        const fallbackHour = 3;
-        const fallbackMinute = 15;
-        
-        debugLog(`📆 День регистрации: ${fallbackDay} (резервное значение)`);
-        debugLog(`⏰ Время регистрации: ${fallbackHour}:${fallbackMinute} (резервные значения)`);
-        
-        // Находим ближайший день недели для открытия регистрации
-        const nextOpeningDay = getNextDayOfWeek(now, fallbackDay);
-        
-        // Учитываем часовой пояс Красноярска (UTC+7)
-        const localTimezoneOffset = now.getTimezoneOffset();
-        const krasnoyarskOffset = -420; 
-        const offsetDifference = localTimezoneOffset - krasnoyarskOffset;
-        
-        // Устанавливаем время открытия регистрации с учетом часового пояса
-        nextOpeningDay.setHours(fallbackHour, fallbackMinute, 0, 0);
-        
-        // Настраиваем время в соответствии с часовым поясом Красноярска
-        const nextOpeningDayAdjusted = new Date(nextOpeningDay.getTime() - offsetDifference * 60000);
-        
-        debugLog(`📅 Ближайший день открытия регистрации (локальное время): ${nextOpeningDay.toISOString()}`);
-        debugLog(`📅 Ближайший день открытия регистрации (Красноярск): ${nextOpeningDayAdjusted.toISOString()}`);
-        
-        // Проверяем, открыта ли уже регистрация, сравнивая с correctedNow
-        const isRegistrationOpen = now >= nextOpeningDayAdjusted;
-        debugLog(`🔍 Регистрация открыта: ${isRegistrationOpen ? 'ДА' : 'НЕТ'}`);
-        
-        // Если регистрация не открыта, возвращаем пустой массив
-        if (!isRegistrationOpen) {
-            debugLog('❌ Регистрация закрыта, доступные даты не рассчитываются');
-            return [];
-        }
-        
-        // Рассчитываем начальную дату периода доступа
-        let accessStartDate: Date;
-        
-        // Используем резервные значения смещения
-        const fallbackOffsetType = 'days' as 'days' | 'weeks' | 'none';
-        const fallbackOffsetAmount = 5;
-        
-        debugLog(`📏 Смещение: ${fallbackOffsetAmount} ${fallbackOffsetType} (резервные значения)`);
-        
-        if (fallbackOffsetType === 'weeks') {
-            // Смещение в неделях
-            accessStartDate = addWeeks(nextOpeningDayAdjusted, fallbackOffsetAmount);
-        } else {
-            // Смещение в днях
-            accessStartDate = addDays(nextOpeningDayAdjusted, fallbackOffsetAmount);
-        }
-        
-        debugLog(`🗓️ Дата начала доступного периода: ${accessStartDate.toISOString()}`);
-        
-        // Используем резервное значение периода
-        const fallbackPeriodLength = 7;
-        debugLog(`📏 Длина периода: ${fallbackPeriodLength} дней (резервное значение)`);
-        
-        // Рассчитываем все доступные даты
-        const availableDates: string[] = [];
-        for (let i = 0; i < fallbackPeriodLength; i++) {
-            const date = addDays(accessStartDate, i);
-            availableDates.push(format(date, 'yyyy-MM-dd'));
-        }
-        
-        debugLog(`✅ Рассчитаны доступные даты: ${availableDates.length} дней`);
-        debugLog(`📅 Доступные даты: ${availableDates.join(', ')}`);
-        
-        return availableDates;
-    }
+    // Находим последний прошедший день регистрации
+    const lastRegistrationDay = getLastRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
     
-    debugLog(`📆 День регистрации: ${registrationDay} (день недели)`);
-    debugLog(`⏰ Время регистрации: ${registrationHour}:${registrationMinute}`);
+    // Находим следующий день регистрации
+    const nextRegistrationDay = getNextRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
     
-    // Находим ближайший день недели для открытия регистрации
-    const nextOpeningDay = getNextDayOfWeek(now, registrationDay);
+    debugLog(`📅 Последний день регистрации: ${lastRegistrationDay.toISOString()}`);
+    debugLog(`📅 Следующий день регистрации: ${nextRegistrationDay.toISOString()}`);
     
-    // Учитываем часовой пояс Красноярска (UTC+7)
-    // Получаем текущее смещение пользователя в минутах
-    const localTimezoneOffset = now.getTimezoneOffset(); // Возвращает смещение в минутах от UTC (отрицательные для восточных)
-    // Красноярск: UTC+7 = -420 минут
-    const krasnoyarskOffset = -420;
-    // Разница между локальным временем и Красноярском в минутах
-    const offsetDifference = localTimezoneOffset - krasnoyarskOffset;
-    
-    // Устанавливаем время открытия регистрации с учетом часового пояса
-    nextOpeningDay.setHours(registrationHour, registrationMinute, 0, 0);
-    
-    // Настраиваем время в соответствии с часовым поясом Красноярска
-    const nextOpeningDayAdjusted = new Date(nextOpeningDay.getTime() - offsetDifference * 60000);
-    
-    debugLog(`📅 Ближайший день открытия регистрации (локальное время): ${nextOpeningDay.toISOString()}`);
-    debugLog(`📅 Ближайший день открытия регистрации (Красноярск): ${nextOpeningDayAdjusted.toISOString()}`);
-    
-    // Проверяем, открыта ли уже регистрация, сравнивая с correctedNow
-    const isRegistrationOpen = now >= nextOpeningDayAdjusted;
-    debugLog(`🔍 Регистрация открыта: ${isRegistrationOpen ? 'ДА' : 'НЕТ'}`);
-    
-    // Если регистрация не открыта, возвращаем пустой массив
-    if (!isRegistrationOpen) {
-        debugLog('❌ Регистрация закрыта, доступные даты не рассчитываются');
-        return [];
-    }
-    
-    // Рассчитываем начальную дату периода доступа
-    let accessStartDate: Date;
-    
-    // Смещение: на сколько дней или недель вперед от дня открытия
-    // Используем значения из настроек
+    // Применяем смещение к последнему дню регистрации
     const offsetType = settings.offsetType || 'days';
-    const offsetAmount = settings.offsetAmount || 5;
+    const offsetAmount = settings.offsetAmount ?? 4;
+    const periodLength = settings.periodLength ?? 7;
     
-    debugLog(`📏 Смещение: ${offsetAmount} ${offsetType}`);
-    
+    let accessStartDate: Date;
     if (offsetType === 'weeks') {
-        // Смещение в неделях
-        accessStartDate = addWeeks(nextOpeningDayAdjusted, offsetAmount);
+        accessStartDate = addWeeks(lastRegistrationDay, offsetAmount);
     } else {
-        // Смещение в днях
-        accessStartDate = addDays(nextOpeningDayAdjusted, offsetAmount);
+        accessStartDate = addDays(lastRegistrationDay, offsetAmount);
     }
     
-    debugLog(`🗓️ Дата начала доступного периода: ${accessStartDate.toISOString()}`);
+    debugLog(`📅 Начало периода доступа: ${accessStartDate.toISOString()}`);
     
-    // Длительность периода в днях
-    const periodLength = settings.periodLength || 7;
-    debugLog(`📏 Длина периода: ${periodLength} дней`);
-    
-    // Рассчитываем все доступные даты
+    // Формируем список доступных дат
     const availableDates: string[] = [];
     for (let i = 0; i < periodLength; i++) {
         const date = addDays(accessStartDate, i);
         availableDates.push(format(date, 'yyyy-MM-dd'));
     }
     
-    // Добавляем специальные даты из настроек
+    // Добавляем специальные даты
     if (settings.enabledDates && Array.isArray(settings.enabledDates)) {
-        debugLog(`🔍 Проверка специальных дат: ${settings.enabledDates.length} дат`);
         settings.enabledDates.forEach(dateStr => {
             if (!availableDates.includes(dateStr)) {
-                debugLog(`➕ Добавлена специальная дата: ${dateStr}`);
                 availableDates.push(dateStr);
             }
         });
     }
     
-    // Проверяем "allowSameDay" - разрешена ли запись на текущий день
+    // Добавляем текущий день если разрешено
     if (settings.allowSameDay) {
         const today = format(now, 'yyyy-MM-dd');
         if (!availableDates.includes(today)) {
-            debugLog(`➕ Добавлен текущий день (allowSameDay=true): ${today}`);
             availableDates.push(today);
         }
     }
     
-    debugLog(`✅ Рассчитаны доступные даты: ${availableDates.length} дней`);
-    debugLog(`📅 Доступные даты: ${availableDates.join(', ')}`);
-    
+    debugLog(`✅ Рассчитаны доступные даты: ${availableDates.join(', ')}`);
     return availableDates;
 } 

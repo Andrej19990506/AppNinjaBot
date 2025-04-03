@@ -3,7 +3,7 @@ import json
 import logging
 import asyncio
 import select
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, JSON, text
+from sqlalchemy import create_engine, Column, String, DateTime, Integer, JSON, text, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.dialects.postgresql import JSONB
@@ -45,11 +45,20 @@ class ActiveUser(Base):
 async def init_db():
     """Инициализация базы данных"""
     try:
-        # Создаем таблицы
-        Base.metadata.create_all(bind=engine)
+        # Проверяем существование таблиц
+        inspector = inspect(engine)
+        existing_tables = inspector.get_table_names()
         
-        # Создаем триггер для уведомлений
+        if "active_users" not in existing_tables:
+            # Создаем таблицы только если их нет
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created successfully")
+        else:
+            logger.info("Database tables already exist")
+        
+        # Создаем или обновляем триггер для уведомлений
         with engine.connect() as conn:
+            # Создаем функцию notify_user_events (она будет заменена если существует)
             conn.execute(text("""
                 CREATE OR REPLACE FUNCTION notify_user_events()
                 RETURNS trigger AS $$
@@ -60,14 +69,21 @@ async def init_db():
                 $$ LANGUAGE plpgsql;
             """))
             
-            conn.execute(text("""
-                DROP TRIGGER IF EXISTS user_events_trigger ON active_users;
-                CREATE TRIGGER user_events_trigger
-                AFTER INSERT OR UPDATE OR DELETE ON active_users
-                FOR EACH ROW EXECUTE FUNCTION notify_user_events();
-            """))
+            # Проверяем существование триггера
+            trigger_exists = conn.execute(text("""
+                SELECT 1 FROM pg_trigger WHERE tgname = 'user_events_trigger';
+            """)).scalar() is not None
             
-        logger.info("Database tables created successfully")
+            if not trigger_exists:
+                conn.execute(text("""
+                    CREATE TRIGGER user_events_trigger
+                    AFTER INSERT OR UPDATE OR DELETE ON active_users
+                    FOR EACH ROW EXECUTE FUNCTION notify_user_events();
+                """))
+                logger.info("Database trigger created successfully")
+            else:
+                logger.info("Database trigger already exists")
+            
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
         raise

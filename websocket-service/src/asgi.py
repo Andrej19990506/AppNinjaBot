@@ -1,4 +1,5 @@
 import logging
+import sys
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -7,7 +8,11 @@ logger = logging.getLogger(__name__)
 logger.info("🚀 Инициализация asgi.py")
 
 # Сначала импортируем websocket_handler для регистрации обработчиков
-import src.websocket_handler
+try:
+    import src.websocket_handler
+except Exception as e:
+    logger.error("Failed to import src.websocket_handler", exc_info=True)
+    raise # Перевыбрасываем ошибку, чтобы увидеть трейсбек, если он есть
 logger.info("✅ Обработчики WebSocket импортированы")
 
 # Затем импортируем ASGI приложение

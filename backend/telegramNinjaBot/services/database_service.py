@@ -25,7 +25,7 @@ class DatabaseService:
         self.initialize_connection()
         
         # Создаем необходимые таблицы при инициализации
-        self.create_tables()
+        # self.create_tables() # <<< УБИРАЕМ СОЗДАНИЕ ТАБЛИЦ БОТОМ
         
         logger.info(f"✅ DatabaseService инициализирован. Подключение к базе: {self.db_host}:{self.db_port}/{self.db_name}")
     
@@ -70,6 +70,7 @@ class DatabaseService:
                         last_name VARCHAR(255),
                         status VARCHAR(50) NOT NULL,
                         is_bot BOOLEAN DEFAULT FALSE,
+                        is_senior_courier BOOLEAN DEFAULT FALSE,
                         joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         photo_url TEXT,
                         metadata JSONB DEFAULT '{}'::jsonb,
@@ -134,20 +135,18 @@ class DatabaseService:
                 logger.info(f"Выполняю запрос на сохранение/обновление группы")
                 cursor.execute(
                     """
-                    INSERT INTO groups (chat_id, chat_title, group_type, last_updated, metadata)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (chat_id) DO UPDATE SET
-                        chat_title = EXCLUDED.chat_title,
+                    INSERT INTO groups (group_id, title, group_type, metadata)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (group_id) DO UPDATE SET
+                        title = EXCLUDED.title,
                         group_type = EXCLUDED.group_type,
-                        last_updated = EXCLUDED.last_updated,
                         metadata = EXCLUDED.metadata
                     RETURNING id
                     """,
                     (
-                        chat_id, 
-                        chat_title, 
-                        group_type, 
-                        datetime.now(),
+                        chat_id,
+                        chat_title,
+                        group_type,
                         Json({
                             "total_members": len(members),
                             "total_admins": len(admins) if admins else 0,
@@ -164,14 +163,15 @@ class DatabaseService:
                     # Сохраняем или обновляем участника
                     cursor.execute(
                         """
-                        INSERT INTO members (user_id, username, first_name, last_name, status, is_bot, photo_url, joined_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        INSERT INTO members (user_id, username, first_name, last_name, status, is_bot, is_senior_courier, photo_url, joined_at)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (user_id) DO UPDATE SET
                             username = EXCLUDED.username,
                             first_name = EXCLUDED.first_name,
                             last_name = EXCLUDED.last_name,
                             status = EXCLUDED.status,
                             is_bot = EXCLUDED.is_bot,
+                            is_senior_courier = EXCLUDED.is_senior_courier,
                             photo_url = COALESCE(EXCLUDED.photo_url, members.photo_url)
                         RETURNING id
                         """,
@@ -182,6 +182,7 @@ class DatabaseService:
                             member.get('last_name', ''),
                             member.get('status', 'member'),
                             member.get('is_bot', False),
+                            member.get('senior_courier') is True,
                             member.get('photo_url'),
                             datetime.fromisoformat(member.get('joined_date', datetime.now().isoformat()))
                         )
@@ -203,16 +204,13 @@ class DatabaseService:
                     # Сохраняем связь между группой и участником
                     cursor.execute(
                         """
-                        INSERT INTO group_members (group_id, member_id, role, joined_at)
-                        VALUES (%s, %s, %s, %s)
-                        ON CONFLICT (group_id, member_id) DO UPDATE SET
-                            role = EXCLUDED.role
+                        INSERT INTO group_members (group_id, member_id)
+                        VALUES (%s, %s)
+                        ON CONFLICT (group_id, member_id) DO NOTHING
                         """,
                         (
                             group_id,
-                            member_id,
-                            role,
-                            datetime.fromisoformat(member.get('joined_date', datetime.now().isoformat()))
+                            member_id
                         )
                     )
                     logger.info(f"Связь между группой и участником сохранена")

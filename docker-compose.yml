@@ -6,44 +6,54 @@ services:
       context: ./backend/telegramNinjaBot
     volumes:
       - shared-data:/app/shared
-      - ./backend:/app
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - BOT_HOST=0.0.0.0
+      - BOT_PORT=8001
     networks:
       - ninja_network
-    command: python -u /app/telegramNinjaBot/bot.py
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
 
   server:
     build:
-      context: ./backend
+      context: ./backend/API server
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - shared-data:/app/shared
     env_file:
-      - ./backend/.env
-      - ./backend/telegramNinjaBot/.env
+      - ./backend/API server/.env
     depends_on:
-      - bot
+        bot:
+            condition: service_started
+        postgres:
+            condition: service_healthy
     networks:
       - ninja_network
-    command: python app.py
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     environment:
       - PYTHONUNBUFFERED=1
 
   scheduler:
     build:
-      context: ./backend
+      context: ./backend/scheduler
+      dockerfile: Dockerfile
     volumes:
       - shared-data:/app/shared
     depends_on:
       - server
     networks:
       - ninja_network
-    command: python scheduler/app.py
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
     deploy:
       resources:
         limits:
@@ -79,6 +89,8 @@ services:
       context: ./websocket-service
     expose:
       - "8001"
+    volumes:
+      - ./websocket-service/src:/app/src
     environment:
       - PYTHONUNBUFFERED=1
       - PORT=8001
@@ -90,9 +102,11 @@ services:
       - HOST=0.0.0.0
       - PYTHONPATH=/app
     depends_on:
-      - postgres
+        postgres:
+            condition: service_healthy
     networks:
       - ninja_network
+    command: uvicorn src.asgi:app --host 0.0.0.0 --port 8001
 
   nginx:
     build:
@@ -102,7 +116,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./websocket-service/nginx.conf.prod:/etc/nginx/nginx.conf
+      - ./websocket-service/nginx.conf.dev:/etc/nginx/nginx.conf
       - ./websocket-service/test_client.html:/var/www/appninjabot/websocket-service/index.html
     depends_on:
       - frontend
@@ -125,6 +139,12 @@ services:
     networks:
       - ninja_network
     command: postgres -c 'max_connections=1000'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d appninjabot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   shared-data:

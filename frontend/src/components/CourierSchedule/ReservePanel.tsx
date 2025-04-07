@@ -399,7 +399,8 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         // При размонтировании отписываемся от событий
         return () => {
             console.log('[ReservePanel] Cleaning up WebSocket events subscription for reserves');
-            if (unsubscribe) unsubscribe();
+            // Используем optional chaining для безопасного вызова
+            unsubscribe?.(); 
         };
     }, [dispatch, chatId, date]);
 

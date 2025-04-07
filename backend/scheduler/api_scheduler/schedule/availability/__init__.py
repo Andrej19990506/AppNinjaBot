@@ -1,1 +1,1 @@
-from .routes import availability_bp 
+# Пустой файл инициализации для пакета availability 

@@ -1,81 +1,48 @@
-from flask import Blueprint, jsonify, request
-from datetime import datetime
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from pydantic import BaseModel
 import logging
-import sys
-import os
-
-# Добавляем директорию проекта в sys.path для правильного импорта
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
-from scheduler import InventoryScheduler
+# Импортируем фоновую задачу из нового файла
+from background_tasks import schedule_access_task_background
 
 logger = logging.getLogger(__name__)
-availability_bp = Blueprint('schedule_availability', __name__)
+router = APIRouter()
 
-# Получаем инстанс шедулера
-scheduler = InventoryScheduler()
+class AccessSettingsData(BaseModel):
+    chat_id: str
 
-@availability_bp.route('/access-settings', methods=['POST'])
-def apply_access_settings():
-    """Применение настроек доступа к сменам для чата"""
+@router.post("/availability/access-settings")
+# Добавляем request: Request
+async def apply_access_settings(data: AccessSettingsData, background_tasks: BackgroundTasks, request: Request):
+    """
+    Принимает chat_id и запускает фоновую задачу для применения настроек доступа.
+    """
+    chat_id = data.chat_id
+    if not chat_id:
+        raise HTTPException(status_code=400, detail="chat_id is required")
+
+    logger.info(f"📬 Принят запрос на /scheduler/availability/access-settings для chat_id: {chat_id}")
+
+    # Получаем scheduler_instance из состояния приложения
     try:
-        data = request.json
-        chat_id = data.get('chat_id')
-        
-        if not chat_id:
-            return jsonify({
-                'status': 'error',
-                'message': 'chat_id is required'
-            }), 400
-            
-        logger.info(f"📬 Применяем настройки доступа для чата: {chat_id}")
-        
-        result = scheduler.apply_access_settings(chat_id)
-        if result:
-            return jsonify({
-                'status': 'success',
-                'message': 'Настройки доступа успешно применены',
-                'chat_id': chat_id,
-                'timestamp': datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'Не удалось применить настройки доступа'
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"❌ Ошибка при применении настроек доступа: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        scheduler_instance = request.app.state.scheduler_instance
+    except AttributeError:
+        logger.error("Экземпляр шедулера не найден в состоянии приложения (request.app.state.scheduler_instance)!")
+        raise HTTPException(status_code=500, detail="Scheduler not available")
 
-@availability_bp.route('/check', methods=['POST'])
-def schedule_availability():
-    """Планирование уведомления о доступности смен"""
-    try:
-        data = request.json
-        chat_id = data.get('chat_id')
-        
-        logger.info(f"📅 Запрос на планирование доступности смен для чата {chat_id if chat_id else 'по умолчанию'}")
-        
-        result = scheduler.apply_access_settings(chat_id)
-        
-        if result:
-            return jsonify({
-                "status": "success",
-                "message": f"Задача уведомления о доступности смен успешно создана",
-                "chat_id": chat_id,
-                "timestamp": datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                "status": "error",
-                "message": "Не удалось создать задачу"
-            }), 500
-    except Exception as e:
-        logger.error(f"❌ Ошибка при планировании уведомления: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500 
+    if not scheduler_instance:
+         logger.error("Экземпляр шедулера найден в state, но он None!")
+         raise HTTPException(status_code=500, detail="Scheduler instance is None")
+
+    # Запускаем основную логику в фоне, передавая scheduler_instance
+    background_tasks.add_task(schedule_access_task_background, scheduler_instance, chat_id)
+
+    logger.info(f"Отвечаем 200 OK, задача для chat_id: {chat_id} запущена в фоне.")
+    # Ответ всегда быстрый
+    return {
+        "status": "success",
+        "message": "Access settings application started in background",
+        "chat_id": chat_id
+    }
+
+# Удаляем остатки Flask кода, если они были
+# availability_bp = Blueprint(...) и т.д. 

@@ -212,7 +212,8 @@ const ScheduleContainer: React.FC = () => {
                 shiftType: shiftType,
                 slotIndex: slotIndex,
                 existingShiftId: existingShiftId,
-                chatId: chatId
+                // УДАЛЯЕМ chatId, так как его нет в BookShiftThunkParams
+                // chatId: chatId 
             }));
             
             // Отправляем запрос на обновление смены через хук синхронизации

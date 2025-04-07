@@ -1,3 +1,7 @@
+// frontend/src/types/user.ts
+
+// import { Group } from './index';
+
 export interface Group {
     chat_id: string;
     chat_title: string;
@@ -7,7 +11,7 @@ export interface Group {
 export interface User {
     id: number;
     first_name: string;
-    last_name?: string;
+    last_name: string;
     username?: string;
     photo_url?: string;
     is_bot?: boolean;
@@ -16,14 +20,15 @@ export interface User {
     added_to_attachment_menu?: boolean;
     allows_write_to_pm?: boolean;
     is_senior_courier?: boolean;
-    groups?: Group[];
+    groups?: any[];
     isAdmin: boolean;
-    adminRights: any | null;
+    adminRights: AdminRights | null;
 }
 
 export interface UserState {
     user: User | null;
     isInitialized: boolean;
+    loading: boolean;
     error: string | null;
 }
 
@@ -47,4 +52,9 @@ export interface UserProfile extends User {
     preferences?: {
         [key: string]: any;
     };
-} 
+}
+
+export interface AdminRights {
+    canManageInventory?: boolean;
+    canManageUsers?: boolean;
+}

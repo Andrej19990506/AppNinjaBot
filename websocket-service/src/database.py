@@ -2,21 +2,15 @@ import os
 import json
 import logging
 import asyncio
-import select
-from sqlalchemy import create_engine, Column, String, DateTime, Integer, JSON, text, inspect
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.dialects.postgresql import JSONB
-from datetime import datetime
-from dotenv import load_dotenv
-import psycopg2
+import asyncpg
+import socketio
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Загрузка переменных окружения
-load_dotenv()
+# load_dotenv()
 
 # Получаем параметры подключения из переменных окружения
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
@@ -25,172 +19,102 @@ POSTGRES_DB = os.getenv('POSTGRES_DB', 'appninjabot')
 POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
 POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
 
-# URL для подключения к базе данных
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+# Канал для прослушивания
+PG_CHANNEL = 'websocket_channel'
 
-# Создаем движок SQLAlchemy
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+# --- НОВАЯ АСИНХРОННАЯ ФУНКЦИЯ СЛУШАТЕЛЯ ---
+async def listen_for_notifications(sio: socketio.AsyncServer):
+    """
+    Подключается к PostgreSQL, слушает канал PG_CHANNEL
+    и пересылает уведомления через Socket.IO.
+    """
+    logger.info(f"Запуск слушателя PostgreSQL для канала '{PG_CHANNEL}'...")
+    conn = None
+    stop_event = asyncio.Event() # Событие для сигнала остановки
 
-class ActiveUser(Base):
-    __tablename__ = "active_users"
-
-    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
-    user_id = Column(String, index=True)
-    room = Column(String, index=True)
-    joined_at = Column(DateTime, default=datetime.utcnow)
-    user_metadata = Column(JSONB, nullable=True)
-
-async def init_db():
-    """Инициализация базы данных"""
-    try:
-        # Проверяем существование таблиц
-        inspector = inspect(engine)
-        existing_tables = inspector.get_table_names()
-        
-        if "active_users" not in existing_tables:
-            # Создаем таблицы только если их нет
-            Base.metadata.create_all(bind=engine)
-            logger.info("Database tables created successfully")
-        else:
-            logger.info("Database tables already exist")
-        
-        # Создаем или обновляем триггер для уведомлений
-        with engine.connect() as conn:
-            # Создаем функцию notify_user_events (она будет заменена если существует)
-            conn.execute(text("""
-                CREATE OR REPLACE FUNCTION notify_user_events()
-                RETURNS trigger AS $$
-                BEGIN
-                    PERFORM pg_notify('user_events', row_to_json(NEW)::text);
-                    RETURN NEW;
-                END;
-                $$ LANGUAGE plpgsql;
-            """))
-            
-            # Проверяем существование триггера
-            trigger_exists = conn.execute(text("""
-                SELECT 1 FROM pg_trigger WHERE tgname = 'user_events_trigger';
-            """)).scalar() is not None
-            
-            if not trigger_exists:
-                conn.execute(text("""
-                    CREATE TRIGGER user_events_trigger
-                    AFTER INSERT OR UPDATE OR DELETE ON active_users
-                    FOR EACH ROW EXECUTE FUNCTION notify_user_events();
-                """))
-                logger.info("Database trigger created successfully")
-            else:
-                logger.info("Database trigger already exists")
-            
-    except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-        raise
-
-async def get_active_users_in_room(room: str):
-    """Получение списка активных пользователей в комнате"""
-    try:
-        db = SessionLocal()
-        users = db.query(ActiveUser).filter(ActiveUser.room == room).all()
-        return [{"user_id": user.user_id, "metadata": user.user_metadata} for user in users]
-    except Exception as e:
-        logger.error(f"Error getting active users: {e}")
-        return []
-    finally:
-        db.close()
-
-async def add_user_to_room(user_id: str, room: str, metadata: dict = None):
-    """Добавление пользователя в комнату"""
-    try:
-        db = SessionLocal()
-        user = ActiveUser(user_id=user_id, room=room, user_metadata=metadata)
-        db.merge(user)
-        db.commit()
-        
-        # Отправляем уведомление через psycopg2
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-        cur = conn.cursor()
-        notify_payload = json.dumps({
-            "type": "user_join",
-            "user_id": user_id,
-            "room": room
-        })
-        cur.execute(f"NOTIFY user_events, %s", (notify_payload,))
-        cur.close()
-        conn.close()
-        
-        return True
-    except Exception as e:
-        logger.error(f"Error adding user to room: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
-
-async def remove_user_from_room(user_id: str, room: str):
-    """Удаление пользователя из комнаты"""
-    try:
-        db = SessionLocal()
-        user = db.query(ActiveUser).filter(
-            ActiveUser.user_id == user_id,
-            ActiveUser.room == room
-        ).first()
-        
-        if user:
-            db.delete(user)
-            db.commit()
-            
-            # Отправляем уведомление через psycopg2
-            conn = psycopg2.connect(DATABASE_URL)
-            conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-            cur = conn.cursor()
-            notify_payload = json.dumps({
-                "type": "user_leave",
-                "user_id": user_id,
-                "room": room
-            })
-            cur.execute(f"NOTIFY user_events, %s", (notify_payload,))
-            cur.close()
-            conn.close()
-            
-        return True
-    except Exception as e:
-        logger.error(f"Error removing user from room: {e}")
-        db.rollback()
-        return False
-    finally:
-        db.close()
-
-async def subscribe_to_events(callback):
-    """Подписка на события из PostgreSQL"""
-    while True:
+    async def _notification_handler(connection, pid, channel, payload):
+        """Обработчик уведомлений от asyncpg."""
+        logger.info(f"Получен NOTIFY на канале '{channel}' от PID {pid}")
         try:
-            # Создаем отдельное подключение для прослушивания уведомлений
-            conn = psycopg2.connect(DATABASE_URL)
-            conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-            cur = conn.cursor()
-            cur.execute("LISTEN user_events;")
-            
-            logger.info("Started listening for PostgreSQL notifications")
-            
-            while True:
-                if select.select([conn], [], [], 5) == ([], [], []):
-                    continue
-                
-                conn.poll()
-                while conn.notifies:
-                    notify = conn.notifies.pop()
-                    await callback(notify.payload)
-                    
+            data = json.loads(payload)
+            logger.info(f"Payload: {data}")
+
+            event_type = data.get('type')
+            chat_id = data.get('chat_id')
+            # Другие данные могут быть в data.get('data') или просто в data
+
+            if not event_type or not chat_id:
+                logger.warning("Получено уведомление без 'type' или 'chat_id' в payload.")
+                return
+
+            # Определяем комнату Socket.IO (предполагаем, что комната = chat_id)
+            # Важно: Убедись, что фронтенд входит в комнаты с такими именами!
+            room_name = str(chat_id)
+
+            logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
+            # Отправляем событие клиентам в нужной комнате
+            await sio.emit(event_type, data, room=room_name)
+            logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")
+
+        except json.JSONDecodeError:
+            logger.error(f"Ошибка декодирования JSON из payload: {payload}")
         except Exception as e:
-            logger.error(f"Error in notification listener: {e}")
-            await asyncio.sleep(5)  # Ждем перед повторным подключением
-            
-        finally:
+            logger.error(f"Ошибка при обработке уведомления или отправке sio.emit: {e}")
+            logger.exception("Стек ошибки обработчика уведомлений:")
+
+    async def _keep_listening():
+        nonlocal conn # Разрешаем изменять conn во внешней области видимости
+        while not stop_event.is_set():
             try:
-                cur.close()
-                conn.close()
-            except:
-                pass 
+                if conn is None or conn.is_closed():
+                    logger.info("Подключение к PostgreSQL для LISTEN...")
+                    conn = await asyncpg.connect(
+                        user=POSTGRES_USER,
+                        password=POSTGRES_PASSWORD,
+                        database=POSTGRES_DB,
+                        host=POSTGRES_HOST,
+                        port=POSTGRES_PORT
+                    )
+                    await conn.add_listener(PG_CHANNEL, _notification_handler)
+                    logger.info(f"✅ Успешно подключен и слушаю канал '{PG_CHANNEL}'")
+
+                # Просто ждем событий, add_listener работает в фоне
+                # Можно добавить проверку соединения раз в N секунд, если нужно
+                await asyncio.sleep(30) # Проверка каждые 30 сек
+
+            except (asyncpg.PostgresConnectionError, ConnectionRefusedError, OSError) as e:
+                logger.error(f"Ошибка подключения/связи с PostgreSQL: {e}. Повторная попытка через 5 секунд...")
+                if conn:
+                    try: await conn.close()
+                    except: pass
+                conn = None
+                await asyncio.sleep(5)
+            except Exception as e:
+                logger.error(f"Непредвиденная ошибка в цикле слушателя: {e}")
+                logger.exception("Стек ошибки цикла слушателя:")
+                if conn:
+                    try: await conn.close()
+                    except: pass
+                conn = None
+                await asyncio.sleep(10) # Пауза подольше при непонятных ошибках
+
+        # Завершение работы
+        logger.info("Слушатель PostgreSQL получил сигнал остановки.")
+        if conn and not conn.is_closed():
+            try:
+                logger.info("Удаление слушателя и закрытие соединения с PostgreSQL...")
+                await conn.remove_listener(PG_CHANNEL, _notification_handler)
+                await conn.close()
+                logger.info("Соединение PostgreSQL для слушателя успешно закрыто.")
+            except Exception as e:
+                logger.error(f"Ошибка при закрытии соединения PostgreSQL: {e}")
+
+    # Запускаем основной цикл слушателя
+    listener_task = asyncio.create_task(_keep_listening())
+
+    # Возвращаем задачу и событие остановки, чтобы внешний код мог управлять
+    return listener_task, stop_event
+
+# --- УДАЛЯЕМ СТАРУЮ СИНХРОННУЮ ФУНКЦИЮ ---
+# async def subscribe_to_events(callback):
+#    ... (старый код) ... 

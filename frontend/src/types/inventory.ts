@@ -154,33 +154,19 @@ export interface Chat {
 
 export interface InventoryState {
     items: ChatInventory[];
-    categories: Category[];
+    categories: any[];
     selectedChatId: string | null;
     selectedChat: ChatInventory | null;
-    selectedItem: InventoryItem | null;
+    selectedItem: any | null;
     isLoading: boolean;
     error: string | null;
     history: {
-        records: Record<string, HistoryRecord[]>;
+        records: { [key: string]: HistoryRecord[] };
         lastUpdate: string | null;
         isLoading: boolean;
         error: string | null;
     };
-    lastSentItemSuggestion: {
-        item?: {
-            category?: string;
-            itemId?: string;
-            has_semifinished?: boolean;
-        };
-        source?: {
-            userId?: number;
-            userName?: string;
-            chatId?: string;
-            chatTitle?: string;
-        };
-        timestamp?: string;
-        type?: string;
-    } | null;
+    lastSentItemSuggestion: any | null;
 }
 
 export interface ItemHistoryEntry {
@@ -237,4 +223,4 @@ export enum InventoryActionTypes {
     CLEAR_ITEM_HISTORY = 'inventory/clearItemHistory',
     SET_HISTORY_LOADING = 'inventory/setHistoryLoading',
     RECEIVE_HISTORY_UPDATE = 'inventory/receiveHistoryUpdate'
-} 
+}

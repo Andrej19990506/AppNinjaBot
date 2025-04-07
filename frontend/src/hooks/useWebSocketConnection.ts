@@ -1,418 +1,168 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useIdleTimer } from 'react-idle-timer';
+import { useState, useEffect, useCallback } from 'react';
+// import { useIdleTimer } from 'react-idle-timer'; // Оставляем пока закомментированным или удалим позже
 import { socketService, SocketState } from '../services/socket';
 import { logger } from '../utils/logger';
+import { useAppSelector } from '../store/hooks'; // <-- Правильный импорт
 
-// Глобальный флаг для отслеживания текущей попытки подключения
-let isGlobalConnecting = false;
-let connectionPromise: Promise<boolean> | null = null;
+// Убираем глобальные переменные
+// let isGlobalConnecting = false;
+// let connectionPromise: Promise<boolean> | null = null;
+// let isSocketInitialized = false;
 
-// Для отслеживания глобального состояния инициализации
-let isSocketInitialized = false;
+// Константы (если нужны)
+// const ACTIVITY_TIMEOUT = 20 * 1000;
 
-// Константы
-const ACTIVITY_TIMEOUT = 20 * 1000; // 20 секунд неактивности = away для тестирования
-
-// Хук для работы с WebSocket
 export const useWebSocketConnection = () => {
+  // --- Состояние хука ---
+  // Основное состояние получаем из сервиса
   const [socketState, setSocketState] = useState<SocketState>(socketService.getState());
-  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
-  const isHookInitializedRef = useRef(false);
-  const [isConnected, setIsConnected] = useState(false);
-  const [socketId, setSocketId] = useState<string | undefined>();
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const reconnectAttemptsRef = useRef(0);
-  const maxReconnectAttempts = 5;
-  const lastPingRef = useRef<number>(Date.now());
-  const pingIntervalRef = useRef<NodeJS.Timeout>();
-  const pongTimeoutRef = useRef<NodeJS.Timeout>();
-  const [isAway, setIsAway] = useState(false);
-  const lastActivityRef = useRef<number>(Date.now());
+  // Локальные состояния хука (только для UI или специфичной логики хука)
+  const [isJoiningRoom, setIsJoiningRoom] =useState(false);
 
-  // Функция для инициализации сокета с гарантией
-  const ensureSocketInitialized = useCallback(() => {
-    if (isSocketInitialized) {
-      return socketService.getSocket();
-    }
+  // --- Получение данных из Redux ---
+  const userId = useAppSelector((state) => state.user.user?.id);
+  const stringUserId = userId ? String(userId) : undefined;
 
-    logger.log('🔄 [useWebSocketConnection] Инициализация сокета');
-    const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost';
-    const socket = socketService.init(wsUrl);
-    if (socket) {
-      isSocketInitialized = true;
-    } else {
-      logger.error('❌ [useWebSocketConnection] Не удалось инициализировать Socket.IO');
-    }
-    return socket;
-  }, []);
-
-  // Функция подключения с дедупликацией
-  const connectToServer = useCallback(async () => {
-    if (isGlobalConnecting) {
-      logger.log('🔄 Ожидание существующей попытки подключения...');
-      return connectionPromise;
-    }
-
-    if (socketService.isConnected()) {
-      logger.log('✅ Соединение уже установлено');
-      return true;
-    }
-
-    isGlobalConnecting = true;
-    connectionPromise = (async () => {
-      try {
-        logger.log('🔄 Начало новой попытки подключения');
-        const connected = await socketService.connect();
-        if (connected) {
-          setIsConnected(true);
-          setSocketId(socketService.getSocket()?.id);
-          reconnectAttemptsRef.current = 0;
-          logger.log('✅ Подключение успешно установлено');
-          return true;
-        }
-        throw new Error('Не удалось подключиться');
-      } catch (error) {
-        logger.error('❌ Ошибка при подключении:', error);
-        return false;
-      } finally {
-        isGlobalConnecting = false;
-        connectionPromise = null;
-      }
-    })();
-
-    return connectionPromise;
-  }, []);
-
-  // Функция переподключения с экспоненциальной задержкой
-  const handleReconnect = useCallback(async () => {
-    if (isGlobalConnecting || reconnectAttemptsRef.current >= maxReconnectAttempts) {
-      return;
-    }
-
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
-    reconnectAttemptsRef.current++;
-
-    logger.log(`🔄 Попытка переподключения ${reconnectAttemptsRef.current}/${maxReconnectAttempts} через ${delay}ms`);
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-    }
-
-    reconnectTimeoutRef.current = setTimeout(async () => {
-      await connectToServer();
-    }, delay);
-  }, [connectToServer]);
-
-  // Инициализация и подключение
+  // --- Главный useEffect для управления соединением ---
   useEffect(() => {
-    // Предотвращаем повторную инициализацию в этом экземпляре хука
-    if (isHookInitializedRef.current) {
-      return;
-    }
-    
-    isHookInitializedRef.current = true;
-    logger.log('🔄 [useWebSocketConnection] Инициализация хука');
-    
-    // Гарантированная инициализация сокета
-    const socket = ensureSocketInitialized();
-    if (!socket) {
-      return;
-    }
+    logger.log(`🚀 [WebSocketHook] Главный useEffect. UserID: ${stringUserId}`);
 
-    // Подписываемся на изменения состояния сокета
-    const handleStateChange = () => {
+    // --- Шаг 1: Инициализация сокета при появлении userId ---
+    if (stringUserId && !socketService.isInitialized()) {
+      logger.log(`✨ [WebSocketHook] UserID есть (${stringUserId}), сокет не инициализирован. Вызов init()...`);
+      // Инициализируем сервис с userId
+      socketService.init(undefined, stringUserId);
+      // Сразу обновляем локальное состояние, чтобы отразить возможные изменения от init
       setSocketState(socketService.getState());
-    };
+    }
 
-    socket.on('connect', handleStateChange);
-    socket.on('disconnect', handleStateChange);
-    socket.on('connect_error', handleStateChange);
-    
-    const cleanup = () => {
-      logger.log('🧹 [useWebSocketConnection] Очистка подписок');
-      if (socket) {
-        socket.off('connect', handleStateChange);
-        socket.off('disconnect', handleStateChange);
-        socket.off('connect_error', handleStateChange);
+    // --- Шаг 2: Подключение, если инициализирован, но не подключен ---
+    // Сервис сам управляет флагом isConnecting, чтобы не было гонок
+    if (socketService.isInitialized() && !socketService.isConnected() && !socketService.isConnecting()) {
+      logger.log(`🔌 [WebSocketHook] Сокет инициализирован, не подключен и не подключается. Вызов connect()...`);
+      socketService.connect(); // Сервис сам обработает попытку подключения
+    }
+
+    // --- Шаг 3: Подписка на ИЗМЕНЕНИЯ состояния из сервиса ---
+    logger.log('👂 [WebSocketHook] Подписка на изменения состояния сокета...');
+    const unsubscribeStateChange = socketService.onStateChange((newState) => {
+      logger.log(`🚦 [WebSocketHook] Получено новое состояние от сервиса:`, newState);
+      setSocketState(newState); // Просто обновляем состояние хука
+      // Дополнительная логика при смене состояния (если нужна)
+      if (!newState.isConnected) {
+        setIsJoiningRoom(false); // Сбрасываем флаг входа в комнату при дисконнекте
       }
-    };
+    });
 
-    return cleanup;
-  }, [ensureSocketInitialized]);
-
-  // Инициализация подключения
-  useEffect(() => {
-    logger.log('🔄 [useWebSocketConnection] Инициализация хука');
-    
-    const initConnection = async () => {
-      await connectToServer();
-    };
-
-    initConnection();
-
+    // --- Шаг 4: Очистка при размонтировании хука ---
     return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
-      socketService.disconnect();
+      logger.log(`🧹 [WebSocketHook] Очистка главного useEffect (размонтирование?). UserID: ${stringUserId}`);
+      unsubscribeStateChange(); // ОБЯЗАТЕЛЬНО отписываемся
+      // Решение о disconnect принимается ВНЕ хука или на уровне всего приложения.
+      // Хук не должен сам решать, когда рвать соединение.
+      // socketService.disconnect(); // НЕ ЗДЕСЬ
     };
-  }, [connectToServer]);
+  }, [stringUserId]); // Зависит ТОЛЬКО от userId
 
-  // Функция обновления времени последней активности
-  const updateLastActivity = useCallback(() => {
-    const now = Date.now();
-    lastActivityRef.current = now;
-
-    // Если пользователь был неактивен, отправляем событие возвращения
-    if (isAway) {
-      logger.log('👋 Пользователь вернулся к активности');
-      socketService.emit('user_activity', {
-        type: 'back',
-        timestamp: now,
-        socket_id: socketId
-      });
-      setIsAway(false);
-    }
-  }, [isAway, socketId]);
-
-  // Обработчик неактивности
-  const onIdle = () => {
-    const now = Date.now();
-    logger.warn('⚠️ Пользователь неактивен');
-    setIsAway(true);
-    socketService.emit('user_activity', {
-      type: 'away',
-      timestamp: now,
-      socket_id: socketId,
-      last_activity: lastActivityRef.current
-    });
-  };
-
-  // Обработчик активности
-  const onActive = () => {
-    updateLastActivity();
-  };
-
-  // Инициализация IdleTimer
-  useIdleTimer({
-    timeout: ACTIVITY_TIMEOUT,
-    onIdle,
-    onActive,
-    debounce: 500
-  });
-
-  // Обработка пингов
-  const handlePing = useCallback((data: { timestamp: string }) => {
-    lastPingRef.current = Date.now();
-    
-    // Отправляем в pong информацию о последней активности
-    socketService.emit('pong', {
-      timestamp: data.timestamp,
-      client_time: Date.now().toString(),
-      socket_id: socketId,
-      last_activity: lastActivityRef.current,
-      is_away: isAway
-    });
-    
-    // Очищаем предыдущий таймаут pong если есть
-    if (pongTimeoutRef.current) {
-      clearTimeout(pongTimeoutRef.current);
-    }
-    
-    // Отправляем pong немедленно
-    socketService.emit('pong', {
-      timestamp: data.timestamp,
-      client_time: Date.now().toString(),
-      socket_id: socketId
-    });
-    logger.log('📍 Отправлен pong на сервер');
-    
-    // Устанавливаем новый таймаут для следующего pong
-    pongTimeoutRef.current = setTimeout(() => {
-      if (Date.now() - lastPingRef.current > 25000) { // 25 секунд без пинга
-        logger.warn('⚠️ Длительное отсутствие пингов от сервера');
-        handleReconnect();
-      }
-    }, 30000); // 30 секунд максимальное ожидание
-  }, [socketId, handleReconnect, isAway]);
-
-  // Отправка keepalive пингов
-  const startPingInterval = useCallback(() => {
-    if (pingIntervalRef.current) {
-      clearInterval(pingIntervalRef.current);
-    }
-    
-    pingIntervalRef.current = setInterval(() => {
-      if (socketService.isConnected()) {
-        socketService.emit('ping', {
-          timestamp: Date.now().toString(),
-          client_time: Date.now().toString(),
-          socket_id: socketId
-        });
-      }
-    }, 15000); // Отправляем ping каждые 15 секунд
-  }, [socketId]);
-
-  // Обновляем эффект мониторинга состояния подключения
-  useEffect(() => {
-    const handleDisconnect = () => {
-      setIsConnected(false);
-      // Очищаем интервалы при отключении
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
-      if (pongTimeoutRef.current) {
-        clearTimeout(pongTimeoutRef.current);
-      }
-      handleReconnect();
-    };
-
-    const handleConnect = () => {
-      setIsConnected(true);
-      setIsAway(false); // Сбрасываем состояние away при подключении
-      startPingInterval(); // Запускаем пинги при подключении
-    };
-
-    const handleAway = (data: { sid: string; user_info: any }) => {
-      if (data.sid === socketId) {
-        setIsAway(true);
-        logger.warn('⚠️ Сервер отметил клиента как отошедший');
-      }
-    };
-
-    const handleBack = (data: { sid: string; user_info: any }) => {
-      if (data.sid === socketId) {
-        setIsAway(false);
-        logger.log('✅ Клиент снова активен');
-      }
-    };
-
-    socketService.on('disconnect', handleDisconnect);
-    socketService.on('connect_error', handleDisconnect);
-    socketService.on('connect', handleConnect);
-    socketService.on('ping', handlePing);
-    socketService.on('user_away', handleAway);
-    socketService.on('user_back', handleBack);
-
-    // Запускаем пинги если уже подключены
-    if (socketService.isConnected()) {
-      startPingInterval();
-    }
-
-    return () => {
-      socketService.off('disconnect');
-      socketService.off('connect_error');
-      socketService.off('connect');
-      socketService.off('ping');
-      socketService.off('user_away');
-      socketService.off('user_back');
-      if (pingIntervalRef.current) {
-        clearInterval(pingIntervalRef.current);
-      }
-      if (pongTimeoutRef.current) {
-        clearTimeout(pongTimeoutRef.current);
-      }
-    };
-  }, [handleReconnect, startPingInterval, handlePing, socketId]);
-
-  // Подключение к глобальной комнате
-  const joinGlobalRoom = useCallback(async (userInfo?: { first_name?: string; last_name?: string }) => {
-    if (isJoiningRoom) {
-      logger.warn('🚫 [useWebSocketConnection] Уже идет процесс подключения к комнате');
-      return false;
-    }
-    
-    try {
-      setIsJoiningRoom(true);
-      
-      // Проверяем текущее состояние подключения
-      const state = socketService.getState();
-      logger.log('🔄 [useWebSocketConnection] Начало процесса присоединения к комнате:', {
-        room: 'global',
-        userInfo,
-        socketId: state.socketId,
-        connected: state.connected,
-        transport: state.transport,
-        timestamp: new Date().toISOString()
-      });
-
-      // Если нет подключения, пытаемся подключиться
-      if (!socketService.isConnected()) {
-        const connected = await connectToServer();
-        if (!connected) {
-          throw new Error('Не удалось установить WebSocket соединение после нескольких попыток');
-        }
-      }
-
-      // Проверяем подключение еще раз перед присоединением к комнате
-      if (!socketService.isConnected()) {
-        throw new Error('Соединение потеряно перед присоединением к комнате');
-      }
-
-      // Подключаемся к комнате
-      logger.log('🚪 [useWebSocketConnection] Подключаемся к глобальной комнате...');
-      const result = await socketService.joinRoom('global', userInfo);
-      
-      if (result) {
-        logger.log('✅ [useWebSocketConnection] Успешно подключились к глобальной комнате');
-      } else {
-        throw new Error('Не удалось подключиться к глобальной комнате');
-      }
-      
-      return result;
-    } catch (error) {
-      logger.error('❌ [useWebSocketConnection] Ошибка при подключении к глобальной комнате:', error);
-      return false;
-    } finally {
-      setIsJoiningRoom(false);
-    }
-  }, [isJoiningRoom, connectToServer]);
-
-  // Функция для принудительной инициализации сокета (в случае проблем)
-  const reinitializeSocket = useCallback(() => {
-    logger.log('🔄 [useWebSocketConnection] Принудительная реинициализация сокета');
-    isSocketInitialized = false;
-    socketService.disconnect();
-    return ensureSocketInitialized();
-  }, [ensureSocketInitialized]);
-
-  // Отправка сообщения
+  // --- Методы для взаимодействия с сокетом (прокси к сервису) ---
   const sendMessage = useCallback(<T = any>(event: string, data?: T) => {
-    logger.log('📤 [useWebSocketConnection] Отправка сообщения:', { event, data });
+    // logger.log('📤 [WebSocketHook] Отправка сообщения:', { event, data }); // Опционально для дебага
     socketService.emit(event, data);
   }, []);
 
-  // Подписка на события
-  const subscribe = useCallback(<T = any>(event: string, callback: (data: T) => void) => {
-    logger.log('📡 [useWebSocketConnection] Подписка на событие:', event);
-    socketService.on(event, callback);
-    return () => {
-      logger.log('🧹 [useWebSocketConnection] Отписка от события:', event);
-      socketService.off(event);
-    };
+  const subscribe = useCallback(<T = any>(event: string, callback: (data: T) => void): (() => void) => {
+    logger.log(`📡 [WebSocketHook] Подписка на событие: ${event}`);
+    // Делегируем сервису, он вернет функцию отписки
+    return socketService.subscribe(event, callback);
   }, []);
 
+  const unsubscribe = useCallback((event: string, callback?: Function) => {
+    logger.log(`🧹 [WebSocketHook] Отписка от события: ${event}`);
+    // У сервиса должен быть метод unsubscribe или off, который принимает колбэк для точности
+    socketService.unsubscribe(event); // Или socketService.off(event, callback)
+  }, []);
+
+  // --- Вход в комнату (пример) ---
+  // Может быть и в компоненте, если логика специфична
+  const joinGlobalRoom = useCallback(async (userInfo: any) => {
+    if (!socketService.isConnected()) {
+      logger.warn('⚠️ [WebSocketHook] Попытка войти в global до подключения сокета');
+      // Можно попробовать инициировать подключение, если сокет инициализирован
+      if (socketService.isInitialized() && !socketService.isConnecting()) {
+          logger.log('🔌 [WebSocketHook] Пытаемся подключиться перед входом в комнату...');
+          socketService.connect();
+          // Дальше нужно дождаться подключения, это усложняет...
+          // Проще требовать, чтобы сокет уже был подключен.
+          return false;
+      }
+      return false;
+    }
+    setIsJoiningRoom(true);
+    logger.log('🚪 [WebSocketHook] Вход в глобальную комнату...', userInfo);
+    try {
+      // Используем emitWithAck из сервиса
+      const result = await new Promise<boolean>((resolve) => {
+          socketService.emitWithAck<{ room: string; user_info: any }, { status?: string; error?: string }>(
+              'join_room',
+              { room: 'global', user_info: userInfo },
+              (response) => {
+                  if (response?.status === 'success' || !response?.error) {
+                      logger.log('✅ Успешно вошли в глобальную комнату (ack)');
+                      resolve(true);
+                  } else {
+                      logger.error('❌ Ошибка при входе в глобальную комнату (ack):', response?.error);
+                      resolve(false);
+                  }
+              }
+          );
+          // Добавляем таймаут на ack
+          setTimeout(() => {
+              logger.warn('⏳ Таймаут ожидания ack для join_room');
+              resolve(false);
+          }, 5000); // 5 секунд
+      });
+      setIsJoiningRoom(false);
+      return result;
+    } catch (error) {
+      logger.error('❌ Исключение при входе в глобальную комнату:', error);
+      setIsJoiningRoom(false);
+      return false;
+    }
+  }, []); // Зависимости? connectToServer убрали, isConnected берем из сервиса
+
+  // --- Функции, которые больше не нужны ---
+  // const connectToServer = ... // Убрали, сервис рулит
+  // const handleReconnect = ... // Убрали, сервис рулит
+  // const reinitializeSocket = ... // Убрали, сервис рулит
+
+  // --- Возвращаемое API хука ---
   return {
-    isConnected,
-    socketId,
-    transport: socketState.transport,
-    error: socketState.error,
-    connectToServer,
-    reinitializeSocket,
+    // Состояние соединения из сервиса
+    socketState,
+
+    // Методы для взаимодействия
     sendMessage,
     subscribe,
-    unsubscribe: (event: string) => {
-      logger.log('🧹 [useWebSocketConnection] Отписка от события:', event);
-      socketService.unsubscribe(event);
-    },
-    joinGlobalRoom,
+    unsubscribe,
+    joinGlobalRoom, // Пример
+
+    // Состояния UI
     isJoiningRoom,
-    handleReconnect,
-    isAway,
-    lastPingTime: lastPingRef.current,
-    lastActivityTime: lastActivityRef.current,
-    updateLastActivity
+
+    // Возможно, стоит вернуть сам userId, чтобы не дергать useAppSelector в компонентах
+    userId: stringUserId,
+
+    // Методы, которые убрали:
+    // connectToServer,
+    // handleReconnect,
+    // reinitializeSocket,
+    // lastPingTime, // Сервис сам следит
+    // lastActivityTime, // Реф остался, но не возвращаем пока
+    // updateLastActivity // Если idle timer используется
   };
 };
 
-export default useWebSocketConnection; 
+// --- Исправляем линтер ---
+// Убираем второй export default
+// export default useWebSocketConnection;
+// --- ----------------- --- 

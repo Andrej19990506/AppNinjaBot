@@ -43,6 +43,14 @@ WEBSOCKET_MAX_BUFFER_SIZE = int(os.getenv('WEBSOCKET_MAX_BUFFER_SIZE', 1e8))
 TELEGRAM_API_ALLOWED_HOSTS = ['api.telegram.org']
 MAX_CONTENT_LENGTH = int(os.getenv('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB по умолчанию
 
+# Настройки CORS и безопасности
+TRUST_PROXY = os.getenv('TRUST_PROXY', 'true').lower() == 'true'
+CORS_ALLOWED_ORIGINS = ['*'] if IS_PRODUCTION else [
+    'http://localhost:3000',
+    'http://localhost',
+    'http://localhost:80'
+]
+
 # Настройки для rate limiting
 RATE_LIMIT_DEFAULT = "100 per minute"
 RATE_LIMIT_STRICT = "30 per minute"

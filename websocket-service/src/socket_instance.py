@@ -50,9 +50,6 @@ sio = socketio.AsyncServer(
     engineio_logger=True
 )
 
-# Создаем ASGI приложение
-app = ASGIApp(sio)
-
 # Регистрируем отладочный обработчик для всех событий
 @sio.on('*')
 async def catch_all(event, sid, *args):
@@ -65,7 +62,7 @@ async def catch_all(event, sid, *args):
 logger.info("✅ Socket.IO сервер инициализирован c параметрами:")
 logger.info(f"🔒 CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 logger.info(f"⏱️ Ping timeout: 180s, interval: 60s")
-logger.info(f"🔄 Async mode: asgi")
+logger.info(f"🔄 Async mode: {sio.async_mode}")
 
 # Проверяем все зарегистрированные обработчики
 handlers = {ns: [event for event in sio.handlers[ns].keys() if not event.startswith('_')] 
@@ -77,7 +74,7 @@ for ns, events in handlers.items():
 logger.info("=" * 80)
 
 # Экспортируем приложение для uvicorn
-__all__ = ['app', 'sio']
+__all__ = ['sio']
 
 class DebugNamespace(socketio.AsyncNamespace):
     def trigger_event(self, event, *args):

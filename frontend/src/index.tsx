@@ -4,6 +4,7 @@ import { createGlobalStyle } from 'styled-components';
 import './styles/index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import store from './store/store';
 
 const GlobalStyle = createGlobalStyle`
   * {

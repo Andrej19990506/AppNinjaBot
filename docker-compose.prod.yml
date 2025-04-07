@@ -40,7 +40,8 @@ services:
       - WEBSOCKET_SERVER_URL=http://websocket:8003
       - SOCKET_URL=wss://appninjabot.ru
       - DOMAIN=appninjabot.ru
-      - ALLOWED_ORIGINS=https://appninjabot.ru
+      - ALLOWED_ORIGINS=*
+      - TRUST_PROXY=true
       - PORT=8000
       - HOST=0.0.0.0
       - ENVIRONMENT=production

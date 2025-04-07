@@ -26,6 +26,7 @@
     "framer-motion": "^11.18.2",
     "gsap": "^3.12.5",
     "handsontable": "^13.1.0",
+    "history": "^5.3.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",
     "react": "^18.2.0",
@@ -44,6 +45,7 @@
   },
   "devDependencies": {
     "@types/date-fns": "^2.6.0",
+    "@types/history": "^5.0.0",
     "@types/react-calendar": "^3.0.7",
     "@types/react-redux": "^7.1.33",
     "@types/socket.io-client": "^3.0.0",

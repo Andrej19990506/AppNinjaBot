@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { logger } from '../utils/logger';
 import { useAppDispatch } from '../store/hooks';
 import { addNotification, NotificationTypes } from '../store/slices/notificationSlice';
-import useWebSocketConnection from '../hooks/useWebSocketConnection';
+import { useWebSocketConnection } from '../hooks/useWebSocketConnection';
 import { tooltipManager } from '../components/Tooltip';
 import { socketService } from '../services/socket';
 
@@ -223,14 +223,14 @@ const ActionButton = styled.button`
 const WebSocketHandler: React.FC = () => {
   const dispatch = useAppDispatch();
   const { 
-    isConnected,
-    isAway,
-    updateLastActivity
+    socketState,
+    subscribe,
+    sendMessage
   } = useWebSocketConnection();
 
   // Обработка системных сообщений и уведомлений
-  React.useEffect(() => {
-    if (!isConnected) return;
+  useEffect(() => {
+    if (!socketState.isConnected) return;
 
     const handleSystemMessage = (data: any) => {
       if (data.isSystem) {
@@ -244,39 +244,64 @@ const WebSocketHandler: React.FC = () => {
       }
     };
 
-    socketService.on('message', handleSystemMessage);
+    const unsubscribeMessage = subscribe<{ text: string; user: any }>('message', handleSystemMessage);
+    const unsubscribeError = subscribe<any>('error', (errorData) => {
+      logger.error('❌ Ошибка WebSocket получена через событие:', errorData);
+      dispatch(addNotification({
+        id: `ws-error-${Date.now()}`,
+        title: 'Ошибка WebSocket',
+        message: errorData?.message || JSON.stringify(errorData),
+        type: NotificationTypes.ERROR
+      }));
+    });
+
     return () => {
-      socketService.off('message');
+      logger.log('🧹 [WebSocketHandler] Отписка от событий...');
+      unsubscribeMessage();
+      unsubscribeError();
     };
-  }, [isConnected, dispatch]);
+  }, [socketState.isConnected, subscribe, dispatch]);
+
+  // Показ оверлея при отключении или ошибке
+  const shouldShowOverlay = !socketState.isConnected && !socketState.isConnecting;
+  const overlayMessage = socketState.error 
+    ? 'Ошибка подключения' 
+    : 'Потеряно соединение с сервером...';
+  const overlaySubtext = socketState.error 
+    ? socketState.error 
+    : 'Пожалуйста, проверьте ваше интернет-соединение. Попытка переподключения...';
 
   const handleActivate = () => {
-    updateLastActivity();
-    tooltipManager.show('Вы снова активны', 'success');
+    // Принудительная попытка переподключения (если нужно)
+    logger.log('🔄 Попытка активации соединения WebSocket...');
+    if (!socketService.isInitialized()) {
+        socketService.init(); // Попробуем инициализировать, если еще нет
+    }
+    if (!socketService.isConnected()) {
+        socketService.connect(); // Попробуем подключиться
+    }
+    // tooltipManager.hideTooltip(); // Скрываем тултип - ЗАКОММЕНТИРОВАНО
   };
 
-  // Рендерим оверлей только когда пользователь неактивен
-  if (!isAway) return null;
-
   return (
-    <Overlay $isVisible={isAway}>
+    <Overlay $isVisible={shouldShowOverlay} onClick={handleActivate} data-tooltip-id="ws-overlay-tooltip">
       <ContentContainer>
         <IconContainer>
           <Icon />
-          <Zzz>?</Zzz>
+          <Zzz />
         </IconContainer>
         <Message>
-          <MainText>
-            Вы отошли?
-          </MainText>
-          <SubText>
-            Хорошо, я пока оптимизирую нагрузку на сервер
-          </SubText>
+          <MainText>{overlayMessage}</MainText>
+          <SubText>{overlaySubtext}</SubText>
         </Message>
-        <ActionButton onClick={handleActivate}>
-          Я здесь
-        </ActionButton>
+        {/* Можно добавить кнопку "Переподключиться" явно */} 
+         {/* <ActionButton onClick={handleActivate}>Переподключиться</ActionButton> */}
       </ContentContainer>
+      {/*
+      <Tooltip id="ws-overlay-tooltip">
+        Нажмите в любом месте, чтобы попытаться переподключиться.
+      </Tooltip>
+      */}
     </Overlay>
   );
 };

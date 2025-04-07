@@ -4,9 +4,10 @@ import { RootState } from '../store';
 import { socketService } from '../../services/socket';
 import config from '../../config';
 import { format } from 'date-fns';
+import { bookShift as bookShiftApi, cancelShift as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts } from '../../services/courierApi';
 
 // Импортируем действия из резервов для удаления оттуда при записи на смену
-import { removeFromReserve, forceFetchReserves } from './reservesSlice';
+import { removeFromReserve } from './reservesSlice';
 
 const API_BASE_URL = config.API_URL;
 
@@ -75,13 +76,12 @@ interface CourierShift {
     isSeniorCourier: boolean;
 }
 
-interface BookShiftParams {
+interface BookShiftThunkParams {
     date: string;
     userId: string;
     shiftType: 'day' | 'night';
     slotIndex: number;
     existingShiftId?: string;
-    chatId?: string;
     isDragAction?: boolean;
 }
 
@@ -207,311 +207,169 @@ export const shiftEvents = {
 // Асинхронные thunks
 export const fetchShifts = createAsyncThunk(
     'shifts/fetchShifts',
-    async (_, { getState }) => {
+    async (_, { getState, rejectWithValue }) => {
+        const state = getState() as RootState;
+        const chatId = state.user.user?.groups && state.user.user.groups.length > 0 
+            ? state.user.user.groups[0].chat_id 
+            : undefined;
+
+        if (chatId === undefined) {
+            console.warn('[shiftsSlice] No chat_id available, cannot fetch shifts');
+            return rejectWithValue('Chat ID not found');
+        }
+
         try {
-            // Получаем chat_id из state
-            const state = getState() as RootState;
-            const chatId = state.user.user?.groups && state.user.user.groups.length > 0 
-                ? state.user.user.groups[0].chat_id 
-                : undefined;
-
-            if (!chatId) {
-                console.warn('[shiftsSlice] No chat_id available, cannot fetch shifts');
-                return [];
-            }
-
             console.log('[shiftsSlice] Fetching shifts for chat_id:', chatId);
-            const response = await fetch(`${API_BASE_URL}/couriers/shifts?chat_id=${chatId}`);
-            const contentType = response.headers.get('content-type');
-            
-            if (!response.ok) {
-                throw new Error('Failed to fetch shifts');
-            }
-
-            let shifts = [];
-            if (contentType && contentType.includes('application/json')) {
-                const data = await response.json();
-                // Преобразуем данные в правильный формат
-                shifts = data.map((shift: any) => ({
-                    id: shift.id,
-                    userId: typeof shift.user_id === 'string' ? parseInt(shift.user_id) : shift.user_id,
-                    photo_url: shift.photo_url,
-                    firstName: shift.first_name,
-                    lastName: shift.last_name,
-                    date: shift.date,
-                    shiftType: shift.shift_type,
-                    slotIndex: shift.slot_index,
-                    isSeniorCourier: shift.is_senior_courier || false  // Получаем флаг статуса старшего курьера
-                }));
-                
-                // Добавим более подробное логирование для проверки статуса курьера
-                if (data.length > 0 && shifts.length > 0) {
-                    console.log('[shiftsSlice] Пример смены:', {
-                        original: data[0],
-                        formatted: shifts[0],
-                        isSeniorCourier: shifts[0].isSeniorCourier
-                    });
-                }
-            }
-            
-            console.log('[shiftsSlice] Fetched and formatted shifts:', shifts);
-            return shifts;
-        } catch (error) {
-            console.error('Error fetching shifts:', error);
-            return [];
+            const shiftsData = await getShifts(chatId);
+            console.log('[shiftsSlice] Fetched shifts via getShifts:', shiftsData);
+            return shiftsData;
+        } catch (error: any) {
+            console.error('Error fetching shifts:', error.message || error);
+            return rejectWithValue(error.message || 'Failed to fetch shifts');
         }
     }
 );
 
-export const bookShift = createAsyncThunk(
+export const bookShift = createAsyncThunk<
+    CourierShift, // Тип возвращаемого значения при успехе
+    BookShiftThunkParams, // Тип аргумента thunk
+    { state: RootState; rejectValue: string } // Тип конфига thunk
+>(
     'shifts/bookShift',
-    async (bookingData: BookShiftParams, { dispatch, getState }) => {
-        try {
-            console.log('[shiftsSlice] Booking shift:', bookingData);
-            
-            // Проверяем, есть ли пользователь в резерве на эту дату
-            const state = getState() as RootState;
-            const reserves = state.reserves.reserves;
-            const userReserve = reserves.find(
-                reserve => String(reserve.userId) === String(bookingData.userId) && 
-                           reserve.date === bookingData.date
-            );
-            
-            // Проверяем, является ли пользователь старшим курьером
-            const user = state.user.user;
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const isCurrentUserSenior = user?.is_senior_courier || false;
-            
-            console.log(`[shiftsSlice] isDragAction: ${bookingData.isDragAction}, isCurrentUserSenior: ${isCurrentUserSenior}`);
-            
-            // Если это drag action и пользователь старший, пропускаем проверки резерва
-            if (bookingData.isDragAction && isCurrentUserSenior) {
-                console.log('[shiftsSlice] Senior user drag action - bypassing reserve checks');
-            }
-            // Для обычных действий проверяем резерв
-            else if (userReserve && userReserve.id) {
-                console.log('[shiftsSlice] User is in reserve, removing from reserve first:', userReserve.id);
-                
-                try {
-                    // Удаляем пользователя из резерва, используя chatId из параметров если доступен
-                    await dispatch(removeFromReserve({
-                        reserveId: String(userReserve.id),
-                        userId: String(bookingData.userId),
-                        chatId: bookingData.chatId
-                    }));
-                    
-                    // Обновляем список резервов
-                    dispatch(forceFetchReserves());
-                    
-                    // Эмитируем событие о переходе из резерва в смену для синхронизации компонентов
-                    shiftEvents.emit('userMovedFromReserveToShift', {
-                        userId: bookingData.userId,
-                        date: bookingData.date,
-                        chatId: bookingData.chatId,
-                        shiftType: bookingData.shiftType,
-                        slotIndex: bookingData.slotIndex
-                    });
-                    
-                    console.log('[shiftsSlice] User successfully removed from reserve');
-                } catch (reserveError) {
-                    console.error('[shiftsSlice] Error removing from reserve:', reserveError);
-                    // Продолжаем выполнение, даже если удаление из резерва не удалось
-                }
-            }
-            
-            // Получаем текущего пользователя
-            if (!user) {
-                throw new Error('User not found in state');
-            }
+    async (params, { getState, rejectWithValue, dispatch }) => {
+        const { date, userId, shiftType, slotIndex, existingShiftId, isDragAction } = params;
+        const state = getState();
+        const chatId = state.user.user?.groups && state.user.user.groups.length > 0
+            ? state.user.user.groups[0].chat_id
+            : undefined;
 
-            // Подготавливаем данные для WebSocket
-            const socketData = {
-                user_id: String(user.id),
-                first_name: user.first_name || '',
-                last_name: user.last_name || '',
-                chat_id: bookingData.chatId,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                is_senior_courier: user.is_senior_courier || false
+        console.log('[shiftsSlice] Booking shift with params:', params, 'chatId:', chatId);
+        
+        try {
+            // Подготавливаем данные для API (snake_case)
+            const apiData = {
+                date: date,
+                user_id: userId,
+                shift_type: shiftType,
+                slot_index: slotIndex,
+                chat_id: chatId,
+                existing_shift_id: existingShiftId
+            };
+            // Удаляем chatId и existing_shift_id, если они undefined
+            if (!apiData.chat_id) delete (apiData as Partial<typeof apiData>).chat_id;
+            if (!apiData.existing_shift_id) delete (apiData as Partial<typeof apiData>).existing_shift_id;
+
+            // Вызываем новую функцию из courierApi
+            // Примечание: В старом коде использовался WebSocket, здесь мы переходим на REST API вызов
+            // Логика обработки резервов и drag-n-drop остается в thunk.
+            console.log('[shiftsSlice] Calling bookShiftApi with data:', apiData);
+            const bookedApiShift = await bookShiftApi(apiData);
+            console.log('[shiftsSlice] Received response from bookShiftApi:', bookedApiShift);
+
+            // Старый код с fetch и WebSocket (удален/закомментирован ниже)
+            /*
+            // ... (старый код fetch/websocket) ...
+            */
+            
+            // Преобразуем ответ API (snake_case) в формат стейта (camelCase и userId)
+            const bookedShift: CourierShift = {
+                id: bookedApiShift.id,
+                userId: String(bookedApiShift.user_id),
+                photo_url: bookedApiShift.photo_url,
+                firstName: bookedApiShift.first_name,
+                lastName: bookedApiShift.last_name,
+                date: bookedApiShift.date,
+                shiftType: bookedApiShift.shift_type,
+                slotIndex: bookedApiShift.slot_index,
+                isSeniorCourier: bookedApiShift.is_senior_courier || false
             };
 
-            // Добавляем подробное логирование статуса старшего курьера
-            console.info('[shiftsSlice] Подготовка данных для WebSocket:', {
-                userData: user,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                isSeniorCourier: user.is_senior_courier,
-                socketData: socketData
-            });
+            console.log('[shiftsSlice] Shift booked/updated successfully via API:', bookedShift);
 
-            // Получаем существующие АКТИВНЫЕ смены пользователя на эту дату
-            // Важно использовать именно те смены, которые есть в Redux store на данный момент
-            const existingShifts = (state.shifts.shifts as CourierShift[]).filter(
-                shift => shift.date === bookingData.date && 
-                String(shift.userId) === String(bookingData.userId)
-            );
-            
-            console.log('[shiftsSlice] Active shifts for user on this date:', existingShifts);
-            
-            // Если это операция перетаскивания (drag-and-drop)
-            if (bookingData.isDragAction) {
-                console.log('[shiftsSlice] Processing drag-and-drop operation with existingShiftId:', bookingData.existingShiftId);
-                
-                if (bookingData.existingShiftId) {
-                    // Для drag-and-drop мы должны сохранить оригинальные данные курьера
-                    // Находим оригинальную смену в store
-                    const originalShift = (state.shifts.shifts as CourierShift[]).find(
-                        shift => shift.id === bookingData.existingShiftId
-                    );
-                    
-                    if (originalShift) {
-                        console.log('[shiftsSlice] Found original shift data for drag-and-drop:', originalShift);
-                        // Сохраняем оригинальные данные курьера
-                        const dragData = {
-                            date: bookingData.date,
-                            shift_type: bookingData.shiftType,
-                            slot_index: bookingData.slotIndex,
-                            // Сохраняем оригинальные данные пользователя
-                            user_id: originalShift.userId,
-                            photo_url: originalShift.photo_url,
-                            first_name: originalShift.firstName,
-                            last_name: originalShift.lastName,
-                            chat_id: bookingData.chatId,
-                            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                            is_senior_courier: originalShift.is_senior_courier,
-                            // Флаги для старшего курьера
-                            is_senior_update: isCurrentUserSenior,
-                            is_drag_action: true,
-                            shift_id: bookingData.existingShiftId,
-                        };
-                        
-                        console.log('[shiftsSlice] Updating shift via drag-and-drop with preserved user data:', dragData);
-                        socketService.emit('update_shift', dragData);
-                        return {
-                            ...dragData,
-                            userId: dragData.user_id,
-                            firstName: dragData.first_name,
-                            lastName: dragData.last_name,
-                            shiftType: dragData.shift_type,
-                            slotIndex: dragData.slot_index,
-                            id: dragData.shift_id,
-                            isSeniorCourier: dragData.is_senior_courier,
-                        };
-                    } else {
-                        console.log('[shiftsSlice] Original shift not found in store, using available data');
-                        // Если не нашли оригинальную смену, используем стандартную логику
-                        socketService.emit('update_shift', {
-                            ...socketData,
-                            shift_id: bookingData.existingShiftId,
-                            is_senior_update: isCurrentUserSenior,
-                            is_drag_action: true
-                        });
-                        return socketData;
-                    }
-                } else if (existingShifts.length > 0) {
-                    // Если id не передан, но есть смена пользователя на эту дату
-                    const existingShift = existingShifts[0];
-                    console.log('[shiftsSlice] Found existing shift to update via drag-and-drop:', existingShift.id);
-                    socketService.emit('update_shift', {
-                        ...socketData,
-                        shift_id: existingShift.id,
-                        is_senior_update: isCurrentUserSenior,
-                        is_drag_action: true
-                    });
-                    return socketData;
-                }
-            }
-            
-            // Далее стандартная логика для обычных (не drag-and-drop) операций
-            // Если передан конкретный ID существующей смены
-            if (bookingData.existingShiftId) {
-                // Проверяем, действительно ли такая смена существует в Redux store
-                const shiftExists = existingShifts.some(shift => shift.id === bookingData.existingShiftId);
-                
-                if (shiftExists) {
-                    console.log('[shiftsSlice] Updating existing shift:', bookingData.existingShiftId);
-                    socketService.emit('update_shift', {
-                        ...socketData,
-                        shift_id: bookingData.existingShiftId,
-                        is_senior_update: isCurrentUserSenior && bookingData.isDragAction, // Флаг для разрешения старшим курьерам перемещать чужие смены
-                        is_drag_action: bookingData.isDragAction // Явно указываем, что это drag-and-drop операция
-                    });
-                } else {
-                    // Если такой смены нет, значит она была отменена
-                    // Создаем новую смену вместо обновления несуществующей
-                    console.log('[shiftsSlice] Shift with ID', bookingData.existingShiftId, 'not found. Creating new shift instead.');
-                    socketService.emit('book_shift', socketData);
-                }
-                
-                return socketData;
-            }
+            // Логика удаления из резерва остается здесь, т.к. она связана со стейтом Redux
+            if (!isDragAction) {
+                 const reserveDate = format(new Date(date + 'T00:00:00'), 'yyyy-MM-dd');
+                 console.log(`[shiftsSlice] Checking reserve for date: ${reserveDate}, user: ${userId}`);
+                 const reserveExists = state.reserves.reserves.some(reserve => 
+                     reserve.date === reserveDate && String(reserve.user_id) === String(userId)
+                 );
+                 if (reserveExists) {
+                     console.log(`[shiftsSlice] User ${userId} was in reserve for ${reserveDate}, removing...`);
+                     dispatch(removeFromReserve({ date: reserveDate, userId: String(userId) }));
+                     // Опционально: Перезапросить резервы после удаления
+                     // dispatch(forceFetchReserves()); 
+                 }
+             }
 
-            // Если пользователь имеет активную смену на эту дату
-            if (existingShifts.length > 0) {
-                // Используем ID первой найденной смены
-                const existingShift = existingShifts[0];
-                console.log('[shiftsSlice] Found existing shift to update:', existingShift.id);
-                socketService.emit('update_shift', {
-                    ...socketData,
-                    shift_id: existingShift.id,
-                    is_senior_update: isCurrentUserSenior && bookingData.isDragAction, // Флаг для разрешения старшим курьерам перемещать чужие смены
-                    is_drag_action: bookingData.isDragAction // Явно указываем, что это drag-and-drop операция
-                });
-            } else {
-                // Если нет существующей смены, создаем новую
-                console.log('[shiftsSlice] No existing shift found, creating new shift');
-                socketService.emit('book_shift', socketData);
-            }
-
-            return socketData;
+            // Возвращаем успешно обработанную смену
+            return bookedShift;
         } catch (error) {
-            console.log('[shiftsSlice] Failed to book shift:', error);
-            throw error;
+            // Обрабатываем ошибку, выброшенную из bookShiftApi
+            let errorMessage = 'Неизвестная ошибка при бронировании смены';
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            console.error('[shiftsSlice] Failed to book shift via API:', errorMessage);
+            // Передаем сообщение об ошибке для обработки в rejected case
+            return rejectWithValue(errorMessage);
         }
     }
 );
 
-export const cancelShift = createAsyncThunk(
+export const cancelShift = createAsyncThunk<
+    string, // Возвращаем ID удаленной смены при успехе
+    { shiftId: string }, // Тип аргумента (chatId не нужен как параметр thunk, берем из state)
+    { state: RootState; rejectValue: string } // Тип конфига
+>(
     'shifts/cancelShift',
-    async (shiftId: string | { shiftId: string, chatId?: string }, { rejectWithValue }) => {
+    async ({ shiftId }, { getState, rejectWithValue }) => {
+        const state = getState();
+        const chatId = state.user.user?.groups && state.user.user.groups.length > 0
+            ? state.user.user.groups[0].chat_id
+            : undefined;
+
+        if (!chatId) {
+            console.error('[shiftsSlice] Cannot cancel shift without chat_id');
+            // Возвращаем сообщение об ошибке через rejectWithValue
+            return rejectWithValue('Не удалось определить чат для отмены смены.');
+        }
+
+        console.log(`[shiftsSlice] Canceling shift ID: ${shiftId} in chat: ${chatId}`);
         try {
-            // Извлекаем shiftId и chatId из параметров
-            let actualShiftId: string;
-            let chatId: string | undefined;
-            
-            if (typeof shiftId === 'object') {
-                actualShiftId = shiftId.shiftId;
-                chatId = shiftId.chatId;
-            } else {
-                actualShiftId = shiftId;
-            }
-            
-            console.log('[shiftsSlice] Canceling shift:', { 
-                shiftId: actualShiftId, 
-                chatId: chatId || 'not provided' 
-            });
-            
-            // Отправляем событие через WebSocket с chatId, если он доступен
-            socketService.emit('cancel_shift', { 
-                shift_id: actualShiftId,
-                chat_id: chatId
-            });
-            
-            // Также отправляем HTTP запрос для надежности
-            const response = await fetch(`${API_BASE_URL}/shifts/${actualShiftId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: chatId ? JSON.stringify({ chat_id: chatId }) : undefined
+            // Вызываем новую функцию из courierApi
+            await cancelShiftApi(shiftId, chatId);
+
+            // Старый код с fetch (можно удалить или закомментировать)
+            /*
+            const response = await fetch(`${API_BASE_URL}/couriers/shifts/${shiftId}?chat_id=${chatId}`, {
+                method: 'DELETE'
             });
 
             if (!response.ok) {
-                throw new Error('Failed to cancel shift');
+                 let errorMsg = `Failed to cancel shift`;
+                 try {
+                     const errorJson = await response.json();
+                     errorMsg = `Failed to cancel shift: ${JSON.stringify(errorJson)}`;
+                 } catch (e) {
+                     const errorText = await response.text();
+                     errorMsg = `Failed to cancel shift: ${errorText || response.statusText}`;
+                 }
+                throw new Error(errorMsg);
             }
+            */
 
-            return actualShiftId;
+            console.log(`[shiftsSlice] Shift ID: ${shiftId} cancelled successfully via API.`);
+            // Возвращаем ID отмененной смены для обработки в extraReducers
+            return shiftId;
         } catch (error) {
-            console.error('Error canceling shift:', error);
-            return rejectWithValue(error instanceof Error ? error.message : 'Failed to cancel shift');
+            let errorMessage = 'Неизвестная ошибка при отмене смены';
+            // Извлекаем сообщение из ошибки, выброшенной cancelShiftApi
+            if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            console.error(`[shiftsSlice] Failed to cancel shift ${shiftId}:`, errorMessage);
+            // Передаем сообщение об ошибке через rejectWithValue
+            return rejectWithValue(errorMessage);
         }
     }
 );
@@ -556,93 +414,130 @@ export const confirmShift = createAsyncThunk(
 );
 
 // Thunk для загрузки настроек доступа к сменам
-export const fetchAccessSettings = createAsyncThunk(
+export const fetchAccessSettings = createAsyncThunk<
+    AccessSettings, // Тип возвращаемого значения
+    { chatId: string }, // Тип аргумента
+    { rejectValue: string } // Тип конфига
+>(
     'shifts/fetchAccessSettings',
-    async (params: { chatId?: string } = {}, { rejectWithValue }) => {
+    async ({ chatId }, { rejectWithValue }) => {
         try {
-            const { chatId } = params;
-            console.log(`🔍 Запрос настроек доступа с сервера ${chatId ? `для чата ${chatId}` : ''}`);
+            console.log(`[shiftsSlice] 🔍 Запрос настроек доступа для чата ${chatId}`);
+            
+            // Вызываем новую функцию
+            const settings = await getShiftAccessSettingsApi(chatId);
+            
+            // Старый код с fetch
+            /*
             const url = chatId 
                 ? `${API_BASE_URL}/couriers/access/settings?chat_id=${chatId}` 
-                : `${API_BASE_URL}/couriers/access/settings`;
+                : `${API_BASE_URL}/couriers/access/settings`; // Запрос без chatId кажется нелогичным тут
             
             const response = await fetch(url);
             if (!response.ok) {
-                const errorData = await response.json();
-                console.error('❌ Ошибка при загрузке настроек:', {
-                    status: response.status,
-                    error: errorData
-                });
-                
-                // Обработка конкретных кодов ошибок
-                switch(errorData.code) {
-                    case 'TABLE_NOT_EXISTS':
-                        return rejectWithValue('Таблица настроек не существует. Обратитесь к администратору.');
-                    case 'SETTINGS_NOT_FOUND':
-                        return rejectWithValue('Настройки не найдены для данного чата.');
-                    default:
-                        return rejectWithValue(errorData.error || 'Не удалось загрузить настройки доступа');
-                }
+                let errorMsg = 'Не удалось загрузить настройки доступа';
+                 try {
+                     const errorData = await response.json();
+                     console.error('❌ Ошибка при загрузке настроек:', {
+                         status: response.status,
+                         error: errorData
+                     });
+                     switch(errorData.code) {
+                         case 'TABLE_NOT_EXISTS':
+                             errorMsg = 'Таблица настроек не существует. Обратитесь к администратору.'; break;
+                         case 'SETTINGS_NOT_FOUND':
+                             errorMsg = 'Настройки не найдены для данного чата.'; break;
+                         default:
+                             errorMsg = errorData.error || errorMsg;
+                     }
+                 } catch (e) {
+                     errorMsg = `Не удалось загрузить настройки: ${response.statusText}`;
+                 }
+                return rejectWithValue(errorMsg);
             }
             const data = await response.json();
-            console.log('✅ Получены настройки доступа:', data);
-            return data;
+            */
+            
+            console.log('[shiftsSlice] ✅ Получены настройки доступа:', settings);
+            return settings;
         } catch (error: any) {
-            console.error('❌ Ошибка загрузки настроек доступа:', error);
-            return rejectWithValue(error.message || 'Не удалось загрузить настройки доступа');
+            let errorMessage = 'Неизвестная ошибка при загрузке настроек доступа';
+             if (error instanceof Error) {
+                 errorMessage = error.message;
+             }
+            console.error('[shiftsSlice] ❌ Ошибка загрузки настроек доступа:', errorMessage);
+            return rejectWithValue(errorMessage);
         }
     }
 );
 
 // Thunk для обновления настроек доступа к сменам
-export const updateAccessSettings = createAsyncThunk(
+export const updateAccessSettings = createAsyncThunk<
+    AccessSettings, // Тип возвращаемого значения
+    Partial<AccessSettings>, // Тип аргумента - передаем настройки
+    { rejectValue: string } // Тип конфига
+>(
     'shifts/updateAccessSettings',
-    async (settings: AccessSettings, { rejectWithValue }) => {
+    async (settings, { rejectWithValue }) => {
+        const chatId = settings.chat_id;
+        if (!chatId) {
+            return rejectWithValue('Не указан ID чата для сохранения настроек.');
+        }
+
         try {
-            const chat_id = settings.chat_id;
-            
-            console.log(`📊 Отправка настроек доступа на сервер ${chat_id ? `для чата ${chat_id}` : ''}:`, {
-                данные: JSON.stringify(settings, null, 2),
-                ключи: Object.keys(settings),
-                количествоПолей: Object.keys(settings).length
-            });
-            
+            console.log(`[shiftsSlice] 📊 Отправка настроек доступа для чата ${chatId}:`, settings);
+
+            // Вызываем новую функцию API
+            const updatedSettings = await updateShiftAccessSettingsApi(chatId, settings);
+
+            // Старый код с fetch
+            /*
             const response = await fetch(`${API_BASE_URL}/couriers/access/settings`, {
-                method: 'POST',
+                method: 'POST', // Был POST
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(settings),
+                body: JSON.stringify(settings), // Передавали все настройки в теле
             });
             
             if (!response.ok) {
-                const errorData = await response.json();
-                console.error('❌ Ошибка при обновлении настроек:', {
-                    status: response.status,
-                    error: errorData
-                });
-                
-                // Обработка конкретных кодов ошибок
-                switch(errorData.code) {
-                    case 'NO_DATA':
-                        return rejectWithValue('Не предоставлены данные для обновления настроек.');
-                    case 'NO_CHAT_ID':
-                        return rejectWithValue('Не указан ID чата для настроек.');
-                    case 'TABLE_NOT_EXISTS':
-                        return rejectWithValue('Таблица настроек не существует. Обратитесь к администратору.');
-                    case 'SETTINGS_NOT_FOUND':
-                        return rejectWithValue('Настройки не найдены для данного чата.');
-                    default:
-                        return rejectWithValue(errorData.error || 'Не удалось обновить настройки доступа');
-                }
+                let errorMsg = 'Не удалось обновить настройки доступа';
+                 try {
+                     const errorData = await response.json();
+                     console.error('❌ Ошибка при обновлении настроек:', {
+                         status: response.status,
+                         error: errorData
+                     });
+                     switch(errorData.code) {
+                         case 'NO_DATA':
+                             errorMsg = 'Не предоставлены данные для обновления настроек.'; break;
+                         case 'NO_CHAT_ID': // Эта ошибка теперь обрабатывается в начале thunk
+                             errorMsg = 'Не указан ID чата для настроек.'; break;
+                         case 'TABLE_NOT_EXISTS':
+                             errorMsg = 'Таблица настроек не существует.'; break;
+                         case 'SETTINGS_NOT_FOUND':
+                             errorMsg = 'Настройки не найдены для чата.'; break;
+                         default:
+                             errorMsg = errorData.error || errorMsg;
+                     }
+                 } catch(e) {
+                    errorMsg = `Ошибка обновления настроек: ${response.statusText}`;
+                 }
+                return rejectWithValue(errorMsg);
             }
             
             const data = await response.json();
-            console.log('✅ Ответ от сервера после сохранения настроек:', data);
-            return data;
+            */
+
+            console.log('[shiftsSlice] ✅ Настройки доступа успешно обновлены:', updatedSettings);
+            return updatedSettings;
         } catch (error: any) {
-            console.error('❌ Ошибка при обновлении настроек доступа:', error);
-            return rejectWithValue(error.message || 'Не удалось обновить настройки доступа');
+            let errorMessage = 'Неизвестная ошибка при обновлении настроек доступа';
+             if (error instanceof Error) {
+                 errorMessage = error.message;
+             }
+            console.error('[shiftsSlice] ❌ Ошибка при обновлении настроек доступа:', errorMessage);
+            return rejectWithValue(errorMessage);
         }
     }
 );
@@ -1001,21 +896,33 @@ export const subscribeToShiftEvents = (
         onShiftCanceled?: (data: any) => void;
     }
 ) => {
-    subscribeToEvent('shift_booked', (data) => {
-        console.log('[shiftsSlice] Received shift_booked event:', data);
-        dispatch(shiftBooked(data));
-        handlers?.onShiftBooked?.(data);
-    });
-    subscribeToEvent('shift_updated', (data) => {
-        console.log('[shiftsSlice] Received shift_updated event:', data);
-        dispatch(shiftBooked(data)); // Используем тот же редьюсер для обработки обновлений
-        handlers?.onShiftUpdated?.(data);
-    });
-    subscribeToEvent('shift_cancelled', (data) => {
-        console.log('[shiftsSlice] Received shift_cancelled event:', data);
-        dispatch(shiftCanceled(data));
-        handlers?.onShiftCanceled?.(data);
-    });
+    const unsubscribers = [
+        subscribeToEvent('shift_booked', (data) => {
+            console.log('[shiftsSlice] Received shift_booked event:', data);
+            dispatch(shiftBooked(data));
+            handlers?.onShiftBooked?.(data);
+        }),
+        subscribeToEvent('shift_updated', (data) => {
+            console.log('[shiftsSlice] Received shift_updated event:', data);
+            dispatch(shiftBooked(data)); // Используем тот же редьюсер для обработки обновлений
+            handlers?.onShiftUpdated?.(data);
+        }),
+        subscribeToEvent('shift_cancelled', (data) => {
+            console.log('[shiftsSlice] Received shift_cancelled event:', data);
+            dispatch(shiftCanceled(data));
+            handlers?.onShiftCanceled?.(data);
+        })
+    ];
+
+    // Возвращаем функцию, которая вызывает все функции отписки
+    return () => {
+        console.log('[shiftsSlice] Unsubscribing from all shift events');
+        unsubscribers.forEach(unsubscribe => {
+            if (unsubscribe) { // Проверяем, что функция отписки существует
+                unsubscribe(); 
+            }
+        });
+    };
 };
 
 export const unsubscribeFromShiftEvents = () => {

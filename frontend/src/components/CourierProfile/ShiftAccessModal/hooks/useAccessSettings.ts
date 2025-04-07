@@ -17,7 +17,10 @@ interface UseAccessSettingsProps {
 /**
  * Хук для управления настройками доступа к сменам
  */
-export const useAccessSettings = ({ chatId }: UseAccessSettingsProps = {}) => {
+export const useAccessSettings = ({ chatId }: UseAccessSettingsProps) => {
+    // ЛОГИРУЕМ chatId, полученный хуком
+    console.log(`[useAccessSettings] Хук инициализирован/обновлен с chatId: ${chatId}`);
+
     const dispatch = useAppDispatch();
     
     // Получаем настройки из Redux
@@ -31,7 +34,9 @@ export const useAccessSettings = ({ chatId }: UseAccessSettingsProps = {}) => {
     
     // Загружаем настройки при монтировании компонента
     useEffect(() => {
-        dispatch(fetchAccessSettings({ chatId }));
+        if (chatId) {
+            dispatch(fetchAccessSettings({ chatId }));
+        }
     }, [dispatch, chatId]);
     
     // Обновляем локальное состояние при изменении хранимых настроек
@@ -50,6 +55,19 @@ export const useAccessSettings = ({ chatId }: UseAccessSettingsProps = {}) => {
     
     // Сохранение настроек на сервере
     const saveSettings = useCallback(async () => {
+        // ЛОГИРУЕМ chatId ПЕРЕД проверкой в saveSettings
+        console.log(`[useAccessSettings saveSettings] Попытка сохранения. Текущий chatId в замыкании: ${chatId}`);
+
+        if (!chatId) {
+            console.error('❌ Ошибка: chatId не определен при попытке сохранения настроек.');
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: 'Ошибка: Не удалось определить ID чата для сохранения настроек.',
+                duration: 5000
+            }));
+            return false; // Прерываем сохранение
+        }
+
         try {
             console.log('🔍 Текущие настройки перед сохранением:', {
                 полныеДанные: JSON.stringify(settings, null, 2),
@@ -60,7 +78,6 @@ export const useAccessSettings = ({ chatId }: UseAccessSettingsProps = {}) => {
             
             // Убедимся, что все поля присутствуют
             const completeSettings = {
-                // ID чата
                 chat_id: chatId,
                 
                 // Общие настройки

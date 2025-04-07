@@ -18,32 +18,48 @@ services:
     restart: "no"
 
   server:
+    build:
+      context: ./backend/API server
+      dockerfile: Dockerfile.dev
+      target: development
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
-      - ./backend/data/inventory:/app/data/inventory
+      - ./backend/API server:/app
       - /app/__pycache__
-      - /app/*/__pycache__
     environment:
-      - API_BASE_URL=http://server:8000/api
-      - SOCKET_URL=ws://websocket:8001
       - PYTHONPYCACHEPREFIX=/tmp/pycache
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
       - ENVIRONMENT=development
+      - PYTHONPATH=/app
+    env_file:
+      - ./backend/API server/.env
+    command: [
+        "sh", "-c",
+        "echo 'Waiting for PostgreSQL...' && python wait-for-postgres.py && \
+         echo 'Applying Alembic migrations...' && alembic upgrade head && \
+         echo 'Starting Uvicorn...' && uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-dir /app"
+    ]
     restart: unless-stopped
+    depends_on:
+      - postgres
 
   scheduler:
     build:
-      target: development
+      context: ./backend/scheduler
+      dockerfile: Dockerfile.dev
     volumes:
-      - ./backend/scheduler:/app/scheduler
-      - ./backend/data:/app/data
+      - ./backend/scheduler:/app
       - /app/__pycache__
-      - /app/*/__pycache__
     environment:
       - API_URL=http://nginx:80
       - ENVIRONMENT=development
+      - PYTHONPATH=/app
+      - POSTGRES_HOST=postgres
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
 
   frontend:
     volumes:
@@ -53,8 +69,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=http://localhost/api
-      - REACT_APP_WS_URL=ws://localhost/socket.io
+      # - REACT_APP_WS_URL=ws://localhost/socket.io
+      - REACT_APP_WS_URL=ws://localhost:8001
       - REACT_APP_ENV=development
       - REACT_APP_DEBUG=true
     env_file:
@@ -65,17 +81,14 @@ services:
       - "3000:3000"
 
   websocket:
-    volumes:
-      - ./websocket-service:/app
-      - /app/__pycache__
-      - /app/*/__pycache__
     ports:
       - "8001:8001"
     environment:
-      - CORS_ALLOWED_ORIGINS=http://localhost,http://localhost:3000,http://localhost:80
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000
       - ENVIRONMENT=development
       - PYTHONPATH=/app
-    command: uvicorn src.asgi:app --host 0.0.0.0 --port 8001 --reload
+      - PYTHONUNBUFFERED=1
+    command: ["sh", "-c", "uvicorn src.server:socket_app --host 0.0.0.0 --port 8001"]
     depends_on:
       - postgres
 

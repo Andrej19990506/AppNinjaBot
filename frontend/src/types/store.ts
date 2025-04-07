@@ -2,54 +2,18 @@ import { CourierShift } from './shifts';
 import { InventoryItem } from './inventory';
 import { WriteOffItem } from './writeOff';
 import { Notification, User } from './index';
+import { Action, ThunkAction } from '@reduxjs/toolkit';
+import { ThunkDispatch, AnyAction } from '@reduxjs/toolkit';
 
-// Определяем типы состояний
-export interface InventoryState {
-    items: { [key: string]: InventoryItem };
-    loading: boolean;
-    error: string | null;
-}
+// Определяем типы состояний - УДАЛЕНО
 
-export interface WriteOffState {
-    records: WriteOffItem[];
-    loading: boolean;
-    error: string | null;
-}
+// --- Определяем AppDispatch и AppThunk ---
+export type AppDispatch = ThunkDispatch<any, unknown, AnyAction>; // Используем any временно, пока RootState не импортирован
 
-export interface NotificationState {
-    notifications: Notification[];
-    loading: boolean;
-    error: string | null;
-}
-
-export interface UserState {
-    user: User | null;
-    loading: boolean;
-    error: string | null;
-}
-
-export interface AdminState {
-    loading: boolean;
-    error: string | null;
-}
-
-export interface CourierState {
-    loading: boolean;
-    error: string | null;
-}
-
-export interface ShiftsState {
-    shifts: CourierShift[];
-    loading: boolean;
-    error: string | null;
-}
-
-export interface RootState {
-    inventory: InventoryState;
-    writeOff: WriteOffState;
-    notification: NotificationState;
-    user: UserState;
-    admin: AdminState;
-    courier: CourierState;
-    shifts: ShiftsState;
-} 
+export type AppThunk<ReturnType = void> = ThunkAction<
+    ReturnType,
+    any, // Используем any временно
+    unknown,
+    Action<string>
+>;
+// --- -------------------------------- --- 

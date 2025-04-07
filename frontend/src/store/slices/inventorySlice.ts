@@ -23,9 +23,10 @@ import { WebApp } from '../../types/telegram';
 import config from '../../config';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
-import { store, RootState } from '../../store';
+import { RootState } from '../store';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { checkAdminRights } from './adminSlice';
+import { User } from '../../types/user';
 
 // Константа для ID глобальной комнаты
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -165,7 +166,7 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
     async (payload, { getState, rejectWithValue }) => {
         try {
             const state = getState() as RootState;
-            const currentUser = state.user.user;
+            const currentUser: User | null = state.user.user;
             const currentInventory = state.inventory.selectedChat?.inventory || {};
             const currentItem = currentInventory[payload.category]?.[payload.itemId];
             
@@ -437,7 +438,7 @@ export const addInventoryItem = createAsyncThunk(
         try {
             const state = getState() as RootState;
             const currentUser = state.user.user;
-            const currentChat = state.inventory.items.find(chat => chat.chat_id === chatId);
+            const currentChat = state.inventory.items.find((chat: ChatInventory) => chat.chat_id === chatId);
             
             // Добавляем в шаблон
             await axios.put(`${config.API_URL}/templates/inventory_template`, {
@@ -478,18 +479,16 @@ export const addInventoryItem = createAsyncThunk(
             await axios.post(`${config.API_URL}/inventory/${chatId}`, updatedInventory);
             
             // Проверяем другие чаты с активной инвентаризацией
-            const otherActiveChats = state.inventory.items.filter(chat => 
-                chat.chat_id !== chatId && // не текущий чат
-                chat.metadata && // есть метаданные
-                chat.metadata.progress !== undefined && // процесс инвентаризации начат
-                chat.metadata.progress < 100 // инвентаризация не завершена
+            const otherActiveChats = state.inventory.items.filter((chat: ChatInventory) => 
+                chat.chat_id !== chatId && 
+                chat.metadata && 
+                chat.metadata.progress !== undefined && 
+                chat.metadata.progress < 100
             );
             
             console.log(`Найдено ${otherActiveChats.length} активных чатов для предложения добавления товара`);
             
-            // Если есть активные чаты, отправляем им уведомления
             if (otherActiveChats.length > 0) {
-                // Готовим данные для уведомления
                 const notificationData = {
                     type: 'item_suggestion',
                     source: {
@@ -514,10 +513,9 @@ export const addInventoryItem = createAsyncThunk(
                 console.log("=== 📢 Подготовка уведомлений о добавлении товара ===");
                 console.log("🧾 Данные уведомления:", JSON.stringify(notificationData, null, 2));
                 console.log("👤 Текущий пользователь:", currentUser);
-                console.log("🔄 Список чатов для отправки:", otherActiveChats.map(c => c.chat_title));
+                console.log("🔄 Список чатов для отправки:", otherActiveChats.map((c: ChatInventory) => c.chat_title));
                 
-                // Отправляем уведомления через вебсокет всем активным чатам
-                for (const chat of otherActiveChats) {
+                for (const chat of otherActiveChats) { 
                     console.log(`📤 Отправка предложения добавить товар в чат: ${chat.chat_title} (${chat.chat_id})`);
                     
                     const payload = {
@@ -547,14 +545,14 @@ export const addInventoryItem = createAsyncThunk(
 );
 
 export const selectChat = createAsyncThunk(
-    'inventory/selectChat',
-    async (chatId: string, { getState }) => {
+    InventoryActionTypes.SELECT_CHAT,
+    async (chatId: string, { dispatch, getState }) => {
         console.log('🎯 Выбран чат:', chatId);
         
         try {
             // Получаем текущее состояние
             const state = getState() as RootState;
-            const chat = state.inventory.items.find(c => c.chat_id === chatId);
+            const chat = state.inventory.items.find((c: ChatInventory) => c.chat_id === chatId);
             
             if (!chat) {
                 throw new Error('Чат не найден');
@@ -563,6 +561,7 @@ export const selectChat = createAsyncThunk(
             console.log('💬 Данные выбранного чата:', chat);
             
             // Возвращаем данные чата
+            await dispatch(fetchChatInventory(chatId));
             return chat;
         } catch (error) {
             console.error('Ошибка при выборе чата:', error);
@@ -593,7 +592,7 @@ const inventorySlice = createSlice({
                 });
             }
 
-            const chatIndex = state.items.findIndex(chat => chat.chat_id === chatId);
+            const chatIndex = state.items.findIndex((chat: ChatInventory) => chat.chat_id === chatId); 
             if (chatIndex !== -1) {
                 const oldData = state.items[chatIndex];
                 
@@ -997,11 +996,13 @@ const inventorySlice = createSlice({
                     }
                 }
             })
-            .addCase(selectChat.fulfilled, (state, action) => {
-                if (action.payload) {
-                    state.selectedChatId = action.payload.chat_id;
-                    state.selectedChat = action.payload;
-                }
+            .addCase(selectChat.pending, (state) => {
+                state.isLoading = true;
+            })
+            .addCase(selectChat.fulfilled, (state, action: PayloadAction<ChatInventory>) => {
+                state.isLoading = false;
+                state.selectedChat = action.payload;
+                state.selectedChatId = action.payload.chat_id;
             })
             .addCase(selectChat.rejected, (state) => {
                 state.selectedChatId = null;

@@ -1,0 +1,35 @@
+# backend/API server/Dockerfile.dev
+
+# Используем slim-образ Python для уменьшения размера
+FROM python:3.11-slim as development
+
+# Устанавливаем переменные окружения
+# Не создавать .pyc файлы
+ENV PYTHONDONTWRITEBYTECODE 1  
+# Выводить логи сразу
+ENV PYTHONUNBUFFERED 1         
+# Отключить кеш pip внутри образа
+ENV PIP_NO_CACHE_DIR=off       
+# Если бы использовали Poetry
+ENV POETRY_NO_INTERACTION=1    
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Обновляем pip и устанавливаем зависимости
+COPY ./requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r /app/requirements.txt && \
+    # Устанавливаем psycopg2-binary и asyncpg здесь, чтобы они были в образе
+    pip install --no-cache-dir psycopg2-binary asyncpg
+    # Установка alembic будет происходить из requirements.txt, который мы обновили
+
+# Копирование остального кода не нужно для dev, так как он будет монтирован через volume.
+# Но если бы это был stage для production, здесь была бы команда COPY . /app
+
+# Указываем порт, который будет слушать приложение (для информации)
+EXPOSE 8000
+
+# Команда по умолчанию (будет переопределена в docker-compose.override.yml)
+# Запускаем uvicorn, чтобы он был доступен по сети 0.0.0.0
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 

@@ -38,5 +38,5 @@ RUN mkdir -p /app/telegramNinjaBot/data/courier_groups
 # Настраиваем правильные разрешения
 RUN chmod -R 777 /app/telegramNinjaBot/data
 
-# Запускаем бота
-CMD ["python", "bot.py"] 
+# Запускаем бота через Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"] 

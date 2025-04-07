@@ -1,6 +1,11 @@
 APScheduler==3.10.4
-Flask==3.0.2
-requests==2.31.0
 python-dotenv==1.0.1
+python-socketio[client]==5.11.2
 pytz==2024.1
-redis==5.0.1 
+redis==5.0.1
+requests==2.31.0
+fastapi
+uvicorn[standard]
+psycopg[binary]
+python-dateutil==2.8.2
+SQLAlchemy 

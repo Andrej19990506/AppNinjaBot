@@ -17,17 +17,11 @@ logger = logging.getLogger(__name__)
 
 shifts_bp = Blueprint('shifts', __name__)
 
-CORS_ORIGINS = [
-    "https://reform-hand-simple-invisible.trycloudflare.com",
-    "https://pearl-roy-hugo-equity.trycloudflare.com",
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://localhost:5000"
-]
+
 
 # Маршрут для получения списка смен
 @shifts_bp.route('', methods=['GET'])
-@cross_origin(origins=CORS_ORIGINS)
+
 def get_shifts():
     """Получение списка всех смен или смен для конкретного чата"""
     try:
@@ -43,7 +37,7 @@ def get_shifts():
 
 # Маршрут для бронирования смены
 @shifts_bp.route('', methods=['POST'])
-@cross_origin(origins=CORS_ORIGINS)
+
 def book_new_shift():
     """Бронирование новой смены"""
     try:
@@ -105,7 +99,6 @@ def book_new_shift():
 
 # Маршрут для обновления смены
 @shifts_bp.route('/<shift_id>', methods=['PUT'])
-@cross_origin(origins=CORS_ORIGINS)
 def update_shift(shift_id):
     """Обновление существующей смены"""
     try:
@@ -120,7 +113,6 @@ def update_shift(shift_id):
 
 # Маршрут для отмены смены
 @shifts_bp.route('/<shift_id>', methods=['DELETE'])
-@cross_origin(origins=CORS_ORIGINS)
 def cancel_shift_route(shift_id):
     """Отмена (удаление) смены"""
     try:
@@ -134,7 +126,6 @@ def cancel_shift_route(shift_id):
 
 # Маршрут для подтверждения смены
 @shifts_bp.route('/<shift_id>/confirm', methods=['POST'])
-@cross_origin(origins=CORS_ORIGINS)
 def confirm_shift(shift_id):
     """Подтверждение смены"""
     try:
@@ -158,7 +149,6 @@ def confirm_shift(shift_id):
 
 # Новый маршрут для получения доступных для записи дат
 @shifts_bp.route('/available-dates', methods=['GET'])
-@cross_origin(origins=CORS_ORIGINS)
 def get_available_dates():
     """Получение списка доступных для записи дат"""
     try:
@@ -179,7 +169,6 @@ def get_available_dates():
 
 # Маршрут для проверки доступности конкретной даты
 @shifts_bp.route('/available-dates/<date_str>', methods=['GET'])
-@cross_origin(origins=CORS_ORIGINS)
 def check_date_availability(date_str):
     """Проверка доступности конкретной даты для записи"""
     try:

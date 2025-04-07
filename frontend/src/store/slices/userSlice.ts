@@ -3,20 +3,23 @@ import { WebApp } from '../../types/telegram';
 import { User, UserState } from '../../types/user';
 import { Admin } from '../../types/inventory';
 import { ChatContext } from './chatSlice';
-import config from '../../config';
+import { userApi } from '../../services/api';
+import axios from 'axios';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Group {
     chat_id: string;
     chat_title: string;
     group_type?: string;
+    id?: number;
 }
 
 // Тестовые данные для режима разработки
 const DEV_MODE_USER_DATA: User = {
     id: 1682142222, // ID тестового пользователя (Андрей Николаевич)
-    first_name: "Андрей",
-    last_name: "Николаевич",
+    // Присваиваем пустые строки для теста окна обновления профиля
+    first_name: "",
+    last_name: "",
     username: "andrejnikolaevich1999",
     photo_url: "https://api.telegram.org/file/bot7878489788:AAHupjPYeWpzVwo77F_BCR6fIA1I_P8p_Uc/photos/file_0.jpg",
     isAdmin: false,
@@ -44,13 +47,14 @@ const DEV_MODE_USER_DATA: User = {
 const initialState: UserState = {
     user: null,
     isInitialized: false,
-    error: null
+    error: null,
+    loading: false
 };
 
 // Инициализация пользователя из Telegram WebApp
 export const initializeFromTelegram = createAsyncThunk(
     'user/initializeFromTelegram',
-    async () => {
+    async (_, { rejectWithValue }) => {
         console.log('=== 👤 Инициализация пользователя из Telegram ===');
         const webApp = window.Telegram?.WebApp as WebApp | undefined;
         const isDevelopmentMode = process.env.NODE_ENV === 'development' || process.env.REACT_APP_ENV === 'development';
@@ -62,77 +66,97 @@ export const initializeFromTelegram = createAsyncThunk(
             isDevelopmentMode
         });
 
-        // Если мы в режиме разработки и нет данных WebApp, используем тестовые данные
+        let userId: number | undefined;
+        let userDataFromWebApp: WebApp['initDataUnsafe']['user'] | undefined;
+
         if (isDevelopmentMode && !webApp?.initDataUnsafe?.user?.id) {
             console.log('🔧 Режим разработки - используем тестовые данные пользователя');
-            return DEV_MODE_USER_DATA;
-        }
-
-        if (!webApp?.initDataUnsafe?.user?.id) {
+            userId = DEV_MODE_USER_DATA.id;
+            userDataFromWebApp = {
+                id: userId,
+                first_name: DEV_MODE_USER_DATA.first_name,
+                last_name: DEV_MODE_USER_DATA.last_name,
+                username: DEV_MODE_USER_DATA.username,
+                photo_url: DEV_MODE_USER_DATA.photo_url,
+            };
+        } else if (webApp?.initDataUnsafe?.user?.id) {
+            userId = webApp.initDataUnsafe.user.id;
+            userDataFromWebApp = webApp.initDataUnsafe.user;
+        } else {
             console.error('❌ Данные пользователя Telegram недоступны');
-            throw new Error('Telegram WebApp user data not available');
+            return rejectWithValue('Telegram WebApp user data not available');
         }
 
-        const userId = webApp.initDataUnsafe.user.id;
+        if (!userId || !userDataFromWebApp) {
+            console.error('❌ Не удалось определить ID пользователя или данные WebApp');
+            return rejectWithValue('Could not determine user ID or WebApp data');
+        }
 
-        // Создаем базовый объект пользователя
-        const user: User = {
+        // Создаем базовый объект пользователя из данных Telegram или тестовых данных
+        let user: User = {
             id: userId,
-            first_name: "",
-            last_name: "",
-            username: webApp.initDataUnsafe.user.username?.trim() || "",
-            photo_url: "",
+            first_name: userDataFromWebApp.first_name || "",
+            last_name: userDataFromWebApp.last_name || "",
+            username: userDataFromWebApp.username?.trim() || "",
+            photo_url: userDataFromWebApp.photo_url || "",
+            language_code: userDataFromWebApp.language_code,
             isAdmin: false,
             adminRights: null,
             is_senior_courier: false,
-            groups: []
+            groups: [],
         };
 
         try {
-            // Запрашиваем группы пользователя с сервера
-            console.log('🔄 Загрузка групп пользователя...');
-            const baseUrl = config.API_URL?.replace(/\/+$/, '');
-            console.log('🌐 Базовый URL:', baseUrl);
-            const response = await fetch(`${baseUrl}/couriers/${userId}/groups`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
-                },
-                credentials: 'include'
-            });
-            
-            if (!response.ok) {
-                // Логируем тело ответа для отладки
-                const errorText = await response.text();
-                console.error('❌ Ошибка при загрузке групп:', response.status, errorText);
-                throw new Error(`Ошибка при загрузке групп: ${response.status}`);
+            console.log(`🔄 Загрузка контекста (групп) для пользователя ${userId}...`);
+            const groupsData = await userApi.getUserContext(userId);
+            user.groups = groupsData;
+            console.log('✅ Контекст (группы) пользователя загружен:', user.groups);
+
+            try {
+                console.log(`🔄 Загрузка профиля для пользователя ${userId}...`);
+                const profileData = await userApi.getUserProfile(userId);
+                
+                if (profileData) {
+                    console.log('✅ Профиль пользователя загружен:', profileData);
+                    // Обновляем пользователя данными из профиля
+                    // Приоритет данных: Профиль > Telegram (для полей, которые есть и там и там)
+                    user = {
+                        ...user, // Сохраняем уже полученные группы и базовые данные
+                        // Убеждаемся, что id остается Telegram ID
+                        id: profileData.user_id || userId, 
+                        // Убираем user_id, так как его нет в типе User
+                        // user_id: profileData.user_id || userId, 
+                        first_name: profileData.first_name || user.first_name, // Используем из профиля, если есть
+                        last_name: profileData.last_name || user.last_name, // Используем из профиля, если есть
+                        username: profileData.username || user.username, // Используем из профиля, если есть
+                        photo_url: profileData.photo_url || user.photo_url, // Используем из профиля, если есть
+                        is_senior_courier: profileData.is_senior_courier || false, // !!! Получаем актуальный статус
+                        // Обновите другие поля, если они есть в UserProfileResponse и User
+                        // isAdmin: profileData.is_admin || false,
+                    };
+                     // Расширяем лог, чтобы видеть все поля, включая groups
+                     console.log('🔄 Пользователь обновлен данными из профиля:', JSON.stringify(user, null, 2)); 
+                } else {
+                    console.warn(`⚠️ Не удалось загрузить профиль для пользователя ${userId} (возможно, 404). Используются базовые данные.`);
+                }
+
+            } catch (profileError) {
+                console.error('❌ Ошибка при загрузке профиля пользователя:', profileError);
             }
 
-            const data = await response.json();
-            if (data.success) {
-                user.groups = data.groups;
-                // Используем данные пользователя из файла группы
-                if (data.user_data) {
-                    user.first_name = data.user_data.first_name || "";
-                    user.last_name = data.user_data.last_name || "";
-                    user.photo_url = data.user_data.photo_url || "";
-                    user.is_senior_courier = data.user_data.is_senior_courier || false;
-                }
-                console.log('✅ Данные пользователя загружены с информацией о статусе старшего курьера:', {
-                    groups: data.groups,
-                    user_data: data.user_data,
-                    isSeniorCourier: user.is_senior_courier
-                });
-            } else {
-                console.error('❌ Ошибка при загрузке данных:', data.error);
+        } catch (contextError) {
+            console.error('❌ Ошибка при загрузке контекста пользователя (групп):', contextError);
+            let errorMessage = 'Неизвестная ошибка при загрузке контекста.';
+            if (axios.isAxiosError(contextError)) {
+                errorMessage = contextError.response?.data?.detail || contextError.message || errorMessage;
+            } else if (contextError instanceof Error) {
+                errorMessage = contextError.message;
             }
-        } catch (error) {
-            console.error('❌ Ошибка при загрузке данных:', error);
-            // Продолжаем работу без групп и данных пользователя
+            console.warn(`⚠️ Инициализация пользователя продолжится без данных о группах. Ошибка: ${errorMessage}`);
         }
 
-        console.log('✅ Получены данные пользователя:', user);
+        // Расширяем лог
+        console.log('✅ Итоговые данные пользователя для Redux:', JSON.stringify(user, null, 2));
         return user;
     }
 );
@@ -194,34 +218,37 @@ const userSlice = createSlice({
                 state.user.is_senior_courier = action.payload;
                 console.log('🌟 Обновлен статус старшего курьера в хранилище:', action.payload);
             }
-        }
+        },
+        setUserSeniorStatus: (state, action: PayloadAction<boolean>) => {
+            if (state.user) {
+                state.user.is_senior_courier = action.payload;
+            }
+        },
+        resetUserState: () => initialState,
     },
     extraReducers: (builder) => {
         builder
             .addCase(initializeFromTelegram.pending, (state) => {
                 state.isInitialized = false;
                 state.error = null;
-                console.log('🔄 Инициализация пользователя в процессе...');
+                console.log("⏳ userSlice: initializeFromTelegram.pending");
             })
-            .addCase(initializeFromTelegram.fulfilled, (state, action) => {
-                console.log('✅ Инициализация пользователя успешна:', {
-                    payload: action.payload,
-                    first_name: action.payload.first_name,
-                    last_name: action.payload.last_name,
-                    first_name_empty: !action.payload.first_name?.trim(),
-                    last_name_empty: !action.payload.last_name?.trim()
-                });
+            .addCase(initializeFromTelegram.fulfilled, (state, action: PayloadAction<User>) => {
                 state.user = action.payload;
                 state.isInitialized = true;
                 state.error = null;
+                // Расширяем лог
+                console.log("✅ userSlice: initializeFromTelegram.fulfilled", JSON.stringify(action.payload, null, 2));
             })
             .addCase(initializeFromTelegram.rejected, (state, action) => {
-                console.error('❌ Ошибка инициализации пользователя:', action.error);
-                state.isInitialized = true;
-                state.error = action.error.message || 'Ошибка инициализации';
+                state.isInitialized = false;
+                state.error = action.payload as string || action.error.message || 'Failed to initialize user';
+                state.user = null;
+                console.error("❌ userSlice: initializeFromTelegram.rejected", action.payload || action.error);
             })
             .addCase(checkAdminRights.rejected, (state) => {
                 if (state.user) {
+                    // Устанавливаем isAdmin в false при ошибке проверки прав
                     state.user.isAdmin = false;
                     state.user.adminRights = null;
                 }
@@ -229,5 +256,23 @@ const userSlice = createSlice({
     }
 });
 
-export const { updateUser, clearUserData, updateAdminStatus, updateSeniorCourierStatus } = userSlice.actions;
-export default userSlice.reducer; 
+// Экспортируем actions и reducer
+export const { 
+    updateUser, 
+    clearUserData, 
+    updateAdminStatus, 
+    updateSeniorCourierStatus, 
+    setUserSeniorStatus,
+    resetUserState 
+} = userSlice.actions;
+
+export default userSlice.reducer;
+
+// Экспортируем сам объект слайса для использования в listenerMiddleware
+export { userSlice };
+
+// --- Добавляем экспорт селекторов --- 
+export const selectUser = (state: { user: UserState }) => state.user.user;
+export const selectIsUserInitialized = (state: { user: UserState }) => state.user.isInitialized;
+export const selectUserInitializationError = (state: { user: UserState }) => state.user.error;
+// --- ---------------------------- --- 

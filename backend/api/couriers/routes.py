@@ -60,6 +60,27 @@ def get_courier_status(courier_id):
         logger.info(f"=== Получение статуса курьера {courier_id} ===")
         logger.info(f"Chat ID из запроса: {request_chat_id}")
         
+        # Для dev окружения возвращаем моковые данные
+        if current_app.config.get('ENVIRONMENT') == 'development':
+            mock_response = {
+                'user_id': courier_id,
+                'first_name': 'Test',
+                'last_name': 'Courier',
+                'username': f'courier_{courier_id}',
+                'photo_url': 'https://via.placeholder.com/150',
+                'chat_id': request_chat_id,
+                'is_admin': False,
+                'is_senior_courier': False,
+                'active_session': None,
+                'wallet': {
+                    'balance': 1000,
+                    'transactions_count': 5
+                },
+                'status': 'active'
+            }
+            logger.info(f"Возвращаем моковый статус курьера: {mock_response}")
+            return jsonify(mock_response)
+
         # Подключаемся к базе данных
         conn = get_postgres_connection()
         if not conn:

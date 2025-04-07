@@ -21,15 +21,17 @@ ENV PATH /app/node_modules/.bin:$PATH
 RUN npm install -g @craco/craco && \
     chmod -R 755 /app/node_modules/.bin
 
-# Создаем entrypoint скрипт
-RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
-    echo 'if [ -f /app/.env.runtime ]; then' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo '  export $(cat /app/.env.runtime | xargs)' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
-    echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
-    chmod +x /usr/local/bin/docker-entrypoint.sh
+# Создаем entrypoint скрипт - КОММЕНТИРУЕМ НАХУЙ
+# RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
+#     echo 'if [ -f /app/.env.runtime ]; then' >> /usr/local/bin/docker-entrypoint.sh && \
+#     echo '  export $(cat /app/.env.runtime | xargs)' >> /usr/local/bin/docker-entrypoint.sh && \
+#     echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
+#     echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
+#     chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENTRYPOINT ["docker-entrypoint.sh"]
+# ENTRYPOINT ["docker-entrypoint.sh"] # КОММЕНТИРУЕМ НАХУЙ
+
+# Запускаем npm start напрямую
 CMD ["npm", "start"]
 
 # Для продакшен сборки

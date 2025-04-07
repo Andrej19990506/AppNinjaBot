@@ -40,29 +40,19 @@ export function isDateAvailable(date: Date, userId?: string | number, accessSett
     const state = store.getState();
     // Получаем настройки либо из параметра, либо из хранилища
     const settings = accessSettings || state.shifts.accessSettings;
-    const user = state.user.user;
-    
-    // Проверяем, является ли пользователь старшим курьером
-    const isSeniorCourier = user?.is_senior_courier || false;
-    debugLog(`👤 Пользователь старший курьер: ${isSeniorCourier ? 'Да' : 'Нет'}`);
-    
-    // Для старших курьеров доступны все даты (если нет персональных ограничений)
-    if (isSeniorCourier && userId) {
-        // Проверяем, не ограничен ли доступ для этого пользователя
-        const userAccessRestricted = settings.restrictedUsers?.includes(userId);
-        
-        if (!userAccessRestricted) {
-            debugLog(`✅ Дата доступна (пользователь старший курьер): ${format(date, 'yyyy-MM-dd')}`);
-            return true;
-        }
-    }
-    
+
     // Рассчитываем доступные даты в соответствии с новой логикой
     const availableDates = calculateAvailableDates(settings);
     
     // Проверяем, включена ли указанная дата в список доступных дат
     const dateFormatted = format(date, 'yyyy-MM-dd');
     const isAvailable = availableDates.includes(dateFormatted);
+    
+    // Дополнительно проверяем персональные ограничения (если дата в целом доступна)
+    if (isAvailable && userId && settings.restrictedUsers?.includes(userId)) {
+         debugLog(`❌ Дата ${dateFormatted} доступна по общим правилам, но ограничена для пользователя ${userId}`);
+         return false;
+    }
     
     debugLog(`${isAvailable ? '✅' : '❌'} Дата ${dateFormatted} ${isAvailable ? 'доступна' : 'недоступна'}`);
     

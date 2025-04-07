@@ -18,7 +18,6 @@ import config from '../config';
  */
 export const useShiftsSync = (chatId: string) => {
     const dispatch = useDispatch<AppDispatch>();
-    const isConnectedRef = useRef(false);
     const isLoadingRef = useRef(false);
     const user = useSelector((state: RootState) => state.user.user);
     
@@ -34,88 +33,45 @@ export const useShiftsSync = (chatId: string) => {
     };
     
     useEffect(() => {
-        // Проверка необходимых условий
         if (!chatId || !user) return;
         
-        // Загружаем начальные данные
         loadShifts();
-        
-        // Подключаемся к комнате смен чата
-        const connectToShiftsRoom = () => {
-            console.log(`🔄 Подключение к комнате смен чата ${chatId}`);
-            socketService.emit('join_shifts_room', { chatId });
-            isConnectedRef.current = true;
-        };
-        
-        // Отключаемся от комнаты при размонтировании компонента
-        const disconnectFromShiftsRoom = () => {
-            if (isConnectedRef.current) {
-                console.log(`🔄 Отключение от комнаты смен чата ${chatId}`);
-                socketService.emit('leave_shifts_room', { chatId });
-                isConnectedRef.current = false;
-            }
-        };
         
         // Подписка на события смен
         const subscribeToEvents = () => {
-            // Успешное подключение к комнате смен
-            socketService.subscribe('joined_shifts_room', (data) => {
-                console.log('✅ Подключено к комнате смен:', data);
-            });
-            
             // Забронирована новая смена
             socketService.subscribe('shift_booked', (data) => {
-                console.log('📆 Новая смена забронирована:', data);
-                // Оптимистичное обновление интерфейса
+                console.log('✅ Смена забронирована:', data);
                 dispatch(shiftBooked(data));
+                // Если смена взята, нужно удалить пользователя из резерва на этот день
+                dispatch(reserveDeleted({ userId: data.user_id, date: data.date }));
             });
             
             // Смена обновлена
             socketService.subscribe('shift_updated', (data) => {
-                console.log('🔄 Смена обновлена:', data);
-                // Оптимистичное обновление вместо загрузки всех смен
-                dispatch(shiftBooked(data));
+                console.log('🔄 Смена обновлена (например, перетаскивание):', data);
+                // Просто перезагружаем смены, чтобы получить актуальное состояние
+                loadShifts();
             });
             
             // Смена отменена
             socketService.subscribe('shift_cancelled', (data) => {
                 console.log('❌ Смена отменена:', data);
-                // Проверяем формат данных и адаптируем для корректного вызова
-                const cancellationData = typeof data === 'object' ? 
-                    { shift_id: data.id || data.shiftId || data.shift_id } : 
-                    { shift_id: data };
-                
-                dispatch(shiftCanceled(cancellationData));
-            });
-            
-            // Пользователь удален из резерва (происходит, когда берут смену)
-            socketService.subscribe('reserve_deleted', (data) => {
-                console.log('🗑️ Пользователь удален из резерва:', data);
-                dispatch(reserveDeleted(data));
-                // Обновляем списки резервов после удаления
-                dispatch(forceFetchReserves());
+                dispatch(shiftCanceled(data));
             });
         };
         
-        // Отписка от событий
         const unsubscribeFromEvents = () => {
-            socketService.unsubscribe('joined_shifts_room');
             socketService.unsubscribe('shift_booked');
             socketService.unsubscribe('shift_updated');
             socketService.unsubscribe('shift_cancelled');
-            socketService.unsubscribe('reserve_deleted');
         };
         
-        // Инициализация подключения и подписок
-        socketService.connect().then(() => {
-            connectToShiftsRoom();
-            subscribeToEvents();
-        });
+        // Просто подписываемся на события
+        subscribeToEvents();
         
-        // Очистка при размонтировании
         return () => {
             unsubscribeFromEvents();
-            disconnectFromShiftsRoom();
         };
     }, [dispatch, chatId, user]);
     
@@ -169,15 +125,21 @@ export const useShiftsSync = (chatId: string) => {
         });
         
         // Отправляем HTTP-запрос на обновление смены
-        fetch(`${config.API_URL}/shifts/book`, {
+        fetch(`${config.API_URL}/couriers/shifts`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                ...data,
+                user_id: data.user_id,
+                date: data.date,
+                shift_type: data.shift_type,
+                slot_index: data.slot_index,
                 chat_id: chatId,
-                is_senior_courier: isSeniorCourierStatus // Явно передаем статус старшего курьера
+                photo_url: data.photo_url,
+                first_name: data.first_name,
+                last_name: data.last_name,
+                is_senior_courier: isSeniorCourierStatus
             }),
         })
         .then(response => {
@@ -193,24 +155,6 @@ export const useShiftsSync = (chatId: string) => {
         })
         .catch(error => {
             console.error('❌ Ошибка при обновлении смены:', error);
-        });
-        
-        // Также отправляем через WebSocket
-        socketService.emit('shift_update', {
-            action: 'book',
-            chatId,
-            shiftData: {
-                ...data,
-                is_senior_courier: isSeniorCourierStatus
-            }
-        });
-        
-        // Дополнительно отправляем напрямую book_shift для обеспечения совместимости
-        // т.к. handle_book_shift может быть запрограммирован на прямое чтение поля is_senior_courier
-        socketService.emit('book_shift', {
-            ...data,
-            chat_id: chatId,
-            is_senior_courier: isSeniorCourierStatus
         });
     };
     

@@ -14,6 +14,8 @@ import MonthSection from './components/MonthSection';
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck';
 import { useAccessSettingsSync } from './hooks/useAccessSettingsSync';
 import { fetchAccessSettings } from '../../../store/slices/shiftsSlice';
+import { useWebSocketConnection } from '../../../hooks/useWebSocketConnection';
+import { logger } from '../../../utils/logger';
 
 const CourierCalendar: React.FC<CalendarProps> = ({
     onShiftSelect,
@@ -25,6 +27,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     chatId
 }) => {
     const dispatch = useDispatch();
+    const { subscribe, socketState } = useWebSocketConnection();
     
     // Состояние
     const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
@@ -36,11 +39,33 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     // Функция для принудительного обновления компонента
     const refreshCalendar = useCallback(() => {
+        logger.log('[CourierCalendar] Вызов refreshCalendar для обновления');
         setForceUpdate(prev => prev + 1);
     }, []);
     
     // Используем наш новый хук для синхронизации настроек
     const accessSettings = useAccessSettingsSync(refreshCalendar);
+
+    // Функция для принудительного обновления компонента
+    useEffect(() => {
+        if (socketState.isConnected && chatId) {
+            logger.log(`[CourierCalendar] Подписка на 'registration_opened' для chatId: ${chatId}`);
+            const unsubscribe = subscribe<{ chat_id: string; type: string; source: string }>('registration_opened', (data) => {
+                logger.log('[CourierCalendar] Получено событие registration_opened:', data);
+                if (data.chat_id === chatId) {
+                    logger.info(`[CourierCalendar] Событие для нашего чата (${chatId})! Вызываем refreshCalendar.`);
+                    refreshCalendar();
+                } else {
+                    logger.log(`[CourierCalendar] Событие для другого чата (${data.chat_id}), игнорируем.`);
+                }
+            });
+
+            return () => {
+                logger.log(`[CourierCalendar] Отписка от 'registration_opened' для chatId: ${chatId}`);
+                unsubscribe();
+            };
+        }
+    }, [socketState.isConnected, chatId, subscribe, refreshCalendar]);
 
     // Блокируем масштабирование при скролле на iOS
     const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
@@ -111,9 +136,13 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     // Загружаем настройки доступа при монтировании компонента
     useEffect(() => {
-        console.log('🔍 Загрузка настроек доступа при монтировании календаря');
-        // @ts-ignore: игнорируем ошибку типа для диспетчера
-        dispatch(fetchAccessSettings({ chatId }));
+        if (chatId) {
+            console.log(`🔍 Загрузка настроек доступа для chatId ${chatId} при монтировании календаря`);
+            // @ts-ignore: игнорируем ошибку типа для диспетчера
+            dispatch(fetchAccessSettings({ chatId }));
+        } else {
+            console.warn('⚠️ chatId не определен при монтировании календаря, настройки доступа не загружены.');
+        }
     }, [dispatch, chatId]);
 
     // Оптимизируем обработку настроек

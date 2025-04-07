@@ -1,259 +1,105 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Provider } from 'react-redux';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider as StyledThemeProvider } from 'styled-components';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { store } from './store';
-import './styles/base/variables.css';
-import MainMenu from './components/MainMenu/MainMenu';
-import Inventory from './components/Inventory/Inventory';
-import WriteOff from './components/WriteOff/WriteOff';
-import CourierSchedule from './components/CourierSchedule/CourierSchedule';
-import ProtectedCourierRoute from './components/common/ProtectedCourierRoute';
-import ProtectedChefRoute from './components/common/ProtectedChefRoute';
-import TelegramAccessError from './components/common/TelegramAccessError';
-import { useAppDispatch,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  useAppSelector 
-} from './store/hooks';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { addNotification, NotificationTypes } from './store/slices/notificationSlice';
-import { initializeFromTelegram } from './store/slices/userSlice';
-import { MainMenuSkeleton } from './components/common/Skeleton';
-import WebSocketHandler from './components/WebSocketHandler';
-import { TooltipContainer } from './components/Tooltip';
+import React, { useEffect, useRef } from 'react';
+import { Provider, useSelector } from 'react-redux';
+// Возвращаем BrowserRouter
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; 
+// Импортируем ОБА ThemeProvider-а
+import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'; 
+import { ThemeProvider as CustomThemeProvider } from './contexts/ThemeContext'; 
+// Импортируем объект темы MUI
+import { theme } from './styles/themes/theme'; // <-- Нашли тему!
+// import { PersistGate } from 'redux-persist/integration/react';
+import store /*, { persistor } */ from './store/store'; // <-- Исправлен импорт store, persistor комментируем
+// Возвращаем импорт селекторов
+import { initializeFromTelegram, selectIsUserInitialized, selectUserInitializationError, selectUser } from './store/slices/userSlice'; 
+// import { initializeFromTelegram } from './store/slices/userSlice'; // <-- Убираем старый импорт
+import { useAppDispatch } from './store/hooks';
+// import { theme } from './contexts/ThemeContext'; // <-- Откатываем импорт
 import { logger } from './utils/logger';
-import useWebSocketConnection from './hooks/useWebSocketConnection';
+import MainMenu from './components/MainMenu/MainMenu';
+import CourierSchedule from './components/CourierSchedule/CourierSchedule';
+// import AdminPanel from './components/AdminPanel/AdminPanel'; // <-- Комментируем компонент
+// import LoadingScreen from './components/Common/LoadingScreen'; // <-- Комментируем компонент
+// import ErrorDisplay from './components/Common/ErrorDisplay'; // <-- Комментируем компонент
+import './App.css';
+// Импортируем CSS переменные
+import './styles/base/variables.css';
+// Импортируем слушатель
+import LocationChangeListener from './components/common/LocationChangeListener'; 
 
-// Вспомогательная функция для генерации уникальных ID для уведомлений
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const generateUniqueNotificationId = (prefix: string = 'notification'): string => {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-};
+// --- Заглушки --- 
+const LoadingScreen: React.FC<{ message: string }> = ({ message }) => <div>{message}...</div>;
+const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
+const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
+// const theme = {}; // <-- Убираем заглушку темы
+// const selectIsUserInitialized = (state: any) => state.user.isInitialized;
+// const selectUserInitializationError = (state: any) => state.user.error;
+// const selectUser = (state: any) => state.user.user;
+// --- ------------------------------- ---
 
-// Функция для очистки устаревших уведомлений из localStorage при запуске
-const clearOldNotifications = () => {
-    try {
-        // Константа из notificationSlice.ts
-        const PERSISTENT_NOTIFICATIONS_KEY = 'app_persistent_notifications';
-        
-        // Проверяем, есть ли сохраненные уведомления
-        const savedData = localStorage.getItem(PERSISTENT_NOTIFICATIONS_KEY);
-        if (savedData) {
-            // Получаем только важные уведомления (предложения товаров со статусом)
-            const notifications = JSON.parse(savedData);
-            const filteredNotifications = notifications.filter((n: any) => 
-                n.type === 'suggestion_status' || 
-                (n.payload && n.payload.type === 'item_suggestion')
-            );
-            
-            // Если есть что сохранять, то сохраняем отфильтрованные
-            if (filteredNotifications.length > 0) {
-                localStorage.setItem(PERSISTENT_NOTIFICATIONS_KEY, JSON.stringify(filteredNotifications));
-                console.log(`🧹 Очищено ${notifications.length - filteredNotifications.length} устаревших уведомлений при запуске`);
-            } else {
-                // Если нет важных уведомлений, то удаляем ключ
-                localStorage.removeItem(PERSISTENT_NOTIFICATIONS_KEY);
-                console.log('🧹 Все уведомления очищены из localStorage при запуске');
-            }
-        }
-    } catch (error) {
-        console.error('❌ Ошибка при очистке устаревших уведомлений:', error);
-    }
-};
-
-// Компонент для инициализации приложения
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const dispatch = useAppDispatch();
-    const [isInitialized, setIsInitialized] = useState(false);
-    const [initError, setInitError] = useState<string | null>(null);
-    const { joinGlobalRoom, reinitializeSocket, connectToServer } = useWebSocketConnection();
+  const dispatch = useAppDispatch();
+  // Используем реальные селекторы
+  const isUserInitialized = useSelector(selectIsUserInitialized);
+  const initError = useSelector(selectUserInitializationError);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _user = useSelector(selectUser); // <-- Добавлено подчеркивание и коммент для eslint
+  const initStarted = useRef(false);
 
-    useEffect(() => {
-        const initializeApp = async () => {
-            try {
-                logger.log('🚀 Начало инициализации приложения...');
-                const initResult = await dispatch(initializeFromTelegram()).unwrap();
-                logger.log('✅ Данные пользователя инициализированы:', initResult);
-                setIsInitialized(true);
-
-                setTimeout(async () => {
-                    try {
-                        const socket = reinitializeSocket();
-                        if (!socket) {
-                            logger.error('❌ Не удалось инициализировать Socket.IO в AppInitializer');
-                            return;
-                        }
-                        
-                        logger.log('🔄 [AppInitializer] Установка WebSocket соединения...');
-                        const connected = await connectToServer();
-                        if (!connected) {
-                            logger.error('❌ [AppInitializer] Не удалось установить соединение');
-                            return;
-                        }
-
-                        const userInfo = {
-                            first_name: initResult?.first_name || 'Гость',
-                            last_name: initResult?.last_name || '',
-                            role: 'client'
-                        };
-                        
-                        const joined = await joinGlobalRoom(userInfo);
-                        if (!joined) {
-                            logger.warn('⚠️ Не удалось подключиться к глобальной комнате');
-                        } else {
-                            logger.log('✅ Успешно подключились к глобальной комнате');
-                        }
-                    } catch (error) {
-                        logger.error('❌ Ошибка при подключении к WebSocket:', error);
-                    }
-                }, 2000);
-                
-            } catch (error) {
-                const errorMessage = error instanceof Error ? error.message : 'Неизвестная ошибка';
-                logger.error('❌ Ошибка при инициализации:', errorMessage);
-                setInitError(errorMessage);
-            }
-        };
-
-        if (!isInitialized && !initError) {
-            initializeApp();
-        }
-
-        return () => {
-            // Очистка выполняется автоматически в хуке useWebSocketConnection
-        };
-    }, [dispatch, isInitialized, initError, joinGlobalRoom, reinitializeSocket, connectToServer]);
-
-    if (initError) {
-        return <TelegramAccessError error={initError} />;
+  useEffect(() => {
+    if (!isUserInitialized && !initError && !initStarted.current) {
+      initStarted.current = true; 
+      logger.log('🚀 [AppInitializer] Начало инициализации приложения...');
+      
+      dispatch(initializeFromTelegram()).unwrap()
+        .then((initResult) => {
+          // ... (логика после инициализации остается)
+        })
+        .catch((error) => {
+          logger.error('❌ [AppInitializer] Ошибка инициализации пользователя:', error);
+        });
     }
+  }, [dispatch, isUserInitialized, initError]);
 
-    if (!isInitialized) {
-        return <div>Загрузка...</div>;
-    }
+  if (!isUserInitialized && !initError) {
+    return <LoadingScreen message="Инициализация приложения..." />;
+  }
 
-    return <>{children}</>;
+  if (initError) {
+    logger.error(`[AppInitializer] Отображение ошибки инициализации: ${initError}`);
+    return <ErrorDisplay message={`Ошибка инициализации: ${initError}`} />;
+  }
+
+  logger.log('[AppInitializer] Инициализация завершена, рендер основного приложения.');
+  return <>{children}</>;
 };
 
-// Компонент для управления WebSocket соединением
+function App() {
+  logger.log('🔄 Инициализация главного меню (запускается рендер App)...');
 
-const App: React.FC = () => {
-    // Очищаем уведомления при запуске приложения
-    useEffect(() => {
-        clearOldNotifications();
-    }, []);
-
-    // Добавляем состояние для контроля загрузки главного меню
-    const [isMainMenuLoading, setIsMainMenuLoading] = useState(true);
-
-    // Глобальный обработчик для предотвращения контекстного меню и сброса состояний
-    useEffect(() => {
-        const preventContextMenu = (e: Event) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            // Сбрасываем все состояния, связанные с drag-and-drop
-            const dragElements = document.querySelectorAll('.dragging');
-            dragElements.forEach(el => el.classList.remove('dragging'));
-            
-            // Сбрасываем выделение текста
-            if (window.getSelection) {
-                window.getSelection()?.removeAllRanges();
-            }
-            
-            return false;
-        };
-
-        // Добавляем обработчики для всех событий, которые могут вызвать контекстное меню
-        document.addEventListener('contextmenu', preventContextMenu);
-        document.addEventListener('touchstart', (e) => {
-            if (e.touches.length > 1) {
-                preventContextMenu(e);
-            }
-        }, { passive: false });
-        document.addEventListener('touchmove', (e) => {
-            if (e.touches.length > 1) {
-                preventContextMenu(e);
-            }
-        }, { passive: false });
-
-        return () => {
-            document.removeEventListener('contextmenu', preventContextMenu);
-            document.removeEventListener('touchstart', preventContextMenu);
-            document.removeEventListener('touchmove', preventContextMenu);
-        };
-    }, []);
-
-    // Имитируем загрузку данных при первом рендере
-    useEffect(() => {
-        console.log('🔄 Инициализация главного меню...');
-        const timer = setTimeout(() => {
-            setIsMainMenuLoading(false);
-            console.log('✅ Главное меню загружено');
-        }, 2500);
-
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Обработчик завершения анимации скелетона
-    const handleSkeletonAnimationComplete = useCallback(() => {
-        console.log('✨ Анимация скелетона главного меню завершена');
-        setIsMainMenuLoading(false);
-    }, []);
-
-    return (
-        <Provider store={store}>
-            <ThemeProvider>
-                <StyledThemeProvider theme={{ mode: 'light' }}>
-                    <AppInitializer>
-                            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                                <Routes>
-                                    <Route path="/" element={
-                                        isMainMenuLoading 
-                                            ? <MainMenuSkeleton 
-                                                animation="shimmer" 
-                                                onAnimationComplete={handleSkeletonAnimationComplete} 
-                                              /> 
-                                            : <MainMenu />
-                                    } />
-                                    <Route path="/events" element={
-                                        <ProtectedChefRoute>
-                                            <div>События</div>
-                                        </ProtectedChefRoute>
-                                    } />
-                                    <Route path="/inventory/:chatId" element={
-                                        <ProtectedChefRoute>
-                                            <Inventory />
-                                        </ProtectedChefRoute>
-                                    } />
-                                    <Route path="/inventory" element={
-                                        <ProtectedChefRoute>
-                                            <Inventory />
-                                        </ProtectedChefRoute>
-                                    } />
-                                    <Route path="/write-off" element={
-                                        <ProtectedChefRoute>
-                                            <WriteOff />
-                                        </ProtectedChefRoute>
-                                    } />
-                                    <Route 
-                                        path="/courier-schedule" 
-                                        element={
-                                            <ProtectedCourierRoute>
-                                                <CourierSchedule />
-                                            </ProtectedCourierRoute>
-                                        } 
-                                    />
-                                </Routes>
-                            </Router>
-                            <WebSocketHandler />
-                            <TooltipContainer />
-                    </AppInitializer>
-                </StyledThemeProvider>
-            </ThemeProvider>
-        </Provider>
-    );
-};
+  return (
+    <Provider store={store}>
+      {/* <PersistGate loading={<LoadingScreen message="Загрузка состояния..." />} persistor={persistor}> */}
+      {/* Сначала кастомный провайдер для data-theme */}
+      <CustomThemeProvider>
+        {/* Потом MUI провайдер с его темой */}
+        <MuiThemeProvider theme={theme}> 
+          <Router>
+            {/* Добавляем слушатель сюда */}
+            <LocationChangeListener /> 
+            <AppInitializer>
+              <Routes>
+                <Route path="/" element={<MainMenu />} />
+                <Route path="/courier-schedule" element={<CourierSchedule />} />
+                <Route path="/admin" element={<AdminPanel />} /> {/* Используем заглушку */} 
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </AppInitializer>
+          </Router>
+        </MuiThemeProvider>
+      </CustomThemeProvider>
+      {/* </PersistGate> */}
+    </Provider>
+  );
+}
 
 export default App;

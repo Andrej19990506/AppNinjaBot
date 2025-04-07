@@ -1,7 +1,6 @@
 import os
 import json
 import logging
-import aiohttp
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Union
 from telegram import Update, ChatMember, Bot, Chat, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove, BotCommand, MenuButton, MenuButtonWebApp
@@ -9,7 +8,6 @@ from telegram.constants import ChatMemberStatus, MenuButtonType
 from telegram.ext import ContextTypes, MessageHandler, filters, ChatMemberHandler, CommandHandler, Application, CallbackQueryHandler
 from telegramNinjaBot.services.json_service import JsonService
 from telegramNinjaBot.services.courier_group_service import CourierGroupService
-from typing import Optional, List, Dict, Union, Any
 import random
 import time
 import telegram.error

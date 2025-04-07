@@ -1,5 +1,6 @@
 import { io, Socket } from 'socket.io-client';
 import { logger } from '../utils/logger';
+import { EventEmitter } from 'events';
 
 // Базовые типы событий
 export type SocketEvent = 
@@ -20,16 +21,17 @@ export type SocketEvent =
   | 'pong'
   | 'user_away'
   | 'user_back'
-  | 'user_disconnected';
+  | 'user_disconnected'
+  | 'REGISTRATION_OPENED';
 
 // Состояние сокета
-export type SocketState = {
-  connected: boolean;
-  id?: string;
-  socketId?: string;
-  error?: string;
-  transport?: string;
-};
+export interface SocketState {
+  isConnected: boolean;
+  isConnecting: boolean;
+  socketId: string | null;
+  transport: string | null;
+  error: string | null;
+}
 
 // Типы событий Socket.io
 export interface ServerToClientEvents {
@@ -59,39 +61,43 @@ export interface ClientToServerEvents {
 
 class SocketService {
   private socket: Socket | null = null;
-  private isConnecting = false;
+  private state: SocketState = {
+    isConnected: false,
+    isConnecting: false,
+    socketId: null,
+    transport: null,
+    error: null,
+  };
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
-  private reconnectTimeout: NodeJS.Timeout | null = null;
-  private baseReconnectDelay = 1000;
-  // Отслеживание присоединенных комнат
-  private joinedRooms: Set<string> = new Set();
-  // Храним последний использованный URL
-  private lastUsedUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost/socket.io';
+  private connectionTimeout: NodeJS.Timeout | null = null;
+  private lastUsedUrl = 'ws://localhost:8001';
+
+  // Эмиттер для событий изменения состояния
+  private stateChangeEmitter = new EventEmitter();
 
   // Инициализация Socket.IO
-  init(wsUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost/socket.io'): Socket | null {
+  init(wsUrl: string = process.env.REACT_APP_WS_URL || 'ws://localhost/socket.io', userId?: number | string): Socket | null {
     // Нормализуем URL, чтобы удалить возможные дублирования пути
     const normalizedUrl = wsUrl.includes('/socket.io') 
       ? wsUrl.split('/socket.io')[0] 
       : wsUrl;
     
     // Предотвращаем множественные попытки подключения
-    if (this.isConnecting) {
+    if (this.state.isConnecting) {
       logger.warn('⚠️ Подключение уже в процессе');
       return this.socket;
     }
 
     // Возвращаем существующее подключение если оно активно
-    if (this.socket?.connected) {
-      logger.log('✅ Сокет уже подключен');
+    if (this.socket?.connected && this.lastUsedUrl === normalizedUrl) {
+      logger.log('✅ Сокет уже подключен к этому URL');
       return this.socket;
     }
 
     try {
-      this.isConnecting = true;
       this.lastUsedUrl = normalizedUrl;
-      logger.log('🔄 Инициализация Socket.IO:', normalizedUrl);
+      logger.log('🔄 Инициализация Socket.IO:', normalizedUrl, `для User ID: ${userId ?? 'N/A'}`);
 
       // Отключаем предыдущий сокет если есть
       if (this.socket) {
@@ -110,11 +116,12 @@ class SocketService {
         // Попробуем создать сокет с более простой конфигурацией
         this.socket = io(normalizedUrl, {
           transports: ['websocket'],
-          reconnection: false, // Отключаем автоматическое переподключение
+          reconnection: true,
           autoConnect: false,
           forceNew: true,
           timeout: 10000,
           path: '/socket.io/',
+          auth: { userId: userId ? String(userId) : undefined }
         });
 
         if (!this.socket) {
@@ -131,16 +138,19 @@ class SocketService {
 
         this.setupEventHandlers();
         logger.log('✅ Socket.IO инициализирован успешно, id:', this.socket.id);
+        logger.log('[socketService] init() завершен. Сокет готов к connect().');
         return this.socket;
       } catch (initError) {
         logger.error('❌ Ошибка при создании сокета:', initError);
         this.socket = null;
-        this.isConnecting = false;
+        this.state.isConnecting = false;
         return null;
       }
     } catch (error) {
-      this.isConnecting = false;
-      logger.error('❌ Ошибка при инициализации Socket.IO:', error);
+      logger.error('[socketService] КРИТИЧЕСКАЯ ОШИБКА в init():', error);
+      // При ошибке в init сбрасываем флаги
+      this.updateState({ isConnecting: false, isConnected: false, error: error instanceof Error ? error.message : String(error) });
+      this.socket = null;
       return null;
     }
   }
@@ -150,17 +160,17 @@ class SocketService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      this.isConnecting = false;
+      this.state.isConnecting = false;
       logger.log('✅ Socket.IO подключен, id:', this.socket?.id);
     });
 
     this.socket.on('disconnect', (reason) => {
-      this.isConnecting = false;
+      this.state.isConnecting = false;
       logger.warn(`⚠️ Socket.IO отключен: ${reason}`);
     });
 
     this.socket.on('connect_error', (error) => {
-      this.isConnecting = false;
+      this.state.isConnecting = false;
       
       // Более детальное логирование различных типов ошибок
       const errorDetails = {
@@ -241,6 +251,15 @@ class SocketService {
       });
       logger.log('📍 Отправлен pong на сервер');
     });
+
+    // Добавляем новый обработчик
+    this.socket.on('REGISTRATION_OPENED', (data: any) => {
+      logger.info('📬 Получено событие: REGISTRATION_OPENED', data);
+      // TODO: Здесь нужно диспатчить Redux action для обновления UI
+      // Например: store.dispatch(registrationOpened(data));
+      // Или использовать event emitter, если store недоступен напрямую:
+      // this.stateChangeEmitter.emit('registrationOpened', data);
+    });
   }
 
   // Новый метод для настройки обработчиков Engine.IO
@@ -282,99 +301,124 @@ class SocketService {
   }
 
   public getState(): SocketState {
-    return {
-      connected: this.socket?.connected || false,
-      id: this.socket?.id,
-      socketId: this.socket?.id,
-      transport: this.socket?.io?.engine?.transport?.name,
-      error: undefined
+    return { ...this.state };
+  }
+
+  // --- Подписка на изменение состояния ---
+  public onStateChange(listener: (state: SocketState) => void): () => void {
+    this.stateChangeEmitter.on('change', listener);
+    // Возвращаем функцию отписки
+    return () => {
+      this.stateChangeEmitter.off('change', listener);
     };
   }
 
-  public async connect(): Promise<boolean> {
+  public offStateChange(listener: (state: SocketState) => void): void {
+    this.stateChangeEmitter.off('change', listener);
+  }
+
+  // --- Геттеры состояния ---
+  public isConnected(): boolean {
+    return this.state.isConnected;
+  }
+
+  // Публичный геттер для isConnecting
+  public isConnecting(): boolean {
+    return this.state.isConnecting;
+  }
+
+  // --- Управление подключением ---
+  public connect(): void {
+    logger.log('[socketService] Вызов connect()');
     if (!this.socket) {
-      logger.error('❌ Сокет не инициализирован');
-      return false;
+      logger.error('[socketService] connect(): Сокет не инициализирован!');
+      this.updateState({ error: 'Socket not initialized before connect' });
+      return;
     }
-
-    if (this.socket.connected) {
-      logger.log('✅ Сокет уже подключен, повторное подключение не требуется');
-      return true;
+    if (this.state.isConnected) {
+      logger.warn('[socketService] connect(): Сокет уже подключен.');
+      return;
     }
-
-    // Защита от параллельных попыток подключения
-    if (this.isConnecting) {
-      logger.warn('⚠️ Подключение уже в процессе, ожидаем завершения');
-      // Ожидаем завершения текущей попытки (максимум 6 секунд)
-      for (let i = 0; i < 6; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        if (this.socket?.connected) {
-          logger.log('✅ Сокет подключился во время ожидания');
-          return true;
-        }
-        if (!this.isConnecting) break;
-      }
-      
-      // Если после ожидания сокет всё ещё пытается подключиться,
-      // принудительно сбрасываем флаг для повторной попытки
-      if (this.isConnecting) {
-        logger.warn('⚠️ Сброс зависшей попытки подключения');
-        this.isConnecting = false;
-      }
-    }
-
-    this.isConnecting = true;
-    logger.log('🔄 Начинаем подключение сокета...');
-
-    return new Promise((resolve) => {
-      if (!this.socket) {
-        this.isConnecting = false;
-        resolve(false);
+    if (this.state.isConnecting) {
+        logger.warn('[socketService] connect(): Подключение уже в процессе (isConnecting=true).');
         return;
-      }
+    }
+    
+    logger.log('[socketService] connect(): Установка isConnecting = true и вызов this.socket.connect()...');
+    // ВОТ ЗДЕСЬ ставим флаг перед вызовом
+    this.updateState({ isConnecting: true, error: null }); 
+    try {
+      this.socket.connect();
+      logger.log('[socketService] connect(): this.socket.connect() вызван успешно.');
+    } catch (error) {
+      logger.error('[socketService] connect(): Ошибка при вызове this.socket.connect():', error);
+      this.updateState({ isConnecting: false, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
 
-      // Устанавливаем таймаут для подключения
-      const timeout = setTimeout(() => {
-        if (this.socket) {
-          this.socket.off('connect');
-          this.socket.off('connect_error');
-        }
-        logger.error('❌ Таймаут соединения (5 секунд)');
-        this.isConnecting = false;
-        resolve(false);
-      }, 5000);
-
-      // Сохраняем локальную ссылку на сокет перед добавлением обработчиков
-      const socket = this.socket;
-      
-      socket.once('connect', () => {
-        clearTimeout(timeout);
-        this.isConnecting = false;
-        logger.log('✅ Socket.IO успешно подключен');
-        resolve(true);
-      });
-
-      socket.once('connect_error', (error) => {
-        clearTimeout(timeout);
-        this.isConnecting = false;
-        logger.error('❌ Ошибка при попытке подключения:', error);
-        resolve(false);
-      });
-
-      try {
-        logger.log('🔌 Вызов метода socket.connect()');
-        socket.connect();
-      } catch (error) {
-        clearTimeout(timeout);
-        this.isConnecting = false;
-        logger.error('❌ Исключение при подключении:', error);
-        resolve(false);
-      }
+  private handleConnect = () => {
+    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
+    console.log("!!!!! handleConnect ВЫЗВАН !!!!!"); 
+    logger.info(`[socketService] handleConnect: WebSocket ПОДКЛЮЧЕН! SID: ${this.socket?.id}, Транспорт: ${this.socket?.io?.engine?.transport?.name}`);
+    this.updateState({
+      isConnected: true,
+      isConnecting: false, 
+      socketId: this.socket?.id || null,
+      transport: this.socket?.io?.engine?.transport?.name || null,
+      error: null, 
     });
+  };
+
+  private handleDisconnect = (reason: Socket.DisconnectReason) => {
+    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
+    console.log(`!!!!! handleDisconnect ВЫЗВАН (Причина: ${reason}) !!!!!`);
+    logger.warn(`[socketService] handleDisconnect: WebSocket ОТКЛЮЧЕН. Причина: ${reason}`);
+    const previousError = this.state.error;
+    this.updateState({
+      isConnected: false,
+      isConnecting: false,
+      socketId: null,
+      transport: null,
+      error: previousError || (reason === 'io client disconnect' ? null : reason), 
+    });
+  };
+
+  private handleConnectError = (error: Error) => {
+    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
+    console.log("!!!!! handleConnectError ВЫЗВАН !!!!!", error);
+    logger.error(`[socketService] handleConnectError: ОШИБКА ПОДКЛЮЧЕНИЯ WebSocket: ${error.message}`, error);
+    this.updateState({
+      isConnected: false,
+      isConnecting: false,
+      error: `Connection Error: ${error.message}`, 
+    });
+  };
+
+  private handleGenericError = (error: Error) => {
+      // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
+      console.log("!!!!! handleGenericError ВЫЗВАН !!!!!", error);
+      logger.error(`[socketService] handleGenericError: ОБЩАЯ ОШИБКА сокета: ${error.message}`, error);
+  };
+
+  private clearConnectionTimeout() {
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+  }
+
+  private updateState(newState: Partial<SocketState>) {
+    const oldState = { ...this.state };
+    this.state = { ...this.state, ...newState };
+    // Проверяем, изменилось ли состояние, чтобы не спамить событиями
+    if (JSON.stringify(oldState) !== JSON.stringify(this.state)) {
+      logger.debug('🚦 SocketService: State updated', this.state);
+      this.stateChangeEmitter.emit('change', this.state);
+    }
   }
 
   public disconnect(): void {
-    this.isConnecting = false;
+    this.state.isConnecting = false;
     if (this.socket) {
       this.socket.removeAllListeners();
       this.socket.disconnect();
@@ -386,8 +430,21 @@ class SocketService {
     this.socket?.on(event, callback);
   }
 
-  public subscribe<T = any>(event: string, callback: (data: T) => void): void {
-    this.socket?.on(event, callback);
+  public subscribe<T = any>(event: string, callback: (data: T) => void): () => void {
+    if (!this.socket) {
+      logger.warn(`[socketService] Попытка подписки (${event}) до инициализации сокета`);
+      // Возвращаем пустую функцию-заглушку
+      return () => { logger.warn(`[socketService] Отписка (${event}) от неинициализированного сокета`); };
+    }
+    logger.log(`[socketService] Подписка на событие: ${event}`);
+    this.socket.on(event, callback);
+    
+    // Возвращаем функцию для отписки
+    const unsubscribe = () => {
+      logger.log(`[socketService] Отписка от события: ${event}`);
+      this.socket?.off(event, callback); // Используем off с колбэком
+    };
+    return unsubscribe;
   }
 
   public off(event: string): void {
@@ -410,10 +467,6 @@ class SocketService {
     this.socket?.emit(event, data, callback);
   }
 
-  public isConnected(): boolean {
-    return this.socket?.connected || false;
-  }
-
   public async joinRoom(room: string, userInfo?: Record<string, any>): Promise<boolean> {
     if (!this.socket?.connected) {
       logger.error('❌ Попытка присоединиться к комнате при отключенном сокете');
@@ -427,7 +480,7 @@ class SocketService {
           resolve(false);
         } else {
           logger.log(`✅ Успешно присоединились к комнате: ${room}`);
-          this.joinedRooms.add(room);
+          this.updateState({ isConnected: true });
           resolve(true);
         }
       });
@@ -447,7 +500,7 @@ class SocketService {
           resolve(false);
         } else {
           logger.log(`✅ Успешно покинули комнату: ${room}`);
-          this.joinedRooms.delete(room);
+          this.updateState({ isConnected: false });
           resolve(true);
         }
       });
@@ -521,6 +574,16 @@ class SocketService {
     }
     
     logger.log('✅ Отладка событий включена');
+  }
+
+  // Добавляем метод для получения последнего использованного URL
+  public getLastUsedUrl(): string {
+    return this.lastUsedUrl;
+  }
+
+  // Новый метод для проверки инициализации
+  public isInitialized(): boolean {
+    return !!this.socket;
   }
 }
 

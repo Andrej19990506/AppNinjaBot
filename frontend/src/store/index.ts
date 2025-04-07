@@ -36,13 +36,4 @@ subscribeToShiftEvents(store.dispatch);
 subscribeToReserveEvents(store.dispatch);
 
 // Загружаем резервы при инициализации приложения
-store.dispatch(fetchReserves());
-
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
-export type AppThunk<ReturnType = void> = ThunkAction<
-    ReturnType,
-    RootState,
-    unknown,
-    Action<string>
->; 
+store.dispatch(fetchReserves()); 

@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, HTTPException
 from datetime import datetime
 import logging
 import sys
@@ -7,34 +7,30 @@ import os
 # Добавляем директорию проекта в sys.path для правильного импорта
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from scheduler import InventoryScheduler
-from .availability import availability_bp
 
 logger = logging.getLogger(__name__)
-schedule_bp = Blueprint('schedule', __name__)
-
-# Регистрируем подмодули
-schedule_bp.register_blueprint(availability_bp, url_prefix='/availability')
+router = APIRouter()
 
 # Получаем инстанс шедулера
 scheduler = InventoryScheduler()
 
-@schedule_bp.route('/health')
+@router.get('/health')
 def health_check():
     """Проверка здоровья шедулера"""
     try:
-        return jsonify({
+        return {
             'status': 'healthy',
             'scheduler_running': scheduler.is_running(),
             'timestamp': datetime.now().isoformat()
-        })
+        }
     except Exception as e:
         logger.error(f"❌ Ошибка при проверке здоровья шедулера: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'status': 'error'
-        }), 500
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error: {str(e)}"
+        )
 
-@schedule_bp.route('/status')
+@router.get('/status')
 def scheduler_status():
     """Получение полного статуса планировщика и всех активных задач"""
     try:
@@ -55,34 +51,34 @@ def scheduler_status():
                     'data': task.data
                 })
         
-        return jsonify(status)
+        return status
         
     except Exception as e:
         logger.error(f"❌ Ошибка при получении статуса планировщика: {str(e)}")
-        return jsonify({
-            'error': str(e),
-            'status': 'error'
-        }), 500
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal error: {str(e)}"
+        )
 
-@schedule_bp.route('/reload-tasks', methods=['POST'])
+@router.post('/reload-tasks')
 def reload_tasks():
     """Принудительная перезагрузка всех запланированных задач"""
     try:
         success = scheduler.reload_scheduled_tasks()
         if success:
-            return jsonify({
+            return {
                 "status": "success",
                 "message": "Задачи успешно перезагружены",
                 "timestamp": datetime.now().isoformat()
-            })
+            }
         else:
-            return jsonify({
-                "status": "error",
-                "message": "Не удалось перезагрузить задачи"
-            }), 500
+            raise HTTPException(
+                status_code=500,
+                detail="Не удалось перезагрузить задачи"
+            )
     except Exception as e:
         logger.error(f"❌ Ошибка при перезагрузке задач: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500 
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to reload tasks: {str(e)}"
+        ) 

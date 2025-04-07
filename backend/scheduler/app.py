@@ -1,73 +1,88 @@
-from scheduler import InventoryScheduler
 import logging
-from flask import Flask, request, jsonify
 import os
-from datetime import datetime
+import asyncio
+from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
+from pydantic import BaseModel
+from scheduler import InventoryScheduler
+# Импортируем фоновую задачу из нового файла
+from background_tasks import schedule_access_task_background
 
 # Настраиваем логирование
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger('SchedulerService')
+logger = logging.getLogger('SchedulerServiceAPI')
 
-# Создаем и запускаем шедулер
-scheduler_instance = InventoryScheduler()
+# Удаляем определение schedule_access_task_background отсюда
 
-# Создаем Flask-приложение
-app = Flask(__name__)
+# Импортируем роутеры
+from api_scheduler.schedule.availability.routes import router as availability_router
+from api_scheduler.schedule.routes import router as schedule_router
 
-# Регистрируем blueprint
-from api_scheduler import api_scheduler_bp
-app.register_blueprint(api_scheduler_bp)
+# Удаляем старую логику присваивания функции
 
-# Добавляем маршрут для обратной совместимости
-@app.route('/apply-access-settings', methods=['POST'])
-def legacy_apply_access_settings():
-    """Обертка для обратной совместимости с маршрутом /apply-access-settings"""
+# Lifespan менеджер для запуска/остановки шедулера
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🚀 Инициализация сервиса и запуск шедулера...")
+    # Объявляем scheduler_instance как nonlocal или global, если он вне функции
+    # Если он используется только внутри lifespan, то объявление не нужно
+    scheduler_instance = InventoryScheduler()
+    app.state.scheduler_instance = scheduler_instance # Сохраняем в state
     try:
-        data = request.json
-        chat_id = data.get('chat_id')
-        
-        if not chat_id:
-            return jsonify({
-                'status': 'error',
-                'message': 'chat_id is required'
-            }), 400
-            
-        logger.info(f"📬 Запрос на применение настроек доступа (legacy route)")
-        logger.info(f"🆔 Применяем настройки доступа для чата: {chat_id}")
-        
-        result = scheduler_instance.apply_access_settings(chat_id)
-        if result:
-            return jsonify({
-                'status': 'success',
-                'message': 'Настройки доступа успешно применены',
-                'chat_id': chat_id,
-                'timestamp': datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                'status': 'error',
-                'message': 'Не удалось применить настройки доступа'
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"❌ Ошибка при применении настроек доступа: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
-
-if __name__ == '__main__':
-    try:
-        logger.info("🚀 Запуск сервиса шедулера...")
+        # Запускаем шедулер (он сам загрузит задачи)
         scheduler_instance.start()
-        logger.info("✅ Шедулер успешно запущен")
-        
-        # Запускаем Flask-сервер
-        app.run(host='0.0.0.0', port=8002)
-    except KeyboardInterrupt:
-        logger.info("👋 Получен сигнал завершения")
-        scheduler_instance.stop()
-        logger.info("✅ Шедулер остановлен") 
+        logger.info("✅ Шедулер успешно запущен.")
+        yield # Приложение работает здесь
+    finally:
+        logger.info("👋 Остановка шедулера...")
+        if app.state.scheduler_instance and app.state.scheduler_instance.is_running():
+            app.state.scheduler_instance.stop()
+        logger.info("✅ Шедулер остановлен.")
+        # Очищаем state при остановке, если нужно
+        # del app.state.scheduler_instance
+
+# Создаем FastAPI приложение с lifespan
+app = FastAPI(
+    title="Scheduler Service API",
+    description="API для управления задачами шедулера (FastAPI).",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# Подключаем роутеры
+app.include_router(schedule_router, prefix="/scheduler")
+app.include_router(availability_router, prefix="/scheduler")
+
+# Обработчик исключений (на всякий случай)
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.exception(f"Критическая ошибка при обработке запроса {request.url}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"status": "error", "message": "Internal Server Error"},
+    )
+
+# --- Маршрут /apply-access-settings (для совместимости, если нужен) ---
+class LegacySettingsData(BaseModel):
+    chat_id: str
+
+@app.post("/apply-access-settings")
+async def legacy_apply_access_settings(data: LegacySettingsData, background_tasks: BackgroundTasks, request: Request):
+    chat_id = data.chat_id
+    logger.info(f"📬 Запрос на применение настроек (legacy route) для chat_id: {chat_id}")
+    # Получаем scheduler_instance из состояния приложения
+    scheduler_instance = request.app.state.scheduler_instance
+    if not scheduler_instance:
+         logger.error("Legacy route: Экземпляр шедулера не найден в состоянии приложения!")
+         raise HTTPException(status_code=500, detail="Scheduler not available")
+    # Передаем scheduler_instance и chat_id в фоновую задачу
+    background_tasks.add_task(schedule_access_task_background, scheduler_instance, chat_id)
+    logger.info(f"Эндпоинт (legacy): Отвечаю 200 OK для {chat_id}")
+    return {"status": "success", "message": "Scheduling started in background", "chat_id": chat_id}
+
+# Запуск через uvicorn будет в Dockerfile или docker-compose
+# Блок if __name__ == '__main__' больше не нужен для основного запуска 

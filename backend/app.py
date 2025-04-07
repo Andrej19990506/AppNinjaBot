@@ -31,8 +31,10 @@ from api import api_bp
 from config.settings import (
     HOST, PORT,
     APP_DIR, DATA_DIR, TEMPLATES_DIR, INVENTORY_DIR, BOT_DATA_DIR,
-    API_BASE_URL, BOT_URL, MAX_CONTENT_LENGTH, IS_PRODUCTION
+    API_BASE_URL, BOT_URL, MAX_CONTENT_LENGTH, IS_PRODUCTION,
+    CORS_ALLOWED_ORIGINS, TRUST_PROXY
 )
+from flask_cors import CORS
 
 # Настраиваем логирование
 logging.basicConfig(
@@ -44,103 +46,44 @@ logger = logging.getLogger(__name__)
 # Инициализируем Flask
 app = Flask(__name__)
 
+# Настраиваем CORS
+CORS(app, resources={
+    r"/api/*": {
+        "origins": CORS_ALLOWED_ORIGINS,
+        "supports_credentials": True
+    }
+})
+
 # Устанавливаем максимальный размер запроса
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
+# Middleware для обработки Cloudflare заголовков
+@app.before_request
+def before_request():
+    if TRUST_PROXY:
+        # Получаем реальный протокол из заголовков Cloudflare
+        cf_visitor = request.headers.get('CF-Visitor')
+        if cf_visitor:
+            try:
+                cf_visitor_json = json.loads(cf_visitor)
+                scheme = cf_visitor_json.get('scheme', 'http')
+                request.environ['wsgi.url_scheme'] = scheme
+            except:
+                pass
+
 # Маршрут для проверки, где запрос обрабатывается
 @app.route('/api/debug', methods=['GET'])
-def debug_route():
-    logger.info("Debug route accessed")
+def debug_info():
+    """Отладочная информация о приложении"""
     return jsonify({
-        "status": "ok",
-        "message": "API server is running",
-        "registered_blueprints": [str(blueprint) for blueprint in app.blueprints]
+        'version': __version__,
+        'environment': app.config['ENV'],
+        'debug': app.debug,
+        'testing': app.testing,
+        'database_url': app.config['DATABASE_URL'],
+        'api_url': app.config['API_URL'],
+        'bot_url': app.config['BOT_URL']
     })
-
-# Ручное перенаправление для /api/couriers/shifts
-@app.route('/api/couriers/shifts', methods=['GET', 'POST'])
-def shifts_proxy():
-    """Перенаправление для /api/couriers/shifts без CORS декораторов"""
-    try:
-        logger.info(f"Обработка запроса на /api/couriers/shifts без CORS декораторов")
-        
-        if request.method == 'GET':
-            # Получаем chat_id из параметров запроса
-            chat_id = request.args.get('chat_id')
-            
-            # Импортируем нужные функции для получения данных
-            from data.shifts import get_all_shifts, get_shifts_by_chat
-            
-            # Получаем смены в зависимости от наличия chat_id
-            if chat_id:
-                shifts = get_shifts_by_chat(chat_id)
-            else:
-                shifts = get_all_shifts()
-                
-            return jsonify(shifts)
-        else:
-            # Для POST запроса
-            from data.shifts import book_shift
-            from data.reserves import delete_user_reserve
-            from services.access_settings_service import AccessSettingsService
-            from data.users import get_user_data
-            
-            data = request.json
-            
-            # Проверяем обязательные поля
-            required_fields = ['user_id', 'date', 'shift_type', 'slot_index', 'chat_id']
-            missing_fields = [field for field in required_fields if field not in data]
-            
-            if missing_fields:
-                return jsonify({'error': f"Missing required fields: {', '.join(missing_fields)}"}), 400
-            
-            # Получаем настройки доступа
-            settings = AccessSettingsService.load_settings()
-            
-            # ID пользователя может быть строкой или числом
-            user_id = str(data['user_id'])
-            
-            # Проверяем, если пользователь в списке ограниченных
-            if 'restrictedUsers' in settings and user_id in [str(uid) for uid in settings.get('restrictedUsers', [])]:
-                return jsonify({'error': 'User is restricted from booking shifts'}), 403
-            
-            # Проверяем доступность даты
-            if not AccessSettingsService.is_date_available(data['date'], user_id):
-                return jsonify({'error': 'This date is not available for booking'}), 400
-                
-            # Добавляем информацию о пользователе
-            user_data = {
-                'photo_url': data.get('photo_url'),
-                'first_name': data.get('first_name', ''),
-                'last_name': data.get('last_name', ''),
-                'is_senior_courier': data.get('is_senior_courier', False)
-            }
-            
-            # Если данные пользователя не предоставлены, получаем их из базы данных
-            if not all([user_data['photo_url'], user_data['first_name'], user_data['last_name']]):
-                user_info = get_user_data(user_id)
-                if user_info:
-                    for key in ['photo_url', 'first_name', 'last_name']:
-                        if not user_data[key] and user_info.get(key):
-                            user_data[key] = user_info[key]
-            
-            # Бронируем смену
-            new_shift = book_shift(user_id, data['date'], data['shift_type'], 
-                                data['slot_index'], data['chat_id'], user_data)
-            
-            # Если пользователь был в резерве на эту дату, удаляем его из резерва
-            try:
-                deleted_reserve = delete_user_reserve(user_id, data['date'], data['chat_id'])
-                if deleted_reserve:
-                    logger.info(f"User {user_id} removed from reserve for date {data['date']} in chat {data['chat_id']}")
-            except Exception as reserve_e:
-                logger.error(f"Error removing user from reserve: {str(reserve_e)}")
-            
-            return jsonify(new_shift), 201
-    except Exception as e:
-        logger.error(f"Ошибка при обработке запроса к /api/couriers/shifts: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({"error": str(e)}), 500
 
 # Ручное перенаправление для /api/reserves
 @app.route('/api/reserves', methods=['GET', 'POST'])
@@ -208,14 +151,14 @@ def reserves_proxy():
 # Перехватываем все запросы для логирования и отладки
 @app.before_request
 def log_request_info():
-    logger.info(f"Получен запрос: {request.method} {request.path}")
-    logger.info(f"Заголовки: {dict(request.headers)}")
-    return None
+    """Логирование информации о запросе"""
+    logger.info('Получен запрос: %s %s', request.method, request.path)
+    logger.info('Заголовки: %s', request.headers)
 
 # Добавляем маршрут для отправки сообщений
-@app.route('/send_message', methods=['POST'])
-def send_message_proxy():
-    """Маршрут для отправки сообщений через бота"""
+@app.route('/api/send_message', methods=['POST'])
+def send_message():
+    """Отправка сообщения через бота"""
     try:
         logger.info(f"Получен запрос на отправку сообщения")
         data = request.json
@@ -248,7 +191,7 @@ def send_message_proxy():
         logger.error(traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
-# Регистрируем маршруты
+# Регистрируем основной Blueprint для API
 app.register_blueprint(api_bp)
 
 if __name__ == '__main__':

@@ -1,16 +1,22 @@
 import axios from 'axios';
-import config from '../config';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { WriteOffReason, CreateWriteOffData } from '../types/writeOff';
 import { socketService } from './socket';
 
+// Устанавливаем baseURL из переменной окружения
+const baseURL = process.env.REACT_APP_API_URL;
+console.log(`Base API URL: ${baseURL}`); // Добавим лог для проверки
+
 // Создаем инстанс axios с базовыми настройками
 const axiosInstance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL || '/api',
+    baseURL: baseURL,
     headers: {
         'Content-Type': 'application/json'
     }
 });
+
+// Экспортируем инстанс для использования в других API сервисах
+export { axiosInstance };
 
 // Helper function to wrap socket emission in a Promise
 const emitSocketEvent = (event: string, data: any): Promise<boolean> => {
@@ -39,7 +45,6 @@ const writeOffApi = {
     // Получение списка чатов
     getWriteOffChats: () => {
         console.log('=== 📡 Запрос списка чатов для списания ===');
-        console.log('🔗 URL:', `${config.API_URL}/chats`);
         return axiosInstance.get('/chats').then(response => {
             console.log('✅ Ответ от сервера:', {
                 status: response.status,
@@ -70,7 +75,6 @@ const writeOffApi = {
         console.log('=== 📡 Запрос списаний чата ===');
         console.log('🏠 Чат:', chatId);
         console.log('🔗 URL запроса:', `/write-offs/${chatId}`);
-        console.log('🔗 Полный URL:', `${config.API_URL}/write-offs/${chatId}`);
         console.log('🔗 BASE URL:', process.env.REACT_APP_API_URL || '/api');
         
         return axiosInstance.get(`/write-offs/${chatId}`).then(response => {
@@ -375,7 +379,7 @@ const writeOffApi = {
         console.log('=== 📡 Удаление списания ===');
         console.log('🏠 Чат:', chatId);
         console.log('📝 ID списания:', writeOffId);
-        console.log('🔗 URL запроса:', `${config.API_URL}/write-offs/${chatId}/${writeOffId}`);
+        console.log('�� URL запроса:', `${baseURL}/write-offs/${chatId}/${writeOffId}`);
         
         // Пробуем сначала через WebSocket
         if (socketService.isConnected()) {
@@ -510,7 +514,7 @@ const historyApi = {
         
         const url = `/item_history/${chatId}/${encodeURIComponent(category)}/${encodeURIComponent(itemName)}`;
         console.log('🔗 URL запроса:', url);
-        console.log('🔗 Полный URL:', `${config.API_URL}${url}`);
+        console.log('🔗 Полный URL:', `${baseURL}${url}`);
         
         return axiosInstance.get(url);
     },
@@ -533,11 +537,68 @@ const historyApi = {
 };
 
 // Пользователи
-const userApi = {
+export const userApi = {
     getCurrentUser: () => {
         console.log('=== 📡 Запрос данных пользователя ===');
-        console.log('🔗 URL:', `${config.API_URL}/users/me`);
+        console.log('🔗 URL:', `${baseURL}/users/me`);
         return axiosInstance.get('/users/me');
+    },
+
+    // Новая функция для получения контекста пользователя (групп)
+    getUserContext: async (userId: string | number): Promise<any[]> => {
+        console.log(`=== 📡 Запрос контекста пользователя ID: ${userId} ===`);
+        const url = `/api/v1/users/${userId}/context`; // Используем новый путь V1
+        console.log('🔗 URL запроса:', url);
+        console.log('🔗 Полный URL:', `${axiosInstance.defaults.baseURL}${url}`);
+        try {
+            // Ожидаем массив объектов GroupRead из Pydantic схемы
+            const response = await axiosInstance.get<any[]>(url);
+            console.log(`✅ Контекст для пользователя ${userId} получен:`, response.data);
+            return response.data || []; // Возвращаем данные или пустой массив
+        } catch (error) {
+            console.error(`❌ Ошибка при запросе контекста для пользователя ${userId}`, error);
+            if (axios.isAxiosError(error)) {
+                const detail = error.response?.data?.detail || error.message;
+                if (error.response?.status === 404) {
+                    console.log(`ℹ️ Пользователь ${userId} не найден или у него нет контекста (404).`);
+                    return []; // Возвращаем пустой массив
+                }
+                throw new Error(detail || 'Ошибка при получении контекста пользователя.');
+            } else if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Неизвестная ошибка при получении контекста пользователя.');
+        }
+    },
+
+    // --- НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПРОФИЛЯ --- 
+    getUserProfile: async (userId: string | number): Promise<any> => {
+        console.log(`=== 👤 Запрос профиля пользователя ID: ${userId} ===`);
+        const url = `/api/v1/users/${userId}/profile`; // Новый эндпоинт
+        console.log('🔗 URL запроса профиля:', url);
+        console.log('🔗 Полный URL профиля:', `${axiosInstance.defaults.baseURL}${url}`);
+        try {
+            // Ожидаем объект UserProfileResponse
+            const response = await axiosInstance.get<any>(url);
+            console.log(`✅ Профиль для пользователя ${userId} получен:`, response.data);
+            return response.data; // Возвращаем данные профиля
+        } catch (error) {
+            console.error(`❌ Ошибка при запросе профиля для пользователя ${userId}`, error);
+            // Можно добавить более детальную обработку ошибок Axios, как в getUserContext
+            if (axios.isAxiosError(error)) {
+                const detail = error.response?.data?.detail || error.message;
+                // Если профиль не найден (404), возможно, стоит вернуть null или спец. объект
+                if (error.response?.status === 404) {
+                    console.warn(`⚠️ Профиль для пользователя ${userId} не найден (404).`);
+                    // Решите, что возвращать: null, пустой объект, или пробрасывать ошибку
+                    return null; // Пример: возвращаем null
+                }
+                throw new Error(detail || 'Ошибка при получении профиля пользователя.');
+            } else if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Неизвестная ошибка при получении профиля пользователя.');
+        }
     }
 };
 
@@ -582,53 +643,4 @@ export const api = {
     writeOff: writeOffApi,
     history: historyApi,
     user: userApi
-};
-
-const API_BASE_URL = config.API_URL;
-
-export interface UpdateProfileData {
-    firstName: string;
-    lastName: string;
-    isSeniorCourier?: boolean;
-    seniorPassword?: string;
-    chatId?: string;
-}
-
-export const updateCourierProfile = async (userId: number, data: UpdateProfileData) => {
-    try {
-        console.log('📡 Отправка запроса на обновление профиля:', {
-            url: `${API_BASE_URL}/couriers/profile/${userId}`,
-            data: data
-        });
-
-        const response = await axiosInstance.put(`/couriers/profile/${userId}`, {
-            firstName: data.firstName,
-            lastName: data.lastName,
-            isSeniorCourier: data.isSeniorCourier,
-            seniorPassword: data.seniorPassword,
-            chatId: data.chatId
-        });
-        console.log('✅ Профиль успешно обновлен:', response.data);
-        return response.data;
-    } catch (error) {
-        console.error('❌ Ошибка при обновлении профиля:', error);
-        
-        if (axios.isAxiosError(error)) {
-            if (error.code === 'ERR_NETWORK') {
-                throw new Error('Ошибка сети. Пожалуйста, проверьте подключение к интернету');
-            }
-            if (error.response?.status === 403) {
-                throw new Error('Доступ запрещен. У вас нет прав для выполнения этого действия');
-            }
-            if (error.response?.status === 404) {
-                throw new Error('Пользователь не найден в группах курьеров');
-            }
-            if (error.response?.status === 401) {
-                throw new Error('Неверный пароль старшего курьера');
-            }
-            throw new Error(error.response?.data?.error || 'Ошибка при обновлении профиля');
-        }
-        
-        throw new Error('Произошла неизвестная ошибка');
-    }
 }; 

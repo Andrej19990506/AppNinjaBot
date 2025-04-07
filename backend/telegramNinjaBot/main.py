@@ -19,17 +19,19 @@ import traceback
 import os
 import pickle
 from datetime import datetime
-import requests
-import fcntl
+# import requests # Не используется напрямую здесь
+# import fcntl # Убираем fcntl
 import sys
-from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS
-from io import BytesIO
-import threading
-from hypercorn.config import Config as HyperConfig
-from hypercorn.asyncio import serve
-import aiohttp
-from telegramNinjaBot.handlers.api_handlers import ApiHandler
+# from flask import Flask, request, jsonify, send_file, Response # Убираем Flask импорт
+# from io import BytesIO # Не используется напрямую здесь
+# import threading # Убираем threading
+# from hypercorn.config import Config as HyperConfig # Убираем Hypercorn
+# from hypercorn.asyncio import serve # Убираем импорт Hypercorn serve
+# import aiohttp # Убираем неиспользуемый aiohttp
+from fastapi import FastAPI, Request, HTTPException
+from contextlib import asynccontextmanager
+import uvicorn
+from pydantic import BaseModel
 
 # Определяем текущее окружение
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
@@ -51,63 +53,6 @@ logging.getLogger('telegram').setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logger.info(f"Бот запущен в окружении: {ENVIRONMENT}")
-
-# Создаем Flask приложение
-app = Flask(__name__)
-CORS(app)
-
-# Добавляем маршрут для отправки сообщений напрямую
-@app.route('/api/send_message', methods=['POST'])
-async def send_message_api():
-    """Прямой маршрут для отправки сообщений через Telegram бота"""
-    try:
-        logger.info("Получен прямой запрос на отправку сообщения")
-        data = request.get_json()
-        logger.info(f"Данные запроса: {data}")
-        
-        chat_id = data.get('chat_id')
-        text = data.get('text')
-        parse_mode = data.get('parse_mode', 'HTML')
-        
-        if not chat_id or not text:
-            logger.error("Не указан chat_id или текст сообщения")
-            return jsonify({"error": "Не указан chat_id или текст сообщения"}), 400
-        
-        # Преобразуем формат ID чата перед отправкой
-        try:
-            # Убираем префикс "-100" для супергрупп если он есть
-            if isinstance(chat_id, str) and chat_id.startswith('-100'):
-                # Преобразуем в int и уберем префикс -100
-                processed_chat_id = int(chat_id.replace('-100', '-'))
-                logger.info(f"ID чата преобразован из {chat_id} в {processed_chat_id}")
-            else:
-                processed_chat_id = chat_id
-                logger.info(f"ID чата оставлен без изменений: {chat_id}")
-        except Exception as e:
-            logger.error(f"Ошибка при преобразовании ID чата {chat_id}: {str(e)}")
-            processed_chat_id = chat_id
-        
-        # Получаем текущий экземпляр бота
-        if bot_application and bot_application.bot:
-            # Отправляем сообщение через бота
-            try:
-                await bot_application.bot.send_message(
-                    chat_id=processed_chat_id,
-                    text=text,
-                    parse_mode=parse_mode
-                )
-                logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id}")
-                return jsonify({"success": True, "message": "Сообщение успешно отправлено"})
-            except Exception as e:
-                logger.error(f"❌ Ошибка при отправке сообщения в чат {chat_id}: {str(e)}")
-                return jsonify({"error": f"Ошибка при отправке сообщения: {str(e)}"}), 500
-        else:
-            logger.error("❌ Экземпляр бота не доступен")
-            return jsonify({"error": "Экземпляр бота не доступен"}), 500
-                
-    except Exception as e:
-        logger.error(f"❌ Ошибка при обработке запроса: {str(e)}")
-        return jsonify({"error": f"Ошибка при обработке запроса: {str(e)}"}), 500
 
 # Глобальные переменные для хранения экземпляров
 bot_application = None
@@ -255,6 +200,34 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         user = update.effective_user
         logger.info(f"Пользователь {user.full_name} ({user.id}) запустил команду /start")
 
+        # Создаем кнопку с веб-приложением
+        web_app_url = Config().WEB_APP_URL # Получаем URL из конфига
+        if not web_app_url:
+            logger.error("Не задан URL веб-приложения в конфигурации (WEB_APP_URL)")
+            await update.message.reply_text(
+                "К сожалению, веб-приложение сейчас недоступно."
+            )
+            return
+
+        web_app_info = WebAppInfo(url=web_app_url)
+        button = InlineKeyboardButton(text="Открыть приложение", web_app=web_app_info)
+        keyboard = InlineKeyboardMarkup([[button]])
+
+        # Отправляем приветственное сообщение и кнопку
+        await update.message.reply_text(
+            f"Привет, {user.first_name}! 👋\n\n"
+            "Я бот AppNinja, помогу тебе с инвентаризацией и не только!\n"
+            "Нажми кнопку ниже, чтобы открыть приложение:",
+            reply_markup=keyboard
+        )
+        logger.info(f"Отправлено приветствие и кнопка WebApp пользователю {user.id}")
+
+        # Устанавливаем кнопку меню
+        await context.bot.set_chat_menu_button(
+            chat_id=update.effective_chat.id,
+            menu_button=MenuButtonWebApp(text="Открыть приложение", web_app=web_app_info)
+        )
+        logger.info(f"Установлена кнопка меню для чата {update.effective_chat.id}")
 
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /start: {str(e)}")
@@ -1151,12 +1124,178 @@ def init_bot():
     
     return application
 
-if __name__ == '__main__':
+# +++ Добавляем Lifespan Manager +++
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("🚀 Инициализация сервиса Telegram бота...")
+    
+    # 1. Инициализация конфигурации и сервисов
+    config = Config()
+    json_service = JsonService(config.DATA_DIR)
+    courier_service = CourierGroupService(config.DATA_DIR)
+    use_database = os.getenv('USE_DATABASE', 'false').lower() == 'true'
+    db_service = None
+    if use_database:
+        try:
+            db_service = DatabaseService()
+            logger.info("Сервис базы данных инициализирован")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при инициализации сервиса базы данных: {e}")
+    group_service = GroupServiceAdapter(courier_service, db_service)
+    logger.info(f"Адаптер групп инициализирован")
+    
+    # 2. Создание экземпляра Application
+    bot_app = (
+        Application.builder()
+        .token(config.TOKEN)
+        # Добавляем таймауты (можно вынести в config)
+        .connect_timeout(60.0)
+        .read_timeout(60.0)
+        .write_timeout(60.0)
+        .pool_timeout(60.0)
+        .build()
+    )
+    logger.info("✅ Экземпляр Telegram Application создан")
+    
+    # 3. Сохранение экземпляров в app.state
+    app.state.bot_application = bot_app
+    app.state.json_service = json_service
+    app.state.group_service = group_service # GroupServiceAdapter
+    # Сохраняем и другие сервисы если они нужны в API или хэндлерах
+    app.state.config = config 
+
+    # 4. Инициализация хэндлеров (передаем им нужные сервисы/приложение)
+    group_handler = GroupHandler(bot_app, json_service)
+    group_handler.courier_service = group_service # Заменяем на адаптер
+    message_handler = BotMessageHandler(config.DATA_DIR)
+    # Инициализация других хэндлеров, если есть
+    logger.info("✅ Хэндлеры инициализированы")
+
+    # 5. Регистрация хэндлеров
+    logger.info("=== Регистрация обработчиков Telegram ===")
+    # Логгер обновлений (низкий приоритет)
+    # bot_app.add_handler(MessageHandler(filters.ALL, log_update), group=-2)
+    # Групповые события (ChatMemberHandler, MessageHandler для status updates)
+    bot_app.add_handler(ChatMemberHandler(group_handler.handle_my_chat_member, ChatMemberHandler.MY_CHAT_MEMBER), group=-3)
+    bot_app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, group_handler.handle_new_chat_members), group=-1)
+    bot_app.add_handler(ChatMemberHandler(group_handler.handle_chat_member_update, ChatMemberHandler.CHAT_MEMBER), group=0)
+    bot_app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, group_handler.handle_left_chat_member), group=0)
+    # Команды
+    bot_app.add_handler(CommandHandler("start", handle_start))
+    # bot_app.add_handler(CommandHandler("send_love", send_love)) # Убрал, если не нужна
+    # Сообщения (включая web_app_data)
+    bot_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, message_handler.handle_private_message))
+    bot_app.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUP, handle_webapp_data)) # Обработка web_app_data в группах
+    bot_app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data)) # Явная обработка web_app_data
+    # Callback Queries
+    bot_app.add_handler(CallbackQueryHandler(handle_deletion_callback)) # Обработчик удаления
+    # bot_app.add_handler(CallbackQueryHandler(handle_all_callbacks)) # Общий обработчик для отладки (если нужен)
+    logger.info("✅ Обработчики Telegram зарегистрированы")
+    
     try:
-        # Запускаем бота в основном event loop
-        asyncio.run(run_bot())
-    except KeyboardInterrupt:
-        logger.info("Бот остановлен пользователем")
+        # 6. Запуск бота
+        logger.info("Инициализация и запуск Telegram Application...")
+        await bot_app.initialize()
+        await bot_app.start()
+        await bot_app.updater.start_polling(drop_pending_updates=True) # Разрешаем все апдейты по умолчанию
+        logger.info("✅ Бот запущен и получает обновления")
+        
+        # Код приложения FastAPI работает здесь
+        yield
+        
+    finally:
+        # 7. Остановка бота при завершении работы FastAPI
+        logger.info("👋 Остановка Telegram Application...")
+        if bot_app.updater and bot_app.updater.is_running:
+            await bot_app.updater.stop()
+        if bot_app.running:
+            await bot_app.stop()
+        await bot_app.shutdown()
+        logger.info("✅ Бот остановлен")
+# +++ Конец Lifespan Manager +++
+
+# +++ Создаем FastAPI приложение +++
+app = FastAPI(
+    title="NinjaBot Telegram Service", 
+    version="1.0.0", 
+    description="FastAPI сервис для Telegram бота NinjaBot",
+    lifespan=lifespan
+)
+
+# +++ Определяем Pydantic модель для API +++
+class SendMessagePayload(BaseModel):
+    chat_id: str
+    text: str
+    parse_mode: str = 'HTML'
+
+# +++ Определяем API эндпоинт +++
+@app.post("/api/send_message")
+async def send_message_api_v2(payload: SendMessagePayload, request: Request):
+    """Прямой маршрут для отправки сообщений через Telegram бота (FastAPI)"""
+    logger.info("📬 Получен FastAPI запрос на /api/send_message")
+    logger.info(f"Данные payload: {payload.model_dump()}")
+    
+    try:
+        # Получаем экземпляр бота из app.state
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
+            
+        # Преобразуем формат ID чата
+        chat_id = payload.chat_id
+        processed_chat_id: int | str
+        try:
+            if chat_id.startswith('-100'):
+                # Убираем префикс '-100' и оставляем '-' для супергрупп
+                processed_chat_id = int(chat_id.replace('-100', '-'))
+            elif chat_id.startswith('-'):
+                 # Обычные группы уже имеют правильный формат '-'
+                 processed_chat_id = int(chat_id)
+            else:
+                # Личные сообщения - ID без минуса
+                processed_chat_id = int(chat_id)
+            logger.info(f"ID чата {chat_id} обработан как {processed_chat_id}")
+        except ValueError:
+             logger.error(f"Не удалось преобразовать chat_id '{chat_id}' в число")
+             raise HTTPException(status_code=400, detail=f"Invalid chat_id format: {chat_id}")
+
+        # Отправляем сообщение
+        try:
+            await bot_app.bot.send_message(
+                chat_id=processed_chat_id,
+                text=payload.text,
+                parse_mode=payload.parse_mode
+            )
+            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id}")
+            return {"success": True, "message": "Сообщение успешно отправлено"}
+        except Exception as e:
+            logger.error(f"❌ Ошибка при вызове bot.send_message для чата {chat_id}: {e}")
+            # Попытка получить более детальную ошибку от Telegram API
+            error_message = str(e)
+            if hasattr(e, 'message'): # Для ошибок PTB
+                error_message = e.message
+            raise HTTPException(status_code=500, detail=f"Failed to send message: {error_message}")
+            
+    except HTTPException as http_exc: # Перебрасываем HTTPException
+        raise http_exc
     except Exception as e:
-        logger.error(f"Критическая ошибка: {e}", exc_info=True)
-        sys.exit(1) 
+        logger.error(f"❌ Непредвиденная ошибка в /api/send_message: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+# +++ Добавляем запуск через Uvicorn +++
+if __name__ == "__main__":
+    # Используем переменные окружения для хоста и порта
+    host = os.getenv("BOT_HOST", "0.0.0.0")
+    port = int(os.getenv("BOT_PORT", "8001")) # Используем порт 8001 по умолчанию
+    reload = ENVIRONMENT == 'development' # Включаем reload только для development
+    
+    logger.info(f"Запуск FastAPI (Uvicorn) сервера на {host}:{port} {'с автоперезагрузкой' if reload else ''}...")
+    uvicorn.run(
+        "main:app", # Указываем на переменную app в этом файле (переименуй файл в main.py)
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info" # Можно настроить уровень логов uvicorn
+    )
+# --- Конец файла --- 

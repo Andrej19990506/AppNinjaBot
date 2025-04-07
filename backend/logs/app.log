@@ -2898,3 +2898,2937 @@ werkzeug.exceptions.BadRequest: 400 Bad Request: The browser (or proxy) sent a r
 2025-04-03 09:41:17,051 - urllib3.connectionpool - DEBUG - http://scheduler:8002 "POST /scheduler/reload-tasks HTTP/1.1" 200 233
 2025-04-03 09:41:17,052 - api.couriers.access.routes - INFO - ✅ Запрос на перезагрузку задач успешно отправлен
 2025-04-03 09:41:17,053 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 09:41:17] "POST /api/couriers/access/settings HTTP/1.1" 200 -
+2025-04-03 10:40:07,040 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:40:07,043 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/reserves', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:07,043 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:40:07,054 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:07] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:40:07,096 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:40:07,096 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/reserves', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:07,097 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:40:07,102 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:07] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:40:10,317 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:40:10,318 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/access/settings?chat_id=-1004755640016', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:10,319 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:40:10,324 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:40:10,324 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/1682142222/status?chat_id=-1004755640016', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:10,327 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:40:10,327 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:40:10,337 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:40:10,338 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:10] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:40:10,342 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:40:10,343 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/access/settings?chat_id=-1004755640016', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:10,343 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:40:10,347 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:40:10,348 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:10] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:40:10,358 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:40:10,360 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:10] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:40:10,364 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:40:10,365 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/1682142222/status?chat_id=-1004755640016', 'Connection': 'close', 'Sec-Ch-Ua-Platform': '"Windows"', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36', 'Accept': 'application/json, text/plain, */*', 'Sec-Ch-Ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"', 'Sec-Ch-Ua-Mobile': '?0', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:10,366 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:40:10,367 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:40:10,377 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:40:10,378 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:10] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:40:49,170 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:40:49,171 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/reserves', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,172 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:40:49,178 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:40:49,268 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:40:49,269 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/reserves', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,269 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:40:49,278 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:40:49,427 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:40:49,428 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:40:49,428 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/access/settings?chat_id=-1004755640016', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,429 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/1682142222/status?chat_id=-1004755640016', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': 'application/json, text/plain, */*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,429 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:40:49,430 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:40:49,431 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:40:49,437 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:40:49,437 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:40:49,443 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:40:49,443 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/access/settings?chat_id=-1004755640016', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': '*/*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,444 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:40:49,447 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:40:49,447 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:40:49,449 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:40:49,451 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:40:49,456 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:40:49,456 - __main__ - INFO - Заголовки: {'Host': 'localhost', 'X-Real-Ip': '172.19.0.1', 'X-Forwarded-For': '172.19.0.1', 'X-Forwarded-Proto': 'http', 'X-Forwarded-Host': 'localhost', 'X-Original-Uri': '/api/couriers/1682142222/status?chat_id=-1004755640016', 'Connection': 'close', 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1', 'Accept': 'application/json, text/plain, */*', 'Origin': 'http://localhost:3000', 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', 'Sec-Fetch-Dest': 'empty', 'Referer': 'http://localhost:3000/', 'Accept-Encoding': 'gzip, deflate, br, zstd', 'Accept-Language': 'ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6'}
+2025-04-03 10:40:49,457 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:40:49,457 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:40:49,469 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:40:49,470 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:40:49] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:45:12,186 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:12,188 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:12,196 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:12,196 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:12,197 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:12,357 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:12,357 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:12,357 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:12,359 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:12,359 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:12,818 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:14,740 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:14,741 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:14,744 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:14,744 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:14,745 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:14,847 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:14,847 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:14,847 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:14,850 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:14,850 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:15,209 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:17,153 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:17,154 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:17,156 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:17,156 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:17,156 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:17,251 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:17,251 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:17,251 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:17,253 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:17,253 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:17,618 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:19,551 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:19,552 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:19,554 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:19,554 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:19,554 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:19,646 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:19,646 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:19,646 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:19,647 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:19,647 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:20,011 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:22,123 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:22,125 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:22,127 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:22,127 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:22,127 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:22,243 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:22,244 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:22,245 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:22,246 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:22,248 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:22,671 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:25,558 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:25,560 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:25,563 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:25,564 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:25,564 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:25,673 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:25,673 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:25,673 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:25,674 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:25,674 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:26,049 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:30,525 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:30,526 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:30,534 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:30,534 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:30,534 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:30,652 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:30,653 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:30,653 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:30,653 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:30,654 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:31,014 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:38,788 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:38,789 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:38,791 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:38,791 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:38,792 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:38,899 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:38,900 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:38,903 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:38,903 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:38,904 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:39,283 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:45:53,442 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:45:53,443 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:45:53,446 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:45:53,446 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:45:53,446 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:45:53,538 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:45:53,539 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:53,539 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:45:53,540 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:45:53,541 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:45:53,919 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:46:20,701 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:46:20,702 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:46:20,704 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:46:20,704 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:46:20,705 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:46:20,793 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:46:20,793 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:46:20,793 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:46:20,793 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:46:20,794 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:46:21,157 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:47:13,549 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 10:47:13,552 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 10:47:13,554 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 10:47:13,554 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 10:47:13,554 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 10:47:13,648 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 10:47:13,648 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:47:13,649 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 10:47:13,649 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 10:47:13,650 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 10:47:14,024 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 10:47:14,043 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.19.0.5:8000
+2025-04-03 10:47:14,044 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-03 10:48:44,698 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:48:44,698 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:44,699 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:48:44,709 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:44] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:48:44,852 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 10:48:44,852 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:44,854 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 10:48:44,864 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:44] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 10:48:57,664 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:48:57,665 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:57,665 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:48:57,672 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:48:57,672 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:57,673 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:48:57,674 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:48:57,680 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:48:57,681 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:57] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:48:57,685 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 10:48:57,686 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:57,687 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 10:48:57,689 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:48:57,691 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 10:48:57,692 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:57] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:48:57,692 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:57] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 10:48:57,698 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 10:48:57,699 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:48:57,700 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 10:48:57,701 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 10:48:57,713 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 10:48:57,714 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:48:57] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 10:49:24,880 - __main__ - INFO - Получен запрос: POST /api/couriers/access/settings
+2025-04-03 10:49:24,880 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings
+Connection: close
+Content-Length: 388
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Content-Type: application/json
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 10:49:24,881 - api.couriers.access.routes - INFO - 📝 Получены данные для обновления настроек доступа:
+2025-04-03 10:49:24,882 - api.couriers.access.routes - INFO - 🔑 Ключи в запросе: ['chat_id', 'allowMultipleShifts', 'autoApprove', 'allowSameDay', 'registrationStartDay', 'registrationStartHour', 'registrationStartMinute', 'offsetType', 'offsetAmount', 'periodLength', 'isAlwaysActive', 'activeStartDate', 'activeEndDate', 'daysAhead', 'enabledDates', 'restrictedUsers', 'lastUpdated']
+2025-04-03 10:49:24,902 - api.couriers.access.routes - INFO - ✅ Настройки успешно обновлены
+2025-04-03 10:49:24,902 - api.couriers.access.routes - INFO - 🔑 Ключи в обновленных настройках: ['chat_id', 'allowMultipleShifts', 'autoApprove', 'allowSameDay', 'registrationStartDay', 'registrationStartHour', 'registrationStartMinute', 'offsetType', 'offsetAmount', 'periodLength', 'isAlwaysActive', 'activeStartDate', 'activeEndDate', 'daysAhead', 'enabledDates', 'restrictedUsers', 'lastUpdated']
+2025-04-03 10:49:24,903 - api.couriers.access.routes - INFO - 📤 Отправка запроса на применение настроек с chat_id=-1004755640016
+2025-04-03 10:49:24,905 - urllib3.connectionpool - DEBUG - Starting new HTTP connection (1): scheduler:8002
+2025-04-03 10:49:24,960 - urllib3.connectionpool - DEBUG - http://scheduler:8002 "POST /apply-access-settings HTTP/1.1" 200 297
+2025-04-03 10:49:24,961 - api.couriers.access.routes - INFO - ✅ Запрос на применение настроек успешно отправлен
+2025-04-03 10:49:24,961 - api.couriers.access.routes - INFO - 📤 Отправка запроса на перезагрузку задач
+2025-04-03 10:49:24,966 - urllib3.connectionpool - DEBUG - Starting new HTTP connection (1): scheduler:8002
+2025-04-03 10:49:24,979 - urllib3.connectionpool - DEBUG - http://scheduler:8002 "POST /scheduler/reload-tasks HTTP/1.1" 200 233
+2025-04-03 10:49:24,980 - api.couriers.access.routes - INFO - ✅ Запрос на перезагрузку задач успешно отправлен
+2025-04-03 10:49:24,982 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 10:49:24] "POST /api/couriers/access/settings HTTP/1.1" 200 -
+2025-04-03 11:12:51,458 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:12:51,459 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,460 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:12:51,468 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:12:51,580 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:12:51,580 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,581 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:12:51,589 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:12:51,699 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:12:51,699 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,700 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:12:51,711 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:12:51,712 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:12:51,713 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:12:51,713 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,723 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:12:51,724 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:12:51,725 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:12:51,725 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,728 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:12:51,732 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:12:51,742 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:12:51,755 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:12:51,756 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:12:51,761 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:12:51,761 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:12:51,762 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:12:51,763 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:12:51,774 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:12:51,775 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:12:51] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:13:47,533 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:13:47,533 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,534 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:13:47,541 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:13:47,646 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:13:47,647 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,648 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:13:47,660 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:13:47,818 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:13:47,819 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:13:47,819 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,820 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,821 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:13:47,823 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:13:47,827 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:13:47,829 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:13:47,832 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:13:47,853 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:13:47,854 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,855 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:13:47,859 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:13:47,860 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:13:47,865 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:13:47,865 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:13:47,865 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:13:47,866 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:13:47,867 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:13:47,868 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:13:47,885 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:13:47,885 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:13:47] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:29:37,780 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:29:37,782 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:37,785 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:29:37,796 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:37] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:29:37,890 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:29:37,891 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:37,892 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:29:37,898 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:37] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:29:38,004 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:29:38,004 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:38,010 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:29:38,011 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:29:38,012 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:38,013 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:29:38,013 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:29:38,019 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:29:38,021 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:38] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:29:38,033 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:29:38,037 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:38,038 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:29:38,043 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:29:38,049 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:38] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:29:38,053 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:29:38,054 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:38] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:29:38,055 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:29:38,057 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:38,058 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:29:38,059 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:29:38,070 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:29:38,070 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:38] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:29:39,631 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:29:39,631 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:39,632 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:29:39,635 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:39] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:29:39,635 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:39,637 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:29:39,642 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:29:39,642 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:39] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:29:39,650 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:29:39,650 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:39,651 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:29:39,651 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:39] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:29:39,652 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:39,653 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:29:39,657 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:29:39,658 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:39] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:29:40,225 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:29:40,226 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:29:40,227 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:29:40] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:32:22,479 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:32:22,479 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:22,480 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:32:22,486 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:22] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:32:22,629 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:32:22,629 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:22,630 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:32:22,639 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:22] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:32:46,170 - __main__ - INFO - Получен запрос: GET /api/chats
+2025-04-03 11:32:46,170 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/chats
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:46,171 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:46] "[33mGET /api/chats HTTP/1.1[0m" 404 -
+2025-04-03 11:32:46,182 - __main__ - INFO - Получен запрос: GET /api/chats
+2025-04-03 11:32:46,184 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/chats
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:46,185 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:46] "[33mGET /api/chats HTTP/1.1[0m" 404 -
+2025-04-03 11:32:46,706 - __main__ - INFO - Получен запрос: GET /api/chats
+2025-04-03 11:32:46,706 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/chats
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:46,709 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:46] "[33mGET /api/chats HTTP/1.1[0m" 404 -
+2025-04-03 11:32:54,494 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:32:54,494 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:32:54,495 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:54,495 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:54,496 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:32:54,500 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:32:54,502 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:32:54,503 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:32:54,505 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:54] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:32:54,509 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:32:54,510 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:54,510 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:32:54,516 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:32:54,517 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:54] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:32:54,517 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:32:54,520 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:54] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:32:54,525 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:32:54,525 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:54,525 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:32:54,526 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:32:54,538 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:32:54,539 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:54] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:32:56,675 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:32:56,675 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:56,676 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:56] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:32:56,678 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:32:56,679 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:56,682 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:32:56,685 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:32:56,686 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:56,687 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:56] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:32:56,695 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:32:56,695 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:56] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:32:56,702 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:32:56,702 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:56,703 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:32:56,708 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:32:56,709 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:56] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:32:57,244 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:32:57,245 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:32:57,245 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:32:57] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:40:55,978 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 11:40:55,979 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 11:40:55,982 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 11:40:55,982 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 11:40:55,983 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 11:40:56,141 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 11:40:56,141 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:40:56,141 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 11:40:56,142 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:40:56,143 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 11:40:56,623 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 11:40:56,643 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.19.0.5:8000
+2025-04-03 11:40:56,644 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-03 11:52:51,215 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 11:52:51,216 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 11:52:51,221 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 11:52:51,221 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 11:52:51,221 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 11:52:51,597 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 11:52:51,598 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:52:51,598 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 11:52:51,599 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:52:51,600 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 11:52:53,080 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 11:52:53,102 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.19.0.5:8000
+2025-04-03 11:52:53,103 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-03 11:53:09,348 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:53:09,349 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,350 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:53:09,361 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:53:09,485 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:53:09,486 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,486 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:53:09,501 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:53:09,637 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:53:09,637 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,638 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:09,639 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:53:09,646 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,659 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:53:09,660 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:09,679 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:09,679 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:09,685 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:53:09,687 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:09,689 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:09,691 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,692 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:09,700 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:53:09,704 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:09,705 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:09,712 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:09,714 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:53:09,721 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:53:09,733 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:53:09,735 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:09] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:15,317 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:53:15,317 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:15,319 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:15,321 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:15] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:15,324 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:15,328 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:15,338 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:53:15,339 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:15,340 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:15] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:15,343 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:15,351 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:15] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:15,359 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:15,359 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:15,361 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:15,371 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:15,371 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:15] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:15,867 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:53:15,868 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:15,869 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:15] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:53,060 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:53:53,060 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,061 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:53:53,070 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:53:53,146 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 11:53:53,146 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,147 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 11:53:53,158 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 11:53:53,299 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:53,299 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,301 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:53,304 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:53:53,306 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,308 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:53:53,308 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:53:53,309 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:53,313 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:53,319 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:53:53,322 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,325 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:53:53,332 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:53:53,336 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:53:53,340 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:53:53,342 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:53:53,350 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 11:53:53,351 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:53:53,354 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 11:53:53,355 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 11:53:53,366 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 11:53:53,367 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:53:53] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:54:00,492 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:54:00,492 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:54:00,493 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:54:00,495 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:54:00] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:54:00,496 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:54:00,508 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:54:00,516 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:54:00,511 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:54:00,519 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:54:00] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:54:00,546 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:54:00,549 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:54:00] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:54:00,560 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 11:54:00,562 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:54:00,564 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 11:54:00,567 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 11:54:00,569 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:54:00] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 11:54:01,082 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-03 11:54:01,082 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 11:54:01,083 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 11:54:01] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 11:59:48,555 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-03 11:59:48,558 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-03 11:59:48,561 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-03 11:59:48,561 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-03 11:59:48,561 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-03 11:59:48,660 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-03 11:59:48,660 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:59:48,660 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-03 11:59:48,661 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-03 11:59:48,662 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-03 11:59:49,046 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-03 11:59:49,082 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.19.0.5:8000
+2025-04-03 11:59:49,091 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-03 12:00:04,092 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 12:00:04,092 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:04,093 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 12:00:04,103 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:04] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 12:00:04,209 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-03 12:00:04,210 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:04,213 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-03 12:00:04,224 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:04] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-03 12:00:23,293 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 12:00:23,294 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:23,295 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 12:00:23,300 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 12:00:23,304 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:23,305 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 12:00:23,306 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 12:00:23,308 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 12:00:23,309 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:23] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 12:00:23,316 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-03 12:00:23,317 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:23,324 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-03 12:00:23,327 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 12:00:23,330 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:23] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-03 12:00:23,339 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-03 12:00:23,340 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.19.0.1
+X-Forwarded-For: 172.19.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Accept: application/json, text/plain, */*
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-03 12:00:23,340 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-03 12:00:23,341 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-03 12:00:23,353 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-03 12:00:23,350 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:23] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-03 12:00:23,392 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-03 12:00:23,393 - werkzeug - INFO - 172.19.0.8 - - [03/Apr/2025 12:00:23] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:00:29,285 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-04 01:00:29,304 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-04 01:00:29,323 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-04 01:00:29,323 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-04 01:00:29,324 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-04 01:00:29,842 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-04 01:00:29,842 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:00:29,842 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-04 01:00:29,843 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:00:29,843 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-04 01:00:31,154 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-04 01:00:31,177 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.18.0.4:8000
+2025-04-04 01:00:31,178 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-04 01:01:34,269 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:01:34,269 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:34,270 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:01:34,283 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:34] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:01:34,347 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:01:34,347 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+Sec-Ch-Ua-Platform: "Windows"
+User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"
+Sec-Ch-Ua-Mobile: ?0
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:34,348 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:01:34,351 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:34] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:01:53,238 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:01:53,238 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:53,239 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:01:53,242 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:01:53,243 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:53,243 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:01:53,243 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:01:53,250 - api.couriers.routes - ERROR - Error getting courier status for courier 1682142222: relation "members" does not exist
+LINE 4:                     FROM members m
+                                 ^
+
+2025-04-04 01:01:53,255 - api.couriers.routes - ERROR - Traceback (most recent call last):
+  File "/app/api/couriers/routes.py", line 71, in get_courier_status
+    cursor.execute("""
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/extras.py", line 236, in execute
+    return super().execute(query, vars)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedTable: relation "members" does not exist
+LINE 4:                     FROM members m
+                                 ^
+
+
+2025-04-04 01:01:53,256 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:53] "[35m[1mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 500 -
+2025-04-04 01:01:53,257 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:01:53,259 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:53] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:01:53,260 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:01:53,260 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:53,261 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:01:53,262 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:01:53,264 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:01:53,265 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:01:53,265 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:01:53,270 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:01:53,272 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:53] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:01:53,272 - api.couriers.routes - ERROR - Error getting courier status for courier 1682142222: relation "members" does not exist
+LINE 4:                     FROM members m
+                                 ^
+
+2025-04-04 01:01:53,275 - api.couriers.routes - ERROR - Traceback (most recent call last):
+  File "/app/api/couriers/routes.py", line 71, in get_courier_status
+    cursor.execute("""
+  File "/usr/local/lib/python3.11/site-packages/psycopg2/extras.py", line 236, in execute
+    return super().execute(query, vars)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.errors.UndefinedTable: relation "members" does not exist
+LINE 4:                     FROM members m
+                                 ^
+
+
+2025-04-04 01:01:53,276 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:01:53] "[35m[1mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 500 -
+2025-04-04 01:08:31,398 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-04 01:08:31,399 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-04 01:08:31,401 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-04 01:08:31,401 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-04 01:08:31,401 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-04 01:08:31,768 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-04 01:08:31,768 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:08:31,768 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-04 01:08:31,769 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:08:31,769 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-04 01:08:32,737 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-04 01:08:32,754 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.18.0.5:8000
+2025-04-04 01:08:32,754 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-04 01:09:09,266 - __main__ - INFO - Получен запрос: GET /couriers/shifts
+2025-04-04 01:09:09,267 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:09,268 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:09] "[33mGET /couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:09,270 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:09:09,270 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:09,271 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:09] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:09,280 - __main__ - INFO - Получен запрос: GET /couriers/shifts
+2025-04-04 01:09:09,280 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:09,281 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:09] "[33mGET /couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:09,282 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:09:09,283 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:09,284 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:09] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,167 - __main__ - INFO - Получен запрос: GET /reserves
+2025-04-04 01:09:14,167 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,168 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /reserves HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,261 - __main__ - INFO - Получен запрос: GET /reserves
+2025-04-04 01:09:14,262 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,263 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /reserves HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,418 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:09:14,418 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,419 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,422 - __main__ - INFO - Получен запрос: GET /couriers/1682142222/status
+2025-04-04 01:09:14,423 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,424 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,425 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:09:14,425 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,426 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:14,429 - __main__ - INFO - Получен запрос: GET /couriers/1682142222/status
+2025-04-04 01:09:14,430 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:14,431 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:14] "[33mGET /couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:09:57,627 - __main__ - INFO - Получен запрос: GET /reserves
+2025-04-04 01:09:57,628 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:57,629 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:57] "[33mGET /reserves HTTP/1.1[0m" 404 -
+2025-04-04 01:09:57,754 - __main__ - INFO - Получен запрос: GET /reserves
+2025-04-04 01:09:57,754 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:09:57,755 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:09:57] "[33mGET /reserves HTTP/1.1[0m" 404 -
+2025-04-04 01:10:18,488 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:10:18,488 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:10:18,489 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:10:18] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:10:18,491 - __main__ - INFO - Получен запрос: GET /couriers/1682142222/status
+2025-04-04 01:10:18,491 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:10:18,492 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:10:18] "[33mGET /couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:10:18,493 - __main__ - INFO - Получен запрос: GET /couriers/access/settings
+2025-04-04 01:10:18,494 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:10:18,494 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:10:18] "[33mGET /couriers/access/settings?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:10:18,496 - __main__ - INFO - Получен запрос: GET /couriers/1682142222/status
+2025-04-04 01:10:18,497 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:10:18,498 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:10:18] "[33mGET /couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:12:02,752 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:12:02,752 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:02,757 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:12:02,766 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:02] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:12:02,894 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:12:02,895 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:02,895 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:12:02,900 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:02] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:12:28,296 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:12:28,296 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:28,297 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:12:28,301 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:12:28,301 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:28,302 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:12:28,303 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:12:28,306 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:12:28,306 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:28] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:12:28,310 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:12:28,311 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:28,311 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:12:28,315 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:12:28,316 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:28] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:12:28,317 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-04 01:12:28,318 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:28] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:12:28,322 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:12:28,322 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:12:28,323 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:12:28,323 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:12:28,332 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-04 01:12:28,332 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:12:28] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:15:21,968 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:15:21,969 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:15:21,970 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:15:21] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:15:21,970 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:15:21,972 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:15:21,972 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:15:21,982 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:15:21,983 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:15:21] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:15:21,986 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:15:21,986 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:15:21,988 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:15:21] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:15:21,990 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:15:21,991 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:15:21,992 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:15:21,996 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:15:21,996 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:15:21] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:15:22,561 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:15:22,562 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:15:22,564 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:15:22] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:16:35,823 - models.database - INFO - ✅ Соединение с базой данных установлено
+2025-04-04 01:16:35,824 - models.database - INFO - ✅ Таблица access_settings успешно создана или уже существует
+2025-04-04 01:16:35,826 - models.database - INFO - ✅ Таблица shifts успешно создана или уже существует
+2025-04-04 01:16:35,826 - models.database - INFO - ✅ Все необходимые таблицы успешно созданы или уже существуют
+2025-04-04 01:16:35,827 - models.database - INFO - ✅ DatabaseService инициализирован. Подключение к базе: postgres:5432/appninjabot
+2025-04-04 01:16:35,918 - data.shifts - INFO - Основной путь к файлу смен: /app/data/shifts.json
+2025-04-04 01:16:35,918 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:16:35,918 - data.shifts - INFO - Альтернативный путь: /app/backend/data/shifts.json
+2025-04-04 01:16:35,919 - data.shifts - INFO - Альтернативный путь: /app/data/shifts.json
+2025-04-04 01:16:35,920 - data.shifts - INFO - Альтернативный путь: shifts.json
+2025-04-04 01:16:36,254 - telegramNinjaBot.bot - INFO - Бот запущен в окружении: development
+2025-04-04 01:16:36,273 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://172.18.0.5:8000
+2025-04-04 01:16:36,273 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-04-04 01:18:19,292 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:18:19,292 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,292 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:18:19,297 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:18:19,392 - __main__ - INFO - Получен запрос: GET /api/reserves
+2025-04-04 01:18:19,392 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/reserves
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,392 - __main__ - INFO - Обработка запроса на /api/reserves без CORS декораторов
+2025-04-04 01:18:19,398 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "GET /api/reserves HTTP/1.1" 200 -
+2025-04-04 01:18:19,551 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:18:19,552 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,552 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:18:19,558 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:18:19,559 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,559 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:18:19,560 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:18:19,563 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:18:19,564 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:18:19,569 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:18:19,570 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,571 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:18:19,574 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-04 01:18:19,574 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:18:19,575 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:18:19,576 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:18:19,580 - __main__ - INFO - Получен запрос: GET /api/couriers/1682142222/status
+2025-04-04 01:18:19,581 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/1682142222/status?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: application/json, text/plain, */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:19,581 - api.couriers.routes - INFO - === Получение статуса курьера 1682142222 ===
+2025-04-04 01:18:19,582 - api.couriers.routes - INFO - Chat ID из запроса: -1004755640016
+2025-04-04 01:18:19,599 - api.couriers.routes - ERROR - Пользователь 1682142222 не найден
+2025-04-04 01:18:19,600 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:19] "[33mGET /api/couriers/1682142222/status?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:18:41,556 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:18:41,556 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:41,558 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:41] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:18:41,559 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:18:41,560 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:41,561 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:18:41,564 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:18:41,565 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:41] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:18:41,571 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:18:41,572 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:41,573 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:41] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-04 01:18:41,574 - __main__ - INFO - Получен запрос: GET /api/couriers/access/settings
+2025-04-04 01:18:41,575 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/access/settings?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:41,575 - api.couriers.access.routes - INFO - 📝 Запрос настроек доступа: chat_id=-1004755640016
+2025-04-04 01:18:41,579 - api.couriers.access.routes - INFO - ✅ Настройки загружены: 17 полей
+2025-04-04 01:18:41,580 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:41] "GET /api/couriers/access/settings?chat_id=-1004755640016 HTTP/1.1" 200 -
+2025-04-04 01:18:42,124 - __main__ - INFO - Получен запрос: GET /api/couriers/shifts
+2025-04-04 01:18:42,124 - __main__ - INFO - Заголовки: Host: localhost
+X-Real-Ip: 172.18.0.1
+X-Forwarded-For: 172.18.0.1
+X-Forwarded-Proto: http
+X-Forwarded-Host: localhost
+X-Original-Uri: /api/couriers/shifts?chat_id=-1004755640016
+Connection: close
+User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1
+Accept: */*
+Origin: http://localhost:3000
+Sec-Fetch-Site: same-site
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:3000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: ru-RU,ru;q=0.9,en-RU;q=0.8,en;q=0.7,en-US;q=0.6
+
+
+2025-04-04 01:18:42,125 - werkzeug - INFO - 172.18.0.8 - - [04/Apr/2025 01:18:42] "[33mGET /api/couriers/shifts?chat_id=-1004755640016 HTTP/1.1[0m" 404 -
+2025-04-05 01:21:49,747 - models.database - ERROR - ❌ Ошибка подключения к базе данных: could not translate host name "postgres" to address: Name or service not known
+

@@ -1,0 +1,19 @@
+# Используем официальный образ Python для разработки
+FROM python:3.11-slim
+
+WORKDIR /app
+
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Копируем только requirements.txt сначала, чтобы кэш работал лучше
+COPY requirements.txt .
+
+# Устанавливаем зависимости
+RUN pip install -r requirements.txt
+
+# Копируем весь остальной код приложения
+COPY . .
+
+# Команда по умолчанию (все равно перебьется в docker-compose.override.yml)
+CMD ["python", "app.py"] 

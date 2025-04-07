@@ -3,7 +3,7 @@ import { WriteOffState, WriteOffChat, WriteOffReason,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   CreateWriteOffData, 
   WriteOffItem } from '../../types/writeOff';
-import { RootState } from '../index';
+import { RootState } from '../store';
 import { api } from '../../services/api';
 import { socketService } from '../../services/socket';
 import { PayloadAction } from '@reduxjs/toolkit';

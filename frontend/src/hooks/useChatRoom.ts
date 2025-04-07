@@ -31,7 +31,7 @@ export type Message = {
 
 // Хук для работы с чат-комнатами
 export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) => {
-  const { isConnected, socketId, sendMessage, subscribe } = useWebSocketConnection();
+  const { socketState, sendMessage, subscribe } = useWebSocketConnection();
   const [isInRoom, setIsInRoom] = useState(false);
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -44,7 +44,7 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
 
   // Обработчик состояния "away"
   const handleUserAway = useCallback((data: { sid: string; user_info: RoomUser }) => {
-    if (data.sid === socketId) {
+    if (data.sid === socketState.socketId) {
       setIsAway(true);
     }
     setRoomUsers(prev => prev.map(user => 
@@ -53,11 +53,11 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
         : user
     ));
     tooltipManager.show(`${data.user_info.displayName || 'Пользователь'} отошёл`, 'info');
-  }, [socketId]);
+  }, [socketState.socketId]);
 
   // Обработчик возвращения пользователя
   const handleUserBack = useCallback((data: { sid: string; user_info: RoomUser }) => {
-    if (data.sid === socketId) {
+    if (data.sid === socketState.socketId) {
       setIsAway(false);
     }
     setRoomUsers(prev => prev.map(user => 
@@ -66,7 +66,7 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
         : user
     ));
     tooltipManager.show(`${data.user_info.displayName || 'Пользователь'} вернулся`, 'success');
-  }, [socketId]);
+  }, [socketState.socketId]);
 
   // Обработчик отключения пользователя
   const handleUserDisconnected = useCallback((data: { 
@@ -126,7 +126,7 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
 
   // Присоединение к комнате
   const joinRoom = useCallback(() => {
-    if (!isConnected) {
+    if (!socketState.isConnected) {
       console.error('Невозможно присоединиться к комнате: WebSocket не подключен');
       return;
     }
@@ -137,11 +137,11 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
     }
 
     sendMessage('join_room', { room: roomName, user_info: userInfo });
-  }, [isConnected, isInRoom, roomName, userInfo, sendMessage]);
+  }, [socketState.isConnected, isInRoom, roomName, userInfo, sendMessage]);
 
   // Выход из комнаты
   const leaveRoom = useCallback(() => {
-    if (!isConnected) {
+    if (!socketState.isConnected) {
       console.error('Невозможно выйти из комнаты: WebSocket не подключен');
       return;
     }
@@ -152,11 +152,11 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
     }
 
     sendMessage('leave_room', { room: roomName });
-  }, [isConnected, isInRoom, roomName, sendMessage]);
+  }, [socketState.isConnected, isInRoom, roomName, sendMessage]);
 
   // Отправка сообщения в комнату
   const sendRoomMessage = useCallback((text: string) => {
-    if (!isConnected || !isInRoom) {
+    if (!socketState.isConnected || !isInRoom) {
       console.error('Невозможно отправить сообщение: не подключен или не в комнате');
       return;
     }
@@ -165,11 +165,11 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
       text, 
       room: roomName 
     });
-  }, [isConnected, isInRoom, roomName, sendMessage]);
+  }, [socketState.isConnected, isInRoom, roomName, sendMessage]);
 
   // Подписка на события комнаты
   useEffect(() => {
-    if (!isConnected) return;
+    if (!socketState.isConnected) return;
 
     const unsubscribes = [
       subscribe('room_joined', handleRoomJoined),
@@ -194,7 +194,7 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
       unsubscribes.forEach(unsubscribe => unsubscribe());
     };
   }, [
-    isConnected,
+    socketState.isConnected,
     isInRoom,
     roomName,
     sendMessage,
@@ -213,14 +213,14 @@ export const useChatRoom = (roomName: string, userInfo?: Record<string, any>) =>
 
   // Автоматически пытаемся присоединиться к комнате, когда подключен WebSocket
   useEffect(() => {
-    if (isConnected && !isInRoom) {
+    if (socketState.isConnected && !isInRoom) {
       // Пропускаем автоматическое присоединение для глобальной комнаты,
       // так как она обрабатывается в AppInitializer
       if (roomName !== 'global') {
         joinRoom();
       }
     }
-  }, [isConnected, isInRoom, joinRoom, roomName]);
+  }, [socketState.isConnected, isInRoom, joinRoom, roomName]);
 
   return {
     isInRoom,

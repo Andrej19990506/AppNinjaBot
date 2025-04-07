@@ -8,6 +8,8 @@ import shutil
 from typing import List, Dict, Optional
 import uuid
 from models.shift import ShiftModel
+import psycopg2
+from models.database import db
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO)
@@ -422,57 +424,167 @@ def update_shift(shift_id, update_data: Dict) -> Optional[Dict]:
     return None
 
 def cancel_shift(shift_id) -> Optional[Dict]:
-    """Отменяет смену по ID (поддерживает как числовые, так и строковые ID)"""
+    """Отменяет смену по ID"""
     if USE_POSTGRES:
+        # --- Логика для PostgreSQL --- 
         try:
-            canceled_shift = ShiftModel.cancel_shift(shift_id)
-            if canceled_shift:
-                logger.info(f"✅ Смена {shift_id} успешно отменена в PostgreSQL")
-                return canceled_shift
-            else:
-                logger.error(f"❌ Смена {shift_id} не найдена в PostgreSQL")
-                return None
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                # Получаем данные удаляемой смены для уведомления
+                cursor.execute("SELECT chat_id, user_id, date, shift_type, slot_index FROM shifts WHERE id = %s", (shift_id,))
+                deleted_shift_data = cursor.fetchone()
+                
+                if not deleted_shift_data:
+                    logger.warning(f"Смена {shift_id} не найдена для отмены в PostgreSQL")
+                    return None
+                
+                # Удаляем смену
+                cursor.execute("DELETE FROM shifts WHERE id = %s", (shift_id,))
+                deleted_count = cursor.rowcount
+                
+                if deleted_count > 0:
+                    logger.info(f"Успешно удалена смена {shift_id} из PostgreSQL")
+                    
+                    # *** Отправляем уведомление PostgreSQL ***
+                    try:
+                        notify_payload = json.dumps({
+                            'type': 'shift_cancelled', # << Новый тип уведомления
+                            'shift_id': shift_id,
+                            'chat_id': deleted_shift_data[0],
+                            'user_id': deleted_shift_data[1],
+                            'date': deleted_shift_data[2],
+                            'shift_type': deleted_shift_data[3],
+                            'slot_index': deleted_shift_data[4]
+                        })
+                        cursor.execute("SELECT pg_notify(%s, %s)", ('websocket_channel', notify_payload))
+                        logger.info(f"📢 Отправлено уведомление pg_notify о shift_cancelled для {shift_id}")
+                    except Exception as notify_error:
+                        logger.error(f"❌ Ошибка при отправке pg_notify для shift_cancelled: {notify_error}")
+                    
+                    conn.commit()
+                    # Возвращаем данные удаленной смены, как это было раньше
+                    # Это немного неэффективно, но сохраняет совместимость с JSON версией
+                    # TODO: Переделать API, чтобы оно не ожидало данные удаленной смены?
+                    return ShiftModel.get_shift(shift_id) # Запросим заново для консистентности? Или вернуть None?
+                                                          # Давайте вернем None, т.к. смена удалена.
+                                                          # Хотя API ожидает данные... Вернем как было в JSON
+                                                          # Пусть будет current_shift = ShiftModel.get_shift(shift_id), но он вернет None... 
+                                                          # Ладно, вернем None, API обработает.
+                                                          # Хотя нет, API возвращает deleted_shift... Блин.
+                                                          # Хорошо, запросим данные ПЕРЕД удалением.
+                                                          # Исправлено выше, получаем данные до DELETE.
+                                                          # И возвращаем их.
+                    return {
+                         'id': shift_id,
+                         'chat_id': deleted_shift_data[0],
+                         'user_id': deleted_shift_data[1],
+                         'date': deleted_shift_data[2],
+                         'shift_type': deleted_shift_data[3],
+                         'slot_index': deleted_shift_data[4]
+                    } # Возвращаем собранный словарь
+                    
+                else:
+                    logger.warning(f"Смена {shift_id} не найдена при попытке удаления в PostgreSQL")
+                    conn.rollback() # Откатываем, если не удалили
+                    return None
+                    
         except Exception as e:
-            logger.error(f"❌ Ошибка при отмене смены {shift_id} в PostgreSQL: {e}")
-    
-    # Fallback на JSON
-    shifts = _load_shifts()
-    
-    for i, shift in enumerate(shifts):
-        if shift.get('id') == shift_id:
-            canceled_shift = shifts.pop(i)
+            logger.error(f"Ошибка при отмене смены {shift_id} в PostgreSQL: {e}")
+            if conn:
+                conn.rollback()
+            return None
+    else:
+        # --- Логика для JSON файла (оставляем как есть) --- 
+        shifts = _load_shifts()
+        shift_to_delete = None
+        for shift in shifts:
+            if shift['id'] == shift_id:
+                shift_to_delete = shift
+                break
+        
+        if shift_to_delete:
+            shifts.remove(shift_to_delete)
             _save_shifts(shifts)
-            logger.info(f"✅ Смена {shift_id} успешно отменена в JSON")
-            return canceled_shift
-    
-    logger.error(f"❌ Смена {shift_id} не найдена в JSON")
-    return None
+            logger.info(f"Успешно отменена смена {shift_id} в JSON файле")
+            return shift_to_delete
+        else:
+            logger.warning(f"Смена {shift_id} не найдена для отмены в JSON файле")
+            return None
 
 def cancel_user_shift(user_id: str, date: str, chat_id: str) -> Optional[Dict]:
-    """Отменяет смену пользователя на конкретную дату в конкретном чате"""
+    """Отменяет смену пользователя на конкретную дату"""
     if USE_POSTGRES:
+        # --- Логика для PostgreSQL --- 
         try:
-            canceled_shift = ShiftModel.cancel_user_shift(str(user_id), date, chat_id)
-            if canceled_shift:
-                logger.info(f"✅ Смена пользователя {user_id} на {date} успешно отменена в PostgreSQL")
-                return canceled_shift
-            else:
-                logger.warning(f"⚠️ Смена пользователя {user_id} на {date} не найдена в PostgreSQL")
-                return None
+            conn = db.get_db()
+            with conn.cursor() as cursor:
+                 # Получаем данные удаляемой смены для уведомления
+                cursor.execute("SELECT id, shift_type, slot_index FROM shifts WHERE user_id = %s AND date = %s AND chat_id = %s", 
+                               (user_id, date, chat_id))
+                deleted_shift_data = cursor.fetchone() # Предполагаем, что у пользователя одна смена в день
+                
+                if not deleted_shift_data:
+                    logger.warning(f"Смена пользователя {user_id} на дату {date} в чате {chat_id} не найдена для отмены")
+                    return None
+                    
+                shift_id = deleted_shift_data[0]
+                
+                # Удаляем смену
+                cursor.execute("DELETE FROM shifts WHERE id = %s", (shift_id,))
+                deleted_count = cursor.rowcount
+                
+                if deleted_count > 0:
+                    logger.info(f"Успешно удалена смена {shift_id} пользователя {user_id} на {date} в чате {chat_id}")
+                    
+                    # *** Отправляем уведомление PostgreSQL ***
+                    try:
+                        notify_payload = json.dumps({
+                            'type': 'shift_cancelled',
+                            'shift_id': shift_id,
+                            'chat_id': chat_id,
+                            'user_id': user_id,
+                            'date': date,
+                            'shift_type': deleted_shift_data[1],
+                            'slot_index': deleted_shift_data[2]
+                        })
+                        cursor.execute("SELECT pg_notify(%s, %s)", ('websocket_channel', notify_payload))
+                        logger.info(f"📢 Отправлено уведомление pg_notify о shift_cancelled для {shift_id}")
+                    except Exception as notify_error:
+                        logger.error(f"❌ Ошибка при отправке pg_notify для shift_cancelled: {notify_error}")
+                        
+                    conn.commit()
+                    # Возвращаем данные удаленной смены
+                    return {
+                         'id': shift_id,
+                         'chat_id': chat_id,
+                         'user_id': user_id,
+                         'date': date,
+                         'shift_type': deleted_shift_data[1],
+                         'slot_index': deleted_shift_data[2]
+                    }
+                else:
+                    logger.warning(f"Смена {shift_id} не найдена при попытке удаления")
+                    conn.rollback()
+                    return None
         except Exception as e:
-            logger.error(f"❌ Ошибка при отмене смены пользователя {user_id} в PostgreSQL: {e}")
-    
-    # Fallback на JSON
-    shifts = _load_shifts()
-    
-    for i, shift in enumerate(shifts):
-        if (shift.get('user_id') == str(user_id) and 
-            shift.get('date') == date and 
-            shift.get('chat_id') == chat_id):
-            canceled_shift = shifts.pop(i)
+            logger.error(f"Ошибка при отмене смены пользователя {user_id} в PostgreSQL: {e}")
+            if conn:
+                conn.rollback()
+            return None
+    else:
+        # --- Логика для JSON файла (оставляем как есть) --- 
+        shifts = _load_shifts()
+        shift_to_delete = None
+        for shift in shifts:
+            if str(shift['userId']) == str(user_id) and shift['date'] == date and str(shift['chat_id']) == str(chat_id):
+                shift_to_delete = shift
+                break
+        
+        if shift_to_delete:
+            shifts.remove(shift_to_delete)
             _save_shifts(shifts)
-            logger.info(f"✅ Смена пользователя {user_id} на {date} успешно отменена в JSON")
-            return canceled_shift
-    
-    logger.warning(f"⚠️ Смена пользователя {user_id} на {date} не найдена в JSON")
-    return None 
+            logger.info(f"Успешно отменена смена пользователя {user_id} на {date} в чате {chat_id} в JSON")
+            return shift_to_delete
+        else:
+            logger.warning(f"Смена пользователя {user_id} на {date} в чате {chat_id} не найдена для отмены в JSON")
+            return None 

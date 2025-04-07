@@ -1,7 +1,7 @@
 FROM nginx:alpine
 
-# Установка certbot и его nginx плагина
-RUN apk add --no-cache certbot certbot-nginx
+# Установка certbot, его nginx плагина и gettext (для envsubst)
+RUN apk add --no-cache certbot certbot-nginx gettext
 
 # Аргумент для выбора конфигурации
 ARG NGINX_CONFIG=nginx.conf
@@ -22,25 +22,26 @@ EXPOSE 80 443
 COPY update-ssl.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/update-ssl.sh
 
-# Копируем статические файлы
-COPY test_client.html /usr/share/nginx/html/test_client.html
+# Удаляем копирование старого тестового клиента
+# COPY test_client.html /usr/share/nginx/html/test_client.html
 
 # Установка необходимых утилит
 RUN apk add --no-cache curl
 
-# Создаем entrypoint скрипт
+# Создаем скрипт ожидания зависимых сервисов
 COPY <<EOF /docker-entrypoint.d/40-wait-for-services.sh
 #!/bin/sh
 set -e
 
-echo "Waiting for frontend service..."
-until ping -c1 frontend &>/dev/null; do
-    echo "Waiting for frontend..."
-    sleep 1
-done
-echo "Frontend service is up"
+# Убрано ожидание frontend, так как nginx его сам обслуживает
+# echo "Waiting for frontend service..."
+# until ping -c1 frontend &>/dev/null; do
+#     echo "Waiting for frontend..."
+#     sleep 1
+# done
+# echo "Frontend service is up"
 
-echo "Waiting for server service..."  
+echo "Waiting for server service..."
 until ping -c1 server &>/dev/null; do
     echo "Waiting for server..."
     sleep 1
@@ -53,10 +54,37 @@ until ping -c1 websocket &>/dev/null; do
     sleep 1
 done
 echo "Websocket service is up"
+
+exit 0
 EOF
 
-# Делаем скрипт исполняемым
-RUN chmod +x /docker-entrypoint.d/40-wait-for-services.sh
+# Создаем скрипт для подстановки переменных окружения в config.js
+COPY <<EOF /docker-entrypoint.d/50-substitute-config.sh
+#!/bin/sh
+set -e
 
-# Запуск Nginx
+CONFIG_TEMPLATE="/usr/share/nginx/html/config.template.js"
+CONFIG_OUTPUT="/usr/share/nginx/html/config.js"
+
+# Проверяем, существует ли шаблонный файл (он монтируется через volume)
+if [ -f "$CONFIG_TEMPLATE" ]; then
+    # Выполняем подстановку переменных (API_URL, WS_URL, NODE_ENV из docker-compose)
+    # Использование одинарных кавычек вокруг '$${...}' предотвращает подстановку envsubst переменных, не определенных в окружении
+    envsubst '
+      ${API_URL}
+      ${WS_URL}
+      ${NODE_ENV}
+    ' < "$CONFIG_TEMPLATE" > "$CONFIG_OUTPUT"
+    echo "Runtime config generated: $CONFIG_OUTPUT"
+else
+    echo "Warning: $CONFIG_TEMPLATE not found. Skipping config generation."
+fi
+
+exit 0
+EOF
+
+# Делаем скрипты исполняемыми
+RUN chmod +x /docker-entrypoint.d/40-wait-for-services.sh /docker-entrypoint.d/50-substitute-config.sh
+
+# Запуск Nginx (скрипты из /docker-entrypoint.d выполнятся перед этой командой)
 CMD ["nginx", "-g", "daemon off;"] 

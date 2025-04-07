@@ -1,63 +1,35 @@
-# Базовый образ для разработки
+# Stage 1: Build the React application
 FROM node:18-alpine as builder
 
 WORKDIR /app
 
-# Копируем файлы package.json и package-lock.json
+# Define build-time arguments received from docker-compose
+ARG REACT_APP_API_URL
+ARG REACT_APP_WS_URL
+# ARG REACT_APP_VERSION # Uncomment if version is passed as arg and needed during build
+
+# Copy package files and install dependencies
 COPY package*.json ./
+# Use ci for potentially faster and more reliable installs in CI/CD
+RUN npm ci
 
-# Устанавливаем все зависимости
-RUN npm install
-
-# Копируем исходный код
+# Copy the rest of the application code
 COPY . .
 
-# Для режима разработки
-FROM builder as development
-ENV NODE_ENV=development
-ENV PATH /app/node_modules/.bin:$PATH
-
-# Устанавливаем craco глобально и даем права на выполнение
-RUN npm install -g @craco/craco && \
-    chmod -R 755 /app/node_modules/.bin
-
-# Создаем entrypoint скрипт - КОММЕНТИРУЕМ НАХУЙ
-# RUN echo '#!/bin/sh' > /usr/local/bin/docker-entrypoint.sh && \
-#     echo 'if [ -f /app/.env.runtime ]; then' >> /usr/local/bin/docker-entrypoint.sh && \
-#     echo '  export $(cat /app/.env.runtime | xargs)' >> /usr/local/bin/docker-entrypoint.sh && \
-#     echo 'fi' >> /usr/local/bin/docker-entrypoint.sh && \
-#     echo 'exec "$@"' >> /usr/local/bin/docker-entrypoint.sh && \
-#     chmod +x /usr/local/bin/docker-entrypoint.sh
-
-# ENTRYPOINT ["docker-entrypoint.sh"] # КОММЕНТИРУЕМ НАХУЙ
-
-# Запускаем npm start напрямую
-CMD ["npm", "start"]
-
-# Для продакшен сборки
-FROM builder as production-build
+# Set NODE_ENV for the build process
 ENV NODE_ENV=production
+
+# Build the application
+# Build-time args are available as env vars if needed by the build script
+# e.g., if REACT_APP_VERSION was needed: ENV REACT_APP_VERSION=$REACT_APP_VERSION
 RUN npm run build
 
-# Финальный продакшен образ
-FROM nginx:alpine as production
-COPY --from=production-build /app/build /usr/share/nginx/html
+# --- The final 'production-build' stage --- #
+# This stage is targeted by docker-compose.
+# It inherits the /app/build directory from the 'builder' stage.
+FROM builder as production-build
+# No further commands needed, the build artifact /app/build is ready.
 
-# Создаем базовую конфигурацию nginx
-RUN echo 'server { \
-    listen 80; \
-    location / { \
-        root /usr/share/nginx/html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
-
-# Создаем entrypoint скрипт для подстановки переменных окружения
-RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
-    echo 'envsubst < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js' >> /docker-entrypoint.sh && \
-    echo 'exec "$@"' >> /docker-entrypoint.sh && \
-    chmod +x /docker-entrypoint.sh
-
-EXPOSE 80
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"] 
+# --- REMOVED STAGES --- #
+# Development stage is removed
+# Production (nginx) stage is removed (handled by separate nginx service) 

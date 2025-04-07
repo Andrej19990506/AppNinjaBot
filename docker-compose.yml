@@ -64,25 +64,10 @@ services:
   frontend:
     build:
       context: ./frontend
-      target: ${NODE_ENV:-development}
-    expose:
-      - 3000
-    env_file:
-      - ./frontend/.env${NODE_ENV:+.production}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    depends_on:
-      - server
-      - websocket
-    networks:
-      - ninja_network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      target: production-build
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL}
 
   websocket:
     build:
@@ -110,18 +95,24 @@ services:
 
   nginx:
     build:
-      context: ./websocket-service
-      dockerfile: Dockerfile.nginx
+      context: .
+      dockerfile: ./websocket-service/Dockerfile.nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./websocket-service/nginx.conf.dev:/etc/nginx/nginx.conf
-      - ./websocket-service/test_client.html:/var/www/appninjabot/websocket-service/index.html
+      - ./websocket-service/nginx.conf:/etc/nginx/nginx.conf
+      - type: bind
+        source: ./frontend/build
+        target: /usr/share/nginx/html
+        read_only: true
     depends_on:
-      - frontend
       - server
       - websocket
+    environment:
+      API_URL: ${RUNTIME_API_URL:-https://appninjabot.ru/api}
+      WS_URL: ${RUNTIME_WS_URL:-wss://appninjabot.ru}
+      NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:
       - ninja_network

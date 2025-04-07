@@ -64,7 +64,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_group_members_group_id'), 'group_members', ['group_id'], unique=False)
     op.create_index(op.f('ix_group_members_id'), 'group_members', ['id'], unique=False)
     op.create_index(op.f('ix_group_members_member_id'), 'group_members', ['member_id'], unique=False)
-    op.drop_table('scheduler_tasks')
+    # Комментируем строку, которая удаляет таблицу scheduler_tasks, так как ее уже нет
+    # op.drop_table('scheduler_tasks')
     # ### end Alembic commands ###
 
 

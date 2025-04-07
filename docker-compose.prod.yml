@@ -32,7 +32,7 @@ services:
       target: production
     expose:
       - 8000
-    command: gunicorn app:app -b 0.0.0.0:8000 --workers 4 --timeout 120
+    command: gunicorn main:app -b 0.0.0.0:8000 --workers 4 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
       - API_BASE_URL=https://appninjabot.ru/api
       - BOT_URL=http://bot:8001

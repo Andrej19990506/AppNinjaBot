@@ -48,48 +48,8 @@ class DatabaseService:
         """Создает необходимые таблицы в базе данных, если они не существуют"""
         try:
             with self.conn.cursor() as cursor:
-                # Таблица для групп
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS groups (
-                        id SERIAL PRIMARY KEY,
-                        chat_id VARCHAR(50) UNIQUE NOT NULL,
-                        chat_title VARCHAR(255) NOT NULL,
-                        group_type VARCHAR(50) NOT NULL,
-                        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        metadata JSONB DEFAULT '{}'::jsonb
-                    )
-                """)
-                
-                # Таблица для участников
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS members (
-                        id SERIAL PRIMARY KEY,
-                        user_id BIGINT NOT NULL,
-                        username VARCHAR(255),
-                        first_name VARCHAR(255),
-                        last_name VARCHAR(255),
-                        status VARCHAR(50) NOT NULL,
-                        is_bot BOOLEAN DEFAULT FALSE,
-                        is_senior_courier BOOLEAN DEFAULT FALSE,
-                        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        photo_url TEXT,
-                        metadata JSONB DEFAULT '{}'::jsonb,
-                        UNIQUE(user_id)
-                    )
-                """)
-                
-                # Связная таблица для участников и групп
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS group_members (
-                        id SERIAL PRIMARY KEY,
-                        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
-                        member_id INTEGER REFERENCES members(id) ON DELETE CASCADE,
-                        role VARCHAR(50) DEFAULT 'member',
-                        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        metadata JSONB DEFAULT '{}'::jsonb,
-                        UNIQUE(group_id, member_id)
-                    )
-                """)
+                # Таблицы groups, members и group_members создаются через Alembic миграции
+                # Оставляем только создание индексов
                 
                 # Создаем индексы для ускорения поиска
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_groups_chat_id ON groups(chat_id)")

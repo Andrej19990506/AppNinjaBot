@@ -25,7 +25,7 @@ class DatabaseService:
         self.initialize_connection()
         
         # Создаем необходимые таблицы при инициализации
-        # self.create_tables() # <<< УБИРАЕМ СОЗДАНИЕ ТАБЛИЦ БОТОМ
+        self.create_tables() # Создаем таблицы для работы с ботом
         
         logger.info(f"✅ DatabaseService инициализирован. Подключение к базе: {self.db_host}:{self.db_port}/{self.db_name}")
     

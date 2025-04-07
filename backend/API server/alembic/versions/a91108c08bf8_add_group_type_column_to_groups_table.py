@@ -1,7 +1,7 @@
 """Add group_type column to groups table
 
 Revision ID: a91108c08bf8
-Revises: b95b5dc5a6f4
+Revises: abc894d43a47
 Create Date: 2024-03-31 19:34:31.442724
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = 'a91108c08bf8'
-down_revision: Union[str, None] = 'b95b5dc5a6f4'
+down_revision: Union[str, None] = 'abc894d43a47'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

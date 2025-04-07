@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = 'ccca6cbe861b'
@@ -33,11 +34,29 @@ def upgrade() -> None:
     op.create_index(op.f('ix_reserves_date'), 'reserves', ['date'], unique=False)
     op.create_index(op.f('ix_reserves_group_telegram_id'), 'reserves', ['group_telegram_id'], unique=False)
     op.create_index(op.f('ix_reserves_member_id'), 'reserves', ['member_id'], unique=False)
-    op.drop_table('scheduler_tasks')
-    op.drop_index('ix_active_users_id', table_name='active_users')
-    op.drop_index('ix_active_users_room', table_name='active_users')
-    op.drop_index('ix_active_users_user_id', table_name='active_users')
-    op.drop_table('active_users')
+    
+    # Проверяем существование таблиц и индексов перед их удалением
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    tables = inspector.get_table_names()
+    
+    if 'scheduler_tasks' in tables:
+        op.drop_table('scheduler_tasks')
+    
+    if 'active_users' in tables:
+        indices = inspector.get_indexes('active_users')
+        index_names = [index['name'] for index in indices]
+        
+        if 'ix_active_users_id' in index_names:
+            op.drop_index('ix_active_users_id', table_name='active_users')
+        
+        if 'ix_active_users_room' in index_names:
+            op.drop_index('ix_active_users_room', table_name='active_users')
+            
+        if 'ix_active_users_user_id' in index_names:
+            op.drop_index('ix_active_users_user_id', table_name='active_users')
+            
+        op.drop_table('active_users')
     # ### end Alembic commands ###
 
 

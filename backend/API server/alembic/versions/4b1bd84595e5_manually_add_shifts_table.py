@@ -1,7 +1,7 @@
 """Manually add shifts table
 
 Revision ID: 4b1bd84595e5
-Revises: abc894d43a47
+Revises: a91108c08bf8
 Create Date: 2025-04-06 07:47:36.725561
 
 """
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = '4b1bd84595e5'
-down_revision: Union[str, None] = 'abc894d43a47'
+down_revision: Union[str, None] = 'a91108c08bf8'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

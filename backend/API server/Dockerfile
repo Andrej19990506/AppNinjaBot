@@ -32,4 +32,13 @@ EXPOSE 8000
 # Команда по умолчанию для запуска приложения.
 # Будет использоваться, если не переопределена в docker-compose.yml.
 # Запускает uvicorn, слушая на всех интерфейсах (0.0.0.0) внутри контейнера.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"] 
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Production target
+FROM base as production
+
+# Устанавливаем дополнительные зависимости для продакшн
+RUN pip install gunicorn
+
+# В продакшне используем gunicorn с несколькими рабочими процессами
+CMD ["gunicorn", "main:app", "-b", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "-k", "uvicorn.workers.UvicornWorker"] 

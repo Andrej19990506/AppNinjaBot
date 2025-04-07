@@ -13,7 +13,7 @@ services:
       - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env.prod
-    command: python -u /app/telegramNinjaBot/bot.py
+    command: python -u /app/telegramNinjaBot/main.py
     restart: unless-stopped
     deploy:
       replicas: 1

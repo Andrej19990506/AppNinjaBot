@@ -1,0 +1,137 @@
+"""Initial schema
+
+Revision ID: 000001
+Revises: 
+Create Date: 2025-04-07 23:00:00.000000
+
+"""
+from typing import Sequence, Union
+
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision: str = '000001'
+down_revision: Union[str, None] = None
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    """Upgrade schema."""
+    # Создаем таблицу groups
+    op.create_table('groups',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('group_id', sa.BigInteger(), nullable=False),
+        sa.Column('title', sa.String(length=255), nullable=False),
+        sa.Column('username', sa.String(length=255), nullable=True),
+        sa.Column('description', sa.String(), nullable=True),
+        sa.Column('members_count', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('group_type', sa.String(length=50), nullable=False, server_default='general'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('group_id', name='uq_group_group_id')
+    )
+    op.create_index(op.f('ix_groups_group_id'), 'groups', ['group_id'], unique=True)
+    op.create_index(op.f('ix_groups_id'), 'groups', ['id'], unique=False)
+    
+    # Создаем таблицу members
+    op.create_table('members',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.BigInteger(), nullable=False),
+        sa.Column('username', sa.String(length=255), nullable=True),
+        sa.Column('first_name', sa.String(length=255), nullable=True),
+        sa.Column('last_name', sa.String(length=255), nullable=True),
+        sa.Column('status', sa.String(length=50), nullable=False),
+        sa.Column('is_bot', sa.Boolean(), nullable=True),
+        sa.Column('joined_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('photo_url', sa.String(), nullable=True),
+        sa.Column('is_senior_courier', sa.Boolean(), server_default='false', nullable=False),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', name='uq_member_user_id')
+    )
+    op.create_index(op.f('ix_members_id'), 'members', ['id'], unique=False)
+    op.create_index(op.f('ix_members_user_id'), 'members', ['user_id'], unique=True)
+    
+    # Создаем таблицу group_members
+    op.create_table('group_members',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('group_id', sa.Integer(), nullable=False),
+        sa.Column('member_id', sa.Integer(), nullable=False),
+        sa.Column('added_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ondelete='CASCADE'),
+        sa.ForeignKeyConstraint(['member_id'], ['members.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('group_id', 'member_id', name='uq_group_member')
+    )
+    op.create_index(op.f('ix_group_members_group_id'), 'group_members', ['group_id'], unique=False)
+    op.create_index(op.f('ix_group_members_id'), 'group_members', ['id'], unique=False)
+    op.create_index(op.f('ix_group_members_member_id'), 'group_members', ['member_id'], unique=False)
+    
+    # Создаем таблицу shifts
+    op.create_table('shifts',
+        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+        sa.Column('member_id', sa.Integer(), nullable=False),
+        sa.Column('group_id', sa.Integer(), nullable=False),
+        sa.Column('date', sa.String(), nullable=False),
+        sa.Column('shift_type', sa.String(), nullable=False),
+        sa.Column('slot_index', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('json_metadata', postgresql.JSON(astext_type=sa.Text()), nullable=True),
+        sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ),
+        sa.ForeignKeyConstraint(['member_id'], ['members.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_shifts_date'), 'shifts', ['date'], unique=False)
+    
+    # Создаем таблицу reserves
+    op.create_table('reserves',
+        sa.Column('id', sa.UUID(), nullable=False),
+        sa.Column('member_id', sa.Integer(), nullable=False),
+        sa.Column('group_id', sa.Integer(), nullable=False),
+        sa.Column('date', sa.Date(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(['member_id'], ['members.id'], ),
+        sa.ForeignKeyConstraint(['group_id'], ['groups.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_reserves_date'), 'reserves', ['date'], unique=False)
+    op.create_index(op.f('ix_reserves_group_id'), 'reserves', ['group_id'], unique=False)
+    op.create_index(op.f('ix_reserves_member_id'), 'reserves', ['member_id'], unique=False)
+    
+    # Создаем таблицу scheduler_tasks (если нужна)
+    op.create_table('scheduler_tasks',
+        sa.Column('task_id', sa.String(length=255), nullable=False),
+        sa.Column('chat_id', sa.String(length=255), nullable=True),
+        sa.Column('task_type', sa.String(length=50), nullable=False),
+        sa.Column('next_run_time', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('data', postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb"), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=True),
+        sa.PrimaryKeyConstraint('task_id')
+    )
+
+
+def downgrade() -> None:
+    """Downgrade schema."""
+    op.drop_table('scheduler_tasks')
+    op.drop_index(op.f('ix_reserves_member_id'), table_name='reserves')
+    op.drop_index(op.f('ix_reserves_group_id'), table_name='reserves')
+    op.drop_index(op.f('ix_reserves_date'), table_name='reserves')
+    op.drop_table('reserves')
+    op.drop_index(op.f('ix_shifts_date'), table_name='shifts')
+    op.drop_table('shifts')
+    op.drop_index(op.f('ix_group_members_member_id'), table_name='group_members')
+    op.drop_index(op.f('ix_group_members_id'), table_name='group_members')
+    op.drop_index(op.f('ix_group_members_group_id'), table_name='group_members')
+    op.drop_table('group_members')
+    op.drop_index(op.f('ix_members_user_id'), table_name='members')
+    op.drop_index(op.f('ix_members_id'), table_name='members')
+    op.drop_table('members')
+    op.drop_index(op.f('ix_groups_id'), table_name='groups')
+    op.drop_index(op.f('ix_groups_group_id'), table_name='groups')
+    op.drop_table('groups') 

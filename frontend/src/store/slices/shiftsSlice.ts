@@ -46,6 +46,10 @@ export interface AccessSettings {
     // Список конкретных дат, на которые можно записываться
     enabledDates?: string[];           // Массив дат в формате YYYY-MM-DD
     
+    // Количество слотов
+    maxDaySlots?: number;             // Максимальное кол-во дневных слотов
+    maxNightSlots?: number;           // Максимальное кол-во ночных слотов
+    
     // Персональные ограничения
     restrictedUsers?: (string | number)[];  // Список ID пользователей с ограниченным доступом
     
@@ -88,13 +92,20 @@ interface BookShiftThunkParams {
 interface ShiftBookedPayload {
     id: string;
     user_id: string;
-    photo_url: string | null;
-    first_name: string;
-    last_name: string;
+    photo_url?: string | null;
+    first_name?: string;
+    last_name?: string;
     date: string;
     shift_type: 'day' | 'night';
     slot_index: number;
     is_senior_courier?: boolean;
+    member?: {
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        photo_url: string | null;
+        is_senior_courier?: boolean;
+    };
 }
 
 // Обновим интерфейс ShiftDayType для включения дополнительных полей
@@ -137,6 +148,25 @@ interface ShiftType {
     // Другие поля, если есть
 }
 
+interface ApiShift {
+    id: string;
+    user_id?: string; // Обрати внимание: в старом коде было userId, но API вероятно возвращает user_id
+    photo_url?: string | null;
+    first_name?: string;
+    last_name?: string;
+    date: string;
+    shift_type: 'day' | 'night';
+    slot_index: number;
+    is_senior_courier?: boolean;
+    member?: {
+        user_id: string;
+        first_name: string;
+        last_name: string;
+        photo_url: string | null;
+        is_senior_courier?: boolean;
+    };
+}
+
 const initialState: ShiftState = {
     shifts: [],
     loading: false,
@@ -157,6 +187,10 @@ const initialState: ShiftState = {
         offsetAmount: 1,
         periodLength: 7,
         isAlwaysActive: true,
+        
+        // Количество слотов (значения по умолчанию)
+        maxDaySlots: 4,
+        maxNightSlots: 2,
         
         // Старые поля для обратной совместимости
         daysAhead: 14, // 2 недели
@@ -246,6 +280,23 @@ export const bookShift = createAsyncThunk<
         console.log('[shiftsSlice] Booking shift with params:', params, 'chatId:', chatId);
         
         try {
+            // Проверяем настройки доступа на запись нескольких смен
+            const accessSettings = state.shifts.accessSettings;
+            const userShifts = state.shifts.shifts;
+            
+            // Проверяем, есть ли уже смена у пользователя на выбранную дату
+            const userHasShiftOnDate = userShifts.some(shift => 
+                shift.date === date && 
+                String(shift.userId) === String(userId) &&
+                (!existingShiftId || String(shift.id) !== String(existingShiftId)) // Если это не изменение существующей смены
+            );
+            
+            // Если запрещено записываться на несколько смен и у пользователя уже есть смена - отклоняем запрос
+            if (userHasShiftOnDate && !accessSettings.allowMultipleShifts) {
+                console.log('[shiftsSlice] Rejecting booking - multiple shifts are not allowed.');
+                return rejectWithValue('Нельзя записаться на несколько смен в один день');
+            }
+            
             // Подготавливаем данные для API (snake_case)
             const apiData = {
                 date: date,
@@ -550,27 +601,34 @@ const shiftsSlice = createSlice({
             const shiftData = action.payload;
             console.info('[shiftsSlice] Processing shiftBooked action:', shiftData);
             
-            // Проверяем наличие флага старшего курьера
-            const isSeniorCourier = shiftData.is_senior_courier !== undefined ? 
-                shiftData.is_senior_courier : false;
+            // Проверяем наличие данных курьера в member или корне объекта
+            const userId = shiftData.member?.user_id || shiftData.user_id || '';
+            const firstName = shiftData.member?.first_name || shiftData.first_name || '';
+            const lastName = shiftData.member?.last_name || shiftData.last_name || '';
+            const photoUrl = shiftData.member?.photo_url || shiftData.photo_url || null;
+            const isSeniorCourier = shiftData.member?.is_senior_courier !== undefined ? 
+                shiftData.member.is_senior_courier : (shiftData.is_senior_courier !== undefined ? 
+                    shiftData.is_senior_courier : false);
                 
             console.info('[shiftsSlice] Статус старшего курьера из данных:', {
-                hasFlag: shiftData.is_senior_courier !== undefined,
+                hasFlag: isSeniorCourier !== undefined,
                 value: isSeniorCourier,
-                rawData: shiftData.is_senior_courier
+                rawData: shiftData.is_senior_courier,
+                memberData: shiftData.member?.is_senior_courier
             });
             
             // Преобразуем данные в формат CourierShift
             const newShift: CourierShift = {
                 id: shiftData.id,
-                userId: shiftData.user_id,
-                photo_url: shiftData.photo_url,
-                firstName: shiftData.first_name,
-                lastName: shiftData.last_name,
+                userId: String(userId),
+                photo_url: photoUrl,
+                firstName: firstName,
+                lastName: lastName,
                 date: shiftData.date,
                 shiftType: shiftData.shift_type,
                 slotIndex: shiftData.slot_index,
-                isSeniorCourier: isSeniorCourier
+                isSeniorCourier: isSeniorCourier,
+                is_senior_courier: isSeniorCourier
             };
             
             // Добавляем отладочную информацию
@@ -750,10 +808,32 @@ const shiftsSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(fetchShifts.fulfilled, (state, action) => {
+            .addCase(fetchShifts.fulfilled, (state, action: PayloadAction<ApiShift[]>) => {
                 state.loading = false;
-                console.log('[shiftsSlice] Setting shifts in state:', action.payload);
-                state.shifts = action.payload;
+                console.log('[shiftsSlice] Received raw shifts from API:', action.payload);
+                // Преобразуем данные из ApiShift в CourierShift перед сохранением
+                state.shifts = action.payload.map(apiShift => {
+                    // Получаем данные курьера или из корня объекта, или из вложенного объекта member
+                    const userId = apiShift.member?.user_id || apiShift.user_id || '';
+                    const firstName = apiShift.member?.first_name || apiShift.first_name || '';
+                    const lastName = apiShift.member?.last_name || apiShift.last_name || '';
+                    const photoUrl = apiShift.member?.photo_url || apiShift.photo_url || null;
+                    const isSeniorCourier = apiShift.member?.is_senior_courier || apiShift.is_senior_courier || false;
+                    
+                    return {
+                        id: apiShift.id,
+                        userId: String(userId), // Убедимся, что userId всегда строка
+                        photo_url: photoUrl,
+                        firstName: firstName,
+                        lastName: lastName,
+                        date: apiShift.date,
+                        shiftType: apiShift.shift_type,
+                        slotIndex: apiShift.slot_index,
+                        is_senior_courier: isSeniorCourier, // Для совместимости со старым интерфейсом
+                        isSeniorCourier: isSeniorCourier // Добавляем правильное имя поля для нового интерфейса
+                    };
+                });
+                console.log('[shiftsSlice] Transformed and setting shifts in state:', state.shifts);
             })
             .addCase(fetchShifts.rejected, (state, action) => {
                 state.loading = false;
@@ -763,8 +843,15 @@ const shiftsSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(bookShift.fulfilled, (state, action) => {
+            .addCase(bookShift.fulfilled, (state, action: PayloadAction<CourierShift>) => {
                 state.loading = false;
+                // Удаляем все существующие смены пользователя на эту дату
+                state.shifts = state.shifts.filter(shift => 
+                    !(shift.date === action.payload.date && String(shift.userId) === String(action.payload.userId))
+                );
+                // Добавляем новую смену
+                state.shifts = [...state.shifts, action.payload];
+                console.log('[shiftsSlice] Shift booked locally, state updated immutably:', action.payload);
             })
             .addCase(bookShift.rejected, (state, action) => {
                 state.loading = false;

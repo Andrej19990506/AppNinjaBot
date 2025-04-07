@@ -23,10 +23,13 @@ interface ShiftSlotProps {
     isDraggable: boolean;
     onSlotClick: (shiftType: 'day' | 'night', slotIndex: number) => void;
     onCourierClick: (event: React.MouseEvent | React.TouchEvent, courier: ShiftSlotLocalType, shiftType: 'day' | 'night', slotIndex: number) => void;
+    onTouchMove?: () => void;
     successAnimation: boolean;
     pressAnimationActive: boolean;
     isDragging: boolean;
     draggableProvided?: DraggableProvided;
+    isLoading?: boolean;
+    isError?: boolean;
 }
 
 // Стили
@@ -162,6 +165,75 @@ const SeniorBadge = styled.div`
     }
 `;
 
+// Добавляем стили для анимаций
+const LoadingOverlay = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 1.5s infinite;
+
+    @keyframes pulse {
+        0% {
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 0.9;
+        }
+        100% {
+            opacity: 0.6;
+        }
+    }
+`;
+
+const ErrorOverlay = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: rgba(244, 67, 54, 0.1);
+    border: 2px solid #f44336;
+    animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+
+    @keyframes shake {
+        10%, 90% {
+            transform: translate3d(-1px, 0, 0);
+        }
+        20%, 80% {
+            transform: translate3d(2px, 0, 0);
+        }
+        30%, 50%, 70% {
+            transform: translate3d(-4px, 0, 0);
+        }
+        40%, 60% {
+            transform: translate3d(4px, 0, 0);
+        }
+    }
+`;
+
+const LoadingSpinner = styled.div`
+    width: 24px;
+    height: 24px;
+    border: 3px solid var(--primary-color);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+`;
+
 const ShiftSlot: React.FC<ShiftSlotProps> = ({
     shiftType,
     slotIndex,
@@ -170,13 +242,32 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
     isDraggable,
     onSlotClick,
     onCourierClick,
+    onTouchMove,
     successAnimation,
     pressAnimationActive,
     isDragging,
-    draggableProvided
+    draggableProvided,
+    isLoading,
+    isError
 }) => {
     const isOccupied = Boolean(courier);
     const isCurrentUser = courier?.userId === currentUserId;
+
+    // Добавляем лог при рендеринге слота с курьером
+    if (isOccupied && courier) {
+        console.log(`[ShiftSlot] Rendering slot with courier:`, {
+            firstName: courier.firstName || 'undefined',
+            lastName: courier.lastName || 'undefined',
+            photo: courier.photo_url ? (courier.photo_url.substring(0, 30) + '...') : 'undefined',
+            userId: courier.userId || 'undefined',
+            isSeniorCourier: courier.isSeniorCourier,
+            shiftType,
+            slotIndex,
+            fullCourier: courier
+        });
+    } else if (isOccupied) {
+        console.warn(`[ShiftSlot] Slot marked as occupied but courier is undefined:`, { shiftType, slotIndex });
+    }
 
     // Обработчик клика по слоту
     const handleSlotClick = (e: React.MouseEvent | React.TouchEvent) => {
@@ -196,7 +287,7 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
             data-type={shiftType}
             data-index={slotIndex}
             data-occupied={isOccupied}
-            className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success-animation' : ''}`}
+            className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
             onClick={handleSlotClick}
             $isOccupied={isOccupied}
             {...(draggableProvided ? draggableProvided.draggableProps : {})}
@@ -206,12 +297,13 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
             {isOccupied && courier ? (
                 <CourierAvatarContainer
                     onClick={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
+                    onMouseDown={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
                     onTouchStart={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
+                    onTouchMove={onTouchMove}
                     onTouchEnd={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
                     className={`courier-avatar-container ${isDragging ? 'dragging' : ''}`}
-                    style={{
-                        cursor: isDraggable ? 'grab' : 'pointer'
-                    }}
+                    $isDraggable={isDraggable}
+                    $isDragging={isDragging}
                 >
                     <CourierAvatarImage 
                         src={courier.photo_url || defaultAvatar}
@@ -227,6 +319,16 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
             ) : (
                 <PlusIcon>+</PlusIcon>
             )}
+            
+            {/* Анимация загрузки */}
+            {isLoading && (
+                <LoadingOverlay>
+                    <LoadingSpinner />
+                </LoadingOverlay>
+            )}
+            
+            {/* Анимация ошибки */}
+            {isError && <ErrorOverlay />}
         </SlotButton>
     );
 };

@@ -25,6 +25,8 @@ interface MonthSectionProps {
     currentUserAvatar?: string;
     currentUserId: string;
     accessSettings?: AccessSettings;
+    maxDaySlots: number;
+    maxNightSlots: number;
 }
 
 const MonthSection: React.FC<MonthSectionProps> = ({
@@ -37,7 +39,9 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     userIsInReserve,
     currentUserAvatar,
     currentUserId,
-    accessSettings
+    accessSettings,
+    maxDaySlots,
+    maxNightSlots
 }) => {
     const days = getDaysInMonth(month);
 
@@ -74,6 +78,8 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             getNightShifts={getNightShifts}
                             hasUserShift={hasUserShift}
                             userIsInReserve={userIsInReserve}
+                            maxDaySlots={maxDaySlots}
+                            maxNightSlots={maxNightSlots}
                         />
                     );
                 })}

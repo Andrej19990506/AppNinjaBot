@@ -36,26 +36,37 @@ const initialState: ReservesState = {
     error: null
 };
 
+// Типизируем аргументы для thunks
+interface FetchReservesArgs {
+    groupId: number;
+    date?: string; // Делаем дату необязательной
+}
+
 // Функция для загрузки резервов с сервера
-export const fetchReserves = createAsyncThunk(
+export const fetchReserves = createAsyncThunk<
+    ReserveShift[], // Тип возвращаемого значения при успехе
+    FetchReservesArgs, // Тип аргументов, передаваемых в thunk
+    { rejectValue: string } // Тип значения при ошибке
+>(
     'reserves/fetchReserves',
-    async (_, { rejectWithValue }) => {
+    async ({ groupId, date }, { rejectWithValue }) => {
         try {
-            console.log('[reservesSlice] Загрузка резервов...');
-            
-            // Вызываем новую функцию
-            const apiReserves = await getReservesApi();
-            
-            // Преобразуем данные с сервера в формат ReserveShift
+            console.log(`[reservesSlice] Загрузка резервов для группы ${groupId} на дату ${date}...`);
+
+            // Передаем аргументы в API вызов
+            const apiReserves = await getReservesApi(groupId, date);
+
+            // Преобразуем данные с сервера
             const formattedReserves = apiReserves.map((reserve: any) => ({
-                id: reserve.id || '',
-                userId: String(reserve.user_id || ''),
-                date: reserve.date || '',
-                photo_url: reserve.photo_url || null,
-                firstName: reserve.first_name || '',
-                lastName: reserve.last_name || '',
-                created_at: reserve.created_at || new Date().toISOString(),
-                isSeniorCourier: reserve.is_senior_courier || false
+                id: reserve.id,
+                userId: String(reserve.member?.user_id || ''), // Теперь берем из member вместо user
+                date: reserve.date,
+                // Используем данные из вложенного member вместо user
+                photo_url: reserve.member?.photo_url ?? null,
+                firstName: reserve.member?.first_name ?? '',
+                lastName: reserve.member?.last_name ?? '',
+                created_at: reserve.created_at,
+                isSeniorCourier: reserve.member?.is_senior_courier ?? false
             }));
 
             console.log('[reservesSlice] Резервы получены и отформатированы:', formattedReserves);
@@ -72,36 +83,81 @@ export const fetchReserves = createAsyncThunk(
     }
 );
 
-// Добавим функцию для принудительного обновления резервов (вызывается после добавления нового резерва)
-export const forceFetchReserves = createAsyncThunk(
+// Добавим функцию для принудительного обновления резервов
+export const forceFetchReserves = createAsyncThunk<
+    ReserveShift[], // Возвращаемое значение
+    FetchReservesArgs, // Аргументы
+    { rejectValue: string } // Ошибка
+>(
     'reserves/forceFetchReserves',
-    async (_, { rejectWithValue }) => {
+    async ({ groupId, date }, { rejectWithValue }) => {
         try {
-            console.log('[reservesSlice] Принудительное обновление резервов...');
+            if (date) {
+                console.log(`[reservesSlice] 🔄 Принудительное обновление резервов для группы ${groupId} на дату ${date}...`);
+            } else {
+                console.log(`[reservesSlice] 🔄 Принудительное обновление ВСЕХ резервов для группы ${groupId}...`);
+            }
             
-             // Вызываем новую функцию
-             const apiReserves = await getReservesApi();
-
-             // Преобразуем данные с сервера в формат ReserveShift
-             const formattedReserves = apiReserves.map((reserve: any) => ({
-                 id: reserve.id || '',
-                 userId: String(reserve.user_id || ''),
-                 date: reserve.date || '',
-                 photo_url: reserve.photo_url || null,
-                 firstName: reserve.first_name || '',
-                 lastName: reserve.last_name || '',
-                 created_at: reserve.created_at || new Date().toISOString(),
-                 isSeniorCourier: reserve.is_senior_courier || false
-             }));
-
-             console.log('[reservesSlice] Резервы принудительно обновлены и отформатированы:', formattedReserves);
-            return formattedReserves;
+            // Полная информация о запросе
+            console.log(`[reservesSlice] 📋 Входные параметры: groupId = ${groupId} (тип: ${typeof groupId}), date = ${date || 'не указана'} (тип: ${typeof date})`);
+            
+            if (!groupId || isNaN(groupId)) {
+                console.error(`[reservesSlice] ❌ Недопустимый groupId: ${groupId}`);
+                return rejectWithValue('Недопустимый ID группы');
+            }
+            
+            // Передаем аргументы
+            console.log(`[reservesSlice] 📤 Отправка запроса к API для получения резервов`);
+            try {
+                console.time('[reservesSlice] Время выполнения API-запроса');
+                console.log(`[reservesSlice] ⏳ Начало API-запроса с параметрами: groupId=${groupId}, date=${date || 'все даты'}`);
+                const apiReserves = await getReservesApi(groupId, date);
+                console.timeEnd('[reservesSlice] Время выполнения API-запроса');
+                console.log('[reservesSlice] 📥 API response raw data:', apiReserves);
+                
+                // Проверяем, что пришел массив
+                if (!Array.isArray(apiReserves)) {
+                    console.error(`[reservesSlice] ❌ API вернул не массив:`, apiReserves);
+                    return rejectWithValue('API вернул неверный формат данных');
+                }
+                
+                console.log(`[reservesSlice] ✅ Получено ${apiReserves.length} резервов с сервера`);
+                
+                // Преобразуем данные с сервера
+                const formattedReserves = apiReserves.map((reserve: any, index: number) => {
+                    // Логгируем для отладки каждый резерв и его поля
+                    console.log(`[reservesSlice] 🔄 Обработка резерва #${index + 1}:`, reserve);
+                    console.log(`[reservesSlice] 👤 Данные member для резерва #${index + 1}:`, reserve.member);
+                    
+                    if (!reserve.member) {
+                        console.warn(`[reservesSlice] ⚠️ Отсутствует объект member в резерве #${index + 1}`);
+                    }
+                    
+                    return {
+                        id: reserve.id,
+                        userId: String(reserve.member?.user_id || ''), // Теперь берем из member вместо user
+                        date: reserve.date,
+                        // Используем данные из вложенного member вместо user
+                        photo_url: reserve.member?.photo_url ?? null,
+                        firstName: reserve.member?.first_name ?? '',
+                        lastName: reserve.member?.last_name ?? '',
+                        created_at: reserve.created_at,
+                        isSeniorCourier: reserve.member?.is_senior_courier ?? false
+                    };
+                });
+                
+                console.log('[reservesSlice] ✅ Резервы принудительно обновлены и отформатированы:', formattedReserves);
+                return formattedReserves;
+            } catch (apiError) {
+                console.error('[reservesSlice] ❌ Ошибка API при получении резервов:', apiError);
+                throw apiError; // Перебрасываем для обработки в основном блоке catch
+            }
         } catch (error) {
              let errorMessage = 'Неизвестная ошибка при принудительном обновлении резервов';
              if (error instanceof Error) {
                  errorMessage = error.message;
              }
-            console.error('[reservesSlice] Ошибка при принудительном обновлении резервов:', errorMessage);
+            console.error('[reservesSlice] ❌ Ошибка при принудительном обновлении резервов:', errorMessage);
              return rejectWithValue(errorMessage);
         }
     }
@@ -310,7 +366,12 @@ export const reservesSlice = createSlice({
                     isSeniorCourier: reserve.isSeniorCourier || reserve.is_senior_courier || existingReserve?.isSeniorCourier || false
                 };
             });
-        }
+        },
+        clearReserves: (state) => {
+            state.reserves = [];
+            state.error = null;
+            state.loading = false;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -319,14 +380,13 @@ export const reservesSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(fetchReserves.fulfilled, (state, action) => {
+            .addCase(fetchReserves.fulfilled, (state, action: PayloadAction<ReserveShift[]>) => {
                 state.loading = false;
                 state.reserves = action.payload;
             })
             .addCase(fetchReserves.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to fetch reserves';
-                console.error('[reservesSlice] Ошибка при загрузке резервов:', action.error);
+                state.error = action.payload as string || 'Failed to fetch reserves';
             })
             
             // Обработка forceFetchReserves
@@ -334,14 +394,13 @@ export const reservesSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(forceFetchReserves.fulfilled, (state, action) => {
+            .addCase(forceFetchReserves.fulfilled, (state, action: PayloadAction<ReserveShift[]>) => {
                 state.loading = false;
                 state.reserves = action.payload;
             })
             .addCase(forceFetchReserves.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to force fetch reserves';
-                console.error('[reservesSlice] Ошибка при принудительной загрузке резервов:', action.error);
+                state.error = action.payload as string || 'Failed to force fetch reserves';
             })
             
             // Обработка addToReserve
@@ -355,7 +414,7 @@ export const reservesSlice = createSlice({
             })
             .addCase(addToReserve.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to add to reserve';
+                state.error = action.payload as string || 'Failed to add to reserve';
                 console.error('[reservesSlice] Ошибка при добавлении в резерв:', action.error);
             })
             
@@ -364,14 +423,15 @@ export const reservesSlice = createSlice({
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(removeFromReserve.fulfilled, (state) => {
+            .addCase(removeFromReserve.fulfilled, (state, action) => {
                 state.loading = false;
                 // Фактическое обновление состояния произойдет через WebSocket событие
+                console.log('[reservesSlice] removeFromReserve fulfilled:', action.payload);
             })
             .addCase(removeFromReserve.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to remove from reserve';
-                console.error('[reservesSlice] Ошибка при удалении из резерва:', action.error);
+                state.error = action.payload as string || 'Failed to remove reserve';
+                console.error('[reservesSlice] removeFromReserve rejected:', action.payload);
             });
     }
 });
@@ -453,5 +513,6 @@ export const {
     reserveDeleted,
     reserveUpdated,
     reservesUpdated,
+    clearReserves
 } = reservesSlice.actions;
 export default reservesSlice.reducer; 

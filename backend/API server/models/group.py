@@ -21,6 +21,9 @@ class Group(Base):
 
     # Связь со сменами (одна группа - много смен)
     shifts = relationship("Shift", back_populates="group")
+    
+    # Связь с резервами (одна группа - много резервов)
+    reserves = relationship("Reserve", back_populates="group")
 
     # Ограничение уникальности для group_id (хотя уже есть unique=True)
     __table_args__ = (UniqueConstraint('group_id', name='uq_group_group_id'),) 

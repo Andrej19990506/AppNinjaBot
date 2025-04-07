@@ -15,10 +15,22 @@ import {
 } from '../../store/slices/reservesSlice';
 import { AppDispatch, RootState } from '../../store/store';
 // import { RootState as ReduxRootState } from '../../store/store';
-import { ReserveShift } from '../../types/shifts';
+import { ReserveShift } from '../../types';
 import { selectAllReserves } from '../../store/slices/reservesSlice';
 import LoadingOverlay from './LoadingOverlay';
 import { socketService } from '../../services/socket';
+import { formatDateForAPI } from './CourierCalendar/utils/dateUtils';
+
+interface ShiftSlotLocal {
+    id?: string;
+    userId?: string;
+    photo_url?: string | null;
+    firstName?: string;
+    lastName?: string;
+    shiftType?: 'day' | 'night';
+    slotIndex: number;
+    isSeniorCourier?: boolean;
+}
 
 // Интерфейсы
 interface ReservePanelProps {
@@ -27,26 +39,15 @@ interface ReservePanelProps {
     currentUserId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    dayShifts: ShiftSlot[];
-    nightShifts: ShiftSlot[];
+    dayShifts: ShiftSlotLocal[];
+    nightShifts: ShiftSlotLocal[];
     onSwitchToShifts: () => void;
     onReserveSelect: () => Promise<any>;
-    onCancelReserve: (reserveId: string) => Promise<void>;
+    onCancelReserve: (reserveId: string) => void;
     forceUpdate: () => void;
     showSuccessMessage: (message: string) => void;
     chatId?: string;
     isLoading?: boolean;
-}
-
-// Обновляем интерфейс для типизации dayShifts и nightShifts
-interface ShiftSlot {
-    id?: string;
-    userId?: string;
-    photo_url?: string | null;
-    firstName?: string;
-    lastName?: string;
-    shiftType?: 'day' | 'night';
-    slotIndex: number;
 }
 
 // Стили (которые нужны только для этого компонента)
@@ -333,8 +334,8 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     // Получаем все резервы напрямую из Redux для максимальной актуальности
     const allReduxReserves = useSelector(selectAllReserves);
     
-    // Форматируем дату в UTC для корректного сравнения
-    const formattedDate = format(date, "yyyy-MM-dd'T'17:00:00.000'Z'");
+    // Форматируем дату для API
+    const formattedDate = formatDateForAPI(date);
     
     // Проверяем, есть ли другие резервы в Redux, соответствующие текущей дате
     const currentDateReserves = allReduxReserves.filter(
@@ -416,7 +417,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 setPendingReserve(null);
                 setIsAddLoading(false);
                 triggerUpdate();
-                dispatch(forceFetchReserves());
+                dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
             }
         };
 
@@ -425,7 +426,7 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         return () => {
             socketService.unsubscribe('reserve_added');
         };
-    }, [pendingReserve, currentUserId, date, dispatch, triggerUpdate]);
+    }, [pendingReserve, currentUserId, date, dispatch, triggerUpdate, chatId, formattedDate]);
 
     // При изменении состояния резерва пользователя или активной смены, обновляем UI
     const prevUserHasReserveInList = useRef(false);

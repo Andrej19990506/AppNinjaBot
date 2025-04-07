@@ -16,6 +16,7 @@ import { useAccessSettingsSync } from './hooks/useAccessSettingsSync';
 import { fetchAccessSettings } from '../../../store/slices/shiftsSlice';
 import { useWebSocketConnection } from '../../../hooks/useWebSocketConnection';
 import { logger } from '../../../utils/logger';
+import { format } from 'date-fns';
 
 const CourierCalendar: React.FC<CalendarProps> = ({
     onShiftSelect,
@@ -126,7 +127,8 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         getReservesForDate,
         userIsInReserve,
         handleAddToReserve,
-        handleCancelReserve
+        handleCancelReserve,
+        loadReserves
     } = useReserveManagement(currentUserId, chatId || '');
 
     const { handleShiftSelect } = useShiftManagement(currentUserId, chatId || '');
@@ -144,6 +146,17 @@ const CourierCalendar: React.FC<CalendarProps> = ({
             console.warn('⚠️ chatId не определен при монтировании календаря, настройки доступа не загружены.');
         }
     }, [dispatch, chatId]);
+    
+    // Загружаем резервы при изменении месяца или даты
+    useEffect(() => {
+        if (chatId) {
+            // Загрузка резервов при монтировании и изменении чата
+            logger.info(`[CourierCalendar] 🔄 Загрузка резервов для группы ${chatId}`);
+            
+            // Загружаем ВСЕ резервы для группы (без указания даты)
+            loadReserves();
+        }
+    }, [chatId, loadReserves]);
 
     // Оптимизируем обработку настроек
     useEffect(() => {
@@ -202,6 +215,11 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     // Обработчики
     const handleDayClick = useCallback((date: Date) => {
+        logger.log('[CourierCalendar] Клик по дате:', {
+            clickedDate: format(date, 'yyyy-MM-dd'),
+            currentDate: format(new Date(), 'yyyy-MM-dd'),
+            isAvailable: isDateAvailable(date, currentUserId, accessSettings)
+        });
         if (selectedDateForDialog && 
             selectedDateForDialog.getTime() === date.getTime()) {
             return;
@@ -239,6 +257,13 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         isDragAction?: boolean
     ) => {
         if (!selectedDateForDialog) return;
+        logger.log('[CourierCalendar] Запись смены:', {
+            date: format(selectedDateForDialog, 'yyyy-MM-dd'),
+            shiftType,
+            slotIndex,
+            existingShiftId,
+            isDragAction
+        });
         return handleShiftSelect(selectedDateForDialog, shiftType, slotIndex, existingShiftId, isDragAction);
     }, [selectedDateForDialog, handleShiftSelect]);
 
@@ -288,6 +313,8 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                             currentUserAvatar={currentUserAvatar}
                             currentUserId={currentUserId}
                             accessSettings={accessSettings}
+                            maxDaySlots={accessSettings?.maxDaySlots ?? 4}
+                            maxNightSlots={accessSettings?.maxNightSlots ?? 2}
                         />
                     </MonthContainer>
                 ))}
@@ -300,8 +327,8 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     date={selectedDateForDialog!}
                     dayShifts={getDayShifts(selectedDateForDialog!)}
                     nightShifts={getNightShifts(selectedDateForDialog!)}
-                    maxDaySlots={4}
-                    maxNightSlots={2}
+                    maxDaySlots={accessSettings?.maxDaySlots ?? 4}
+                    maxNightSlots={accessSettings?.maxNightSlots ?? 2}
                     currentUserId={currentUserId}
                     currentUserAvatar={currentUserAvatar}
                     currentUserName={currentUserName}

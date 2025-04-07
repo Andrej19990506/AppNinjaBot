@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Path
 from typing import List
 
 # Импортируем Pydantic модели
-from ..schemas.user import UserContextResponse, GroupBase, UserDataBase
+from schemas.user import UserGroupsContextResponse, GroupBase, UserDataBase
 
 # TODO: Импортировать зависимости (БД, сервисы), когда они будут готовы
 # from ..dependencies import get_db_session
@@ -15,7 +15,7 @@ router = APIRouter(
     responses={404: {"description": "User not found"}},
 )
 
-@router.get("/{user_id}/context", response_model=UserContextResponse)
+@router.get("/{user_id}/context", response_model=UserGroupsContextResponse)
 async def get_user_context(
     user_id: int = Path(..., description="The Telegram ID of the user", example=123456789)
     # db: AsyncSession = Depends(get_db_session) # Пример зависимости БД
@@ -39,11 +39,11 @@ async def get_user_context(
             is_senior_courier=True
         )
         groups = [
-            GroupBase(chat_id="-1004755640016", chat_title="Повара Словцова", group_type="chef"),
-            GroupBase(chat_id="-1004611898635", chat_title="Курьеры Высотная", group_type="courier"),
-            GroupBase(chat_id="-1004721237800", chat_title="Курьеры Баумана", group_type="courier")
+            GroupBase(id=1, chat_id="-1004755640016", chat_title="Повара Словцова", group_type="chef"),
+            GroupBase(id=2, chat_id="-1004611898635", chat_title="Курьеры Высотная", group_type="courier"),
+            GroupBase(id=3, chat_id="-1004721237800", chat_title="Курьеры Баумана", group_type="courier")
         ]
-        return UserContextResponse(user_data=user_data, groups=groups)
+        return UserGroupsContextResponse(groups=groups)
     else:
         # Для других ID возвращаем условного "неизвестного" пользователя без групп
          user_data = UserDataBase(
@@ -51,7 +51,7 @@ async def get_user_context(
             last_name="Пользователь",
             is_senior_courier=False
         )
-         return UserContextResponse(user_data=user_data, groups=[])
+         return UserGroupsContextResponse(groups=[])
 
     # --- КОНЕЦ ЗАГЛУШКИ ---
 
@@ -63,4 +63,4 @@ async def get_user_context(
     # # Формируем ответ на основе данных из сервиса
     # user_data_resp = UserDataBase(**user_info['user_data'])
     # groups_resp = [GroupBase(**group) for group in user_info['groups']]
-    # return UserContextResponse(user_data=user_data_resp, groups=groups_resp) 
+    # return UserGroupsContextResponse(groups=groups_resp) 

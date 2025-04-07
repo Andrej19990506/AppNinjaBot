@@ -9,6 +9,7 @@ interface ShiftSlotLocal {
     shiftType?: 'day' | 'night';
     slotIndex: number;
     isSeniorCourier?: boolean;
+    is_senior_courier?: boolean; // Для совместимости
 }
 
 interface UseShiftUIStateProps {
@@ -23,12 +24,7 @@ export const useShiftUIState = ({ dayShifts, nightShifts }: UseShiftUIStateProps
     
     // Добавляем состояние для управления диалогом
     const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-    const [selectedCourier, setSelectedCourier] = useState<{
-        id: number | string;
-        name: string;
-        avatar?: string;
-        isSeniorCourier?: boolean;
-    } | null>(null);
+    const [selectedCourier, setSelectedCourier] = useState<ShiftSlotLocal | null>(null);
     
     // Состояние для отображения тултипа при клике
     const [hoveredSlot, setHoveredSlot] = useState<{
@@ -67,15 +63,15 @@ export const useShiftUIState = ({ dayShifts, nightShifts }: UseShiftUIStateProps
     // Добавляем useEffect для синхронизации локальных состояний с пропсами
     useEffect(() => {
         console.log('[ShiftPanel] Updating local shifts from props due to changes');
-        setLocalDayShifts(dayShifts);
-        setLocalNightShifts(nightShifts);
+        setLocalDayShifts([...dayShifts]);
+        setLocalNightShifts([...nightShifts]);
     }, [dayShifts, nightShifts]);
     
     // Функция для обновления локальных данных из props
     const updateLocalShiftsFromProps = () => {
         console.log('[ShiftPanel] Updating local shifts from props (manual)');
-        setLocalDayShifts(dayShifts);
-        setLocalNightShifts(nightShifts);
+        setLocalDayShifts([...dayShifts]);
+        setLocalNightShifts([...nightShifts]);
     };
     
     // Функция для очистки состояния активного тултипа
@@ -96,21 +92,12 @@ export const useShiftUIState = ({ dayShifts, nightShifts }: UseShiftUIStateProps
     };
     
     // Открытие диалога профиля курьера
-    const openProfileDialog = (courier: { 
-        userId?: string; 
-        firstName?: string; 
-        lastName?: string; 
-        photo_url?: string | null;
-        isSeniorCourier?: boolean;
-    }) => {
-        if (!courier.userId) return;
-        
-        setSelectedCourier({
-            id: courier.userId,
-            name: `${courier.firstName || ''} ${courier.lastName || ''}`.trim(),
-            avatar: courier.photo_url || undefined,
-            isSeniorCourier: courier.isSeniorCourier
-        });
+    const openProfileDialog = (courier: ShiftSlotLocal) => {
+        if (!courier || !courier.userId) {
+            console.warn('[useShiftUIState] openProfileDialog: Invalid courier or missing userId', courier);
+            return;
+        }
+        setSelectedCourier(courier);
         setProfileDialogOpen(true);
     };
     

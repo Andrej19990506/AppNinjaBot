@@ -3,7 +3,8 @@
 // export * from './useWebSocket';
 export * from './useWriteOffSync';
 export { default as useDeviceDetect } from './useDeviceDetect';
-export { default as useDragAndDrop } from './useDragAndDrop';
+// Удаляем экспорт useDragAndDrop
+// export { default as useDragAndDrop } from './useDragAndDrop';
 export { useWebSocketConnection } from './useWebSocketConnection';
 
 // Примечание: useWebSocket и useWebSocketConnection предоставляют схожую функциональность

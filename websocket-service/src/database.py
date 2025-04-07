@@ -47,9 +47,10 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 logger.warning("Получено уведомление без 'type' или 'chat_id' в payload.")
                 return
 
-            # Определяем комнату Socket.IO (предполагаем, что комната = chat_id)
-            # Важно: Убедись, что фронтенд входит в комнаты с такими именами!
-            room_name = str(chat_id)
+            # Определяем комнату Socket.IO (должна быть 'couriers_<chat_id>')
+            # room_name = str(chat_id) # Старая логика
+            room_name = f"couriers_{chat_id}" # Новая логика с префиксом
+            logger.info(f"Целевая комната: {room_name}") # Добавим лог для проверки
 
             logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
             # Отправляем событие клиентам в нужной комнате

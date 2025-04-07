@@ -22,15 +22,15 @@ const ModeSwitchContainer = styled.div`
     box-shadow: var(--shadow-sm);
 `;
 
-const ModeButton = styled.button<{ active: boolean }>`
+const ModeButton = styled.button<{ $active: boolean }>`
     flex: 1;
     padding: 16px;
-    background: ${props => props.active ? 'var(--primary-color)' : 'transparent'};
-    color: ${props => props.active ? 'white' : 'var(--text-color)'};
+    background: ${props => props.$active ? 'var(--primary-color)' : 'transparent'};
+    color: ${props => props.$active ? 'white' : 'var(--text-color)'};
     border: none;
     cursor: pointer;
     transition: all var(--transition-normal);
-    font-weight: ${props => props.active ? '600' : '400'};
+    font-weight: ${props => props.$active ? '600' : '400'};
     position: relative;
     overflow: hidden;
 
@@ -41,14 +41,14 @@ const ModeButton = styled.button<{ active: boolean }>`
         left: 0;
         width: 100%;
         height: 3px;
-        background: ${props => props.active ? 'white' : 'var(--primary-color)'};
-        transform: scaleX(${props => props.active ? 1 : 0});
+        background: ${props => props.$active ? 'white' : 'var(--primary-color)'};
+        transform: scaleX(${props => props.$active ? 1 : 0});
         transform-origin: right;
         transition: transform var(--transition-normal);
     }
 
     &:hover {
-        background: ${props => props.active ? 'var(--primary-color)' : 'var(--primary-transparent)'};
+        background: ${props => props.$active ? 'var(--primary-color)' : 'var(--primary-transparent)'};
         
         &::after {
             transform: scaleX(1);
@@ -62,7 +62,7 @@ const ModeButton = styled.button<{ active: boolean }>`
         pointer-events: none;
     }
 
-    ${props => props.active && `
+    ${props => props.$active && `
         box-shadow: var(--shadow-md);
     `}
 `;
@@ -157,7 +157,8 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
         try {
             setIsLoading(true);
             await onReserveSelect();
-            dispatch(forceFetchReserves());
+            const formattedDate = format(date, 'yyyy-MM-dd');
+            dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
             showSuccessMessage('Успешно добавлено в резерв');
         } catch (error) {
             console.error('[ShiftSelectionDialog] Error in reserve selection:', error);
@@ -175,13 +176,13 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
         >
             <ModeSwitchContainer>
                 <ModeButton
-                    active={mode === 'shifts'}
+                    $active={mode === 'shifts'}
                     onClick={() => setMode('shifts')}
                 >
                     Смены
                 </ModeButton>
                 <ModeButton
-                    active={mode === 'reserves'}
+                    $active={mode === 'reserves'}
                     onClick={() => setMode('reserves')}
                 >
                     Резерв
@@ -200,7 +201,10 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                     currentUserName={currentUserName}
                     onSlotSelect={handleSlotSelectWrapper}
                     onSwitchToReserve={() => setMode('reserves')}
-                    forceUpdate={() => dispatch(forceFetchReserves())}
+                    forceUpdate={() => {
+                        const formattedDate = format(date, 'yyyy-MM-dd');
+                        dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
+                    }}
                     reserves={reserves}
                     showSuccessMessage={showSuccessMessage}
                     chatId={chatId}
@@ -220,7 +224,10 @@ const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
                     onSwitchToShifts={() => setMode('shifts')}
                     onReserveSelect={handleReserveSelectWrapper}
                     onCancelReserve={onCancelReserve}
-                    forceUpdate={() => dispatch(forceFetchReserves())}
+                    forceUpdate={() => {
+                        const formattedDate = format(date, 'yyyy-MM-dd');
+                        dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
+                    }}
                     showSuccessMessage={showSuccessMessage}
                     chatId={chatId}
                     isLoading={isLoading}

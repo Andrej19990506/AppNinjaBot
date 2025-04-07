@@ -43,7 +43,7 @@ const fadeOut = keyframes`
 `;
 
 // Обновляем стили для Overlay
-const Overlay = styled.div<{ isOpen: boolean; isClosing: boolean }>`
+const Overlay = styled.div<{ $isOpen: boolean; $isClosing: boolean }>`
   position: fixed;
   top: 0;
   left: 0;
@@ -51,14 +51,13 @@ const Overlay = styled.div<{ isOpen: boolean; isClosing: boolean }>`
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 1000;
-  visibility: ${props => props.isOpen || props.isClosing ? 'visible' : 'hidden'};
-  animation: ${props => props.isClosing ? fadeOut : fadeIn} 0.3s ease-in-out forwards;
+  visibility: ${props => props.$isOpen || props.$isClosing ? 'visible' : 'hidden'};
+  animation: ${props => props.$isClosing ? fadeOut : fadeIn} 0.3s ease-in-out forwards;
   backdrop-filter: blur(8px);
-  transition: visibility 0s ${props => props.isClosing ? '0.3s' : '0s'};
 `;
 
 // Обновляем стили для DrawerContainer
-const DrawerContainer = styled.div<{ isOpen: boolean; isClosing: boolean }>`
+const DrawerContainer = styled.div<{ $isOpen: boolean; $isClosing: boolean }>`
   position: fixed;
   bottom: 0;
   left: 0;
@@ -69,11 +68,10 @@ const DrawerContainer = styled.div<{ isOpen: boolean; isClosing: boolean }>`
   z-index: 1001;
   max-height: 90vh;
   overflow-y: auto;
-  visibility: ${props => props.isOpen || props.isClosing ? 'visible' : 'hidden'};
-  animation: ${props => props.isClosing ? slideDown : slideUp} 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  visibility: ${props => props.$isOpen || props.$isClosing ? 'visible' : 'hidden'};
+  animation: ${props => props.$isClosing ? slideDown : slideUp} 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   border-top: 1px solid var(--border-color);
   will-change: transform;
-  transition: visibility 0s ${props => props.isClosing ? '0.3s' : '0s'};
 
   /* Стилизация скроллбара */
   scrollbar-width: thin;
@@ -181,12 +179,12 @@ const CloseButton = styled.button`
 `;
 
 // Обновляем стили для DrawerContent
-const DrawerContent = styled.div<{ isClosing: boolean }>`
+const DrawerContent = styled.div<{ $isClosing: boolean }>`
   padding: 24px;
   min-height: 200px;
   position: relative;
-  opacity: ${props => props.isClosing ? 0 : 1};
-  transform: translateY(${props => props.isClosing ? '20px' : '0'});
+  opacity: ${props => props.$isClosing ? 0 : 1};
+  transform: translateY(${props => props.$isClosing ? '20px' : '0'});
   transition: all 0.3s ease-out;
   padding-bottom: 60px;
 `;
@@ -206,33 +204,21 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isClosing, setIsClosing] = useState(false);
-  const [isVisible, setIsVisible] = useState(isOpen);
   const [shouldRender, setShouldRender] = useState(isOpen);
 
-  // Обновляем видимость при изменении isOpen
   useEffect(() => {
     if (isOpen) {
       setShouldRender(true);
-      // Небольшая задержка для анимации появления
-      requestAnimationFrame(() => {
-        setIsVisible(true);
-        setIsClosing(false);
-      });
+      setIsClosing(false);
     }
   }, [isOpen]);
 
   const handleClose = useCallback(() => {
     setIsClosing(true);
-    // Ждем завершения анимации перед вызовом onClose
     setTimeout(() => {
-      setIsClosing(false);
-      setIsVisible(false);
-      // Дополнительная задержка перед полным удалением из DOM
-      setTimeout(() => {
-        setShouldRender(false);
-        onClose();
-      }, 50);
-    }, 300);
+      setShouldRender(false);
+      onClose();
+    }, 300); // Время равно длительности анимации
   }, [onClose]);
 
   // Обработка клика вне контейнера
@@ -279,39 +265,19 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     };
   }, [isOpen, handleClose]);
 
-  // Очистка при размонтировании
-  useEffect(() => {
-    return () => {
-      setIsClosing(false);
-      setIsVisible(false);
-      setShouldRender(false);
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-
   if (!shouldRender) return null;
 
   return (
     <>
       <Overlay 
-        isOpen={isOpen} 
-        isClosing={isClosing} 
+        $isOpen={isOpen} 
+        $isClosing={isClosing} 
         onClick={handleClose}
-        style={{ 
-          visibility: isVisible ? 'visible' : 'hidden',
-          opacity: isVisible ? 1 : 0,
-          transition: 'visibility 0s, opacity 0.3s ease-in-out'
-        }}
       />
       <DrawerContainer 
         ref={drawerRef} 
-        isOpen={isOpen} 
-        isClosing={isClosing}
-        style={{ 
-          visibility: isVisible ? 'visible' : 'hidden',
-          transform: isVisible ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'visibility 0s, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}
+        $isOpen={isOpen} 
+        $isClosing={isClosing}
       >
         <DrawerHeader>
           <DrawerTitle>{title}</DrawerTitle>
@@ -321,7 +287,7 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
             </svg>
           </CloseButton>
         </DrawerHeader>
-        <DrawerContent isClosing={isClosing}>
+        <DrawerContent $isClosing={isClosing}>
           {children}
         </DrawerContent>
       </DrawerContainer>

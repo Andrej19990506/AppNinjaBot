@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
+from sqlalchemy import text
+import json
+import logging
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -14,6 +17,9 @@ from models.group import Group
 
 # Добавляем схемы для создания и базовую
 from schemas.shift import ShiftRead, ShiftCreate, ShiftBase
+
+# Инициализируем логгер
+logger = logging.getLogger(__name__)
 
 # <<< Новая схема для создания через Telegram ID >>>
 class ShiftCreateTelegram(BaseModel):
@@ -43,7 +49,7 @@ async def read_shifts(
     if group_internal_id is None:
         # Если группа не найдена по Telegram ID, возвращаем пустой список (или 404?)
         # Пока вернем пустой список, т.к. фронт может запрашивать для разных чатов
-        print(f"[Shifts Endpoint] Group with Telegram ID {group_telegram_id} not found. Returning empty list.")
+        logger.warning(f"[Shifts Endpoint] Group with Telegram ID {group_telegram_id} not found. Returning empty list.")
         return [] 
         # Либо: raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with Telegram ID {group_telegram_id} not found")
 
@@ -73,6 +79,7 @@ async def create_shift(
     )
     member = member_result.scalar_one_or_none()
     if member is None:
+        logger.error(f"[Create Shift] Member with Telegram ID {shift_in.user_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Member with Telegram ID {shift_in.user_telegram_id} not found")
         
     # 2. Найти внутренний ID группы (Group) по Telegram ID
@@ -81,6 +88,7 @@ async def create_shift(
     )
     group = group_result.scalar_one_or_none()
     if group is None:
+        logger.error(f"[Create Shift] Group with Telegram ID {shift_in.group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with Telegram ID {shift_in.group_telegram_id} not found")
 
     # 3. Создать смену, используя найденные внутренние ID
@@ -95,21 +103,46 @@ async def create_shift(
     db.add(db_shift)
     try:
         await db.commit()
+        logger.info(f"[Create Shift] Shift committed for member {member.id} in group {group.id} ({shift_in.group_telegram_id}) on {shift_in.date}")
         await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at'])
         
+        # --- Отправка NOTIFY после успешного коммита --- >
+        try:
+            notify_payload = json.dumps({
+                "type": "shifts_updated",
+                # Передаем ТЕЛЕГРАМ ID группы, т.к. вебсокет работает с ним
+                "chat_id": str(shift_in.group_telegram_id),
+                "source": "shift_creation"
+            })
+            # Исправляем команду NOTIFY: вставляем payload прямо в строку
+            # и оборачиваем одинарными кавычками для SQL
+            # sql_command = text(f"NOTIFY websocket_channel, :payload") # Старая версия
+            # await db.execute(sql_command, {'payload': notify_payload}) # Старая версия
+            sql_command = text(f"NOTIFY websocket_channel, '{notify_payload}'")
+            await db.execute(sql_command) # Выполняем без параметров
+
+            # Commit после NOTIFY обычно не нужен
+            logger.info(f"[Create Shift] Sent NOTIFY websocket_channel for chat_id {shift_in.group_telegram_id}")
+        except Exception as notify_err:
+            # Логируем ошибку NOTIFY, но не прерываем основной ответ
+            logger.error(f"[Create Shift] Failed to send NOTIFY for chat_id {shift_in.group_telegram_id}: {notify_err}", exc_info=True)
+        # --- Конец блока NOTIFY ---
+
         # Загружаем связанного Member для ответа
         stmt = select(Shift).options(joinedload(Shift.member)).where(Shift.id == db_shift.id)
         result = await db.execute(stmt)
         created_shift_with_member = result.scalar_one_or_none()
         
         if created_shift_with_member is None:
+             logger.error(f"[Create Shift] Could not fetch created shift details after commit (Shift ID: {db_shift.id})")
+             # Возможно, стоит вернуть созданный db_shift без member?
              raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not fetch created shift details")
         
         return created_shift_with_member
         
     except Exception as e:
         await db.rollback()
-        print(f"Error creating shift: {e}")
+        logger.error(f"[Create Shift] Error during shift creation or commit: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while creating the shift."

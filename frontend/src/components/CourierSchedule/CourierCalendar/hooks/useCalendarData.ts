@@ -6,8 +6,6 @@ import {
     selectAllShifts,
     selectIsLoading,
     selectError,
-    subscribeToShiftEvents,
-    unsubscribeFromShiftEvents
 } from '../../../../store/slices/shiftsSlice';
 import { formatDateForAPI } from '../utils/dateUtils';
 
@@ -17,30 +15,12 @@ export const useCalendarData = (currentUserId: string) => {
     const isLoading = useSelector(selectIsLoading);
     const error = useSelector(selectError);
     const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [lastUpdateTime, setLastUpdateTime] = useState<number>(Date.now());
 
     // Функция для перезагрузки данных
     const refetchData = useCallback(() => {
         console.log('[Calendar] Refetching shifts data');
         dispatch(fetchShifts());
-        setLastUpdateTime(Date.now());
     }, [dispatch]);
-
-    // Обработчики WebSocket событий
-    const handleShiftUpdated = useCallback((data: any) => {
-        console.log('[Calendar] WebSocket shift_updated:', data.id);
-        setLastUpdateTime(Date.now());
-    }, []);
-
-    const handleShiftBooked = useCallback((data: any) => {
-        console.log('[Calendar] WebSocket shift_booked:', data.id);
-        setLastUpdateTime(Date.now());
-    }, []);
-
-    const handleShiftCanceled = useCallback((data: any) => {
-        console.log('[Calendar] WebSocket shift_canceled:', data.id);
-        setLastUpdateTime(Date.now());
-    }, []);
 
     // Получение смен для конкретной даты
     const getShiftsForDate = useCallback((date: Date) => {
@@ -76,18 +56,7 @@ export const useCalendarData = (currentUserId: string) => {
     useEffect(() => {
         // Загружаем смены при монтировании
         dispatch(fetchShifts());
-        
-        // Подписываемся на WebSocket события
-        subscribeToShiftEvents(dispatch, {
-            onShiftUpdated: handleShiftUpdated,
-            onShiftBooked: handleShiftBooked,
-            onShiftCanceled: handleShiftCanceled
-        });
-        
-        return () => {
-            unsubscribeFromShiftEvents();
-        };
-    }, [dispatch, handleShiftUpdated, handleShiftBooked, handleShiftCanceled]);
+    }, [dispatch]);
 
     return {
         shifts,
@@ -95,7 +64,6 @@ export const useCalendarData = (currentUserId: string) => {
         error,
         currentMonth,
         setCurrentMonth,
-        lastUpdateTime,
         getShiftsForDate,
         getDayShifts,
         getNightShifts,

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store/store';
 import { socketService } from '../services/socket';
@@ -8,179 +8,162 @@ import {
     reserveDeleted,
     forceFetchReserves 
 } from '../store/slices/reservesSlice';
-import { User } from '../types/user';
 import { ReserveShift } from '../types/shifts';
 import { logger } from '../utils/logger';
+
+// Импортируем селектор для даты
+import { selectSelectedDate } from '../store/slices/shiftsSlice'; 
 
 /**
  * Хук для синхронизации данных о резервах через WebSocket
  * @param chatId ID чата для которого нужно получать обновления
  * @returns объект с состоянием синхронизации и методами управления
  */
-export const useReservesSync = (chatId: string) => {
+export const useReservesSync = (chatId: string | undefined) => {
     const dispatch = useDispatch<AppDispatch>();
     const isLoadingRef = useRef(false);
     const user = useSelector((state: RootState) => state.user.user);
+    // Получаем выбранную дату из shiftsSlice
+    const selectedDate = useSelector(selectSelectedDate);
     
     // Загрузка данных
-    const loadReserves = () => {
-        if (isLoadingRef.current) return;
+    const loadReserves = useCallback(() => {
+        // Проверяем наличие chatId и selectedDate перед загрузкой
+        if (!chatId || !selectedDate || isLoadingRef.current) return;
+        
+        // Преобразуем chatId в number
+        const groupId = parseInt(chatId, 10);
+        if (isNaN(groupId)) {
+            logger.error('[useReservesSync] Invalid chatId provided:', chatId);
+            return;
+        }
         
         isLoadingRef.current = true;
-        dispatch(forceFetchReserves())
+        logger.log(`[useReservesSync] Загрузка резервов для группы ${groupId} на дату ${selectedDate}...`);
+        // Передаем groupId и selectedDate
+        dispatch(forceFetchReserves({ groupId, date: selectedDate }))
             .finally(() => {
                 isLoadingRef.current = false;
             });
-    };
+    }, [dispatch, chatId, selectedDate]);
     
     useEffect(() => {
-        if (!chatId || !user) return;
+        // Загружаем резервы при монтировании или изменении chatId/selectedDate/user
+        if (chatId && selectedDate && user) {
+            loadReserves();
+        }
         
-        loadReserves();
-        
-        const subscribeToEvents = () => {
-            // Подписываемся на 'reserve_added', 'reserve_updated', 'reserve_deleted'
-            // Важно: Убедиться, что бэкенд шлет эти события в общую комнату `couriers_{chatId}`
-            socketService.subscribe('reserve_added', (data: ReserveShift) => {
-                console.log('➕ Резерв добавлен:', data);
-                dispatch(reserveAdded(data));
-            });
+        // Настройка подписок WebSocket
+        if (!chatId || !user) return; // Не подписываемся без chatId или user
 
-            socketService.subscribe('reserve_updated', (data: ReserveShift) => {
-                console.log('🔄 Резерв обновлен:', data);
-                // Пока просто перезагружаем все резервы при обновлении
-                loadReserves(); 
-            });
-
-            socketService.subscribe('reserve_deleted', (data: { id?: string; userId?: string; date?: string }) => {
-                console.log('🗑️ Резерв удален:', data);
-                if (data.id) {
-                    dispatch(reserveDeleted({ id: data.id }));
-                } else if (data.userId && data.date) {
-                    dispatch(reserveDeleted({ userId: data.userId, date: data.date }));
-                } else {
-                    // Если нет ID или пары userId/date, перезагружаем все
-                    loadReserves();
-                }
-            });
+        const handleReserveAdded = (data: ReserveShift) => {
+            console.log('➕ Резерв добавлен (WS):', data);
+            // Проверяем, относится ли событие к текущему чату (если бэкенд не фильтрует)
+            // if (String(data.chatId) === chatId) { 
+                 dispatch(reserveAdded(data));
+            // }
         };
         
-        const unsubscribeFromEvents = () => {
-            socketService.unsubscribe('reserve_added');
-            socketService.unsubscribe('reserve_updated');
-            socketService.unsubscribe('reserve_deleted');
+        const handleReserveDeleted = (data: { id?: string; userId?: string; date?: string }) => {
+            console.log('🗑️ Резерв удален (WS):', data);
+            // Проверяем принадлежность к чату, если необходимо
+            dispatch(reserveDeleted(data)); 
         };
         
-        // Просто подписываемся на события, если сокет уже подключен (предполагается)
-        // TODO: Возможно, нужна проверка socketService.isConnected() перед подпиской?
-        // Или хук useWebSocketConnection должен гарантировать подписку только при активном соединении.
-        subscribeToEvents();
-        
+        // Подписываемся
+        const unsubscribeAdded = socketService.subscribe('reserve_added', handleReserveAdded);
+        const unsubscribeDeleted = socketService.subscribe('reserve_removed', handleReserveDeleted);
+        // Добавить подписку на reserve_updated, если бэкенд будет ее слать
+
         return () => {
-            unsubscribeFromEvents();
+            // Отписываемся при размонтировании или смене chatId/user
+            unsubscribeAdded();
+            unsubscribeDeleted();
         };
-    }, [dispatch, chatId, user]);
+    }, [dispatch, chatId, user, selectedDate, loadReserves]);
     
     // API для добавления в резерв
-    const addToReserve = (
-        date: string,
-        user: User | undefined,
-        chatId: string | number
-    ): Promise<ReserveShift> => {
+    const addToReserve = useCallback(async (date: string): Promise<ReserveShift> => {
         return new Promise((resolve, reject) => {
-            if (!user) {
-                logger.error(`❌ Cannot add to reserve: user is undefined`);
-                reject(new Error("User is undefined"));
+            if (!user || !chatId) {
+                const errorMsg = 'Невозможно добавить в резерв: нет пользователя или ID чата.';
+                logger.error(`[useReservesSync:addToReserve] ${errorMsg}`);
+                reject(new Error(errorMsg));
                 return;
             }
 
-            // Логируем подробную информацию о пользователе для диагностики
-            logger.info(`📊 Adding user to reserve: ${user.first_name} ${user.last_name} (${user.id})`);
-            logger.info(`⭐ User details:`, {
-                id: user.id,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                isSeniorCourier: user.is_senior_courier,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                type: typeof user.is_senior_courier,
-                isAdmin: user.isAdmin,
-                photoUrl: !!user.photo_url
-            });
+            const groupId = parseInt(chatId, 10);
+             if (isNaN(groupId)) {
+                 const errorMsg = 'Невозможно добавить в резерв: неверный ID чата.';
+                 logger.error(`[useReservesSync:addToReserve] ${errorMsg}`);
+                 reject(new Error(errorMsg));
+                 return;
+            }
 
             const reserveData = {
-                user_id: user.id,
-                date,
-                photo_url: user.photo_url,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                chat_id: chatId,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                is_senior_courier: user.is_senior_courier === true
+                user_telegram_id: user.telegram_id, 
+                group_telegram_id: groupId,
+                date: date, // YYYY-MM-DD
             };
 
-            logger.info(`📊 Sending reserve data to server:`, {
-                ...reserveData,
-                is_senior_courier_type: typeof reserveData.is_senior_courier,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                user_isSeniorCourier_original: user.is_senior_courier,
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                user_isSeniorCourier_type: typeof user.is_senior_courier
-            });
+            logger.info(`[useReservesSync:addToReserve] 📊 Отправка данных для добавления в резерв:`, reserveData);
 
+            // Эмитим событие через сокет
             socketService.emit("add_to_reserve", reserveData);
             
-            // Принудительно обновляем состояние через некоторое время
-            setTimeout(() => {
-                dispatch(forceFetchReserves());
-            }, 1000);
+            // Оптимистичное обновление не делаем, ждем ответа от WS (reserve_added)
+            // Можно добавить обработку ошибок emit, если socketService ее предоставляет
             
-            // Поскольку мы не используем emitWithAck, возвращаем временный объект
-            setTimeout(() => {
-                resolve({
-                    id: 'temp-id',
-                    userId: String(user.id),
-                    date,
-                    photo_url: user.photo_url,
-                    firstName: user.first_name || '',
-                    lastName: user.last_name || '',
-                    created_at: new Date().toISOString(),
-                    isSeniorCourier: reserveData.is_senior_courier
-                });
-            }, 500);
+            // TODO: Как получить результат (успех/ошибку) от операции через сокет?
+            // Возможно, нужен механизм ack или отдельное событие с результатом.
+            // Пока просто резолвим через время (плохо)
+             setTimeout(() => {
+                 console.warn('[useReservesSync:addToReserve] Assuming success after timeout (needs proper ack handling)');
+                 // Возвращаем примерные данные, т.к. реальных нет
+                 resolve({
+                     id: `temp-${Date.now()}`,
+                     userId: String(user.id),
+                     date,
+                     photo_url: user.photo_url,
+                     firstName: user.first_name || '',
+                     lastName: user.last_name || '',
+                     created_at: new Date().toISOString(),
+                     isSeniorCourier: user.is_senior_courier || false
+                 });
+             }, 1500); 
         });
-    };
+    }, [user, chatId]);
     
     // API для удаления из резерва
-    const removeFromReserve = (reserveId: string) => {
+    const removeFromReserve = useCallback((reserveId: string) => {
         if (!chatId) {
-            console.error('Нет ID чата для удаления из резерва');
+            logger.error('[useReservesSync:removeFromReserve] Нет ID чата для удаления из резерва');
             return;
         }
         
-        logger.info(`🗑️ Removing reserve with ID ${reserveId} from chat ${chatId}`);
+        logger.info(`🗑️ Запрос на удаление резерва ID ${reserveId} из чата ${chatId}`);
         
-        // Используем remove_from_reserve для совместимости с бэкендом
         socketService.emit('remove_from_reserve', {
-            chat_id: chatId,
-            id: reserveId
+            id: reserveId, 
+            chat_id: chatId
         });
-    };
+    }, [chatId]);
     
     // API для удаления из резерва по пользователю и дате
-    const removeUserFromReserve = (userId: string, date: string) => {
-        if (!chatId) {
-            console.error('Нет ID чата для удаления из резерва');
+    const removeUserFromReserve = useCallback((userIdToRemove: string, date: string) => {
+        if (!chatId || !user) {
+            logger.error('[useReservesSync:removeUserFromReserve] Нет ID чата или пользователя для удаления из резерва');
             return;
         }
         
-        logger.info(`🗑️ Removing reserve for user ${userId} on date ${date} from chat ${chatId}`);
+        logger.info(`🗑️ Запрос на удаление резерва для user ${userIdToRemove} на дату ${date} из чата ${chatId}`);
         
-        // Используем remove_from_reserve для совместимости с бэкендом
         socketService.emit('remove_from_reserve', {
-            chat_id: chatId,
-            user_id: userId,
-            date: date
+            user_id: userIdToRemove,
+            date: date,
+            chat_id: chatId
         });
-    };
+    }, [chatId, user]);
     
     return {
         loadReserves,

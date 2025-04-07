@@ -178,11 +178,6 @@ const SettingsTooltip: React.FC<SettingsTooltipProps> = ({ onClose, onOpenShiftA
                 <OptionLabel>Установить доступ к записи смен</OptionLabel>
                 <OptionIcon>📅</OptionIcon>
             </SettingsOption>
-            
-            <SettingsOption>
-                <OptionLabel>Статистика записей</OptionLabel>
-                <OptionIcon>📊</OptionIcon>
-            </SettingsOption>
         </TooltipContainer>
     );
 };

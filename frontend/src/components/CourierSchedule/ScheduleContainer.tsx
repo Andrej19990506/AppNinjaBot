@@ -7,10 +7,12 @@ import { format } from 'date-fns';
 import addDays from 'date-fns/addDays';
 import { ru } from 'date-fns/locale';
 import { AppDispatch, RootState } from '../../store/store';
-import { useShiftsSync } from '../../hooks/useShiftsSync';
 import { useReservesSync } from '../../hooks/useReservesSync';
-import { bookShift } from '../../store/slices/shiftsSlice';
+import { bookShift, cancelShift } from '../../store/slices/shiftsSlice';
+import { forceFetchReserves } from '../../store/slices/reservesSlice';
 import { socketService } from '../../services/socket';
+import { formatDateForAPI } from './CourierCalendar/utils/dateUtils';
+import { getReserves } from '../../services/courierApi'; // Импортируем getReserves напрямую
 
 // Стили
 const Container = styled.div`
@@ -140,11 +142,72 @@ const ScheduleContainer: React.FC = () => {
     const chatId = user?.groups && user.groups.length > 0 ? user.groups[0].chat_id : '';
     
     // Используем хуки для синхронизации данных смен и резервов
-    const shiftSync = useShiftsSync(chatId);
     const reserveSync = useReservesSync(chatId);
     
+    // Явная загрузка резервов при инициализации - добавляем прямой вызов API минуя Redux для отладки
+    useEffect(() => {
+        // Проверяем, доступны ли необходимые данные
+        if (chatId && selectedDate) {
+            console.log(`[ScheduleContainer] 🚩 Initializing reserves load for date: ${formatDateForAPI(selectedDate)}`);
+            console.log(`[ScheduleContainer] 💡 Важно: используем chat_id = ${chatId} (группа "${user?.groups?.[0]?.title || 'неизвестно'}")`);
+            
+            // Вызываем напрямую API для тестирования (минуя Redux)
+            const directApiCall = async () => {
+                try {
+                    const groupId = parseInt(chatId, 10);
+                    if (!isNaN(groupId)) {
+                        console.log(`[ScheduleContainer] 🔍 Прямой вызов API getReserves для отладки: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
+                        console.log(`[ScheduleContainer] 🔍 Детали запроса: groupId=${groupId} (тип: ${typeof groupId}, в строке: ${chatId}), date=${formatDateForAPI(selectedDate)}`);
+                        const apiReserves = await getReserves(groupId, formatDateForAPI(selectedDate));
+                        console.log(`[ScheduleContainer] ✅ Результат прямого вызова API:`, apiReserves);
+                        
+                        if (Array.isArray(apiReserves) && apiReserves.length > 0) {
+                            console.log(`[ScheduleContainer] 🎯 Получено ${apiReserves.length} резервов из API`);
+                        } else {
+                            console.log(`[ScheduleContainer] ℹ️ Для группы ${groupId} на дату ${formatDateForAPI(selectedDate)} нет резервов`);
+                        }
+                    } else {
+                        console.error(`[ScheduleContainer] ❌ Невозможно преобразовать chatId в число: ${chatId}`);
+                    }
+                } catch (error) {
+                    console.error('[ScheduleContainer] ❌ Ошибка прямого вызова API:', error);
+                }
+            };
+            
+            // Создаем тайм-аут для асинхронной загрузки, чтобы избежать блокировки рендера
+            const timer = setTimeout(() => {
+                try {
+                    // Сначала вызываем напрямую API
+                    directApiCall();
+                    
+                    // Затем через Redux
+                    const groupId = parseInt(chatId, 10);
+                    if (!isNaN(groupId)) {
+                        console.log(`[ScheduleContainer] 🚀 Вызов forceFetchReserves через Redux: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
+                        console.log(`[ScheduleContainer] 🚀 Redux будет использовать следующие параметры: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
+                        
+                        // Вызываем forceFetchReserves напрямую
+                        dispatch(forceFetchReserves({ 
+                            groupId, 
+                            date: formatDateForAPI(selectedDate)
+                        }));
+                        console.log(`[ScheduleContainer] 📤 Redux запрос отправлен`);
+                    } else {
+                        console.error(`[ScheduleContainer] ❌ Невозможно преобразовать chatId в число для Redux: ${chatId}`);
+                    }
+                } catch (error) {
+                    console.error('[ScheduleContainer] ❌ Ошибка при инициализации загрузки резервов:', error);
+                }
+            }, 1000); // Ждем 1000 мс после монтирования
+            
+            return () => clearTimeout(timer);
+        } else {
+            console.warn(`[ScheduleContainer] ⚠️ Невозможно загрузить резервы: ${!chatId ? 'отсутствует chatId' : 'отсутствует selectedDate'}`);
+        }
+    }, [dispatch, chatId, selectedDate, user?.groups]);
+    
     // Получаем смены на выбранную дату
-    const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+    const formattedDate = formatDateForAPI(selectedDate);
     const shiftsForDate = shifts.filter(shift => shift.date === formattedDate);
     
     // Разделяем смены на дневные и ночные
@@ -180,6 +243,22 @@ const ScheduleContainer: React.FC = () => {
         }
         
         try {
+            // Получаем настройки доступа
+            const accessSettings = useSelector((state: RootState) => state.shifts.accessSettings);
+            
+            // Проверяем, есть ли уже смена у пользователя на выбранную дату
+            const userHasShiftOnDate = shifts.some(shift => 
+                shift.date === formattedDate && 
+                String(shift.userId) === String(user.id)
+            );
+            
+            // Если у пользователя уже есть смена на эту дату и не разрешено записываться на несколько смен
+            if (userHasShiftOnDate && !accessSettings.allowMultipleShifts) {
+                console.log('[ScheduleContainer] User already has a shift on this date and multiple shifts are not allowed');
+                setSuccessMessage('Нельзя записаться на несколько смен в один день');
+                return;
+            }
+            
             // Журналируем статус старшего курьера перед созданием данных
             console.info('[ScheduleContainer] Обработка выбора смены:', {
                 userId: user.id,
@@ -209,33 +288,31 @@ const ScheduleContainer: React.FC = () => {
             await dispatch(bookShift({
                 date: formattedDate,
                 userId: String(user.id),
-                shiftType: shiftType,
-                slotIndex: slotIndex,
-                existingShiftId: existingShiftId,
-                // УДАЛЯЕМ chatId, так как его нет в BookShiftThunkParams
-                // chatId: chatId 
-            }));
+                shiftType,
+                slotIndex,
+                existingShiftId
+            })).unwrap();
             
-            // Отправляем запрос на обновление смены через хук синхронизации
-            shiftSync.updateShift(shiftData);
-            
-            setSuccessMessage('Вы успешно записались на смену');
-        } catch (error) {
-            console.error('Ошибка при записи на смену:', error);
-            setSuccessMessage('Ошибка при записи на смену');
+            setSuccessMessage('Запись на смену прошла успешно!');
+        } catch (error: any) {
+            console.error('Ошибка при бронировании смены:', error);
+            // Отображаем сообщение об ошибке из rejectWithValue
+            setSuccessMessage(error || 'Ошибка при записи на смену.');
         }
-    }, [user, formattedDate, shiftSync, chatId, dispatch]);
+    }, [dispatch, user, formattedDate, shifts]);
     
     // Обработчик отмены смены
     const handleCancelShift = useCallback(async (shiftId: string) => {
         try {
-            shiftSync.cancelShift(shiftId);
-            setSuccessMessage('Смена успешно отменена');
-        } catch (error) {
+            // Используем cancelShift thunk для удаления смены
+            await dispatch(cancelShift({ shiftId })).unwrap();
+
+            setSuccessMessage('Смена успешно отменена!');
+        } catch (error: any) {
             console.error('Ошибка при отмене смены:', error);
             setSuccessMessage('Ошибка при отмене смены');
         }
-    }, [shiftSync]);
+    }, [dispatch]);
     
     // Обработчик добавления в резерв
     const handleAddToReserve = useCallback(async () => {
@@ -266,12 +343,8 @@ const ScheduleContainer: React.FC = () => {
                 is_senior_courier: user.is_senior_courier
             });
             
-            // Используем хук для добавления в резерв с исправленными параметрами
-            const result = await reserveSync.addToReserve(
-                formattedDate,
-                user,
-                chatId
-            );
+            // Вызываем addToReserve только с датой
+            const result = await reserveSync.addToReserve(formattedDate);
             
             console.log('[ScheduleContainer] Результат добавления в резерв:', result);
             
@@ -312,9 +385,9 @@ const ScheduleContainer: React.FC = () => {
     
     // Форсированное обновление данных
     const forceUpdate = useCallback(() => {
-        shiftSync.loadShifts();
+        // Загружаем только резервы, смены загружаются через другие механизмы
         reserveSync.loadReserves();
-    }, [shiftSync, reserveSync]);
+    }, [reserveSync]);
     
     // Обработчик закрытия уведомления
     const handleCloseSnackbar = () => {

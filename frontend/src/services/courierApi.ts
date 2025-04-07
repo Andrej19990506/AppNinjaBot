@@ -385,32 +385,89 @@ export const createOrUpdateShift = async (shiftData: {
 // - updateShiftAccessSettings
 // - updateCourierProfile (перенести из api.ts)
 
-// Интерфейс для объекта резерва, возвращаемого API
+// Интерфейс для объекта резерва, возвращаемого API (соответствует ReserveRead)
 interface ApiReserve {
-    id: string;
-    user_id: string;
+    id: string; // UUID
+    user_id: string; // UUID пользователя из БД
+    group_telegram_id: number;
     date: string; // YYYY-MM-DD
-    photo_url: string | null;
-    first_name: string;
-    last_name: string;
     created_at: string; // ISO timestamp
-    is_senior_courier?: boolean;
+    user: {
+        id: string; // UUID пользователя из БД
+        telegram_id: number;
+        first_name: string | null;
+        last_name: string | null;
+        photo_url: string | null;
+        is_senior_courier: boolean | null;
+    };
 }
 
-/**
- * Получает список всех резервов (вероятно, для всех чатов?).
- * TODO: Уточнить, нужны ли параметры запроса (например, chat_id)?
- */
-export const getReserves = async (): Promise<ApiReserve[]> => {
-    logger.log('[courierApi] 📡 Запрос всех резервов');
+// Функция для загрузки резервов
+export const getReserves = async (groupTelegramId: number, reserveDate?: string): Promise<any[]> => {
     try {
-        // Добавляем /api/v1/ префикс
-        const response = await axiosInstance.get<ApiReserve[]>('/api/v1/reserves'); 
-        logger.log('[courierApi] ✅ Резервы получены', response.data);
-        return response.data;
+        // Проверка входных параметров
+        if (!groupTelegramId) {
+            console.error('[courierApi] ❌ Ошибка: не указан groupTelegramId для получения резервов');
+            return [];
+        }
+        
+        // Явно указываем параметры запроса
+        const params: Record<string, any> = {
+            group_telegram_id: groupTelegramId
+        };
+        
+        // Если дата указана, добавляем её в параметры
+        if (reserveDate) {
+            params.reserve_date = reserveDate;
+            console.log(`[courierApi] 📡 Запрос резервов для группы ${groupTelegramId} на дату ${reserveDate}`);
+        } else {
+            console.log(`[courierApi] 📡 Запрос ВСЕХ резервов для группы ${groupTelegramId}`);
+        }
+        
+        console.log(`[courierApi] 🔍 Параметры запроса:`, params);
+        console.log(`[courierApi] 🌐 URL: /api/v1/reserves, Params:`, params);
+        
+        // Создаем URL с параметрами для отладки
+        let fullUrl = `/api/v1/reserves?group_telegram_id=${groupTelegramId}`;
+        if (reserveDate) {
+            fullUrl += `&reserve_date=${reserveDate}`;
+        }
+        console.log(`[courierApi] 🔍 Полный URL с параметрами: ${fullUrl}`);
+        
+        console.log(`[courierApi] 🚀 Отправка GET запроса...`);
+        
+        // Отправляем запрос с явно указанными параметрами
+        const response = await axiosInstance.get('/api/v1/reserves', { params });
+        
+        // Логируем ответ для отладки
+        console.log(`[courierApi] ✅ Получен ответ. Статус: ${response.status}`);
+        console.log(`[courierApi] 📄 Заголовки ответа:`, response.headers);
+        console.log(`[courierApi] 📦 Данные ответа:`, response.data);
+        
+        // Проверяем, что ответ - массив
+        const reserves = Array.isArray(response.data) ? response.data : [];
+        console.log(`[courierApi] 🔢 Количество полученных резервов: ${reserves.length}`);
+        
+        return reserves;
     } catch (error) {
-        logger.error('[courierApi] ❌ Ошибка при запросе всех резервов', error);
-        throw error;
+        // Расширенная обработка ошибок
+        if (axios.isAxiosError(error)) {
+            console.error(`[courierApi] ❌ Ошибка Axios при получении резервов:`, {
+                status: error.response?.status,
+                statusText: error.response?.statusText,
+                data: error.response?.data,
+                message: error.message
+            });
+            
+            // Если ошибка 404, возвращаем пустой массив
+            if (error.response?.status === 404) {
+                console.log(`[courierApi] ℹ️ Резервы не найдены (404), возвращаем пустой массив`);
+                return [];
+            }
+        } else {
+            console.error(`[courierApi] ❌ Неизвестная ошибка при получении резервов:`, error);
+        }
+        return [];
     }
 };
 
@@ -418,15 +475,62 @@ export const getReserves = async (): Promise<ApiReserve[]> => {
  * Удаляет резерв по ID.
  * @param reserveId ID резерва для удаления
  */
-export const deleteReserve = async (reserveId: string): Promise<void> => {
-    logger.log(`[courierApi] 📡 Запрос на удаление резерва ID: ${reserveId}`);
+export const deleteReserve = async (reserveId: string): Promise<ApiReserve> => {
+    logger.info(`[courierApi] 📡 Запрос на удаление резерва ID: ${reserveId}`);
     try {
-        // Добавляем /api/v1/ префикс
-        await axiosInstance.delete(`/api/v1/reserves/${reserveId}`); 
-        logger.log(`[courierApi] ✅ Резерв ID: ${reserveId} удален`);
+        // Убедимся, что используем правильный URL
+        const response = await axiosInstance.delete<ApiReserve>(`/api/v1/reserves/${reserveId}`); 
+        logger.info(`[courierApi] ✅ Резерв ID: ${reserveId} удален`, response.data);
+        return response.data; // Возвращаем удаленный объект резерва
     } catch (error) {
         logger.error(`[courierApi] ❌ Ошибка при удалении резерва ID: ${reserveId}`, error);
+        // Можно добавить более детальную обработку ошибок 404, 403 и т.д.
         throw error;
+    }
+};
+
+// Интерфейс для данных добавления в резерв
+interface AddToReserveData {
+    userTelegramId: number;
+    groupTelegramId: number;
+    date: string; // YYYY-MM-DD
+}
+
+/**
+ * Добавляет пользователя в резерв на указанную дату.
+ * @param data Данные для добавления в резерв
+ */
+export const addToReserve = async (data: AddToReserveData): Promise<ApiReserve> => {
+    logger.info(`[courierApi] 📡 Запрос на добавление в резерв user ${data.userTelegramId} в группу ${data.groupTelegramId} на ${data.date}`);
+    try {
+        // Преобразуем ключи в snake_case для бэкенда
+        const payload = {
+            user_telegram_id: data.userTelegramId,
+            group_telegram_id: data.groupTelegramId,
+            reserve_date: data.date  // Изменяем поле date на reserve_date, как требует сервер
+        };
+        const response = await axiosInstance.post<ApiReserve>('/api/v1/reserves', payload);
+        logger.info(`[courierApi] ✅ Пользователь ${data.userTelegramId} добавлен в резерв на ${data.date}`, response.data);
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при добавлении в резерв user ${data.userTelegramId} на ${data.date}`, error);
+        // Можно добавить обработку конфликтов (409 - уже в резерве?), 404 (пользователь/группа не найдены)
+         if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+             if (status === 404) {
+                 throw new Error(detail || 'Пользователь или группа не найдены.');
+            }
+             if (status === 409) { 
+                 // Пользователь уже в резерве на эту дату
+                 logger.warn(`[courierApi] ⚠️ Пользователь ${data.userTelegramId} уже находится в резерве на ${data.date}`);
+                 throw new Error(detail || 'Вы уже находитесь в резерве на эту дату.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при добавлении в резерв.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при добавлении в резерв.');
     }
 };
 

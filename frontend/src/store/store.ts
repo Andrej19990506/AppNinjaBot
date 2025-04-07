@@ -11,14 +11,11 @@ import adminReducer from './slices/adminSlice';
 import courierReducer from './slices/courierSlice';
 import shiftsReducer, {
     subscribeToShiftEvents,
-    unsubscribeFromShiftEvents,
     // subscribeToRegistrationEvents, // Закомментировано
     // unsubscribeFromRegistrationEvents // Закомментировано, т.к. такой нет, а unsubscribeFromShiftEvents уже есть
 } from './slices/shiftsSlice';
 import reservesReducer, {
-    fetchReserves,
     subscribeToReserveEvents,
-    unsubscribeFromReserveEvents
 } from './slices/reservesSlice';
 import socketReducer, { socketConnected, socketDisconnected } from './slices/socketSlice';
 import { socketService } from '../services/socket';
@@ -27,6 +24,7 @@ import { socketService } from '../services/socket';
 import { logger } from '../utils/logger';
 import { routeChanged } from './actions';
 import { Socket } from 'socket.io-client';
+
 
 // Создаем listener middleware instance
 export const listenerMiddleware = createListenerMiddleware();
@@ -387,8 +385,5 @@ listenerMiddleware.startListening({
         }
     }
 });
-
-// Загружаем резервы при инициализации приложения
-store.dispatch(fetchReserves());
 
 export default store; 

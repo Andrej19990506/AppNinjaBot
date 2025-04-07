@@ -26,6 +26,8 @@ interface DayCellProps {
     getNightShifts: (date: Date) => CourierShift[];
     hasUserShift: (date: Date) => boolean;
     userIsInReserve: (date: Date) => boolean;
+    maxDaySlots: number;
+    maxNightSlots: number;
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -40,7 +42,9 @@ const DayCell: React.FC<DayCellProps> = ({
     getDayShifts,
     getNightShifts,
     hasUserShift,
-    userIsInReserve
+    userIsInReserve,
+    maxDaySlots,
+    maxNightSlots
 }) => {
     // Для предотвращения двойного тапа
     const lastTapRef = useRef<number>(0);
@@ -151,9 +155,14 @@ const DayCell: React.FC<DayCellProps> = ({
         }
 
         if (isAvailable) {
-            if (hasShifts && dayShifts.length >= 4 && nightShifts.length >= 2) {
+            // Заменяем жесткую проверку на динамическую
+            const allDaySlotsOccupied = dayShifts.length >= maxDaySlots;
+            const allNightSlotsOccupied = nightShifts.length >= maxNightSlots;
+
+            if (allDaySlotsOccupied && allNightSlotsOccupied) {
+                // Все слоты (и дневные, и ночные) заняты
                 return (
-                    <OccupiedSlotIndicator>
+                    <OccupiedSlotIndicator title="Все смены заняты">
                         <DayNumber 
                             $isAvailable={false} 
                             style={{ 

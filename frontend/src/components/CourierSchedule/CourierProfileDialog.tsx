@@ -1,13 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { useAppSelector, useAppDispatch } from '../../store/hooks';
-import { updateSeniorCourierStatus } from '../../store/slices/userSlice';
+import { useAppSelector } from '../../store/hooks';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
+
+// Добавляем ShiftSlotLocal из хука для единообразия
+interface ShiftSlotLocal {
+    id?: string;
+    userId?: string;
+    photo_url?: string | null;
+    firstName?: string;
+    lastName?: string;
+    shiftType?: 'day' | 'night';
+    slotIndex: number;
+    isSeniorCourier?: boolean;
+    is_senior_courier?: boolean; // Для совместимости
+}
 
 interface CourierProfileDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { firstName: string; lastName: string; isSeniorCourier?: boolean; seniorPassword?: string; }) => void;
+    onSave?: (data: { firstName: string; lastName: string; isSeniorCourier?: boolean; seniorPassword?: string; }) => void; // Делаем onSave опциональным
+    profileData?: ShiftSlotLocal | null; // Добавляем проп для данных курьера
 }
 
 const slideIn = keyframes`
@@ -47,28 +60,6 @@ const fadeOut = keyframes`
     }
     to {
         opacity: 0;
-    }
-`;
-
-// Анимация для галочки
-const checkmarkAnimation = keyframes`
-    0% {
-        stroke-dashoffset: 100;
-    }
-    100% {
-        stroke-dashoffset: 0;
-    }
-`;
-
-const bounceAnimation = keyframes`
-    0%, 20%, 50%, 80%, 100% {
-        transform: translateY(0);
-    }
-    40% {
-        transform: translateY(-30px);
-    }
-    60% {
-        transform: translateY(-15px);
     }
 `;
 
@@ -136,13 +127,6 @@ const Title = styled.h2`
     font-size: 1.5rem;
     margin: 0;
     margin-bottom: 8px;
-    text-align: center;
-`;
-
-const Subtitle = styled.p`
-    color: var(--text-secondary);
-    font-size: 1rem;
-    margin: 0;
     text-align: center;
 `;
 
@@ -253,226 +237,207 @@ const ErrorMessage = styled.div`
     font-size: 0.9rem;
 `;
 
-const SuccessContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    text-align: center;
-`;
+const CloseButton = styled.button`
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
 
-const CheckmarkCircle = styled.div`
-    width: 100px;
-    height: 100px;
-    position: relative;
-    margin-bottom: 24px;
-    animation: ${bounceAnimation} 1s ease;
-`;
-
-const Checkmark = styled.svg`
-    width: 100%;
-    height: 100%;
-    stroke: var(--success-color);
-    stroke-width: 4;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-    stroke-dasharray: 100;
-    stroke-dashoffset: 100;
-    animation: ${checkmarkAnimation} 1s ease forwards;
-    fill: none;
-`;
-
-const SuccessMessage = styled.div`
-    margin-bottom: 24px;
-`;
-
-const SuccessText = styled.h3`
-    color: var(--text-color);
-    font-size: 1.5rem;
-    margin: 0 0 8px 0;
+    &:hover {
+        color: var(--text-color);
+    }
 `;
 
 const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
     isOpen,
     onClose,
     onSave,
+    profileData,
 }) => {
-    const user = useAppSelector((state) => state.user.user);
-    const dispatch = useAppDispatch();
-    const [firstName, setFirstName] = useState('');
-    const [lastName, setLastName] = useState('');
-    const [isSeniorCourier, setIsSeniorCourier] = useState(false);
+    const currentUser = useAppSelector(state => state.user.user);
+    const loading = useAppSelector(state => state.user.loading);
+    const error = useAppSelector(state => state.user.error);
+
+    // Определяем, показываем ли мы профиль текущего пользователя
+    const isCurrentUserProfile = !profileData || (currentUser?.id === profileData?.userId);
+
+    // Используем данные из profileData или currentUser
+    const displayData = profileData || currentUser;
+
+    // ---- Нормализация данных ----
+    const getFirstName = (data: any): string => data?.firstName ?? data?.first_name ?? '';
+    const getLastName = (data: any): string => data?.lastName ?? data?.last_name ?? '';
+    const getIsSenior = (data: any): boolean => !!(data && (data.isSeniorCourier || data.is_senior_courier));
+    const getPhotoUrl = (data: any): string | undefined => data?.photo_url || undefined;
+    // ---------------------------
+
+    // Состояния для полей формы, инициализируем из displayData с нормализацией
+    const [firstName, setFirstName] = useState(getFirstName(displayData));
+    const [lastName, setLastName] = useState(getLastName(displayData));
+    const [isSenior, setIsSenior] = useState(getIsSenior(displayData));
     const [seniorPassword, setSeniorPassword] = useState('');
-    const [error, setError] = useState<string | null>(null);
+    const [showPasswordInput, setShowPasswordInput] = useState(false);
+    const [localError, setLocalError] = useState<string | null>(null);
     const [isClosing, setIsClosing] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
-    const [passwordValid, setPasswordValid] = useState(true);
 
+    // Обновляем состояния при изменении currentUser или profileData
     useEffect(() => {
-        if (isOpen) {
-            setIsClosing(false);
-            setIsSuccess(false);
-            setFirstName(user?.first_name || '');
-            setLastName(user?.last_name || '');
-            setIsSeniorCourier(user?.is_senior_courier || false);
-            setSeniorPassword('');
-            setError(null);
-            setPasswordValid(true);
-        }
-    }, [isOpen, user]);
+        const dataToDisplay = profileData || currentUser;
+        setFirstName(getFirstName(dataToDisplay));
+        setLastName(getLastName(dataToDisplay));
+        setIsSenior(getIsSenior(dataToDisplay));
+        // Сбрасываем пароль и ошибку при смене профиля
+        setSeniorPassword('');
+        setShowPasswordInput(false);
+        setLocalError(null);
+    }, [currentUser, profileData]);
 
-    // Валидация пароля старшего курьера
-    useEffect(() => {
-        if (isSeniorCourier) {
-            // Минимальная длина 6 символов
-            setPasswordValid(seniorPassword.length >= 6);
-        } else {
-            setPasswordValid(true);
-        }
-    }, [seniorPassword, isSeniorCourier]);
-
+    // Обработчик закрытия
     const handleClose = () => {
+        if (isClosing) return;
         setIsClosing(true);
         setTimeout(() => {
             onClose();
-            setIsClosing(false);
-            setIsSuccess(false);
-        }, 300);
+            setIsClosing(false); // Сбрасываем флаг после завершения анимации
+        }, 300); // Длительность анимации
     };
 
+    // Обработчик отправки формы (только если onSave передан и это профиль текущего пользователя)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const trimmedFirstName = firstName.trim();
-        const trimmedLastName = lastName.trim();
+        setLocalError(null);
 
-        if (!trimmedFirstName || !trimmedLastName) {
-            setError('Пожалуйста, заполните оба поля');
+        if (!isCurrentUserProfile || !onSave) return; // Не сохраняем чужой профиль или если нет onSave
+
+        if (isSenior && !currentUser?.is_senior_courier && !seniorPassword) {
+            setLocalError('Введите пароль старшего курьера для подтверждения.');
+            setShowPasswordInput(true);
             return;
         }
 
-        if (isSeniorCourier && !seniorPassword) {
-            setError('Для старшего курьера необходимо указать пароль');
-            return;
-        }
+        // Вызываем onSave с данными формы
+        onSave({ 
+            firstName, 
+            lastName, 
+            isSeniorCourier: isSenior, 
+            seniorPassword: isSenior ? seniorPassword : undefined 
+        });
+        
+        // Закрываем диалог после успешного сохранения (если нужно)
+        // handleClose();
+    };
 
-        if (isSeniorCourier && !passwordValid) {
-            setError('Пароль должен содержать минимум 6 символов');
-            return;
-        }
-
-        try {
-            const data = {
-                firstName: trimmedFirstName,
-                lastName: trimmedLastName
-            };
-
-            // Добавляем данные старшего курьера только если включен чекбокс
-            if (isSeniorCourier) {
-                Object.assign(data, {
-                    isSeniorCourier: true,
-                    seniorPassword: seniorPassword
-                });
-            }
-
-            // Обновляем статус старшего курьера в Redux
-            dispatch(updateSeniorCourierStatus(isSeniorCourier));
-            console.log('🌟 Обновлен статус старшего курьера в профиле:', isSeniorCourier);
-
-            await onSave(data);
-            setIsSuccess(true);
-        } catch (error) {
-            if (error instanceof Error) {
-                setError(error.message);
-            } else {
-                setError('Ошибка при сохранении данных');
-            }
+    // Обработчик изменения чекбокса старшего курьера
+    const handleSeniorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        setIsSenior(checked);
+        // Показываем поле пароля только если делаем себя старшим (изначально не были)
+        const currentIsSenior = getIsSenior(currentUser); // Получаем актуальный статус текущего пользователя
+        if (checked && !currentIsSenior) {
+            setShowPasswordInput(true);
+        } else {
+            setShowPasswordInput(false);
+            setSeniorPassword(''); // Сбрасываем пароль, если убираем галку или уже старший
         }
     };
 
-    if (!isOpen) return null;
+    if (!isOpen && !isClosing) {
+        return null;
+    }
+
+    const canEdit = isCurrentUserProfile && !!onSave; // Редактировать можно только свой профиль и если есть onSave
 
     return (
-        <DialogOverlay $isOpen={isOpen} $isClosing={isClosing}>
-            <DialogContent $isClosing={isClosing}>
-                {!isSuccess ? (
-                    <>
-                        <Header>
-                            <Title>Профиль курьера</Title>
-                            <Subtitle>Пожалуйста, заполните ваши данные</Subtitle>
-                        </Header>
-                        <ProfileImage $url={user?.photo_url || undefined} />
-                        {error && <ErrorMessage>{error}</ErrorMessage>}
-                        <Form onSubmit={handleSubmit}>
-                            <InputGroup>
-                                <Label htmlFor="firstName">Имя</Label>
-                                <Input
-                                    id="firstName"
-                                    type="text"
-                                    value={firstName}
-                                    onChange={(e) => setFirstName(e.target.value)}
-                                    placeholder="Введите ваше имя"
-                                />
-                            </InputGroup>
-                            <InputGroup>
-                                <Label htmlFor="lastName">Фамилия</Label>
-                                <Input
-                                    id="lastName"
-                                    type="text"
-                                    value={lastName}
-                                    onChange={(e) => setLastName(e.target.value)}
-                                    placeholder="Введите вашу фамилию"
-                                />
-                            </InputGroup>
-                            
-                            <CheckboxGroup>
-                                <CheckboxLabel>
-                                    <Checkbox
-                                        type="checkbox"
-                                        checked={isSeniorCourier}
-                                        onChange={(e) => setIsSeniorCourier(e.target.checked)}
-                                    />
-                                    Старший курьер
-                                </CheckboxLabel>
-                            </CheckboxGroup>
+        <DialogOverlay $isOpen={isOpen} $isClosing={isClosing} onClick={handleClose}>
+            <DialogContent $isClosing={isClosing} onClick={(e) => e.stopPropagation()}>
+                <CloseButton onClick={handleClose}>&times;</CloseButton>
+                <Header>
+                    <ProfileImage $url={getPhotoUrl(displayData)} />
+                    <Title>{`${getFirstName(displayData) || 'Имя'} ${getLastName(displayData) || 'Фамилия'}`}</Title>
+                </Header>
 
-                            {isSeniorCourier && (
-                                <InputGroup>
-                                    <Label htmlFor="seniorPassword">Пароль старшего курьера</Label>
-                                    <Input
-                                        id="seniorPassword"
-                                        type="password"
-                                        value={seniorPassword}
-                                        onChange={(e) => setSeniorPassword(e.target.value)}
-                                        placeholder="Введите пароль"
-                                        style={{
-                                            borderColor: passwordValid ? '' : 'var(--error-color)'
-                                        }}
-                                    />
-                                    <PasswordNoteText>
-                                        Пароль должен содержать минимум 6 символов
-                                    </PasswordNoteText>
-                                </InputGroup>
-                            )}
-                            
-                            <Button type="submit">Сохранить</Button>
-                        </Form>
-                    </>
-                ) : (
-                    <SuccessContainer>
-                        <CheckmarkCircle>
-                            <Checkmark viewBox="0 0 52 52">
-                                <circle cx="26" cy="26" r="23" />
-                                <path d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-                            </Checkmark>
-                        </CheckmarkCircle>
-                        <SuccessMessage>
-                            <SuccessText>Спасибо!</SuccessText>
-                            <Subtitle>Ваши данные успешно сохранены</Subtitle>
-                        </SuccessMessage>
-                        <Button onClick={handleClose}>OK</Button>
-                    </SuccessContainer>
-                )}
+                <Form onSubmit={handleSubmit}>
+                    <InputGroup>
+                        <Label htmlFor="firstName">Имя</Label>
+                        <Input
+                            id="firstName"
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder="Введите имя"
+                            disabled={!canEdit}
+                        />
+                    </InputGroup>
+                    <InputGroup>
+                        <Label htmlFor="lastName">Фамилия</Label>
+                        <Input
+                            id="lastName"
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder="Введите фамилию"
+                            disabled={!canEdit}
+                        />
+                    </InputGroup>
+
+                    {/* Показываем чекбокс старшего только если можно редактировать */}
+                    {canEdit && (
+                        <CheckboxGroup>
+                            <CheckboxLabel>
+                                <Checkbox
+                                    type="checkbox"
+                                    checked={isSenior}
+                                    onChange={handleSeniorChange}
+                                    disabled={!canEdit}
+                                />
+                                Старший курьер
+                            </CheckboxLabel>
+                        </CheckboxGroup>
+                    )}
+                    {/* Показываем статус старшего текстом, если нельзя редактировать */}
+                    {!canEdit && getIsSenior(displayData) && (
+                         <p style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginTop: '10px' }}>⭐ Старший курьер</p>
+                    )}
+
+                    {/* Поле для пароля старшего курьера */}
+                    {canEdit && showPasswordInput && (
+                        <InputGroup style={{ marginTop: '10px' }}>
+                            <Label htmlFor="seniorPassword">Пароль старшего курьера</Label>
+                            <Input
+                                id="seniorPassword"
+                                type="password"
+                                value={seniorPassword}
+                                onChange={(e) => setSeniorPassword(e.target.value)}
+                                placeholder="Введите пароль для подтверждения"
+                                disabled={!canEdit}
+                            />
+                             <PasswordNoteText>
+                                 Требуется только при первом назначении статуса старшего.
+                             </PasswordNoteText>
+                        </InputGroup>
+                    )}
+
+                    {(error || localError) && <ErrorMessage>{error || localError}</ErrorMessage>}
+                    
+                    {/* Показываем кнопку сохранения только если можно редактировать */}
+                    {canEdit && (
+                        <Button type="submit" disabled={loading}>
+                            {loading ? 'Сохранение...' : 'Сохранить'}
+                        </Button>
+                    )}
+                     {/* Показываем кнопку "Закрыть", если нельзя редактировать */} 
+                     {!canEdit && (
+                         <Button type="button" onClick={handleClose} style={{ background: 'var(--button-secondary-bg)' }}>
+                             Закрыть
+                         </Button>
+                     )}
+                </Form>
             </DialogContent>
         </DialogOverlay>
     );

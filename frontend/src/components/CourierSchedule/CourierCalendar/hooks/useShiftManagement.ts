@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 // import { socketService } from '../../../../services/socket'; // <<< УБИРАЕМ SOCKET
 import { createOrUpdateShift } from '../../../../services/courierApi'; // <<< ДОБАВЛЯЕМ API ФУНКЦИЮ
 import { logger } from '../../../../utils/logger';
+import { format } from 'date-fns';
 // import { useSelector } from 'react-redux'; // <-- Удаляем этот импорт
 
 export const useShiftManagement = (currentUserId: string | number, chatId: string | number) => {
@@ -26,8 +27,11 @@ export const useShiftManagement = (currentUserId: string | number, chatId: strin
         }
 
         try {
+            // Используем format из date-fns для получения локальной даты в формате YYYY-MM-DD
+            const localDate = format(date, 'yyyy-MM-dd');
+            
             logger.info('📡 Отправка запроса на создание смены:', {
-                date: date.toISOString().split('T')[0], // Отправляем только YYYY-MM-DD
+                date: localDate,
                 shiftType,
                 slotIndex,
                 userTelegramId,
@@ -35,7 +39,7 @@ export const useShiftManagement = (currentUserId: string | number, chatId: strin
             });
 
             const shiftDataForApi = {
-                date: date.toISOString().split('T')[0], // YYYY-MM-DD
+                date: localDate,
                 shift_type: shiftType,
                 slot_index: slotIndex,
                 user_telegram_id: userTelegramId,

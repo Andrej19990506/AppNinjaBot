@@ -24,5 +24,9 @@ class Member(Base):
     # Связь со сменами (один участник - много смен)
     shifts = relationship("Shift", back_populates="member")
 
+    # === ДОБАВЛЕНО: Связь с резервами ===
+    reserves = relationship("Reserve", back_populates="member")
+    # ===================================
+
     # Ограничение уникальности для user_id (хотя уже есть unique=True)
     __table_args__ = (UniqueConstraint('user_id', name='uq_member_user_id'),) 

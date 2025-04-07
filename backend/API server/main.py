@@ -3,6 +3,12 @@ from dotenv import load_dotenv
 import os
 # Добавляем импорт CORSMiddleware
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+# Удаляем неиспользуемый импорт SessionLocal
+from models.base import Base      # <<< ИСПРАВЛЕНО: Импорт из models.base
+from core.config import settings    # <<< ИЗМЕНЕНО: Абсолютный импорт
+from routers import users as user, reserve # <<< ИЗМЕНЕНО: Используем существующий файл users.py как user
+import logging
 
 # Импортируем роутеры
 # Удаляем старые импорты
@@ -58,10 +64,20 @@ async def health_check():
 # Подключаем роутер V1 с префиксом /api/v1
 app.include_router(api_v1_router, prefix="/api/v1")
 
+# Инициализация базы данных (опционально, если у вас есть такой механизм)
+# init_db()
+
+# Включаем роутеры
+app.include_router(user.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(reserve.router, prefix="/api/v1/reserves", tags=["reserves"]) # Регистрируем новый роутер
+
 # TODO: Подключить другие роутеры (списания, инвентаризация) по мере их создания
 # from .routers import writeoffs, inventory
 # app.include_router(writeoffs.router, prefix="/api")
 # app.include_router(inventory.router, prefix="/api")
+
+# Пример обработчика ошибок валидации Pydantic
+# ... (exception_handlers)
 
 if __name__ == "__main__":
     import uvicorn

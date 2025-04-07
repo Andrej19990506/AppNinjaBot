@@ -49,22 +49,31 @@ export const useAvailabilityCheck = (chatId?: string, refreshCalendar?: () => vo
         logger.log(`[useAvailabilityCheck] Хук активен, chatId=${chatId}, isConnected=${currentIsConnected}, подписки настроены.`);
         
         const handleAvailabilityUpdate = (data: AvailabilityUpdate) => {
-            console.log('🔄 [AvailabilityUpdate] Получено обновление доступности:', data);
+            logger.log('🔄 [AvailabilityUpdate] Получено обновление доступности:', data);
             handleRefreshCalendar();
         };
 
         const handleRefreshCommand = () => {
-            console.log('🔄 [RefreshCommand] Получена команда на обновление календаря');
+            logger.log('🔄 [RefreshCommand] Получена команда на обновление календаря');
             handleRefreshCalendar();
         };
 
         const handleGlobalRefresh = () => {
-            console.log('🔄 [GlobalRefresh] Получена команда на глобальное обновление');
-            handleRefreshCalendar(); 
+            logger.log('🔄 [GlobalRefresh] Получена команда на глобальное обновление');
+            handleRefreshCalendar();
         };
 
         const handleError = (error: any) => {
-            console.error('❌ [WebSocket Error] Получена ошибка:', error);
+            logger.error('❌ [WebSocket Error] Получена ошибка:', error);
+        };
+
+        const handleShiftsUpdate = (data: { type: string; chat_id: string; [key: string]: any }) => {
+            if (data.chat_id === chatId) {
+                logger.info(`🔄 [ShiftsUpdate] Получено обновление смен для нашего чата ${chatId}:`, data);
+                handleRefreshCalendar();
+            } else {
+                logger.log(`[ShiftsUpdate] Получено обновление смен для другого чата (${data.chat_id}), игнорируем.`);
+            }
         };
 
         const unsubs: (() => void)[] = [];
@@ -72,6 +81,7 @@ export const useAvailabilityCheck = (chatId?: string, refreshCalendar?: () => vo
         unsubs.push(socketService.subscribe('refresh_calendar', handleRefreshCommand));
         unsubs.push(socketService.subscribe('global_refresh', handleGlobalRefresh));
         unsubs.push(socketService.subscribe<any>('error', handleError));
+        unsubs.push(socketService.subscribe('shifts_updated', handleShiftsUpdate));
         unsubscribeRefs.current = unsubs;
 
         return () => {

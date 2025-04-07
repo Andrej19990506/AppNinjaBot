@@ -1,22 +1,42 @@
 import { useCallback } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { 
     // Неиспользуемые функции закомментированы
     // addToReserve, 
     // removeFromReserve, 
     selectAllReserves,
-    // forceFetchReserves,
+    forceFetchReserves,
     // reserveDeleted
 } from '../../../../store/slices/reservesSlice';
 import { format } from 'date-fns';
-import { socketService } from '../../../../services/socket';
 import { logger } from '../../../../utils/logger';
+import { addToReserve, deleteReserve } from '../../../../services/courierApi';
+import { AppDispatch } from '../../../../store/store';
 
 export const useReserveManagement = (currentUserId: string, chatId: string) => {
-    // Неиспользуемый dispatch удалён
+    const dispatch = useDispatch<AppDispatch>();
     const reserves = useSelector(selectAllReserves);
     // Получаем данные пользователя из Redux
     const userInfo = useSelector((state: any) => state.user.user);
+
+    // Функция для принудительной загрузки резервов
+    const loadReserves = useCallback((date?: Date) => {
+        if (!chatId) {
+            logger.warn('[useReserveManagement] Не удалось загрузить резервы: отсутствует chatId');
+            return;
+        }
+
+        const groupId = parseInt(chatId, 10);
+        if (isNaN(groupId)) {
+            logger.error('[useReserveManagement] Неверный формат chatId:', chatId);
+            return;
+        }
+
+        // Загружаем все резервы для группы без указания даты
+        logger.info(`[useReserveManagement] 🔄 Загрузка ВСЕХ резервов для группы ${groupId}`);
+        
+        dispatch(forceFetchReserves({ groupId }));
+    }, [dispatch, chatId]);
 
     const getReservesForDate = useCallback((targetDate: Date) => {
         const formattedDate = format(targetDate, "yyyy-MM-dd'T'17:00:00.000'Z'");
@@ -66,7 +86,18 @@ export const useReserveManagement = (currentUserId: string, chatId: string) => {
             };
 
             console.log('[useReserveManagement] Отправка данных резерва на сервер:', reserveData);
-            socketService.emit('add_to_reserve', reserveData);
+            
+            // Заменяем socketService.emit на вызов REST API функции
+            // socketService.emit('add_to_reserve', reserveData);
+            
+            // Подготавливаем данные в формате, ожидаемом API
+            const apiData = {
+                userTelegramId: Number(currentUserId),
+                groupTelegramId: Number(chatId),  // Сохраняем минус, чтобы ID был отрицательным
+                date: format(date, "yyyy-MM-dd")  // Формат даты YYYY-MM-DD для API
+            };
+            
+            await addToReserve(apiData);
             return true;
         } catch (error) {
             logger.error('❌ Ошибка при добавлении в резерв:', error);
@@ -76,23 +107,19 @@ export const useReserveManagement = (currentUserId: string, chatId: string) => {
 
     const handleCancelReserve = useCallback(async (reserveId: string): Promise<void> => {
         try {
-            const reserveData = {
-                reserve_id: reserveId,
-                user_id: currentUserId,
-                chat_id: chatId
-            };
-
-            socketService.emit('cancel_reserve', reserveData);
+            // Теперь используем REST API
+            await deleteReserve(reserveId);
         } catch (error) {
             logger.error('❌ Ошибка при отмене резерва:', error);
         }
-    }, [currentUserId, chatId]);
+    }, []);
 
     return {
         reserves,
         getReservesForDate,
         userIsInReserve,
         handleAddToReserve,
-        handleCancelReserve
+        handleCancelReserve,
+        loadReserves
     };
 }; 

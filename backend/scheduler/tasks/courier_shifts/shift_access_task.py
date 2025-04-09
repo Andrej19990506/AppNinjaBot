@@ -29,6 +29,7 @@ class ShiftAccessTask(BaseTask):
         super().__init__(scheduler_instance, task_manager, timezone, api_url)
         # self.timezone = timezone # Убираем, уже есть в BaseTask
         # self.api_url = os.getenv('API_URL', 'http://nginx:80') # Убираем, уже есть в BaseTask
+        logger.info(f"ShiftAccessTask инициализирован. API URL: {self.api_url}")
 
     # УДАЛЯЕМ МЕТОД ДЛЯ ДОСТУПА К БД
     # def _get_access_settings_from_db(self, chat_id): ...
@@ -177,14 +178,24 @@ class ShiftAccessTask(BaseTask):
                     conn = None
                     cur = None
                     try:
+                        # Собираем строку подключения из переменных окружения
+                        db_host = os.getenv('POSTGRES_HOST', 'postgres') # Используем 'postgres' как дефолт
+                        db_port = os.getenv('POSTGRES_PORT', '5432')
+                        db_name = os.getenv('POSTGRES_DB', 'appninjabot')
+                        db_user = os.getenv('POSTGRES_USER', 'postgres')
+                        db_pass = os.getenv('POSTGRES_PASSWORD', 'postgres')
+                        database_url = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+                        logger.debug(f"({self.TASK_TYPE}) Подключение к БД для NOTIFY: {db_host}:{db_port}/{db_name} пользователем {db_user}")
+
                         # Используем psycopg (v3)
-                        conn = psycopg.connect(DATABASE_URL, autocommit=True)
+                        conn = psycopg.connect(database_url, autocommit=True) # <-- Используем собранный URL
                         cur = conn.cursor()
                         # Используем pg_notify для безопасности и простоты
                         cur.execute("SELECT pg_notify(%s, %s)", ('websocket_channel', payload_json))
                         logger.info(f"({self.TASK_TYPE}) ✅ Успешно отправлен NOTIFY websocket_channel для chat_id: {chat_id_str}")
                     except Exception as notify_err:
                         logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке NOTIFY для {chat_id_str}: {notify_err}")
+                        logger.error(traceback.format_exc()) # Добавляем traceback
                     finally:
                         if cur:
                             cur.close()

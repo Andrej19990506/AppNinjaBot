@@ -9,6 +9,7 @@ services:
       - API_URL=https://appninjabot.ru
       - ENVIRONMENT=production
       - PYTHONPATH=/app
+      - BOT_PORT=8003
     volumes:
       - shared-data:/app/shared
     env_file:
@@ -35,9 +36,9 @@ services:
     command: gunicorn main:app -b 0.0.0.0:8000 --workers 4 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
       - API_BASE_URL=https://appninjabot.ru/api
-      - BOT_URL=http://bot:8001
+      - BOT_URL=http://bot:8003
       - SCHEDULER_URL=http://scheduler:8002
-      - WEBSOCKET_SERVER_URL=http://websocket:8003
+      - WEBSOCKET_SERVER_URL=http://websocket:8001
       - SOCKET_URL=wss://appninjabot.ru
       - DOMAIN=appninjabot.ru
       - ALLOWED_ORIGINS=*
@@ -58,42 +59,40 @@ services:
     environment:
       - API_URL=http://nginx:80
       - API_BASE_URL=https://appninjabot.ru/api
-      - BOT_URL=http://bot:8001
+      - BOT_URL=http://bot:8003
       - SCHEDULER_URL=http://scheduler:8002
-      - WEBSOCKET_SERVER_URL=http://websocket:8003
+      - WEBSOCKET_SERVER_URL=http://websocket:8001
       - ENVIRONMENT=production
       - JWT_SECRET_KEY=your_super_secret_key_here
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
     restart: unless-stopped
     deploy:
       resources:
         limits:
-          memory: 256M
-
-  frontend:
-    build:
-      target: production
-    expose:
-      - 80
-    volumes: []
-    environment:
-      - REACT_APP_API_URL=https://appninjabot.ru/api
-      - REACT_APP_WS_URL=wss://appninjabot.ru
-      - NODE_ENV=production
-      - REACT_APP_ENV=production
-      - REACT_APP_DEBUG=false
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-        reservations:
           memory: 512M
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
 
   websocket:
-    command: gunicorn src.asgi:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001 --workers 4
+    command: gunicorn src.asgi:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001 --workers 1
+    environment:
+      - ENVIRONMENT=production
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PORT=8001
+      - HOST=0.0.0.0
+      - PYTHONPATH=/app
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ninja_network
     deploy:
       resources:
         limits:
@@ -102,9 +101,25 @@ services:
           memory: 256M
 
   nginx:
+    image: nginx:stable-alpine
+    ports:
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./websocket-service/nginx.conf.prod:/etc/nginx/nginx.conf:ro
-      - ./websocket-service/test_client.html:/usr/share/nginx/html/index.html:ro
+      - ./websocket-service/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ./nginx_logs:/var/log/nginx
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-https://appninjabot.ru}
+      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-wss://appninjabot.ru/ws/v1}
+      - ENV_TYPE=${ENV_TYPE:-production}
+      - REACT_APP_DEBUG=${REACT_APP_DEBUG:-false}
+      - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
+      - NGINX_HOST=appninjabot.ru
+      - NGINX_PORT=80
+    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    depends_on:
+      - server
+      - websocket
     restart: unless-stopped
     deploy:
       resources:
@@ -118,4 +133,8 @@ services:
         limits:
           memory: 1G
         reservations:
-          memory: 512M 
+          memory: 512M
+
+networks:
+  ninja_network:
+    driver: bridge 

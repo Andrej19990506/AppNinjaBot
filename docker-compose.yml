@@ -15,10 +15,10 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - BOT_HOST=0.0.0.0
-      - BOT_PORT=8001
+      - BOT_PORT=8003
     networks:
       - ninja_network
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
 
   server:
     build:
@@ -45,15 +45,24 @@ services:
     build:
       context: ./backend/scheduler
       dockerfile: Dockerfile
+    expose:
+      - "8002"
     volumes:
       - shared-data:/app/shared
     depends_on:
       - server
+      - postgres
     networks:
       - ninja_network
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
     deploy:
       resources:
         limits:
@@ -61,13 +70,16 @@ services:
         reservations:
           memory: 256M
 
+# Restore frontend service definition ONLY for building the image
   frontend:
     build:
       context: ./frontend
-      target: production-build
+      target: production-build # Target the final build stage
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL}
-        REACT_APP_WS_URL: ${REACT_APP_WS_URL}
+        REACT_APP_API_URL: ${REACT_APP_API_URL} 
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL}   
+    image: appninjabot-frontend-img:latest # Explicit image name
+    # No command, ports, volumes, etc. - this service will not be run directly
 
   websocket:
     build:
@@ -102,16 +114,17 @@ services:
       - "443:443"
     volumes:
       - ./websocket-service/nginx.conf:/etc/nginx/nginx.conf
-      - type: bind
-        source: ./frontend/build
-        target: /usr/share/nginx/html
-        read_only: true
     depends_on:
       - server
       - websocket
+      - frontend # Keep dependency: nginx build depends on frontend image
     environment:
-      API_URL: ${RUNTIME_API_URL:-https://appninjabot.ru/api}
-      WS_URL: ${RUNTIME_WS_URL:-wss://appninjabot.ru}
+      REACT_APP_API_URL: ${API_URL:-https://appninjabot.ru/api}
+      REACT_APP_WS_URL: ${WS_URL:-wss://appninjabot.ru}
+      ENV_TYPE: ${NODE_ENV:-production}
+      REACT_APP_DEBUG: ${REACT_APP_DEBUG:-false}
+      API_URL: ${API_URL:-https://appninjabot.ru/api}
+      WS_URL: ${WS_URL:-wss://appninjabot.ru}
       NODE_ENV: ${NODE_ENV:-production}
     restart: unless-stopped
     networks:

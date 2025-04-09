@@ -1,13 +1,16 @@
 FROM nginx:alpine
 
 # Установка certbot, его nginx плагина и gettext (для envsubst)
-RUN apk add --no-cache certbot certbot-nginx gettext
+RUN apk add --no-cache certbot certbot-nginx curl
+
+# Restore COPY --from to get static files into the nginx image
+COPY --from=appninjabot-frontend-img:latest /app/build /usr/share/nginx/html
 
 # Аргумент для выбора конфигурации
 ARG NGINX_CONFIG=nginx.conf
 
 # Копирование конфигурации Nginx
-COPY ${NGINX_CONFIG} /etc/nginx/nginx.conf
+COPY websocket-service/${NGINX_CONFIG} /etc/nginx/nginx.conf
 
 # Удаляем стандартный конфиг, который конфликтует с нашей настройкой
 RUN rm -f /etc/nginx/conf.d/default.conf
@@ -18,28 +21,14 @@ RUN mkdir -p /etc/nginx/ssl/live/appninjabot.com
 # Открываем порты для HTTP и HTTPS
 EXPOSE 80 443
 
-# Скрипт для обновления SSL-сертификатов
-COPY update-ssl.sh /usr/local/bin/
+# Скрипт обновления SSL
+COPY websocket-service/update-ssl.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/update-ssl.sh
 
-# Удаляем копирование старого тестового клиента
-# COPY test_client.html /usr/share/nginx/html/test_client.html
-
-# Установка необходимых утилит
-RUN apk add --no-cache curl
-
-# Создаем скрипт ожидания зависимых сервисов
+# Скрипт ожидания сервисов (возвращаем создание через heredoc)
 COPY <<EOF /docker-entrypoint.d/40-wait-for-services.sh
 #!/bin/sh
 set -e
-
-# Убрано ожидание frontend, так как nginx его сам обслуживает
-# echo "Waiting for frontend service..."
-# until ping -c1 frontend &>/dev/null; do
-#     echo "Waiting for frontend..."
-#     sleep 1
-# done
-# echo "Frontend service is up"
 
 echo "Waiting for server service..."
 until ping -c1 server &>/dev/null; do
@@ -58,33 +47,11 @@ echo "Websocket service is up"
 exit 0
 EOF
 
-# Создаем скрипт для подстановки переменных окружения в config.js
-COPY <<EOF /docker-entrypoint.d/50-substitute-config.sh
-#!/bin/sh
-set -e
-
-CONFIG_TEMPLATE="/usr/share/nginx/html/config.template.js"
-CONFIG_OUTPUT="/usr/share/nginx/html/config.js"
-
-# Проверяем, существует ли шаблонный файл (он монтируется через volume)
-if [ -f "$CONFIG_TEMPLATE" ]; then
-    # Выполняем подстановку переменных (API_URL, WS_URL, NODE_ENV из docker-compose)
-    # Использование одинарных кавычек вокруг '$${...}' предотвращает подстановку envsubst переменных, не определенных в окружении
-    envsubst '
-      ${API_URL}
-      ${WS_URL}
-      ${NODE_ENV}
-    ' < "$CONFIG_TEMPLATE" > "$CONFIG_OUTPUT"
-    echo "Runtime config generated: $CONFIG_OUTPUT"
-else
-    echo "Warning: $CONFIG_TEMPLATE not found. Skipping config generation."
-fi
-
-exit 0
-EOF
+# Скрипт генерации config.js (копируем файл, а не через heredoc)
+COPY websocket-service/50-generate-config-js.sh /docker-entrypoint.d/50-generate-config-js.sh
 
 # Делаем скрипты исполняемыми
-RUN chmod +x /docker-entrypoint.d/40-wait-for-services.sh /docker-entrypoint.d/50-substitute-config.sh
+RUN chmod +x /docker-entrypoint.d/40-wait-for-services.sh /docker-entrypoint.d/50-generate-config-js.sh
 
-# Запуск Nginx (скрипты из /docker-entrypoint.d выполнятся перед этой командой)
+# Запуск Nginx
 CMD ["nginx", "-g", "daemon off;"] 

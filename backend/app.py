@@ -26,7 +26,7 @@ from typing import Dict, List, Optional, Union, Any
 import urllib.parse
 from api.couriers import couriers_bp
 from services import CourierService
-from telegramNinjaBot.bot import bot_application
+from backend.telegramNinjaBot.main import bot_application
 from api import api_bp
 from config.settings import (
     HOST, PORT,

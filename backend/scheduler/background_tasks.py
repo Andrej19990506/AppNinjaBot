@@ -1,9 +1,10 @@
 import logging
-from scheduler import InventoryScheduler # Импортируем для type hinting
+# from scheduler import InventoryScheduler # <-- Убираем импорт модуля
 
 logger = logging.getLogger(__name__)
 
-def schedule_access_task_background(scheduler_instance: InventoryScheduler, chat_id: str):
+# Используем строковый type hint для scheduler_instance
+def schedule_access_task_background(scheduler_instance: 'InventoryScheduler', chat_id: str):
     """
     Фоновая задача для запуска планирования доступа.
     Принимает экземпляр шедулера в качестве аргумента.

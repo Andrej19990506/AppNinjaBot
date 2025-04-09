@@ -1,0 +1,23 @@
+nginx:
+  volumes:
+    - ./websocket-service/nginx.conf.prod:/etc/nginx/nginx.conf:ro
+  environment:
+    - REACT_APP_API_URL=https://appninjabot.ru/api/v1
+    - REACT_APP_WS_URL=wss://appninjabot.ru/ws/v1
+    - ENV_TYPE=production
+    - REACT_APP_DEBUG=false
+  command: |
+    sh -c " \
+      echo \"Attempting to generate config.js via envsubst...\"; \
+      envsubst '\\$REACT_APP_API_URL,\\$REACT_APP_WS_URL,\\$ENV_TYPE,\\$REACT_APP_DEBUG' < /usr/share/nginx/html/config.template.js > /usr/share/nginx/html/config.js; \
+      subst_result=$?; \
+      if [ $subst_result -ne 0 ]; then \
+        echo \"envsubst failed with code $subst_result\"; \
+        exit $subst_result; \
+      fi; \
+      echo \"config.js generated successfully.\"; \
+      # Optionally cat the file for debugging if needed in the future
+      # cat /usr/share/nginx/html/config.js; \
+      echo \"Executing Nginx entrypoint: /docker-entrypoint.sh nginx -g 'daemon off;'\"; \
+      exec /docker-entrypoint.sh nginx -g 'daemon off;' \
+    " 

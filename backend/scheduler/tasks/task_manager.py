@@ -24,15 +24,15 @@ class TaskManager:
 
         logger.info(f"TaskManager инициализирован. API URL: {self.api_url}, Timezone: {self.timezone}")
 
-        # Создаем таблицу в PostgreSQL при инициализации (если она еще не существует)
-        try:
-             # SchedulerTask.create_table() # Старый вызов
-             create_table_if_not_exists() # Новый вызов для PostgreSQL
-        except Exception as e:
-             # Логируем ошибку, но не падаем
-             logger.error(f"Критическая ошибка при создании/проверке таблицы {SchedulerTaskDB.__tablename__}: {e}", exc_info=True)
-             # Возможно, стоит остановить приложение, если БД недоступна?
-             raise # Пока что перебрасываем ошибку
+        # Создаем таблицу в PostgreSQL при инициализации (если она еще не существует) <-- УДАЛЯЕМ/КОММЕНТИРУЕМ БЛОК
+        # try:
+        #      # SchedulerTask.create_table() # Старый вызов
+        #      create_table_if_not_exists() # Новый вызов для PostgreSQL
+        # except Exception as e:
+        #      # Логируем ошибку, но не падаем (УБИРАЕМ RAISE)
+        #      logger.error(f"Критическая ошибка при создании/проверке таблицы {SchedulerTaskDB.__tablename__}: {e}", exc_info=True)
+        #      # Возможно, стоит остановить приложение, если БД недоступна?
+        #      # raise # Пока что перебрасываем ошибку <-- КОММЕНТИРУЕМ ЭТУ СТРОКУ
 
         # Инициализируем экземпляры классов задач
         self.shift_access_task = ShiftAccessTask(scheduler_instance, self, timezone, self.api_url)

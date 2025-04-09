@@ -15,7 +15,9 @@ services:
       - ENVIRONMENT=development
     env_file:
       - ./backend/telegramNinjaBot/.env.dev
-    restart: "no"
+    ports:
+      - "8003:8003"
+    restart: unless-stopped
 
   server:
     build:
@@ -101,4 +103,14 @@ services:
     environment:
       - NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx
       - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.conf.dev
-      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx 
+      - NGINX_ENVSUBST_OUTPUT_DIR=/etc/nginx
+
+  cloudflared-tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: dev-bot-tunnel-runner
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - C:\Users\malah\.cloudflared:/etc/cloudflared
+    networks:
+      - ninja_network 

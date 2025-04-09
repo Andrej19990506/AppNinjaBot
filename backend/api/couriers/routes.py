@@ -15,7 +15,7 @@ from data.users import get_user_data, get_courier_status_in_chat, get_user_group
 
 # Получаем глобальный экземпляр group_service
 try:
-    from telegramNinjaBot.bot import group_service as glob_group_service
+    from backend.telegramNinjaBot.main import group_service as glob_group_service
 except ImportError:
     # Для случаев, когда импорт невозможен
     glob_group_service = None

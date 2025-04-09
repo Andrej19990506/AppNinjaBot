@@ -115,7 +115,7 @@ class SocketService {
       try {
         // Попробуем создать сокет с более простой конфигурацией
         this.socket = io(normalizedUrl, {
-          transports: ['websocket'],
+          transports: ['polling', 'websocket'],
           reconnection: true,
           autoConnect: false,
           forceNew: true,

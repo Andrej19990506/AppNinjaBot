@@ -364,7 +364,8 @@ export const createOrUpdateShift = async (shiftData: {
             user_telegram_id, // <<< ИЗМЕНЕНО
             group_telegram_id // <<< ИЗМЕНЕНО
         };
-        const response = await axiosInstance.post('/api/v1/shifts', payload);
+        // Добавляем слэш в конце URL
+        const response = await axiosInstance.post('/api/v1/shifts/', payload);
         logger.info(`[courierApi] ✅ Смена успешно создана`, response.data);
         return response.data;
     } catch (error: any) {

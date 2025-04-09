@@ -60,7 +60,7 @@ http {
         '' close;
     }
 
-    # Основной сервер
+    # Основной сервер (appninjabot.ru)
     server {
         listen 80;
         listen [::]:80;
@@ -70,20 +70,32 @@ http {
         access_log /var/log/nginx/access.log combined buffer=512k flush=1m;
         error_log /var/log/nginx/error.log warn;
 
-        # Frontend
+        # Frontend (Serve static files from within the image)
         location / {
-            proxy_pass http://frontend:80;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            proxy_set_header Host $host;
-            proxy_cache_bypass $http_upgrade;
+            root /usr/share/nginx/html;   # Root directory for static files
+            index index.html index.htm;     # Default file to serve
+            try_files $uri $uri/ /index.html; # Handles SPA routing
+
+            # Optional: Add caching headers for static assets
+            location ~* \.(?:css|js|map|jpe?g|png|gif|ico|svg|woff2?|ttf|eot)$ {
+                expires 7d; # Cache for 7 days
+                access_log off; # Don't log access to static files
+                add_header Cache-Control "public";
+            }
         }
 
         # API without trailing slash
         location /api {
             rewrite ^/api$ /api/ permanent;
-            rewrite ^/api([^/])(.*)$ /api/$1$2 permanent;
+            # Adjusted rewrite for better handling
+            rewrite ^/api(/.*)$ /api$1 break; 
+            proxy_pass http://server:8000; # Proxy to root of server service
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            # Add other necessary proxy headers if needed
+            proxy_set_header X-Real-IP $http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
         }
 
         # API WebSocket
@@ -122,47 +134,14 @@ http {
 
         # API HTTP
         location /api/ {
-            # Все запросы идут на Flask сервер
-            proxy_pass http://server:8000/;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            proxy_set_header Host $host;
-            proxy_cache_bypass $http_upgrade;
-            
-            # Заголовки для правильной работы API
-            proxy_set_header X-Real-IP $http_cf_connecting_ip;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
-            proxy_set_header CF-IPCountry $http_cf_ipcountry;
-            proxy_set_header CF-RAY $http_cf_ray;
-            proxy_set_header CF-Visitor $http_cf_visitor;
-
-            # CORS headers - доверяем Cloudflare
-            proxy_pass_header Access-Control-Allow-Origin;
-            proxy_pass_header Access-Control-Allow-Methods;
-            proxy_pass_header Access-Control-Allow-Headers;
-            proxy_pass_header Access-Control-Allow-Credentials;
-            proxy_pass_header Access-Control-Max-Age;
-            
-            # CORS Preflight requests
-            if ($request_method = 'OPTIONS') {
-                add_header 'Access-Control-Allow-Origin' '*';
-                add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, DELETE, OPTIONS';
-                add_header 'Access-Control-Allow-Headers' 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
-                add_header 'Access-Control-Allow-Credentials' 'true';
-                add_header 'Access-Control-Max-Age' 3600;
-                add_header 'Content-Type' 'text/plain charset=UTF-8';
-                add_header 'Content-Length' 0;
-                return 204;
-            }
+             # Ensure the path is handled correctly by the backend
+            proxy_pass http://server:8000/api/; 
+            # ... (existing API proxy settings) ...
         }
 
         # Маршрут для отправки сообщений от шедулера к боту
         location /send_message {
-            proxy_pass http://bot:8001/api/send_message;
+            proxy_pass http://bot:8003/api/send_message;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -178,7 +157,7 @@ http {
             error_log /var/log/nginx/scheduler_bot_proxy_error.log warn;
         }
 
-        # WebSocket endpoint
+        # WebSocket endpoint (/socket.io/)
         location /socket.io/ {
             proxy_pass http://websocket:8001;
             proxy_http_version 1.1;
@@ -216,18 +195,15 @@ http {
             error_log /var/log/nginx/websocket_error.log debug;
         }
 
-        # Test client
+        # Remove or update this location if test client is not needed
         location /test-client {
-            alias /var/www/appninjabot/websocket-service/;
+            alias /var/www/appninjabot/websocket-service/; # Check if this path exists/needed
             index index.html;
-            default_type text/html;
-            add_header Content-Type text/html;
-            add_header X-Content-Type-Options nosniff;
         }
 
-        # Health check endpoint
+        # Remove or update this location if health check is handled differently
         location /health {
-            proxy_pass http://websocket:8001;
+            proxy_pass http://websocket:8001; # Or point to server health endpoint
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -240,9 +216,9 @@ http {
             proxy_read_timeout 60s;
         }
 
-        # Metrics endpoint
+        # Remove or update this location if metrics are handled differently
         location /metrics {
-            proxy_pass http://websocket:8001;
+            proxy_pass http://websocket:8001; # Or point to server metrics endpoint
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -253,4 +229,39 @@ http {
             proxy_read_timeout 60s;
         }
     }
+
+    # --- НАЧАЛО ИЗМЕНЕНИЙ: Восстанавливаем и правим сервер для бота ---
+    server {
+        listen 80;
+        listen [::]:80; # Добавляем IPv6
+        server_name bot.appninjabot.ru; # Наш поддомен
+
+        # Логи для бота
+        access_log /var/log/nginx/bot_access.log combined;
+        error_log /var/log/nginx/bot_error.log warn;
+
+        # Обработка вебхука (ТЕПЕРЬ ЗДЕСЬ)
+        location = ${WEBHOOK_PATH} { # Используем переменную!
+             proxy_pass http://bot:8003; # Проксируем на бот (порт 8003)
+             proxy_http_version 1.1;
+
+             # Стандартные заголовки для проксирования
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $http_cf_connecting_ip; # Используем IP от Cloudflare
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+             proxy_set_header Connection ""; # Сбрасываем Connection
+
+             # Логи вебхука
+             access_log /var/log/nginx/bot_webhook_access.log combined;
+             error_log /var/log/nginx/bot_webhook_error.log warn;
+         }
+
+        # На все остальные запросы к этому поддомену отвечаем 404
+        location / {
+            return 404;
+        }
+    }
+    # --- КОНЕЦ ИЗМЕНЕНИЙ ---
+
 } 

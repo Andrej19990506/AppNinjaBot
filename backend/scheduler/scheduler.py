@@ -1,7 +1,7 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 import pytz
 import logging
-from tasks.task_manager import TaskManager
+from tasks.task_manager import TaskManager # <-- Раскомментируем этот импорт
 
 # Настройка логирования
 logging.basicConfig(
@@ -19,7 +19,7 @@ class InventoryScheduler:
         self._is_running = False
         
         # Инициализируем менеджер задач
-        self.task_manager = TaskManager(self.scheduler, self.timezone)
+        self.task_manager = TaskManager(self.scheduler, self.timezone) # <-- Раскомментируем использование
 
     def start(self):
         """Запуск планировщика"""
@@ -49,11 +49,11 @@ class InventoryScheduler:
 
     def reload_scheduled_tasks(self):
         """Перезагружает все задачи из базы данных"""
-        return self.task_manager.reload_tasks()
+        return self.task_manager.reload_tasks() # <-- Раскомментируем использование
 
     def apply_access_settings(self, chat_id):
         """Применяет настройки доступа для чата"""
-        return self.task_manager.schedule_shift_access(chat_id)
+        return self.task_manager.schedule_shift_access(chat_id) # <-- Раскомментируем использование
 
 # Создаем экземпляр планировщика
-scheduler = InventoryScheduler() 
+scheduler = InventoryScheduler() # <-- Раскомментируем создание экземпляра 

@@ -26,7 +26,9 @@ app = FastAPI(
     version="0.1.0",
     openapi_url="/api/openapi.json", # Путь к OpenAPI схеме
     docs_url="/api/docs", # Путь к Swagger UI
-    redoc_url="/api/redoc" # Путь к ReDoc
+    redoc_url="/api/redoc", # Путь к ReDoc
+    # Добавляем доверие к прокси (разрешаем все IP, т.к. Nginx в той же сети)
+    forwarded_allow_ips="*" # Или указать IP Nginx, если известен
 )
 
 # Настройка CORS

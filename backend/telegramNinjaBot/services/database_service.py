@@ -4,66 +4,38 @@ import json
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 import traceback
-import psycopg2
-from psycopg2.extras import RealDictCursor, Json
+import asyncpg
 
 logger = logging.getLogger(__name__)
 
+# Функция-помощник для преобразования asyncpg.Record в dict
+# asyncpg возвращает объекты Record, а не dict по умолчанию
+def _record_to_dict(record: asyncpg.Record) -> Optional[Dict]:
+    return dict(record) if record else None
+
 class DatabaseService:
-    """Сервис для работы с базой данных PostgreSQL"""
+    """Сервис для работы с базой данных PostgreSQL с использованием asyncpg"""
     
-    def __init__(self):
-        """Инициализация сервиса для работы с базой данных"""
-        self.db_host = os.getenv('POSTGRES_HOST', 'postgres')
-        self.db_port = os.getenv('POSTGRES_PORT', '5432')
-        self.db_name = os.getenv('POSTGRES_DB', 'appninjabot')
-        self.db_user = os.getenv('POSTGRES_USER', 'postgres')
-        self.db_password = os.getenv('POSTGRES_PASSWORD', 'postgres')
+    # Конструктор теперь принимает пул соединений asyncpg
+    def __init__(self, pool: asyncpg.Pool):
+        """Инициализация сервиса с пулом соединений asyncpg"""
+        self.pool = pool
+        # Убираем инициализацию соединения psycopg2
+        # self.db_host = os.getenv('POSTGRES_HOST', 'postgres')
+        # ... (остальные переменные окружения для psycopg2)
+        # self.conn = None
+        # self.initialize_connection()
         
-        self.connection_string = f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
-        self.conn = None
-        self.initialize_connection()
+        # Создание таблиц/индексов должно управляться Alembic или другими инструментами миграции
+        # self.create_tables() 
         
-        # Создаем необходимые таблицы при инициализации
-        self.create_tables() # Создаем таблицы для работы с ботом
-        
-        logger.info(f"✅ DatabaseService инициализирован. Подключение к базе: {self.db_host}:{self.db_port}/{self.db_name}")
+        logger.info(f"✅ DatabaseService инициализирован с пулом соединений asyncpg")
     
-    def initialize_connection(self):
-        """Инициализирует соединение с базой данных"""
-        try:
-            self.conn = psycopg2.connect(
-                host=self.db_host,
-                port=self.db_port,
-                dbname=self.db_name,
-                user=self.db_user,
-                password=self.db_password
-            )
-            logger.info("✅ Соединение с базой данных установлено")
-        except Exception as e:
-            logger.error(f"❌ Ошибка подключения к базе данных: {e}")
-            raise
-    
-    def create_tables(self):
-        """Создает необходимые таблицы в базе данных, если они не существуют"""
-        try:
-            with self.conn.cursor() as cursor:
-                # Таблицы groups, members и group_members создаются через Alembic миграции
-                # Оставляем только создание индексов
-                
-                # Создаем индексы для ускорения поиска
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_groups_chat_id ON groups(chat_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_groups_group_type ON groups(group_type)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_members_user_id ON members(user_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_group_members_group_id ON group_members(group_id)")
-                cursor.execute("CREATE INDEX IF NOT EXISTS idx_group_members_member_id ON group_members(member_id)")
-                
-                self.conn.commit()
-                logger.info("✅ Таблицы базы данных успешно созданы/проверены")
-        except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Ошибка при создании таблиц: {e}")
-            logger.error(traceback.format_exc())
+    # Убираем синхронные методы инициализации и создания таблиц
+    # def initialize_connection(self): ...
+    # def create_tables(self): ...
+
+    # === Вспомогательные методы (остаются синхронными, т.к. не работают с БД) ===
     
     def determine_group_type(self, chat_title: str) -> str:
         """Определяет тип группы на основе её названия"""
@@ -80,270 +52,491 @@ class DatabaseService:
         """Проверяет, относится ли группа к определенному типу"""
         determined_type = self.determine_group_type(chat_title)
         return determined_type == group_type
-    
-    def save_group(self, chat_id: str, chat_title: str, members: List[Dict], admins: List[Dict] = None) -> int:
-        """Сохраняет группу и её участников в базе данных"""
+
+    # === Асинхронные методы для работы с БД ===
+
+    async def save_group(self, chat_id: str, chat_title: str, members: List[Dict], admins: List[Dict] = None) -> Optional[int]:
+        """Асинхронно сохраняет группу и её участников в базе данных"""
+        group_type = self.determine_group_type(chat_title)
+        logger.info(f"=== [async] Начинаю сохранение группы {chat_title} (ID: {chat_id}) в базу данных ===")
+        logger.info(f"Тип группы: {group_type}")
+        logger.info(f"Количество участников: {len(members)}")
+        logger.info(f"Количество администраторов: {len(admins) if admins else 0}")
+
         try:
-            group_type = self.determine_group_type(chat_title)
-            logger.info(f"=== Начинаю сохранение группы {chat_title} (ID: {chat_id}) в базу данных ===")
-            logger.info(f"Тип группы: {group_type}")
-            logger.info(f"Количество участников: {len(members)}")
-            logger.info(f"Количество администраторов: {len(admins) if admins else 0}")
-            
-            # Сохраняем или обновляем группу
-            with self.conn.cursor() as cursor:
-                logger.info(f"Выполняю запрос на сохранение/обновление группы")
-                cursor.execute(
-                    """
-                    INSERT INTO groups (group_id, title, group_type, metadata)
-                    VALUES (%s, %s, %s, %s)
-                    ON CONFLICT (group_id) DO UPDATE SET
-                        title = EXCLUDED.title,
-                        group_type = EXCLUDED.group_type,
-                        metadata = EXCLUDED.metadata
-                    RETURNING id
-                    """,
-                    (
-                        chat_id,
+            group_chat_id_int = int(chat_id) # Преобразуем chat_id в int
+        except (ValueError, TypeError):
+             logger.error(f"[async] Некорректный chat_id '{chat_id}' для сохранения группы {chat_title}")
+             return None
+
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    logger.info(f"[async] Выполняю запрос на сохранение/обновление группы")
+                    group_db_id: Optional[int] = await conn.fetchval(
+                        """
+                        INSERT INTO groups (group_id, title, group_type, metadata)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (group_id) DO UPDATE SET
+                            title = EXCLUDED.title,
+                            group_type = EXCLUDED.group_type,
+                            metadata = EXCLUDED.metadata
+                        RETURNING id
+                        """,
+                        group_chat_id_int, # Передаем int
                         chat_title,
                         group_type,
-                        Json({
+                        json.dumps({ # Преобразуем dict в JSON строку
                             "total_members": len(members),
                             "total_admins": len(admins) if admins else 0,
                             "created_at": datetime.now().isoformat()
                         })
                     )
-                )
-                group_id = cursor.fetchone()[0]
-                logger.info(f"Группа сохранена с ID: {group_id}")
-                
-                # Сохраняем участников и связи с группой
-                for i, member in enumerate(members):
-                    logger.info(f"Обрабатываю участника {i+1}/{len(members)}: {member.get('username', member.get('user_id', 'Неизвестный'))}")
-                    # Сохраняем или обновляем участника
-                    cursor.execute(
-                        """
-                        INSERT INTO members (user_id, username, first_name, last_name, status, is_bot, is_senior_courier, photo_url, joined_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (user_id) DO UPDATE SET
-                            username = EXCLUDED.username,
-                            first_name = EXCLUDED.first_name,
-                            last_name = EXCLUDED.last_name,
-                            status = EXCLUDED.status,
-                            is_bot = EXCLUDED.is_bot,
-                            is_senior_courier = EXCLUDED.is_senior_courier,
-                            photo_url = COALESCE(EXCLUDED.photo_url, members.photo_url)
-                        RETURNING id
-                        """,
-                        (
-                            member['user_id'],
+                    
+                    if group_db_id is None:
+                         logger.error(f"[async] Не удалось получить ID группы после INSERT/UPDATE для {chat_title}")
+                         # Возможно, стоит возбудить исключение или вернуть None/False
+                         return None 
+                         
+                    logger.info(f"[async] Группа сохранена с внутренним ID: {group_db_id}")
+                    
+                    # Сохраняем участников и связи с группой
+                    for i, member in enumerate(members):
+                        logger.info(f"[async] Обрабатываю участника {i+1}/{len(members)}: {member.get('username', member.get('user_id', 'Неизвестный'))}")
+                        
+                        # Преобразуем дату, если она есть
+                        joined_at = None
+                        if joined_date_str := member.get('joined_date'):
+                            try:
+                                joined_at = datetime.fromisoformat(joined_date_str)
+                            except ValueError:
+                                logger.warning(f"[async] Неверный формат даты '{joined_date_str}' для участника {member.get('user_id')}. Использую текущее время.")
+                                joined_at = datetime.now()
+                        else:
+                            joined_at = datetime.now()
+
+                        # Сохраняем или обновляем участника
+                        member_db_id: Optional[int] = await conn.fetchval(
+                            """
+                            INSERT INTO members (user_id, username, first_name, last_name, status, is_bot, is_senior_courier, photo_url, joined_at)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                            ON CONFLICT (user_id) DO UPDATE SET
+                                username = EXCLUDED.username,
+                                first_name = '', -- Принудительно пустая строка при обновлении
+                                last_name = '', -- Принудительно пустая строка при обновлении
+                                status = EXCLUDED.status,
+                                is_bot = EXCLUDED.is_bot,
+                                is_senior_courier = EXCLUDED.is_senior_courier,
+                                photo_url = COALESCE(EXCLUDED.photo_url, members.photo_url),
+                                joined_at = EXCLUDED.joined_at -- Обновляем дату присоединения при конфликте? Решите сами.
+                            RETURNING id
+                            """,
+                            # Преобразуем user_id в int, если он строка
+                            int(member['user_id']) if isinstance(member.get('user_id'), str) else member.get('user_id'),
                             member.get('username'),
-                            member.get('first_name', ''),
-                            member.get('last_name', ''),
+                            '', # Всегда пустая строка для first_name
+                            '', # Всегда пустая строка для last_name
                             member.get('status', 'member'),
                             member.get('is_bot', False),
                             member.get('senior_courier') is True,
                             member.get('photo_url'),
-                            datetime.fromisoformat(member.get('joined_date', datetime.now().isoformat()))
+                            joined_at
                         )
-                    )
-                    member_id = cursor.fetchone()[0]
-                    logger.info(f"Участник сохранен с ID: {member_id}")
-                    
-                    # Определяем роль участника
-                    role = 'member'
-                    if admins and any(a['user_id'] == member['user_id'] for a in admins):
-                        role = 'admin'
-                    if member.get('senior_courier'):
-                        role = 'senior_courier'
-                    if group_type == 'chef' and member.get('senior_chef'):
-                        role = 'senior_chef'
-                    
-                    logger.info(f"Роль участника: {role}")
-                    
-                    # Сохраняем связь между группой и участником
-                    cursor.execute(
-                        """
-                        INSERT INTO group_members (group_id, member_id)
-                        VALUES (%s, %s)
-                        ON CONFLICT (group_id, member_id) DO NOTHING
-                        """,
-                        (
-                            group_id,
-                            member_id
+                        
+                        if member_db_id is None:
+                             logger.error(f"[async] Не удалось получить ID участника после INSERT/UPDATE для user_id: {member.get('user_id')}")
+                             # Решить: прервать транзакцию или пропустить участника?
+                             # Пока пропускаем
+                             continue
+
+                        logger.info(f"[async] Участник сохранен с внутренним ID: {member_db_id}")
+                        
+                        # Определяем роль участника
+                        role = 'member'
+                        if admins and any(str(a['user_id']) == str(member['user_id']) for a in admins): # Сравниваем как строки на всякий случай
+                            role = 'admin'
+                        if member.get('senior_courier') is True:
+                            role = 'senior_courier'
+                        # Добавим проверку на тип группы, если роль зависит от типа
+                        # if group_type == 'chef' and member.get('senior_chef'):
+                        #     role = 'senior_chef'
+                        
+                        logger.info(f"[async] Роль участника: {role}")
+                        
+                        # Сохраняем связь между группой и участником
+                        # Убираем поле role, так как его нет в таблице
+                        await conn.execute(
+                            """
+                            INSERT INTO group_members (group_id, member_id) 
+                            VALUES ($1, $2)
+                            ON CONFLICT (group_id, member_id) DO NOTHING -- Просто пропускаем, если связь есть
+                            """,
+                            group_db_id,
+                            member_db_id
+                            # Убираем role из параметров
                         )
-                    )
-                    logger.info(f"Связь между группой и участником сохранена")
-                
-                self.conn.commit()
-                logger.info(f"✅ Группа {chat_title} (тип: {group_type}) успешно сохранена в базе данных")
-                return group_id
-                
-        except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Ошибка при сохранении группы {chat_title}: {e}")
-            logger.error(traceback.format_exc())
-            raise
+                        logger.info(f"[async] Связь между группой и участником сохранена/обновлена")
+                    
+                    # Транзакция завершится успешно здесь (автоматический commit)
+                    logger.info(f"✅ [async] Группа {chat_title} (тип: {group_type}) успешно сохранена в базе данных")
+                    return group_db_id
+                    
+                except asyncpg.PostgresError as e: # Ловим ошибки asyncpg
+                    # Транзакция автоматически откатится при выходе из блока `async with conn.transaction()` из-за исключения
+                    logger.error(f"❌ [async] Ошибка PostgreSQL при сохранении группы {chat_title}: {e}")
+                    logger.error(traceback.format_exc())
+                    return None # Возвращаем None при ошибке БД
+                except Exception as e:
+                    logger.error(f"❌ [async] Неожиданная ошибка при сохранении группы {chat_title}: {e}")
+                    logger.error(traceback.format_exc())
+                    # Транзакция также откатится
+                    return None # Возвращаем None при других ошибках
     
-    def get_group_data(self, chat_id: str) -> Optional[Dict]:
-        """Получает данные группы из базы данных"""
+    async def get_group_data(self, chat_id: str) -> Optional[Dict]:
+        """Асинхронно получает данные группы и её участников из базы данных"""
         try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
+            group_chat_id_int = int(chat_id) # Преобразуем chat_id в int
+        except (ValueError, TypeError):
+             logger.error(f"[async] Некорректный chat_id '{chat_id}' для получения данных группы")
+             return None
+
+        try:
+            async with self.pool.acquire() as conn:
+                # Используем conn.fetchrow для получения одной строки
+                # Запрос остается почти таким же, но используем $1
+                # json_agg вместо array_agg для удобства работы с JSON
+                record = await conn.fetchrow(
                     """
-                    SELECT g.*, array_agg(
-                        json_build_object(
-                            'id', m.id,
-                            'user_id', m.user_id,
-                            'username', m.username,
-                            'first_name', m.first_name,
-                            'last_name', m.last_name,
-                            'status', m.status,
-                            'is_bot', m.is_bot,
-                            'photo_url', m.photo_url,
-                            'role', gm.role
-                        )
-                    ) as members
+                    SELECT 
+                        g.id as group_internal_id, 
+                        g.group_id, 
+                        g.title, 
+                        g.group_type, 
+                        g.metadata, 
+                        COALESCE(json_agg(
+                            json_build_object(
+                                'id', m.id,
+                                'user_id', m.user_id,
+                                'username', m.username,
+                                'first_name', m.first_name,
+                                'last_name', m.last_name,
+                                'status', m.status,
+                                'is_bot', m.is_bot,
+                                'photo_url', m.photo_url,
+                                'joined_at', m.joined_at,
+                                'is_senior_courier', m.is_senior_courier
+                            ) ORDER BY m.first_name -- Опционально: сортируем участников
+                        ) FILTER (WHERE m.id IS NOT NULL), '[]'::json) as members
                     FROM groups g
                     LEFT JOIN group_members gm ON g.id = gm.group_id
                     LEFT JOIN members m ON gm.member_id = m.id
-                    WHERE g.chat_id = %s
-                    GROUP BY g.id
+                    WHERE g.group_id = $1 -- Ищем по внешнему group_id (chat_id)
+                    GROUP BY g.id 
                     """,
-                    (chat_id,)
+                    group_chat_id_int # Передаем int
                 )
-                result = cursor.fetchone()
-                return dict(result) if result else None
-        except Exception as e:
-            logger.error(f"❌ Ошибка при получении данных группы {chat_id}: {e}")
+                # Преобразуем asyncpg.Record в словарь
+                group_data = _record_to_dict(record)
+                # Преобразуем JSON строку metadata обратно в dict
+                if group_data and isinstance(group_data.get('metadata'), str):
+                     try:
+                         group_data['metadata'] = json.loads(group_data['metadata'])
+                     except json.JSONDecodeError:
+                         logger.warning(f"Не удалось декодировать metadata JSON для группы {chat_id}")
+                         group_data['metadata'] = {} # или оставить как есть
+
+                return group_data
+
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при получении данных группы {chat_id}: {e}")
             logger.error(traceback.format_exc())
             return None
-    
-    def get_groups_by_type(self, group_type: str) -> List[Dict]:
-        """Получает список групп определенного типа"""
-        try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT * FROM groups WHERE group_type = %s
-                    """,
-                    (group_type,)
-                )
-                results = cursor.fetchall()
-                return [dict(row) for row in results]
         except Exception as e:
-            logger.error(f"❌ Ошибка при получении списка групп типа {group_type}: {e}")
+            logger.error(f"❌ [async] Неожиданная ошибка при получении данных группы {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return None
+
+    async def get_groups_by_type(self, group_type: str) -> List[Dict]:
+        """Асинхронно получает список групп определенного типа"""
+        try:
+            async with self.pool.acquire() as conn:
+                # Используем conn.fetch для получения всех строк
+                records = await conn.fetch(
+                    """
+                    SELECT id as group_internal_id, group_id, title, group_type, metadata 
+                    FROM groups 
+                    WHERE group_type = $1
+                    """,
+                    group_type
+                )
+                # Преобразуем список Record в список dict
+                groups = [_record_to_dict(r) for r in records]
+                
+                # Преобразуем JSON строку metadata обратно в dict для каждого элемента
+                for group in groups:
+                     if group and isinstance(group.get('metadata'), str):
+                         try:
+                              group['metadata'] = json.loads(group['metadata'])
+                         except json.JSONDecodeError:
+                              logger.warning(f"Не удалось декодировать metadata JSON для группы {group.get('group_id')}")
+                              group['metadata'] = {}
+
+                return groups
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при получении списка групп типа {group_type}: {e}")
             logger.error(traceback.format_exc())
             return []
-    
-    def delete_group(self, chat_id: str) -> bool:
-        """Удаляет группу из базы данных"""
-        try:
-            with self.conn.cursor() as cursor:
-                cursor.execute("DELETE FROM groups WHERE chat_id = %s", (chat_id,))
-                deleted = cursor.rowcount > 0
-                self.conn.commit()
-                if deleted:
-                    logger.info(f"✅ Группа {chat_id} успешно удалена из базы данных")
-                return deleted
         except Exception as e:
-            self.conn.rollback()
-            logger.error(f"❌ Ошибка при удалении группы {chat_id}: {e}")
+            logger.error(f"❌ [async] Неожиданная ошибка при получении списка групп типа {group_type}: {e}")
+            logger.error(traceback.format_exc())
+            return []
+
+    async def delete_group(self, chat_id: str) -> bool:
+        """Асинхронно удаляет группу и её связи из базы данных"""
+        try:
+            group_chat_id_int = int(chat_id) # Преобразуем chat_id в int
+        except (ValueError, TypeError):
+             logger.error(f"[async] Некорректный chat_id '{chat_id}' для удаления группы")
+             return False
+
+        try:
+            async with self.pool.acquire() as conn:
+                async with conn.transaction(): # Используем транзакцию для атомарности
+                    # Сначала получаем внутренний ID группы
+                    group_db_id: Optional[int] = await conn.fetchval("SELECT id FROM groups WHERE group_id = $1", group_chat_id_int)
+
+                    if not group_db_id:
+                        logger.warning(f"[async] Группа {chat_id} не найдена для удаления.")
+                        return False
+
+                    # Удаляем связи из group_members (каскадное удаление может быть настроено в БД)
+                    # Если каскадного удаления нет, раскомментируйте:
+                    # deleted_links = await conn.execute("DELETE FROM group_members WHERE group_id = $1", group_db_id)
+                    # logger.info(f"[async] Удалено связей для группы {chat_id}: {deleted_links}")
+
+                    # Удаляем саму группу
+                    # execute возвращает строку статуса, например "DELETE 1"
+                    status = await conn.execute("DELETE FROM groups WHERE id = $1", group_db_id)
+                    deleted = 'DELETE 1' in status # Проверяем, что одна строка удалена
+                
+                if deleted:
+                    logger.info(f"✅ [async] Группа {chat_id} (внутренний ID: {group_db_id}) успешно удалена из базы данных")
+                else:
+                    # Эта ветка не должна сработать, если group_db_id был найден, но на всякий случай
+                    logger.warning(f"[async] Не удалось удалить группу {chat_id}, хотя она была найдена.")
+                return deleted
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при удалении группы {chat_id}: {e}")
             logger.error(traceback.format_exc())
             return False
-    
-    def get_groups_by_user_id(self, user_id: int) -> List[Dict]:
-        """Получает список групп, в которых состоит пользователь"""
-        try:
-            with self.conn.cursor(cursor_factory=RealDictCursor) as cursor:
-                cursor.execute(
-                    """
-                    SELECT g.id, g.chat_id, g.chat_title, g.group_type, g.last_updated, 
-                           m.id as member_id, m.user_id, m.username, m.first_name, m.last_name, 
-                           m.photo_url, gm.role
-                    FROM groups g
-                    JOIN group_members gm ON g.id = gm.group_id
-                    JOIN members m ON gm.member_id = m.id
-                    WHERE m.user_id = %s
-                    """,
-                    (user_id,)
-                )
-                results = cursor.fetchall()
-                
-                # Форматируем результаты для совместимости с существующим API
-                user_groups = []
-                user_data = None
-                
-                for row in results:
-                    # Добавляем группу в список
-                    user_groups.append({
-                        'chat_id': row['chat_id'],
-                        'chat_title': row['chat_title'],
-                        'group_type': row['group_type']
-                    })
-                    
-                    # Если данные пользователя еще не установлены
-                    if user_data is None:
-                        is_senior = row['role'] in ['senior_courier', 'senior_chef']
-                        user_data = {
-                            'user_id': row['user_id'],
-                            'first_name': row['first_name'] or '',
-                            'last_name': row['last_name'] or '',
-                            'photo_url': row['photo_url'],
-                            'is_senior_courier': is_senior and row['group_type'] == 'courier'
-                        }
-                
-                logger.info(f"✅ Найдено {len(user_groups)} групп для пользователя {user_id}")
-                return {
-                    'success': True,
-                    'groups': user_groups,
-                    'user_data': user_data
-                }
-                
         except Exception as e:
-            logger.error(f"❌ Ошибка при получении групп пользователя {user_id}: {e}")
+            logger.error(f"❌ [async] Неожиданная ошибка при удалении группы {chat_id}: {e}")
             logger.error(traceback.format_exc())
-            return {
-                'success': False,
-                'error': str(e),
-                'groups': [],
-                'user_data': None
-            }
-    
-    def migrate_from_json(self, courier_service, json_service) -> Dict:
-        """Мигрирует данные из JSON-файлов в базу данных"""
-        stats = {"groups": 0, "members": 0, "errors": 0}
+            return False
+
+    async def remove_member_from_group(self, chat_id: str, user_id: Union[int, str]) -> bool:
+        """Асинхронно удаляет участника из конкретной группы (удаляет связь)"""
+        try:
+             member_user_id = int(user_id)
+             group_chat_id_int = int(chat_id) # Преобразуем chat_id в int
+        except (ValueError, TypeError):
+             logger.error(f"Некорректный user_id '{user_id}' или chat_id '{chat_id}' для удаления участника из группы")
+             return False
+
+        try:
+            async with self.pool.acquire() as conn:
+                 group_db_id: Optional[int] = await conn.fetchval("SELECT id FROM groups WHERE group_id = $1", group_chat_id_int) # Передаем int
+                 member_db_id: Optional[int] = await conn.fetchval("SELECT id FROM members WHERE user_id = $1", member_user_id)
+
+                 if not group_db_id:
+                     logger.warning(f"[async] Группа {chat_id} не найдена для удаления участника {member_user_id}.")
+                     return False
+                 if not member_db_id:
+                      logger.warning(f"[async] Участник {member_user_id} не найден для удаления из группы {chat_id}.")
+                      # Возможно, его и так нет в группе, считаем это успехом? Зависит от логики.
+                      # Пока вернем False, т.к. не нашли кого удалять.
+                      return False 
+
+                 # Удаляем связь
+                 status = await conn.execute(
+                      "DELETE FROM group_members WHERE group_id = $1 AND member_id = $2",
+                      group_db_id, member_db_id
+                 )
+                 deleted = 'DELETE 1' in status
+                 if deleted:
+                      logger.info(f"✅ [async] Участник {member_user_id} удален из группы {chat_id}")
+                      
+                      # Проверяем, остался ли участник в других группах
+                      remaining_groups = await conn.fetchrow(
+                           "SELECT 1 FROM group_members WHERE member_id = $1 LIMIT 1", 
+                           member_db_id
+                      )
+                      
+                      if not remaining_groups:
+                           # Если больше нигде не состоит, удаляем из таблицы members
+                           member_delete_status = await conn.execute("DELETE FROM members WHERE id = $1", member_db_id)
+                           if 'DELETE 1' in member_delete_status:
+                                logger.info(f"✅ [async] Участник {member_user_id} (ID: {member_db_id}) полностью удален из таблицы members (не состоит больше ни в одной группе)")
+                           else:
+                                logger.warning(f"[async] Не удалось полностью удалить участника {member_user_id} (ID: {member_db_id}) из таблицы members")
+                      else:
+                           logger.info(f"[async] Участник {member_user_id} (ID: {member_db_id}) остается в таблице members (состоит в других группах)")
+                           
+                 else:
+                      logger.warning(f"[async] Не удалось удалить участника {member_user_id} из группы {chat_id} (возможно, его там и не было).")
+                 # Возвращаем True, если удалось удалить ИЗ ЭТОЙ ГРУППЫ
+                 return deleted
+
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при удалении участника {member_user_id} из группы {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return False
+        except Exception as e:
+            logger.error(f"❌ [async] Неожиданная ошибка при удалении участника {member_user_id} из группы {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return False
+
+    async def get_all_groups(self) -> List[Dict]:
+        """Асинхронно получает список всех групп"""
+        try:
+            async with self.pool.acquire() as conn:
+                records = await conn.fetch(
+                     """
+                     SELECT g.id as group_internal_id, g.group_id, g.title, g.group_type, g.metadata,
+                            COALESCE(json_agg(
+                                json_build_object(
+                                    'id', m.id, 'user_id', m.user_id, 'username', m.username, 
+                                    'first_name', m.first_name, 'last_name', m.last_name, 
+                                    'status', m.status, 'is_bot', m.is_bot, 'photo_url', m.photo_url, 
+                                    'joined_at', m.joined_at, 'is_senior_courier', m.is_senior_courier
+                                ) ORDER BY m.first_name
+                            ) FILTER (WHERE m.id IS NOT NULL), '[]'::json) as members
+                     FROM groups g
+                     LEFT JOIN group_members gm ON g.id = gm.group_id
+                     LEFT JOIN members m ON gm.member_id = m.id
+                     GROUP BY g.id
+                     ORDER BY g.title -- Опционально сортируем группы по названию
+                     """
+                )
+                groups = [_record_to_dict(r) for r in records]
+                # Декодируем metadata
+                for group in groups:
+                     if group and isinstance(group.get('metadata'), str):
+                         try:
+                              group['metadata'] = json.loads(group['metadata'])
+                         except json.JSONDecodeError:
+                              group['metadata'] = {}
+
+                return groups
+
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при получении всех групп: {e}")
+            logger.error(traceback.format_exc())
+            return []
+        except Exception as e:
+            logger.error(f"❌ [async] Неожиданная ошибка при получении всех групп: {e}")
+            logger.error(traceback.format_exc())
+            return []
+            
+    # Методы для работы с senior курьерами/поварами (пример)
+    async def set_senior_status(self, user_id: int, group_type: str, is_senior: bool) -> bool:
+        """Устанавливает статус старшего для пользователя"""
+        field_to_update = None
+        if group_type == 'courier':
+            field_to_update = 'is_senior_courier'
+        # elif group_type == 'chef':
+        #     field_to_update = 'is_senior_chef' # Если есть такое поле
+        else:
+             logger.warning(f"Неподдерживаемый тип группы '{group_type}' для установки статуса старшего.")
+             return False
+
+        if not field_to_update:
+             return False # На всякий случай
+
+        try:
+             async with self.pool.acquire() as conn:
+                  status = await conn.execute(
+                       f""" 
+                       UPDATE members SET {field_to_update} = $1 WHERE user_id = $2
+                       """, # Используем f-string осторожно, т.к. имя поля проверено
+                       is_senior, user_id
+                  )
+                  updated = 'UPDATE 1' in status
+                  if updated:
+                      logger.info(f"Статус {field_to_update} = {is_senior} установлен для user_id {user_id}")
+                  else:
+                      logger.warning(f"Не удалось обновить статус {field_to_update} для user_id {user_id} (возможно, пользователя нет)")
+                  return updated
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при установке статуса старшего для user_id {user_id}: {e}")
+            return False
+        except Exception as e:
+             logger.error(f"❌ [async] Неожиданная ошибка при установке статуса старшего для user_id {user_id}: {e}")
+             return False
+
+    # Добавьте другие методы, если они есть, переделав их на asyncpg...
+    # Например, get_member_data, update_member_photo и т.д.
+
+    async def close_connection(self):
+        """Закрывает пул соединений asyncpg."""
+        # Этот метод больше не нужен здесь, закрытие пула будет в lifespan
+        # if self.pool:
+        #     await self.pool.close()
+        #     logger.info("✅ [async] Пул соединений asyncpg закрыт")
+        pass # Оставляем пустым или удаляем
+
+    # --- НОВЫЙ МЕТОД --- 
+    async def is_user_in_group(self, user_id: int, chat_id: str) -> bool:
+        """
+        Асинхронно проверяет, зарегистрирован ли пользователь (существует ли связь)
+        в указанной группе.
+
+        Args:
+            user_id: ID пользователя Telegram.
+            chat_id: Оригинальный ID чата Telegram (строка, например '-100...' или '-...').
+
+        Returns:
+            True, если пользователь найден в группе (связь существует), False в противном случае.
+        """
+        logger.debug(f"[async] Проверка наличия пользователя {user_id} в группе {chat_id}")
         
         try:
-            # Получаем все курьерские группы
-            courier_groups = courier_service.get_all_courier_groups()
+            # Преобразуем chat_id в int для поиска в таблице groups
+            group_chat_id_int = int(chat_id) 
+        except (ValueError, TypeError):
+             logger.warning(f"[async] Некорректный chat_id '{chat_id}' для проверки is_user_in_group (user: {user_id})")
+             return False # Некорректный ID группы - считаем, что не зарегистрирован
+             
+        # Преобразуем user_id в int (на всякий случай, если придет строка)
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+             logger.warning(f"[async] Некорректный user_id '{user_id}' для проверки is_user_in_group (group: {chat_id})")
+             return False
+
+        async with self.pool.acquire() as conn:
+            try:
+                # Запрос для проверки существования связи в group_members
+                # через внешние ID пользователя и группы
+                query = """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM group_members gm
+                        JOIN members m ON gm.member_id = m.id
+                        JOIN groups g ON gm.group_id = g.id
+                        WHERE m.user_id = $1 AND g.group_id = $2
+                    );
+                """
+                exists = await conn.fetchval(query, user_id_int, group_chat_id_int)
+                logger.debug(f"[async] Результат проверки is_user_in_group ({user_id} в {chat_id}): {exists}")
+                return bool(exists)
             
-            for chat_id, group_data in courier_groups.items():
-                try:
-                    # Получаем данные группы
-                    group = courier_service.get_group_data(chat_id)
-                    if not group:
-                        continue
-                    
-                    # Сохраняем группу в базе данных
-                    self.save_group(
-                        chat_id=chat_id,
-                        chat_title=group.get('chat_title', 'Неизвестная группа'),
-                        members=group.get('members', []),
-                        admins=group.get('admins', [])
-                    )
-                    
-                    stats["groups"] += 1
-                    stats["members"] += len(group.get('members', []))
-                    
-                except Exception as e:
-                    logger.error(f"❌ Ошибка при миграции группы {chat_id}: {e}")
-                    stats["errors"] += 1
-            
-            logger.info(f"✅ Миграция завершена: {stats['groups']} групп, {stats['members']} участников, {stats['errors']} ошибок")
-            return stats
-            
-        except Exception as e:
-            logger.error(f"❌ Ошибка при миграции данных: {e}")
-            logger.error(traceback.format_exc())
-            return stats 
+            except asyncpg.PostgresError as e:
+                logger.error(f"❌ [async] Ошибка PostgreSQL при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
+                logger.error(traceback.format_exc())
+                return False # В случае ошибки БД считаем, что не зарегистрирован
+            except Exception as e:
+                logger.error(f"❌ [async] Неожиданная ошибка при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
+                logger.error(traceback.format_exc())
+                return False # В случае другой ошибки тоже считаем, что не зарегистрирован
+    # --- КОНЕЦ НОВОГО МЕТОДА ---

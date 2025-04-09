@@ -8,8 +8,11 @@ from engineio.payload import Payload
 from fastapi import FastAPI
 
 # Настройка логирования
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.INFO) # Оставляем INFO для основного лога
 logger = logging.getLogger(__name__)
+# Устанавливаем DEBUG для библиотек
+logging.getLogger('socketio').setLevel(logging.DEBUG)
+logging.getLogger('engineio').setLevel(logging.DEBUG)
 
 # Получаем имя хоста и IP для диагностики
 hostname = socket.gethostname()
@@ -30,7 +33,6 @@ eio = engineio.AsyncServer(
     allow_upgrades=True,
     upgrade_timeout=10000,
     cookie=None,
-    always_connect=True,
     transports=['polling', 'websocket']
 )
 
@@ -39,15 +41,13 @@ sio = socketio.AsyncServer(
     async_mode='asgi',
     engineio_server=eio,
     cors_allowed_origins=CORS_ALLOWED_ORIGINS,
-    ping_timeout=180,
-    ping_interval=60,
+    ping_timeout=60,
+    ping_interval=25,
     max_http_buffer_size=1e8,
     allow_upgrades=True,
     upgrade_timeout=10000,
     cookie=None,
-    always_connect=True,
-    logger=True,
-    engineio_logger=True
+    transports=['polling', 'websocket']
 )
 
 # Регистрируем отладочный обработчик для всех событий
@@ -61,7 +61,7 @@ async def catch_all(event, sid, *args):
 # Логируем параметры инициализации
 logger.info("✅ Socket.IO сервер инициализирован c параметрами:")
 logger.info(f"🔒 CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
-logger.info(f"⏱️ Ping timeout: 180s, interval: 60s")
+logger.info(f"⏱️ Ping timeout: 60s, interval: 25s")
 logger.info(f"🔄 Async mode: {sio.async_mode}")
 
 # Проверяем все зарегистрированные обработчики

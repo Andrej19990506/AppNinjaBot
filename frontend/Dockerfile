@@ -11,7 +11,9 @@ ARG REACT_APP_WS_URL
 # Copy package files and install dependencies
 COPY package*.json ./
 # Use ci for potentially faster and more reliable installs in CI/CD
-RUN npm ci
+# RUN npm ci 
+# Trying npm install as a workaround for ci failure
+RUN npm install 
 
 # Copy the rest of the application code
 COPY . .
@@ -27,6 +29,7 @@ RUN npm run build
 # --- The final 'production-build' stage --- #
 # This stage is targeted by docker-compose.
 # It inherits the /app/build directory from the 'builder' stage.
+# Giving it an explicit name to be referenced by other Dockerfiles
 FROM builder as production-build
 # No further commands needed, the build artifact /app/build is ready.
 

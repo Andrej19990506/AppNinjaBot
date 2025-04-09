@@ -253,31 +253,25 @@ class ShiftAccessTask(BaseTask):
                 "Спешите записаться на удобное время! 🚀"
             )
             
-            all_success = True
-            for current_chat_id in chat_ids_to_notify:
-                try:
-                    notification_data = {
-                        'chat_id': current_chat_id,
-                        'text': message,
-                        'parse_mode': 'HTML'
-                    }
-                    
-                    response = requests.post(
-                        "http://bot:8001/api/send_message", # URL бота и его эндпоинта
-                        json=notification_data,
-                        timeout=10
-                    )
-                    
-                    if response.status_code == 200:
-                        logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в чат {current_chat_id}")
-                    else:
-                        logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат {current_chat_id}: Статус {response.status_code}, Ответ: {response.text}")
-                        all_success = False
-                except Exception as e:
-                    logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат {current_chat_id}: {e}")
-                    all_success = False
+            # --- ОТПРАВКА ---
+            # Получаем базовый URL бота из переменной окружения
+            bot_base_url = os.getenv('BOT_URL', 'http://bot:8003') # Используем http://bot:8003 как дефолт на всякий случай
+            bot_api_url = f"{bot_base_url}/api/send_message"
+            logger.info(f"({self.TASK_TYPE}) Адрес для отправки уведомления боту: {bot_api_url}")
+
+            payload = {
+                "chat_ids": chat_ids_to_notify,
+                "message": message,
+                "parse_mode": "HTML"
+            }
+            response = requests.post(bot_api_url, json=payload, timeout=15)
             
-            return all_success
+            if response.status_code == 200:
+                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в чат(ы): {chat_ids_to_notify}")
+                return True
+            else:
+                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат(ы): Статус {response.status_code}, Ответ: {response.text}")
+                return False
             
         except Exception as e:
             logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомлений: {e}")

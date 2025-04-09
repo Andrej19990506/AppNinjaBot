@@ -260,20 +260,35 @@ class ShiftAccessTask(BaseTask):
             bot_api_url = f"{bot_base_url}/send_message"
             logger.info(f"({self.TASK_TYPE}) Адрес для отправки уведомления боту: {bot_api_url}")
 
+            # Адаптируем payload под формат, ожидаемый ботом (chat_id и text)
+            # Предполагаем, что chat_ids_to_notify всегда содержит один ID
+            if not chat_ids_to_notify:
+                logger.error(f"({self.TASK_TYPE}) Список chat_ids пуст, не могу отправить уведомление.")
+                return False
+            single_chat_id = chat_ids_to_notify[0] # Берем первый (и единственный) ID
+
             payload = {
-                "chat_ids": chat_ids_to_notify,
-                "message": message,
+                "chat_id": single_chat_id,  # <-- Используем chat_id
+                "text": message,          # <-- Используем text (переменная message)
                 "parse_mode": "HTML"
             }
+            logger.debug(f"({self.TASK_TYPE}) Отправляемый payload боту: {payload}")
             response = requests.post(bot_api_url, json=payload, timeout=15)
-            
+
             if response.status_code == 200:
-                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в чат(ы): {chat_ids_to_notify}")
+                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в чат: {single_chat_id}")
                 return True
             else:
-                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат(ы): Статус {response.status_code}, Ответ: {response.text}")
+                # Логируем ошибку с деталями, если они есть в JSON ответе
+                error_details = ""
+                try:
+                    error_details = response.json()
+                except json.JSONDecodeError:
+                    error_details = response.text # Если не JSON, показываем текст
+                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат {single_chat_id}: Статус {response.status_code}, Ответ: {error_details}")
                 return False
-            
+
         except Exception as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомлений: {e}")
+            logger.error(f"({self.TASK_TYPE}) ❌ Непредвиденная ошибка в _send_notification для {chat_id}: {e}")
+            logger.error(traceback.format_exc())
             return False 

@@ -256,7 +256,8 @@ class ShiftAccessTask(BaseTask):
             # --- ОТПРАВКА ---
             # Получаем базовый URL бота из переменной окружения
             bot_base_url = os.getenv('BOT_URL', 'http://bot:8003') # Используем http://bot:8003 как дефолт на всякий случай
-            bot_api_url = f"{bot_base_url}/api/send_message"
+            # Собираем URL без /api, т.к. роутер бота подключен без префикса
+            bot_api_url = f"{bot_base_url}/send_message"
             logger.info(f"({self.TASK_TYPE}) Адрес для отправки уведомления боту: {bot_api_url}")
 
             payload = {

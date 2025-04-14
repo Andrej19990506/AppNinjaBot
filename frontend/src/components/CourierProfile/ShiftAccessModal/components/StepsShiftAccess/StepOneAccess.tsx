@@ -61,14 +61,14 @@ const DaySelector = styled.div`
 `;
 
 // Кнопка дня недели
-const DayButton = styled(motion.button)<{ isSelected: boolean }>`
+const DayButton = styled(motion.button)<{ $isSelected: boolean }>`
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    border: 2px solid ${props => props.isSelected ? 'var(--primary-color)' : 'var(--border-color)'};
-    background-color: ${props => props.isSelected ? 'var(--primary-light)' : 'transparent'};
-    color: ${props => props.isSelected ? 'var(--primary-color)' : 'var(--text-secondary)'};
-    font-weight: ${props => props.isSelected ? 'bold' : 'normal'};
+    border: 2px solid ${props => props.$isSelected ? 'var(--primary-color)' : 'var(--border-color)'};
+    background-color: ${props => props.$isSelected ? 'var(--primary-light)' : 'transparent'};
+    color: ${props => props.$isSelected ? 'var(--primary-color)' : 'var(--text-secondary)'};
+    font-weight: ${props => props.$isSelected ? 'bold' : 'normal'};
     cursor: pointer;
     transition: all 0.2s ease;
     
@@ -237,13 +237,17 @@ const StepOne: React.FC = () => {
                     </SectionTitle>
                     
                     <DaySelector>
-                        {daysOfWeek.map(day => (
-                            <DayButton 
+                        {daysOfWeek.map((day, index) => (
+                            <DayButton
                                 key={day.id}
-                                isSelected={selectedDay === day.id}
+                                $isSelected={selectedDay === day.id}
                                 onClick={() => handleDaySelect(day.id)}
-                                whileHover={{ scale: 1.05 }}
+                                whileHover={{ scale: 1.1 }}
                                 whileTap={{ scale: 0.95 }}
+                                custom={index}
+                                initial="hidden"
+                                animate="visible"
+                                variants={formSectionVariants}
                             >
                                 {day.short}
                             </DayButton>

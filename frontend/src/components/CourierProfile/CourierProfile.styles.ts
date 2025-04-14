@@ -106,12 +106,12 @@ export const CourierName = styled.h2`
     }
 `;
 
-export const StatusText = styled.p<{ isRegistered?: boolean }>`
+export const StatusText = styled.p<{ $isRegistered?: boolean }>`
     font-size: 18px;
-    color: ${props => props.isRegistered ? 'var(--success-color)' : 'var(--text-secondary)'};
+    color: ${props => props.$isRegistered ? 'var(--success-color)' : 'var(--text-secondary)'};
     margin: 12px 0;
     text-align: center;
-    font-weight: ${props => props.isRegistered ? '500' : 'normal'};
+    font-weight: ${props => props.$isRegistered ? '500' : 'normal'};
     transition: all var(--transition-normal);
 
     @media (max-width: 768px) {

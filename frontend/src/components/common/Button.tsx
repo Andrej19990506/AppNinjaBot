@@ -4,7 +4,7 @@ import styled from 'styled-components';
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: 'primary' | 'secondary' | 'danger';
     size?: 'small' | 'medium' | 'large';
-    fullWidth?: boolean;
+    $fullWidth?: boolean;
 }
 
 const StyledButton = styled.button<ButtonProps>`
@@ -30,7 +30,7 @@ const StyledButton = styled.button<ButtonProps>`
     border: none;
     cursor: pointer;
     transition: all 0.2s ease;
-    width: ${props => props.fullWidth ? '100%' : 'auto'};
+    width: ${props => props.$fullWidth ? '100%' : 'auto'};
 
     ${props => {
         switch (props.variant) {
@@ -84,14 +84,14 @@ export const Button: React.FC<ButtonProps> = ({
     children, 
     variant = 'primary',
     size = 'medium',
-    fullWidth = false,
+    $fullWidth = false,
     ...props 
 }) => {
     return (
         <StyledButton
             variant={variant}
             size={size}
-            fullWidth={fullWidth}
+            $fullWidth={$fullWidth}
             {...props}
         >
             {children}

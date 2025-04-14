@@ -8,10 +8,12 @@ import { addNotification, NotificationTypes } from '../../store/slices/notificat
 import { bookShift } from '../../store/slices/shiftsSlice';
 import { fetchSlotConfig } from '../../store/slices/shiftsSlice';
 import { format } from 'date-fns';
-import ShiftAccessModal, { ShiftAccessModalRef } from '../CourierProfile/ShiftAccessModal';
+import { ShiftAccessModalRef } from '../CourierProfile/ShiftAccessModal';
 import SettingsPanel from '../CourierProfile/SettingsPanel';
 import Footer from '../Inventory/Footer';
 import SlotSettings, { SlotSettingsRef } from './CourierCalendar/components/SlotSettings';
+import { SettingsOverlay as ModalBackdropOverlay } from './CourierCalendar/styles';
+import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
 
 const Container = styled.div`
     padding: 20px;
@@ -249,8 +251,8 @@ const CourierSchedule: React.FC = () => {
             console.log('[CourierSchedule] Footer save -> shiftAccessModalRef.triggerSave()');
             await shiftAccessModalRef.current?.triggerSave();
         } else if (activeModalType === 'slotSettings') {
-            console.log('[CourierSchedule] Footer save -> slotSettingsRef.triggerSave()');
-            await slotSettingsRef.current?.triggerSave();
+            console.log('[CourierSchedule] Footer save -> slotSettingsRef.current?.triggerSave()');
+            await slotSettingsRef.current?.triggerSave(); 
         }
     };
 
@@ -371,6 +373,10 @@ const CourierSchedule: React.FC = () => {
                 onStepChange={setCurrentModalStep}
             />
             
+            <ModalBackdropOverlay 
+                $isOpen={showSlotSettings} 
+                onClick={handleCloseSlotSettings}
+            /> 
             {selectedDayIndexForSlots !== null && (
                 <SlotSettings
                     ref={slotSettingsRef}
@@ -382,6 +388,10 @@ const CourierSchedule: React.FC = () => {
                 />
             )}
 
+            {(() => { 
+                console.log(`[CourierSchedule] Rendering SettingsPanel CHECK. isSettingsPanelOpen: ${isSettingsPanelOpen}`);
+                return null;
+            })()} 
             <SettingsPanel 
                 isOpen={isSettingsPanelOpen}
                 onClose={closeSettingsPanel}

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React from 'react';
 import { format } from 'date-fns';
 import defaultAvatar from '../../../../../assets/images/Ninja.jpg';
 import { CourierShift } from '../../types';
@@ -46,71 +46,6 @@ const DayCell: React.FC<DayCellProps> = ({
     userIsInReserve,
     slotConfig
 }) => {
-    // Для предотвращения двойного тапа
-    const lastTapRef = useRef<number>(0);
-    const touchStartPosRef = useRef<{x: number, y: number} | null>(null);
-
-    // Улучшенные обработчики тач-событий для iOS
-    const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        if (!date) return;
-        
-        // Запоминаем позицию первого касания
-        if (e.touches.length === 1) {
-            touchStartPosRef.current = {
-                x: e.touches[0].clientX,
-                y: e.touches[0].clientY
-            };
-        }
-        
-        // Отменяем действия по умолчанию для предотвращения зума
-        e.stopPropagation();
-    }, [date]);
-
-    const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        if (!date) return;
-        
-        // Отменяем действия, если это не скролл
-        if (touchStartPosRef.current) {
-            const diffX = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
-            const diffY = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
-            
-            // Если это похоже на жест масштабирования, блокируем
-            if (diffX > 10 || diffY > 10) {
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        }
-    }, [date]);
-
-    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-        if (!date) return;
-        
-        // Обработка двойного тапа
-        const now = Date.now();
-        const DOUBLE_TAP_DELAY = 300; // ms
-        
-        if (now - lastTapRef.current < DOUBLE_TAP_DELAY) {
-            // Это двойной тап, блокируем
-            e.preventDefault();
-            e.stopPropagation();
-            lastTapRef.current = 0; // Сбрасываем счетчик
-        } else {
-            // Одинарный тап
-            lastTapRef.current = now;
-            
-            // Вызываем клик с небольшой задержкой, чтобы предотвратить двойной тап
-            setTimeout(() => {
-                if (lastTapRef.current !== 0) { // Если не был сброшен при двойном тапе
-                    onClick();
-                    lastTapRef.current = 0;
-                }
-            }, DOUBLE_TAP_DELAY);
-        }
-        
-        // Сбрасываем позицию касания
-        touchStartPosRef.current = null;
-    }, [date, onClick]);
-
     if (!date) {
         return <DayCellContainer as="div" />;
     }

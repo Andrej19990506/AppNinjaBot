@@ -166,7 +166,7 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
                 <ModalHeader 
                     title={modalTitle} 
                     onClose={handleModalClose}
-                    showCloseButton={true}
+                    showCloseButton={false}
                 />
                 
                 <AccessSettingsContext.Provider value={accessSettingsContextValue}>

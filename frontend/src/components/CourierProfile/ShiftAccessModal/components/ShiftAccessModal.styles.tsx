@@ -1,4 +1,6 @@
 import styled from 'styled-components';
+// Импортируем Z_INDICES
+import { Z_INDICES } from '../../../CourierSchedule/CourierCalendar/constants'; 
 
 // Стили для главного модального окна настроек доступа к сменам
 
@@ -31,6 +33,7 @@ export const ModalContainer = styled.div`
     flex-direction: column;
     border: 1px solid var(--border-color);
     position: relative;
+    z-index: ${Z_INDICES.TOOLTIP + 2};
 
     &::before {
         content: "";

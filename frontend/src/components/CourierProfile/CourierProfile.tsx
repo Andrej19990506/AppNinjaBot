@@ -102,7 +102,7 @@ const CourierProfile = memo(({
                 <CourierName>
                     {user?.first_name} {user?.last_name}
                 </CourierName>
-                <StatusText isRegistered={isRegistered}>
+                <StatusText $isRegistered={isRegistered}>
                     {isRegistered 
                         ? '✅ Вы записаны на смену' 
                         : 'Вы еще не записались на смену'}

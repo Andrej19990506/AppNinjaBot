@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 
 // Анимация выезда панели
@@ -22,7 +22,8 @@ const slideOutRight = keyframes`
 `;
 
 // Стилизуем контейнер как боковую панель
-const SidePanelContainer = styled.div<{ $isOpen: boolean }>`
+const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
+    padding-top: 50px;    
     position: fixed;
     top: 0;
     right: 0;
@@ -34,8 +35,11 @@ const SidePanelContainer = styled.div<{ $isOpen: boolean }>`
     box-shadow: -5px 0px 15px rgba(0, 0, 0, 0.15);
     z-index: 1100; /* Выше других элементов */
     border-left: 1px solid var(--border-color);
-    transform: translateX(100%);
-    animation: ${props => props.$isOpen ? slideInRight : slideOutRight} 0.3s ease-out forwards;
+    /* Убираем animation */
+    /* animation: ${props => props.$isOpen ? slideInRight : slideOutRight} 0.3s ease-out forwards; */
+    /* Используем transition и transform */
+    transform: translateX(${props => props.$isOpen ? '0' : '100%'});
+    transition: transform 0.3s ease-out;
     display: flex;
     flex-direction: column; /* Чтобы контент растягивался */
     padding-bottom: env(safe-area-inset-bottom, 0);
@@ -48,7 +52,7 @@ const SidePanelContainer = styled.div<{ $isOpen: boolean }>`
     }
 
     @media (max-width: 480px) {
-        width: 85%;
+        width: 100%;
         max-width: none;
         min-width: 0;
     }
@@ -168,6 +172,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onOpenShiftAccess,
     onOpenSlotSettings
 }) => {
+    const [hasMounted, setHasMounted] = useState(false);
+
+    // Лог при каждом рендере
+    console.log(`[SettingsPanel] Render. Props isOpen: ${isOpen}, State hasMounted: ${hasMounted}`);
+
+    useEffect(() => {
+        console.log('[SettingsPanel] useEffect executed. Setting hasMounted to true.');
+        setHasMounted(true);
+    }, []);
+
     const handleShiftAccessClick = () => {
         onOpenShiftAccess(); 
     };
@@ -176,6 +190,16 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onOpenSlotSettings();
     };
 
+    // Лог перед проверкой
+    console.log(`[SettingsPanel] Checking condition !hasMounted && !isOpen: ${!hasMounted && !isOpen}`);
+    // Не рендерим панель при первом монтировании, если она должна быть закрыта
+    if (!hasMounted && !isOpen) {
+        console.log('[SettingsPanel] Condition met, returning null.');
+        return null;
+    }
+
+    console.log('[SettingsPanel] Condition not met or already mounted, rendering panel.');
+    // Убираем hasMounted из пропсов SidePanelContainer
     return (
         <SidePanelContainer $isOpen={isOpen}>
             <PanelHeader>

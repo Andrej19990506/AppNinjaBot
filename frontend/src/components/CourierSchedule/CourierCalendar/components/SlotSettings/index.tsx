@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../../../store/store';
 import { 
@@ -20,6 +20,7 @@ import {
     SlotConfigUpdatePayload
 } from '../../../../../services/courierApi';
 import { logger } from '../../../../../utils/logger';
+import { addNotification, NotificationTypes } from '../../../../../store/slices/notificationSlice';
 
 // Styled components for the settings content
 const SettingsSection = styled.div`
@@ -264,7 +265,7 @@ const DaySelect = styled.select`
 
 // Интерфейс для рефа
 export interface SlotSettingsRef {
-    triggerSave: () => Promise<boolean>;
+    triggerSave: () => Promise<void>;
     triggerReset: () => void;
     isDirty: boolean;
     isValid: () => boolean;
@@ -288,7 +289,6 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     onDayChangeRequest
 }, ref) => {
     const dispatch = useDispatch<AppDispatch>();
-    const containerRef = useRef<HTMLDivElement>(null);
 
     // Получаем КОНКРЕТНУЮ конфигурацию для выбранного дня
     const initialDayConfig = useSelector(selectSlotConfigForDay(dayIndex));
@@ -296,16 +296,18 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     // Получаем ВСЮ конфигурацию
     const fullSlotConfig = useSelector(selectSlotConfig);
 
-    // Используем импортированные дефолты как fallback
+    // Состояние для текущих значений слотов
     const [daySlots, setDaySlots] = useState<number>(
         initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots
     );
     const [nightSlots, setNightSlots] = useState<number>(
         initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots
     );
+    
+    // Состояния для UI
     const [isLoading, setIsLoading] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
+    const [showSuccess, setShowSuccess] = useState(false);
 
     const dayOfWeekNames = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
 
@@ -316,8 +318,12 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
             setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
             setIsDirty(false);
-            setIsSuccess(false);
             setIsLoading(false);
+        }
+        // Если окно закрывается, сбрасываем isDirty (на всякий случай)
+        // Хотя onClose должен вызываться при нажатии OK на экране успеха
+        else {
+            setIsDirty(false); 
         }
     }, [isOpen, dayIndex, initialDayConfig]);
 
@@ -348,63 +354,57 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     const handleIncreaseNightSlots = () => setNightSlots((prev: number) => Math.min(prev + 1, 20));
 
     // Функция сохранения (вызывается через ref)
-    const handleSave = async (): Promise<boolean> => {
-        if (chatId === undefined) {
-            logger.error("[SlotSettings] Chat ID became undefined before API call.");
-            setIsLoading(false);
-            return false;
-        }
-        if (!isDirty) {
-            logger.warn("[SlotSettings] No changes, skipping save.");
-            return true;
+    const handleSave = useCallback(async (): Promise<void> => {
+        if (!isDirty || !chatId || dayIndex === null) {
+            logger.warn('[SlotSettings] Save triggered but not dirty, no chatId, or no dayIndex');
+            return;
         }
 
         setIsLoading(true);
-        setIsSuccess(false);
-
-        const currentFullConfig = { ...(fullSlotConfig || {}) }; 
-        // Используем dayIndex (number) напрямую как ключ
-        currentFullConfig[dayIndex] = { maxDaySlots: daySlots, maxNightSlots: nightSlots };
+        setShowSuccess(false); // Сбрасываем успех перед новой попыткой
         
-        const slotConfigPayload: SlotConfigUpdatePayload = {
-            config: currentFullConfig
+        const configData = {
+            maxDaySlots: daySlots,
+            maxNightSlots: nightSlots
         };
         
-        // Убедимся, что chatId это number перед вызовом API
-        if (typeof chatId !== 'number') {
-            logger.error(`[SlotSettings] Invalid chatId type: ${typeof chatId}`);
-            setIsLoading(false);
-            return false;
-        }
-
-        logger.log(`[SlotSettings] Calling updateSlotConfig for chatId ${chatId}:`, slotConfigPayload);
+        // Создаем payload для API, ожидающий chatId и config с днями недели
+        // Нам нужно обновить только текущий dayIndex
+        const currentFullConfig = { ...(fullSlotConfig || {}) };
+        currentFullConfig[dayIndex] = configData; 
+        
+        const apiPayload: SlotConfigUpdatePayload = {
+            config: currentFullConfig
+        };
 
         try {
-            // Теперь chatId точно number
-            await updateSlotConfig(chatId, slotConfigPayload);
+            logger.debug(`[SlotSettings] Saving slot config for chatId ${chatId}:`, apiPayload);
+            // Вызываем API с chatId и payload
+            await updateSlotConfig(chatId, apiPayload); 
+            logger.info('[SlotSettings] Slot config saved successfully.');
             
+            // Обновляем локальный стейт Redux, передавая нужные поля
             dispatch(updateSlotConfigLocal({
-                 dayIndex: Number(dayIndex), 
-                 maxDaySlots: daySlots, 
-                 maxNightSlots: nightSlots
+                 dayIndex: dayIndex, 
+                 maxDaySlots: configData.maxDaySlots, 
+                 maxNightSlots: configData.maxNightSlots
             }));
+            setIsDirty(false); 
+            setShowSuccess(true); // Показываем экран успеха
+            setIsLoading(false); 
             
-            logger.log("[SlotSettings] Save successful.");
-            setIsSuccess(true);
-            setIsLoading(false);
-            setIsDirty(false);
-            
-            setTimeout(() => {
-                setIsSuccess(false);
-                onClose(); 
-            }, 1800);
-            return true;
-        } catch (error) {
+        } catch (error: any) {
             logger.error("[SlotSettings] Error saving:", error);
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: `Ошибка сохранения настроек слотов: ${error.message || error}`,
+                duration: 5000
+            }));
             setIsLoading(false);
-            return false;
+            // Больше не возвращаем false
+            // return false; 
         }
-    };
+    }, [isDirty, chatId, dayIndex, daySlots, nightSlots, fullSlotConfig, dispatch]); 
     
     // Функция сброса (вызывается через ref)
     const handleReset = useCallback(() => {
@@ -413,44 +413,64 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
         setNightSlots(initialDayConfig?.maxNightSlots ?? 0);
         setIsDirty(false);
         setIsLoading(false);
-        setIsSuccess(false);
+        setShowSuccess(false);
     }, [initialDayConfig]);
 
-    // Функция валидации (вызывается через ref)
-    const handleIsValid = useCallback((): boolean => {
-        return true;
-    }, []);
 
     // Передача функций через ref
     useImperativeHandle(ref, () => ({
         triggerSave: handleSave,
         triggerReset: handleReset,
-        isDirty: isDirty,
-        isValid: handleIsValid
-    }));
+        isDirty,
+        isValid: () => {
+            // Тут можно добавить валидацию, если нужно
+            return true;
+        }
+    }), [handleSave, handleReset, isDirty]);
 
-    // Возвращаем JSX
+    // Рендер экрана успеха
+    if (showSuccess) {
+        return (
+            <SlotSettingsContainer $isOpen={isOpen}>
+                <SlotSettingsHeader>
+                    <SlotSettingsTitle>Настройки слотов</SlotSettingsTitle>
+                    {/* Можно оставить кнопку закрытия или убрать */}
+                    {/* <button onClick={onClose}>✕</button> */}
+                </SlotSettingsHeader>
+                <SlotSettingsContent>
+                    <SuccessMessageContainer>
+                        <AnimatedCheckmark />
+                        <SuccessText>Настройки слотов сохранены!</SuccessText>
+                        <OkButton onClick={() => {
+                            setShowSuccess(false); // Скрываем экран успеха
+                            onClose(); // Закрываем модалку
+                        }}>
+                            ОК
+                        </OkButton>
+                    </SuccessMessageContainer>
+                </SlotSettingsContent>
+            </SlotSettingsContainer>
+        );
+    }
+
+    // Рендер основного контента настроек
     return (
-        <SlotSettingsContainer ref={containerRef} $isOpen={isOpen}>
+        <SlotSettingsContainer $isOpen={isOpen}>
             <SlotSettingsHeader>
-                <SlotSettingsTitle>Настройка слотов</SlotSettingsTitle>
+                <SlotSettingsTitle>
+                    Настройки слотов на {dayOfWeekNames[dayIndex]}
+                </SlotSettingsTitle>
                 <DaySelect value={dayIndex} onChange={handleDayChange}>
                     {dayOfWeekNames.map((name, index) => (
-                        <option key={index} value={index}>
-                            {name}
-                        </option>
+                        <option key={index} value={index}>{name}</option>
                     ))}
                 </DaySelect>
             </SlotSettingsHeader>
-            
+
             <SlotSettingsContent>
-                {isSuccess ? (
-                    <SuccessMessageContainer>
-                        <AnimatedCheckmark />
-                        <SuccessText>Настройки сохранены!</SuccessText>
-                        <OkButton onClick={onClose}>OK</OkButton>
-                    </SuccessMessageContainer>
-                ) : (
+                {/* Убрали старый isSuccess */}
+                {/* {isSuccess ? ( ... ) : ( ... )} */}
+                {( 
                     <SettingsSection>
                         <SlotConfigRow>
                             <SlotTypeLabel>
@@ -472,12 +492,12 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                                 <SlotCountButton onClick={handleIncreaseNightSlots} disabled={isLoading || nightSlots >= 20}>+</SlotCountButton>
                             </SlotCountControls>
                         </SlotConfigRow>
-                        {isLoading && (
-                            <div style={{ textAlign: 'center', marginTop: '10px' }}>
-                                <InlineSpinner /> Сохранение...
-                            </div>
-                        )}
                     </SettingsSection>
+                )}
+                {isLoading && (
+                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                        <InlineSpinner /> Сохранение...
+                    </div>
                 )}
             </SlotSettingsContent>
         </SlotSettingsContainer>

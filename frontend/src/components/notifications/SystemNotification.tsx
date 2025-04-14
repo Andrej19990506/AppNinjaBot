@@ -6,8 +6,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
-import IconButton from '@mui/material/IconButton';
-import CloseIcon from '@mui/icons-material/Close';
 import styles from './SystemNotification.module.css';
 
 export interface NotificationItem {
@@ -75,13 +73,6 @@ const NotificationMessage: React.FC<{
                 )}
                 <div className={styles.message}>{notification.message}</div>
             </div>
-            <IconButton
-                size="small"
-                onClick={() => onClose(notification.id || '')} // Убедимся, что id есть
-                className={styles.closeButton}
-            >
-                <CloseIcon fontSize="small" />
-            </IconButton>
         </motion.div>
     );
 };
@@ -168,15 +159,6 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
                         )}
                         <div className={styles.message}>{message}</div>
                     </div>
-                    {onClose && (
-                        <IconButton
-                            size="small"
-                            onClick={onClose}
-                            className={styles.closeButton}
-                        >
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
-                    )}
                 </motion.div>
             </AnimatePresence>
         </div>

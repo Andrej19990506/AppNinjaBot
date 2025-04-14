@@ -68,25 +68,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     useAvailabilityCheck(chatId || '', () => {});
 
-    const handleTouchMove = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-        if (isIOSDevice && e.touches.length > 1) {
-            e.stopPropagation();
-        }
-    }, [isIOSDevice]);
-
-    useEffect(() => {
-        if (isIOSDevice && calendarRef.current) {
-            const style = document.createElement('style');
-            style.innerHTML = `
-                .calendar-container { height: 100% !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch !important; touch-action: pan-y pinch-zoom !important; }
-                [class*="EmptySlotIndicator"], [class*="OccupiedSlotIndicator"], [class*="ReserveSlotIndicator"] { touch-action: auto !important; pointer-events: auto !important; }
-            `;
-            document.head.appendChild(style);
-            calendarRef.current.classList.add('calendar-container');
-            return () => { style.remove(); };
-        }
-    }, [isIOSDevice]);
-
+    
     useEffect(() => {
         if (chatId) {
             logger.log(`🔍 Загрузка настроек доступа для chatId ${chatId} при монтировании календаря`);
@@ -154,7 +136,10 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     return (
         <>
-            <CalendarContainer ref={calendarRef} onTouchMove={handleTouchMove} className={isIOSDevice ? 'ios-scroll-container' : ''}>
+            <CalendarContainer 
+                ref={calendarRef} 
+                className={isIOSDevice ? 'ios-scroll-container' : ''}
+            >
                   
                 <MonthsContainer>
                     {monthsToDisplay.map((month) => (

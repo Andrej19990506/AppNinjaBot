@@ -4,6 +4,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 from pydantic import Field, PostgresDsn, validator, AnyUrl
 from typing import Optional, Any, Dict, List
+import logging
+import datetime
+from zoneinfo import ZoneInfo
 
 # Ищем .env файл в текущей директории scheduler/ или выше
 env_path = Path('.') / '.env'
@@ -26,7 +29,7 @@ class SchedulerSettings(BaseSettings):
     BOT_URL: str = os.getenv("BOT_URL", "http://bot:8000")
 
     # --- Настройки планировщика ---
-    TIMEZONE: str = Field("Europe/Moscow", validation_alias='TIMEZONE')
+    TIMEZONE: str = Field("Asia/Krasnoyarsk", validation_alias='TIMEZONE')
 
     # Настройки API Телеграм Бота (куда отправлять уведомления)
     BOT_API_URL: AnyUrl = Field(..., validation_alias='BOT_API_URL')
@@ -34,6 +37,7 @@ class SchedulerSettings(BaseSettings):
     # Настройки проверки доступности
     HEALTHCHECK_API_URL: AnyUrl = Field(..., validation_alias='HEALTHCHECK_API_URL')
     HEALTHCHECK_BOT_URL: AnyUrl = Field(..., validation_alias='HEALTHCHECK_BOT_URL')
+    HEALTHCHECK_BOT_SEND_MESSAGE_URL: Optional[AnyUrl] = Field(None, validation_alias='HEALTHCHECK_BOT_SEND_MESSAGE_URL')
     HEALTHCHECK_INTERVAL_SECONDS: int = Field(default=60, env='HEALTHCHECK_INTERVAL_SECONDS')
     
     # Настройки вебсокета (если нужно)
@@ -57,7 +61,7 @@ class SchedulerSettings(BaseSettings):
         )
         return str(dsn)
 
-    @validator("API_URL", "BOT_API_URL", "HEALTHCHECK_API_URL", "HEALTHCHECK_BOT_URL", pre=True)
+    @validator("API_URL", "BOT_API_URL", "HEALTHCHECK_API_URL", "HEALTHCHECK_BOT_URL", "HEALTHCHECK_BOT_SEND_MESSAGE_URL", pre=True)
     def url_to_string(cls, v: Any) -> str:
         if isinstance(v, AnyUrl):
             return str(v)
@@ -76,9 +80,12 @@ class SchedulerSettings(BaseSettings):
 scheduler_settings = SchedulerSettings()
 
 # Логгирование для проверки загруженных настроек (опционально)
-# import logging
-# logger = logging.getLogger(__name__)
-# logger.info(f"Загружены настройки планировщика: {scheduler_settings.model_dump()}")
+logger = logging.getLogger(__name__)
+logger.info("="*80)
+logger.info("🕐🕐🕐 ЧАСОВОЙ ПОЯС ШЕДУЛЕРА: {} 🕐🕐🕐".format(scheduler_settings.TIMEZONE))
+local_time = datetime.datetime.now(ZoneInfo(scheduler_settings.TIMEZONE))
+logger.info("🕐🕐🕐 ТЕКУЩЕЕ ВРЕМЯ В КРАСНОЯРСКЕ: {} 🕐🕐🕐".format(local_time.strftime("%Y-%m-%d %H:%M:%S %Z (UTC%z)")))
+logger.info("="*80)
 
 # --- Опционально: Конфигурация логирования на основе настроек --- #
 # import logging.config

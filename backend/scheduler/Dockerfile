@@ -1,32 +1,34 @@
-# Убираем многоступенчатую сборку, так как контекст теперь ./backend
-
-FROM python:3.11-slim
+# Стандартизируем контекст сборки и структуру файлов
+FROM python:3.11-slim as base
 WORKDIR /app
 
-# Копируем зависимости
-COPY scheduler/requirements.txt /app/requirements.txt
+# Устанавливаем переменные окружения
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV PYTHONPATH=/app
+
+# Копируем только requirements.txt сначала, чтобы кэш работал лучше
+COPY requirements.txt .
 
 # Устанавливаем зависимости
 RUN pip install --no-cache-dir -r requirements.txt
-# Явно устанавливаем asyncpg, чтобы решить проблему его отсутствия
-RUN pip install --no-cache-dir asyncpg
+# Устанавливаем явно asyncpg и httpx
+RUN pip install --no-cache-dir asyncpg httpx
 
-# Копируем общие модули
-COPY core/ /app/core/
-# Явно копируем модуль shared из backend
-COPY shared/ /app/shared/
+# Создаем директорию shared до копирования файлов
+RUN mkdir -p /app/shared
 
-# Копируем код scheduler (содержимое папки scheduler)
-COPY scheduler/. /app/
+# Копируем весь остальной код приложения
+COPY . .
 
 # Создаем пустой __init__.py в директории shared, если его нет
-RUN touch /app/shared/__init__.py
+RUN mkdir -p /app/shared && touch /app/shared/__init__.py
 
-# Устанавливаем переменную окружения для Python
-ENV PYTHONUNBUFFERED=1
-# Устанавливаем PYTHONPATH только на /app
-ENV PYTHONPATH=/app
+EXPOSE 8002
 
-# CMD для uvicorn теперь соответствует команде в docker-compose
-# Оставим для возможного ручного запуска
-CMD ["python", "app.py"] 
+# Для разработки используем --reload, для продакшена без него
+FROM base as development
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002", "--reload"]
+
+FROM base as production
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"] 

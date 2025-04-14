@@ -51,7 +51,7 @@ export const MonthsContainer = styled.div`
     flex: 1;
     padding: 8px 0;
     max-width: 100%;
-    margin: 0 auto;
+    margin: 80px auto 0 auto;
     width: 100%;
     overflow-x: hidden;
     /* Предотвращаем зуммирование при тапе на iOS */

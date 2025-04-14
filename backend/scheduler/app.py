@@ -22,6 +22,17 @@ scheduler_logger = logging.getLogger("Scheduler")
 scheduler_logger.setLevel(logging.INFO)
 # ----------------------------- 
 
+# Определяем окружение и логируем его
+env = os.getenv('ENVIRONMENT', 'development')
+if env == 'development':
+    logger.info("🚀🚀🚀 ШЕДУЛЕР ЗАПУЩЕН В РЕЖИМЕ РАЗРАБОТКИ (DEV ENVIRONMENT) 🚀🚀🚀")
+elif env == 'production':
+    logger.info("🔴🔴🔴 ШЕДУЛЕР ЗАПУЩЕН В РЕЖИМЕ ПРОДАКШН (PRODUCTION ENVIRONMENT) 🔴🔴🔴")
+    logger.info("🔴 API_URL: %s", os.getenv('API_URL', 'не указан'))
+    logger.info("🔴 POSTGRES_HOST: %s", os.getenv('POSTGRES_HOST', 'не указан'))
+else:
+    logger.info(f"🚀 ШЕДУЛЕР ЗАПУЩЕН В РЕЖИМЕ: {env.upper()}")
+
 try:
     import asyncpg
 except ImportError:
@@ -114,6 +125,7 @@ async def lifespan(app: FastAPI):
         
         # --- Добавляем проверку доступности Telegram бота --- 
         logger.info("🔌 Проверка доступности Telegram бота...")
+        telegram_bot_available = False
         try:
             import requests
             # Правильный URL бота из docker-compose
@@ -121,7 +133,41 @@ async def lifespan(app: FastAPI):
             # Стучимся в /health
             bot_response = requests.get(f"{bot_url}/health", timeout=1)
             if bot_response.status_code == 200:
+                telegram_bot_available = True
                 logger.info(f"✅ Telegram бот доступен: {bot_url}")
+                
+                # --- ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ЭНДПОИНТА ОТПРАВКИ СООБЩЕНИЙ ---
+                logger.info("🔌 🚀 🔌 ПРОВЕРКА ДОСТУПНОСТИ ЭНДПОИНТА ОТПРАВКИ СООБЩЕНИЙ БОТА... 🔌 🚀 🔌")
+                try:
+                    # Проверяем URL для эндпоинта проверки доступности отправки сообщений
+                    bot_send_message_health_url = f"{bot_url}/send_message/health"
+                    logger.info(f"🔍 Проверка URL: {bot_send_message_health_url}")
+                    
+                    # Запрашиваем эндпоинт
+                    send_message_response = requests.get(bot_send_message_health_url, timeout=2)
+                    if send_message_response.status_code == 200:
+                        logger.info(f"✅ ✅ ✅ ЭНДПОИНТ ОТПРАВКИ СООБЩЕНИЙ БОТА ДОСТУПЕН: {bot_send_message_health_url}")
+                        
+                        # Явно устанавливаем URL в переменную окружения
+                        os.environ["HEALTHCHECK_BOT_SEND_MESSAGE_URL"] = bot_send_message_health_url
+                        
+                        # Устанавливаем атрибут в объекте настроек динамически, если его нет
+                        if hasattr(scheduler_settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL'):
+                            scheduler_settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL = bot_send_message_health_url
+                        else:
+                            # Если атрибута нет в объекте, добавляем его динамически
+                            setattr(scheduler_settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL', bot_send_message_health_url)
+                            logger.info(f"✅ Динамически добавлен атрибут HEALTHCHECK_BOT_SEND_MESSAGE_URL в настройки со значением: {bot_send_message_health_url}")
+                            
+                        # Проверяем, что атрибут успешно добавлен
+                        if hasattr(scheduler_settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL'):
+                            logger.info(f"✅ Проверка: HEALTHCHECK_BOT_SEND_MESSAGE_URL = {scheduler_settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL}")
+                        else:
+                            logger.warning("⚠️ Не удалось добавить атрибут HEALTHCHECK_BOT_SEND_MESSAGE_URL в настройки")
+                    else:
+                        logger.warning(f"⚠️ ⚠️ ⚠️ ЭНДПОИНТ ОТПРАВКИ СООБЩЕНИЙ БОТА вернул код {send_message_response.status_code}: {bot_send_message_health_url}")
+                except Exception as send_message_error:
+                    logger.warning(f"⚠️ ⚠️ ⚠️ ЭНДПОИНТ ОТПРАВКИ СООБЩЕНИЙ БОТА НЕДОСТУПЕН: {send_message_error}")
             else:
                 logger.warning(f"⚠️ Telegram бот вернул код {bot_response.status_code}: {bot_url}")
         except Exception as bot_api_error:

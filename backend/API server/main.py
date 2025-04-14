@@ -49,6 +49,25 @@ app.add_middleware(
     allow_headers=["*"],    # Разрешить все заголовки
 )
 
+# Добавляем middleware для доверия заголовкам прокси
+@app.middleware("http")
+async def trust_proxy_headers(request, call_next):
+    # Всегда устанавливаем схему HTTPS для запросов от Cloudflare
+    if "cf-connecting-ip" in request.headers:
+        request.scope["scheme"] = "https"
+    
+    # Устанавливаем схему как HTTPS, если заголовок X-Forwarded-Proto указывает на это
+    if "x-forwarded-proto" in request.headers:
+        request.scope["scheme"] = request.headers["x-forwarded-proto"]
+    
+    # Также обрабатываем заголовок X-Forwarded-Ssl
+    if "x-forwarded-ssl" in request.headers and request.headers["x-forwarded-ssl"].lower() == "on":
+        request.scope["scheme"] = "https"
+    
+    # Продолжаем обработку запроса
+    response = await call_next(request)
+    return response
+
 @app.get("/")
 async def read_root():
     """Корневой эндпоинт для проверки работы API."""

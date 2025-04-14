@@ -23,7 +23,7 @@ from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, JobExecution
 # Удаляем импорт shared.db_utils
 # from scheduler.shared.db_utils import init_db, db_connection
 # Удаляем импорт http_client
-# from shared.http_client import get_http_client
+# from backend.shared.http_client import get_http_client
 
 # Добавляем импорт typing для аннотаций типов
 from typing import Optional, Dict, Any, List

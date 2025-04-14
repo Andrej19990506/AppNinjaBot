@@ -41,8 +41,8 @@ services:
 
   scheduler:
     build:
-      context: ./backend
-      dockerfile: ./scheduler/Dockerfile
+      context: ./backend/scheduler
+      dockerfile: Dockerfile
     expose:
       - "8002"
     volumes:

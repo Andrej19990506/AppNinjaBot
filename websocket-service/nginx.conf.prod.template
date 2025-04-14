@@ -84,85 +84,28 @@ http {
             }
         }
 
-        # API without trailing slash
-        location /api {
-            rewrite ^/api$ /api/ permanent;
-            # Adjusted rewrite for better handling
-            rewrite ^/api(/.*)$ /api$1 break; 
-            proxy_pass http://server:8000; # Proxy to root of server service
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            # Add other necessary proxy headers if needed
-            proxy_set_header X-Real-IP $http_cf_connecting_ip;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+        # API endpoints without trailing slash
+        location = /api {
+            return 301 /api/;
         }
 
-        # API WebSocket
-        location /api/ws {
-            proxy_pass http://websocket:8001;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-            proxy_set_header Host $host;
-            
-            # Передаем IP и заголовки с Cloudflare для WebSocket
-            proxy_set_header X-Real-IP $http_cf_connecting_ip;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Forwarded-Port $server_port;
-            proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
-            proxy_set_header CF-IPCountry $http_cf_ipcountry;
-            proxy_set_header CF-RAY $http_cf_ray;
-            proxy_set_header CF-Visitor $http_cf_visitor;
-            
-            # Важно для WSS!
-            proxy_set_header X-Forwarded-Ssl on;
-            
-            # Увеличиваем таймауты для WebSocket
-            proxy_read_timeout 300;
-            proxy_send_timeout 300;
-            proxy_connect_timeout 300;
-            
-            # Отключаем буферизацию для WebSocket
-            proxy_buffering off;
-            proxy_request_buffering off;
-            proxy_cache off;
-            proxy_redirect off;
-        }
-
-        # API HTTP
+        # API endpoints
         location /api/ {
-             # Ensure the path is handled correctly by the backend
-            proxy_pass http://server:8000/api/; 
-            # ... (existing API proxy settings) ...
-        }
-
-        # Маршрут для отправки сообщений от шедулера к боту
-        location /send_message {
-            proxy_pass http://bot:8003/send_message;
+            proxy_pass http://server:8000;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             proxy_set_header X-Forwarded-Host $host;
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
-            
-            # Логи
-            access_log /var/log/nginx/scheduler_bot_proxy_access.log;
-            error_log /var/log/nginx/scheduler_bot_proxy_error.log warn;
         }
 
-        # WebSocket endpoint (/socket.io/)
-        location /socket.io/ {
+        # WebSocket endpoints
+        location ~ ^/(api/ws|socket\.io)/ {
             proxy_pass http://websocket:8001;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_set_header Connection $connection_upgrade;
             proxy_set_header Host $host;
 
             # Передаем IP и заголовки с Cloudflare
@@ -193,6 +136,24 @@ http {
             # Для отладки сохраняем больше логов
             access_log /var/log/nginx/websocket_access.log;
             error_log /var/log/nginx/websocket_error.log debug;
+        }
+
+        # Маршрут для отправки сообщений от шедулера к боту
+        location /send_message {
+            proxy_pass http://bot:8003/send_message;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+            
+            # Логи
+            access_log /var/log/nginx/scheduler_bot_proxy_access.log;
+            error_log /var/log/nginx/scheduler_bot_proxy_error.log warn;
         }
 
         # Remove or update this location if test client is not needed
@@ -230,7 +191,7 @@ http {
         }
     }
 
-    # --- НАЧАЛО ИЗМЕНЕНИЙ: Восстанавливаем и правим сервер для бота ---
+    # Сервер для бота
     server {
         listen 80;
         listen [::]:80; # Добавляем IPv6
@@ -262,6 +223,4 @@ http {
             return 404;
         }
     }
-    # --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
 } 

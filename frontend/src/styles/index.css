@@ -13,7 +13,6 @@
     -moz-user-select: none !important;
     -ms-user-select: none !important;
     -o-user-select: none !important;
-    touch-action: manipulation; /* Оптимизируем touch события */
 }
 
 /* Разрешаем выделение текста только в полях ввода */
@@ -32,7 +31,7 @@ body {
     background: var(--background-color);
     color: var(--text-color);
     transition: background-color var(--transition-normal), color var(--transition-normal);
-    touch-action: manipulation; /* Оптимизируем touch события */
+    /* touch-action: manipulation; */ /* Оптимизируем touch события - ТОЖЕ КОММЕНТИРУЕМ */
     -webkit-touch-callout: none !important;
     user-select: none !important;
     -webkit-user-select: none !important;

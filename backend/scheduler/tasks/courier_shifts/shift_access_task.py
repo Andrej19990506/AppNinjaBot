@@ -253,38 +253,55 @@ class ShiftAccessTask(BaseTask):
         if not hasattr(settings, 'BOT_API_URL') or not settings.BOT_API_URL:
             logger.error(f"({self.TASK_TYPE}) ❌ URL API телеграм-бота (BOT_API_URL) не задан в настройках.")
             return False
-
+            
+        # Проверяем доступность эндпоинта отправки сообщений перед отправкой
+        if hasattr(settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL') and settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL:
+            logger.info(f"({self.TASK_TYPE}) 🔍 Проверка доступности эндпоинта отправки сообщений перед отправкой...")
+            try:
+                client = await get_async_http_client()
+                try:
+                    health_response = await client.get(settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL, timeout=5)
+                    if health_response.status_code != 200:
+                        logger.error(f"({self.TASK_TYPE}) ❌ Эндпоинт отправки сообщений недоступен. Статус: {health_response.status_code}. Отмена отправки.")
+                        return False
+                    logger.info(f"({self.TASK_TYPE}) ✅ Эндпоинт отправки сообщений доступен.")
+                except Exception as health_error:
+                    logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при проверке доступности эндпоинта отправки сообщений: {health_error}")
+                    return False
+                finally:
+                    await client.aclose()
+            except Exception as e:
+                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при создании HTTP-клиента: {e}")
+                return False
+                
         # Формируем URL и payload для эндпоинта /send_message
         # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце bot_api_url --- #
         base_bot_url = str(settings.BOT_API_URL).rstrip('/')
-        api_endpoint = f"{base_bot_url}/send_message" # Используем исправленный URL
-        message_text = "Доступ к записи на смены открыт!" # Стандартный текст сообщения
+        api_endpoint = f"{base_bot_url}/send_message"  # Используем исправленный URL
+        message_text = "Доступ к записи на смены открыт!"  # Стандартный текст сообщения
         payload = {
             "chat_id": chat_id,
             "text": message_text,
-            "parse_mode": "HTML" # Оставляем HTML по умолчанию
+            "parse_mode": "HTML"  # Оставляем HTML по умолчанию
         }
         logger.info(f"({self.TASK_TYPE}) Отправка уведомления в Telegram Bot API: {api_endpoint}, Payload: {payload}")
-
+        
+        # Используем асинхронный HTTP-клиент
         try:
-            # Используем асинхронный HTTP-клиент
             client = await get_async_http_client()
-            response = await client.post(api_endpoint, json=payload, timeout=15) # Увеличим таймаут для внешнего API
-            # Закрываем клиент после использования
-            await client.aclose()
-            
-            # Проверяем статус ответа от Telegram Bot API (обычно 200 OK)
-            if response.status_code == 200:
-                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление для чата {chat_id} успешно отправлено через Telegram Bot API.")
-                return True
-            else:
-                # Логируем ошибку от Telegram Bot API
-                logger.error(f"({self.TASK_TYPE}) ❌ Telegram Bot API вернул ошибку {response.status_code} при отправке уведомления для чата {chat_id}: {response.text}")
+            try:
+                response = await client.post(api_endpoint, json=payload)
+                if response.status_code == 200:
+                    logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в Telegram Bot API.")
+                    return True
+                else:
+                    logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в Telegram Bot API: {response.status_code}, {response.text}")
+                    return False
+            except Exception as e:
+                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в Telegram Bot API: {e}")
                 return False
-        except httpx.RequestError as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка HTTP при отправке уведомления через Telegram Bot API для чата {chat_id}: {e}")
-            return False
+            finally:
+                await client.aclose()
         except Exception as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Неизвестная ошибка при отправке уведомления через Telegram Bot API для чата {chat_id}: {e}")
-            logger.error(traceback.format_exc()) # Добавим traceback для неизвестных ошибок
+            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при создании HTTP-клиента: {e}")
             return False 

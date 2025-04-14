@@ -70,6 +70,35 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 
+# --- Эндпоинт для проверки доступности отправки сообщений ---
+@router.get("/send_message/health", tags=["System"])
+async def check_send_message_availability(request: Request):
+    """
+    Проверяет доступность маршрута /send_message без фактической отправки сообщения в Telegram.
+    Используется шедулером для проверки готовности бота к отправке сообщений.
+    """
+    try:
+        # Получаем экземпляр бота из app.state только для проверки, что он доступен
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при проверке health")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
+            
+        # Если бот доступен, возвращаем успешный статус
+        logger.info("✅ Проверка доступности маршрута /send_message успешна")
+        return {
+            "status": "ok",
+            "message": "Send message endpoint is available",
+            "send_message_url": "/send_message"
+        }
+            
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в /send_message/health: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+
 # --- Эндпоинт для вебхука --- 
 # Используем значения из Config
 c = Config()

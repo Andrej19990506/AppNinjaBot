@@ -57,8 +57,8 @@ services:
 
   scheduler:
     build:
-      context: ./backend
-      dockerfile: ./scheduler/Dockerfile
+      context: ./backend/scheduler
+      dockerfile: Dockerfile
       target: production
     environment:
       - API_URL=http://nginx:80
@@ -67,6 +67,10 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
+      - BOT_API_URL=http://bot:8003
+      - HEALTHCHECK_API_URL=https://appninjabot.ru/api/health
+      - HEALTHCHECK_BOT_URL=https://appninjabot.ru/api/bot/health
+      - HEALTHCHECK_BOT_SEND_MESSAGE_URL=http://bot:8003/send_message/health
     restart: unless-stopped
     deploy:
       resources:
@@ -106,15 +110,16 @@ services:
     volumes:
       - ./websocket-service/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx_logs:/var/log/nginx
+      - ./websocket-service/50-generate-config-js.sh:/docker-entrypoint.d/50-generate-config-js.sh:ro
     environment:
       - REACT_APP_API_URL=${REACT_APP_API_URL:-https://appninjabot.ru}
-      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-wss://appninjabot.ru/ws/v1}
+      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-wss://appninjabot.ru}
       - ENV_TYPE=${ENV_TYPE:-production}
       - REACT_APP_DEBUG=${REACT_APP_DEBUG:-false}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
       - NGINX_HOST=appninjabot.ru
       - NGINX_PORT=80
-    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && sh /docker-entrypoint.d/50-generate-config-js.sh && nginx -g 'daemon off;'"
     depends_on:
       - server
       - websocket

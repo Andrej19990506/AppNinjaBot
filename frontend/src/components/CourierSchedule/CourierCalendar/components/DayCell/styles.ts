@@ -17,7 +17,7 @@ export const DayCellContainer = styled.div<DayCellContainerProps>`
     border-radius: var(--radius);
     padding: 2px;
     transition: all 0.2s ease;
-    touch-action: none;
+    touch-action: pan-y;
     -webkit-touch-callout: none;
     -webkit-tap-highlight-color: transparent;
     -webkit-user-select: none;

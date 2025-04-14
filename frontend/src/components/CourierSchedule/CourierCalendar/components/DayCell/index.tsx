@@ -197,10 +197,6 @@ const DayCell: React.FC<DayCellProps> = ({
     return (
         <DayCellContainer
             onClick={onClick}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={() => { touchStartPosRef.current = null; }}
             $isToday={isToday}
             $isSelected={isSelected}
             $hasShifts={hasShifts}

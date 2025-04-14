@@ -1,6 +1,17 @@
 tunnel: 49353dc5-d71c-4aaa-88db-9c1f619f7ef7
 # Используем путь внутри контейнера!
 credentials-file: /etc/cloudflared/49353dc5-d71c-4aaa-88db-9c1f619f7ef7.json
+# Принудительно используем http2 вместо quic
+protocol: http2
+# Для отладки активируем логи
+loglevel: debug
+# Интервал проверки доступности
+originRequest:
+  connectTimeout: 30s
+  noTLSVerify: true
+  disableChunkedEncoding: true
+  proxyAddress: bot:8003
+no-udp: true
 
 ingress:
   - hostname: dev-bot.appninjabot.ru # !!! Убедись, что это твой поддомен !!!

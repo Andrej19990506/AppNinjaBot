@@ -15,6 +15,12 @@ const buildtimeApiUrl = process.env.REACT_APP_API_URL;
 // Prefer runtime config, fallback to build-time env var
 const baseURL = runtimeApiUrl || buildtimeApiUrl;
 
+// !!! ДОБАВЛЯЕМ ЛОГИ !!!
+console.log(`[DEBUG] Using baseURL: ${baseURL}`); 
+console.log(`[DEBUG] Runtime URL: ${runtimeApiUrl}`);
+console.log(`[DEBUG] Build-time URL: ${buildtimeApiUrl}`);
+// !!! КОНЕЦ ЛОГОВ !!!
+
 // Log which URL is being used
 if (runtimeApiUrl) {
   console.log(`Base API URL from config.js: ${runtimeApiUrl}`);
@@ -623,6 +629,18 @@ export const userApi = {
 // Интерцептор для логирования запросов
 axiosInstance.interceptors.request.use(
     config => {
+        // НЕ меняем HTTP на HTTPS - это вызывает ошибку SSL
+        /*
+        // Принудительно меняем HTTP на HTTPS для всех запросов
+        if (config.url && config.url.startsWith('/api/v1/')) {
+            // Удостоверимся, что baseURL использует HTTPS
+            if (config.baseURL && config.baseURL.startsWith('http://')) {
+                config.baseURL = config.baseURL.replace('http://', 'https://');
+                console.log(`🔒 Исправлен baseURL на HTTPS: ${config.baseURL}`);
+            }
+        }
+        */
+        
         console.log('🚀 API Request:', {
             method: config.method?.toUpperCase(),
             url: config.url,

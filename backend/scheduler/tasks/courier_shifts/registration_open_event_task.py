@@ -1,0 +1,1 @@
+from backend.shared.http_client import get_async_http_client 

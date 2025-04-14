@@ -136,8 +136,8 @@ export const getShifts = async (chatId: number | string): Promise<ApiShift[]> =>
     
     logger.info(`[courierApi] 📡 Запрос смен для группы ID: ${groupId}`);
     try {
-        // Добавляем слеш в конце URL и используем ПРАВИЛЬНОЕ ИМЯ параметра
-        const response = await axiosInstance.get<ApiShift[]>('/api/v1/shifts/', { 
+        // Убираем слеш в конце URL для предотвращения редиректа HTTP->HTTPS
+        const response = await axiosInstance.get<ApiShift[]>('/api/v1/shifts', { 
             params: { group_telegram_id: groupId } // <<< ИСПРАВЛЕНО ИМЯ ПАРАМЕТРА
         });
         console.log(`[courierApi] ✅ Смены для группы ${groupId} получены:`, response.data);
@@ -379,8 +379,8 @@ export const createOrUpdateShift = async (shiftData: {
             user_telegram_id, // <<< ИЗМЕНЕНО
             group_telegram_id // <<< ИЗМЕНЕНО
         };
-        // Добавляем слэш в конце URL
-        const response = await axiosInstance.post('/api/v1/shifts/', payload);
+        // Убираем слэш в конце URL
+        const response = await axiosInstance.post('/api/v1/shifts', payload);
         logger.info(`[courierApi] ✅ Смена успешно создана`, response.data);
         return response.data;
     } catch (error: any) {

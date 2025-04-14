@@ -34,7 +34,7 @@ class ShiftCreateTelegram(BaseModel):
 
 router = APIRouter()
 
-@router.get("/", response_model=List[ShiftRead])
+@router.get("", response_model=List[ShiftRead])
 async def read_shifts(
     # Принимаем Telegram ID группы как параметр запроса
     group_telegram_id: int = Query(..., description="Telegram ID of the group to fetch shifts for"),
@@ -68,7 +68,7 @@ async def read_shifts(
     
     return shifts
 
-@router.post("/", response_model=ShiftRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=ShiftRead, status_code=status.HTTP_201_CREATED)
 async def create_shift(
     shift_in: ShiftCreateTelegram, # <<< Используем новую схему
     db: AsyncSession = Depends(get_db_session)

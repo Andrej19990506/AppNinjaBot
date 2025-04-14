@@ -205,15 +205,21 @@ class RegistrationOpenEventTask(BaseTask):
 
             # Формируем payload для NOTIFY
             payload_dict = {
-                'type': 'registration_opened',
+                'type': 'SHIFT_ACCESS_SENT',
                 'chat_id': chat_id_str,
                 'timestamp': datetime.now(timezone.utc).isoformat() + 'Z',
-                'source': 'scheduler_task'
+                'source': 'scheduler_task_execution'
             }
             
             # Канал для уведомления
             channel = 'websocket_channel'
-            logger.info(f"({self.TASK_TYPE}) Отправка NOTIFY в канал '{channel}' для chat_id: {chat_id_str}")
+            env = os.getenv('ENVIRONMENT', 'development')
+            if env == 'development':
+                logger.info(f"🔥🔥🔥 DEV ОКРУЖЕНИЕ: ({self.TASK_TYPE}) Отправка события SHIFT_ACCESS_SENT в канал '{channel}' для chat_id: {chat_id_str} 🔥🔥🔥")
+            elif env == 'production':
+                logger.info(f"🔴🔴🔴 PROD ОКРУЖЕНИЕ: ({self.TASK_TYPE}) Отправка события SHIFT_ACCESS_SENT в канал '{channel}' для chat_id: {chat_id_str} 🔴🔴🔴")
+            else:
+                logger.info(f"({self.TASK_TYPE}) Отправка NOTIFY в канал '{channel}' для chat_id: {chat_id_str}")
             
             # Вызываем метод DatabaseService
             notify_success = await db_service.notify_websocket(channel, payload_dict)

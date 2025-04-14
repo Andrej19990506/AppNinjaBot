@@ -177,22 +177,24 @@ const ClockIcon = () => (
 );
 
 const StepOne: React.FC = () => {
-    // Получаем настройки доступа из контекста через хук
     const { settings, updateSettings } = useStepAccessSettings();
     
-    // Состояния для выбранного дня, часа и минуты
-    const [selectedDay, setSelectedDay] = useState<number>(settings.registrationStartDay ?? 1); // По умолчанию понедельник
-    const [startHour, setStartHour] = useState<number>(settings.registrationStartHour ?? 9);
-    const [startMinute, setStartMinute] = useState<number>(settings.registrationStartMinute ?? 0);
+    const [selectedDay, setSelectedDay] = useState<number>(settings?.registrationStartDay ?? 1);
+    const [startHour, setStartHour] = useState<number>(settings?.registrationStartHour ?? 9);
+    const [startMinute, setStartMinute] = useState<number>(settings?.registrationStartMinute ?? 0);
     
-    // Обновляем локальные состояния при изменении настроек
     useEffect(() => {
-        setSelectedDay(settings.registrationStartDay ?? 1);
-        setStartHour(settings.registrationStartHour ?? 9);
-        setStartMinute(settings.registrationStartMinute ?? 0);
+        if (settings) {
+            setSelectedDay(settings.registrationStartDay ?? 1);
+            setStartHour(settings.registrationStartHour ?? 9);
+            setStartMinute(settings.registrationStartMinute ?? 0);
+        } else {
+            setSelectedDay(1);
+            setStartHour(9);
+            setStartMinute(0);
+        }
     }, [settings]);
     
-    // Дни недели
     const daysOfWeek = [
         { id: 1, short: 'Пн' },
         { id: 2, short: 'Вт' },
@@ -203,33 +205,26 @@ const StepOne: React.FC = () => {
         { id: 0, short: 'Вс' }
     ];
     
-    // Обработчик выбора дня недели
     const handleDaySelect = useCallback((day: number) => {
         setSelectedDay(day);
-        // Обновляем настройки в Redux
         updateSettings({ registrationStartDay: day });
     }, [updateSettings]);
     
-    // Обработчик изменения часа
     const handleHourChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
         const hour = parseInt(e.target.value, 10);
         setStartHour(hour);
-        // Обновляем настройки в Redux
         updateSettings({ registrationStartHour: hour });
     }, [updateSettings]);
     
-    // Обработчик изменения минут
     const handleMinuteChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
         const minute = parseInt(e.target.value, 10);
         setStartMinute(minute);
-        // Обновляем настройки в Redux
         updateSettings({ registrationStartMinute: minute });
     }, [updateSettings]);
     
     return (
         <Container>
             <FormContainer>
-                {/* Секция выбора дня недели */}
                 <FormSection 
                     variants={formSectionVariants}
                     initial="hidden"
@@ -260,7 +255,6 @@ const StepOne: React.FC = () => {
                     </Description>
                 </FormSection>
                 
-                {/* Секция настройки времени */}
                 <FormSection 
                     variants={formSectionVariants}
                     initial="hidden"

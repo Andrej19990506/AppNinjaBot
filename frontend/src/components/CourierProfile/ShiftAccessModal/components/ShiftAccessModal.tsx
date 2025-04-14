@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo, createContext, useMemo } from 'react';
+import React, { useState, useCallback, memo, createContext, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
 import {
     Overlay,
     ModalContainer,
@@ -8,10 +8,8 @@ import {
 import { StepOne, StepTwo, StepThree } from './StepsShiftAccess';
 import { useStepNavigation, FormStep } from '../../ShiftAccessModal/hooks';
 import { useAccessSettings } from '../../ShiftAccessModal/hooks/useAccessSettings';
-import StepIndicator from './StepsShiftAccess/common/StepIndicator';
 import StepsContainer from './StepsShiftAccess/common/StepsContainer';
 import ModalHeader from './common/ModalHeader';
-import ModalFooter from './common/ModalFooter';
 import { SuccessNotification } from './common';
 import { AccessSettings } from '../../../../store/slices/shiftsSlice';
 
@@ -19,6 +17,16 @@ interface ShiftAccessModalProps {
     isOpen: boolean;
     onClose: () => void;
     chatId?: string;
+    onIsDirtyChange?: (isDirty: boolean) => void;
+    onStepChange: (step: number) => void;
+}
+
+export interface ShiftAccessModalRef {
+    triggerSave: () => Promise<boolean>;
+    triggerReset: () => void;
+    goToNextStep: () => void;
+    goToPrevStep: () => void;
+    isCurrentStepValid: () => boolean;
 }
 
 enum ModalState {
@@ -27,20 +35,26 @@ enum ModalState {
 }
 
 export interface AccessSettingsContextType {
-    settings: AccessSettings;
+    settings: AccessSettings | null;
     isLoading: boolean;
     error: string | null;
     updateSettings: (updatedValues: Partial<AccessSettings>) => void;
 }
 
 export const AccessSettingsContext = createContext<AccessSettingsContextType>({
-    settings: {} as AccessSettings,
+    settings: null,
     isLoading: false,
     error: null,
     updateSettings: () => {}
 });
 
-const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProps) => {
+const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalProps>(({ 
+    isOpen, 
+    onClose, 
+    chatId, 
+    onIsDirtyChange,
+    onStepChange
+}, ref) => {
     const [modalState, setModalState] = useState<ModalState>(ModalState.FORM);
     
     const {
@@ -53,20 +67,23 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
         resetSettings
     } = useAccessSettings({ chatId });
     
+    useEffect(() => {
+        if (onIsDirtyChange) {
+            onIsDirtyChange(isDirty);
+        }
+    }, [isDirty, onIsDirtyChange]);
+
     const {
         currentStep,
         goToNextStep,
         goToPrevStep,
-        resetStep,
-        isFirstStep,
-        isLastStep,
-        swipeDirection,
-        // handleDragEnd: _handleDragEnd
+        swipeDirection
     } = useStepNavigation({
         totalSteps: 3,
+        onStepChange: (step: FormStep) => onStepChange(step + 1),
         onComplete: () => console.log('All steps completed')
     });
-    
+
     const accessSettingsContextValue = useMemo(() => ({
         settings,
         isLoading,
@@ -75,6 +92,7 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
     }), [settings, isLoading, error, handleSettingsChange]);
     
     const handleSwipe = useCallback((direction: number) => {
+        console.log(`[ShiftAccessModal] Swiped. Direction: ${direction}.`);
         if (direction > 0) {
             goToPrevStep();
         } else {
@@ -82,22 +100,35 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
         }
     }, [goToNextStep, goToPrevStep]);
     
-    const handleSave = useCallback(async () => {
+    const handleSaveAttempt = useCallback(async () => {
         const success = await saveSettings();
-        
         if (success) {
             setModalState(ModalState.SUCCESS);
         }
+        return success;
     }, [saveSettings]);
     
+    const handleResetAttempt = useCallback(() => {
+        resetSettings();
+    }, [resetSettings]);
+    
+    const isStepValid = (step: number): boolean => {
+        console.warn(`[ShiftAccessModal] isStepValid(${step}) check not implemented.`);
+        return true;
+    };
+    
+    useImperativeHandle(ref, () => ({
+        triggerSave: handleSaveAttempt,
+        triggerReset: handleResetAttempt,
+        goToNextStep: goToNextStep,
+        goToPrevStep: goToPrevStep,
+        isCurrentStepValid: () => isStepValid(currentStep)
+    }));
+
     const handleModalClose = useCallback(() => {
-        if (isDirty) {
-            resetSettings();
-        }
         setModalState(ModalState.FORM);
-        resetStep();
         onClose();
-    }, [onClose, resetStep, isDirty, resetSettings]);
+    }, [onClose]);
     
     const handleSuccessConfirm = useCallback(() => {
         handleModalClose();
@@ -120,6 +151,7 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
             case FormStep.STEP_THREE:
                 return <StepThree />;
             default:
+                console.warn(`[ShiftAccessModal] Unknown step: ${currentStep}. Rendering StepOne.`);
                 return <StepOne />;
         }
     }, [currentStep]);
@@ -139,34 +171,16 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
                 
                 <AccessSettingsContext.Provider value={accessSettingsContextValue}>
                     {modalState === ModalState.FORM ? (
-                        <>
-                            <ModalContent>
-                                <StepIndicator 
-                                    currentStep={currentStep} 
-                                    totalSteps={3} 
-                                />
-                                
-                                <StepsContainer
-                                    currentStep={currentStep}
-                                    direction={swipeDirection}
-                                    onSwipe={handleSwipe}
-                                    maxHeight="calc(100vh - 250px)"
-                                >
-                                    {renderCurrentStep()}
-                                </StepsContainer>
-                            </ModalContent>
-                            
-                            <ModalFooter 
-                                onCancel={handleModalClose}
-                                onNext={goToNextStep}
-                                onBack={goToPrevStep}
-                                onSave={handleSave}
-                                isLoading={isLoading}
-                                isFirstStep={isFirstStep}
-                                isLastStep={isLastStep}
-                                isDirty={isDirty}
-                            />
-                        </>
+                        <ModalContent>
+                            <StepsContainer
+                                currentStep={currentStep}
+                                direction={swipeDirection}
+                                onSwipe={handleSwipe}
+                                maxHeight="calc(100vh - 150px)"
+                            >
+                                {renderCurrentStep()}
+                            </StepsContainer>
+                        </ModalContent>
                     ) : (
                         <ModalContent>
                             <SuccessNotificationContainer>
@@ -181,7 +195,7 @@ const ShiftAccessModal = memo(({ isOpen, onClose, chatId }: ShiftAccessModalProp
             </ModalContainer>
         </Overlay>
     );
-});
+}));
 
 ShiftAccessModal.displayName = 'ShiftAccessModal';
 

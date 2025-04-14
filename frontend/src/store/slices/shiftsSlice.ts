@@ -3,201 +3,100 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { socketService } from '../../services/socket';
 import config from '../../config';
-import { format } from 'date-fns';
-import { bookShift as bookShiftApi, cancelShift as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts } from '../../services/courierApi';
-
-// Импортируем действия из резервов для удаления оттуда при записи на смену
-import { removeFromReserve } from './reservesSlice';
+// import { format } from 'date-fns'; // <<< Удаляем неиспользуемый импорт
+import { bookShift as bookShiftApi, cancelShift as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse } from '../../services/courierApi';
+import { CourierShift /*, ReserveEntry*/ } from '../../types/shifts';
+import { removeReserveByIdThunk } from './reservesSlice';
+import { logger } from '../../utils/logger'; // <<< Добавляем импорт логгера
 
 const API_BASE_URL = config.API_URL;
 
-// Вспомогательная функция для подписки на события
-const subscribeToEvent = (event: string, callback: (data: any) => void) => {
-    socketService.subscribe(event, callback);
-};
+// --- Старый интерфейс SlotConfig (переименовываем) ---
+export interface SlotConfigForDay {
+    maxDaySlots: number;
+    maxNightSlots: number;
+}
+// --- ---------------------------------------------- ---
 
+// --- Новый интерфейс для хранения настроек по дням недели --- 
+export interface WeeklySlotConfig {
+    [dayIndex: number]: SlotConfigForDay; // Ключи 0 (Вс) - 6 (Сб)
+}
+// --- ------------------------------------------------------ --- 
+
+// Интерфейс для настроек доступа (БЕЗ слотов)
 export interface AccessSettings {
-    // ID чата
-    chat_id?: string;              // ID чата для которого применяются настройки
-    
-    // Общие настройки
-    allowMultipleShifts?: boolean;     // Разрешить запись на несколько смен
-    autoApprove?: boolean;             // Автоматическое подтверждение записи
-    allowSameDay?: boolean;            // Разрешить запись на текущий день
-    
-    // Настройки периода регистрации
-    registrationStartDay?: number;     // День недели, с которого открывается запись (0-6)
-    registrationStartHour?: number;    // Час начала регистрации (0-23)
-    registrationStartMinute?: number;  // Минуты начала регистрации (0-59)
-    
-    // Гибкие настройки периода доступа
-    offsetType?: 'days' | 'weeks' | 'none';     // Тип смещения (дни или недели)
-    offsetAmount?: number;             // Величина смещения (сколько дней/недель)
-    periodLength?: number;             // Длительность периода доступа (в днях)
-    
-    // Период активности правила
-    isAlwaysActive?: boolean;          // Активно ли правило постоянно
-    activeStartDate?: string;          // Дата начала активности правила
-    activeEndDate?: string;            // Дата окончания активности правила
-    
-    // Старые поля (оставлены для обратной совместимости)
-    daysAhead?: number;                // Количество дней вперед, доступных для записи (устаревшее)
-    
-    // Список конкретных дат, на которые можно записываться
-    enabledDates?: string[];           // Массив дат в формате YYYY-MM-DD
-    
-    // Количество слотов
-    maxDaySlots?: number;             // Максимальное кол-во дневных слотов
-    maxNightSlots?: number;           // Максимальное кол-во ночных слотов
-    
-    // Персональные ограничения
-    restrictedUsers?: (string | number)[];  // Список ID пользователей с ограниченным доступом
-    
-    // Метаданные
-    lastUpdated?: string;             // Время последнего обновления настроек
-    updatedBy?: string | number;      // ID пользователя, обновившего настройки
+    chat_id?: string;             
+    allowMultipleShifts?: boolean;    
+    autoApprove?: boolean;            
+    allowSameDay?: boolean;           
+    registrationStartDay?: number;    
+    registrationStartHour?: number;   
+    registrationStartMinute?: number; 
+    offsetType?: 'days' | 'weeks' | 'none';    
+    offsetAmount?: number;            
+    periodLength?: number;            
+    isAlwaysActive?: boolean;         
+    activeStartDate?: string;         
+    activeEndDate?: string;           
+    daysAhead?: number;               
+    enabledDates?: string[];          
+    // <<< maxDaySlots и maxNightSlots УБРАНЫ отсюда >>>
+    restrictedUsers?: (string | number)[]; 
+    lastUpdated?: string;            
+    updatedBy?: string | number;     
 }
 
+// Обновленный интерфейс состояния
 interface ShiftState {
     shifts: CourierShift[];
     loading: boolean;
     error: string | null;
-    shift_days: ShiftDayType[];
-    accessSettings: AccessSettings;
+    accessSettings: AccessSettings | null;
+    // --- Изменяем тип slotConfig --- 
+    slotConfig: WeeklySlotConfig | null; 
+    // --- ------------------------ --- 
     isLoadingSettings: boolean;
     settingsError: string | null;
 }
 
-interface CourierShift {
-    id: string;
-    userId: string;
-    photo_url: string | null;
-    firstName: string;
-    lastName: string;
-    date: string;
-    shiftType: 'day' | 'night';
-    slotIndex: number;
-    isSeniorCourier: boolean;
-}
-
+// Интерфейс параметров для Thunk bookShift
 interface BookShiftThunkParams {
     date: string;
-    userId: string;
+    userId: string; // Оставляем userId (string) как основной идентификатор во фронте
     shiftType: 'day' | 'night';
     slotIndex: number;
-    existingShiftId?: string;
-    isDragAction?: boolean;
+    chatId: string; // Оставляем chatId (string) как основной идентификатор группы во фронте
+    // existingShiftId убран, так как bookShift теперь только создает
+    // existingShiftId?: string; 
 }
 
-interface ShiftBookedPayload {
-    id: string;
-    user_id: string;
-    photo_url?: string | null;
-    first_name?: string;
-    last_name?: string;
-    date: string;
-    shift_type: 'day' | 'night';
-    slot_index: number;
-    is_senior_courier?: boolean;
-    member?: {
-        user_id: string;
-        first_name: string;
-        last_name: string;
-        photo_url: string | null;
-        is_senior_courier?: boolean;
-    };
-}
+// --- Значения по умолчанию для слотов (теперь недельные) --- 
+export const defaultSingleDaySlotConfig: SlotConfigForDay = {
+    maxDaySlots: 4,
+    maxNightSlots: 2,
+};
 
-// Обновим интерфейс ShiftDayType для включения дополнительных полей
-interface ShiftDayType {
-    date: string;
-    day_shifts: ShiftType[];
-    night_shifts: ShiftType[];
-    // Другие поля, если есть
-}
+export const defaultWeeklySlotConfig: WeeklySlotConfig = {
+    0: { ...defaultSingleDaySlotConfig }, // Воскресенье
+    1: { ...defaultSingleDaySlotConfig }, // Понедельник
+    2: { ...defaultSingleDaySlotConfig }, // Вторник
+    3: { ...defaultSingleDaySlotConfig }, // Среда
+    4: { ...defaultSingleDaySlotConfig }, // Четверг
+    5: { ...defaultSingleDaySlotConfig }, // Пятница
+    6: { ...defaultSingleDaySlotConfig }, // Суббота
+};
+// --- -------------------------------------------------- --- 
 
-// Обновим интерфейс для локальных данных, которые приходят из компонента
-interface ShiftTypeLocal {
-    id?: string;
-    userId?: string | number;
-    user_id?: string | number;
-    photo_url?: string | null;
-    firstName?: string;
-    first_name?: string;
-    lastName?: string;
-    last_name?: string;
-    isSeniorCourier?: boolean;
-    is_senior_courier?: boolean;
-    slotIndex?: number;
-    slot_index?: number;
-    date?: string;
-    shift_type?: 'day' | 'night';
-}
-
-// Обновим интерфейс ShiftType для включения всех необходимых полей
-interface ShiftType {
-    id?: string;
-    user_id: string | number;
-    photo_url?: string | null;
-    first_name?: string;
-    last_name?: string;
-    is_senior_courier?: boolean;
-    slot_index: number;
-    date?: string;
-    shift_type?: 'day' | 'night';
-    // Другие поля, если есть
-}
-
-interface ApiShift {
-    id: string;
-    user_id?: string; // Обрати внимание: в старом коде было userId, но API вероятно возвращает user_id
-    photo_url?: string | null;
-    first_name?: string;
-    last_name?: string;
-    date: string;
-    shift_type: 'day' | 'night';
-    slot_index: number;
-    is_senior_courier?: boolean;
-    member?: {
-        user_id: string;
-        first_name: string;
-        last_name: string;
-        photo_url: string | null;
-        is_senior_courier?: boolean;
-    };
-}
-
+// Обновленное начальное состояние
 const initialState: ShiftState = {
     shifts: [],
     loading: false,
     error: null,
-    shift_days: [],
-    accessSettings: {
-        allowMultipleShifts: false,
-        autoApprove: false,
-        allowSameDay: false,
-        
-        // Настройки периода регистрации
-        registrationStartDay: 4, // Четверг
-        registrationStartHour: 12, // 12:00
-        registrationStartMinute: 0,
-        
-        // Новые гибкие настройки периода
-        offsetType: 'weeks' as 'days' | 'weeks' | 'none',
-        offsetAmount: 1,
-        periodLength: 7,
-        isAlwaysActive: true,
-        
-        // Количество слотов (значения по умолчанию)
-        maxDaySlots: 4,
-        maxNightSlots: 2,
-        
-        // Старые поля для обратной совместимости
-        daysAhead: 14, // 2 недели
-        
-        // Персональные ограничения
-        restrictedUsers: []
-    },
+    accessSettings: null, 
+    // --- Используем недельные дефолтные слоты --- 
+    slotConfig: defaultWeeklySlotConfig, 
+    // --- -------------------------------------- --- 
     isLoadingSettings: false,
     settingsError: null
 };
@@ -264,162 +163,127 @@ export const fetchShifts = createAsyncThunk(
     }
 );
 
+// Функция маппинга ApiShift -> CourierShift (унифицированный тип)
+const mapApiShiftToCourierShift = (apiShift: ApiShift): CourierShift => {
+    // logger.debug('[shiftsSlice] Маппинг ApiShift в CourierShift:', apiShift);
+    const memberData = apiShift.member; // Данные из вложенного объекта member
+
+    // Определяем источник для каждого поля, отдавая приоритет memberData, если он есть
+    // Убедимся, что используем правильные имена полей из ApiShift и memberData
+    const userId = memberData?.user_id ? String(memberData.user_id) : String(apiShift.user_id || 'unknown');
+    const photoUrl = memberData?.photo_url || apiShift.photo_url || null;
+    const firstName = memberData?.first_name || apiShift.first_name || '';
+    const lastName = memberData?.last_name || apiShift.last_name || '';
+    // Для isSeniorCourier проверяем оба возможных источника
+    const isSeniorCourier = memberData ? (memberData.is_senior_courier || false) : (apiShift.is_senior_courier || false);
+
+    const shift: CourierShift = {
+        id: apiShift.id,
+        userId: userId,
+        photoUrl: photoUrl,
+        firstName: firstName,
+        lastName: lastName,
+        date: apiShift.date, // Эти поля берем из корня объекта смены
+        shiftType: apiShift.shift_type,
+        slotIndex: apiShift.slot_index,
+        isSeniorCourier: isSeniorCourier, // Используем вычисленное значение
+    };
+    // logger.debug('[shiftsSlice] Результат маппинга в CourierShift:', shift);
+    return shift;
+};
+
+// Экспортируем интерфейс для payload события shifts_updated от WebSocket
+export interface ShiftsUpdatedWsPayload {
+    type: 'shifts_updated';
+    chat_id: string;
+    source: string;
+    shift_data: ApiShift; // Полные данные смены здесь
+}
+
+// --- THUNK для бронирования смены (СОЗДАНИЕ) ---
 export const bookShift = createAsyncThunk<
-    CourierShift, // Тип возвращаемого значения при успехе
-    BookShiftThunkParams, // Тип аргумента thunk
-    { state: RootState; rejectValue: string } // Тип конфига thunk
+    CourierShift, // Возвращаем созданную/обновленную смену (унифицированный тип)
+    BookShiftThunkParams,
+    { rejectValue: string; state: RootState } 
 >(
     'shifts/bookShift',
-    async (params, { getState, rejectWithValue, dispatch }) => {
-        const { date, userId, shiftType, slotIndex, existingShiftId, isDragAction } = params;
-        const state = getState();
-        const chatId = state.user.user?.groups && state.user.user.groups.length > 0
-            ? state.user.user.groups[0].chat_id
-            : undefined;
-
-        console.log('[shiftsSlice] Booking shift with params:', params, 'chatId:', chatId);
-        
+    async ({ date, userId, shiftType, slotIndex, chatId }, { rejectWithValue, getState, dispatch }) => {
+        logger.info('[shiftsSlice] Запуск bookShift thunk (создание):', { date, userId, shiftType, slotIndex, chatId });
         try {
-            // Проверяем настройки доступа на запись нескольких смен
-            const accessSettings = state.shifts.accessSettings;
-            const userShifts = state.shifts.shifts;
-            
-            // Проверяем, есть ли уже смена у пользователя на выбранную дату
-            const userHasShiftOnDate = userShifts.some(shift => 
-                shift.date === date && 
-                String(shift.userId) === String(userId) &&
-                (!existingShiftId || String(shift.id) !== String(existingShiftId)) // Если это не изменение существующей смены
-            );
-            
-            // Если запрещено записываться на несколько смен и у пользователя уже есть смена - отклоняем запрос
-            if (userHasShiftOnDate && !accessSettings.allowMultipleShifts) {
-                console.log('[shiftsSlice] Rejecting booking - multiple shifts are not allowed.');
-                return rejectWithValue('Нельзя записаться на несколько смен в один день');
-            }
-            
-            // Подготавливаем данные для API (snake_case)
+            // Преобразуем ID в числа и используем правильные имена для API
             const apiData = {
                 date: date,
-                user_id: userId,
+                user_telegram_id: parseInt(userId, 10), // Преобразуем ID пользователя
+                group_telegram_id: parseInt(chatId, 10), // <-- Убираем .replace('-', '')
                 shift_type: shiftType,
                 slot_index: slotIndex,
-                chat_id: chatId,
-                existing_shift_id: existingShiftId
             };
-            // Удаляем chatId и existing_shift_id, если они undefined
-            if (!apiData.chat_id) delete (apiData as Partial<typeof apiData>).chat_id;
-            if (!apiData.existing_shift_id) delete (apiData as Partial<typeof apiData>).existing_shift_id;
-
-            // Вызываем новую функцию из courierApi
-            // Примечание: В старом коде использовался WebSocket, здесь мы переходим на REST API вызов
-            // Логика обработки резервов и drag-n-drop остается в thunk.
-            console.log('[shiftsSlice] Calling bookShiftApi with data:', apiData);
-            const bookedApiShift = await bookShiftApi(apiData);
-            console.log('[shiftsSlice] Received response from bookShiftApi:', bookedApiShift);
-
-            // Старый код с fetch и WebSocket (удален/закомментирован ниже)
-            /*
-            // ... (старый код fetch/websocket) ...
-            */
+            logger.debug('[shiftsSlice] Данные для bookShiftApi:', apiData);
             
-            // Преобразуем ответ API (snake_case) в формат стейта (camelCase и userId)
-            const bookedShift: CourierShift = {
-                id: bookedApiShift.id,
-                userId: String(bookedApiShift.user_id),
-                photo_url: bookedApiShift.photo_url,
-                firstName: bookedApiShift.first_name,
-                lastName: bookedApiShift.last_name,
-                date: bookedApiShift.date,
-                shiftType: bookedApiShift.shift_type,
-                slotIndex: bookedApiShift.slot_index,
-                isSeniorCourier: bookedApiShift.is_senior_courier || false
-            };
+            // Проверяем на NaN после parseInt
+            if (isNaN(apiData.user_telegram_id) || isNaN(apiData.group_telegram_id)) {
+                logger.error('[shiftsSlice] ❌ Ошибка преобразования ID в числа:', { userId, chatId });
+                return rejectWithValue('Неверный формат ID пользователя или группы.');
+            }
 
-            console.log('[shiftsSlice] Shift booked/updated successfully via API:', bookedShift);
+            // Вызываем API
+            const bookedApiShift = await bookShiftApi(apiData);
+            logger.info('[shiftsSlice] Смена успешно забронирована через API:', bookedApiShift);
 
-            // Логика удаления из резерва остается здесь, т.к. она связана со стейтом Redux
-            if (!isDragAction) {
-                 const reserveDate = format(new Date(date + 'T00:00:00'), 'yyyy-MM-dd');
-                 console.log(`[shiftsSlice] Checking reserve for date: ${reserveDate}, user: ${userId}`);
-                 const reserveExists = state.reserves.reserves.some(reserve => 
-                     reserve.date === reserveDate && String(reserve.user_id) === String(userId)
-                 );
-                 if (reserveExists) {
-                     console.log(`[shiftsSlice] User ${userId} was in reserve for ${reserveDate}, removing...`);
-                     dispatch(removeFromReserve({ date: reserveDate, userId: String(userId) }));
-                     // Опционально: Перезапросить резервы после удаления
-                     // dispatch(forceFetchReserves()); 
-                 }
-             }
+            // Маппим ответ API в наш внутренний тип
+            const bookedShiftEntry = mapApiShiftToCourierShift(bookedApiShift);
 
-            // Возвращаем успешно обработанную смену
-            return bookedShift;
+            // --- Логика удаления из резерва --- 
+            const state = getState();
+            const reserveEntry = state.reserves.reserves.find(r => r.userId === userId && r.date === date);
+            
+            if (reserveEntry) {
+                logger.info(`[shiftsSlice] Пользователь ${userId} найден в резерве на ${date}. Запуск удаления из резерва...`);
+                try {
+                    await dispatch(removeReserveByIdThunk({ reserveId: reserveEntry.id })).unwrap();
+                    logger.info(`[shiftsSlice] Thunk removeReserveByIdThunk успешно запущен для резерва ID: ${reserveEntry.id}`);
+                } catch (removeError) {
+                    logger.error(`[shiftsSlice] Ошибка при попытке удаления из резерва после бронирования смены:`, removeError);
+                    // Не прерываем выполнение, просто логируем
+                }
+            }
+            // --- Конец логики удаления из резерва --- 
+
+            return bookedShiftEntry; // Возвращаем смапленную запись
+
         } catch (error) {
-            // Обрабатываем ошибку, выброшенную из bookShiftApi
             let errorMessage = 'Неизвестная ошибка при бронировании смены';
             if (error instanceof Error) {
-                errorMessage = error.message;
+                errorMessage = error.message; 
             }
-            console.error('[shiftsSlice] Failed to book shift via API:', errorMessage);
-            // Передаем сообщение об ошибке для обработки в rejected case
+            logger.error('[shiftsSlice] ❌ Ошибка при бронировании смены через API:', errorMessage);
             return rejectWithValue(errorMessage);
         }
     }
 );
 
+// --- THUNK для отмены смены ---
 export const cancelShift = createAsyncThunk<
-    string, // Возвращаем ID удаленной смены при успехе
-    { shiftId: string }, // Тип аргумента (chatId не нужен как параметр thunk, берем из state)
-    { state: RootState; rejectValue: string } // Тип конфига
+    { success: boolean; shiftId: string; userId: string; date: string; }, // Возвращаем ID отмененной смены и данные для возможного добавления в резерв
+    { shiftId: string; chatId: string; userId: string; date: string; }, // Принимаем ID смены, чата, пользователя и дату
+    { rejectValue: string; state: RootState } // Добавили state
 >(
     'shifts/cancelShift',
-    async ({ shiftId }, { getState, rejectWithValue }) => {
-        const state = getState();
-        const chatId = state.user.user?.groups && state.user.user.groups.length > 0
-            ? state.user.user.groups[0].chat_id
-            : undefined;
-
-        if (!chatId) {
-            console.error('[shiftsSlice] Cannot cancel shift without chat_id');
-            // Возвращаем сообщение об ошибке через rejectWithValue
-            return rejectWithValue('Не удалось определить чат для отмены смены.');
-        }
-
-        console.log(`[shiftsSlice] Canceling shift ID: ${shiftId} in chat: ${chatId}`);
+    async ({ shiftId, chatId, userId, date }, { rejectWithValue, getState }) => {
+        logger.info(`[shiftsSlice] Запуск cancelShift thunk: shiftId=${shiftId}, chatId=${chatId}`);
         try {
-            // Вызываем новую функцию из courierApi
             await cancelShiftApi(shiftId, chatId);
-
-            // Старый код с fetch (можно удалить или закомментировать)
-            /*
-            const response = await fetch(`${API_BASE_URL}/couriers/shifts/${shiftId}?chat_id=${chatId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                 let errorMsg = `Failed to cancel shift`;
-                 try {
-                     const errorJson = await response.json();
-                     errorMsg = `Failed to cancel shift: ${JSON.stringify(errorJson)}`;
-                 } catch (e) {
-                     const errorText = await response.text();
-                     errorMsg = `Failed to cancel shift: ${errorText || response.statusText}`;
-                 }
-                throw new Error(errorMsg);
-            }
-            */
-
-            console.log(`[shiftsSlice] Shift ID: ${shiftId} cancelled successfully via API.`);
-            // Возвращаем ID отмененной смены для обработки в extraReducers
-            return shiftId;
+            logger.info(`[shiftsSlice] ✅ Смена ID: ${shiftId} успешно отменена через API.`);
+            
+            // Возвращаем ID и доп. данные для редьюсера
+            return { success: true, shiftId, userId, date }; 
+            
         } catch (error) {
-            let errorMessage = 'Неизвестная ошибка при отмене смены';
-            // Извлекаем сообщение из ошибки, выброшенной cancelShiftApi
+             let errorMessage = 'Неизвестная ошибка при отмене смены';
             if (error instanceof Error) {
                 errorMessage = error.message;
             }
-            console.error(`[shiftsSlice] Failed to cancel shift ${shiftId}:`, errorMessage);
-            // Передаем сообщение об ошибке через rejectWithValue
+            logger.error(`[shiftsSlice] ❌ Ошибка при отмене смены ID ${shiftId} через API:`, errorMessage);
             return rejectWithValue(errorMessage);
         }
     }
@@ -464,131 +328,105 @@ export const confirmShift = createAsyncThunk(
     }
 );
 
-// Thunk для загрузки настроек доступа к сменам
-export const fetchAccessSettings = createAsyncThunk<
-    AccessSettings, // Тип возвращаемого значения
-    { chatId: string }, // Тип аргумента
-    { rejectValue: string } // Тип конфига
+// <<< Thunk для загрузки КОНФИГУРАЦИИ СЛОТОВ >>>
+export const fetchSlotConfig = createAsyncThunk<
+    SlotConfigResponse, // Возвращаемый тип при успехе
+    { chatId: number }, // Тип аргумента (принимаем число)
+    { rejectValue: string } // Тип возвращаемого значения при ошибке
 >(
-    'shifts/fetchAccessSettings',
+    'shifts/fetchSlotConfig', // Уникальное имя действия
     async ({ chatId }, { rejectWithValue }) => {
         try {
-            console.log(`[shiftsSlice] 🔍 Запрос настроек доступа для чата ${chatId}`);
-            
-            // Вызываем новую функцию
-            const settings = await getShiftAccessSettingsApi(chatId);
-            
-            // Старый код с fetch
-            /*
-            const url = chatId 
-                ? `${API_BASE_URL}/couriers/access/settings?chat_id=${chatId}` 
-                : `${API_BASE_URL}/couriers/access/settings`; // Запрос без chatId кажется нелогичным тут
-            
-            const response = await fetch(url);
-            if (!response.ok) {
-                let errorMsg = 'Не удалось загрузить настройки доступа';
-                 try {
-                     const errorData = await response.json();
-                     console.error('❌ Ошибка при загрузке настроек:', {
-                         status: response.status,
-                         error: errorData
-                     });
-                     switch(errorData.code) {
-                         case 'TABLE_NOT_EXISTS':
-                             errorMsg = 'Таблица настроек не существует. Обратитесь к администратору.'; break;
-                         case 'SETTINGS_NOT_FOUND':
-                             errorMsg = 'Настройки не найдены для данного чата.'; break;
-                         default:
-                             errorMsg = errorData.error || errorMsg;
-                     }
-                 } catch (e) {
-                     errorMsg = `Не удалось загрузить настройки: ${response.statusText}`;
-                 }
-                return rejectWithValue(errorMsg);
-            }
-            const data = await response.json();
-            */
-            
-            console.log('[shiftsSlice] ✅ Получены настройки доступа:', settings);
-            return settings;
+            logger.log(`[shiftsSlice] ⚙️ Запрос конфигурации слотов для чата ${chatId}`);
+            // Вызываем API функцию
+            const response = await getSlotConfigApi(chatId);
+            logger.log('[shiftsSlice] ✅ Получена конфигурация слотов от API:', response);
+            return response; // Возвращаем объект { config: { ... } }
         } catch (error: any) {
-            let errorMessage = 'Неизвестная ошибка при загрузке настроек доступа';
-             if (error instanceof Error) {
-                 errorMessage = error.message;
-             }
-            console.error('[shiftsSlice] ❌ Ошибка загрузки настроек доступа:', errorMessage);
+            const errorMessage = error.message || 'Failed to fetch slot configuration';
+            logger.error('[shiftsSlice] ❌ Ошибка при получении конфигурации слотов:', errorMessage);
             return rejectWithValue(errorMessage);
         }
     }
 );
 
-// Thunk для обновления настроек доступа к сменам
-export const updateAccessSettings = createAsyncThunk<
-    AccessSettings, // Тип возвращаемого значения
-    Partial<AccessSettings>, // Тип аргумента - передаем настройки
-    { rejectValue: string } // Тип конфига
+// Thunk для загрузки НАСТРОЕК ДОСТУПА (БЕЗ слотов)
+export const fetchAccessSettings = createAsyncThunk<
+    AccessSettings, // Теперь ожидаем только AccessSettings
+    { chatId: string }, 
+    { rejectValue: string } 
 >(
-    'shifts/updateAccessSettings',
-    async (settings, { rejectWithValue }) => {
-        const chatId = settings.chat_id;
-        if (!chatId) {
-            return rejectWithValue('Не указан ID чата для сохранения настроек.');
-        }
-
+    'shifts/fetchAccessSettings',
+    async ({ chatId }, { rejectWithValue }) => {
         try {
-            console.log(`[shiftsSlice] 📊 Отправка настроек доступа для чата ${chatId}:`, settings);
-
-            // Вызываем новую функцию API
-            const updatedSettings = await updateShiftAccessSettingsApi(chatId, settings);
-
-            // Старый код с fetch
-            /*
-            const response = await fetch(`${API_BASE_URL}/couriers/access/settings`, {
-                method: 'POST', // Был POST
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(settings), // Передавали все настройки в теле
-            });
-            
-            if (!response.ok) {
-                let errorMsg = 'Не удалось обновить настройки доступа';
-                 try {
-                     const errorData = await response.json();
-                     console.error('❌ Ошибка при обновлении настроек:', {
-                         status: response.status,
-                         error: errorData
-                     });
-                     switch(errorData.code) {
-                         case 'NO_DATA':
-                             errorMsg = 'Не предоставлены данные для обновления настроек.'; break;
-                         case 'NO_CHAT_ID': // Эта ошибка теперь обрабатывается в начале thunk
-                             errorMsg = 'Не указан ID чата для настроек.'; break;
-                         case 'TABLE_NOT_EXISTS':
-                             errorMsg = 'Таблица настроек не существует.'; break;
-                         case 'SETTINGS_NOT_FOUND':
-                             errorMsg = 'Настройки не найдены для чата.'; break;
-                         default:
-                             errorMsg = errorData.error || errorMsg;
-                     }
-                 } catch(e) {
-                    errorMsg = `Ошибка обновления настроек: ${response.statusText}`;
-                 }
-                return rejectWithValue(errorMsg);
-            }
-            
-            const data = await response.json();
-            */
-
-            console.log('[shiftsSlice] ✅ Настройки доступа успешно обновлены:', updatedSettings);
-            return updatedSettings;
+            logger.log(`[shiftsSlice] 🔍 Запрос ТОЛЬКО настроек доступа для чата ${chatId}`);
+            const settings = await getShiftAccessSettingsApi(chatId); 
+            logger.log('[shiftsSlice] ✅ Получены настройки доступа от API:', settings);
+            // Убираем поля слотов, если они вдруг пришли от старого API
+            const { maxDaySlots, maxNightSlots, ...accessSettingsOnly } = settings as any;
+            return accessSettingsOnly as AccessSettings; // Возвращаем только настройки доступа
         } catch (error: any) {
-            let errorMessage = 'Неизвестная ошибка при обновлении настроек доступа';
-             if (error instanceof Error) {
-                 errorMessage = error.message;
-             }
-            console.error('[shiftsSlice] ❌ Ошибка при обновлении настроек доступа:', errorMessage);
+            const errorMessage = error.message || 'Failed to fetch access settings';
+            logger.error('[shiftsSlice] ❌ Ошибка при получении настроек доступа:', errorMessage);
             return rejectWithValue(errorMessage);
+        }
+    }
+);
+
+// <<< Интерфейс для параметров Thunk обновления слотов >>>
+interface UpdateSlotsThunkParams {
+    chat_id: string;
+    maxDaySlots: number;
+    maxNightSlots: number;
+}
+
+// Thunk для обновления ТОЛЬКО слотов (но API может вернуть все настройки)
+export const updateSlotSettings = createAsyncThunk<
+    FullSettingsApiResponse, // API все еще может вернуть полный объект
+    UpdateSlotsThunkParams, 
+    { rejectValue: string }
+>(
+    'shifts/updateSlotSettings', // <<< Новое имя Thunk
+    async (slotData, { rejectWithValue }) => {
+        const { chat_id, maxDaySlots, maxNightSlots } = slotData;
+        try {
+            logger.log(`[shiftsSlice] 📊 Отправка ТОЛЬКО настроек слотов для чата ${chat_id}:`, { maxDaySlots, maxNightSlots });
+            // Передаем на API только нужные поля
+            const updatedSettings = await updateShiftAccessSettingsApi(chat_id, { maxDaySlots, maxNightSlots });
+            logger.log('[shiftsSlice] ✅ ПОЛНЫЕ настройки доступа получены после обновления слотов:', updatedSettings);
+            return updatedSettings; // Возвращаем весь объект из API
+        } catch (error: any) {
+             // ... обработка ошибки ...
+            return rejectWithValue(errorMessage);
+        }
+    }
+);
+
+// <<< НОВЫЙ Thunk для обновления ТОЛЬКО правил доступа >>>
+export const updateAccessRules = createAsyncThunk<
+    AccessSettings, // API может вернуть обновленные правила доступа
+    Partial<AccessSettings> & { chat_id: string }, // Ожидаем частичные правила + обязательный chat_id
+    { rejectValue: string }
+>(
+    'shifts/updateAccessRules', // Новое имя
+    async (accessRulesData, { rejectValue }) => {
+        const { chat_id, ...rulesToUpdate } = accessRulesData;
+        // Убедимся, что не передаем поля слотов, если они случайно попали
+        delete (rulesToUpdate as any).maxDaySlots;
+        delete (rulesToUpdate as any).maxNightSlots;
+        
+        try {
+            logger.log(`[shiftsSlice] 🛡️ Отправка ТОЛЬКО правил доступа для чата ${chat_id}:`, rulesToUpdate);
+            // Вызываем тот же API, но передаем только правила
+            const updatedSettings = await updateShiftAccessSettingsApi(chat_id, rulesToUpdate);
+            logger.log('[shiftsSlice] ✅ Правила доступа обновлены через API (полный ответ):', updatedSettings);
+            // Возвращаем только часть ответа, относящуюся к AccessSettings
+             const { maxDaySlots, maxNightSlots, ...updatedAccessRules } = updatedSettings;
+            return updatedAccessRules as AccessSettings;
+        } catch (error: any) {
+             const errorMessage = error.message || 'Failed to update access rules';
+             logger.error('[shiftsSlice] ❌ Ошибка при обновлении правил доступа:', errorMessage);
+             return rejectWithValue(errorMessage);
         }
     }
 );
@@ -597,425 +435,309 @@ const shiftsSlice = createSlice({
     name: 'shifts',
     initialState,
     reducers: {
-        shiftBooked(state, action: PayloadAction<ShiftBookedPayload>) {
-            const shiftData = action.payload;
-            console.info('[shiftsSlice] Processing shiftBooked action:', shiftData);
-            
-            // Проверяем наличие данных курьера в member или корне объекта
-            const userId = shiftData.member?.user_id || shiftData.user_id || '';
-            const firstName = shiftData.member?.first_name || shiftData.first_name || '';
-            const lastName = shiftData.member?.last_name || shiftData.last_name || '';
-            const photoUrl = shiftData.member?.photo_url || shiftData.photo_url || null;
-            const isSeniorCourier = shiftData.member?.is_senior_courier !== undefined ? 
-                shiftData.member.is_senior_courier : (shiftData.is_senior_courier !== undefined ? 
-                    shiftData.is_senior_courier : false);
-                
-            console.info('[shiftsSlice] Статус старшего курьера из данных:', {
-                hasFlag: isSeniorCourier !== undefined,
-                value: isSeniorCourier,
-                rawData: shiftData.is_senior_courier,
-                memberData: shiftData.member?.is_senior_courier
-            });
-            
-            // Преобразуем данные в формат CourierShift
-            const newShift: CourierShift = {
-                id: shiftData.id,
-                userId: String(userId),
-                photo_url: photoUrl,
-                firstName: firstName,
-                lastName: lastName,
-                date: shiftData.date,
-                shiftType: shiftData.shift_type,
-                slotIndex: shiftData.slot_index,
-                isSeniorCourier: isSeniorCourier,
-                is_senior_courier: isSeniorCourier
-            };
-            
-            // Добавляем отладочную информацию
-            console.info('[shiftsSlice] Создание объекта смены со статусом курьера:', {
-                original: shiftData,
-                transformed: newShift,
-                isSeniorCourier: newShift.isSeniorCourier
-            });
+        // --- Адаптированный редьюсер для WebSocket --- 
+        shiftBookedWs: (state, action: PayloadAction<ShiftsUpdatedWsPayload>) => {
+            // !!! НОВЫЙ ЛОГ: Проверяем вход в редьюсер и payload !!!
+            logger.log(`[shiftBookedWs] ENTERED. Payload received:`, action.payload);
 
-            // Сначала удаляем все существующие смены пользователя на эту дату
-            // независимо от типа смены (дневная или вечерняя)
-            state.shifts = state.shifts.filter(shift => 
-                !(shift.date === newShift.date && String(shift.userId) === String(newShift.userId))
-            );
+            // ===> ИСПРАВЛЕНИЕ: Извлекаем данные из shift_data <===
+            const newShiftData = action.payload.shift_data;
             
-            // Добавляем новую смену
-            state.shifts.push(newShift);
+            // Проверяем, что данные есть
+            if (!newShiftData) {
+                logger.error('[shiftBookedWs] Ошибка: shift_data отсутствует в payload события WebSocket!', action.payload);
+                return; 
+            }
+
+            logger.info('[shiftsSlice] Обработка WebSocket события shiftBookedWs (из shift_data):', newShiftData);
+
+            // Маппинг WS данных в CourierShift
+            // Убедимся, что newShiftData соответствует ApiShift
+            const normalizedShift = mapApiShiftToCourierShift(newShiftData);
+            const allowMultiple = state.accessSettings?.allowMultipleShifts;
+            const shiftDate = normalizedShift.date; // Дата новой/обновленной смены
+            const shiftUserId = normalizedShift.userId; // ID пользователя
             
-            console.log('[shiftsSlice] Shift updated in state. Current shifts:', state.shifts);
-        },
-        shiftCanceled: (state, action: PayloadAction<{ shift_id?: string; userId?: string; date?: string }>) => {
-            // Проверка на разные форматы данных события отмены
-            if (action.payload.shift_id) {
-                // Если есть shift_id, фильтруем по нему
-                console.log('[shiftsSlice] Canceling shift by ID:', action.payload.shift_id);
-                state.shifts = state.shifts.filter(shift => String(shift.id) !== String(action.payload.shift_id));
-            } else if (action.payload.userId && action.payload.date) {
-                // Если есть userId и date, фильтруем по ним
-                console.log('[shiftsSlice] Canceling shift by userId and date:', action.payload);
-                state.shifts = state.shifts.filter(
-                    shift => !(String(shift.userId) === String(action.payload.userId) && 
-                              shift.date === action.payload.date)
+            // Добавим проверку, что маппинг сработал
+            if (shiftUserId === 'unknown' || !shiftDate || !normalizedShift.id) {
+                logger.error('[shiftBookedWs] Ошибка: Не удалось корректно смапить данные из shift_data!', { newShiftData, normalizedShift });
+                return; 
+            }
+
+            // --- Логика обновления стейта (остается прежней, но теперь с правильными данными) --- 
+             if (!allowMultiple) {
+                // Удаляем ВСЕ смены ЭТОГО пользователя на ЭТУ дату
+                state.shifts = state.shifts.filter(shift => 
+                    !(shift.userId === shiftUserId && shift.date === shiftDate)
                 );
+                logger.info(`[shiftsSlice] WS: Multiple НЕ разрешены. Удалены старые смены для User ID ${shiftUserId} на дату ${shiftDate}`);
             } else {
-                console.log('[shiftsSlice] Warning: Incomplete data for shift cancellation:', action.payload);
+                 // Удаляем только смену в этом же слоте, если она была
+                 state.shifts = state.shifts.filter(shift =>
+                     !(shift.date === shiftDate &&
+                       shift.shiftType === normalizedShift.shiftType &&
+                       shift.slotIndex === normalizedShift.slotIndex)
+                 );
+                  logger.info(`[shiftsSlice] WS: Multiple разрешены. Удалена существующая смена в слоте [${shiftDate}, ${normalizedShift.shiftType}, ${normalizedShift.slotIndex}], если была.`);
             }
-        },
-        // Удаление курьера из дневной смены
-        removeDayShift: (state, action: PayloadAction<{ userId: string, slotIndex: number }>) => {
-            console.log('shiftsSlice: Removing day shift', action.payload);
-            // Находим день в массиве shift_days
-            const currentDate = format(new Date(), 'yyyy-MM-dd');
-            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
+            
+            // Ищем существующую смену по ID
+            const existingShiftIndex = state.shifts.findIndex(s => s.id === normalizedShift.id);
 
-            if (dayIndex !== -1) {
-                const day = state.shift_days[dayIndex];
-                // Фильтруем дневные смены
-                day.day_shifts = day.day_shifts.filter((shift: ShiftType) => 
-                    !(String(shift.user_id) === String(action.payload.userId) && 
-                      shift.slot_index === action.payload.slotIndex)
-                );
-                state.shift_days[dayIndex] = day;
+            if (existingShiftIndex !== -1) {
+                // Если нашли - ОБНОВЛЯЕМ её
+                state.shifts[existingShiftIndex] = normalizedShift;
+                logger.info(`[shiftsSlice] WS: Обновлена существующая смена ID ${normalizedShift.id}`);
+            } else {
+                // Если не нашли - ДОБАВЛЯЕМ новую
+                state.shifts.push(normalizedShift);
+                logger.info(`[shiftsSlice] WS: Добавлена новая смена ID ${normalizedShift.id}`);
             }
+            // --- КОНЕЦ ИСПРАВЛЕННОЙ Логики --- 
         },
-
-        // Удаление курьера из ночной смены
-        removeNightShift: (state, action: PayloadAction<{ userId: string, slotIndex: number }>) => {
-            console.log('shiftsSlice: Removing night shift', action.payload);
-            // Находим день в массиве shift_days
-            const currentDate = format(new Date(), 'yyyy-MM-dd');
-            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
-
-            if (dayIndex !== -1) {
-                const day = state.shift_days[dayIndex];
-                // Фильтруем ночные смены
-                day.night_shifts = day.night_shifts.filter((shift: ShiftType) => 
-                    !(String(shift.user_id) === String(action.payload.userId) && 
-                      shift.slot_index === action.payload.slotIndex)
-                );
-                state.shift_days[dayIndex] = day;
-            }
+        // --- Адаптированный редьюсер для WebSocket --- 
+        shiftCancelledWs: (state, action: PayloadAction<{ shift_id: string }>) => {
+             const { shift_id } = action.payload;
+             logger.info(`[shiftsSlice] Обработка WebSocket события shiftCancelledWs: shift_id=${shift_id}`);
+             state.shifts = state.shifts.filter(shift => shift.id !== shift_id);
         },
-
-        // Удаление пользователя из всех смен
-        removeUserFromAllShifts: (state, action: PayloadAction<{ userId: string }>) => {
-            console.log('shiftsSlice: Removing user from all shifts', action.payload);
-            // Находим день в массиве shift_days
-            const currentDate = format(new Date(), 'yyyy-MM-dd');
-            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
-
-            if (dayIndex !== -1) {
-                const day = state.shift_days[dayIndex];
-                // Удаляем пользователя из всех смен
-                day.day_shifts = day.day_shifts.filter((shift: ShiftType) => 
-                    String(shift.user_id) !== String(action.payload.userId)
-                );
-                day.night_shifts = day.night_shifts.filter((shift: ShiftType) => 
-                    String(shift.user_id) !== String(action.payload.userId)
-                );
-                state.shift_days[dayIndex] = day;
-            }
+        // Редьюсер для обновления ТОЛЬКО правил доступа (если нужно)
+        updateAccessRulesState: (state, action: PayloadAction<Partial<AccessSettings>>) => {
+             if (state.accessSettings) {
+                 state.accessSettings = { ...state.accessSettings, ...action.payload };
+             } else {
+                 // Не можем обновить, если базовых настроек нет
+                 logger.warn('[shiftsSlice] Cannot update access rules state: accessSettings is null');
+             }
         },
-
-        // Добавление смены в дневной слот
-        addDayShift: (state, action: PayloadAction<ShiftTypeLocal>) => {
-            console.log('shiftsSlice: Adding day shift', action.payload);
-            // Находим день в массиве shift_days
-            const currentDate = format(new Date(), 'yyyy-MM-dd');
-            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
-
-            if (dayIndex !== -1) {
-                const day = state.shift_days[dayIndex];
-                
-                // Конвертируем формат данных из локального состояния в формат Redux
-                const shiftData: ShiftType = {
-                    id: action.payload.id,
-                    user_id: action.payload.user_id || action.payload.userId || '',
-                    photo_url: action.payload.photo_url,
-                    first_name: action.payload.first_name || action.payload.firstName || '',
-                    last_name: action.payload.last_name || action.payload.lastName || '',
-                    is_senior_courier: action.payload.is_senior_courier || action.payload.isSeniorCourier || false,
-                    slot_index: action.payload.slot_index || action.payload.slotIndex || 0,
-                    date: currentDate,
-                    shift_type: 'day'
-                };
-                
-                // Проверяем наличие дубликатов
-                const existingShiftIndex = day.day_shifts.findIndex((shift: ShiftType) => 
-                    String(shift.user_id) === String(shiftData.user_id) && 
-                    shift.slot_index === shiftData.slot_index
-                );
-                
-                // Если такая смена уже есть, обновляем её, иначе добавляем новую
-                if (existingShiftIndex !== -1) {
-                    day.day_shifts[existingShiftIndex] = shiftData;
-                } else {
-                    day.day_shifts.push(shiftData);
+        // Редьюсер для обновления ТОЛЬКО конфига слотов (если нужно)
+        updateSlotConfigLocal: (state, action: PayloadAction<{ dayIndex: number; maxDaySlots: number; maxNightSlots: number }>) => {
+            const { dayIndex, maxDaySlots, maxNightSlots } = action.payload;
+            // Проверяем валидность dayIndex
+            if (dayIndex >= 0 && dayIndex <= 6) {
+                logger.info(`[shiftsSlice] Обновление локального slotConfig для дня ${dayIndex}:`, { maxDaySlots, maxNightSlots });
+                if (!state.slotConfig) { // Если slotConfig был null, инициализируем его
+                    state.slotConfig = { ...defaultWeeklySlotConfig };
                 }
-                
-                state.shift_days[dayIndex] = day;
+                // Обновляем только нужный день
+                state.slotConfig[dayIndex] = { maxDaySlots, maxNightSlots };
+            } else {
+                 logger.warn(`[shiftsSlice] Попытка обновить slotConfig с неверным dayIndex: ${dayIndex}`);
             }
         },
-
-        // Добавление смены в ночной слот
-        addNightShift: (state, action: PayloadAction<ShiftTypeLocal>) => {
-            console.log('shiftsSlice: Adding night shift', action.payload);
-            // Находим день в массиве shift_days
-            const currentDate = format(new Date(), 'yyyy-MM-dd');
-            const dayIndex = state.shift_days.findIndex((day: ShiftDayType) => day.date === currentDate);
-
-            if (dayIndex !== -1) {
-                const day = state.shift_days[dayIndex];
-                
-                // Конвертируем формат данных из локального состояния в формат Redux
-                const shiftData: ShiftType = {
-                    id: action.payload.id,
-                    user_id: action.payload.user_id || action.payload.userId || '',
-                    photo_url: action.payload.photo_url,
-                    first_name: action.payload.first_name || action.payload.firstName || '',
-                    last_name: action.payload.last_name || action.payload.lastName || '',
-                    is_senior_courier: action.payload.is_senior_courier || action.payload.isSeniorCourier || false,
-                    slot_index: action.payload.slot_index || action.payload.slotIndex || 0,
-                    date: currentDate,
-                    shift_type: 'night'
-                };
-                
-                // Проверяем наличие дубликатов
-                const existingShiftIndex = day.night_shifts.findIndex((shift: ShiftType) => 
-                    String(shift.user_id) === String(shiftData.user_id) && 
-                    shift.slot_index === shiftData.slot_index
-                );
-                
-                // Если такая смена уже есть, обновляем её, иначе добавляем новую
-                if (existingShiftIndex !== -1) {
-                    day.night_shifts[existingShiftIndex] = shiftData;
-                } else {
-                    day.night_shifts.push(shiftData);
-                }
-                
-                state.shift_days[dayIndex] = day;
-            }
+         clearShifts: (state) => {
+            state.shifts = [];
+            state.loading = false;
+            state.error = null;
+            state.accessSettings = null;
+            state.slotConfig = defaultWeeklySlotConfig;
+        },
+        // --- Добавляем новый синхронный редюсер --- 
+        shiftAddedOrUpdated: (state, action: PayloadAction<CourierShift>) => {
+            // ... существующий код редюсера shiftAddedOrUpdated ...
+        },
+        shiftRemoved: (state, action: PayloadAction<string>) => {
+            // ... существующий код редюсера shiftRemoved ...
         },
     },
     extraReducers: (builder) => {
         builder
+            // Fetch shifts
             .addCase(fetchShifts.pending, (state) => {
                 state.loading = true;
                 state.error = null;
             })
-            .addCase(fetchShifts.fulfilled, (state, action: PayloadAction<ApiShift[]>) => {
+            .addCase(fetchShifts.fulfilled, (state, action) => {
                 state.loading = false;
-                console.log('[shiftsSlice] Received raw shifts from API:', action.payload);
-                // Преобразуем данные из ApiShift в CourierShift перед сохранением
-                state.shifts = action.payload.map(apiShift => {
-                    // Получаем данные курьера или из корня объекта, или из вложенного объекта member
-                    const userId = apiShift.member?.user_id || apiShift.user_id || '';
-                    const firstName = apiShift.member?.first_name || apiShift.first_name || '';
-                    const lastName = apiShift.member?.last_name || apiShift.last_name || '';
-                    const photoUrl = apiShift.member?.photo_url || apiShift.photo_url || null;
-                    const isSeniorCourier = apiShift.member?.is_senior_courier || apiShift.is_senior_courier || false;
-                    
-                    return {
-                        id: apiShift.id,
-                        userId: String(userId), // Убедимся, что userId всегда строка
-                        photo_url: photoUrl,
-                        firstName: firstName,
-                        lastName: lastName,
-                        date: apiShift.date,
-                        shiftType: apiShift.shift_type,
-                        slotIndex: apiShift.slot_index,
-                        is_senior_courier: isSeniorCourier, // Для совместимости со старым интерфейсом
-                        isSeniorCourier: isSeniorCourier // Добавляем правильное имя поля для нового интерфейса
-                    };
-                });
-                console.log('[shiftsSlice] Transformed and setting shifts in state:', state.shifts);
+                // Используем маппинг при получении
+                state.shifts = action.payload.map(mapApiShiftToCourierShift);
             })
             .addCase(fetchShifts.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to fetch shifts';
+                state.error = action.payload || 'Failed to fetch shifts';
             })
+            // --- Обработка bookShift --- 
             .addCase(bookShift.pending, (state) => {
-                state.loading = true;
+                state.loading = true; // Показываем общую загрузку или можно добавить специфичный флаг
                 state.error = null;
             })
             .addCase(bookShift.fulfilled, (state, action: PayloadAction<CourierShift>) => {
                 state.loading = false;
-                // Удаляем все существующие смены пользователя на эту дату
-                state.shifts = state.shifts.filter(shift => 
-                    !(shift.date === action.payload.date && String(shift.userId) === String(action.payload.userId))
-                );
-                // Добавляем новую смену
-                state.shifts = [...state.shifts, action.payload];
-                console.log('[shiftsSlice] Shift booked locally, state updated immutably:', action.payload);
+                const bookedShift = action.payload; // Уже смапленный CourierShift
+                const allowMultiple = state.accessSettings?.allowMultipleShifts;
+                logger.info(`[shiftsSlice] bookShift.fulfilled: User ID ${bookedShift.userId}, Multiple Allowed: ${allowMultiple}`);
+
+                // Логика обновления стейта (перенесена сюда из старого shiftBooked)
+                if (!allowMultiple) {
+                    state.shifts = state.shifts.filter(shift => 
+                        !(shift.userId === bookedShift.userId && shift.date === bookedShift.date)
+                    );
+                    logger.info(`[shiftsSlice] Fulfilled: Multiple НЕ разрешены. Удалены старые смены для User ID ${bookedShift.userId} на дату ${bookedShift.date}`);
+                } else {
+                     state.shifts = state.shifts.filter(shift =>
+                         !(shift.date === bookedShift.date &&
+                           shift.shiftType === bookedShift.shiftType &&
+                           shift.slotIndex === bookedShift.slotIndex)
+                     );
+                     logger.info(`[shiftsSlice] Fulfilled: Multiple разрешены. Удалена существующая смена в слоте [${bookedShift.date}, ${bookedShift.shiftType}, ${bookedShift.slotIndex}], если была.`);
+                }
+
+                // Добавляем новую/обновленную смену (проверяем дубликат на всякий случай)
+                if (!state.shifts.some(s => s.id === bookedShift.id)) {
+                    state.shifts.push(bookedShift);
+                     logger.info(`[shiftsSlice] Fulfilled: Добавлена/обновлена смена ID ${bookedShift.id}`);
+                } else {
+                     // Если ID уже есть, можно обновить существующую запись
+                     const index = state.shifts.findIndex(s => s.id === bookedShift.id);
+                     if (index !== -1) {
+                         state.shifts[index] = bookedShift;
+                         logger.info(`[shiftsSlice] Fulfilled: Обновлена существующая смена ID ${bookedShift.id}`);
+                     }
+                }
             })
             .addCase(bookShift.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.error.message || 'Failed to book shift';
+                state.error = action.payload || 'Не удалось забронировать смену';
+                // Здесь можно реализовать откат оптимистичного обновления, если оно было
             })
-            .addCase(cancelShift.fulfilled, (state, action) => {
-                // При успешной отмене смены - удаляем её из Redux store по ID
-                console.log('[shiftsSlice] Removing shift with ID after cancelShift.fulfilled:', action.payload);
-                state.shifts = state.shifts.filter(shift => String(shift.id) !== String(action.payload));
+             // --- Обработка cancelShift --- 
+             .addCase(cancelShift.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                 // Можно добавить оптимистичное удаление
+                 // const { shiftId } = action.meta.arg;
+                 // state.shifts = state.shifts.filter(s => s.id !== shiftId);
             })
+            .addCase(cancelShift.fulfilled, (state, action: PayloadAction<{ success: boolean; shiftId: string; userId: string; date: string; }>) => {
+                state.loading = false;
+                // Удаляем смену из стейта
+                state.shifts = state.shifts.filter(shift => shift.id !== action.payload.shiftId);
+                 logger.info(`[shiftsSlice] Fulfilled: Смена ID ${action.payload.shiftId} удалена из стейта.`);
+                 // TODO: Опционально - здесь можно диспатчить addToReserve, если нужно вернуть пользователя в резерв при отмене
+                 // const { userId, date, shiftId } = action.payload;
+                 // const chatId = state.accessSettings.chat_id; // Получить chatId
+                 // if (chatId) {
+                 //    dispatch(addToReserve({ userId, date, chatId })); 
+                 // }
+            })
+            .addCase(cancelShift.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Не удалось отменить смену';
+                 // Откат оптимистичного удаления, если было
+                 // Нужно будет вернуть удаленную смену
+            })
+            // Fetch access settings
             .addCase(fetchAccessSettings.pending, (state) => {
+                logger.debug('[shiftsSlice] fetchAccessSettings pending...');
                 state.isLoadingSettings = true;
                 state.settingsError = null;
             })
-            .addCase(fetchAccessSettings.fulfilled, (state, action) => {
+            .addCase(fetchAccessSettings.fulfilled, (state, action: PayloadAction<AccessSettings>) => {
+                logger.debug('[shiftsSlice] fetchAccessSettings fulfilled.');
                 state.isLoadingSettings = false;
-                
-                // Проверяем, действительно ли настройки изменились
-                const settings = action.payload;
-                const currentSettings = state.accessSettings;
-                
-                // Сравниваем только важные поля, которые влияют на доступность
-                const hasImportantChanges = 
-                    settings.allowMultipleShifts !== currentSettings.allowMultipleShifts ||
-                    settings.autoApprove !== currentSettings.autoApprove ||
-                    settings.allowSameDay !== currentSettings.allowSameDay ||
-                    settings.registrationStartDay !== currentSettings.registrationStartDay ||
-                    settings.registrationStartHour !== currentSettings.registrationStartHour ||
-                    settings.registrationStartMinute !== currentSettings.registrationStartMinute ||
-                    settings.offsetType !== currentSettings.offsetType ||
-                    settings.offsetAmount !== currentSettings.offsetAmount ||
-                    settings.periodLength !== currentSettings.periodLength ||
-                    settings.isAlwaysActive !== currentSettings.isAlwaysActive ||
-                    settings.activeStartDate !== currentSettings.activeStartDate ||
-                    settings.activeEndDate !== currentSettings.activeEndDate ||
-                    settings.daysAhead !== currentSettings.daysAhead ||
-                    JSON.stringify(settings.enabledDates) !== JSON.stringify(currentSettings.enabledDates) ||
-                    JSON.stringify(settings.restrictedUsers) !== JSON.stringify(currentSettings.restrictedUsers);
-                
-                // Обновляем настройки только если есть важные изменения
-                if (hasImportantChanges) {
-                    state.accessSettings = {
-                        ...currentSettings,
-                        ...settings,
-                        lastUpdated: settings.lastUpdated || currentSettings.lastUpdated
-                    };
-                    console.log('✅ Настройки доступа обновлены в Redux:', state.accessSettings);
-                } else {
-                    console.log('ℹ️ Настройки доступа не изменились, пропускаем обновление');
-                }
+                state.accessSettings = action.payload;
+                // НЕ ТРОГАЕМ slotConfig здесь
             })
             .addCase(fetchAccessSettings.rejected, (state, action) => {
-                state.isLoadingSettings = false;
-                state.settingsError = action.payload as string;
+                 logger.error('[shiftsSlice] fetchAccessSettings rejected:', action.payload);
+                 state.isLoadingSettings = false;
+                 state.settingsError = action.payload as string;
+                 state.accessSettings = null; // Сбрасываем настройки доступа при ошибке
+                 // НЕ ТРОГАЕМ slotConfig здесь
             })
-            .addCase(updateAccessSettings.pending, (state) => {
+            // Обработка updateSlotSettings (заменили updateAccessSettings)
+            .addCase(updateSlotSettings.pending, (state) => {
+                state.isLoadingSettings = true; // Можно использовать тот же флаг загрузки
+                state.settingsError = null;
+            })
+            .addCase(updateSlotSettings.fulfilled, (state, action: PayloadAction<FullSettingsApiResponse>) => {
+                state.isLoadingSettings = false;
+                state.settingsError = null;
+                logger.log('[shiftsSlice] Received full settings payload after slot update:', action.payload);
+                
+                // Обновляем ТОЛЬКО конфиг слотов и lastUpdated
+                const { maxDaySlots, maxNightSlots, lastUpdated } = action.payload;
+                if (state.slotConfig) { // Обновляем, если конфиг уже есть
+                    state.slotConfig[maxDaySlots] = { maxDaySlots, maxNightSlots };
+                } else { // Иначе создаем
+                     state.slotConfig = {
+                        [maxDaySlots]: { maxDaySlots, maxNightSlots }
+                    };
+                }
+                // Обновляем lastUpdated в accessSettings, если они есть
+                if (state.accessSettings && lastUpdated) {
+                    state.accessSettings.lastUpdated = lastUpdated;
+                }
+                 logger.log('[shiftsSlice] updateSlotSettings fulfilled. State updated:', { access: state.accessSettings, slots: state.slotConfig });
+            })
+            .addCase(updateSlotSettings.rejected, (state, action) => {
+                state.isLoadingSettings = false;
+                state.settingsError = action.payload || 'Failed to update slot settings';
+            })
+            // <<< Добавляем обработку для updateAccessRules >>>
+            .addCase(updateAccessRules.pending, (state) => {
                 state.isLoadingSettings = true;
                 state.settingsError = null;
             })
-            .addCase(updateAccessSettings.fulfilled, (state, action) => {
+            .addCase(updateAccessRules.fulfilled, (state, action: PayloadAction<AccessSettings>) => {
                 state.isLoadingSettings = false;
-                
-                // Убедимся, что абсолютно все настройки заменяются значениями из ответа сервера,
-                // чтобы не остались значения по умолчанию из initialState
-                const settings = action.payload;
-                
-                // Полностью заменяем все настройки (не используем простое присваивание, 
-                // чтобы избежать сохранения старых значений, которых нет в новом объекте)
-                state.accessSettings = {
-                    // Общие настройки
-                    allowMultipleShifts: settings.allowMultipleShifts,
-                    autoApprove: settings.autoApprove,
-                    allowSameDay: settings.allowSameDay,
-                    
-                    // Настройки периода регистрации
-                    registrationStartDay: settings.registrationStartDay,
-                    registrationStartHour: settings.registrationStartHour,
-                    registrationStartMinute: settings.registrationStartMinute,
-                    
-                    // Гибкие настройки периода доступа
-                    offsetType: settings.offsetType || 'days',
-                    offsetAmount: settings.offsetAmount,
-                    periodLength: settings.periodLength,
-                    
-                    // Период активности правила
-                    isAlwaysActive: settings.isAlwaysActive,
-                    activeStartDate: settings.activeStartDate,
-                    activeEndDate: settings.activeEndDate,
-                    
-                    // Старые поля
-                    daysAhead: settings.daysAhead,
-                    
-                    // Списки
-                    enabledDates: settings.enabledDates || [],
-                    restrictedUsers: settings.restrictedUsers || [],
-                    
-                    // Метаданные
-                    lastUpdated: settings.lastUpdated
-                };
-                
-                console.log('✅ Настройки доступа обновлены в Redux:', state.accessSettings);
+                state.accessSettings = action.payload;
+                 // НЕ СБРАСЫВАЕМ slotConfig здесь
             })
-            .addCase(updateAccessSettings.rejected, (state, action) => {
+            .addCase(updateAccessRules.rejected, (state, action) => {
                 state.isLoadingSettings = false;
                 state.settingsError = action.payload as string;
-            });
+            })
+            // <<< Обработка fetchSlotConfig >>>
+            .addCase(fetchSlotConfig.pending, (state) => {
+                logger.debug('[shiftsSlice] fetchSlotConfig pending...');
+                state.isLoadingSettings = true; // Используем общий флаг? Или нужен отдельный?
+                state.settingsError = null; // Используем общую ошибку?
+            })
+            .addCase(fetchSlotConfig.fulfilled, (state, action: PayloadAction<SlotConfigResponse>) => {
+                logger.debug('[shiftsSlice] fetchSlotConfig fulfilled.');
+                state.isLoadingSettings = false;
+                // Обновляем поле slotConfig данными из action.payload.config
+                state.slotConfig = action.payload.config || defaultWeeklySlotConfig; // Используем дефолт, если API вернул null/undefined
+            })
+            .addCase(fetchSlotConfig.rejected, (state, action) => {
+                logger.error('[shiftsSlice] fetchSlotConfig rejected:', action.payload);
+                state.isLoadingSettings = false;
+                state.settingsError = action.payload || 'Не удалось загрузить конфигурацию слотов';
+                // Не сбрасываем slotConfig, оставляем предыдущее или дефолтное значение
+            })
     }
 });
 
+// Экспорт actions и reducer
+export const {
+    shiftBookedWs,
+    shiftCancelledWs,
+    updateAccessRulesState, 
+    updateSlotConfigLocal, 
+    clearShifts,
+    shiftAddedOrUpdated,
+    shiftRemoved
+} = shiftsSlice.actions;
+
 // Селекторы
-export const selectAllShifts = (state: RootState) => state.shifts.shifts;
-export const selectShiftsByDate = (state: RootState, date: string) => 
+export const selectAllShifts = (state: RootState): CourierShift[] => state.shifts.shifts;
+export const selectShiftsByDate = (state: RootState, date: string): CourierShift[] =>
     state.shifts.shifts.filter(shift => shift.date === date);
 export const selectIsLoading = (state: RootState) => state.shifts.loading;
 export const selectError = (state: RootState) => state.shifts.error;
-export const selectAccessSettings = (state: RootState) => state.shifts.accessSettings;
+export const selectAccessSettings = (state: RootState) => state.shifts.accessSettings; // Теперь без слотов
+export const selectSlotConfig = (state: RootState): WeeklySlotConfig | null => state.shifts.slotConfig;
 export const selectIsLoadingSettings = (state: RootState) => state.shifts.isLoadingSettings;
 export const selectSettingsError = (state: RootState) => state.shifts.settingsError;
 
-export const shiftBooked = shiftsSlice.actions.shiftBooked;
-export const shiftCanceled = shiftsSlice.actions.shiftCanceled;
-
-// WebSocket подписки
-export const subscribeToShiftEvents = (
-    dispatch: any, 
-    handlers?: {
-        onShiftUpdated?: (data: any) => void;
-        onShiftBooked?: (data: any) => void;
-        onShiftCanceled?: (data: any) => void;
-    }
-) => {
-    const unsubscribers = [
-        subscribeToEvent('shift_booked', (data) => {
-            console.log('[shiftsSlice] Received shift_booked event:', data);
-            dispatch(shiftBooked(data));
-            handlers?.onShiftBooked?.(data);
-        }),
-        subscribeToEvent('shift_updated', (data) => {
-            console.log('[shiftsSlice] Received shift_updated event:', data);
-            dispatch(shiftBooked(data)); // Используем тот же редьюсер для обработки обновлений
-            handlers?.onShiftUpdated?.(data);
-        }),
-        subscribeToEvent('shift_cancelled', (data) => {
-            console.log('[shiftsSlice] Received shift_cancelled event:', data);
-            dispatch(shiftCanceled(data));
-            handlers?.onShiftCanceled?.(data);
-        })
-    ];
-
-    // Возвращаем функцию, которая вызывает все функции отписки
-    return () => {
-        console.log('[shiftsSlice] Unsubscribing from all shift events');
-        unsubscribers.forEach(unsubscribe => {
-            if (unsubscribe) { // Проверяем, что функция отписки существует
-                unsubscribe(); 
-            }
-        });
-    };
+// --- Добавляем селектор для получения конфига конкретного дня --- 
+export const selectSlotConfigForDay = (dayIndex: number) => (state: RootState): SlotConfigForDay | undefined => {
+    if (dayIndex < 0 || dayIndex > 6) return undefined;
+    // Возвращаем конфиг дня или дефолтный, если основной конфиг или конфиг дня отсутствует
+    const dayConfig = state.shifts.slotConfig ? state.shifts.slotConfig[dayIndex] : undefined;
+    return dayConfig ?? defaultWeeklySlotConfig[dayIndex]; // <<< Возвращаем дефолт если undefined
 };
-
-export const unsubscribeFromShiftEvents = () => {
-    socketService.off('shift_booked');
-    socketService.off('shift_updated');
-    socketService.off('shift_cancelled');
-};
+// --- ------------------------------------------------------ --- 
 
 export default shiftsSlice.reducer; 

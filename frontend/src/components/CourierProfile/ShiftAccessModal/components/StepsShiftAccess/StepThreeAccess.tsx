@@ -136,18 +136,18 @@ const SettingsIcon = () => (
 );
 
 const StepThree: React.FC = () => {
-    // Получаем настройки доступа из контекста через хук
     const { settings, updateSettings } = useStepAccessSettings();
     
-    // Состояние для переключателя активности
-    const [isActive, setIsActive] = useState<boolean>(settings.isAlwaysActive ?? true);
+    const [isActive, setIsActive] = useState<boolean>(settings?.isAlwaysActive ?? true);
     
-    // Обновляем локальное состояние при изменении настроек
     useEffect(() => {
-        setIsActive(settings.isAlwaysActive ?? true);
+        if (settings) {
+            setIsActive(settings.isAlwaysActive ?? true);
+        } else {
+            setIsActive(true);
+        }
     }, [settings]);
     
-    // Обработчик изменения состояния переключателя
     const handleToggleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.checked;
         setIsActive(newValue);

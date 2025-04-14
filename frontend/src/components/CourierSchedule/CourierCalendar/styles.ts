@@ -1,5 +1,18 @@
-import styled from 'styled-components';
+import styled, { keyframes } from 'styled-components';
 import { Z_INDICES } from './constants';
+
+// --- Анимации --- 
+const fadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
+const fadeOut = keyframes`
+  from { opacity: 1; }
+  to { opacity: 0; }
+`;
+
+// --- Стили --- 
 
 export const CalendarContainer = styled.div`
     position: fixed;
@@ -7,6 +20,7 @@ export const CalendarContainer = styled.div`
     left: 0;
     right: 0;
     bottom: 0;
+    height: 100%;
     background: var(--card-background);
     z-index: ${Z_INDICES.CALENDAR_HEADER};
     overflow-y: auto;
@@ -74,9 +88,94 @@ export const MonthContainer = styled.div`
     margin-bottom: 24px;
     box-sizing: border-box;
     
+    &:last-child {
+        margin-bottom: 80px;
+    }
+
     @media (max-width: 480px) {
         padding: 0;
         margin-bottom: 20px;
         width: 100%;
+        
+        &:last-child {
+            margin-bottom: 60px;
+        }
     }
+`;
+
+// Оверлей для настроек
+export const SettingsOverlay = styled.div<{ $isOpen: boolean }>`
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4); // Полупрозрачный темный фон
+    backdrop-filter: blur(4px); // Размытие
+    -webkit-backdrop-filter: blur(4px); // Для Safari
+    z-index: ${Z_INDICES.TOOLTIP + 1}; // Ниже панели настроек, но выше остального
+    opacity: ${props => props.$isOpen ? 1 : 0};
+    pointer-events: ${props => props.$isOpen ? 'auto' : 'none'}; // Отключаем клики, когда не видно
+    animation: ${props => props.$isOpen ? fadeIn : fadeOut} 0.3s ease-in-out forwards;
+`;
+
+// Контейнер настроек слотов, выезжающий снизу
+export const SlotSettingsContainer = styled.div<{ $isOpen: boolean }>`
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: var(--card-background);
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    padding: 24px 16px;
+    transform: translateY(${props => props.$isOpen ? '0' : '100%'});
+    transition: transform 0.3s ease-in-out;
+    pointer-events: ${props => props.$isOpen ? 'auto' : 'none'};
+    z-index: ${Z_INDICES.TOOLTIP + 2}; /* Выше оверлея */
+    max-height: 70vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+`;
+
+export const SlotSettingsHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+`;
+
+export const SlotSettingsTitle = styled.h3`
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-color);
+`;
+
+export const CloseSettingsButton = styled.button`
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    &:hover {
+        background-color: var(--hover-overlay);
+        color: var(--text-color);
+    }
+`;
+
+export const SlotSettingsContent = styled.div`
+    flex: 1;
+    text-align: center;
+    padding: 32px 16px;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
 `; 

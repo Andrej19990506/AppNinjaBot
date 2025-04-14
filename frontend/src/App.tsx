@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Provider, useSelector } from 'react-redux';
+import { Provider, useSelector /*, useDispatch*/ } from 'react-redux';
 // Возвращаем BrowserRouter
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; 
 // Импортируем ОБА ThemeProvider-а
@@ -10,7 +10,7 @@ import { theme } from './styles/themes/theme'; // <-- Нашли тему!
 // import { PersistGate } from 'redux-persist/integration/react';
 import store /*, { persistor } */ from './store/store'; // <-- Исправлен импорт store, persistor комментируем
 // Возвращаем импорт селекторов
-import { initializeFromTelegram, selectIsUserInitialized, selectUserInitializationError, selectUser } from './store/slices/userSlice'; 
+import { initializeFromTelegram, selectIsUserInitialized, selectUserInitializationError/*, selectUser*/ } from './store/slices/userSlice'; 
 // import { initializeFromTelegram } from './store/slices/userSlice'; // <-- Убираем старый импорт
 import { useAppDispatch } from './store/hooks';
 // import { theme } from './contexts/ThemeContext'; // <-- Откатываем импорт
@@ -25,6 +25,11 @@ import './App.css';
 import './styles/base/variables.css';
 // Импортируем слушатель
 import LocationChangeListener from './components/common/LocationChangeListener'; 
+// import { socketService } from './services/socket'; // <<< Удаляем импорт
+import { useWebSocketSync } from './hooks/useWebSocketSync';
+// import styled from 'styled-components'; // <<< Удаляем импорт
+// <<< Импортируем новый компонент-обработчик >>>
+import NotificationHandler from './components/notifications/NotificationHandler';
 
 // --- Заглушки --- 
 const LoadingScreen: React.FC<{ message: string }> = ({ message }) => <div>{message}...</div>;
@@ -38,27 +43,28 @@ const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
 
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
-  // Используем реальные селекторы
   const isUserInitialized = useSelector(selectIsUserInitialized);
   const initError = useSelector(selectUserInitializationError);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _user = useSelector(selectUser); // <-- Добавлено подчеркивание и коммент для eslint
+  // const _user = useSelector(selectUser); // <<< Удаляем неиспользуемую переменную
   const initStarted = useRef(false);
 
   useEffect(() => {
     if (!isUserInitialized && !initError && !initStarted.current) {
-      initStarted.current = true; 
+      initStarted.current = true;
       logger.log('🚀 [AppInitializer] Начало инициализации приложения...');
       
       dispatch(initializeFromTelegram()).unwrap()
         .then((initResult) => {
-          // ... (логика после инициализации остается)
+            // ... (логика после инициализации остается)
         })
         .catch((error) => {
           logger.error('❌ [AppInitializer] Ошибка инициализации пользователя:', error);
         });
     }
   }, [dispatch, isUserInitialized, initError]);
+
+  // Вызываем хук для централизованной подписки на WS
+  useWebSocketSync();
 
   if (!isUserInitialized && !initError) {
     return <LoadingScreen message="Инициализация приложения..." />;
@@ -76,10 +82,15 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   logger.log('🔄 Инициализация главного меню (запускается рендер App)...');
 
+  // <<< Удаляем получение уведомлений и dispatch отсюда >>>
+  // const notifications = useSelector(selectAllNotifications);
+  // const dispatch = useAppDispatch();
+  // const handleCloseNotification = (id: string) => {
+  //  dispatch(removeNotification(id));
+  // };
+
   return (
     <Provider store={store}>
-      {/* <PersistGate loading={<LoadingScreen message="Загрузка состояния..." />} persistor={persistor}> */}
-      {/* Сначала кастомный провайдер для data-theme */}
       <CustomThemeProvider>
         {/* Потом MUI провайдер с его темой */}
         <MuiThemeProvider theme={theme}> 
@@ -87,6 +98,8 @@ function App() {
             {/* Добавляем слушатель сюда */}
             <LocationChangeListener /> 
             <AppInitializer>
+              {/* <<< Вставляем обработчик уведомлений сюда >>> */}
+              <NotificationHandler />
               <Routes>
                 <Route path="/" element={<MainMenu />} />
                 <Route path="/courier-schedule" element={<CourierSchedule />} />

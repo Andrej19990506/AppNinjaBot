@@ -477,27 +477,59 @@ async def notification_handler(payload):
     try:
         data = json.loads(payload)
         event_type = data.get('type')
-        logger.info(f"🔔 Получено уведомление PostgreSQL: type='{event_type}'")
-        
+        logger.info(f"🔔 Получено уведомление PostgreSQL: type='{event_type}', data: {data}")
+
         # Извлекаем chat_id заранее, если он есть
         chat_id = data.get('chat_id')
         courier_room = f"{COURIER_ROOM_PREFIX}{chat_id}" if chat_id else None
 
         # Обрабатываем ТОЛЬКО наши кастомные типы
-        if event_type == 'shift_update':
+        if event_type == 'shifts_updated': # <<< Слушаем именно этот тип
             if courier_room:
-                await sio.emit('shift_updated', data, room=courier_room)
-                logger.info(f"📢 Отправлено shift_updated в комнату {courier_room}...")
+                # Извлекаем полные данные смены ИЗ УВЕДОМЛЕНИЯ
+                shift_data = data.get('shift_data')
+                source = data.get('source', 'unknown')
+
+                if not shift_data:
+                    logger.error(f"❌ Не найдены данные смены ('shift_data') в уведомлении shifts_updated: {data}")
+                    return # Не можем продолжить без данных
+                
+                # Убедимся, что shift_data - это словарь (хотя после json.loads должен быть)
+                if not isinstance(shift_data, dict):
+                    logger.error(f"❌ Данные смены ('shift_data') в уведомлении не являются словарем: {type(shift_data)}")
+                    return
+
+                logger.info(f"✅ Получены полные данные смены ID: {shift_data.get('id')} из уведомления PostgreSQL.")
+
+                # Готовим payload для WebSocket. Фронтенд ожидает объект ApiShift.
+                # Мы предполагаем, что shift_data УЖЕ содержит все нужные поля (включая member).
+                ws_payload = {
+                    **shift_data, # Разворачиваем все данные смены
+                    'source': source # Добавляем источник, если нужно
+                    # type можно не добавлять, т.к. фронт его получит из имени события
+                }
+
+                # Отправляем событие 'shifts_updated' с полными данными
+                await sio.emit('shifts_updated', ws_payload, room=courier_room)
+                logger.info(f"📢 Отправлено событие shifts_updated с полными данными (ID: {shift_data.get('id')}) в комнату {courier_room}")
+
             else:
-                 logger.warning(f"⚠️ Не найден chat_id в уведомлении shift_update: {data}")
-                 
+                 logger.warning(f"⚠️ Не найден chat_id в уведомлении shifts_updated: {data}")
+
         elif event_type == 'shift_cancelled':
             if courier_room:
-                await sio.emit('shift_cancelled', data, room=courier_room)
-                logger.info(f"📢 Отправлено shift_cancelled в комнату {courier_room}...")
+                payload_to_send = {
+                    'shift_id': data.get('shift_id') or data.get('id'),
+                    'chat_id': chat_id
+                }
+                if payload_to_send['shift_id']:
+                    await sio.emit('shift_cancelled', payload_to_send, room=courier_room)
+                    logger.info(f"📢 Отправлено shift_cancelled (id: {payload_to_send['shift_id']}) в комнату {courier_room}...")
+                else:
+                    logger.error(f"❌ Не найден ID смены ('shift_id' или 'id') в уведомлении shift_cancelled: {data}")
             else:
                  logger.warning(f"⚠️ Не найден chat_id в уведомлении shift_cancelled: {data}")
-                 
+        
         elif event_type == 'reserve_update': # Или reserve_added / reserve_deleted
              if courier_room:
                  # TODO: Проверить, что API шлет правильные типы уведомлений для резервов

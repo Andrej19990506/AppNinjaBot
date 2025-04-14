@@ -2,6 +2,8 @@ import React, { useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import defaultAvatar from '../../../../../assets/images/Ninja.jpg';
 import { CourierShift } from '../../types';
+import { WeeklySlotConfig } from '../../../../../store/slices/shiftsSlice';
+import { SLOTS_CONFIG } from '../../constants';
 import {
     DayCellContainer,
     CourierAvatar,
@@ -26,8 +28,7 @@ interface DayCellProps {
     getNightShifts: (date: Date) => CourierShift[];
     hasUserShift: (date: Date) => boolean;
     userIsInReserve: (date: Date) => boolean;
-    maxDaySlots: number;
-    maxNightSlots: number;
+    slotConfig: WeeklySlotConfig | null;
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -43,8 +44,7 @@ const DayCell: React.FC<DayCellProps> = ({
     getNightShifts,
     hasUserShift,
     userIsInReserve,
-    maxDaySlots,
-    maxNightSlots
+    slotConfig
 }) => {
     // Для предотвращения двойного тапа
     const lastTapRef = useRef<number>(0);
@@ -63,7 +63,6 @@ const DayCell: React.FC<DayCellProps> = ({
         }
         
         // Отменяем действия по умолчанию для предотвращения зума
-        e.preventDefault();
         e.stopPropagation();
     }, [date]);
 
@@ -116,8 +115,12 @@ const DayCell: React.FC<DayCellProps> = ({
         return <DayCellContainer as="div" />;
     }
 
-    // Функция для рендеринга содержимого ячейки
     const renderContent = () => {
+        const dayIndex = date.getDay();
+        const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
+        const currentMaxDay = dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS;
+        const currentMaxNight = dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS;
+        
         const dayShifts = getDayShifts(date);
         const nightShifts = getNightShifts(date);
         const userHasShift = hasUserShift(date);
@@ -155,12 +158,10 @@ const DayCell: React.FC<DayCellProps> = ({
         }
 
         if (isAvailable) {
-            // Заменяем жесткую проверку на динамическую
-            const allDaySlotsOccupied = dayShifts.length >= maxDaySlots;
-            const allNightSlotsOccupied = nightShifts.length >= maxNightSlots;
+            const allDaySlotsOccupied = dayShifts.length >= currentMaxDay;
+            const allNightSlotsOccupied = nightShifts.length >= currentMaxNight;
 
             if (allDaySlotsOccupied && allNightSlotsOccupied) {
-                // Все слоты (и дневные, и ночные) заняты
                 return (
                     <OccupiedSlotIndicator title="Все смены заняты">
                         <DayNumber 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import styled from 'styled-components';
 import ShiftPanel from './ShiftPanel';
@@ -7,12 +7,19 @@ import { format } from 'date-fns';
 import addDays from 'date-fns/addDays';
 import { ru } from 'date-fns/locale';
 import { AppDispatch, RootState } from '../../store/store';
-import { useReservesSync } from '../../hooks/useReservesSync';
-import { bookShift, cancelShift } from '../../store/slices/shiftsSlice';
-import { forceFetchReserves } from '../../store/slices/reservesSlice';
+import { bookShift, cancelShift, selectSlotConfig, selectIsLoading as selectIsLoadingShifts } from '../../store/slices/shiftsSlice';
+import {
+    fetchReservesForGroup,
+    addCurrentUserToReserveThunk,
+    removeReserveByIdThunk,
+    selectAllReserves,
+    selectReservesLoading as selectIsLoadingReserves
+} from '../../store/slices/reservesSlice';
 import { socketService } from '../../services/socket';
 import { formatDateForAPI } from './CourierCalendar/utils/dateUtils';
-import { getReserves } from '../../services/courierApi'; // Импортируем getReserves напрямую
+import { logger } from '../../utils/logger';
+import { SLOTS_CONFIG } from './CourierCalendar/constants';
+import { selectUser } from '../../store/slices/userSlice';
 
 // Стили
 const Container = styled.div`
@@ -129,93 +136,31 @@ const Alert: React.FC<{
 
 const ScheduleContainer: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
+    const user = useSelector(selectUser);
+    const chatId = useMemo(() => user?.groups?.find(g => g.group_type === 'courier')?.chat_id, [user?.groups]);
+    const allShifts = useSelector((state: RootState) => state.shifts.shifts);
+    const allReserves = useSelector(selectAllReserves);
+    const accessSettings = useSelector((state: RootState) => state.shifts.accessSettings);
+    const slotConfig = useSelector(selectSlotConfig);
+    const isLoadingShifts = useSelector(selectIsLoadingShifts);
+    const isLoadingReserves = useSelector(selectIsLoadingReserves);
+
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
     const [mode, setMode] = useState<'shifts' | 'reserves'>('shifts');
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [loadingSlotIndex, setLoadingSlotIndex] = useState<number | null>(null);
+    const [loadingShiftType, setLoadingShiftType] = useState<'day' | 'night' | null>(null);
     
-    // Получаем данные пользователя из хранилища Redux
-    const user = useSelector((state: RootState) => state.user.user);
-    const shifts = useSelector((state: RootState) => state.shifts.shifts);
-    const reserves = useSelector((state: RootState) => state.reserves.reserves);
+    const formattedDate = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+
+    // Фильтруем смены и резервы для выбранной даты
+    const shiftsForDate = useMemo(() => allShifts.filter(shift => shift.date === formattedDate), [allShifts, formattedDate]);
+    const dayShifts = useMemo(() => shiftsForDate.filter(s => s.shiftType === 'day'), [shiftsForDate]);
+    const nightShifts = useMemo(() => shiftsForDate.filter(s => s.shiftType === 'night'), [shiftsForDate]);
+    const reservesForDate = useMemo(() => allReserves.filter(reserve => reserve.date === formattedDate), [allReserves, formattedDate]);
     
-    // Получаем chat_id
-    const chatId = user?.groups && user.groups.length > 0 ? user.groups[0].chat_id : '';
-    
-    // Используем хуки для синхронизации данных смен и резервов
-    const reserveSync = useReservesSync(chatId);
-    
-    // Явная загрузка резервов при инициализации - добавляем прямой вызов API минуя Redux для отладки
-    useEffect(() => {
-        // Проверяем, доступны ли необходимые данные
-        if (chatId && selectedDate) {
-            console.log(`[ScheduleContainer] 🚩 Initializing reserves load for date: ${formatDateForAPI(selectedDate)}`);
-            console.log(`[ScheduleContainer] 💡 Важно: используем chat_id = ${chatId} (группа "${user?.groups?.[0]?.title || 'неизвестно'}")`);
-            
-            // Вызываем напрямую API для тестирования (минуя Redux)
-            const directApiCall = async () => {
-                try {
-                    const groupId = parseInt(chatId, 10);
-                    if (!isNaN(groupId)) {
-                        console.log(`[ScheduleContainer] 🔍 Прямой вызов API getReserves для отладки: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
-                        console.log(`[ScheduleContainer] 🔍 Детали запроса: groupId=${groupId} (тип: ${typeof groupId}, в строке: ${chatId}), date=${formatDateForAPI(selectedDate)}`);
-                        const apiReserves = await getReserves(groupId, formatDateForAPI(selectedDate));
-                        console.log(`[ScheduleContainer] ✅ Результат прямого вызова API:`, apiReserves);
-                        
-                        if (Array.isArray(apiReserves) && apiReserves.length > 0) {
-                            console.log(`[ScheduleContainer] 🎯 Получено ${apiReserves.length} резервов из API`);
-                        } else {
-                            console.log(`[ScheduleContainer] ℹ️ Для группы ${groupId} на дату ${formatDateForAPI(selectedDate)} нет резервов`);
-                        }
-                    } else {
-                        console.error(`[ScheduleContainer] ❌ Невозможно преобразовать chatId в число: ${chatId}`);
-                    }
-                } catch (error) {
-                    console.error('[ScheduleContainer] ❌ Ошибка прямого вызова API:', error);
-                }
-            };
-            
-            // Создаем тайм-аут для асинхронной загрузки, чтобы избежать блокировки рендера
-            const timer = setTimeout(() => {
-                try {
-                    // Сначала вызываем напрямую API
-                    directApiCall();
-                    
-                    // Затем через Redux
-                    const groupId = parseInt(chatId, 10);
-                    if (!isNaN(groupId)) {
-                        console.log(`[ScheduleContainer] 🚀 Вызов forceFetchReserves через Redux: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
-                        console.log(`[ScheduleContainer] 🚀 Redux будет использовать следующие параметры: groupId=${groupId}, date=${formatDateForAPI(selectedDate)}`);
-                        
-                        // Вызываем forceFetchReserves напрямую
-                        dispatch(forceFetchReserves({ 
-                            groupId, 
-                            date: formatDateForAPI(selectedDate)
-                        }));
-                        console.log(`[ScheduleContainer] 📤 Redux запрос отправлен`);
-                    } else {
-                        console.error(`[ScheduleContainer] ❌ Невозможно преобразовать chatId в число для Redux: ${chatId}`);
-                    }
-                } catch (error) {
-                    console.error('[ScheduleContainer] ❌ Ошибка при инициализации загрузки резервов:', error);
-                }
-            }, 1000); // Ждем 1000 мс после монтирования
-            
-            return () => clearTimeout(timer);
-        } else {
-            console.warn(`[ScheduleContainer] ⚠️ Невозможно загрузить резервы: ${!chatId ? 'отсутствует chatId' : 'отсутствует selectedDate'}`);
-        }
-    }, [dispatch, chatId, selectedDate, user?.groups]);
-    
-    // Получаем смены на выбранную дату
-    const formattedDate = formatDateForAPI(selectedDate);
-    const shiftsForDate = shifts.filter(shift => shift.date === formattedDate);
-    
-    // Разделяем смены на дневные и ночные
-    const dayShifts = shiftsForDate.filter(shift => shift.shiftType === 'day');
-    const nightShifts = shiftsForDate.filter(shift => shift.shiftType === 'night');
-    
-    // Получаем резервы на выбранную дату
-    const reservesForDate = reserves.filter(reserve => reserve.date === formattedDate);
+    // Определяем, находится ли пользователь в резерве на эту дату
+    const userIsInReserve = reservesForDate.some(reserve => String(reserve.userId) === String(user?.id));
     
     // Обработчики изменения даты
     const handlePrevDate = () => {
@@ -235,159 +180,157 @@ const ScheduleContainer: React.FC = () => {
         setMode('reserves');
     }, []);
     
-    // Обработчик выбора слота для смены
-    const handleSlotSelect = useCallback(async (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
-        if (!user || !user.id) {
-            setSuccessMessage('Необходимо авторизоваться');
+    // Восстанавливаем и дорабатываем handleSlotSelect
+    const handleSlotSelect = useCallback(async (shiftType: 'day' | 'night', slotIndex: number) => {
+        // Получаем актуальные смены для даты внутри useCallback
+        const currentShiftsForDate = allShifts.filter(shift => shift.date === formattedDate);
+        const currentDayShifts = currentShiftsForDate.filter(s => s.shiftType === 'day');
+        const currentNightShifts = currentShiftsForDate.filter(s => s.shiftType === 'night');
+        
+        if (!user || !user.id || !selectedDate || !chatId) {
+            setSuccessMessage('Недостаточно данных для выполнения операции');
             return;
         }
-        
-        try {
-            // Получаем настройки доступа
-            const accessSettings = useSelector((state: RootState) => state.shifts.accessSettings);
-            
-            // Проверяем, есть ли уже смена у пользователя на выбранную дату
-            const userHasShiftOnDate = shifts.some(shift => 
-                shift.date === formattedDate && 
-                String(shift.userId) === String(user.id)
-            );
-            
-            // Если у пользователя уже есть смена на эту дату и не разрешено записываться на несколько смен
-            if (userHasShiftOnDate && !accessSettings.allowMultipleShifts) {
-                console.log('[ScheduleContainer] User already has a shift on this date and multiple shifts are not allowed');
-                setSuccessMessage('Нельзя записаться на несколько смен в один день');
-                return;
-            }
-            
-            // Журналируем статус старшего курьера перед созданием данных
-            console.info('[ScheduleContainer] Обработка выбора смены:', {
-                userId: user.id,
-                is_senior_courier: user.is_senior_courier,
-                date: formattedDate,
-                shiftType,
-                slotIndex
-            });
-            
-            // Создаем данные для запроса
-            const shiftData = {
-                user_id: String(user.id),
-                date: formattedDate,
-                shift_type: shiftType,
-                slot_index: slotIndex,
-                first_name: user.first_name || '',
-                last_name: user.last_name || '',
-                photo_url: user.photo_url || '',
-                chat_id: chatId,
-                is_senior_courier: user.is_senior_courier || false
-            };
-            
-            // Журналируем перед отправкой на сервер
-            console.info('[ScheduleContainer] Отправка данных смены:', shiftData);
-            
-            // Выполняем запись на смену через Redux
-            await dispatch(bookShift({
-                date: formattedDate,
-                userId: String(user.id),
-                shiftType,
-                slotIndex,
-                existingShiftId
-            })).unwrap();
-            
-            setSuccessMessage('Запись на смену прошла успешно!');
-        } catch (error: any) {
-            console.error('Ошибка при бронировании смены:', error);
-            // Отображаем сообщение об ошибке из rejectWithValue
-            setSuccessMessage(error || 'Ошибка при записи на смену.');
-        }
-    }, [dispatch, user, formattedDate, shifts]);
-    
-    // Обработчик отмены смены
-    const handleCancelShift = useCallback(async (shiftId: string) => {
-        try {
-            // Используем cancelShift thunk для удаления смены
-            await dispatch(cancelShift({ shiftId })).unwrap();
 
-            setSuccessMessage('Смена успешно отменена!');
+        // Находим текущую группу для определения статуса старшего
+        const currentGroup = user.groups?.find(g => String(g.chat_id) === String(chatId));
+        const isSenior = currentGroup?.is_senior_courier ?? false;
+
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const relevantShifts = shiftType === 'day' ? currentDayShifts : currentNightShifts;
+        const clickedSlot = relevantShifts.find(s => s.slotIndex === slotIndex);
+        const isOccupiedByCurrentUser = clickedSlot?.userId === String(user.id);
+        
+        setLoadingShiftType(shiftType);
+        setLoadingSlotIndex(slotIndex);
+
+        try {
+            if (isOccupiedByCurrentUser) {
+                logger.info(`[ScheduleContainer] Отмена смены: ${shiftType} слот ${slotIndex} на ${dateStr}`);
+                if (!clickedSlot?.id) throw new Error('Не найден ID смены для отмены');
+                await dispatch(cancelShift({
+                     shiftId: clickedSlot.id, 
+                     chatId: chatId, 
+                     userId: String(user.id),
+                     date: dateStr 
+                })).unwrap();
+                setSuccessMessage('Смена успешно отменена');
+            } else if (!clickedSlot || isSenior) {
+                const operation = clickedSlot ? 'Изменение' : 'Бронирование';
+                logger.info(`[ScheduleContainer] ${operation} смены: ${shiftType} слот ${slotIndex} на ${dateStr}`);
+                await dispatch(bookShift({
+                    date: dateStr,
+                    userId: String(user.id),
+                    shiftType: shiftType,
+                    slotIndex: slotIndex,
+                    chatId: chatId,
+                })).unwrap();
+                setSuccessMessage(`Смена успешно ${operation === 'Изменение' ? 'изменена' : 'забронирована'}`);
+            } else {
+                setSuccessMessage('Слот занят другим курьером');
+                logger.warn('[ScheduleContainer] Попытка занять чужой слот обычным пользователем');
+                 setLoadingShiftType(null);
+                 setLoadingSlotIndex(null);
+                 return;
+            }
         } catch (error: any) {
-            console.error('Ошибка при отмене смены:', error);
-            setSuccessMessage('Ошибка при отмене смены');
+            console.error(`Ошибка при ${isOccupiedByCurrentUser ? 'отмене' : 'бронировании'} смены:`, error);
+            setSuccessMessage(error || 'Ошибка при выполнении операции');
+        } finally {
+             if (!(clickedSlot && !isOccupiedByCurrentUser && !isSenior)) {
+                setLoadingShiftType(null);
+                setLoadingSlotIndex(null);
+             }
         }
-    }, [dispatch]);
+    }, [user, selectedDate, chatId, dispatch, allShifts, formattedDate]);
     
-    // Обработчик добавления в резерв
+    // Обновляем handleAddToReserve для использования Thunk
     const handleAddToReserve = useCallback(async () => {
-        if (!user || !user.id) {
-            setSuccessMessage('Необходимо авторизоваться');
+        if (!user || !user.id || !chatId) {
+            setSuccessMessage('Необходимо авторизоваться и выбрать группу');
             return;
         }
         
+        // Преобразуем ID в числа
+        const userTelegramId = parseInt(String(user.id), 10);
+        const groupTelegramId = parseInt(chatId, 10);
+        
+        if (isNaN(userTelegramId) || isNaN(groupTelegramId)) {
+            setSuccessMessage('Ошибка ID пользователя или группы');
+            return;
+        }
+
         try {
-            // Проверяем, не записан ли уже пользователь в резерв на эту дату
+            // Проверки остаются теми же
             const userReserve = reservesForDate.find(reserve => String(reserve.userId) === String(user.id));
             if (userReserve) {
                 setSuccessMessage('Вы уже в резерве на эту дату');
                 return;
             }
-            
-            // Проверяем, не записан ли уже пользователь на смену на эту дату
             const userShift = shiftsForDate.find(shift => String(shift.userId) === String(user.id));
             if (userShift) {
                 setSuccessMessage('Вы уже записаны на смену на эту дату');
                 return;
             }
             
-            console.log('[ScheduleContainer] Добавление в резерв:', {
-                user_id: String(user.id),
-                date: formattedDate,
-                chatId,
-                is_senior_courier: user.is_senior_courier
+            logger.info('[ScheduleContainer] Добавление в резерв через Thunk:', {
+                userTelegramId,
+                groupTelegramId,
+                date: selectedDate, // Передаем объект Date
             });
             
-            // Вызываем addToReserve только с датой
-            const result = await reserveSync.addToReserve(formattedDate);
+            // Вызываем Thunk addCurrentUserToReserveThunk
+            await dispatch(addCurrentUserToReserveThunk({
+                userTelegramId,
+                groupTelegramId,
+                date: selectedDate // Thunk ожидает Date
+            })).unwrap();
             
-            console.log('[ScheduleContainer] Результат добавления в резерв:', result);
-            
-            // Добавляем прямое событие для отладки
-            socketService.emit("echo", { 
-                message: "reserve-added",
-                user_id: String(user.id),
-                date: formattedDate,
-                chat_id: chatId,
-                timestamp: new Date().toISOString()
-            });
-            
+            logger.info('[ScheduleContainer] Успешно добавлен в резерв (через Thunk)');
             setSuccessMessage('Вы успешно добавлены в резерв');
             
-            // Принудительно обновляем данные через небольшую задержку
-            setTimeout(() => {
-                reserveSync.loadReserves();
-            }, 500);
+            // Принудительное обновление больше не нужно здесь, т.к. стейт обновится через Redux
+            // setTimeout(() => { ... }, 500);
             
-            return result;
-        } catch (error) {
-            console.error('Ошибка при добавлении в резерв:', error);
-            setSuccessMessage('Ошибка при добавлении в резерв');
-            throw error;
+        } catch (error: any) {
+            logger.error('Ошибка при добавлении в резерв:', error);
+            setSuccessMessage(error?.message || error || 'Ошибка при добавлении в резерв');
         }
-    }, [user, formattedDate, reservesForDate, shiftsForDate, reserveSync, chatId]);
+    }, [user, selectedDate, reservesForDate, shiftsForDate, chatId, dispatch]);
     
-    // Обработчик удаления из резерва
+    // Обновляем handleRemoveFromReserve для использования Thunk
     const handleRemoveFromReserve = useCallback(async (reserveId: string) => {
-        try {
-            reserveSync.removeFromReserve(reserveId);
-            setSuccessMessage('Вы успешно удалены из резерва');
-        } catch (error) {
-            console.error('Ошибка при удалении из резерва:', error);
-            setSuccessMessage('Ошибка при удалении из резерва');
+        if (!user || !user.id || !chatId || !reserveId) { 
+            setSuccessMessage('Недостаточно данных для удаления из резерва');
+            return;
         }
-    }, [reserveSync]);
+        try {
+            logger.info(`[ScheduleContainer] Удаление резерва ID: ${reserveId} через Thunk`);
+            // Вызываем Thunk removeReserveByIdThunk
+            await dispatch(removeReserveByIdThunk({ reserveId })).unwrap();
+            setSuccessMessage('Вы успешно удалены из резерва');
+        } catch (error: any) {
+            logger.error('Ошибка при удалении из резерва:', error);
+            setSuccessMessage(error?.message || error || 'Ошибка при удалении из резерва'); 
+        }
+    }, [dispatch, user, chatId]);
     
-    // Форсированное обновление данных
+    // Обновляем forceUpdate для использования fetchReservesForGroup
     const forceUpdate = useCallback(() => {
-        // Загружаем только резервы, смены загружаются через другие механизмы
-        reserveSync.loadReserves();
-    }, [reserveSync]);
+        if (!chatId) {
+            logger.warn('[ScheduleContainer] Попытка forceUpdate без chatId');
+            return;
+        }
+        const groupId = parseInt(chatId, 10);
+        if (!isNaN(groupId)) {
+             logger.info(`[ScheduleContainer] Запуск fetchReservesForGroup для группы ${groupId} (forceUpdate)`);
+            // Используем fetchReservesForGroup для обновления ВСЕХ резервов группы
+            dispatch(fetchReservesForGroup({ groupId }));
+        } else {
+             logger.error('[ScheduleContainer] Невалидный chatId для forceUpdate', chatId);
+        }
+        // Обновление смен (shiftsSlice) здесь не требуется, оно управляется отдельно
+    }, [dispatch, chatId]);
     
     // Обработчик закрытия уведомления
     const handleCloseSnackbar = () => {
@@ -397,19 +340,50 @@ const ScheduleContainer: React.FC = () => {
     // Инициализация данных при первой загрузке компонента
     useEffect(() => {
         if (chatId) {
-            forceUpdate();
+            const groupId = parseInt(chatId, 10);
+            if (!isNaN(groupId)) {
+                 logger.info(`[ScheduleContainer] Загрузка резервов для группы ${groupId} при монтировании/смене chatId`);
+                dispatch(fetchReservesForGroup({ groupId }));
+            } else {
+                logger.error('[ScheduleContainer] Невалидный chatId при монтировании', chatId);
+            }
         }
         
-        // Отладочная информация о статусе пользователя
+        // Находим текущую группу для лога
+        const currentGroupForLog = user?.groups?.find(g => String(g.chat_id) === String(chatId));
+
+        // Отладочная информация о статусе пользователя и группы
         console.log('👤 Данные пользователя в ScheduleContainer:', {
-            user,
-            is_senior_courier: user?.is_senior_courier,
+            user: {
+                 id: user?.id,
+                 firstName: user?.first_name,
+                 lastName: user?.last_name,
+                 // Убираем глобальный is_senior_courier
+             },
+             groupStatus: {
+                 chatId: chatId,
+                 role: currentGroupForLog?.role,
+                 isSenior: currentGroupForLog?.is_senior_courier
+             }
         });
-    }, [chatId, forceUpdate, user]);
+    }, [chatId, dispatch, user]); // Убираем forceUpdate из зависимостей, используем dispatch
     
     // Форматирование даты для отображения
     const formattedDisplayDate = format(selectedDate, 'EEEE, d MMMM', { locale: ru });
     
+    // Вычисляем лимиты слотов для выбранной даты
+    const { currentMaxDay, currentMaxNight } = useMemo(() => {
+        const dayIndex = selectedDate.getDay(); // 0 for Sunday, 1 for Monday, etc.
+        const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
+        return {
+            currentMaxDay: dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS,
+            currentMaxNight: dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS
+        };
+    }, [selectedDate, slotConfig]);
+
+    // Общий индикатор загрузки (можно улучшить, разделив по типу операции)
+    const isLoading = isLoadingShifts || isLoadingReserves || (loadingSlotIndex !== null);
+
     return (
         <Container>
             <Header>
@@ -430,74 +404,38 @@ const ScheduleContainer: React.FC = () => {
                 </DateButton>
             </DateSelector>
             
-            {mode === 'shifts' ? (
-                <ShiftPanel
-                    date={selectedDate}
-                    dayShifts={dayShifts.map(shift => ({
-                        id: shift.id,
-                        userId: shift.userId,
-                        photo_url: shift.photo_url,
-                        firstName: shift.firstName,
-                        lastName: shift.lastName,
-                        shiftType: shift.shiftType,
-                        slotIndex: shift.slotIndex,
-                        isSeniorCourier: shift.isSeniorCourier
-                    }))}
-                    nightShifts={nightShifts.map(shift => ({
-                        id: shift.id,
-                        userId: shift.userId,
-                        photo_url: shift.photo_url,
-                        firstName: shift.firstName,
-                        lastName: shift.lastName,
-                        shiftType: shift.shiftType,
-                        slotIndex: shift.slotIndex,
-                        isSeniorCourier: shift.isSeniorCourier
-                    }))}
-                    maxDaySlots={4}
-                    maxNightSlots={2}
-                    currentUserId={user?.id ? String(user.id) : ''}
-                    currentUserAvatar={user?.photo_url || undefined}
-                    currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
-                    onSlotSelect={handleSlotSelect}
-                    onSwitchToReserve={switchToReserves}
-                    forceUpdate={forceUpdate}
-                    reserves={reservesForDate}
-                    showSuccessMessage={setSuccessMessage}
-                />
-            ) : (
-                <ReservePanel
-                    date={selectedDate}
-                    reserves={reservesForDate}
-                    currentUserId={user?.id ? String(user.id) : ''}
-                    onCancelReserve={handleRemoveFromReserve}
-                    currentUserAvatar={user?.photo_url || undefined}
-                    currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
-                    dayShifts={dayShifts.map(shift => ({
-                        id: shift.id,
-                        userId: shift.userId,
-                        photo_url: shift.photo_url,
-                        firstName: shift.firstName,
-                        lastName: shift.lastName,
-                        shiftType: shift.shiftType,
-                        slotIndex: shift.slotIndex,
-                        isSeniorCourier: shift.isSeniorCourier
-                    }))}
-                    nightShifts={nightShifts.map(shift => ({
-                        id: shift.id,
-                        userId: shift.userId,
-                        photo_url: shift.photo_url,
-                        firstName: shift.firstName,
-                        lastName: shift.lastName,
-                        shiftType: shift.shiftType,
-                        slotIndex: shift.slotIndex,
-                        isSeniorCourier: shift.isSeniorCourier
-                    }))}
-                    onSwitchToShifts={switchToShifts}
-                    onReserveSelect={handleAddToReserve}
-                    forceUpdate={forceUpdate}
-                    showSuccessMessage={setSuccessMessage}
-                />
-            )}
+            <ShiftPanel
+                date={selectedDate}
+                dayShifts={dayShifts.map(shift => ({
+                    id: shift.id,
+                    userId: shift.userId,
+                    photoUrl: shift.photoUrl,
+                    firstName: shift.firstName,
+                    lastName: shift.lastName,
+                    shiftType: shift.shiftType,
+                    slotIndex: shift.slotIndex,
+                }))}
+                nightShifts={nightShifts.map(shift => ({
+                    id: shift.id,
+                    userId: shift.userId,
+                    photoUrl: shift.photoUrl,
+                    firstName: shift.firstName,
+                    lastName: shift.lastName,
+                    shiftType: shift.shiftType,
+                    slotIndex: shift.slotIndex,
+                }))}
+                maxDaySlots={currentMaxDay}
+                maxNightSlots={currentMaxNight}
+                currentUserId={user?.id ? String(user.id) : ''}
+                currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
+                onSlotSelect={handleSlotSelect}
+                onSwitchToReserve={switchToReserves}
+                showSuccessMessage={setSuccessMessage}
+                isLoading={isLoadingShifts || (loadingSlotIndex !== null)}
+                loadingSlot={loadingSlotIndex}
+                loadingType={loadingShiftType}
+                chatId={chatId}
+            />
             
             <Snackbar
                 open={!!successMessage}

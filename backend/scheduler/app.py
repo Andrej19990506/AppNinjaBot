@@ -1,63 +1,169 @@
 import logging
 import os
-import asyncio
-from fastapi import FastAPI, BackgroundTasks, HTTPException, Request
-from fastapi.responses import JSONResponse
+import asyncio # Добавляем импорт asyncio
 from contextlib import asynccontextmanager
-from pydantic import BaseModel
-from scheduler import InventoryScheduler
-from background_tasks import schedule_access_task_background
 
-# --- НАЧАЛО ИЗМЕНЕНИЙ: Добавляем импорт ---
-# Импортируем Settings из соседнего сервиса API server
-# Важно: Это сработает, только если PYTHONPATH настроен так,
-# чтобы можно было импортировать из backend/API server/.
-# В Docker обычно это делается установкой PYTHONPATH=/app в environment.
-# У тебя это вроде есть в docker-compose.
-from core.config import Settings # Предполагаем, что PYTHONPATH=/app включает backend/API server/
-# Если импорт выше не сработает, возможно, нужен более явный путь,
-# или надо вынести Settings в общую папку.
-# Например: from ..API server.core.config import Settings (но это не стандартно)
-# --- КОНЕЦ ИЗМЕНЕНИЙ ---
+# --- НАСТРОЙКА ЛОГИРОВАНИЯ --- 
+# Переносим basicConfig как можно выше
+# Настраиваем форматтер
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# Настраиваем обработчик (вывод в консоль)
+log_handler = logging.StreamHandler()
+log_handler.setFormatter(log_formatter)
 
-# Настраиваем логирование
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger('SchedulerServiceAPI') # Возвращаем имя
+# Настраиваем корневой логгер
+logging.basicConfig(level=logging.INFO, handlers=[log_handler])
 
-logger.info("--- SCHEDULER APP.PY STARTED (Routers Import Enabled) ---") # Обновляем лог
+# Получаем и настраиваем кастомные логгеры
+logger = logging.getLogger("SchedulerServiceAPI")
+logger.setLevel(logging.INFO) # Явно ставим уровень
+# Добавляем явную настройку для логгера Scheduler
+scheduler_logger = logging.getLogger("Scheduler")
+scheduler_logger.setLevel(logging.INFO)
+# ----------------------------- 
 
-# --- РАСКОММЕНТИРУЕМ ВСЕ ОСТАЛЬНОЕ --- 
+try:
+    import asyncpg
+except ImportError:
+    # Отлавливаем ошибку отсутствия библиотеки asyncpg
+    logger.critical("""    ❌ ОШИБКА: Библиотека asyncpg не установлена!
+    Выполните одно из следующих действий:
+    1. Установите библиотеку вручную в контейнере:
+       docker-compose exec scheduler pip install asyncpg
+       docker-compose restart scheduler
+    2. ИЛИ добавьте asyncpg в Dockerfile:
+       RUN pip install asyncpg
+    3. ИЛИ убедитесь, что 'asyncpg' добавлен в requirements.txt
+       и затем пересоберите контейнер:
+       docker-compose build --no-cache scheduler
+       docker-compose up -d scheduler    """)
+    raise
 
-# Загрузка конфигурации
-settings = Settings()
+from fastapi import FastAPI, HTTPException
 
-# Импортируем роутеры
-from api_scheduler.schedule.availability.routes import router as availability_router
+# Импорты (абсолютные пути)
 from api_scheduler.schedule.routes import router as schedule_router
+from api_scheduler.schedule.availability.routes import router as availability_router
+from core.config import scheduler_settings
+from scheduler import InventoryScheduler
+# Удаляем старые импорты
+# from shared.db_utils import init_db
+# from models.scheduler_task import create_table_if_not_exists
+# Импортируем новый DatabaseService
+from services.database_service import DatabaseService
 
-# Удаляем старую логику присваивания функции
+# УДАЛЯЕМ импорт BackgroundTasks, если он больше не нужен
+# from fastapi import BackgroundTasks
+
+logger.info("--- SCHEDULER APP.PY STARTED (Using scheduler_settings) ---")
 
 # Lifespan менеджер для запуска/остановки шедулера
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Инициализация сервиса и запуск шедулера...")
-    scheduler_instance = InventoryScheduler()
-    app.state.scheduler_instance = scheduler_instance # Сохраняем в state
+    
+    # Инициализируем пул соединений с БД
+    logger.info("🔍 Инициализация пула соединений с базой данных...")
+    db_host = os.getenv('POSTGRES_HOST', 'postgres')
+    db_port = os.getenv('POSTGRES_PORT', '5432')
+    db_name = os.getenv('POSTGRES_DB', 'appninjabot')
+    db_user = os.getenv('POSTGRES_USER', 'postgres')
+    db_password = os.getenv('POSTGRES_PASSWORD', 'postgres')
+    dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    
+    db_pool = None
     try:
-        # Запускаем шедулер (он сам загрузит задачи)
-        scheduler_instance.start()
-        logger.info("✅ Шедулер успешно запущен.")
-        yield # Приложение работает здесь
+        # Создаем пул с настройками для шедулера
+        db_pool = await asyncpg.create_pool(
+            dsn=dsn,
+            min_size=2,  # Минимальное количество соединений
+            max_size=10, # Максимальное количество соединений
+            timeout=30.0 # Таймаут соединения
+        )
+        
+        # Инициализируем DatabaseService
+        db_service = DatabaseService(pool=db_pool)
+        app.state.db_service = db_service  # Сохраняем в состоянии приложения
+        logger.info("✅ Подключение к базе данных успешно установлено!")
+        
+        # Проверяем наличие требуемых таблиц
+        logger.info("🔍 Проверка наличия необходимых таблиц...")
+        if not await db_service.check_tables_exist():
+            logger.warning("⚠️ Необходимые таблицы отсутствуют. Проверьте миграции.")
+            # Можно выбросить исключение, если таблицы обязательны
+            # raise HTTPException(status_code=500, detail="Отсутствуют необходимые таблицы в БД")
+            
+        # Короткая проверка доступности API сервера без блокировки
+        logger.info("🔌 Проверка доступности API сервера...")
+        try:
+            import requests
+            api_url = scheduler_settings.API_URL
+            # Очень короткий таймаут, чтобы не ждать долго
+            # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце api_url --- #
+            base_api_url = str(api_url).rstrip('/')
+            health_check_url = f"{base_api_url}/health"
+            response = requests.get(health_check_url, timeout=1)
+            if response.status_code == 200:
+                # Логгируем правильный URL, к которому обращались
+                logger.info(f"✅ API сервер доступен: {health_check_url}")
+            else:
+                # Логгируем правильный URL, к которому обращались
+                logger.warning(f"⚠️ API сервер ({health_check_url}) вернул код {response.status_code}")
+        except Exception as api_error:
+            logger.warning(f"⚠️ API сервер ({scheduler_settings.API_URL}) недоступен: {api_error}")
+        
+        # --- Добавляем проверку доступности Telegram бота --- 
+        logger.info("🔌 Проверка доступности Telegram бота...")
+        try:
+            import requests
+            # Правильный URL бота из docker-compose
+            bot_url = "http://bot:8003" 
+            # Стучимся в /health
+            bot_response = requests.get(f"{bot_url}/health", timeout=1)
+            if bot_response.status_code == 200:
+                logger.info(f"✅ Telegram бот доступен: {bot_url}")
+            else:
+                logger.warning(f"⚠️ Telegram бот вернул код {bot_response.status_code}: {bot_url}")
+        except Exception as bot_api_error:
+            logger.warning(f"⚠️ Telegram бот недоступен: {bot_api_error}")
+        # -----------------------------------------------------
+        
+        # Передаем настройки и сервис БД в InventoryScheduler
+        scheduler_instance = InventoryScheduler(settings=scheduler_settings, db_service=db_service)
+        app.state.scheduler_instance = scheduler_instance
+        
+        try:
+            # Запускаем шедулер (теперь метод start() не загружает задачи автоматически)
+            scheduler_instance.start()
+            logger.info("✅ Шедулер успешно запущен.")
+            
+            # Создаем фоновую задачу для загрузки задач после запуска сервера
+            # ИСПОЛЬЗУЕМ asyncio.create_task ВМЕСТО Thread
+            logger.info("🔄 Запуск фоновой загрузки активных задач...")
+            asyncio.create_task(scheduler_instance.reload_scheduled_tasks())
+            logger.info("✅ Загрузка задач запущена в фоне, сервер продолжает запуск")
+            
+            yield
+        except Exception as e:
+            logger.critical(f"❌ Критическая ошибка при инициализации шедулера: {e}")
+            # Перевыбрасываем исключение, чтобы FastAPI понял, что запуск не удался
+            raise HTTPException(status_code=500, detail=f"Ошибка инициализации шедулера: {str(e)}")
+    except Exception as e:
+        logger.critical(f"❌ Критическая ошибка при инициализации: {e}")
+        # Перевыбрасываем исключение, чтобы FastAPI понял, что запуск не удался
+        raise HTTPException(status_code=500, detail=f"Ошибка инициализации: {str(e)}")
     finally:
-        logger.info("👋 Остановка шедулера...")
-        if app.state.scheduler_instance and app.state.scheduler_instance.is_running():
+        # Останавливаем шедулер, если он был создан и запущен
+        if hasattr(app.state, 'scheduler_instance') and app.state.scheduler_instance and app.state.scheduler_instance.is_running():
+            logger.info("👋 Остановка шедулера...")
             app.state.scheduler_instance.stop()
-        logger.info("✅ Шедулер остановлен.")
-        # Очищаем state при остановке, если нужно
-        # del app.state.scheduler_instance
+            logger.info("✅ Шедулер остановлен.")
+            
+        # Закрываем пул соединений при завершении
+        if db_pool:
+            logger.info("🔍 Закрытие пула соединений...")
+            await db_pool.close()
+            logger.info("✅ Пул соединений закрыт.")
 
 # Создаем FastAPI приложение с lifespan
 app = FastAPI(
@@ -70,33 +176,3 @@ app = FastAPI(
 # Подключаем роутеры
 app.include_router(schedule_router, prefix="/scheduler")
 app.include_router(availability_router, prefix="/scheduler")
-
-# Обработчик исключений (на всякий случай)
-# @app.exception_handler(Exception)
-# async def general_exception_handler(request: Request, exc: Exception):
-#     logger.exception(f"Критическая ошибка при обработке запроса {request.url}: {exc}")
-#     return JSONResponse(
-#         status_code=500,
-#         content={"status": "error", "message": "Internal Server Error"},
-#     )
-
-# --- Маршрут /apply-access-settings (для совместимости, если нужен) ---
-# class LegacySettingsData(BaseModel):
-#     chat_id: str
-# 
-# @app.post("/apply-access-settings")
-# async def legacy_apply_access_settings(data: LegacySettingsData, background_tasks: BackgroundTasks, request: Request):
-#     chat_id = data.chat_id
-#     logger.info(f"📬 Запрос на применение настроек (legacy route) для chat_id: {chat_id}")
-#     # Получаем scheduler_instance из состояния приложения
-#     scheduler_instance = request.app.state.scheduler_instance
-#     if not scheduler_instance:
-#          logger.error("Legacy route: Экземпляр шедулера не найден в состоянии приложения!")
-#          raise HTTPException(status_code=500, detail="Scheduler not available")
-#     # Передаем scheduler_instance и chat_id в фоновую задачу
-#     background_tasks.add_task(schedule_access_task_background, scheduler_instance, chat_id)
-#     logger.info(f"Эндпоинт (legacy): Отвечаю 200 OK для {chat_id}")
-#     return {"status": "success", "message": "Scheduling started in background", "chat_id": chat_id}
-
-# Запуск через uvicorn будет в Dockerfile или docker-compose
-# Блок if __name__ == '__main__' больше не нужен для основного запуска 

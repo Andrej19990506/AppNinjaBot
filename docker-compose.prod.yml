@@ -56,19 +56,17 @@ services:
           memory: 256M
 
   scheduler:
+    build:
+      context: ./backend
+      dockerfile: ./scheduler/Dockerfile
+      target: production
     environment:
       - API_URL=http://nginx:80
-      - API_BASE_URL=https://appninjabot.ru/api
-      - BOT_URL=http://bot:8003
-      - SCHEDULER_URL=http://scheduler:8002
-      - WEBSOCKET_SERVER_URL=http://websocket:8001
       - ENVIRONMENT=production
-      - JWT_SECRET_KEY=your_super_secret_key_here
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
     restart: unless-stopped
     deploy:
       resources:

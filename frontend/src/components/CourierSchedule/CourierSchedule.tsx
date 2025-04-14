@@ -1,15 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import CourierProfile from '../CourierProfile/CourierProfile';
 import CourierProfileDialog from './CourierProfileDialog';
-import { CourierCalendar } from './CourierCalendar/index';
-import { updateCourierProfile } from '../../services/courierApi';
+import CourierCalendar from './CourierCalendar/index';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
-import { updateUser } from '../../store/slices/userSlice';
 import { bookShift } from '../../store/slices/shiftsSlice';
+import { fetchSlotConfig } from '../../store/slices/shiftsSlice';
 import { format } from 'date-fns';
-import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
+import ShiftAccessModal, { ShiftAccessModalRef } from '../CourierProfile/ShiftAccessModal';
+import SettingsPanel from '../CourierProfile/SettingsPanel';
+import Footer from '../Inventory/Footer';
+import SlotSettings, { SlotSettingsRef } from './CourierCalendar/components/SlotSettings';
 
 const Container = styled.div`
     padding: 20px;
@@ -36,115 +38,103 @@ const Subtitle = styled.p`
     font-size: 1rem;
 `;
 
-const ScheduleSection = styled.div`
-    margin-top: 32px;
-`;
-
-const SettingsButton = styled.button`
-    display: flex;
-    align-items: center;
-    background: var(--primary-transparent);
-    color: var(--primary-color);
-    border: none;
-    border-radius: var(--radius-lg);
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--transition-normal);
-    margin-left: auto;
-    
-    &:hover {
-        background: var(--primary-light);
-        transform: var(--hover-transform);
-    }
-    
-    &:active {
-        transform: var(--active-transform);
-    }
-`;
-
-const SettingsIcon = styled.span`
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
-    
-    &::before {
-        content: '⚙️';
-        font-size: 16px;
-    }
-`;
-
 const CourierSchedule: React.FC = () => {
     const dispatch = useAppDispatch();
     const user = useAppSelector((state) => state.user.user);
     const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-    const [selectedDate] = useState<Date | undefined>(undefined);
     const [showCalendar, setShowCalendar] = useState(false);
     const [showShiftAccessSettings, setShowShiftAccessSettings] = useState(false);
+    const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
+    const [showSlotSettings, setShowSlotSettings] = useState(false);
+    const [selectedDayIndexForSlots, setSelectedDayIndexForSlots] = useState<number | null>(null);
+    const [isModalDirty, setIsModalDirty] = useState(false);
+    const [currentModalStep, setCurrentModalStep] = useState(1);
+    const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
+    const slotSettingsRef = useRef<SlotSettingsRef>(null);
 
     const courierChatId = useMemo(() => {
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
-        if (courierGroup) {
-            return String(courierGroup.chat_id);
-        } else {
-            return undefined;
-        }
+        return courierGroup ? Number(courierGroup.chat_id) : undefined;
     }, [user?.groups]);
 
+    const currentCourierGroup = useMemo(() => {
+        if (!user?.groups || !courierChatId) return null;
+        return user.groups.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId));
+    }, [user?.groups, courierChatId]);
+
     useEffect(() => {
-        if (user && (!user.first_name?.trim() || !user.last_name?.trim())) {
-            setIsProfileDialogOpen(true);
+        if (courierChatId) {
+            console.log('[CourierSchedule] Fetching slot config for chat ID:', courierChatId);
+            dispatch(fetchSlotConfig({ chatId: courierChatId }));
         }
-    }, [user]);
+    }, [dispatch, courierChatId]);
+
+    const courierChatIdString = useMemo(() => {
+        return courierChatId?.toString();
+    }, [courierChatId]);
+
+    useEffect(() => {
+        if (!user) return;
+
+        const profileNotFilled = !user.first_name?.trim() || !user.last_name?.trim();
+        
+        let shouldOpenForSeniority = false;
+        if (!profileNotFilled && currentCourierGroup) {
+            const isAdminOrCreator = 
+                currentCourierGroup.role === 'administrator' || 
+                currentCourierGroup.role === 'creator' ||
+                currentCourierGroup.role === 'admin';
+            
+            const isSeniorStatusNull = currentCourierGroup.is_senior_courier === null;
+            
+            shouldOpenForSeniority = isAdminOrCreator && isSeniorStatusNull;
+        }
+
+        if (profileNotFilled || shouldOpenForSeniority) {
+            console.log(`[CourierSchedule] Opening profile dialog. Reason: ${profileNotFilled ? 'Profile not filled' : 'Admin/Creator needs to set senior status'}`);
+            setIsProfileDialogOpen(true);
+        } else {
+            if (isProfileDialogOpen) {
+                 console.log('[CourierSchedule] Closing profile dialog as conditions are met.');
+                 setIsProfileDialogOpen(false); 
+            }
+        }
+    }, [user, currentCourierGroup, isProfileDialogOpen]);
+
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        console.log('[CourierSchedule] Body scroll disabled.');
+
+        return () => {
+            document.body.style.overflow = originalOverflow;
+            console.log('[CourierSchedule] Body scroll restored on unmount.');
+        };
+    }, []);
 
     const handleProfileSave = async (data: { 
         firstName: string; 
         lastName: string; 
-        isSeniorCourier?: boolean; 
-        seniorPassword?: string;
+        // Убираем isSeniorCourier и seniorPassword, так как они обрабатываются внутри диалога
+        // isSeniorCourier?: boolean; 
+        // seniorPassword?: string;
     }) => {
-        if (!user?.id) return;
-
-        try {
-            const chatId = user.groups && user.groups.length > 0 
-                ? user.groups[0].chat_id : undefined;
-                
-            const result = await updateCourierProfile(user.id, {
-                ...data,
-                chatId
-            });
-            
-            dispatch(updateUser({
-                ...user,
-                first_name: data.firstName,
-                last_name: data.lastName,
-                is_senior_courier: data.isSeniorCourier || false
-            }));
-
-            dispatch(addNotification({
-                type: NotificationTypes.SUCCESS,
-                message: 'Данные успешно сохранены',
-                duration: 3000
-            }));
-
-            return result;
-        } catch (error) {
-            console.error('Ошибка при сохранении данных:', error);
-            
-            const errorMessage = error instanceof Error 
-                ? error.message 
-                : 'Произошла ошибка при сохранении данных';
-
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: errorMessage,
-                duration: 5000
-            }));
-
-            throw error;
-        }
+        // Эта функция больше не нужна в CourierSchedule, 
+        // так как вся логика сохранения теперь внутри CourierProfileDialog.
+        // Мы можем ее либо полностью удалить, либо оставить пустой заглушкой,
+        // если она где-то используется (например, как пропс).
+        // Пока оставим пустой для безопасности.
+        console.warn("[CourierSchedule] handleProfileSave вызвана, но логика сохранения перенесена в CourierProfileDialog.");
+        // if (!user?.id) return;
+        // try {
+        //     // ... старый код вызова updateCourierProfile ...
+        //     // dispatch(updateUser(...)) // <-- Убираем этот dispatch
+        //     // dispatch(addNotification(...))
+        //     // return result;
+        // } catch (error) {
+        //     // ... старая обработка ошибок ...
+        // }
+        return Promise.resolve(); // Возвращаем пустой промис
     };
 
     const handleShiftSelect = async (date: Date, shiftType: 'day' | 'night', slotIndex: number) => {
@@ -158,12 +148,21 @@ const CourierSchedule: React.FC = () => {
             return;
         }
 
+        if (!courierChatIdString) {
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: 'Не удалось определить группу для бронирования смены'
+            }));
+            return;
+        }
+
         try {
             await dispatch(bookShift({
                 date: format(date, 'yyyy-MM-dd'),
                 shiftType,
                 slotIndex,
-                userId: String(user.id)
+                userId: String(user.id),
+                chatId: courierChatIdString
             })).unwrap();
 
             dispatch(addNotification({
@@ -189,60 +188,221 @@ const CourierSchedule: React.FC = () => {
         }
     };
 
-    const handleOpenShiftAccessSettings = () => {
-        console.log('Opening shift access settings');
+    const isModalActive = showShiftAccessSettings || showSlotSettings;
+    const activeModalType: 'shiftAccess' | 'slotSettings' | 'none' = 
+        showShiftAccessSettings ? 'shiftAccess' : 
+        showSlotSettings ? 'slotSettings' : 'none';
+
+    const handleCloseShiftAccessSettings = useCallback(() => {
+        setShowShiftAccessSettings(false);
+        setIsModalDirty(false);
+    }, []);
+
+    const handleCloseSlotSettings = useCallback(() => {
+        setShowSlotSettings(false);
+        setSelectedDayIndexForSlots(null);
+        setIsModalDirty(false);
+    }, []);
+
+    const closeSettingsPanel = useCallback(() => {
+        setIsSettingsPanelOpen(false);
+    }, []);
+
+    const handleOpenShiftAccessModal = useCallback(() => {
+        closeSettingsPanel();
+        if (showSlotSettings) handleCloseSlotSettings();
+        setCurrentModalStep(1);
+        setIsModalDirty(false);
         setShowShiftAccessSettings(true);
+    }, [closeSettingsPanel, showSlotSettings, handleCloseSlotSettings]);
+
+    const handleSlotSettingsDayChange = useCallback((newDayIndex: number) => {
+        console.log(`[CourierSchedule] Request to change slot settings day to: ${newDayIndex}`);
+        if (selectedDayIndexForSlots !== newDayIndex) {
+            setSelectedDayIndexForSlots(newDayIndex);
+            setIsModalDirty(false); 
+        }
+    }, [selectedDayIndexForSlots]);
+
+    const handleShiftAccessDirtyChange = useCallback((dirty: boolean) => {
+        if (activeModalType === 'shiftAccess') {
+            setIsModalDirty(dirty);
+        }
+    }, [activeModalType]);
+
+    useEffect(() => {
+        let intervalId: NodeJS.Timeout | null = null;
+        if (activeModalType === 'slotSettings') {
+            intervalId = setInterval(() => {
+                setIsModalDirty(slotSettingsRef.current?.isDirty ?? false);
+            }, 300);
+        } else {
+            if (activeModalType !== 'shiftAccess') {
+                setIsModalDirty(false); 
+            }
+        }
+        return () => { if (intervalId) clearInterval(intervalId); };
+    }, [activeModalType]);
+
+    const handleModalSave = async () => {
+        if (activeModalType === 'shiftAccess') {
+            console.log('[CourierSchedule] Footer save -> shiftAccessModalRef.triggerSave()');
+            await shiftAccessModalRef.current?.triggerSave();
+        } else if (activeModalType === 'slotSettings') {
+            console.log('[CourierSchedule] Footer save -> slotSettingsRef.triggerSave()');
+            await slotSettingsRef.current?.triggerSave();
+        }
     };
 
-    const handleCloseShiftAccessSettings = () => {
-        console.log('Closing shift access settings');
-        setShowShiftAccessSettings(false);
+    const handleModalCancel = () => {
+        if (activeModalType === 'shiftAccess') {
+            if (isModalDirty) { 
+                shiftAccessModalRef.current?.triggerReset();
+            }
+            handleCloseShiftAccessSettings(); 
+        } else if (activeModalType === 'slotSettings') {
+            slotSettingsRef.current?.triggerReset(); 
+            handleCloseSlotSettings(); 
+        }
     };
+
+    const handleModalPrevStep = () => {
+        if (activeModalType === 'shiftAccess') {
+            console.log('[CourierSchedule] Footer back -> shiftAccessModalRef.goToPrevStep()');
+            shiftAccessModalRef.current?.goToPrevStep();
+        }
+    };
+
+    const handleModalNextStep = () => {
+        if (activeModalType === 'shiftAccess') {
+            console.log('[CourierSchedule] Footer next -> shiftAccessModalRef.goToNextStep()');
+            shiftAccessModalRef.current?.goToNextStep();
+        }
+    };
+
+    const handleFooterBack = () => {
+        console.log('[Footer] Back button clicked (standard mode)');
+    };
+
+    const MODAL_TOTAL_STEPS = 3;
+
+    const getIsModalNextDisabled = () => {
+        if (activeModalType === 'shiftAccess') {
+            const isLast = currentModalStep === MODAL_TOTAL_STEPS;
+            return isLast;
+        }
+        return true;
+    };
+
+    const getIsModalSaveDisabled = () => {
+        let dirty = false;
+        if (activeModalType === 'shiftAccess') {
+            dirty = isModalDirty;
+            const isLast = currentModalStep === MODAL_TOTAL_STEPS;
+            return !isLast || !dirty;
+        } else if (activeModalType === 'slotSettings') {
+            dirty = slotSettingsRef.current?.isDirty ?? false;
+            return !dirty;
+        }
+        return true;
+    };
+
+    const toggleSettingsPanel = useCallback(() => {
+        setIsSettingsPanelOpen(prev => !prev);
+    }, []);
+
+    const handleOpenSlotSettingsFromPanel = useCallback(() => {
+        const defaultDayIndex = 1; // Или 0, если нужно
+        console.log(`[CourierSchedule] Opening slot settings from panel (default day: ${defaultDayIndex})`);
+        closeSettingsPanel();
+        if (showShiftAccessSettings) handleCloseShiftAccessSettings();
+        setSelectedDayIndexForSlots(defaultDayIndex);
+        setIsModalDirty(false);
+        setShowSlotSettings(true);
+    }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);
 
     return (
         <Container>
             <Header>
                 <Title>Запись на смену</Title>
                 <Subtitle>Выберите удобную дату для работы</Subtitle>
-                
-                {user?.is_senior_courier && (
-                    <SettingsButton onClick={handleOpenShiftAccessSettings}>
-                        <SettingsIcon />
-                        Настройки записи
-                    </SettingsButton>
-                )}
             </Header>
 
-            {showCalendar ? (
-                <ScheduleSection>
-                    <CourierCalendar
-                        onShiftSelect={handleShiftSelect}
-                        selectedDate={selectedDate}
-                        currentUserId={String(user?.id || '')}
-                        currentUserAvatar={user?.photo_url || undefined}
-                        currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
-                        onClose={() => setShowCalendar(false)}
-                        chatId={courierChatId}
-                    />
-                </ScheduleSection>
-            ) : (
+            {user && (
                 <CourierProfile 
-                    onRegisterClick={() => setShowCalendar(true)}
-                    isSeniorCourier={user?.is_senior_courier}
-                    onOpenShiftAccess={handleOpenShiftAccessSettings}
+                    onRegisterClick={() => setShowCalendar(true)} 
+                    isSeniorCourier={currentCourierGroup?.is_senior_courier ?? false}
                 />
             )}
 
-            <CourierProfileDialog
-                isOpen={isProfileDialogOpen}
-                onClose={() => setIsProfileDialogOpen(false)}
-                onSave={handleProfileSave}
-            />
+            {isProfileDialogOpen && user && (
+                <CourierProfileDialog 
+                    isOpen={isProfileDialogOpen} 
+                    onClose={() => setIsProfileDialogOpen(false)} 
+                    onSave={handleProfileSave}
+                    chatId={courierChatIdString}
+                />
+            )}
 
+            {showCalendar && user && (
+                <CourierCalendar 
+                    chatId={courierChatIdString}
+                    currentUserId={String(user.id)}
+                    currentUserAvatar={user.photo_url || undefined}
+                    currentUserName={`${user.first_name || ''} ${user.last_name || ''}`}
+                    onClose={() => setShowCalendar(false)} 
+                    onShiftSelect={handleShiftSelect}
+                    onOpenSlotSettings={(dayIndex: number) => {
+                        console.log(`[CourierSchedule] Slot Settings clicked for day index: ${dayIndex}`);
+                        setSelectedDayIndexForSlots(dayIndex);
+                        setShowSlotSettings(true);
+                        if (isSettingsPanelOpen) closeSettingsPanel();
+                        if (showShiftAccessSettings) handleCloseShiftAccessSettings();
+                    }}
+                />
+            )}
+            
             <ShiftAccessModal 
+                ref={shiftAccessModalRef}
                 isOpen={showShiftAccessSettings}
                 onClose={handleCloseShiftAccessSettings}
-                chatId={courierChatId}
+                chatId={courierChatIdString}
+                onIsDirtyChange={handleShiftAccessDirtyChange}
+                onStepChange={setCurrentModalStep}
+            />
+            
+            {selectedDayIndexForSlots !== null && (
+                <SlotSettings
+                    ref={slotSettingsRef}
+                    isOpen={showSlotSettings}
+                    onClose={handleCloseSlotSettings}
+                    chatId={courierChatId}
+                    dayIndex={selectedDayIndexForSlots}
+                    onDayChangeRequest={handleSlotSettingsDayChange}
+                />
+            )}
+
+            <SettingsPanel 
+                isOpen={isSettingsPanelOpen}
+                onClose={closeSettingsPanel}
+                onOpenShiftAccess={handleOpenShiftAccessModal}
+                onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
+            />
+
+            <Footer 
+                onBack={handleFooterBack}
+                showSettingsButton={currentCourierGroup?.is_senior_courier ?? false} 
+                onSettingsClick={toggleSettingsPanel}
+                showModalActions={isModalActive}
+                showModalSteps={activeModalType === 'shiftAccess'}
+                modalCurrentStep={activeModalType === 'shiftAccess' ? currentModalStep : undefined}
+                modalTotalSteps={activeModalType === 'shiftAccess' ? MODAL_TOTAL_STEPS : undefined}
+                onModalBack={activeModalType === 'shiftAccess' ? handleModalPrevStep : undefined}
+                onModalNext={activeModalType === 'shiftAccess' ? handleModalNextStep : undefined}
+                isModalNextDisabled={getIsModalNextDisabled()}
+                onModalSave={handleModalSave}
+                onModalCancel={handleModalCancel}
+                isModalSaveDisabled={getIsModalSaveDisabled()}
             />
         </Container>
     );

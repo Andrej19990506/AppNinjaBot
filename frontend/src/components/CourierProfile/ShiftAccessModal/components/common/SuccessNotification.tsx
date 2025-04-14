@@ -1,11 +1,38 @@
 import React, { memo } from 'react';
-import styled from 'styled-components';
+import styled from '@emotion/styled';
 import { motion } from 'framer-motion';
-import { ActionButton } from './buttons';
-import { useAppSelector } from '../../../../../store/hooks';
-import { selectAccessSettings } from '../../../../../store/slices/shiftsSlice';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { useAppSelector } from '../../../../../store/hooks';
+import { selectAccessSettings } from '../../../../../store/slices/shiftsSlice';
+
+// <<< Локальное определение getDayName >>>
+const getDayName = (dayOfWeek: number): string => {
+    const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    // Используем dayOfWeek % 7 для обработки воскресенья (0)
+    return days[dayOfWeek % 7];
+};
+
+// <<< Локальное определение formatTime >>>
+const formatTime = (hour: number, minute: number): string => {
+    const h = String(hour).padStart(2, '0');
+    const m = String(minute).padStart(2, '0');
+    return `${h}:${m}`;
+};
+
+// <<< Локальное определение pluralize >>>
+const pluralize = (count: number, one: string, few: string, many: string): string => {
+    const mod10 = count % 10;
+    const mod100 = count % 100;
+
+    if (mod10 === 1 && mod100 !== 11) {
+        return one;
+    } else if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) {
+        return few;
+    } else {
+        return many;
+    }
+};
 
 interface SuccessNotificationProps {
     message: string;
@@ -72,7 +99,6 @@ const Description = styled.p`
     max-width: 320px;
 `;
 
-// Обновленный контейнер для результатов настроек
 const ResultsContainer = styled(motion.div)`
     background-color: var(--background-light);
     border-radius: 8px;
@@ -83,7 +109,6 @@ const ResultsContainer = styled(motion.div)`
     border-left: 3px solid var(--success-color);
 `;
 
-// Обновленный заголовок для результатов
 const ResultsTitle = styled.h5`
     font-size: 15px;
     color: var(--text-color);
@@ -97,14 +122,12 @@ const ResultsTitle = styled.h5`
     }
 `;
 
-// Обновленный список результатов
 const ResultsList = styled.ul`
     margin: 0;
     padding: 0 0 0 20px;
     list-style-type: none;
 `;
 
-// Обновленный элемент результата
 const ResultItem = styled.li`
     position: relative;
     font-size: 14px;
@@ -130,14 +153,13 @@ const ButtonContainer = styled.div`
     pointer-events: auto;
 `;
 
-const ConfirmButton = styled(ActionButton)`
+const ConfirmButton = styled.button`
     pointer-events: auto;
     cursor: pointer;
     position: relative;
     z-index: 1003;
 `;
 
-// Варианты анимации для контейнера
 const containerVariants = {
     hidden: { opacity: 0, scale: 0.9 },
     visible: { 
@@ -151,7 +173,6 @@ const containerVariants = {
     }
 };
 
-// Варианты анимации для иконки
 const iconVariants = {
     hidden: { scale: 0, opacity: 0 },
     visible: { 
@@ -165,7 +186,6 @@ const iconVariants = {
     }
 };
 
-// Анимация для контейнера результатов
 const resultsContainerVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -180,7 +200,6 @@ const resultsContainerVariants = {
     }
 };
 
-// Компонент иконки успеха
 const SuccessIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -188,52 +207,29 @@ const SuccessIcon = () => (
     </svg>
 );
 
-// Функция для получения названия дня недели
-const getDayName = (day: number): string => {
-    const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-    return days[day];
-};
-
-// Функция для форматирования времени
-const formatTime = (hour: number, minute: number): string => {
-    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-};
-
-// Функция для склонения числительных
-const pluralize = (count: number, one: string, few: string, many: string): string => {
-    if (count % 10 === 1 && count % 100 !== 11) {
-        return one;
-    } else if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-        return few;
-    } else {
-        return many;
-    }
-};
-
 const SuccessNotification = memo(({ message, onConfirm }: SuccessNotificationProps) => {
-    // Получаем данные о настройках из Redux
     const settings = useAppSelector(selectAccessSettings);
     
-    // Форматируем день и время открытия регистрации
-    const dayName = getDayName(settings.registrationStartDay ?? 1);
+    if (!settings) {
+        return null;
+    }
+
+    const dayName = getDayName(settings.registrationStartDay ?? 0);
     const timeString = formatTime(settings.registrationStartHour ?? 9, settings.registrationStartMinute ?? 0);
     
-    // Формируем строку периода регистрации
     let periodString = '';
+    const offsetAmount = settings.offsetAmount ?? 0;
+
     if (settings.offsetType === 'days') {
-        const days = settings.offsetAmount ?? 1;
-        periodString = `За ${days} ${pluralize(days, 'день', 'дня', 'дней')} вперёд`;
+        periodString = `за ${offsetAmount} ${pluralize(offsetAmount, 'день', 'дня', 'дней')} до смены`;
     } else if (settings.offsetType === 'weeks') {
-        const weeks = settings.offsetAmount ?? 1;
-        periodString = `На ${weeks} ${pluralize(weeks, 'неделю', 'недели', 'недель')} вперёд`;
+        periodString = `за ${offsetAmount} ${pluralize(offsetAmount, 'неделю', 'недели', 'недель')} до смены`;
     } else {
-        periodString = 'На текущий период';
+        periodString = 'в день смены';
     }
     
-    // Получаем статус автоматизации
     const automationStatus = settings.isAlwaysActive ? 'Активен' : 'Отключен';
     
-    // Форматируем дату последнего обновления
     const lastUpdated = settings.lastUpdated 
         ? format(new Date(settings.lastUpdated), 'dd MMMM yyyy, HH:mm', { locale: ru }) 
         : 'Только что';

@@ -13,6 +13,7 @@ interface UseStepNavigationProps {
     totalSteps: number; // Общее количество шагов
     onComplete?: () => void; // Callback, который вызывается при завершении всех шагов
     swipeThreshold?: number; // Порог свайпа для переключения шага (в пикселях)
+    onStepChange?: (step: FormStep) => void; // Callback для изменения шага
 }
 
 interface UseStepNavigationReturn {
@@ -35,11 +36,31 @@ export const useStepNavigation = ({
     initialStep = FormStep.STEP_ONE,
     totalSteps,
     onComplete,
-    swipeThreshold = 100
+    swipeThreshold = 100,
+    onStepChange
 }: UseStepNavigationProps): UseStepNavigationReturn => {
-    const [currentStep, setCurrentStep] = useState<FormStep>(initialStep);
+    const [currentStep, _setCurrentStep] = useState<FormStep>(initialStep);
     const [swipeDirection, setSwipeDirection] = useState<number>(0);
     
+    // Обертка для setCurrentStep, вызывающая колбэк
+    const setCurrentStep = useCallback((newStepOrCallback: FormStep | ((prevStep: FormStep) => FormStep)) => {
+        _setCurrentStep(prevStep => {
+            let newStep: FormStep;
+            if (typeof newStepOrCallback === 'function') {
+                newStep = newStepOrCallback(prevStep);
+            } else {
+                newStep = newStepOrCallback;
+            }
+
+            // Вызываем колбэк только если шаг действительно изменился
+            if (newStep !== prevStep && onStepChange) {
+                console.log(`[useStepNavigation] Step changed from ${prevStep} to ${newStep}. Calling onStepChange.`);
+                onStepChange(newStep);
+            }
+            return newStep;
+        });
+    }, [onStepChange]);
+
     // Переход к следующему шагу
     const goToNextStep = useCallback(() => {
         setCurrentStep(prevStep => {
@@ -54,7 +75,7 @@ export const useStepNavigation = ({
             
             return prevStep;
         });
-    }, [totalSteps, onComplete]);
+    }, [totalSteps, onComplete, setCurrentStep]);
     
     // Переход к предыдущему шагу
     const goToPrevStep = useCallback(() => {
@@ -64,13 +85,13 @@ export const useStepNavigation = ({
             }
             return prevStep;
         });
-    }, []);
+    }, [setCurrentStep]);
     
     // Сброс к начальному шагу
     const resetStep = useCallback(() => {
         setCurrentStep(initialStep);
         setSwipeDirection(0);
-    }, [initialStep]);
+    }, [initialStep, setCurrentStep]);
     
     // Обработчик свайпа, который также устанавливает направление для анимации
     const handleSwipe = useCallback((direction: number) => {

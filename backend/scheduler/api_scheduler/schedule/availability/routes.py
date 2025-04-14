@@ -1,46 +1,54 @@
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Request, Depends
 import logging
-# Импортируем фоновую задачу из нового файла
-from background_tasks import schedule_access_task_background
+import asyncio
+from typing import Dict, Any
+from core.config import scheduler_settings
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
 
-class AccessSettingsData(BaseModel):
+# Определяем модель запроса
+class AccessSettingsRequest(BaseModel):
     chat_id: str
 
-@router.post("/availability/access-settings")
-# Добавляем request: Request
-async def apply_access_settings(data: AccessSettingsData, background_tasks: BackgroundTasks, request: Request):
-    """
-    Принимает chat_id и запускает фоновую задачу для применения настроек доступа.
-    """
-    chat_id = data.chat_id
-    if not chat_id:
-        raise HTTPException(status_code=400, detail="chat_id is required")
+# Важно! Создаем роутер с правильным префиксом тэгов
+router = APIRouter(
+    prefix="/availability",
+    tags=["availability"]
+)
 
+@router.post("/access-settings")
+async def apply_access_settings(
+    request: AccessSettingsRequest,
+    request_obj: Request
+):
+    """Применяет настройки доступа для конкретного чата/группы"""
+    chat_id = request.chat_id
     logger.info(f"📬 Принят запрос на /scheduler/availability/access-settings для chat_id: {chat_id}")
+    
+    # Получаем инстанс scheduler из состояния приложения
+    scheduler_instance = request_obj.app.state.scheduler_instance
+    
+    # Запускаем через asyncio.create_task
+    # Убедимся, что task_manager существует
+    if hasattr(scheduler_instance, 'task_manager') and scheduler_instance.task_manager:
+        logger.info(f"Запуск asyncio.create_task для TaskManager.schedule_shift_access, chat_id: {chat_id}")
+        # Запускаем нужный метод напрямую
+        asyncio.create_task(scheduler_instance.task_manager.schedule_shift_access(chat_id))
+        message = f"Access settings application started in background for chat_id: {chat_id}"
+        status = "success"
+    else:
+        logger.error(f"TaskManager не найден в scheduler_instance при запросе для chat_id: {chat_id}")
+        # Возможно, стоит вернуть ошибку 500?
+        message = f"Failed to start background task: TaskManager not found for chat_id: {chat_id}"
+        status = "error"
+        # Можно изменить код ответа, например, на 500
+        # raise HTTPException(status_code=500, detail=message)
 
-    # Получаем scheduler_instance из состояния приложения
-    try:
-        scheduler_instance = request.app.state.scheduler_instance
-    except AttributeError:
-        logger.error("Экземпляр шедулера не найден в состоянии приложения (request.app.state.scheduler_instance)!")
-        raise HTTPException(status_code=500, detail="Scheduler not available")
-
-    if not scheduler_instance:
-         logger.error("Экземпляр шедулера найден в state, но он None!")
-         raise HTTPException(status_code=500, detail="Scheduler instance is None")
-
-    # Запускаем основную логику в фоне, передавая scheduler_instance
-    background_tasks.add_task(schedule_access_task_background, scheduler_instance, chat_id)
-
-    logger.info(f"Отвечаем 200 OK, задача для chat_id: {chat_id} запущена в фоне.")
-    # Ответ всегда быстрый
+    logger.info(f"Отвечаем 200 OK, статус: {status}, сообщение: {message}")
     return {
-        "status": "success",
-        "message": "Access settings application started in background",
+        "status": status,
+        "message": message,
         "chat_id": chat_id
     }
 

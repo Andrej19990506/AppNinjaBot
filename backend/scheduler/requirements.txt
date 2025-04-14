@@ -12,4 +12,5 @@ SQLAlchemy
 python-telegram-bot
 apscheduler
 httpx
-pydantic-settings 
+pydantic-settings
+asyncpg 

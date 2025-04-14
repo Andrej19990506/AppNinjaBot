@@ -243,21 +243,28 @@ enum OffsetType {
 }
 
 const StepTwo: React.FC = () => {
-    // Получаем настройки доступа из контекста через хук
     const { settings, updateSettings } = useStepAccessSettings();
     
-    // Состояния для выбранного типа смещения и величины
+    // --- Добавляем проверку на null при инициализации useState --- 
     const [offsetType, setOffsetType] = useState<OffsetType>(
-        (settings.offsetType as OffsetType) ?? OffsetType.WEEKS
+        (settings?.offsetType as OffsetType) ?? OffsetType.WEEKS
     );
     const [offsetAmount, setOffsetAmount] = useState<number>(
-        settings.offsetAmount ?? 1
+        settings?.offsetAmount ?? 1
     );
+    // --- ---------------------------------------------------- --- 
     
-    // Обновляем локальные состояния при изменении настроек
     useEffect(() => {
-        setOffsetType((settings.offsetType as OffsetType) ?? OffsetType.WEEKS);
-        setOffsetAmount(settings.offsetAmount ?? 1);
+        // --- Добавляем проверку на null в useEffect --- 
+        if (settings) {
+            setOffsetType((settings.offsetType as OffsetType) ?? OffsetType.WEEKS);
+            setOffsetAmount(settings.offsetAmount ?? 1);
+        } else {
+             // Если настроек нет, сбрасываем на дефолтные значения
+             setOffsetType(OffsetType.WEEKS);
+             setOffsetAmount(1);
+        }
+        // --- -------------------------------------- --- 
     }, [settings]);
     
     // Обработчик изменения типа смещения

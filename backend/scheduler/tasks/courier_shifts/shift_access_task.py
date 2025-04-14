@@ -1,73 +1,129 @@
 import logging
 import requests
+import httpx
 import psycopg # Добавляем импорт psycopg
 # from psycopg2.extras import RealDictCursor # Убираем зависимость от psycopg2
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, date, timezone
 import traceback
 import os
 import json # Добавляем импорт json
 from ..base_task import BaseTask
+# Импортируем абсолютным путем
+from core.config import scheduler_settings
+from zoneinfo import ZoneInfo # Добавляем импорт ZoneInfo
+from typing import Optional, Dict, Any, TYPE_CHECKING
+# Импортируем асинхронный HTTP-клиент
+from shared.http_client import get_async_http_client
+# Импортируем DatabaseService и SchedulerSettings для статической функции
+from services.database_service import DatabaseService 
+from core.config import SchedulerSettings
+# Осторожно с циклическими импортами!
+# Возможно, лучше использовать TYPE_CHECKING
+if TYPE_CHECKING:
+    from tasks.task_manager import TaskManager 
 
 logger = logging.getLogger(__name__)
 
-# --- Данные для подключения к PostgreSQL (берем из окружения) ---
-POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'db') # 'db' - имя сервиса в docker-compose
-POSTGRES_PORT = os.getenv('POSTGRES_PORT', '5432')
-POSTGRES_DB = os.getenv('POSTGRES_DB', 'appninjabot')
-POSTGRES_USER = os.getenv('POSTGRES_USER', 'postgres')
-POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
-DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
-# -----------------------------------------------------------------
+# --- УДАЛЯЕМ блок чтения настроек БД из окружения ---
+# POSTGRES_HOST = ...
+# ...
+# DATABASE_URL = ...
+# ---------------------------------------------------
+
+# --- Статическая функция-обертка для APScheduler --- 
+async def execute_job(chat_id: str, db_service: DatabaseService, settings: SchedulerSettings, task_manager: 'TaskManager', task_type: str = None):
+    """Статическая обертка, вызываемая APScheduler.
+       Выполняет основную логику задачи и запускает перепланирование.
+    """
+    logger.info(f"[ShiftAccessTask.execute_job] Запуск для chat_id: {chat_id} (тип: {task_type})")
+    task_success = False
+    try:
+        # Создаем временный экземпляр ТОЛЬКО с настройками
+        task_instance = ShiftAccessTask(scheduler_instance=None, task_manager=None, settings=settings)
+        # Передаем только chat_id и settings
+        await task_instance.execute(chat_id, settings) 
+        task_success = True # Считаем успехом, если execute не упал
+    except Exception as e:
+        logger.error(f"[ShiftAccessTask.execute_job] Ошибка при выполнении для chat_id {chat_id}: {e}")
+        logger.error(traceback.format_exc())
+        task_success = False
+        
+    # --- Перепланирование --- 
+    # Перепланируем независимо от успеха выполнения основной задачи
+    logger.info(f"[ShiftAccessTask.execute_job] Запуск перепланирования для chat_id: {chat_id}")
+    try:
+        if task_manager and hasattr(task_manager, 'schedule_shift_access'):
+            # Используем await, чтобы дождаться завершения планирования
+            await task_manager.schedule_shift_access(chat_id) 
+            logger.info(f"[ShiftAccessTask.execute_job] Перепланирование для {chat_id} успешно инициировано.")
+        else:
+            logger.error(f"[ShiftAccessTask.execute_job] TaskManager недоступен. Не удалось перепланировать задачу для {chat_id}.")
+    except Exception as reschedule_err:
+        logger.error(f"[ShiftAccessTask.execute_job] Ошибка при перепланировании для {chat_id}: {reschedule_err}")
+        logger.error(traceback.format_exc())
+    # ------------------------
+# --------------------------------------------------
 
 class ShiftAccessTask(BaseTask):
     TASK_TYPE = 'courier_shift_access' # Тип задачи остается прежним
 
-    def __init__(self, scheduler_instance, task_manager, timezone, api_url):
+    def __init__(self, scheduler_instance, task_manager, settings):
         """
         Задача для УВЕДОМЛЕНИЯ В ТЕЛЕГРАМ об открытии доступа к сменам курьеров.
         """
-        super().__init__(scheduler_instance, task_manager, timezone, api_url)
-        # self.timezone = timezone # Убираем, уже есть в BaseTask
-        # self.api_url = os.getenv('API_URL', 'http://nginx:80') # Убираем, уже есть в BaseTask
-        logger.info(f"ShiftAccessTask инициализирован. API URL: {self.api_url}")
+        super().__init__(scheduler_instance, task_manager, settings)
+        logger.info(f"ShiftAccessTask инициализирован. API URL: {self.settings.API_URL}. Telegram Bot API URL: {getattr(self.settings, 'BOT_API_URL', 'Не задан')}")
 
     # УДАЛЯЕМ МЕТОД ДЛЯ ДОСТУПА К БД
     # def _get_access_settings_from_db(self, chat_id): ...
 
-    # ДОБАВЛЯЕМ МЕТОД ДЛЯ ПОЛУЧЕНИЯ НАСТРОЕК ИЗ API (аналогично RegistrationOpenEventTask)
-    def _get_access_settings_from_api(self, chat_id):
-        """Получает настройки доступа для чата из API сервера."""
+    # Возвращаем асинхронный метод
+    async def _get_access_settings_from_api(self, chat_id, settings: scheduler_settings):
+        """Получает настройки доступа для чата из API сервера (асинхронно)."""
         try:
-            chat_id_param = str(chat_id) # Используем как есть, API принимает отрицательные
-            url = f"{self.api_url}/api/v1/groups/{chat_id_param}/settings"
-            logger.info(f"({self.TASK_TYPE}) Запрос настроек доступа: {url}")
-            response = requests.get(url, timeout=10)
+            chat_id_param = str(chat_id)
+            # Используем основной API URL для получения настроек
+            # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце api_url --- #
+            base_api_url = str(settings.API_URL).rstrip('/')
+            url = f"{base_api_url}/api/v1/groups/{chat_id_param}/settings"
+            logger.info(f"({self.TASK_TYPE}) Запрос настроек доступа (async): {url}")
+            
+            # Используем асинхронный HTTP-клиент
+            client = await get_async_http_client()
+            response = await client.get(url, timeout=10)
             response.raise_for_status() 
-            settings = response.json()
-            # Важно: API возвращает ключи в camelCase (registrationStartDay)
-            logger.info(f"({self.TASK_TYPE}) Настройки доступа для чата {chat_id} получены из API: {settings}")
-            return settings
-        except requests.exceptions.RequestException as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка API при получении настроек доступа для {chat_id}: {e}")
-            if e.response is not None and e.response.status_code == 404:
+            settings_data = response.json()
+            logger.info(f"({self.TASK_TYPE}) Настройки доступа для чата {chat_id} получены из API (async): {settings_data}")
+            # Закрываем клиент
+            await client.aclose()
+            return settings_data
+        except httpx.HTTPStatusError as e:
+             # Обрабатываем 404 отдельно
+            if e.response.status_code == 404:
                 logger.warning(f"({self.TASK_TYPE}) Настройки для группы {chat_id} не найдены (404) в API. Задача не будет запланирована.")
                 return None
+            else:
+                 logger.error(f"({self.TASK_TYPE}) ❌ Ошибка статуса HTTP при получении настроек доступа для {chat_id}: {e}")
+                 return None 
+        except httpx.RequestError as e:
+            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка HTTP при получении настроек доступа для {chat_id}: {e}")
             return None 
         except Exception as e:
             logger.error(f"({self.TASK_TYPE}) ❌ Неизвестная ошибка при получении настроек доступа для {chat_id}: {e}")
             return None
 
-    def schedule(self, chat_id):
-        """Планирует задачу уведомления в телеграм"""
+    # Восстанавливаем асинхронный метод schedule
+    async def schedule(self, chat_id):
+        """Планирует задачу уведомления в телеграм (асинхронно)"""
         try:
             chat_id_str = str(chat_id)
-            logger.info(f"=== ({self.TASK_TYPE}) Планирование уведомления в телеграм для чата {chat_id_str} ===")
+            logger.info(f"=== ({self.TASK_TYPE}) Планирование уведомления в телеграм для чата {chat_id_str} (async) ===")
 
-            # Получаем настройки из API
-            access_settings = self._get_access_settings_from_api(chat_id_str)
+            # Получаем настройки из API (асинхронно)
+            access_settings = await self._get_access_settings_from_api(chat_id_str, self.settings)
             if not access_settings:
-                logger.error(f"({self.TASK_TYPE}) ❌ Настройки доступа не найдены в API для {chat_id_str}. Планирование отменено.")
-                 # Удаляем старую задачу, если она была
+                # Логика удаления старой задачи и возврата False остается
+                logger.error(f"({self.TASK_TYPE}) ❌ Настройки доступа не найдены в API для {chat_id_str}. Планирование отменено (async).")
                 task_id = self.generate_task_id(self.TASK_TYPE, chat_id_str)
                 try: self.scheduler.remove_job(task_id)
                 except Exception: pass
@@ -86,9 +142,10 @@ class ShiftAccessTask(BaseTask):
             # Преобразуем день недели из формата JavaScript (0=Вс) в Python (0=Пн)
             python_weekday = (int(registration_day) - 1 + 7) % 7
 
-            now = datetime.now(self.timezone)
+            # Получаем текущее время в нужном часовом поясе
+            now = datetime.now(ZoneInfo(self.settings.TIMEZONE))
             next_registration = self._calculate_next_registration_time(
-                now, python_weekday, int(registration_hour), int(registration_minute)
+                now, python_weekday, int(registration_hour), int(registration_minute), self.settings
             )
             
             if not next_registration:
@@ -98,197 +155,136 @@ class ShiftAccessTask(BaseTask):
             logger.info(f"({self.TASK_TYPE}) 📅 Следующее телеграм-уведомление запланировано на: {next_registration}")
             
             task_id = self.generate_task_id(self.TASK_TYPE, chat_id_str)
-            
-            # Сохраняем/обновляем задачу в базу данных (task_data можно упростить или убрать)
+
+            # Сохраняем/обновляем задачу через TaskManager. Он сам добавит ее в APScheduler.
             task_data = {
                 'comment': f'Telegram notification for {chat_id_str}'
             }
-            if not self.task_manager.save_task(task_id, chat_id_str, self.TASK_TYPE, next_registration, task_data):
-                 logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при сохранении задачи {task_id} в базу данных")
-
-            # Создаем/обновляем задачу в планировщике
-            job = self.scheduler.add_job(
-                self.execute,
-                'date',
-                run_date=next_registration,
-                args=[chat_id_str],
-                id=task_id,
-                name=f'Телеграм-уведомление о доступе к сменам для {chat_id_str}',
-                replace_existing=True,
-                misfire_grace_time=3600 
-            )
+            # Добавляем проверку результата save_task
+            save_result = await self.task_manager.save_task(task_id, chat_id_str, self.TASK_TYPE, next_registration, task_data)
             
-            if job:
-                logger.info(f"({self.TASK_TYPE}) ✅ Задача {task_id} успешно запланирована на {next_registration}")
-                return True
-            else:
-                 logger.warning(f"({self.TASK_TYPE}) ⚠️ Задача {task_id} не была добавлена в планировщик (возможно, время уже прошло?).")
+            if not save_result:
+                 logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при сохранении/планировании задачи {task_id} через TaskManager")
                  return False
+                 
+            # Просто возвращаем True, если save_task отработал
+            logger.info(f"({self.TASK_TYPE}) ✅ Задача {task_id} успешно передана в TaskManager для сохранения и планирования на {next_registration} (async)")
+            return True
+
+        except Exception as e:
+            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при планировании задачи (async): {e}")
+            logger.error(traceback.format_exc())
+            return False
+
+    def _calculate_next_registration_time(self, now: datetime, weekday: int, hour: int, minute: int, settings: scheduler_settings) -> Optional[datetime]:
+        """Рассчитывает следующее время запуска регистрации, учитывая текущее время и настройки."""
+        try:
+            if not settings.TIMEZONE:
+                logger.error(f"({self.TASK_TYPE}) ❌ Отсутствует настройка TIMEZONE.")
+                return None
+            
+            # Создаем объект часового пояса
+            try:
+                tz = ZoneInfo(settings.TIMEZONE)
+            except Exception as tz_err:
+                logger.error(f"({self.TASK_TYPE}) ❌ Неверный формат TIMEZONE '{settings.TIMEZONE}': {tz_err}")
+                return None
+
+            # `now` уже должно быть timezone-aware из метода schedule
+            if now.tzinfo is None:
+                 logger.warning(f"({self.TASK_TYPE}) ⚠️ Переданное 'now' не содержит информации о часовом поясе. Используем текущее время с tz.")
+                 now = datetime.now(tz)
+            
+            # Расчет следующего дня недели
+            days_ahead = (weekday - now.weekday() + 7) % 7
+            
+            # Рассчитываем следующую дату и время как НАИВНОЕ
+            # Берем дату из `now`, чтобы избежать проблем с переходом через полночь при расчете days_ahead
+            current_date_naive = now.astimezone(tz).date() # Берем дату в нужном поясе
+            next_run_date = current_date_naive + timedelta(days=days_ahead)
+            next_run_dt_naive = datetime.combine(next_run_date, time(hour=hour, minute=minute, second=0, microsecond=0))
+
+            # Делаем рассчитанное время timezone-aware
+            next_run_dt_aware = next_run_dt_naive.replace(tzinfo=tz)
+            
+            # Сравниваем с текущим временем (оба aware)
+            if days_ahead == 0 and now >= next_run_dt_aware:
+                # Если сегодня, но время уже прошло, планируем на следующую неделю
+                next_run_dt_aware += timedelta(days=7)
+                logger.info(f"({self.TASK_TYPE}) Время регистрации сегодня ({next_run_dt_aware.strftime('%H:%M')}) уже прошло или наступило. Планируем на след. неделю.")
                 
+            return next_run_dt_aware
         except Exception as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при планировании задачи: {e}")
-            logger.error(traceback.format_exc())
-            return False
+             logger.error(f"({self.TASK_TYPE}) ❌ Ошибка в _calculate_next_registration_time: {e}")
+             logger.error(traceback.format_exc())
+             return None
 
-    # Метод расчета времени остается прежним
-    def _calculate_next_registration_time(self, now, weekday, hour, minute):
-        days_ahead = (weekday - now.weekday() + 7) % 7
-        next_run_dt_naive = (now + timedelta(days=days_ahead)).replace(
-             hour=hour, minute=minute, second=0, microsecond=0
-        )
-        # Корректное сравнение времени с учетом TZ
-        if days_ahead == 0 and now >= self.timezone.localize(next_run_dt_naive.replace(tzinfo=None)):
-             next_run_dt_naive += timedelta(days=7)
-             logger.info(f"({self.TASK_TYPE}) Время регистрации сегодня ({next_run_dt_naive.strftime('%H:%M')}) уже прошло. Планируем на след. неделю.")
+    # Переименовываем _do_execute обратно в execute
+    async def execute(self, chat_id, settings: scheduler_settings):
+        """Выполняет основную логику задачи - отправку уведомления."""
+        if not chat_id:
+            logger.error(f"({self.TASK_TYPE}) ❌ Не передан chat_id для выполнения задачи.")
+            return
+
+        chat_id_str = str(chat_id)
+        logger.info(f"({self.TASK_TYPE}) ▶️ Выполнение задачи для чата: {chat_id_str}")
+        
+        # Получаем актуальные настройки перед отправкой (могут понадобиться для текста уведомления)
+        access_settings = await self._get_access_settings_from_api(chat_id_str, settings)
+        if not access_settings:
+            logger.error(f"({self.TASK_TYPE}) ❌ Не удалось получить настройки для {chat_id_str} перед отправкой. Задача не будет выполнена.")
+            # Перепланирование будет обрабатываться слушателем, здесь просто выходим
+            return 
+
+        # Выполняем основное действие - отправку уведомления через Telegram Bot API
+        success = await self._send_notification(chat_id_str, settings) # Убираем access_settings из аргументов
+
+        if success:
+             logger.info(f"({self.TASK_TYPE}) ✅ Основное действие (отправка уведомления) для {chat_id_str} успешно завершено.")
+        else:
+             logger.warning(f"({self.TASK_TYPE}) ⚠️ Основное действие (отправка уведомления) для {chat_id_str} не удалось.")
              
-        return self.timezone.localize(next_run_dt_naive.replace(tzinfo=None))
+        # Перепланирование будет обрабатываться Event Listener'ом в TaskManager.
 
-    def execute(self, chat_id=None):
-        """Выполняет отправку уведомления в телеграм и перепланирование"""
-        try:
-            if chat_id is None:
-                 logger.error(f"({self.TASK_TYPE}) Ошибка: chat_id не передан в execute.")
-                 return False
-                 
-            chat_id_str = str(chat_id)
-            logger.info(f"=== ({self.TASK_TYPE}) Выполнение задачи для чата {chat_id_str} ===")
-            
-            # Получаем настройки из API ПЕРЕД отправкой (чтобы проверить isAlwaysActive)
-            access_settings = self._get_access_settings_from_api(chat_id_str)
-            if not access_settings:
-                 logger.error(f"({self.TASK_TYPE}) Не удалось получить настройки для {chat_id_str} перед отправкой. Перепланирование не будет выполнено.")
-                 # Можно попробовать отправить уведомление все равно, но лучше не надо
-                 return False
-                 
-            # Отправляем уведомление через API
-            logger.info(f"({self.TASK_TYPE}) Попытка отправки телеграм-уведомления в чат {chat_id_str}...")
-            success = self._send_notification(chat_id_str)
-            
-            # --- Отправляем NOTIFY после успешного уведомления ---
-            if success:
-                try:
-                    logger.info(f"({self.TASK_TYPE}) Попытка отправки NOTIFY websocket_channel для chat_id: {chat_id_str}")
-                    payload_dict = {
-                        'type': 'registration_opened',
-                        'chat_id': chat_id_str,
-                        'source': 'scheduler_task_execution'
-                    }
-                    payload_json = json.dumps(payload_dict)
-
-                    conn = None
-                    cur = None
-                    try:
-                        # Собираем строку подключения из переменных окружения
-                        db_host = os.getenv('POSTGRES_HOST', 'postgres') # Используем 'postgres' как дефолт
-                        db_port = os.getenv('POSTGRES_PORT', '5432')
-                        db_name = os.getenv('POSTGRES_DB', 'appninjabot')
-                        db_user = os.getenv('POSTGRES_USER', 'postgres')
-                        db_pass = os.getenv('POSTGRES_PASSWORD', 'postgres')
-                        database_url = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
-                        logger.debug(f"({self.TASK_TYPE}) Подключение к БД для NOTIFY: {db_host}:{db_port}/{db_name} пользователем {db_user}")
-
-                        # Используем psycopg (v3)
-                        conn = psycopg.connect(database_url, autocommit=True) # <-- Используем собранный URL
-                        cur = conn.cursor()
-                        # Используем pg_notify для безопасности и простоты
-                        cur.execute("SELECT pg_notify(%s, %s)", ('websocket_channel', payload_json))
-                        logger.info(f"({self.TASK_TYPE}) ✅ Успешно отправлен NOTIFY websocket_channel для chat_id: {chat_id_str}")
-                    except Exception as notify_err:
-                        logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке NOTIFY для {chat_id_str}: {notify_err}")
-                        logger.error(traceback.format_exc()) # Добавляем traceback
-                    finally:
-                        if cur:
-                            cur.close()
-                        if conn:
-                            conn.close()
-                except Exception as outer_notify_err:
-                     logger.error(f"({self.TASK_TYPE}) ❌ Внешняя ошибка при обработке NOTIFY для {chat_id_str}: {outer_notify_err}")
-            # -----------------------------------------------------
-
-            # Перепланируем только если активно
-            if success and access_settings.get('isAlwaysActive', True):
-                logger.info(f"({self.TASK_TYPE}) Перепланирование следующего уведомления для чата {chat_id_str}...")
-                # Вызываем schedule для перепланирования
-                rescheduled = self.schedule(chat_id_str)
-                if not rescheduled:
-                     logger.error(f"({self.TASK_TYPE}) Не удалось перепланировать уведомление для {chat_id_str}")
-                     
-            elif not success:
-                 logger.warning(f"({self.TASK_TYPE}) Отправка уведомления для {chat_id_str} не удалась. Перепланирование не выполняется.")
-            else: # success is True, but isAlwaysActive is False
-                 logger.info(f"({self.TASK_TYPE}) Автоматическое перепланирование отключено (isAlwaysActive=false) для чата {chat_id_str}.")
-                 # Удаляем задачу из базы, т.к. она больше не нужна
-                 task_id = self.generate_task_id(self.TASK_TYPE, chat_id_str)
-                 try:
-                     if hasattr(self.task_manager, 'delete_task'): # Проверяем наличие метода
-                          self.task_manager.delete_task(task_id)
-                          logger.info(f"({self.TASK_TYPE}) Задача {task_id} удалена из базы, т.к. isAlwaysActive=false.")
-                     else:
-                          logger.warning(f"({self.TASK_TYPE}) Метод delete_task не найден в TaskManager. Не удалось удалить задачу {task_id}.")
-                 except Exception as del_err:
-                      logger.error(f"({self.TASK_TYPE}) Ошибка при удалении задачи {task_id}: {del_err}")
-
-            return success
-            
-        except Exception as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при выполнении задачи: {e}")
-            logger.error(traceback.format_exc())
-            # Пытаемся перепланировать даже при ошибке?
-            # if chat_id: self.schedule(chat_id) # Пока не перепланируем при ошибке
+    # _send_notification теперь принимает settings и отправляет запрос в Telegram Bot API
+    async def _send_notification(self, chat_id: str, settings: scheduler_settings) -> bool:
+        """Отправляет уведомление через API телеграм-бота."""
+        # Проверяем, задан ли URL API телеграм-бота
+        if not hasattr(settings, 'BOT_API_URL') or not settings.BOT_API_URL:
+            logger.error(f"({self.TASK_TYPE}) ❌ URL API телеграм-бота (BOT_API_URL) не задан в настройках.")
             return False
 
-    # Метод отправки уведомления остается прежним, но добавим task_type в логи
-    def _send_notification(self, chat_id):
-        """Отправляет уведомление о доступности смен"""
+        # Формируем URL и payload для эндпоинта /send_message
+        # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце bot_api_url --- #
+        base_bot_url = str(settings.BOT_API_URL).rstrip('/')
+        api_endpoint = f"{base_bot_url}/send_message" # Используем исправленный URL
+        message_text = "Доступ к записи на смены открыт!" # Стандартный текст сообщения
+        payload = {
+            "chat_id": chat_id,
+            "text": message_text,
+            "parse_mode": "HTML" # Оставляем HTML по умолчанию
+        }
+        logger.info(f"({self.TASK_TYPE}) Отправка уведомления в Telegram Bot API: {api_endpoint}, Payload: {payload}")
+
         try:
-            chat_ids_to_notify = [chat_id]
-            logger.info(f"({self.TASK_TYPE}) Отправка телеграм-уведомления в чат(ы): {chat_ids_to_notify}")
+            # Используем асинхронный HTTP-клиент
+            client = await get_async_http_client()
+            response = await client.post(api_endpoint, json=payload, timeout=15) # Увеличим таймаут для внешнего API
+            # Закрываем клиент после использования
+            await client.aclose()
             
-            # Формируем сообщение (оставляем как было)
-            message = (
-                "🎉 <b>Открылась запись на смены на следующую неделю!</b>\n\n"
-                "📱 Пожалуйста, перейдите в приложение и запишитесь на удобное время:\n"
-                "1️⃣ Откройте бота @NinjaSlovtsova_bot\n"
-                "2️⃣ Нажмите кнопку 'Открыть приложение'\n"
-                "Спешите записаться на удобное время! 🚀"
-            )
-            
-            # --- ОТПРАВКА ---
-            # Получаем базовый URL бота из переменной окружения
-            bot_base_url = os.getenv('BOT_URL', 'http://bot:8003') # Используем http://bot:8003 как дефолт на всякий случай
-            # Собираем URL без /api, т.к. роутер бота подключен без префикса
-            bot_api_url = f"{bot_base_url}/send_message"
-            logger.info(f"({self.TASK_TYPE}) Адрес для отправки уведомления боту: {bot_api_url}")
-
-            # Адаптируем payload под формат, ожидаемый ботом (chat_id и text)
-            # Предполагаем, что chat_ids_to_notify всегда содержит один ID
-            if not chat_ids_to_notify:
-                logger.error(f"({self.TASK_TYPE}) Список chat_ids пуст, не могу отправить уведомление.")
-                return False
-            single_chat_id = chat_ids_to_notify[0] # Берем первый (и единственный) ID
-
-            payload = {
-                "chat_id": single_chat_id,  # <-- Используем chat_id
-                "text": message,          # <-- Используем text (переменная message)
-                "parse_mode": "HTML"
-            }
-            logger.debug(f"({self.TASK_TYPE}) Отправляемый payload боту: {payload}")
-            response = requests.post(bot_api_url, json=payload, timeout=15)
-
+            # Проверяем статус ответа от Telegram Bot API (обычно 200 OK)
             if response.status_code == 200:
-                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в чат: {single_chat_id}")
+                logger.info(f"({self.TASK_TYPE}) ✅ Уведомление для чата {chat_id} успешно отправлено через Telegram Bot API.")
                 return True
             else:
-                # Логируем ошибку с деталями, если они есть в JSON ответе
-                error_details = ""
-                try:
-                    error_details = response.json()
-                except json.JSONDecodeError:
-                    error_details = response.text # Если не JSON, показываем текст
-                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в чат {single_chat_id}: Статус {response.status_code}, Ответ: {error_details}")
+                # Логируем ошибку от Telegram Bot API
+                logger.error(f"({self.TASK_TYPE}) ❌ Telegram Bot API вернул ошибку {response.status_code} при отправке уведомления для чата {chat_id}: {response.text}")
                 return False
-
+        except httpx.RequestError as e:
+            logger.error(f"({self.TASK_TYPE}) ❌ Ошибка HTTP при отправке уведомления через Telegram Bot API для чата {chat_id}: {e}")
+            return False
         except Exception as e:
-            logger.error(f"({self.TASK_TYPE}) ❌ Непредвиденная ошибка в _send_notification для {chat_id}: {e}")
-            logger.error(traceback.format_exc())
+            logger.error(f"({self.TASK_TYPE}) ❌ Неизвестная ошибка при отправке уведомления через Telegram Bot API для чата {chat_id}: {e}")
+            logger.error(traceback.format_exc()) # Добавим traceback для неизвестных ошибок
             return False 

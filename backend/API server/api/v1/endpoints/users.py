@@ -15,8 +15,6 @@ from schemas import GroupRead, UserProfileResponse, UserGroupsContextResponse
 class UserProfileUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    # Добавляем поле для обновления статуса старшего курьера
-    is_senior_courier: Optional[bool] = None 
 
 router = APIRouter()
 
@@ -24,7 +22,7 @@ router = APIRouter()
     "/{user_id}/context",
     response_model=List[GroupRead], # Ожидаем список групп на выходе
     summary="Get User's Groups Context",
-    description="Retrieves a list of groups that the specified user (member) belongs to.",
+    description="Retrieves a list of groups that the specified user (member) belongs to, including the user's role in each group.",
     tags=["Users", "Groups"] # Теги для документации Swagger
 )
 async def get_user_groups_context(
@@ -32,7 +30,8 @@ async def get_user_groups_context(
     db: AsyncSession = Depends(get_db_session) # Получаем сессию БД
 ):
     """
-    Fetches the groups associated with a given user_id (Telegram ID).
+    Fetches the groups associated with a given user_id (Telegram ID), 
+    including the user's role and senior status in each group.
     """
     # 1. Найти пользователя (Member) по user_id
     member_query = select(Member).where(Member.user_id == user_id)
@@ -46,23 +45,28 @@ async def get_user_groups_context(
             detail=f"Э, братан! Пользователя с ID {user_id} в базе данных не найдено!",
         )
 
-    # 2. Получить связанные группы, используя жадную загрузку (selectinload)
-    #    для эффективности (избегаем N+1 запросов)
-    member_with_groups_query = (
+    # 2. Получить связанные GroupMember и Group, используя жадную загрузку
+    member_with_associations_query = (
         select(Member)
-        .options(selectinload(Member.groups_association).selectinload(GroupMember.group))
-        .where(Member.id == member.id) # Ищем по первичному ключу Member
+        .options(selectinload(Member.groups_association)
+                 .selectinload(GroupMember.group))
+        .where(Member.id == member.id)
     )
-    member_with_groups_result = await db.execute(member_with_groups_query)
-    member_with_groups = member_with_groups_result.scalars().first()
+    member_with_associations_result = await db.execute(member_with_associations_query)
+    member_with_associations = member_with_associations_result.scalars().first()
 
-    # 3. Извлечь объекты Group из ассоциаций
-    groups = []
-    if member_with_groups and member_with_groups.groups_association:
-        groups = [assoc.group for assoc in member_with_groups.groups_association if assoc.group]
+    # 3. Подготовить список для ответа
+    groups_context = []
+    if member_with_associations and member_with_associations.groups_association:
+        for assoc in member_with_associations.groups_association:
+            if assoc.group:
+                group_data = assoc.group.__dict__
+                group_data['role'] = assoc.role
+                group_data['is_senior_courier'] = assoc.is_senior_courier
+                groups_context.append(group_data)
 
-    # 4. Вернуть список групп (Pydantic автоматически сконвертирует)
-    return groups 
+    # 4. Вернуть список
+    return groups_context
 
 @router.get(
     "/{user_id}/profile",
@@ -105,7 +109,7 @@ async def get_user_profile(
     "/{user_id}/profile",
     response_model=UserProfileResponse, 
     summary="Update User Profile",
-    description="Updates the profile information (including senior status) for the specified user.",
+    description="Updates the profile information (first_name, last_name) for the specified user.",
     tags=["Users"]
 )
 async def update_user_profile(
@@ -114,7 +118,8 @@ async def update_user_profile(
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Updates the profile data (first_name, last_name, is_senior_courier) for a given user_id.
+    Updates the profile data (first_name, last_name) for a given user_id.
+    Senior status is updated via a different endpoint.
     """
     member_query = select(Member).where(Member.user_id == user_id)
     member_result = await db.execute(member_query)
@@ -133,21 +138,27 @@ async def update_user_profile(
             detail="Нет данных для обновления."
         )
 
-    # Обновляем поля динамически
-    for key, value in update_data.items():
-        # Проверяем, существует ли такое поле в модели Member
-        if hasattr(member, key):
-            setattr(member, key, value)
-        else:
-            # Можно логировать или игнорировать неизвестные поля
-            print(f"Предупреждение: Попытка обновить несуществующее поле '{key}' для Member")
+    # Обновляем поля first_name и last_name
+    updated = False
+    if 'first_name' in update_data:
+        member.first_name = update_data['first_name']
+        updated = True
+    if 'last_name' in update_data:
+        member.last_name = update_data['last_name']
+        updated = True
+
+    if not updated:
+         # Если пришли какие-то другие поля, но не имя/фамилия
+         raise HTTPException(
+             status_code=status.HTTP_400_BAD_REQUEST,
+             detail="Можно обновлять только first_name и last_name через этот эндпоинт."
+         )
 
     try:
         await db.commit()
         await db.refresh(member)
     except Exception as e:
         await db.rollback()
-        # TODO: Добавить логирование ошибки
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при сохранении профиля: {e}"

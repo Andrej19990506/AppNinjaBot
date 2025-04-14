@@ -360,6 +360,30 @@ const ConfirmButton = styled(Button)`
     }
 `;
 
+const ErrorMessage = styled.div`
+    color: var(--error-color);
+    background-color: var(--error-background);
+    border: 1px solid var(--error-border-color);
+    padding: 10px 15px;
+    border-radius: var(--radius);
+    margin-top: 15px;
+    text-align: center;
+    font-size: 0.9rem;
+`;
+
+const Spinner = styled.div`
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: spin 1s linear infinite;
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+`;
+
 const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
     date,
     pendingShift,
@@ -370,15 +394,34 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
     userAvatar
 }) => {
     const [showSuccess, setShowSuccess] = useState(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     if (!isOpen || !pendingShift) return null;
 
     const handleConfirm = async () => {
-        setShowSuccess(true);
-        await onConfirm();
+        setIsLoading(true);
+        setErrorMsg(null);
+        try {
+            await onConfirm();
+            setShowSuccess(true);
+        } catch (err: any) {
+            console.error('[ShiftConfirmationDialog] Error during onConfirm:', err);
+            setErrorMsg(err?.message || 'Произошла неизвестная ошибка');
+            setShowSuccess(false);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleCancel = () => {
+        setErrorMsg(null);
+        setShowSuccess(false);
+        onCancel();
     };
 
     const handleSuccessClose = () => {
+        setErrorMsg(null);
         setShowSuccess(false);
         onCancel();
     };
@@ -422,7 +465,7 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
                                 {format(date, 'd MMMM yyyy', { locale: ru })}
                             </p>
                         </SuccessMessage>
-                        <ConfirmButton onClick={handleSuccessClose}>
+                        <ConfirmButton onClick={handleSuccessClose} disabled={isLoading}>
                             <svg viewBox="0 0 24 24" fill="none">
                                 <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
@@ -448,18 +491,26 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
                             Пожалуйста, подтвердите ваш выбор.
                         </ConfirmationDetails>
 
+                        {errorMsg && (
+                            <ErrorMessage>{errorMsg}</ErrorMessage>
+                        )}
+
                         <ButtonsContainer>
-                            <CancelButton onClick={onCancel}>
+                            <CancelButton onClick={handleCancel} disabled={isLoading}>
                                 <svg viewBox="0 0 24 24" fill="none">
                                     <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
                                 Отмена
                             </CancelButton>
-                            <ConfirmButton onClick={handleConfirm}>
-                                <svg viewBox="0 0 24 24" fill="none">
-                                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                                Подтвердить
+                            <ConfirmButton onClick={handleConfirm} disabled={isLoading}>
+                                {isLoading ? (
+                                    <Spinner /> 
+                                ) : (
+                                    <svg viewBox="0 0 24 24" fill="none">
+                                        <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                )}
+                                {isLoading ? 'Обработка...' : 'Подтвердить'}
                             </ConfirmButton>
                         </ButtonsContainer>
                     </>

@@ -1,23 +1,20 @@
 from abc import ABC, abstractmethod
 import logging
 from datetime import datetime
-import os # Добавляем os для getenv, если его нет
 
 logger = logging.getLogger(__name__)
 
 class BaseTask(ABC):
-    def __init__(self, scheduler_instance, task_manager, timezone, api_url):
+    def __init__(self, scheduler_instance, task_manager, settings):
         """
         Базовый класс для всех задач
         :param scheduler_instance: Экземпляр планировщика APScheduler
         :param task_manager: Экземпляр TaskManager
-        :param timezone: Часовой пояс
-        :param api_url: Базовый URL API сервера
+        :param settings: Объект настроек SchedulerSettings
         """
         self.scheduler = scheduler_instance
         self.task_manager = task_manager
-        self.timezone = timezone # Сохраняем timezone
-        self.api_url = api_url   # Сохраняем api_url
+        self.settings = settings # Сохраняем настройки
 
     @abstractmethod
     def execute(self, *args, **kwargs):

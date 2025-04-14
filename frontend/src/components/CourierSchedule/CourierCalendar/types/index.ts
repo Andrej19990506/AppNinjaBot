@@ -40,6 +40,13 @@ export interface TooltipPosition {
     arrowOffset?: string;
 }
 
+// Interface for SlotSettings component
+export interface SlotSettingsProps {
+    isOpen: boolean;
+    onClose: () => void;
+    chatId?: string;
+}
+
 export interface CalendarProps {
     onShiftSelect: (date: Date, shiftType: 'day' | 'night', slotIndex: number) => void;
     selectedDate?: Date;
@@ -50,6 +57,7 @@ export interface CalendarProps {
     chatId?: string;
     accessSettings?: AccessSettings;
     refetchData?: () => void;
+    onOpenSlotSettings?: (dayIndex: number) => void;
 }
 
 export interface DayCellProps {

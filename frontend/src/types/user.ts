@@ -19,7 +19,6 @@ export interface User {
     is_premium?: boolean;
     added_to_attachment_menu?: boolean;
     allows_write_to_pm?: boolean;
-    is_senior_courier?: boolean;
     groups?: any[];
     isAdmin: boolean;
     adminRights: AdminRights | null;
@@ -39,7 +38,6 @@ export interface UserInfo {
     username?: string;
     photo_url?: string;
     socket_id?: string;
-    is_senior_courier?: boolean;
 }
 
 export interface UserProfile extends User {

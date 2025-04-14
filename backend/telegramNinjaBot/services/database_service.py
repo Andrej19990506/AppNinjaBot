@@ -115,82 +115,72 @@ class DatabaseService:
                         else:
                             joined_at = datetime.now()
 
-                        # Сохраняем или обновляем участника
+                        # --- ШАГ 1: Сохраняем/обновляем участника в 'members' и получаем member_db_id --- 
                         member_db_id: Optional[int] = await conn.fetchval(
                             """
-                            INSERT INTO members (user_id, username, first_name, last_name, status, is_bot, is_senior_courier, photo_url, joined_at)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                            INSERT INTO members (user_id, username, first_name, last_name, is_bot, photo_url, joined_at)
+                            VALUES ($1, $2, '', '', $3, $4, $5) -- Имя и фамилия всегда пустые при INSERT
                             ON CONFLICT (user_id) DO UPDATE SET
                                 username = EXCLUDED.username,
-                                first_name = '', -- Принудительно пустая строка при обновлении
-                                last_name = '', -- Принудительно пустая строка при обновлении
-                                status = EXCLUDED.status,
+                                -- НЕ обновляем first_name и last_name при конфликте
                                 is_bot = EXCLUDED.is_bot,
-                                is_senior_courier = EXCLUDED.is_senior_courier,
-                                photo_url = COALESCE(EXCLUDED.photo_url, members.photo_url),
-                                joined_at = EXCLUDED.joined_at -- Обновляем дату присоединения при конфликте? Решите сами.
+                                photo_url = COALESCE(EXCLUDED.photo_url, members.photo_url), 
+                                joined_at = EXCLUDED.joined_at 
                             RETURNING id
                             """,
-                            # Преобразуем user_id в int, если он строка
-                            int(member['user_id']) if isinstance(member.get('user_id'), str) else member.get('user_id'),
-                            member.get('username'),
-                            '', # Всегда пустая строка для first_name
-                            '', # Всегда пустая строка для last_name
-                            member.get('status', 'member'),
-                            member.get('is_bot', False),
-                            member.get('senior_courier') is True,
-                            member.get('photo_url'),
-                            joined_at
+                            int(member['user_id']),      # $1: user_id
+                            member.get('username'),    # $2: username
+                            # Пустые first_name/last_name идут напрямую в VALUES
+                            member.get('is_bot', False), # $3: is_bot
+                            member.get('photo_url'),   # $4: photo_url
+                            joined_at                  # $5: joined_at
                         )
                         
                         if member_db_id is None:
                              logger.error(f"[async] Не удалось получить ID участника после INSERT/UPDATE для user_id: {member.get('user_id')}")
-                             # Решить: прервать транзакцию или пропустить участника?
-                             # Пока пропускаем
-                             continue
+                             continue # Пропускаем этого участника
 
-                        logger.info(f"[async] Участник сохранен с внутренним ID: {member_db_id}")
+                        logger.info(f"[async] Участник сохранен/обновлен в members с ID: {member_db_id}")
+
+                        # --- ШАГ 2: Определяем роль участника --- 
+                        role = 'member' 
+                        member_status = member.get('status') 
+                        if member_status == 'administrator':
+                            role = 'administrator'
+                        elif member_status == 'creator':
+                            role = 'creator'
                         
-                        # Определяем роль участника
-                        role = 'member'
-                        if admins and any(str(a['user_id']) == str(member['user_id']) for a in admins): # Сравниваем как строки на всякий случай
-                            role = 'admin'
-                        if member.get('senior_courier') is True:
-                            role = 'senior_courier'
-                        # Добавим проверку на тип группы, если роль зависит от типа
-                        # if group_type == 'chef' and member.get('senior_chef'):
-                        #     role = 'senior_chef'
+                        logger.info(f"[async] Определенная роль для {member.get('user_id')}: {role}")
                         
-                        logger.info(f"[async] Роль участника: {role}")
-                        
-                        # Сохраняем связь между группой и участником
-                        # Убираем поле role, так как его нет в таблице
+                        # --- ШАГ 3: Сохраняем/обновляем связь в 'group_members', используя member_db_id --- 
                         await conn.execute(
                             """
-                            INSERT INTO group_members (group_id, member_id) 
-                            VALUES ($1, $2)
-                            ON CONFLICT (group_id, member_id) DO NOTHING -- Просто пропускаем, если связь есть
+                            INSERT INTO group_members (group_id, member_id, role) 
+                            VALUES ($1, $2, $3)
+                            ON CONFLICT (group_id, member_id) DO UPDATE SET 
+                                role = EXCLUDED.role 
                             """,
                             group_db_id,
-                            member_db_id
-                            # Убираем role из параметров
+                            member_db_id, # Используем полученный ID
+                            role 
                         )
-                        logger.info(f"[async] Связь между группой и участником сохранена/обновлена")
+                        logger.info(f"[async] Связь group_members сохранена/обновлена с ролью: {role}")
+
+                    # Удаляем устаревшие связи group_members (если нужно)
+                    # ... (можно добавить логику удаления, если участника больше нет в members) ...
                     
                     # Транзакция завершится успешно здесь (автоматический commit)
                     logger.info(f"✅ [async] Группа {chat_title} (тип: {group_type}) успешно сохранена в базе данных")
                     return group_db_id
                     
                 except asyncpg.PostgresError as e: # Ловим ошибки asyncpg
-                    # Транзакция автоматически откатится при выходе из блока `async with conn.transaction()` из-за исключения
                     logger.error(f"❌ [async] Ошибка PostgreSQL при сохранении группы {chat_title}: {e}")
                     logger.error(traceback.format_exc())
-                    return None # Возвращаем None при ошибке БД
+                    return None 
                 except Exception as e:
                     logger.error(f"❌ [async] Неожиданная ошибка при сохранении группы {chat_title}: {e}")
                     logger.error(traceback.format_exc())
-                    # Транзакция также откатится
-                    return None # Возвращаем None при других ошибках
+                    return None 
     
     async def get_group_data(self, chat_id: str) -> Optional[Dict]:
         """Асинхронно получает данные группы и её участников из базы данных"""

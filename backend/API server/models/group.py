@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, BigInteger, DateTime, JSON, UniqueConstraint
+from sqlalchemy import Column, Integer, String, BigInteger, DateTime, JSON, UniqueConstraint, text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .base import Base
@@ -15,6 +15,12 @@ class Group(Base):
     members_count = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     json_metadata = Column("metadata", JSON, nullable=True) # Был JSONB
+
+    # <<< ДОБАВЛЕНО НОВОЕ ПОЛЕ >>>
+    slot_config = Column(JSON, nullable=False, server_default=text("'{}'::jsonb")) # Для PostgreSQL
+
+    # <<< ДОБАВЛЯЕМ ПОЛЕ ДЛЯ НАСТРОЕК ДОСТУПА >>>
+    access_settings = Column(JSON, nullable=True, comment='Isolated storage for shift access settings')
 
     # Связь с ассоциативной таблицей group_members
     members_association = relationship("GroupMember", back_populates="group")

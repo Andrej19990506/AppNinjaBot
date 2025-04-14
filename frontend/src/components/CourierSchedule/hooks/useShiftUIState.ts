@@ -1,202 +1,78 @@
-import { useState, useEffect } from 'react';
-
-interface ShiftSlotLocal {
-    id?: string;
-    userId?: string;
-    photo_url?: string | null;
-    firstName?: string;
-    lastName?: string;
-    shiftType?: 'day' | 'night';
-    slotIndex: number;
-    isSeniorCourier?: boolean;
-    is_senior_courier?: boolean; // Для совместимости
-}
+import { useState, useCallback } from 'react';
+import type { ShiftSlot } from '../../../types/shifts';
 
 interface UseShiftUIStateProps {
-    dayShifts: ShiftSlotLocal[];
-    nightShifts: ShiftSlotLocal[];
+    // dayShifts: ShiftSlot[];
+    // nightShifts: ShiftSlot[];
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => void;
+    currentUserId: string;
+    isSenior: boolean;
 }
 
-export const useShiftUIState = ({ dayShifts, nightShifts }: UseShiftUIStateProps) => {
-    // Создаем локальное состояние для смен, чтобы контролировать UI независимо от props
-    const [localDayShifts, setLocalDayShifts] = useState<ShiftSlotLocal[]>(dayShifts);
-    const [localNightShifts, setLocalNightShifts] = useState<ShiftSlotLocal[]>(nightShifts);
+export const useShiftUIState = ({ 
+    onSlotSelect, 
+    currentUserId,
+    isSenior
+}: UseShiftUIStateProps) => {
+    // const [localDayShifts, setLocalDayShifts] = useState<ShiftSlot[]>(dayShifts);
+    // const [localNightShifts, setLocalNightShifts] = useState<ShiftSlot[]>(nightShifts);
     
-    // Добавляем состояние для управления диалогом
-    const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-    const [selectedCourier, setSelectedCourier] = useState<ShiftSlotLocal | null>(null);
-    
-    // Состояние для отображения тултипа при клике
-    const [hoveredSlot, setHoveredSlot] = useState<{
-        shiftType: 'day' | 'night', 
-        slotIndex: number,
-        showTooltip: boolean
-    } | null>(null);
-    
-    // Таймер для определения долгого нажатия
-    const [pressTimer, setPressTimer] = useState<NodeJS.Timeout | null>(null);
-    
-    // Добавляем состояние для анимации долгого нажатия
-    const [pressAnimationActive, setPressAnimationActive] = useState(false);
-    const [pressAnimationSlot, setPressAnimationSlot] = useState<number | null>(null);
-    const [pressAnimationShiftType, setPressAnimationShiftType] = useState<'day' | 'night' | null>(null);
-    
-    // Добавляем состояние для модального окна подтверждения
-    const [confirmationOpen, setConfirmationOpen] = useState(false);
-    const [pendingShift, setPendingShift] = useState<{
-        shiftType: 'day' | 'night', 
-        slotIndex: number, 
-        existingShiftId?: string
-    } | null>(null);
-    
-    // Добавляем состояние для анимации успешного перемещения
-    const [successAnimations, setSuccessAnimations] = useState<Map<string, boolean>>(new Map());
-    
-    // Добавляем состояние для drag-and-drop
-    const [isDragging, setIsDragging] = useState(false);
-    const [draggedItem, setDraggedItem] = useState<{
-        shiftType: 'day' | 'night';
-        slotIndex: number;
-        item: ShiftSlotLocal;
-    } | null>(null);
-    
-    // Добавляем useEffect для синхронизации локальных состояний с пропсами
-    useEffect(() => {
-        console.log('[ShiftPanel] Updating local shifts from props due to changes');
-        setLocalDayShifts([...dayShifts]);
-        setLocalNightShifts([...nightShifts]);
-    }, [dayShifts, nightShifts]);
-    
-    // Функция для обновления локальных данных из props
-    const updateLocalShiftsFromProps = () => {
-        console.log('[ShiftPanel] Updating local shifts from props (manual)');
-        setLocalDayShifts([...dayShifts]);
-        setLocalNightShifts([...nightShifts]);
-    };
-    
-    // Функция для очистки состояния активного тултипа
-    const clearHoveredSlot = () => {
-        setHoveredSlot(null);
-    };
-    
-    // Функция для открытия окна подтверждения
-    const openConfirmation = (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string) => {
-        setPendingShift({ shiftType, slotIndex, existingShiftId });
-        setConfirmationOpen(true);
-    };
-    
-    // Функция для закрытия окна подтверждения
-    const closeConfirmation = () => {
-        setConfirmationOpen(false);
-        setPendingShift(null);
-    };
-    
-    // Открытие диалога профиля курьера
-    const openProfileDialog = (courier: ShiftSlotLocal) => {
-        if (!courier || !courier.userId) {
-            console.warn('[useShiftUIState] openProfileDialog: Invalid courier or missing userId', courier);
-            return;
+    const [draggingItem, setDraggingItem] = useState<{ shiftType: 'day' | 'night', slotIndex: number, itemData: ShiftSlot } | null>(null);
+    const [dropTarget, setDropTarget] = useState<{ shiftType: 'day' | 'night', slotIndex: number } | null>(null);
+
+    // useEffect(() => {
+    //     console.log('[ShiftPanel] Updating local shifts from props due to changes');
+    //     setLocalDayShifts([...dayShifts]);
+    //     setLocalNightShifts([...nightShifts]);
+    // }, [dayShifts, nightShifts]);
+
+    const handleDragStart = useCallback((shiftType: 'day' | 'night', slotIndex: number, itemData: ShiftSlot) => {
+        if (!itemData || !itemData.userId) {
+            console.warn('[useShiftUIState] Attempted to drag an invalid item', itemData);
+            return; 
         }
-        setSelectedCourier(courier);
-        setProfileDialogOpen(true);
-    };
-    
-    // Закрытие диалога профиля
-    const closeProfileDialog = () => {
-        setProfileDialogOpen(false);
-        setSelectedCourier(null);
-    };
-    
-    // Запуск таймера долгого нажатия
-    const startPressTimer = (shiftType: 'day' | 'night', slotIndex: number, callback: () => void) => {
-        if (pressTimer) {
-            clearTimeout(pressTimer);
+        console.log(`[useShiftUIState] Drag Start: ${shiftType} slot ${slotIndex}`, itemData);
+        setDraggingItem({ shiftType, slotIndex, itemData });
+    }, []);
+
+    const handleDragEnter = useCallback((shiftType: 'day' | 'night', slotIndex: number) => {
+        // console.log(`[useShiftUIState] Drag Enter: ${shiftType} slot ${slotIndex}`);
+        setDropTarget({ shiftType, slotIndex });
+    }, []);
+
+    const handleDragEnd = useCallback(() => {
+        // console.log('[useShiftUIState] Drag End');
+        if (draggingItem && dropTarget && 
+            (draggingItem.shiftType !== dropTarget.shiftType || draggingItem.slotIndex !== dropTarget.slotIndex)) {
+            
+            console.log(`[useShiftUIState] Performing Drop: move from ${draggingItem.shiftType} ${draggingItem.slotIndex} to ${dropTarget.shiftType} ${dropTarget.slotIndex}`);
+            
+            const draggedShiftData = draggingItem.itemData;
+
+            if (draggedShiftData?.id) {
+                onSlotSelect(dropTarget.shiftType, dropTarget.slotIndex, draggedShiftData.id, true);
+            } else {
+                console.warn('[useShiftUIState] Cannot move shift without ID', draggedShiftData);
+            }
         }
-        
-        setPressAnimationShiftType(shiftType);
-        setPressAnimationSlot(slotIndex);
-        setPressAnimationActive(true);
-        
-        const timer = setTimeout(() => {
-            setPressAnimationActive(false);
-            callback();
-        }, 500); // 500ms для долгого нажатия
-        
-        setPressTimer(timer);
-    };
-    
-    // Остановка таймера долгого нажатия
-    const clearPressTimer = () => {
-        if (pressTimer) {
-            clearTimeout(pressTimer);
-            setPressTimer(null);
-        }
-        setPressAnimationActive(false);
-        setPressAnimationSlot(null);
-        setPressAnimationShiftType(null);
-    };
-    
-    // Запуск анимации успешного действия
-    const showSuccessAnimation = (shiftType: 'day' | 'night', slotIndex: number) => {
-        const animationKey = `${shiftType}-${slotIndex}`;
-        setSuccessAnimations(new Map(successAnimations.set(animationKey, true)));
-        
-        // Автоматически убираем анимацию через 1.5 секунды
-        setTimeout(() => {
-            setSuccessAnimations(prev => {
-                const newMap = new Map(prev);
-                newMap.delete(animationKey);
-                return newMap;
-            });
-        }, 1500);
-    };
-    
-    // Начало перетаскивания
-    const startDragging = (shiftType: 'day' | 'night', slotIndex: number, item: ShiftSlotLocal) => {
-        setIsDragging(true);
-        setDraggedItem({ shiftType, slotIndex, item });
-    };
-    
-    // Завершение перетаскивания
-    const stopDragging = () => {
-        setIsDragging(false);
-        setDraggedItem(null);
-    };
+        setDraggingItem(null);
+        setDropTarget(null);
+    }, [draggingItem, dropTarget, onSlotSelect]);
+
+    const handleCourierClick = useCallback((courier: ShiftSlot, shiftType: 'day' | 'night', slotIndex: number) => {
+        console.log(`[useShiftUIState] Courier clicked: user ${courier.userId} on ${shiftType} slot ${slotIndex}. Profile dialog opening is disabled.`);
+     }, []);
 
     return {
-        // Состояния
-        localDayShifts,
-        localNightShifts,
-        profileDialogOpen,
-        selectedCourier,
-        hoveredSlot,
-        pressAnimationActive,
-        pressAnimationSlot,
-        pressAnimationShiftType,
-        confirmationOpen,
-        pendingShift,
-        successAnimations,
-        isDragging,
-        draggedItem,
-        
-        // Сеттеры состояний
-        setLocalDayShifts,
-        setLocalNightShifts,
-        setHoveredSlot,
-        
-        // Функции управления
-        updateLocalShiftsFromProps,
-        clearHoveredSlot,
-        openConfirmation,
-        closeConfirmation,
-        openProfileDialog,
-        closeProfileDialog,
-        startPressTimer,
-        clearPressTimer,
-        showSuccessAnimation,
-        startDragging,
-        stopDragging
+        // localDayShifts,
+        // localNightShifts,
+        draggingItem,
+        dropTarget,
+        handleDragStart,
+        handleDragEnter,
+        handleDragEnd,
+        handleCourierClick
     };
 };
 
-export default useShiftUIState; 
+// export default useShiftUIState; 

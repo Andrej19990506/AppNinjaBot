@@ -129,6 +129,12 @@ const notificationSlice = createSlice({
 
 export const { addNotification, removeNotification, markAsRead, clearNotifications } = notificationSlice.actions;
 
+// Добавляем селектор для получения всех уведомлений
+export const selectAllNotifications = (state: { notification: NotificationState }): Notification[] => state.notification.items;
+
+// Селектор для получения количества непрочитанных уведомлений
+export const selectUnreadNotificationCount = (state: { notification: NotificationState }): number => state.notification.unreadCount;
+
 export const showToastNotification = (
     type: NotificationTypes = NotificationTypes.INFO,
     message: string = 'Уведомление'

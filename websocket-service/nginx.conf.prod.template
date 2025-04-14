@@ -141,7 +141,7 @@ http {
 
         # Маршрут для отправки сообщений от шедулера к боту
         location /send_message {
-            proxy_pass http://bot:8003/api/send_message;
+            proxy_pass http://bot:8003/send_message;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;

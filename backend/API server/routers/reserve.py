@@ -3,14 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
 from datetime import date
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
+import json
+import logging
 
 from db.session import get_db_session
 import crud
 import schemas
 from models.reserve import Reserve
 from models.group import Group
+
+# Настроим логгер (или убедимся, что он настроен глобально)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -72,6 +77,35 @@ async def add_to_reserve(
             detail="Member data is incomplete for the created reserve."
          )
          
+    # --- Отправка NOTIFY после создания --- >
+    try:
+        # Важно! Загружаем связанные данные ПЕРЕД отправкой уведомления,
+        # чтобы в payload были полные данные, если схема их требует
+        await db.refresh(db_reserve, attribute_names=['member', 'group'])
+        
+        # Преобразуем созданный объект в Pydantic схему ReserveRead
+        # Это гарантирует правильный формат данных для JSON
+        reserve_read_schema = schemas.ReserveRead.model_validate(db_reserve)
+        # Преобразуем Pydantic модель в словарь
+        reserve_data_dict = reserve_read_schema.model_dump(mode='json')
+        
+        notify_payload = json.dumps({
+            "type": "reserve_added",
+            # Передаем ТЕЛЕГРАМ ID группы
+            "chat_id": str(reserve_in.group_telegram_id),
+            "data": reserve_data_dict # Отправляем полные данные резерва
+        })
+        
+        sql_command = text(f"NOTIFY websocket_channel, '{notify_payload}'")
+        await db.execute(sql_command)
+        
+        # Коммит НЕ нужен после NOTIFY
+        logger.info(f"Sent NOTIFY websocket_channel for reserve_added, chat_id {reserve_in.group_telegram_id}")
+    except Exception as notify_err:
+        # Логируем ошибку NOTIFY, но не прерываем основной ответ
+        logger.error(f"Failed to send NOTIFY for reserve_added, chat_id {reserve_in.group_telegram_id}: {notify_err}", exc_info=True)
+    # --- Конец блока NOTIFY ---
+    
     return db_reserve
 
 @router.get("", response_model=List[schemas.ReserveRead])
@@ -154,9 +188,54 @@ async def remove_from_reserve(
     db: AsyncSession = Depends(get_db_session),
 ):
     """Удаляет пользователя из резерва по ID записи резерва."""
-    # TODO: Добавить проверку прав доступа (например, только админ или сам пользователь)
+    # TODO: Добавить проверку прав доступа
     
-    db_reserve = await crud.reserve.delete_reserve(db=db, reserve_id=reserve_id)
-    if db_reserve is None:
+    # Исправляем имя функции: get_reserve_by_id -> get_reserve
+    reserve_to_delete = await crud.reserve.get_reserve(db=db, reserve_id=reserve_id)
+    if reserve_to_delete is None:
         raise HTTPException(status_code=404, detail="Reserve entry not found")
-    return db_reserve 
+    
+    # Сохраняем нужные данные для WebSocket перед удалением
+    deleted_reserve_id = str(reserve_to_delete.id)
+    # Убедимся, что group и group_id загружены (может потребоваться await db.refresh)
+    if not hasattr(reserve_to_delete, 'group') or not reserve_to_delete.group:
+         await db.refresh(reserve_to_delete, attribute_names=['group']) # Загружаем группу
+         if not reserve_to_delete.group:
+              logger.error(f"Не удалось загрузить группу для резерва {deleted_reserve_id} перед удалением.")
+              # Можно либо продолжить без chat_id, либо вернуть ошибку
+              # Пока продолжим, но событие не отправим
+              group_telegram_id_for_event = None
+         else:
+             group_telegram_id_for_event = str(reserve_to_delete.group.group_id)
+    else:
+         group_telegram_id_for_event = str(reserve_to_delete.group.group_id)
+
+    # Теперь удаляем резерв
+    # Используем reserve_to_delete, который уже содержит нужный объект
+    await db.delete(reserve_to_delete) 
+    await db.commit() # Коммитим удаление
+
+    # --- Отправка NOTIFY после удаления --- >
+    if group_telegram_id_for_event:
+        try:
+            notify_payload = json.dumps({
+                "type": "reserve_removed",
+                # Передаем ТЕЛЕГРАМ ID группы, который сохранили ранее
+                "chat_id": group_telegram_id_for_event,
+                "data": { # В data передаем только ID удаленного резерва
+                    "id": deleted_reserve_id
+                }
+            })
+            
+            sql_command = text(f"NOTIFY websocket_channel, '{notify_payload}'")
+            await db.execute(sql_command)
+            
+            logger.info(f"Sent NOTIFY websocket_channel for reserve_removed, chat_id {group_telegram_id_for_event}, reserve_id {deleted_reserve_id}")
+        except Exception as notify_err:
+            logger.error(f"Failed to send NOTIFY for reserve_removed, chat_id {group_telegram_id_for_event}: {notify_err}", exc_info=True)
+    else:
+         logger.warning(f"Не отправлено WebSocket событие 'reserve_removed' для резерва {deleted_reserve_id}, так как не удалось определить chat_id.")
+    # --- Конец блока NOTIFY ---   
+     
+    # Возвращаем данные удаленного резерва 
+    return reserve_to_delete 

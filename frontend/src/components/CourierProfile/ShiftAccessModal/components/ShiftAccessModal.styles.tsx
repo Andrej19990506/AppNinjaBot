@@ -24,7 +24,7 @@ export const ModalContainer = styled.div`
     box-shadow: var(--shadow-lg);
     width: 100%;
     max-width: 600px;
-    max-height: 90vh;
+    max-height: 96vh;
     overflow-y: auto;
     padding: 0;
     display: flex;
@@ -184,11 +184,11 @@ export const ModalContent = styled.div`
     text-align: center;
     position: relative;
     z-index: 1001;
+    margin-bottom: 45px;
 `;
 
 // Секция внутри содержимого модального окна
-export const Section = styled.div`
-    margin-bottom: 24px;
+export const Section = styled.div`    margin-bottom: 24px;
 `;
 
 // Заголовок секции

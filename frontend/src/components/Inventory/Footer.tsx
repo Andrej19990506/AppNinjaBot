@@ -6,14 +6,25 @@ import { motion } from 'framer-motion';
 import { AnimatePresence } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { Chat } from '../../types/chat';
+// import { Chat } from '../../types/chat'; // <<< Удаляем неиспользуемый импорт
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import DescriptionIcon from '@mui/icons-material/Description';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
+import SettingsIcon from '@mui/icons-material/Settings';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+
+// <<< Определяем тип здесь >>>
+interface FooterChatInfo {
+  id: string;
+  name: string;
+}
 
 interface ChatButtonProps {
-    selectedChat: Chat | null;
+    selectedChat: FooterChatInfo | null;
     onClick: () => void;
 }
 
@@ -125,11 +136,11 @@ const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
 };
 
 interface FooterProps {
-    selectedChat: Chat;
+    selectedChat?: FooterChatInfo;
     selectedCategory?: string;
     selectedItem?: string;
     onBack: () => void;
-    onChatSelect: () => void;
+    onChatSelect?: () => void;
     showCreateButton?: boolean;
     isCreateButtonActive?: boolean;
     onCreateClick?: (e?: React.MouseEvent) => void;
@@ -138,6 +149,18 @@ interface FooterProps {
     onGenerateDocClick?: () => void;
     isGeneratingDocument?: boolean;
     hasWriteOffItems?: boolean;
+    showSettingsButton?: boolean;
+    onSettingsClick?: () => void;
+    showModalActions?: boolean;
+    onModalSave?: () => void;
+    isModalSaveDisabled?: boolean;
+    onModalCancel?: () => void;
+    modalCurrentStep?: number;
+    modalTotalSteps?: number;
+    onModalBack?: () => void;
+    onModalNext?: () => void;
+    isModalNextDisabled?: boolean;
+    showModalSteps?: boolean;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -153,7 +176,19 @@ const Footer: React.FC<FooterProps> = ({
     showGenerateDocButton = false,
     onGenerateDocClick,
     isGeneratingDocument = false,
-    hasWriteOffItems = false
+    hasWriteOffItems = false,
+    showSettingsButton = false,
+    onSettingsClick,
+    showModalActions = false,
+    onModalSave,
+    isModalSaveDisabled = false,
+    onModalCancel,
+    modalCurrentStep = 1,
+    modalTotalSteps = 1,
+    onModalBack,
+    onModalNext,
+    isModalNextDisabled = false,
+    showModalSteps = true
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -180,135 +215,190 @@ const Footer: React.FC<FooterProps> = ({
             animate={{ y: 0 }}
             exit={{ y: 100 }}
         >
-            <div className={`${styles.container} ${showCreateButton ? styles.withCreateButton : ''}`}>
-                <motion.button 
-                    className={styles.iconButton}
-                    onClick={() => navigate('/')}
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                >
-                    <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                </motion.button>
-
-                {(selectedCategory || selectedItem) && !showCreateButton && (
-                    <motion.button
-                        className={styles.backButton}
-                        onClick={onBack}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        <span className={styles.backArrow}>←</span>
-                        <div className={`${styles.textContainer} ${isTextOverflow ? styles.textOverflow : ''}`}>
-                            <div 
-                                ref={textRef}
-                                className={isTextOverflow ? styles.scrollingText : ''}
-                            >
-                                {selectedItem ? selectedCategory : 'Категории'}
-                            </div>
-                        </div>
-                    </motion.button>
-                )}
-
-                {/* Контейнер для кнопок с помощью Flexbox */}
-                {showCreateButton ? (
-                    <motion.div
-                        className={styles.createButtonWrapper}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                        whileHover={{ scale: isCreateButtonActive ? 1.03 : 1 }}
-                        whileTap={{ scale: isCreateButtonActive ? 0.97 : 1 }}
-                    >
-                        <Button
-                            className={`${styles.createButton} ${isCreateButtonActive ? styles.createButtonActive : styles.createButtonDisabled} ${createButtonText === 'Обновить' ? 'updateButton' : ''}`}
-                            startIcon={createButtonText === 'Обновить' ? <RefreshIcon /> : <AddIcon />}
-                            disabled={!isCreateButtonActive}
-                            onClick={(e) => {
-                                // Предотвращаем всплытие события, чтобы не закрылось модальное окно
-                                e.stopPropagation();
-                                // Добавляем анимацию нажатия
-                                if (isCreateButtonActive) {
-                                    // Эффект рипла при клике
-                                    const rect = e.currentTarget.getBoundingClientRect();
-                                    const x = e.clientX - rect.left;
-                                    const y = e.clientY - rect.top;
-                                    
-                                    // Создаем рипл-эффект
-                                    const ripple = document.createElement('span');
-                                    ripple.classList.add('ripple-effect');
-                                    ripple.style.left = `${x}px`;
-                                    ripple.style.top = `${y}px`;
-                                    e.currentTarget.appendChild(ripple);
-                                    
-                                    // Удаляем рипл-эффект после анимации
-                                    setTimeout(() => {
-                                        ripple.remove();
-                                    }, 600);
-                                }
-                                if (onCreateClick) onCreateClick(e);
-                            }}
-                            variant="contained"
-                            disableElevation
-                            sx={{
-                                textTransform: 'none', 
-                                fontWeight: 600,
-                                borderRadius: (theme) => theme.shape.borderRadius * 2,
-                                position: 'relative',
-                                overflow: 'hidden' // Для рипл-эффекта
-                            }}
+            <div className={`${styles.container} ${showModalActions ? styles.modalActionsActive : ''}`}>
+                
+                {showModalActions ? (
+                    // --- Секция кнопок и шагов модального окна --- 
+                    <>
+                        {/* --- Левая кнопка (Назад или Отмена) --- */}
+                        <motion.button
+                            className={`${styles.iconButton} ${(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? styles.modalBackButton : styles.modalCancelButton}`}
+                            onClick={(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? onModalBack : onModalCancel}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                         >
-                            {createButtonText}
-                        </Button>
-                    </motion.div>
-                ) : (
-                    // Показываем кнопку "Сформировать акт" только когда не отображается окно создания
-                    <div className={styles.buttonsContainer}>
-                        {/* Кнопка для формирования акта списания */}
-                        {showGenerateDocButton && hasWriteOffItems && (
-                            <motion.div
-                                className={styles.generateDocButtonWrapper}
-                                initial={{ scale: 0, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                exit={{ scale: 0, opacity: 0 }}
-                                transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                                whileHover={{ scale: hasWriteOffItems ? 1.03 : 1 }}
-                                whileTap={{ scale: hasWriteOffItems ? 0.97 : 1 }}
-                            >
-                                <Button
-                                    className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`}
-                                    startIcon={isGeneratingDocument ? 
-                                        <CircularProgress size={18} className={styles.generatingSpinner} /> : 
-                                        <DescriptionIcon />}
-                                    disabled={!hasWriteOffItems || isGeneratingDocument}
-                                    onClick={onGenerateDocClick}
-                                    variant="contained"
-                                    disableElevation
-                                    sx={{
-                                        textTransform: 'none', 
-                                        fontWeight: 600,
-                                        borderRadius: (theme) => theme.shape.borderRadius * 1.5,
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        backgroundColor: 'var(--success-color)',
-                                        '&:hover': {
-                                            backgroundColor: 'var(--success-color)'
-                                        }
-                                    }}
-                                >
-                                    {isGeneratingDocument ? 'Создание...' : 'Сформировать акт'}
-                                </Button>
-                            </motion.div>
-                        )}
-                    </div>
-                )}
+                            {(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? 
+                                <ArrowBackIcon className={styles.icon} /> : 
+                                <CloseIcon className={styles.icon} />
+                            }
+                        </motion.button>
 
-                <ChatButton 
-                    selectedChat={selectedChat}
-                    onClick={onChatSelect || (() => {})}
-                />
+                        {/* --- Центральный элемент (Индикатор шагов) --- */}
+                        <div className={styles.stepIndicatorContainer}>
+                            {showModalSteps && modalTotalSteps && modalTotalSteps > 1 && modalCurrentStep && (
+                                <span className={styles.stepIndicatorText}>
+                                    Шаг {modalCurrentStep} из {modalTotalSteps}
+                                </span>
+                            )}
+                        </div>
+
+                        {/* --- Правая кнопка (Далее или Сохранить) --- */}
+                        <motion.button
+                            className={`${styles.iconButton} ${(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? styles.modalNextButton : styles.modalSaveButton} ${((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? styles.disabled : ''}`}
+                            onClick={(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? onModalNext : onModalSave}
+                            disabled={(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled}
+                            whileHover={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 1.05 } : {}}
+                            whileTap={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 0.95 } : {}}
+                        >
+                            {(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? 
+                                <ArrowForwardIcon className={styles.icon} /> : 
+                                <CheckIcon className={styles.icon} />
+                            }
+                        </motion.button>
+                    </>
+                ) : (
+                    // --- Обычные кнопки футера --- 
+                    <>
+                        {/* Кнопка Домой */} 
+                        <motion.button 
+                            className={styles.iconButton} 
+                            onClick={() => navigate('/')} 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                        >
+                             <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                             </svg>
+                        </motion.button>
+
+                        {/* Кнопка Назад (если есть категория/предмет) */} 
+                        {(selectedCategory || selectedItem) && (
+                             <motion.button
+                                 className={styles.backButton}
+                                 onClick={onBack}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                             >
+                                <span className={styles.backArrow}>←</span>
+                                <div className={`${styles.textContainer} ${isTextOverflow ? styles.textOverflow : ''}`}>
+                                    <div 
+                                        ref={textRef}
+                                        className={isTextOverflow ? styles.scrollingText : ''}
+                                    >
+                                        {selectedItem ? selectedCategory : 'Категории'}
+                                    </div>
+                                </div>
+                             </motion.button>
+                         )}
+                        
+                        {/* Контейнер для правых иконок (Настройки, Чат) */} 
+                        <div className={styles.rightIconsContainer}> 
+                            {/* Кнопка Настройки (если нужно) */} 
+                            {showSettingsButton && (
+                                 <motion.button
+                                     className={`${styles.iconButton} ${styles.settingsButton}`}
+                                     onClick={onSettingsClick}
+                                     whileHover={{ scale: 1.05, rotate: 45 }}
+                                     whileTap={{ scale: 0.95 }}
+                                 >
+                                     <SettingsIcon className={styles.icon} />
+                                 </motion.button>
+                             )}
+    
+                            {/* Кнопка Чата (если есть) */} 
+                            {selectedChat && onChatSelect && (
+                                <ChatButton 
+                                    selectedChat={selectedChat}
+                                    onClick={onChatSelect}
+                                />
+                            )}
+                        </div>
+                        
+                         {/* Кнопка Создать/Акт (если нужно) - возможно, ее позиционирование нужно будет пересмотреть */} 
+                         {showCreateButton && (
+                              <motion.div
+                                  className={styles.createButtonWrapper}
+                                  initial={{ scale: 0, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  exit={{ scale: 0, opacity: 0 }}
+                                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                  whileHover={{ scale: isCreateButtonActive ? 1.03 : 1 }}
+                                  whileTap={{ scale: isCreateButtonActive ? 0.97 : 1 }}
+                              >
+                                  <Button
+                                      className={`${styles.createButton} ${isCreateButtonActive ? styles.createButtonActive : styles.createButtonDisabled} ${createButtonText === 'Обновить' ? 'updateButton' : ''}`}
+                                      startIcon={createButtonText === 'Обновить' ? <RefreshIcon /> : <AddIcon />}
+                                      disabled={!isCreateButtonActive}
+                                      onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (isCreateButtonActive) {
+                                              const rect = e.currentTarget.getBoundingClientRect();
+                                              const x = e.clientX - rect.left;
+                                              const y = e.clientY - rect.top;
+                                              
+                                              const ripple = document.createElement('span');
+                                              ripple.classList.add('ripple-effect');
+                                              ripple.style.left = `${x}px`;
+                                              ripple.style.top = `${y}px`;
+                                              e.currentTarget.appendChild(ripple);
+                                              
+                                              setTimeout(() => {
+                                                  ripple.remove();
+                                              }, 600);
+                                          }
+                                          if (onCreateClick) onCreateClick(e);
+                                      }}
+                                      variant="contained"
+                                      disableElevation
+                                      sx={{
+                                          textTransform: 'none', 
+                                          fontWeight: 600,
+                                          borderRadius: (theme) => theme.shape.borderRadius * 2,
+                                          position: 'relative',
+                                          overflow: 'hidden'
+                                      }}
+                                  >
+                                      {createButtonText}
+                                  </Button>
+                              </motion.div>
+                          )}
+                         {showGenerateDocButton && hasWriteOffItems && (
+                              <motion.div
+                                  className={styles.generateDocButtonWrapper}
+                                  initial={{ scale: 0, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  exit={{ scale: 0, opacity: 0 }}
+                                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                  whileHover={{ scale: hasWriteOffItems ? 1.03 : 1 }}
+                                  whileTap={{ scale: hasWriteOffItems ? 0.97 : 1 }}
+                              >
+                                  <Button
+                                      className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`}
+                                      startIcon={isGeneratingDocument ? 
+                                          <CircularProgress size={18} className={styles.generatingSpinner} /> : 
+                                          <DescriptionIcon />}
+                                      disabled={!hasWriteOffItems || isGeneratingDocument}
+                                      onClick={onGenerateDocClick}
+                                      variant="contained"
+                                      disableElevation
+                                      sx={{
+                                          textTransform: 'none', 
+                                          fontWeight: 600,
+                                          borderRadius: (theme) => theme.shape.borderRadius * 1.5,
+                                          position: 'relative',
+                                          overflow: 'hidden',
+                                          backgroundColor: 'var(--success-color)',
+                                          '&:hover': {
+                                              backgroundColor: 'var(--success-color)'
+                                          }
+                                      }}
+                                  >
+                                      {isGeneratingDocument ? 'Создание...' : 'Сформировать акт'}
+                                  </Button>
+                              </motion.div>
+                          )}
+                    </>
+                )}
             </div>
         </motion.div>
     );

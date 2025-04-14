@@ -4,6 +4,8 @@
     background: var(--background-color);
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
     padding: 16px;
     padding-top: calc(env(safe-area-inset-top) + var(--navigation-height));
     padding-bottom: calc(env(safe-area-inset-bottom) + 34px);
@@ -13,6 +15,45 @@
     left: 0;
     right: 0;
     bottom: 0;
+}
+
+/* Стили для блока информации о пользователе */
+.userInfoContainer {
+    display: flex;
+    flex-direction: column; /* Имя под фото */
+    align-items: center;
+    margin-bottom: 20px; /* Отступ от заголовка */
+    flex-shrink: 0;
+}
+
+.userPhoto {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover; /* Чтобы фото не искажалось */
+    margin-bottom: 8px; /* Отступ от имени */
+    background-color: var(--border-color); /* Фон для плейсхолдера */
+    box-shadow: var(--shadow-sm);
+}
+
+.userPhotoPlaceholder {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    color: var(--text-secondary-color); /* Цвет иконки плейсхолдера */
+    margin-bottom: 8px;
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    display: flex; /* Центрируем иконку внутри */
+    align-items: center;
+    justify-content: center;
+}
+
+.userName {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-color);
+    text-align: center;
 }
 
 .title {
@@ -237,4 +278,98 @@
     .menuGrid {
         grid-template-columns: 1fr;
     }
+
+    /* Адаптация карточки "Нет доступа" */
+    .noAccessCard {
+        padding: 24px 16px; /* Уменьшаем отступы */
+        margin: auto 12px; /* Уменьшаем боковые отступы */
+        width: calc(100% - 24px);
+        max-width: none; /* Убираем ограничение ширины на мал. экранах */
+    }
+
+    .noAccessCard .userInfoContainer {
+        margin-bottom: 16px;
+    }
+
+    .noAccessCard .userPhoto,
+    .noAccessCard .userPhotoPlaceholder {
+        width: 60px; /* Уменьшаем фото */
+        height: 60px;
+        margin-bottom: 10px;
+    }
+
+    .noAccessCard .userName {
+        font-size: 16px; /* Уменьшаем имя */
+    }
+
+    .noAccessIcon {
+        font-size: 40px; /* Уменьшаем иконку */
+        margin-bottom: 12px;
+    }
+
+    .noAccessText {
+        font-size: 18px; /* Уменьшаем заголовок */
+    }
+
+    .noAccessInfo {
+        font-size: 13px; /* Уменьшаем описание */
+        max-width: 90%; /* Позволяем тексту занимать больше ширины */
+    }
+}
+
+/* Стили для сообщения об отсутствии доступа - ВЕРСИЯ С КАРТОЧКОЙ */
+.noAccessCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg); /* Более крупный радиус для карточки */
+    padding: 32px 24px; /* Увеличенные внутренние отступы */
+    margin: auto 16px; /* Центрируем карточку с отступами по бокам */
+    flex-shrink: 0; /* Не сжимаем карточку */
+    max-width: 450px; /* Ограничим максимальную ширину */
+    width: calc(100% - 32px); /* Занимаем доступную ширину минус боковые отступы */
+    box-shadow: var(--shadow-lg); /* Более выраженная тень */
+}
+
+/* Адаптация стилей userInfoContainer, когда он внутри карточки */
+.noAccessCard .userInfoContainer {
+    margin-bottom: 24px; /* Отступ от иконки замка */
+}
+
+.noAccessCard .userPhoto,
+.noAccessCard .userPhotoPlaceholder {
+    width: 72px; /* Немного крупнее фото */
+    height: 72px;
+    margin-bottom: 12px;
+}
+
+.noAccessCard .userName {
+    font-size: 18px; /* Крупнее имя */
+    font-weight: 600;
+}
+
+/* Новые стили для иконки внутри карточки */
+.noAccessIcon {
+    font-size: 48px; /* Размер иконки замка */
+    color: var(--primary-color); /* Цвет иконки */
+    margin-bottom: 16px;
+}
+
+/* Новые стили для текста внутри карточки */
+.noAccessText {
+    font-size: 20px; /* Заголовок крупнее */
+    font-weight: 700;
+    color: var(--text-color);
+    margin-bottom: 8px;
+}
+
+.noAccessInfo {
+    font-size: 14px;
+    color: var(--text-secondary-color);
+    line-height: 1.5; /* Улучшаем читаемость */
+    max-width: 350px; /* Ограничим ширину текста */
 } 

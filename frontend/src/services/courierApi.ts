@@ -111,9 +111,9 @@ export const updateCourierProfile = async (userId: number | string, data: Update
 };
 
 // Интерфейс для объекта смены, возвращаемого API (snake_case)
-interface ApiShift {
+export interface ApiShift {
     id: string;
-    user_id: string; // Обрати внимание: в старом коде было userId, но API вероятно возвращает user_id
+    user_id?: string; // Обрати внимание: в старом коде было userId, но API вероятно возвращает user_id
     photo_url: string | null;
     first_name: string;
     last_name: string;
@@ -161,28 +161,35 @@ export const getShifts = async (chatId: number | string): Promise<ApiShift[]> =>
 };
 
 // Интерфейс для данных бронирования смены (на вход API)
+// Обновляем поля в соответствии с ShiftCreateTelegram на бэкенде
 interface BookShiftApiData {
     date: string; // YYYY-MM-DD
-    user_id: string;
+    // user_id: string; // <-- Старое поле
+    user_telegram_id: number; // <-- Новое поле, тип number
     shift_type: 'day' | 'night';
     slot_index: number;
-    chat_id?: string;
-    existing_shift_id?: string;
+    // chat_id?: string; // <-- Старое поле
+    group_telegram_id: number; // <-- Новое поле, тип number
+    // Убираем existing_shift_id, т.к. этот эндпоинт только для создания
+    // existing_shift_id?: string;
 }
 
 /**
- * Бронирует или изменяет смену курьера.
- * @param data Данные для бронирования/изменения смены.
+ * Бронирует смену курьера (создание).
+ * @param data Данные для бронирования смены.
  */
 export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
-    console.log('[courierApi] 📡 Бронирование/изменение смены:', data);
+    // Используем правильные поля user_telegram_id и group_telegram_id из data
+    console.log('[courierApi] 📡 Бронирование смены:', data);
     try {
-        const response = await axiosInstance.post<ApiShift>('/couriers/shifts', data);
-        console.log('[courierApi] ✅ Смена забронирована/изменена:', response.data);
+        // URL уже исправлен на /api/v1/shifts
+        const response = await axiosInstance.post<ApiShift>('/api/v1/shifts', data);
+        console.log('[courierApi] ✅ Смена забронирована:', response.data);
         return response.data;
     } catch (error) {
-        console.error('[courierApi] ❌ Ошибка при бронировании/изменении смены:', error);
-        if (axios.isAxiosError(error)) {
+        console.error('[courierApi] ❌ Ошибка при бронировании смены:', error);
+        // ... обработка ошибок ...
+         if (axios.isAxiosError(error)) {
             const status = error.response?.status;
             const responseData = error.response?.data;
             const detail = responseData?.detail;
@@ -194,6 +201,14 @@ export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
              if (status === 400 && responseData?.error === 'ShiftLimitError') { // Превышен лимит смен
                  throw new Error(detail || 'Вы уже записаны на максимальное количество смен.');
             }
+             if (status === 422) { // Ошибка валидации Pydantic
+                 // Попробуем извлечь детали ошибки валидации
+                 let validationErrors = 'Неверные данные';
+                 if (responseData && Array.isArray(responseData.detail)) {
+                     validationErrors = responseData.detail.map((err: any) => `${err.loc[err.loc.length-1]}: ${err.msg}`).join(', ');
+                 }
+                 throw new Error(validationErrors);
+             }
              if (status === 400) { // Другие ошибки Bad Request
                  throw new Error(detail || 'Ошибка данных запроса для бронирования смены.');
             }
@@ -218,7 +233,7 @@ export const cancelShift = async (shiftId: string, chatId: string): Promise<{ su
     console.log(`[courierApi] 📡 Отмена смены ID: ${shiftId} в чате: ${chatId}`);
     try {
         // В DELETE запросах параметры обычно передаются в URL или как query params
-        const response = await axiosInstance.delete(`/couriers/shifts/${shiftId}`, {
+        const response = await axiosInstance.delete(`/api/v1/shifts/${shiftId}`, {
             params: { chat_id: chatId }
         });
         // Обычно DELETE возвращает 200 OK или 204 No Content при успехе
@@ -386,25 +401,42 @@ export const createOrUpdateShift = async (shiftData: {
 // - updateShiftAccessSettings
 // - updateCourierProfile (перенести из api.ts)
 
-// Интерфейс для объекта резерва, возвращаемого API (соответствует ReserveRead)
-interface ApiReserve {
-    id: string; // UUID
-    user_id: string; // UUID пользователя из БД
-    group_telegram_id: number;
+// ЭКСПОРТИРУЕМ ИНТЕРФЕЙС
+export interface ApiReserve {
+    id: string; // UUID записи резерва
     date: string; // YYYY-MM-DD
     created_at: string; // ISO timestamp
-    user: {
-        id: string; // UUID пользователя из БД
-        telegram_id: number;
+    member_id: number; // Внутренний ID участника (из БД)
+    group_id: number;  // Внутренний ID группы (из БД)
+
+    // Вложенный объект member (ОБЯЗАТЕЛЬНЫЙ, т.к. бэк его отдает через selectinload)
+    member: { 
+        id: number; // Внутренний ID участника (из БД)
+        user_id: number; // <<< Telegram ID пользователя (судя по схеме ReserveMember)
         first_name: string | null;
         last_name: string | null;
         photo_url: string | null;
         is_senior_courier: boolean | null;
+        username?: string | null; // Добавляем опциональные поля из схемы
+        status?: string | null;
+        is_bot?: boolean;
     };
+    
+    // Вложенный объект group (тоже ОБЯЗАТЕЛЬНЫЙ)
+    group: {
+        id: number; // Внутренний ID группы
+        group_id: number; // <<< Telegram ID группы (из схемы ReserveGroup)
+        title: string;
+        group_type: string;
+    };
+
+    // Убираем поля, которых нет на верхнем уровне ответа GET /reserves
+    // user_id?: string; 
+    // group_telegram_id?: number;
 }
 
 // Функция для загрузки резервов
-export const getReserves = async (groupTelegramId: number, reserveDate?: string): Promise<any[]> => {
+export const getReserves = async (groupTelegramId: string | number, reserveDate?: string): Promise<ApiReserve[]> => {
     try {
         // Проверка входных параметров
         if (!groupTelegramId) {
@@ -535,4 +567,209 @@ export const addToReserve = async (data: AddToReserveData): Promise<ApiReserve> 
     }
 };
 
+// --- Интерфейсы для Slot Config ---
+
+// Конфигурация слотов для одного дня
+export interface DaySlotConfig {
+    maxDaySlots: number;
+    maxNightSlots: number;
+}
+
+// Структура данных для обновления конфигурации (тело PUT запроса)
+export interface SlotConfigUpdatePayload {
+    config: Record<string, DaySlotConfig>; // Ключи '0'-'6'
+}
+
+// Структура данных ответа API (GET и PUT)
+export interface SlotConfigResponse {
+    config: Record<string, DaySlotConfig>; // Ключи '0'-'6'
+}
+
+// --- Функции API для Slot Config ---
+
+/**
+ * Получает конфигурацию слотов для указанной группы.
+ * @param groupTelegramId Telegram ID группы
+ */
+export const getSlotConfig = async (groupTelegramId: number): Promise<SlotConfigResponse> => {
+    logger.info(`[courierApi] 📡 Запрос конфигурации слотов для группы ID: ${groupTelegramId}`);
+    try {
+        const response = await axiosInstance.get<SlotConfigResponse>(`/api/v1/groups/${groupTelegramId}/slot_config`);
+        logger.info(`[courierApi] ✅ Конфигурация слотов для группы ${groupTelegramId} получена:`, response.data);
+        // Бэкенд возвращает {} если конфига нет, что соответствует SlotConfigResponse
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при запросе конфигурации слотов для группы ${groupTelegramId}`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                // Можно вернуть пустой конфиг или пробросить ошибку
+                logger.warn(`[courierApi] ⚠️ Группа ${groupTelegramId} не найдена или конфигурация отсутствует (404). Возвращаем пустой конфиг.`);
+                return { config: {} }; // Возвращаем пустой конфиг, как и бэк при отсутствии
+            }
+            throw new Error(detail || error.message || 'Ошибка при получении конфигурации слотов.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при получении конфигурации слотов.');
+    }
+};
+
+/**
+ * Обновляет конфигурацию слотов для указанной группы.
+ * @param groupTelegramId Telegram ID группы
+ * @param slotConfigData Данные конфигурации для обновления
+ */
+export const updateSlotConfig = async (
+    groupTelegramId: number,
+    slotConfigData: SlotConfigUpdatePayload // Используем интерфейс для тела запроса
+): Promise<SlotConfigResponse> => {
+    logger.info(`[courierApi] 📡 Обновление конфигурации слотов для группы ID: ${groupTelegramId}`, slotConfigData);
+    try {
+        const response = await axiosInstance.put<SlotConfigResponse>(
+            `/api/v1/groups/${groupTelegramId}/slot_config`,
+            slotConfigData // Передаем данные в теле запроса
+        );
+        logger.info(`[courierApi] ✅ Конфигурация слотов для группы ${groupTelegramId} обновлена:`, response.data);
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при обновлении конфигурации слотов для группы ${groupTelegramId}`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 400) {
+                throw new Error(detail || 'Неверный формат данных для конфигурации слотов.');
+            }
+            if (status === 404) {
+                throw new Error(detail || 'Группа не найдена.');
+            }
+            if (status === 403) {
+                throw new Error(detail || 'У вас нет прав на изменение конфигурации слотов.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при обновлении конфигурации слотов.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при обновлении конфигурации слотов.');
+    }
+};
+
 // TODO: Добавить функцию для POST /reserves (addToReserve) 
+
+// Интерфейс для данных обновления статуса старшего
+interface UpdateSeniorityData {
+    is_senior_courier: boolean;
+}
+
+// Интерфейс для ответа на обновление статуса старшего
+interface UpdateSeniorityResponse {
+    group_id: number;
+    member_id: number;
+    is_senior_courier: boolean | null;
+    role: string;
+}
+
+/**
+ * Обновляет статус старшего курьера для участника в группе.
+ * @param groupTelegramId Telegram ID группы
+ * @param userTelegramId Telegram ID пользователя
+ * @param isSeniorCourier Новый статус старшего
+ */
+export const updateMemberSeniority = async (
+    groupTelegramId: number | string, 
+    userTelegramId: number | string, 
+    isSeniorCourier: boolean
+): Promise<UpdateSeniorityResponse> => {
+    logger.info(`[courierApi] 📡 Обновление статуса старшего для user ${userTelegramId} в группе ${groupTelegramId} на ${isSeniorCourier}`);
+    try {
+        const data: UpdateSeniorityData = { is_senior_courier: isSeniorCourier };
+        // Используем новый эндпоинт
+        const response = await axiosInstance.put<UpdateSeniorityResponse>(
+            `/api/v1/groups/${groupTelegramId}/members/${userTelegramId}/seniority`,
+            data
+        );
+        logger.info('[courierApi] ✅ Статус старшего курьера обновлен:', response.data);
+        return response.data;
+    } catch (error) {
+        logger.error('[courierApi] ❌ Ошибка при обновлении статуса старшего курьера:', error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                throw new Error(detail || 'Группа или участник не найдены.');
+            }
+             if (status === 403) {
+                 throw new Error(detail || 'Доступ запрещен (возможно, нет прав администратора).');
+            }
+             if (status === 400) {
+                 throw new Error(detail || 'Неверные данные запроса для обновления статуса.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при обновлении статуса старшего курьера.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при обновлении статуса старшего курьера.');
+    }
+};
+
+// Интерфейс для данных ответа резерва (если API возвращает созданный резерв)
+export interface ApiReserve {
+    id: string;
+    user_id: string; 
+    date: string; // YYYY-MM-DD
+    chat_id: string;
+    created_at: string;
+    first_name?: string;
+    last_name?: string;
+    photo_url?: string;
+    is_senior_courier?: boolean;
+}
+
+// Интерфейс для данных, отправляемых при создании резерва
+interface AddReserveApiData {
+    user_telegram_id: number;
+    group_telegram_id: number;
+    reserve_date: string; // YYYY-MM-DD
+    // Можно добавить сюда доп.поля, если API их ожидает при создании
+    // first_name?: string;
+    // last_name?: string;
+    // photo_url?: string;
+    // is_senior_courier?: boolean;
+}
+
+/**
+ * Создает новую запись в резерве.
+ * @param data Данные для создания резерва.
+ */
+export const addReserve = async (data: AddReserveApiData): Promise<ApiReserve> => {
+    logger.info('[courierApi] 📡 Создание записи в резерве:', data);
+    try {
+        const response = await axiosInstance.post<ApiReserve>('/api/v1/reserves', data);
+        logger.info('[courierApi] ✅ Запись в резерв создана:', response.data);
+        return response.data;
+    } catch (error) {
+        logger.error('[courierApi] ❌ Ошибка при создании записи в резерве:', error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const responseData = error.response?.data;
+            const detail = responseData?.detail;
+
+            if (status === 409) { // Конфликт (уже в резерве?)
+                throw new Error(detail || 'Пользователь уже находится в резерве на эту дату.');
+            }
+            if (status === 400) { // Неверные данные
+                throw new Error(detail || 'Ошибка данных запроса для добавления в резерв.');
+            }
+            if (status === 403) { // Запрещено (например, лимит резервов?)
+                throw new Error(detail || 'Добавление в резерв сейчас недоступно.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при добавлении в резерв.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при добавлении в резерв.');
+    }
+};
+
+// --- КОНЕЦ НОВОЙ ФУНКЦИИ ---

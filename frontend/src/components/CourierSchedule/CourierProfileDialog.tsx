@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
+import { updateUserProfileThunk } from '../../store/slices/userSlice';
+import { updateSeniorityStatus } from '../../store/slices/userSlice';
+import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 
 // Добавляем ShiftSlotLocal из хука для единообразия
 interface ShiftSlotLocal {
@@ -19,8 +22,9 @@ interface ShiftSlotLocal {
 interface CourierProfileDialogProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave?: (data: { firstName: string; lastName: string; isSeniorCourier?: boolean; seniorPassword?: string; }) => void; // Делаем onSave опциональным
-    profileData?: ShiftSlotLocal | null; // Добавляем проп для данных курьера
+    onSave?: (data: { firstName: string; lastName: string; isSeniorCourier?: boolean; }) => void;
+    profileData?: ShiftSlotLocal | null;
+    chatId?: string;
 }
 
 const slideIn = keyframes`
@@ -202,13 +206,6 @@ const Checkbox = styled.input`
     accent-color: var(--primary-color);
 `;
 
-const PasswordNoteText = styled.p`
-    color: var(--text-secondary);
-    font-size: 0.8rem;
-    margin: 4px 0;
-    font-style: italic;
-`;
-
 const Button = styled.button`
     padding: 12px;
     border-radius: var(--radius);
@@ -259,99 +256,157 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
     onClose,
     onSave,
     profileData,
+    chatId
 }) => {
     const currentUser = useAppSelector(state => state.user.user);
     const loading = useAppSelector(state => state.user.loading);
     const error = useAppSelector(state => state.user.error);
+    const dispatch = useAppDispatch();
 
-    // Определяем, показываем ли мы профиль текущего пользователя
     const isCurrentUserProfile = !profileData || (currentUser?.id === profileData?.userId);
-
-    // Используем данные из profileData или currentUser
     const displayData = profileData || currentUser;
 
-    // ---- Нормализация данных ----
     const getFirstName = (data: any): string => data?.firstName ?? data?.first_name ?? '';
     const getLastName = (data: any): string => data?.lastName ?? data?.last_name ?? '';
     const getIsSenior = (data: any): boolean => !!(data && (data.isSeniorCourier || data.is_senior_courier));
     const getPhotoUrl = (data: any): string | undefined => data?.photo_url || undefined;
-    // ---------------------------
 
-    // Состояния для полей формы, инициализируем из displayData с нормализацией
-    const [firstName, setFirstName] = useState(getFirstName(displayData));
-    const [lastName, setLastName] = useState(getLastName(displayData));
-    const [isSenior, setIsSenior] = useState(getIsSenior(displayData));
-    const [seniorPassword, setSeniorPassword] = useState('');
-    const [showPasswordInput, setShowPasswordInput] = useState(false);
     const [localError, setLocalError] = useState<string | null>(null);
     const [isClosing, setIsClosing] = useState(false);
 
-    // Обновляем состояния при изменении currentUser или profileData
+    // Находим текущую группу в данных пользователя
+    const currentGroup = useMemo(() => {
+        if (!currentUser || !currentUser.groups || !chatId) return null;
+        return currentUser.groups.find(g => String(g.chat_id) === String(chatId));
+    }, [currentUser, chatId]);
+
+    // Определяем, является ли текущий пользователь админом/создателем в ЭТОЙ группе
+    const isCurrentUserAdminOrCreator = useMemo(() => {
+        if (!currentGroup) return false;
+        // Убедимся, что проверяем и 'admin' для совместимости
+        return currentGroup.role === 'administrator' || 
+               currentGroup.role === 'creator' ||
+               currentGroup.role === 'admin'; 
+    }, [currentGroup]);
+
+    // Инициализируем состояние isSenior из данных ТЕКУЩЕЙ группы, если это профиль пользователя
+    // Иначе (если смотрим чужой профиль) - берем из profileData
+    const initialSeniorStatus = useMemo(() => {
+        if (isCurrentUserProfile && currentGroup) {
+            // Если статус null, считаем как false для чекбокса
+            return currentGroup.is_senior_courier ?? false; 
+        } else {
+            // Для чужого профиля или если нет группы
+            return getIsSenior(displayData); 
+        }
+    }, [isCurrentUserProfile, currentGroup, displayData]);
+
+    const [firstName, setFirstName] = useState(getFirstName(displayData));
+    const [lastName, setLastName] = useState(getLastName(displayData));
+    const [isSenior, setIsSenior] = useState(initialSeniorStatus);
+    // Отслеживаем исходные значения для проверки изменений
+    const [initialFirstName, setInitialFirstName] = useState(getFirstName(displayData));
+    const [initialLastName, setInitialLastName] = useState(getLastName(displayData));
+    const [initialIsSeniorForSubmit, setInitialIsSeniorForSubmit] = useState(initialSeniorStatus);
+
+    // Обновляем состояния и ИСХОДНЫЕ значения при изменении данных
     useEffect(() => {
         const dataToDisplay = profileData || currentUser;
-        setFirstName(getFirstName(dataToDisplay));
-        setLastName(getLastName(dataToDisplay));
-        setIsSenior(getIsSenior(dataToDisplay));
-        // Сбрасываем пароль и ошибку при смене профиля
-        setSeniorPassword('');
-        setShowPasswordInput(false);
+        const newFirstName = getFirstName(dataToDisplay);
+        const newLastName = getLastName(dataToDisplay);
+        const newSeniorStatus = initialSeniorStatus; // Используем уже вычисленное
+        
+        setFirstName(newFirstName);
+        setLastName(newLastName);
+        setIsSenior(newSeniorStatus);
+        
+        // Обновляем начальные значения для следующего сравнения при submit
+        setInitialFirstName(newFirstName);
+        setInitialLastName(newLastName);
+        setInitialIsSeniorForSubmit(newSeniorStatus);
+        
         setLocalError(null);
-    }, [currentUser, profileData]);
+    }, [currentUser, profileData, initialSeniorStatus]); 
 
-    // Обработчик закрытия
     const handleClose = () => {
         if (isClosing) return;
         setIsClosing(true);
         setTimeout(() => {
             onClose();
-            setIsClosing(false); // Сбрасываем флаг после завершения анимации
-        }, 300); // Длительность анимации
+            setIsClosing(false);
+        }, 300);
     };
 
-    // Обработчик отправки формы (только если onSave передан и это профиль текущего пользователя)
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLocalError(null);
+        if (!isCurrentUserProfile || !currentUser?.id || !chatId) return; // Проверяем наличие currentUser.id и chatId
 
-        if (!isCurrentUserProfile || !onSave) return; // Не сохраняем чужой профиль или если нет onSave
+        let closeDialog = true; // Флаг, нужно ли закрывать диалог после сохранения
+        const userId = currentUser.id;
 
-        if (isSenior && !currentUser?.is_senior_courier && !seniorPassword) {
-            setLocalError('Введите пароль старшего курьера для подтверждения.');
-            setShowPasswordInput(true);
-            return;
+        // 1. Проверяем и обновляем имя/фамилию
+        const firstNameChanged = firstName.trim() !== initialFirstName.trim();
+        const lastNameChanged = lastName.trim() !== initialLastName.trim();
+
+        if (firstNameChanged || lastNameChanged) {
+            console.log('[CourierProfileDialog] Обновляем имя/фамилию...');
+            try {
+                await dispatch(updateUserProfileThunk({
+                    userId: userId,
+                    data: { firstName: firstName.trim(), lastName: lastName.trim() }
+                })).unwrap(); // Используем unwrap для обработки ошибок thunk
+                
+                dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: 'Имя и фамилия обновлены' }));
+                // Обновляем initial значения после успешного сохранения
+                setInitialFirstName(firstName.trim());
+                setInitialLastName(lastName.trim());
+            } catch (error: any) {
+                console.error('Ошибка обновления профиля:', error);
+                setLocalError(typeof error === 'string' ? error : error?.message || 'Не удалось обновить имя/фамилию.');
+                closeDialog = false; // Не закрываем диалог при ошибке
+            }
         }
 
-        // Вызываем onSave с данными формы
-        onSave({ 
-            firstName, 
-            lastName, 
-            isSeniorCourier: isSenior, 
-            seniorPassword: isSenior ? seniorPassword : undefined 
-        });
-        
-        // Закрываем диалог после успешного сохранения (если нужно)
-        // handleClose();
+        // 2. Проверяем и обновляем статус старшего (только для админов/создателей)
+        const seniorStatusChanged = isSenior !== initialIsSeniorForSubmit;
+
+        if (isCurrentUserAdminOrCreator && seniorStatusChanged) {
+            console.log(`[CourierProfileDialog] Обновляем статус старшего на ${isSenior}...`);
+             try {
+                await dispatch(updateSeniorityStatus({
+                    groupTelegramId: chatId, 
+                    userTelegramId: String(userId), // Убедимся, что передаем строку, если API ожидает строку
+                    isSenior: isSenior
+                })).unwrap();
+
+                dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: 'Статус старшего курьера обновлен' }));
+                // Обновляем initial значение после успешного сохранения
+                setInitialIsSeniorForSubmit(isSenior);
+            } catch (error: any) {
+                console.error('Ошибка обновления статуса старшего:', error);
+                 // Добавляем ошибку, если она еще не установлена
+                setLocalError(prev => prev ? `${prev}\n${error.message || 'Не удалось обновить статус старшего.'}` : (error.message || 'Не удалось обновить статус старшего.'));
+                closeDialog = false; // Не закрываем диалог при ошибке
+            }
+        }
+
+        // Закрываем диалог только если все операции прошли успешно
+        if (closeDialog && !localError) {
+            handleClose();
+        }
     };
 
-    // Обработчик изменения чекбокса старшего курьера
     const handleSeniorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
-        setIsSenior(checked);
-        // Показываем поле пароля только если делаем себя старшим (изначально не были)
-        const currentIsSenior = getIsSenior(currentUser); // Получаем актуальный статус текущего пользователя
-        if (checked && !currentIsSenior) {
-            setShowPasswordInput(true);
-        } else {
-            setShowPasswordInput(false);
-            setSeniorPassword(''); // Сбрасываем пароль, если убираем галку или уже старший
-        }
+        setIsSenior(e.target.checked);
     };
 
     if (!isOpen && !isClosing) {
         return null;
     }
 
-    const canEdit = isCurrentUserProfile && !!onSave; // Редактировать можно только свой профиль и если есть onSave
+    const canEdit = isCurrentUserProfile && !!onSave;
+    const showSeniorCheckbox = canEdit && isCurrentUserAdminOrCreator;
 
     return (
         <DialogOverlay $isOpen={isOpen} $isClosing={isClosing} onClick={handleClose}>
@@ -386,8 +441,7 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
                         />
                     </InputGroup>
 
-                    {/* Показываем чекбокс старшего только если можно редактировать */}
-                    {canEdit && (
+                    {showSeniorCheckbox && (
                         <CheckboxGroup>
                             <CheckboxLabel>
                                 <Checkbox
@@ -400,38 +454,17 @@ const CourierProfileDialog: React.FC<CourierProfileDialogProps> = ({
                             </CheckboxLabel>
                         </CheckboxGroup>
                     )}
-                    {/* Показываем статус старшего текстом, если нельзя редактировать */}
-                    {!canEdit && getIsSenior(displayData) && (
+                    {(!showSeniorCheckbox && getIsSenior(displayData)) && (
                          <p style={{ fontSize: '0.9rem', color: 'var(--primary-color)', marginTop: '10px' }}>⭐ Старший курьер</p>
-                    )}
-
-                    {/* Поле для пароля старшего курьера */}
-                    {canEdit && showPasswordInput && (
-                        <InputGroup style={{ marginTop: '10px' }}>
-                            <Label htmlFor="seniorPassword">Пароль старшего курьера</Label>
-                            <Input
-                                id="seniorPassword"
-                                type="password"
-                                value={seniorPassword}
-                                onChange={(e) => setSeniorPassword(e.target.value)}
-                                placeholder="Введите пароль для подтверждения"
-                                disabled={!canEdit}
-                            />
-                             <PasswordNoteText>
-                                 Требуется только при первом назначении статуса старшего.
-                             </PasswordNoteText>
-                        </InputGroup>
                     )}
 
                     {(error || localError) && <ErrorMessage>{error || localError}</ErrorMessage>}
                     
-                    {/* Показываем кнопку сохранения только если можно редактировать */}
                     {canEdit && (
                         <Button type="submit" disabled={loading}>
                             {loading ? 'Сохранение...' : 'Сохранить'}
                         </Button>
                     )}
-                     {/* Показываем кнопку "Закрыть", если нельзя редактировать */} 
                      {!canEdit && (
                          <Button type="button" onClick={handleClose} style={{ background: 'var(--button-secondary-bg)' }}>
                              Закрыть

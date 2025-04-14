@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { NotificationTypes } from '../../store/slices/notificationSlice';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -11,11 +11,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import styles from './SystemNotification.module.css';
 
 export interface NotificationItem {
-    id: string;
+    id?: string;
     type: NotificationTypes;
     message: string;
     title?: string;
     duration?: number;
+    autoHideDuration?: number;
 }
 
 // Экспортируем интерфейс для упрощенного использования компонента с одним уведомлением
@@ -32,6 +33,60 @@ interface SystemNotificationProps {
     onClose: (id: string) => void;
 }
 
+// <<< Отдельный компонент для одного уведомления с таймером >>>
+const NotificationMessage: React.FC<{ 
+    notification: NotificationItem;
+    onClose: (id: string) => void;
+    getIcon: (type: NotificationTypes) => JSX.Element;
+}> = ({ notification, onClose, getIcon }) => {
+    
+    useEffect(() => {
+        // Убеждаемся, что id есть (хотя он должен быть на этом этапе)
+        if (!notification.id) return;
+        
+        // Определяем длительность: из пропса или 7 секунд по умолчанию
+        const duration = notification.duration || notification.autoHideDuration || 7000;
+        
+        // Устанавливаем таймер
+        const timer = setTimeout(() => {
+            onClose(notification.id!); // Вызываем onClose с id
+        }, duration);
+        
+        // Очищаем таймер при размонтировании или изменении notification/onClose
+        return () => clearTimeout(timer);
+        
+    }, [notification, onClose]); // Перезапускаем эффект, если уведомление или функция onClose изменились
+
+    // Возвращаем JSX для одного уведомления
+    return (
+        <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            className={`${styles.notification} ${styles[notification.type]}`}
+        >
+            <div className={styles.iconContainer}>
+                {getIcon(notification.type)}
+            </div>
+            <div className={styles.content}>
+                {notification.title && (
+                    <div className={styles.title}>{notification.title}</div>
+                )}
+                <div className={styles.message}>{notification.message}</div>
+            </div>
+            <IconButton
+                size="small"
+                onClick={() => onClose(notification.id || '')} // Убедимся, что id есть
+                className={styles.closeButton}
+            >
+                <CloseIcon fontSize="small" />
+            </IconButton>
+        </motion.div>
+    );
+};
+
+// <<< Основной компонент SystemNotification теперь использует NotificationMessage >>>
 const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, onClose }) => {
     const getIcon = (type: NotificationTypes) => {
         switch (type) {
@@ -48,34 +103,15 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
 
     return (
         <div className={styles.notificationContainer}>
-            {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
-            {/* @ts-ignore */}
             <AnimatePresence>
                 {notifications.map((notification) => (
-                    <motion.div
-                        key={notification.id}
-                        initial={{ opacity: 0, y: 50 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: 100 }}
-                        className={`${styles.notification} ${styles[notification.type]}`}
-                    >
-                        <div className={styles.iconContainer}>
-                            {getIcon(notification.type)}
-                        </div>
-                        <div className={styles.content}>
-                            {notification.title && (
-                                <div className={styles.title}>{notification.title}</div>
-                            )}
-                            <div className={styles.message}>{notification.message}</div>
-                        </div>
-                        <IconButton
-                            size="small"
-                            onClick={() => onClose(notification.id)}
-                            className={styles.closeButton}
-                        >
-                            <CloseIcon fontSize="small" />
-                        </IconButton>
-                    </motion.div>
+                    // Используем новый компонент с таймером
+                    <NotificationMessage 
+                        key={notification.id} // Ключ теперь на обертке
+                        notification={notification}
+                        onClose={onClose}
+                        getIcon={getIcon}
+                    />
                 ))}
             </AnimatePresence>
         </div>

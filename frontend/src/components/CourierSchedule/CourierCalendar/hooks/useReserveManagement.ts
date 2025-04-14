@@ -1,125 +1,123 @@
-import { useCallback } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { 
-    // Неиспользуемые функции закомментированы
-    // addToReserve, 
-    // removeFromReserve, 
+import { useCallback, useEffect } from 'react'; // Убрал useMemo, он был не нужен
+import { useSelector } from 'react-redux';
+import {
     selectAllReserves,
-    forceFetchReserves,
-    // reserveDeleted
+    fetchReservesForGroup, // Используем новый thunk для загрузки
+    addCurrentUserToReserveThunk, // Новый thunk для добавления
+    removeReserveByIdThunk, // Новый thunk для удаления
+    selectReservesLoading,
+    selectReservesError
 } from '../../../../store/slices/reservesSlice';
 import { format } from 'date-fns';
 import { logger } from '../../../../utils/logger';
-import { addToReserve, deleteReserve } from '../../../../services/courierApi';
-import { AppDispatch } from '../../../../store/store';
+import { useAppDispatch } from '../../../../store/hooks'; // Используем типизированный dispatch
+import { ReserveEntry } from '../../../../types/shifts';
 
-export const useReserveManagement = (currentUserId: string, chatId: string) => {
-    const dispatch = useDispatch<AppDispatch>();
-    const reserves = useSelector(selectAllReserves);
-    // Получаем данные пользователя из Redux
-    const userInfo = useSelector((state: any) => state.user.user);
+// --- Новый рефакторенный хук ---
+export const useReserveManagement = (currentUserId: string | undefined, chatId: string | undefined) => { // Сделаем ID опциональными
+    const dispatch = useAppDispatch();
+    const allReserves = useSelector(selectAllReserves);
+    const isLoading = useSelector(selectReservesLoading);
+    const error = useSelector(selectReservesError);
 
-    // Функция для принудительной загрузки резервов
-    const loadReserves = useCallback((date?: Date) => {
-        if (!chatId) {
-            logger.warn('[useReserveManagement] Не удалось загрузить резервы: отсутствует chatId');
-            return;
+    // Логируем состояние резервов из Redux при каждом рендере хука
+    console.log('[useReserveManagement] Hook rendered. All reserves from Redux:', allReserves);
+
+    // 1. Автоматическая загрузка резервов при монтировании/смене chatId
+    useEffect(() => {
+        // Загружаем только если есть chatId
+        if (chatId) {
+            const groupId = parseInt(chatId, 10);
+            if (!isNaN(groupId)) {
+                logger.info(`[useReserveManagement] 🔄 Загрузка/Обновление ВСЕХ резервов для группы ${groupId} (useEffect)`);
+                dispatch(fetchReservesForGroup({ groupId }));
+            } else {
+                 logger.error('[useReserveManagement] Неверный формат chatId для загрузки:', chatId);
+            }
         }
+        // Очистка состояния при размонтировании или смене chatId/userId? Пока не делаем.
+        // return () => { dispatch(clearReservesState()); }
+    }, [chatId, dispatch]);
 
-        const groupId = parseInt(chatId, 10);
-        if (isNaN(groupId)) {
-            logger.error('[useReserveManagement] Неверный формат chatId:', chatId);
-            return;
-        }
-
-        // Загружаем все резервы для группы без указания даты
-        logger.info(`[useReserveManagement] 🔄 Загрузка ВСЕХ резервов для группы ${groupId}`);
-        
-        dispatch(forceFetchReserves({ groupId }));
-    }, [dispatch, chatId]);
-
-    const getReservesForDate = useCallback((targetDate: Date) => {
-        const formattedDate = format(targetDate, "yyyy-MM-dd'T'17:00:00.000'Z'");
-        
-        const dateReserves = reserves.filter(reserve => {
-            // Сравниваем только даты без времени
-            const reserveDate = reserve.date.split('T')[0];
-            const formattedDateOnly = formattedDate.split('T')[0];
-            return reserveDate === formattedDateOnly;
+    // 2. Функция для фильтрации резервов на КОНКРЕТНУЮ дату (для отображения)
+    // <<< Оборачиваем в useCallback >>>
+    const getDisplayReservesForDate = useCallback((targetDate: Date | null): ReserveEntry[] => {
+        if (!targetDate) return []; // Возвращаем пусто, если даты нет
+        const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+        // Логируем результат фильтрации
+        const filtered = allReserves.filter(reserve => {
+            const reserveDateStr = reserve.date.substring(0, 10);
+            return reserveDateStr === targetDateStr;
         });
-        
-        // Логируем только если есть резервы для даты
-        if (dateReserves.length > 0) {
-            console.log('[useReserveManagement] Found reserves for date:', {
-                date: formattedDate,
-                reserves: dateReserves
-            });
-        }
-        
-        return dateReserves;
-    }, [reserves]);
+        return filtered;
+    }, [allReserves]); // <<< Зависимость: allReserves
 
-    const userIsInReserve = useCallback((date: Date) => {
-        const dateReserves = getReservesForDate(date);
-        return dateReserves.some(reserve => 
-            String(reserve.userId) === String(currentUserId)
+    // 3. Функция для проверки, есть ли ТЕКУЩИЙ пользователь в резерве на дату
+    // <<< Оборачиваем в useCallback >>>
+    const isCurrentUserInReserveForDate = useCallback((targetDate: Date | null): boolean => {
+        if (!currentUserId || !targetDate) return false; // Не можем проверить без ID или даты
+        // <<< Вызываем getDisplayReservesForDate внутри useCallback >>>
+        const reservesOnDate = getDisplayReservesForDate(targetDate);
+        return reservesOnDate.some(
+            reserve => String(reserve.userId) === String(currentUserId)
         );
-    }, [currentUserId, getReservesForDate]);
+    }, [currentUserId, getDisplayReservesForDate]); // <<< Зависимости: currentUserId и мемоизированная getDisplayReservesForDate
 
-    const handleAddToReserve = useCallback(async (date: Date) => {
-        try {
-            // Создаем объект с данными резерва, включая все данные пользователя
-            const reserveData = {
-                date: format(date, "yyyy-MM-dd'T'17:00:00.000'Z'"),
-                user_id: currentUserId,
-                userId: currentUserId, // Для совместимости
-                chat_id: chatId,
-                // Добавляем все данные пользователя
-                firstName: userInfo?.first_name || '',
-                lastName: userInfo?.last_name || '',
-                photo_url: userInfo?.photo_url || null,
-                isSeniorCourier: userInfo?.is_senior_courier || false,
-                // Добавляем snake_case версии для совместимости
-                first_name: userInfo?.first_name || '',
-                last_name: userInfo?.last_name || '',
-                is_senior_courier: userInfo?.is_senior_courier || false
-            };
-
-            console.log('[useReserveManagement] Отправка данных резерва на сервер:', reserveData);
-            
-            // Заменяем socketService.emit на вызов REST API функции
-            // socketService.emit('add_to_reserve', reserveData);
-            
-            // Подготавливаем данные в формате, ожидаемом API
-            const apiData = {
-                userTelegramId: Number(currentUserId),
-                groupTelegramId: Number(chatId),  // Сохраняем минус, чтобы ID был отрицательным
-                date: format(date, "yyyy-MM-dd")  // Формат даты YYYY-MM-DD для API
-            };
-            
-            await addToReserve(apiData);
-            return true;
-        } catch (error) {
-            logger.error('❌ Ошибка при добавлении в резерв:', error);
-            return false;
+    // 4. Функция для ДОБАВЛЕНИЯ ТЕКУЩЕГО пользователя в резерв на дату
+    const addCurrentUserToReserve = useCallback(async (targetDate: Date): Promise<void> => {
+        if (!chatId || !currentUserId) {
+            const errorMsg = 'Недостаточно данных для добавления в резерв (chatId или currentUserId отсутствуют)';
+            logger.error(`[useReserveManagement] ${errorMsg}`, { chatId, currentUserId });
+            throw new Error(errorMsg);
         }
-    }, [currentUserId, chatId, userInfo]);
 
-    const handleCancelReserve = useCallback(async (reserveId: string): Promise<void> => {
-        try {
-            // Теперь используем REST API
-            await deleteReserve(reserveId);
-        } catch (error) {
-            logger.error('❌ Ошибка при отмене резерва:', error);
+        const userTelegramId = parseInt(currentUserId, 10);
+        const groupTelegramId = parseInt(chatId, 10);
+
+        if (isNaN(userTelegramId) || isNaN(groupTelegramId)) {
+             const errorMsg = 'Не удалось преобразовать ID пользователя или группы в число';
+            logger.error(`[useReserveManagement] ${errorMsg}`, { currentUserId, chatId });
+            throw new Error(errorMsg);
         }
-    }, []);
 
+        logger.info(`[useReserveManagement] Попытка добавить user ${userTelegramId} в резерв группы ${groupTelegramId} на ${format(targetDate, 'yyyy-MM-dd')}`);
+
+        // Диспатчим Thunk addCurrentUserToReserveThunk
+        // Ошибки будут обработаны в extraReducers и проброшены через unwrap
+        await dispatch(addCurrentUserToReserveThunk({
+            userTelegramId,
+            groupTelegramId,
+            date: targetDate
+        })).unwrap(); // unwrap пробросит ошибку, если thunk был rejected
+
+        // Успешное выполнение (без ошибок)
+        logger.info('[useReserveManagement] Thunk добавления в резерв успешно выполнен.');
+
+    }, [dispatch, currentUserId, chatId]); // Зависимости useCallback
+
+    // 5. Функция для ОТМЕНЫ резерва по ID
+    const cancelReserveById = useCallback(async (reserveId: string): Promise<void> => {
+        if (!reserveId) {
+             const errorMsg = 'Попытка отменить резерв с пустым ID';
+             logger.warn(`[useReserveManagement] ${errorMsg}`);
+             throw new Error(errorMsg);
+        }
+        logger.info(`[useReserveManagement] Попытка отменить резерв ID: ${reserveId}`);
+
+        // Используем thunk removeReserveByIdThunk
+        await dispatch(removeReserveByIdThunk({ reserveId })).unwrap();
+
+        logger.info(`[useReserveManagement] Thunk отмены резерва ID ${reserveId} успешно выполнен.`);
+
+    }, [dispatch]); // Зависимость только от dispatch
+
+    // 6. Возвращаем новый набор функций и данных
     return {
-        reserves,
-        getReservesForDate,
-        userIsInReserve,
-        handleAddToReserve,
-        handleCancelReserve,
-        loadReserves
+        isLoading,
+        error,
+        getDisplayReservesForDate,    // <<< Теперь мемоизирована
+        isCurrentUserInReserveForDate,// <<< Теперь мемоизирована
+        addCurrentUserToReserve,      // Функция для добавления текущего юзера
+        cancelReserveById             // Функция для отмены по ID
     };
-}; 
+};

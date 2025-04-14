@@ -11,12 +11,12 @@ import { AccessSettings } from '../../../../store/slices/shiftsSlice';
  */
 export const useAccessSettingsSync = (
   refreshCalendar?: () => void
-): AccessSettings | undefined => {
+): AccessSettings | null => {
   // Получаем настройки доступа из Redux
   const accessSettings = useSelector((state: RootState) => state.shifts.accessSettings);
   
   // Ref для хранения предыдущих настроек
-  const prevSettingsRef = useRef<AccessSettings | undefined>();
+  const prevSettingsRef = useRef<AccessSettings | null>(null);
   
   // Мемоизируем ключевые настройки, которые влияют на доступность
   const keySettings = useMemo(() => ({
@@ -74,4 +74,4 @@ export const useAccessSettingsSync = (
   }, [keySettings, refreshCalendar, accessSettings]);
   
   return accessSettings;
-}; 
+} 

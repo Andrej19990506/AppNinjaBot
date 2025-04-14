@@ -100,7 +100,6 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
         handleTouchMove, 
         handleTouchEnd, 
         isDragging,
-        setIsDragging 
     } = useTouchHandling({ onClose });
     
     const { 
@@ -618,16 +617,6 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
                             dragTransition={{ 
                                 bounceStiffness: 300,
                                 bounceDamping: 30 
-                            }}
-                            onDragStart={() => setIsDragging(true)}
-                            onDragEnd={(e, info) => {
-                                setIsDragging(false);
-                                const velocity = info.velocity.y;
-                                const offset = info.offset.y;
-                                
-                                if (offset > 150 || (offset > 50 && velocity > 500)) {
-                                    handleClose();
-                                }
                             }}
                             data-dragging={isDragging}
                             layoutId="modal-container"

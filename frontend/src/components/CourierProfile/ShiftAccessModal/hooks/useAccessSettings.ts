@@ -1,161 +1,109 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAppSelector, useAppDispatch } from '../../../../store/hooks';
+import { useSelector, useDispatch } from 'react-redux';
+import { AppDispatch } from '../../../../store/store';
 import { 
     AccessSettings, 
     selectAccessSettings, 
     selectIsLoadingSettings, 
     selectSettingsError,
-    updateAccessSettings,
+    updateAccessRules,
     fetchAccessSettings
 } from '../../../../store/slices/shiftsSlice';
 import { addNotification, NotificationTypes } from '../../../../store/slices/notificationSlice';
+import { logger } from '../../../../utils/logger';
 
 interface UseAccessSettingsProps {
     chatId?: string;
 }
 
 /**
- * Хук для управления настройками доступа к сменам
+ * Хук для управления настройками ДОСТУПА к сменам (НЕ СЛОТАМИ)
  */
 export const useAccessSettings = ({ chatId }: UseAccessSettingsProps) => {
-    // ЛОГИРУЕМ chatId, полученный хуком
-    console.log(`[useAccessSettings] Хук инициализирован/обновлен с chatId: ${chatId}`);
+    logger.log(`[useAccessSettings] Хук инициализирован/обновлен с chatId: ${chatId}`);
 
-    const dispatch = useAppDispatch();
+    const dispatch = useDispatch<AppDispatch>();
     
-    // Получаем настройки из Redux
-    const storedSettings = useAppSelector(selectAccessSettings);
-    const isLoading = useAppSelector(selectIsLoadingSettings);
-    const error = useAppSelector(selectSettingsError);
-    
-    // Локальное состояние для отслеживания изменений
-    const [settings, setSettings] = useState<AccessSettings>(storedSettings);
+    // Получаем ТОЛЬКО настройки доступа из Redux
+    const storedSettings = useSelector(selectAccessSettings);
+    const isLoading = useSelector(selectIsLoadingSettings);
+    const error = useSelector(selectSettingsError);
+
+    // Локальное состояние для редактирования НАСТРОЕК ДОСТУПА
+    const [settings, setSettings] = useState<AccessSettings | null>(storedSettings);
     const [isDirty, setIsDirty] = useState(false);
-    
-    // Загружаем настройки при монтировании компонента
+
+    // Загружаем настройки при монтировании или изменении chatId
     useEffect(() => {
         if (chatId) {
+            logger.log(`[useAccessSettings] Загрузка настроек для chatId: ${chatId}`);
             dispatch(fetchAccessSettings({ chatId }));
+        } else {
+             logger.warn('[useAccessSettings] chatId не определен, настройки не загружены.');
         }
     }, [dispatch, chatId]);
-    
-    // Обновляем локальное состояние при изменении хранимых настроек
+
+    // Обновляем локальное состояние при изменении данных из Redux
     useEffect(() => {
+        logger.debug('[useAccessSettings] Синхронизация локальных настроек с Redux:', storedSettings);
         setSettings(storedSettings);
+        // Сбрасываем isDirty при получении новых данных из стора
+        // setIsDirty(false); // Возможно, это нужно, чтобы отменить несохраненные изменения? Или нет?
     }, [storedSettings]);
     
-    // Обработчик изменения настроек
+    // Обработчик изменения настроек в UI
     const handleSettingsChange = useCallback((updatedValues: Partial<AccessSettings>) => {
         setSettings(prevSettings => {
-            const newSettings = { ...prevSettings, ...updatedValues };
+            // Обрабатываем случай, когда prevSettings может быть null
+            const current = prevSettings ?? {}; 
+            const newSettings = { ...current, ...updatedValues };
             setIsDirty(true);
-            return newSettings;
+            logger.debug('[useAccessSettings] Local settings changed:', newSettings);
+            return newSettings as AccessSettings; // Утверждаем тип, т.к. при изменении он не должен быть null
         });
     }, []);
-    
-    // Сохранение настроек на сервере
+
+    // Сохранение настроек ДОСТУПА на сервере
     const saveSettings = useCallback(async () => {
-        // ЛОГИРУЕМ chatId ПЕРЕД проверкой в saveSettings
-        console.log(`[useAccessSettings saveSettings] Попытка сохранения. Текущий chatId в замыкании: ${chatId}`);
+        logger.log(`[useAccessSettings saveSettings] Попытка сохранения. Текущий chatId: ${chatId}`);
 
         if (!chatId) {
-            console.error('❌ Ошибка: chatId не определен при попытке сохранения настроек.');
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: 'Ошибка: Не удалось определить ID чата для сохранения настроек.',
-                duration: 5000
-            }));
-            return false; // Прерываем сохранение
+            logger.error('❌ Ошибка: chatId не определен при попытке сохранения настроек.');
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Ошибка: Не удалось определить ID чата.' }));
+            return false; 
+        }
+        
+        // Проверяем, есть ли локальные настройки для сохранения
+        if (!settings) {
+             logger.error('❌ Ошибка: Локальные настройки отсутствуют (null).');
+             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Ошибка: Нет данных для сохранения.' }));
+             return false;
         }
 
         try {
-            console.log('🔍 Текущие настройки перед сохранением:', {
-                полныеДанные: JSON.stringify(settings, null, 2),
-                keys: Object.keys(settings),
-                count: Object.keys(settings).length,
-                источник: 'useAccessSettings.saveSettings'
-            });
+             logger.log('📝 Настройки доступа для отправки:', settings);
+            // <<< Диспатчим НОВЫЙ thunk updateAccessRules >>>
+            // Передаем chat_id и остальные настройки
+            await dispatch(updateAccessRules({ chat_id: chatId, ...settings })).unwrap();
             
-            // Убедимся, что все поля присутствуют
-            const completeSettings = {
-                chat_id: chatId,
-                
-                // Общие настройки
-                allowMultipleShifts: settings.allowMultipleShifts ?? false,
-                autoApprove: settings.autoApprove ?? false,
-                allowSameDay: settings.allowSameDay ?? false,
-                
-                // Настройки периода регистрации
-                registrationStartDay: settings.registrationStartDay ?? 4,
-                registrationStartHour: settings.registrationStartHour ?? 12,
-                registrationStartMinute: settings.registrationStartMinute ?? 0,
-                
-                // Гибкие настройки периода доступа
-                offsetType: settings.offsetType ?? 'weeks',
-                offsetAmount: settings.offsetAmount ?? 1,
-                periodLength: settings.periodLength ?? 7,
-                
-                // Период активности правила
-                isAlwaysActive: settings.isAlwaysActive ?? true,
-                activeStartDate: settings.activeStartDate ?? '',
-                activeEndDate: settings.activeEndDate ?? '',
-                
-                // Устаревшие поля
-                daysAhead: settings.daysAhead ?? 14,
-                
-                // Списки
-                enabledDates: settings.enabledDates ?? [],
-                restrictedUsers: settings.restrictedUsers ?? [],
-                
-                // Метаданные
-                lastUpdated: new Date().toISOString(),
-            };
-            
-            console.log('📝 Дополненные настройки для отправки:', {
-                полныеДанные: JSON.stringify(completeSettings, null, 2),
-                keys: Object.keys(completeSettings),
-                count: Object.keys(completeSettings).length,
-                источник: 'useAccessSettings.saveSettings (completeSettings)'
-            });
-            
-            await dispatch(updateAccessSettings(completeSettings)).unwrap();
-            
-            dispatch(addNotification({
-                type: NotificationTypes.SUCCESS,
-                message: 'Настройки доступа успешно сохранены',
-                duration: 5000
-            }));
-            
+            dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: 'Настройки доступа успешно сохранены' }));
             setIsDirty(false);
             return true;
         } catch (error) {
-            console.error('❌ Ошибка при сохранении настроек:', error);
-            
-            let errorMessage = 'Ошибка при сохранении настроек доступа';
-            
-            // Проверяем, является ли ошибка строкой (от rejectWithValue)
-            if (typeof error === 'string') {
-                errorMessage = error;
-            } else if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: errorMessage,
-                duration: 5000
-            }));
-            
+            logger.error('❌ Ошибка при сохранении настроек доступа:', error);
+            const errorMessage = typeof error === 'string' ? error : (error instanceof Error ? error.message : 'Неизвестная ошибка');
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: errorMessage }));
             return false;
         }
     }, [dispatch, settings, chatId]);
     
-    // Сброс настроек к начальным значениям
+    // Сброс настроек к значениям из Redux
     const resetSettings = useCallback(() => {
+        logger.debug('[useAccessSettings] Сброс локальных настроек к значениям из Redux.');
         setSettings(storedSettings);
         setIsDirty(false);
     }, [storedSettings]);
-    
+
     return {
         settings,
         isLoading,

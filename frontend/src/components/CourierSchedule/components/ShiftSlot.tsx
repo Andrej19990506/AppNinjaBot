@@ -2,27 +2,16 @@ import React from 'react';
 import styled from 'styled-components';
 import defaultAvatar from '../../../assets/images/Ninja.jpg';
 import { DraggableProvided } from '@hello-pangea/dnd';
-
-// Интерфейсы
-interface ShiftSlotLocalType {
-    id?: string;
-    userId?: string;
-    photo_url?: string | null;
-    firstName?: string;
-    lastName?: string;
-    shiftType?: 'day' | 'night';
-    slotIndex: number;
-    isSeniorCourier?: boolean;
-}
+import type { ShiftSlot } from '../../../types/shifts';
 
 interface ShiftSlotProps {
     shiftType: 'day' | 'night';
     slotIndex: number;
-    courier?: ShiftSlotLocalType;
+    courier?: ShiftSlot;
     currentUserId: string;
     isDraggable: boolean;
     onSlotClick: (shiftType: 'day' | 'night', slotIndex: number) => void;
-    onCourierClick: (event: React.MouseEvent | React.TouchEvent, courier: ShiftSlotLocalType, shiftType: 'day' | 'night', slotIndex: number) => void;
+    onCourierClick: (event: React.MouseEvent | React.TouchEvent, courier: ShiftSlot, shiftType: 'day' | 'night', slotIndex: number) => void;
     onTouchMove?: () => void;
     successAnimation: boolean;
     pressAnimationActive: boolean;
@@ -30,10 +19,18 @@ interface ShiftSlotProps {
     draggableProvided?: DraggableProvided;
     isLoading?: boolean;
     isError?: boolean;
+    onDragStart?: () => void;
+    onDragEnter?: () => void;
+    onDragEnd?: () => void;
+    isDisabled: boolean;
 }
 
 // Стили
-const SlotButton = styled.button<{ $isOccupied: boolean; $isDragTarget?: boolean }>`
+const SlotButton = styled.button<{
+    $isOccupied: boolean;
+    $isDragTarget?: boolean;
+    $isDisabled: boolean;
+}>`
     position: relative;
     width: 60px;
     height: 60px;
@@ -41,16 +38,60 @@ const SlotButton = styled.button<{ $isOccupied: boolean; $isDragTarget?: boolean
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: ${props => props.$isOccupied ? 'transparent' : 'var(--background-paper)'};
-    border: 2px solid ${props => props.$isOccupied ? 'transparent' : 'var(--border-color)'};
-    cursor: ${props => props.$isOccupied ? 'default' : 'pointer'};
+    
+    // Определяем фон и рамку в зависимости от состояния, используя переменные CSS
+    ${props => {
+        if (props.$isDisabled) {
+            // Темнее фон и рамка для disabled
+            return `
+                background-color: var(--gray-100, #242424); 
+                border: 2px solid var(--gray-300, #333333);
+                cursor: not-allowed;
+            `;
+        } else if (props.$isOccupied) {
+            // Прозрачный фон/рамка для занятого
+            return `
+                background-color: transparent;
+                border: 2px solid transparent;
+                cursor: default;
+            `;
+        } else {
+            // Стандартный фон/рамка для активного пустого
+            return `
+                background-color: var(--card-background); /* Используем фон карточки */
+                border: 2px solid var(--border-color); /* Используем стандартный бордер */
+                cursor: pointer;
+            `;
+        }
+    }}
+    
     transition: all 0.2s ease;
     color: var(--text-color);
     font-size: 1.5rem;
     padding: 0;
     
     &:hover {
-        background-color: ${props => props.$isOccupied ? 'transparent' : 'var(--hover-color)'};
+        ${props => {
+            if (props.$isDisabled) {
+                // Цвет не меняется для disabled
+                return `
+                    background-color: var(--gray-100, #242424);
+                    border: 2px solid var(--gray-300, #333333);
+                `;
+            } else if (props.$isOccupied) {
+                 // Цвет не меняется для занятых
+                return `
+                    background-color: transparent;
+                    border: 2px solid transparent;
+                `;
+            } else {
+                // Hover для пустых активных
+                return `
+                    background-color: var(--hover-overlay); /* Используем hover-overlay */
+                    border: 2px solid var(--border-color);
+                `;
+            }
+        }}
     }
 
     &.drop-target {
@@ -68,13 +109,18 @@ const SlotButton = styled.button<{ $isOccupied: boolean; $isDragTarget?: boolean
     }
 `;
 
-const PlusIcon = styled.div`
-    color: var(--primary-color);
+const PlusIcon = styled.div<{$isDisabled: boolean}>`
+    // Тусклый серый для disabled плюса
+    color: ${props => props.$isDisabled ? 'var(--gray-600, #737373)' : 'var(--primary-color)'};
     font-size: 1.8rem;
     font-weight: 300;
 `;
 
-const CourierAvatarContainer = styled.div<{ $isDraggable?: boolean; $isDragging?: boolean }>`
+const CourierAvatarContainer = styled.div<{
+    $isDraggable?: boolean;
+    $isDragging?: boolean;
+    $isDisabled: boolean;
+}>`
     width: 100%;
     height: 100%;
     position: relative;
@@ -82,20 +128,20 @@ const CourierAvatarContainer = styled.div<{ $isDraggable?: boolean; $isDragging?
     border: 2px solid var(--primary-color);
     transition: all 0.2s ease;
     -webkit-touch-callout: none !important;
-    touch-action: none !important;
-    pointer-events: ${props => props.$isDraggable ? 'auto' : 'none'} !important;
+    // touch-action: none !important;
+    pointer-events: auto;
     user-select: none !important;
     -webkit-user-select: none !important;
     -webkit-user-drag: none !important;
     user-drag: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-    
-    ${props => props.$isDraggable && `
-        cursor: grab;
-        
+    opacity: ${props => props.$isDisabled ? 0.5 : 1}; 
+    cursor: ${props => props.$isDisabled ? 'not-allowed' : (props.$isDraggable ? 'grab' : 'default')};
+
+    // Убираем hover/active/dragging для $isDisabled 
+    ${props => !props.$isDisabled && props.$isDraggable && `
         &:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+           transform: scale(1.05);
+           box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         
         &:active, &.pressing {
@@ -104,22 +150,13 @@ const CourierAvatarContainer = styled.div<{ $isDraggable?: boolean; $isDragging?
         }
         
         &.dragging {
-            opacity: 0.7;
-            transform: scale(1.1);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-            cursor: grabbing;
-            z-index: 9999;
-            transition: all 0.15s ease;
+             opacity: 0.7;
+             transform: scale(1.1);
+             box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+             cursor: grabbing;
+             z-index: 9999;
+             transition: all 0.15s ease;
         }
-        
-        ${props.$isDragging && `
-            opacity: 0.7;
-            transform: scale(1.1);
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-            cursor: grabbing;
-            z-index: 9999;
-            transition: all 0.15s ease;
-        `}
     `}
 `;
 
@@ -234,7 +271,8 @@ const LoadingSpinner = styled.div`
     }
 `;
 
-const ShiftSlot: React.FC<ShiftSlotProps> = ({
+// Переименовываем компонент
+const ShiftSlotComponent: React.FC<ShiftSlotProps> = ({
     shiftType,
     slotIndex,
     courier,
@@ -248,7 +286,11 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
     isDragging,
     draggableProvided,
     isLoading,
-    isError
+    isError,
+    onDragStart,
+    onDragEnter,
+    onDragEnd,
+    isDisabled
 }) => {
     const isOccupied = Boolean(courier);
     const isCurrentUser = courier?.userId === currentUserId;
@@ -258,7 +300,7 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
         console.log(`[ShiftSlot] Rendering slot with courier:`, {
             firstName: courier.firstName || 'undefined',
             lastName: courier.lastName || 'undefined',
-            photo: courier.photo_url ? (courier.photo_url.substring(0, 30) + '...') : 'undefined',
+            photo: courier.photoUrl ? (courier.photoUrl.substring(0, 30) + '...') : 'undefined',
             userId: courier.userId || 'undefined',
             isSeniorCourier: courier.isSeniorCourier,
             shiftType,
@@ -271,15 +313,26 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
 
     // Обработчик клика по слоту
     const handleSlotClick = (e: React.MouseEvent | React.TouchEvent) => {
-        // Если слот занят, не обрабатываем клик
-        if (isOccupied) return;
-        
-        // Предотвращаем всплытие события
+        if (isDisabled || isOccupied) return;
         e.stopPropagation();
-        
-        // Вызываем обработчик
         onSlotClick(shiftType, slotIndex);
     };
+
+    const handleCourierClick = (e: React.MouseEvent | React.TouchEvent) => {
+        if (isDisabled || !courier) return;
+        e.stopPropagation();
+        onCourierClick(e, courier, shiftType, slotIndex);
+    };
+
+    // Определяем текст для всплывающей подсказки
+    const tooltipText = isDisabled 
+        ? `Вы уже записаны на ${shiftType === 'day' ? 'дневную' : 'вечернюю'} смену в этот день` 
+        : (isOccupied ? `${courier?.firstName} ${courier?.lastName}` : undefined);
+
+    // Добавляем лог для проверки
+    if (slotIndex === 0 && shiftType === 'day') { // Логгируем только для первого дневного слота для примера
+      console.log(`[ShiftSlot ${shiftType}-${slotIndex}] isDisabled: ${isDisabled}, tooltipText:`, tooltipText);
+    }
 
     return (
         <SlotButton
@@ -290,23 +343,26 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
             className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
             onClick={handleSlotClick}
             $isOccupied={isOccupied}
+            $isDisabled={isDisabled}
+            aria-label={isOccupied ? `Слот ${slotIndex + 1} занят ${courier?.firstName}` : `Слот ${slotIndex + 1}`}
+            disabled={isDisabled}
+            title={tooltipText}
+            onTouchStart={isOccupied && !isDisabled ? handleCourierClick : handleSlotClick}
+            onTouchMove={!isDisabled ? onTouchMove : undefined}
             {...(draggableProvided ? draggableProvided.draggableProps : {})}
             {...(draggableProvided ? draggableProvided.dragHandleProps : {})}
             ref={draggableProvided ? draggableProvided.innerRef : null}
         >
             {isOccupied && courier ? (
                 <CourierAvatarContainer
-                    onClick={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
-                    onMouseDown={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
-                    onTouchStart={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={(e) => onCourierClick(e, courier, shiftType, slotIndex)}
-                    className={`courier-avatar-container ${isDragging ? 'dragging' : ''}`}
-                    $isDraggable={isDraggable}
+                    $isDraggable={!isDisabled && isDraggable}
                     $isDragging={isDragging}
+                    $isDisabled={isDisabled}
+                    className={`courier-avatar-container ${isDragging ? 'dragging' : ''}`}
+                    title={`${courier?.firstName} ${courier?.lastName}`}
                 >
                     <CourierAvatarImage 
-                        src={courier.photo_url || defaultAvatar}
+                        src={courier.photoUrl || defaultAvatar}
                         alt={`${courier.firstName} ${courier.lastName}`}
                         className={isCurrentUser ? 'current-user' : ''}
                         onError={(e) => {
@@ -317,7 +373,7 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
                     {courier.isSeniorCourier && <SeniorBadge />}
                 </CourierAvatarContainer>
             ) : (
-                <PlusIcon>+</PlusIcon>
+                <PlusIcon $isDisabled={isDisabled}>+</PlusIcon>
             )}
             
             {/* Анимация загрузки */}
@@ -333,4 +389,6 @@ const ShiftSlot: React.FC<ShiftSlotProps> = ({
     );
 };
 
-export default React.memo(ShiftSlot); 
+export type { ShiftSlotProps };
+// Обновляем экспорт по умолчанию
+export default React.memo(ShiftSlotComponent); 

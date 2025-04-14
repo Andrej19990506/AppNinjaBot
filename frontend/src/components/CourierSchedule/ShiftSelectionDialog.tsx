@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, FC, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
-import { ReserveShift, CourierShift } from '../../types';
+import { ReserveEntry, CourierShift } from '../../types/shifts';
+import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
+import { SLOTS_CONFIG } from './CourierCalendar/constants';
 import { format } from 'date-fns';
-import { useDispatch } from 'react-redux';
-import { forceFetchReserves } from '../../store/slices/reservesSlice';
-import { AppDispatch } from '../../store/store';
 import ShiftPanel from './ShiftPanel';
 import ReservePanel from './ReservePanel';
 import { ru } from 'date-fns/locale';
 import BottomDrawer from './components/BottomDrawer';
+import ShiftConfirmationDialog from './components/ShiftConfirmationDialog';
+import { logger } from '../../utils/logger';
+import { useSelector } from 'react-redux';
+import { selectUser } from '../../store/slices/userSlice';
 
 const ModeSwitchContainer = styled.div`
     display: flex;
@@ -73,164 +76,227 @@ interface ShiftSelectionDialogProps {
     date: Date;
     dayShifts: CourierShift[];
     nightShifts: CourierShift[];
-    maxDaySlots: number;
-    maxNightSlots: number;
+    slotConfig: WeeklySlotConfig | null;
     currentUserId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => Promise<any>;
-    onReserveSelect: () => Promise<any>;
-    onCancelReserve: (reserveId: string) => Promise<void>;
-    reserves: ReserveShift[];
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number) => Promise<any>;
     chatId?: string;
+    getDisplayReservesForDate: (date: Date | null) => ReserveEntry[];
+    isCurrentUserInReserveForDate: (date: Date | null) => boolean;
+    addCurrentUserToReserve: (date: Date) => Promise<void>;
+    cancelReserveById: (reserveId: string) => Promise<void>;
+    isLoading: boolean;
+    error: string | null;
 }
 
-const ShiftSelectionDialog: React.FC<ShiftSelectionDialogProps> = ({
+interface PendingShiftAction {
+    shiftType: 'day' | 'night';
+    slotIndex: number;
+}
+
+const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = ({
     isOpen,
     onClose,
     date,
     dayShifts,
     nightShifts,
-    maxDaySlots,
-    maxNightSlots,
+    slotConfig,
     currentUserId,
     currentUserAvatar,
     currentUserName,
     onSlotSelect,
-    onReserveSelect,
-    onCancelReserve,
-    reserves,
-    chatId
+    chatId,
+    getDisplayReservesForDate,
+    isCurrentUserInReserveForDate,
+    addCurrentUserToReserve,
+    cancelReserveById,
+    isLoading: isReserveLoading,
+    error: reserveError,
 }) => {
-    const dispatch = useDispatch<AppDispatch>();
     const [mode, setMode] = useState<'shifts' | 'reserves'>('shifts');
-    const [isLoading, setIsLoading] = useState(false);
     const [isBookingLoading, setIsBookingLoading] = useState(false);
     const [loadingSlot, setLoadingSlot] = useState<number | null>(null);
     const [loadingType, setLoadingType] = useState<'day' | 'night' | null>(null);
+    
+    const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+    const [pendingAction, setPendingAction] = useState<PendingShiftAction | null>(null);
+    const [initialModeSet, setInitialModeSet] = useState(false);
+
+    logger.debug(`[ShiftSelectionDialog] Rendering component. Current mode: ${mode}, isOpen: ${isOpen}, initialModeSet: ${initialModeSet}`);
 
     useEffect(() => {
-        if (isOpen) {
+        logger.debug(`[ShiftSelectionDialog] useEffect [isOpen, initialModeSet] running. isOpen: ${isOpen}, initialModeSet: ${initialModeSet}`);
+        if (isOpen && !initialModeSet) {
+            logger.debug('[ShiftSelectionDialog] Condition Met (isOpen && !initialModeSet): Setting mode to shifts and initialModeSet to true.');
             setMode('shifts');
+            setInitialModeSet(true);
         }
-    }, [isOpen]);
+        else if (!isOpen && initialModeSet) {
+            logger.debug('[ShiftSelectionDialog] Condition Met (!isOpen && initialModeSet): Dialog closed, resetting initialModeSet to false.');
+            setInitialModeSet(false);
+        } else {
+            logger.debug('[ShiftSelectionDialog] Conditions NOT met for mode/initialModeSet change in this effect.');
+        }
+    }, [isOpen, initialModeSet]);
 
-    // Функция для отображения стандартного сообщения с toast
-    const showToast = (message: string) => {
-        console.log('[ShiftSelectionDialog] showToast:', message);
-        // Здесь мог бы быть вызов toast библиотеки
-    };
-
-    // Функция для отображения сообщения об успешном действии
     const showSuccessMessage = (message: string) => {
         console.log('[ShiftSelectionDialog] showSuccessMessage:', message);
-        // Более заметное сообщение об успехе
     };
 
-    // Обработчик выбора слота
-    const handleSlotSelectWrapper = async (
+    const handleSlotSelectWrapper = useCallback((
         shiftType: 'day' | 'night',
-        slotIndex: number,
-        existingShiftId?: string,
-        isDragAction = false
+        slotIndex: number
     ) => {
+        setPendingAction({ shiftType, slotIndex });
+        setIsConfirmationOpen(true);
+        logger.info('[ShiftSelectionDialog] Opening confirmation for:', { shiftType, slotIndex });
+    }, [setPendingAction, setIsConfirmationOpen]);
+
+    const handleConfirmAction = useCallback(async () => {
+        if (!pendingAction) return;
+
+        const { shiftType, slotIndex } = pendingAction;
+        
         setIsBookingLoading(true);
+        setLoadingType(shiftType);
+        setLoadingSlot(slotIndex);
+        
+        let bookingSuccess = false; 
         try {
-            setLoadingType(shiftType);
-            setLoadingSlot(slotIndex);
-            await onSlotSelect(shiftType, slotIndex, existingShiftId, isDragAction);
-            if (!isDragAction) {
-                showSuccessMessage('Запись на смену успешно выполнена');
-            }
+            logger.info(`[ShiftSelectionDialog] Подтверждение действия: бронирование ${shiftType} слота ${slotIndex}`);
+            await onSlotSelect(shiftType, slotIndex);
+            logger.info(`[ShiftSelectionDialog] Бронирование смены успешно завершено.`);
+            bookingSuccess = true;
+
+            // <<< Закомментированный блок автоматической отмены резерва >>>
+            // if (isCurrentUserInReserveForDate(date)) { ... }
+
         } catch (error) {
-            console.error('[ShiftSelectionDialog] Error booking shift:', error);
-            showToast('Произошла ошибка при записи на смену');
+            logger.error('[ShiftSelectionDialog] Ошибка при подтверждении действия (бронировании смены):', error);
+            // Используем showToast, если нужно показать ошибку (хотя тут он вроде не вызывается)
+            // showToast('Произошла ошибка при выполнении действия'); 
         } finally {
             setLoadingType(null);
             setLoadingSlot(null);
             setIsBookingLoading(false);
+            if (bookingSuccess) {
+                 setIsConfirmationOpen(false);
+                 setPendingAction(null);
+            }
         }
-    };
+    }, [
+        pendingAction, 
+        onSlotSelect, 
+        // Убираем ненужные зависимости:
+        // isCurrentUserInReserveForDate, 
+        // getDisplayReservesForDate, 
+        // cancelReserveById, 
+        // date, 
+        // currentUserId, 
+        setIsBookingLoading, 
+        setLoadingType, 
+        setLoadingSlot, 
+        setIsConfirmationOpen, 
+        setPendingAction
+        // showToast // Тоже не используется внутри, если не раскомментировать выше
+    ]);
 
-    // Обработчик выбора резерва
-    const handleReserveSelectWrapper = async () => {
-        try {
-            setIsLoading(true);
-            await onReserveSelect();
-            const formattedDate = format(date, 'yyyy-MM-dd');
-            dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
-            showSuccessMessage('Успешно добавлено в резерв');
-        } catch (error) {
-            console.error('[ShiftSelectionDialog] Error in reserve selection:', error);
-            showToast('Произошла ошибка при добавлении в резерв');
-        } finally {
-            setIsLoading(false);
+    const handleCloseConfirmation = useCallback(() => {
+        setIsConfirmationOpen(false);
+        setPendingAction(null);
+    }, [setIsConfirmationOpen, setPendingAction]);
+
+    const setModeWrapper = useCallback((newMode: 'shifts' | 'reserves') => {
+        setMode(prevMode => {
+            logger.debug(`[ShiftSelectionDialog] setMode called. Previous: ${prevMode}, Requested New: ${newMode}`);
+            return newMode;
+        });
+    }, [setMode]);
+
+    const dayIndex = date.getDay();
+    const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
+    const currentMaxDay = dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS;
+    const currentMaxNight = dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS;
+
+    const user = useSelector(selectUser);
+    const isCurrentUserSenior = useMemo(() => {
+        if (!user || !user.groups || !chatId) {
+            return false;
         }
-    };
+        const currentGroup = user.groups.find(group => String(group.chat_id) === String(chatId));
+        const isSenior = currentGroup?.is_senior_courier ?? false;
+        logger.debug(`[ShiftSelectionDialog] Computed isCurrentUserSenior for chatId ${chatId}: ${isSenior}`);
+        return isSenior;
+    }, [user, chatId]);
 
     return (
         <BottomDrawer
             isOpen={isOpen}
             onClose={onClose}
-            title={`Смены на ${format(date, 'd MMMM yyyy', { locale: ru })}`}
+            title={`Смены и резерв на ${format(date, 'd MMMM yyyy', { locale: ru })}`}
         >
             <ModeSwitchContainer>
                 <ModeButton
                     $active={mode === 'shifts'}
-                    onClick={() => setMode('shifts')}
+                    onClick={() => setModeWrapper('shifts')}
                 >
                     Смены
                 </ModeButton>
                 <ModeButton
                     $active={mode === 'reserves'}
-                    onClick={() => setMode('reserves')}
+                    onClick={() => setModeWrapper('reserves')}
                 >
                     Резерв
                 </ModeButton>
             </ModeSwitchContainer>
 
             {mode === 'shifts' ? (
-                <ShiftPanel
-                    date={date}
-                    dayShifts={dayShifts}
-                    nightShifts={nightShifts}
-                    maxDaySlots={maxDaySlots}
-                    maxNightSlots={maxNightSlots}
-                    currentUserId={currentUserId}
-                    currentUserAvatar={currentUserAvatar}
-                    currentUserName={currentUserName}
-                    onSlotSelect={handleSlotSelectWrapper}
-                    onSwitchToReserve={() => setMode('reserves')}
-                    forceUpdate={() => {
-                        const formattedDate = format(date, 'yyyy-MM-dd');
-                        dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
-                    }}
-                    reserves={reserves}
-                    showSuccessMessage={showSuccessMessage}
-                    chatId={chatId}
-                    isLoading={isBookingLoading}
-                    loadingSlot={loadingSlot}
-                    loadingType={loadingType}
-                />
+                isConfirmationOpen && pendingAction ? (
+                    <ShiftConfirmationDialog
+                        isOpen={isConfirmationOpen}
+                        onCancel={handleCloseConfirmation}
+                        onConfirm={handleConfirmAction}
+                        date={date}
+                        pendingShift={pendingAction}
+                        userName={currentUserName}
+                        userAvatar={currentUserAvatar}
+                    />
+                ) : (
+                    <ShiftPanel
+                        date={date}
+                        dayShifts={dayShifts}
+                        nightShifts={nightShifts}
+                        maxDaySlots={currentMaxDay}
+                        maxNightSlots={currentMaxNight}
+                        currentUserId={currentUserId}
+                        currentUserName={currentUserName}
+                        onSlotSelect={handleSlotSelectWrapper}
+                        onSwitchToReserve={() => setModeWrapper('reserves')}
+                        showSuccessMessage={showSuccessMessage}
+                        isLoading={isBookingLoading}
+                        loadingSlot={loadingSlot}
+                        loadingType={loadingType}
+                    />
+                )
             ) : (
                 <ReservePanel
                     date={date}
-                    reserves={reserves}
                     currentUserId={currentUserId}
                     currentUserAvatar={currentUserAvatar}
                     currentUserName={currentUserName}
                     dayShifts={dayShifts}
                     nightShifts={nightShifts}
-                    onSwitchToShifts={() => setMode('shifts')}
-                    onReserveSelect={handleReserveSelectWrapper}
-                    onCancelReserve={onCancelReserve}
-                    forceUpdate={() => {
-                        const formattedDate = format(date, 'yyyy-MM-dd');
-                        dispatch(forceFetchReserves({ groupId: parseInt(chatId || '0', 10), date: formattedDate }));
-                    }}
+                    onSwitchToShifts={() => setModeWrapper('shifts')}
+                    getDisplayReservesForDate={getDisplayReservesForDate}
+                    isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
+                    addCurrentUserToReserve={addCurrentUserToReserve}
+                    cancelReserveById={cancelReserveById}
+                    isLoading={isReserveLoading}
+                    error={reserveError}
                     showSuccessMessage={showSuccessMessage}
                     chatId={chatId}
-                    isLoading={isLoading}
+                    isCurrentUserSenior={isCurrentUserSenior}
                 />
             )}
         </BottomDrawer>

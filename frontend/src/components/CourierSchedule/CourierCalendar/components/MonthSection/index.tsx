@@ -2,9 +2,9 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { WEEK_DAYS } from '../../constants';
-import { CourierShift } from '../../types';
+import { CourierShift } from '../../../../../types/shifts';
 import DayCell from '../DayCell';
-import { isToday, isSelected, isDateAvailable, getDaysInMonth } from '../../utils/dateUtils';
+import { isToday, isSelected, getDaysInMonth } from '../../utils/dateUtils';
 import {
     MonthSectionContainer,
     MonthTitle,
@@ -12,7 +12,7 @@ import {
     WeekDay,
     DaysGrid
 } from './styles';
-import { AccessSettings } from '../../../../../store/slices/shiftsSlice';
+import { AccessSettings, WeeklySlotConfig } from '../../../../../store/slices/shiftsSlice';
 
 interface MonthSectionProps {
     month: Date;
@@ -24,9 +24,9 @@ interface MonthSectionProps {
     userIsInReserve: (date: Date) => boolean;
     currentUserAvatar?: string;
     currentUserId: string;
-    accessSettings?: AccessSettings;
-    maxDaySlots: number;
-    maxNightSlots: number;
+    accessSettings: AccessSettings | null;
+    slotConfig: WeeklySlotConfig | null;
+    isDateAvailable: (date: Date) => boolean;
 }
 
 const MonthSection: React.FC<MonthSectionProps> = ({
@@ -40,8 +40,8 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     currentUserAvatar,
     currentUserId,
     accessSettings,
-    maxDaySlots,
-    maxNightSlots
+    slotConfig,
+    isDateAvailable
 }) => {
     const days = getDaysInMonth(month);
 
@@ -70,7 +70,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             isToday={isToday(date)}
                             isSelected={isSelected(date, selectedDate)}
                             hasShifts={getDayShifts(date).length > 0 || getNightShifts(date).length > 0}
-                            isAvailable={isDateAvailable(date, currentUserId, accessSettings)}
+                            isAvailable={isDateAvailable(date)}
                             onClick={() => onDayClick(date)}
                             currentUserId={currentUserId}
                             currentUserAvatar={currentUserAvatar}
@@ -78,8 +78,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             getNightShifts={getNightShifts}
                             hasUserShift={hasUserShift}
                             userIsInReserve={userIsInReserve}
-                            maxDaySlots={maxDaySlots}
-                            maxNightSlots={maxNightSlots}
+                            slotConfig={slotConfig}
                         />
                     );
                 })}

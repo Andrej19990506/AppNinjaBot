@@ -24,6 +24,8 @@ class GroupCreate(GroupBase):
 class GroupRead(GroupBase):
     id: int
     created_at: datetime
+    role: Optional[str] = None
+    is_senior_courier: Optional[bool] = None
 
     # Наследуем и расширяем model_config
     model_config = ConfigDict(from_attributes=True, populate_by_name=True) 

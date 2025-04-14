@@ -34,12 +34,12 @@ export const isSelected = (date: Date | null, selectedDate: Date | null): boolea
  * @param accessSettings Настройки доступа из Redux
  * @returns true, если запись на указанную дату доступна
  */
-export function isDateAvailable(date: Date, userId?: string | number, accessSettings?: AccessSettings): boolean {
+export function isDateAvailable(date: Date, userId?: string | number, accessSettings?: AccessSettings | null): boolean {
     debugLog(`🔍 Проверка доступности даты: ${format(date, 'yyyy-MM-dd')}`);
     
     const state = store.getState();
     // Получаем настройки либо из параметра, либо из хранилища
-    const settings = accessSettings || state.shifts.accessSettings;
+    const settings = accessSettings !== undefined ? accessSettings : state.shifts.accessSettings;
 
     // Рассчитываем доступные даты в соответствии с новой логикой
     const availableDates = calculateAvailableDates(settings);
@@ -49,7 +49,7 @@ export function isDateAvailable(date: Date, userId?: string | number, accessSett
     const isAvailable = availableDates.includes(dateFormatted);
     
     // Дополнительно проверяем персональные ограничения (если дата в целом доступна)
-    if (isAvailable && userId && settings.restrictedUsers?.includes(userId)) {
+    if (isAvailable && userId && settings?.restrictedUsers?.includes(userId)) {
          debugLog(`❌ Дата ${dateFormatted} доступна по общим правилам, но ограничена для пользователя ${userId}`);
          return false;
     }
@@ -221,9 +221,9 @@ function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number
  * @param accessSettings Настройки доступа из Redux
  * @returns Массив доступных дат в формате YYYY-MM-DD
  */
-export function calculateAvailableDates(accessSettings?: AccessSettings): string[] {
+export function calculateAvailableDates(accessSettings?: AccessSettings | null): string[] {
     debugLog('📅 Расчет доступных дат...');
-    const settings = accessSettings || store.getState().shifts.accessSettings;
+    const settings = accessSettings !== undefined ? accessSettings : store.getState().shifts.accessSettings;
     
     if (!settings) {
         debugLog('❌ Настройки не загружены, расчет невозможен');

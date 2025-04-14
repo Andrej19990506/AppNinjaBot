@@ -68,6 +68,15 @@ app = FastAPI(
 from telegramNinjaBot.api.routes import router as api_router
 app.include_router(api_router) # Убираем префикс "/api"
 logger.info("✅ Роутер API подключен")
+
+# --- Добавляем эндпоинт /health --- 
+@app.get("/health", tags=["System"], summary="Проверка состояния сервиса")
+async def health_check():
+    """Возвращает статус 'ok', если сервис работает."""
+    return {"status": "ok"}
+logger.info("✅ Эндпоинт /health добавлен")
+# ---------------------------------
+
 # --- Конец подключения роутера ---
 
 # +++ Добавляем запуск через Uvicorn +++

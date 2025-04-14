@@ -2,7 +2,7 @@
     position: fixed;
     top: 20px;
     right: 20px;
-    z-index: 9999;
+    z-index: 10000;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -12,12 +12,15 @@
 .notification {
     display: flex;
     align-items: center;
-    padding: 12px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    background-color: white;
-    min-width: 300px;
-    max-width: 100%;
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    background-color: var(--card-background);
+    color: var(--text-color);
+    min-width: 320px;
+    max-width: 400px;
+    border-left-width: 5px;
+    border-left-style: solid;
 }
 
 .iconContainer {
@@ -34,59 +37,63 @@
 .title {
     font-weight: 600;
     margin-bottom: 4px;
+    color: var(--text-color);
 }
 
 .message {
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 0.95rem;
+    line-height: 1.5;
     word-wrap: break-word;
+    color: var(--text-secondary);
 }
 
 .closeButton {
-    margin-left: 8px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    margin-left: 12px;
+    color: var(--text-secondary);
+    opacity: 0.8;
+    transition: opacity 0.2s, color 0.2s;
 }
 
 .closeButton:hover {
     opacity: 1;
+    color: var(--primary-color);
 }
 
 .icon {
-    font-size: 24px;
+    font-size: 22px;
 }
 
 /* Notification types */
 .success {
-    border-left: 4px solid #4caf50;
+    border-left-color: var(--success-color);
 }
 
 .success .icon {
-    color: #4caf50;
+    color: var(--success-color);
 }
 
 .error {
-    border-left: 4px solid #f44336;
+    border-left-color: var(--error-color);
 }
 
 .error .icon {
-    color: #f44336;
+    color: var(--error-color);
 }
 
 .warning {
-    border-left: 4px solid #ff9800;
+    border-left-color: var(--warning-color);
 }
 
 .warning .icon {
-    color: #ff9800;
+    color: var(--warning-color);
 }
 
 .info {
-    border-left: 4px solid #2196f3;
+    border-left-color: var(--primary-color);
 }
 
 .info .icon {
-    color: #2196f3;
+    color: var(--primary-color);
 }
 
 /* Медиа-запросы */

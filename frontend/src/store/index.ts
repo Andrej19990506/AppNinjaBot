@@ -12,7 +12,6 @@ import socketReducer from './slices/socketSlice';
 import store from './store';
 
 import { setupWriteOffWebSocket } from './slices/writeOffSlice';
-import { subscribeToShiftEvents } from './slices/shiftsSlice';
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch; 

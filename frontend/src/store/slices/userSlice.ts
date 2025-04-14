@@ -4,6 +4,7 @@ import { User, UserState } from '../../types/user';
 import { Admin } from '../../types/inventory';
 import { ChatContext } from './chatSlice';
 import { userApi } from '../../services/api';
+import { updateMemberSeniority, updateCourierProfile } from '../../services/courierApi';
 import axios from 'axios';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -15,7 +16,7 @@ interface Group {
 }
 
 // Тестовые данные для режима разработки
-const DEV_MODE_USER_DATA: User = {
+const DEV_MODE_USER_DATA: Partial<User> = {
     id: 1682142222, // ID тестового пользователя (Андрей Николаевич)
     // Присваиваем пустые строки для теста окна обновления профиля
     first_name: "",
@@ -24,7 +25,6 @@ const DEV_MODE_USER_DATA: User = {
     photo_url: "https://api.telegram.org/file/bot7878489788:AAHupjPYeWpzVwo77F_BCR6fIA1I_P8p_Uc/photos/file_0.jpg",
     isAdmin: false,
     adminRights: null,
-    is_senior_courier: true,
     groups: [
         {
             chat_id: "-1004755640016",
@@ -71,13 +71,15 @@ export const initializeFromTelegram = createAsyncThunk(
 
         if (isDevelopmentMode && !webApp?.initDataUnsafe?.user?.id) {
             console.log('🔧 Режим разработки - используем тестовые данные пользователя');
-            userId = DEV_MODE_USER_DATA.id;
+            // Используем ID из DEV_MODE_USER_DATA или 0 как fallback
+            userId = DEV_MODE_USER_DATA.id ?? 0; 
+            // Проверяем наличие полей в DEV_MODE_USER_DATA или используем пустые строки/fallback ID
             userDataFromWebApp = {
-                id: userId,
-                first_name: DEV_MODE_USER_DATA.first_name,
-                last_name: DEV_MODE_USER_DATA.last_name,
-                username: DEV_MODE_USER_DATA.username,
-                photo_url: DEV_MODE_USER_DATA.photo_url,
+                id: userId, // userId здесь уже точно number
+                first_name: DEV_MODE_USER_DATA.first_name ?? '', // fallback на пустую строку
+                last_name: DEV_MODE_USER_DATA.last_name ?? '', // fallback на пустую строку
+                username: DEV_MODE_USER_DATA.username ?? '', // fallback на пустую строку
+                photo_url: DEV_MODE_USER_DATA.photo_url, // photo_url может быть undefined по типу WebAppUser
             };
         } else if (webApp?.initDataUnsafe?.user?.id) {
             userId = webApp.initDataUnsafe.user.id;
@@ -102,7 +104,6 @@ export const initializeFromTelegram = createAsyncThunk(
             language_code: userDataFromWebApp.language_code,
             isAdmin: false,
             adminRights: null,
-            is_senior_courier: false,
             groups: [],
         };
 
@@ -118,23 +119,14 @@ export const initializeFromTelegram = createAsyncThunk(
                 
                 if (profileData) {
                     console.log('✅ Профиль пользователя загружен:', profileData);
-                    // Обновляем пользователя данными из профиля
-                    // Приоритет данных: Профиль > Telegram (для полей, которые есть и там и там)
                     user = {
-                        ...user, // Сохраняем уже полученные группы и базовые данные
-                        // Убеждаемся, что id остается Telegram ID
+                        ...user, 
                         id: profileData.user_id || userId, 
-                        // Убираем user_id, так как его нет в типе User
-                        // user_id: profileData.user_id || userId, 
-                        first_name: profileData.first_name || user.first_name, // Используем из профиля, если есть
-                        last_name: profileData.last_name || user.last_name, // Используем из профиля, если есть
-                        username: profileData.username || user.username, // Используем из профиля, если есть
-                        photo_url: profileData.photo_url || user.photo_url, // Используем из профиля, если есть
-                        is_senior_courier: profileData.is_senior_courier || false, // !!! Получаем актуальный статус
-                        // Обновите другие поля, если они есть в UserProfileResponse и User
-                        // isAdmin: profileData.is_admin || false,
+                        first_name: profileData.first_name || user.first_name, 
+                        last_name: profileData.last_name || user.last_name, 
+                        username: profileData.username || user.username, 
+                        photo_url: profileData.photo_url || user.photo_url, 
                     };
-                     // Расширяем лог, чтобы видеть все поля, включая groups
                      console.log('🔄 Пользователь обновлен данными из профиля:', JSON.stringify(user, null, 2)); 
                 } else {
                     console.warn(`⚠️ Не удалось загрузить профиль для пользователя ${userId} (возможно, 404). Используются базовые данные.`);
@@ -194,6 +186,73 @@ export const checkAdminRights = createAsyncThunk<void, {
     }
 );
 
+// --- THUNK ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ (ИМЯ/ФАМИЛИЯ) --- 
+export const updateUserProfileThunk = createAsyncThunk<
+    // Тип возвращаемого значения при успехе (обновленные данные пользователя из API)
+    User, // Предполагаем, что API возвращает полный профиль
+    // Тип аргументов
+    { userId: number | string; data: { firstName: string; lastName: string } },
+    { rejectValue: string }
+>(
+    'user/updateProfile', // Новое имя действия
+    async ({ userId, data }, { rejectWithValue, getState }) => {
+        console.log(`[userSlice] 🚀 Отправка запроса на обновление профиля (имя/фамилия) для ${userId}`);
+        try {
+            // Вызываем API функцию, которая теперь обновляет только имя/фамилию
+            const updatedProfile = await updateCourierProfile(userId, data);
+            console.log('[userSlice] ✅ Ответ API на обновление профиля:', updatedProfile);
+            
+            // Формируем обновленные данные для Redux, сохраняя существующие группы и т.д.
+            const currentState = (getState() as any).user as UserState;
+            if (!currentState.user) {
+                 throw new Error('Current user state is missing');
+            }
+            
+            const updatedUser: User = {
+                ...currentState.user,
+                first_name: updatedProfile.first_name || '',
+                last_name: updatedProfile.last_name || ''
+                // Остальные поля берем из текущего состояния
+            };
+            
+            return updatedUser; // Возвращаем полный обновленный объект User
+        } catch (error: any) {
+            console.error('[userSlice] ❌ Ошибка при обновлении профиля:', error);
+            const message = error.message || 'Не удалось обновить профиль.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// --- НОВЫЙ THUNK ДЛЯ ОБНОВЛЕНИЯ СТАТУСА СТАРШЕГО --- 
+export const updateSeniorityStatus = createAsyncThunk<
+    // Тип возвращаемого значения при успехе (данные из API ответа)
+    { groupTelegramId: string; userTelegramId: string; isSenior: boolean | null }, 
+    // Тип аргументов, которые передаем в thunk
+    { groupTelegramId: string; userTelegramId: string; isSenior: boolean },
+    // Типы для rejectWithValue
+    { rejectValue: string }
+>(
+    'user/updateSeniorityStatus',
+    async ({ groupTelegramId, userTelegramId, isSenior }, { rejectWithValue }) => {
+        console.log(`[userSlice] 🚀 Отправка запроса на обновление статуса старшего: group=${groupTelegramId}, user=${userTelegramId}, status=${isSenior}`);
+        try {
+            const response = await updateMemberSeniority(groupTelegramId, userTelegramId, isSenior);
+            console.log('[userSlice] ✅ Ответ API на обновление статуса старшего:', response);
+            // Возвращаем данные, чтобы обновить состояние в fulfilled
+            return { 
+                groupTelegramId,
+                userTelegramId,
+                isSenior: response.is_senior_courier // Берем статус из ответа API
+            };
+        } catch (error: any) {
+            console.error('[userSlice] ❌ Ошибка при обновлении статуса старшего:', error);
+            const message = error.message || 'Не удалось обновить статус старшего курьера.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
 const userSlice = createSlice({
     name: 'user',
     initialState,
@@ -213,18 +272,20 @@ const userSlice = createSlice({
                 state.user.adminRights = adminRights;
             }
         },
-        updateSeniorCourierStatus: (state, action: PayloadAction<boolean>) => {
-            if (state.user) {
-                state.user.is_senior_courier = action.payload;
-                console.log('🌟 Обновлен статус старшего курьера в хранилище:', action.payload);
-            }
-        },
-        setUserSeniorStatus: (state, action: PayloadAction<boolean>) => {
-            if (state.user) {
-                state.user.is_senior_courier = action.payload;
-            }
-        },
         resetUserState: () => initialState,
+        // Редьюсер для прямого обновления статуса в конкретной группе (если нужно)
+        updateUserGroupSeniority: (state, action: PayloadAction<{ groupTelegramId: string; isSenior: boolean | null }>) => {
+            if (state.user && state.user.groups) {
+                const { groupTelegramId, isSenior } = action.payload;
+                const groupIndex = state.user.groups.findIndex(g => String(g.chat_id) === groupTelegramId);
+                if (groupIndex !== -1) {
+                    state.user.groups[groupIndex].is_senior_courier = isSenior;
+                     console.log(`[userSlice] Обновлен is_senior_courier для группы ${groupTelegramId} на ${isSenior}`);
+                } else {
+                    console.warn(`[userSlice] Группа ${groupTelegramId} не найдена для обновления is_senior_courier`);
+                }
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -252,6 +313,46 @@ const userSlice = createSlice({
                     state.user.isAdmin = false;
                     state.user.adminRights = null;
                 }
+            })
+            // --- Обработка thunk'а updateUserProfileThunk --- 
+            .addCase(updateUserProfileThunk.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+                 console.log("⏳ userSlice: updateUserProfileThunk.pending");
+            })
+            .addCase(updateUserProfileThunk.fulfilled, (state, action: PayloadAction<User>) => {
+                state.loading = false;
+                state.user = action.payload; // Обновляем пользователя целиком
+                 console.log("✅ userSlice: updateUserProfileThunk.fulfilled");
+            })
+            .addCase(updateUserProfileThunk.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Ошибка обновления профиля';
+                 console.error("❌ userSlice: updateUserProfileThunk.rejected", action.payload);
+            })
+            // --- Обработка нового thunk'а --- 
+            .addCase(updateSeniorityStatus.pending, (state) => {
+                state.loading = true; // Можно добавить флаг загрузки для этого действия
+                state.error = null;
+                console.log("⏳ userSlice: updateSeniorityStatus.pending");
+            })
+            .addCase(updateSeniorityStatus.fulfilled, (state, action) => {
+                state.loading = false;
+                if (state.user && state.user.groups) {
+                    const { groupTelegramId, isSenior } = action.payload;
+                    const groupIndex = state.user.groups.findIndex(g => String(g.chat_id) === groupTelegramId);
+                    if (groupIndex !== -1) {
+                        state.user.groups[groupIndex].is_senior_courier = isSenior;
+                        console.log(`[userSlice] ✅ Статус старшего для группы ${groupTelegramId} успешно обновлен в Redux на ${isSenior}`);
+                    } else {
+                        console.warn(`[userSlice] fulfilled: Группа ${groupTelegramId} не найдена для обновления.`);
+                    }
+                }
+            })
+            .addCase(updateSeniorityStatus.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Ошибка обновления статуса старшего';
+                console.error("❌ userSlice: updateSeniorityStatus.rejected", action.payload);
             });
     }
 });
@@ -261,9 +362,8 @@ export const {
     updateUser, 
     clearUserData, 
     updateAdminStatus, 
-    updateSeniorCourierStatus, 
-    setUserSeniorStatus,
-    resetUserState 
+    resetUserState,
+    updateUserGroupSeniority,
 } = userSlice.actions;
 
 export default userSlice.reducer;

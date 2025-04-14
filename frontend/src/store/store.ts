@@ -9,14 +9,11 @@ import notificationReducer from './slices/notificationSlice';
 import userReducer, { initializeFromTelegram, userSlice } from './slices/userSlice';
 import adminReducer from './slices/adminSlice';
 import courierReducer from './slices/courierSlice';
-import shiftsReducer, {
-    subscribeToShiftEvents,
-    // subscribeToRegistrationEvents, // Закомментировано
-    // unsubscribeFromRegistrationEvents // Закомментировано, т.к. такой нет, а unsubscribeFromShiftEvents уже есть
-} from './slices/shiftsSlice';
-import reservesReducer, {
-    subscribeToReserveEvents,
-} from './slices/reservesSlice';
+import shiftsReducer /*, {
+} */ from './slices/shiftsSlice';
+import reservesReducer /* , {
+    // subscribeToReserveEvents,
+} */ from './slices/reservesSlice';
 import socketReducer, { socketConnected, socketDisconnected } from './slices/socketSlice';
 import { socketService } from '../services/socket';
 // import { loadState, saveState } from './localStorage'; // Закомментировано
@@ -24,6 +21,9 @@ import { socketService } from '../services/socket';
 import { logger } from '../utils/logger';
 import { routeChanged } from './actions';
 import { Socket } from 'socket.io-client';
+import chatReducer from './slices/chatSlice';
+// import inventoryItemsReducer from './slices/inventoryItemSlice';
+// import inventoryCategoriesReducer from './slices/inventoryCategorySlice';
 
 
 // Создаем listener middleware instance
@@ -98,6 +98,7 @@ const store = configureStore({
         admin: adminReducer,
         courier: courierReducer,
         shifts: shiftsReducer,
+        chat: chatReducer,
         reserves: reservesReducer,
         socket: socketReducer,
     },
@@ -120,6 +121,7 @@ export type RootState = {
     admin: ReturnType<typeof adminReducer>;
     courier: ReturnType<typeof courierReducer>;
     shifts: ReturnType<typeof shiftsReducer>;
+    chat: ReturnType<typeof chatReducer>;
     reserves: ReturnType<typeof reservesReducer>;
     socket: ReturnType<typeof socketReducer>;
 };
@@ -168,22 +170,22 @@ const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) =>
     }
     logger.log('[Store:setupSubscriptions] Subscribing to domain events...');
     
-    // Очищаем старые функции отписки перед новыми подписками
     unsubscribeDomainEvents(); 
-    domainUnsubscribeFunctions = []; // Сбрасываем массив
+    domainUnsubscribeFunctions = [];
 
     try {
-        // Подписываемся и сохраняем функции отписки
-        domainUnsubscribeFunctions.push(subscribeToShiftEvents(dispatch));
-        domainUnsubscribeFunctions.push(subscribeToReserveEvents(dispatch));
-        // domainUnsubscribeFunctions.push(subscribeToInventoryEvents(dispatch)); // Закомментировано
-        // domainUnsubscribeFunctions.push(subscribeToRegistrationEvents(dispatch, getState)); // Закомментировано
+        // Удаляем вызовы удаленных функций
+        // domainUnsubscribeFunctions.push(subscribeToShiftEvents(dispatch));
+        // domainUnsubscribeFunctions.push(subscribeToReserveEvents(dispatch));
         
-        isSubscribedToDomainEvents = true;
-        logger.log('[Store:setupSubscriptions] Successfully subscribed to domain events.');
+        // Остаются ли другие подписки? Если нет, можно этот блок и флаг isSubscribedToDomainEvents удалить.
+        // Пока просто закомментируем вызовы.
+        
+        // Если других подписок нет, можно сразу установить флаг в false или удалить
+        // isSubscribedToDomainEvents = true; 
+        logger.log('[Store:setupSubscriptions] Successfully subscribed to domain events (или нет, т.к. вызовы удалены).');
     } catch (error) {
         logger.error('[Store:setupSubscriptions] Error during domain event subscription:', error);
-        // Попытка отписаться от того, на что успели подписаться
         unsubscribeDomainEvents(); 
     }
 };

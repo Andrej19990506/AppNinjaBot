@@ -1,19 +1,35 @@
 # Используем официальный образ Python для разработки
-FROM python:3.11-slim
+FROM python:3.11-slim as development
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+# Устанавливаем переменные окружения
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+ENV PIP_NO_CACHE_DIR=off
+
+# ---- ЗАКОММЕНТИРУЕМ ИЛИ УДАЛИМ PYTHONPATH ----
+# ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 # Копируем только requirements.txt сначала, чтобы кэш работал лучше
 COPY requirements.txt .
 
 # Устанавливаем зависимости
 RUN pip install -r requirements.txt
+# Устанавливаем явно httpx, если его нет в requirements.txt
+RUN pip install httpx
+# Устанавливаем явно asyncpg, чтобы решить проблему его отсутствия
+RUN pip install asyncpg
+
+# Создаем директорию shared, если она не существует
+RUN mkdir -p /app/shared
 
 # Копируем весь остальной код приложения
 COPY . .
 
-# Команда по умолчанию (все равно перебьется в docker-compose.override.yml)
-CMD ["python", "app.py"] 
+EXPOSE 8002
+
+# Используем alembic для миграций, если необходимо
+# CMD ["alembic", "upgrade", "head", "&&", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
+# Возвращаем простую команду CMD
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002", "--reload"] 

@@ -82,12 +82,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   logger.log('🔄 Инициализация главного меню (запускается рендер App)...');
 
-  // <<< Удаляем получение уведомлений и dispatch отсюда >>>
-  // const notifications = useSelector(selectAllNotifications);
-  // const dispatch = useAppDispatch();
-  // const handleCloseNotification = (id: string) => {
-  //  dispatch(removeNotification(id));
-  // };
+ 
 
   return (
     <Provider store={store}>

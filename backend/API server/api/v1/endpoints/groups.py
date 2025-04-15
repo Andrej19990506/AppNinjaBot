@@ -136,8 +136,6 @@ async def update_group_settings(
     logger.info(f"[update_group_settings] Данные для обновления поля 'access_settings': {update_data}")
     # Записываем всегда в новое поле
     db_group.access_settings = update_data
-    # Старое поле json_metadata больше не трогаем для настроек
-    # db_group.json_metadata = update_data # <-- УДАЛЕНО
 
     try:
         await db.commit()
@@ -339,3 +337,103 @@ async def update_member_seniority(
         is_senior_courier=group_member.is_senior_courier,
         role=group_member.role
     )
+
+# --- Модель для ответа со списком курьеров ---
+class CourierInfo(BaseModel):
+    id: int
+    user_id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    photo_url: Optional[str] = None
+    is_senior_courier: Optional[bool] = None
+    role: Optional[str] = None
+    username: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+@router.get(
+    "/{group_telegram_id}/couriers",
+    response_model=List[CourierInfo],
+    summary="Get All Couriers in Group",
+    description="Retrieves a list of all couriers in the specified group. Only accessible to senior couriers and group creators.",
+    tags=["Groups", "Couriers"]
+)
+async def get_group_couriers(
+    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    requester_id: int = Query(..., description="Telegram ID of the user requesting the data"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Получает список всех курьеров в группе.
+    Доступно только для старших курьеров и создателей группы.
+    """
+    logger.info(f"[get_group_couriers] GET /groups/{group_telegram_id}/couriers (requester: {requester_id})")
+    
+    # Находим группу по telegram_id
+    group = await get_group_by_telegram_id(db, group_telegram_id)
+    if not group:
+        logger.warning(f"[get_group_couriers] Группа {group_telegram_id} не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    
+    # Находим запрашивающего участника по user_id
+    requester_member_query = select(Member).where(Member.user_id == requester_id)
+    requester_member_result = await db.execute(requester_member_query)
+    requester_member = requester_member_result.scalars().first()
+    
+    if not requester_member:
+        logger.warning(f"[get_group_couriers] Пользователь {requester_id} не найден")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requester not found")
+    
+    # Проверяем авторизацию - является ли запрашивающий старшим курьером или создателем группы
+    group_member_query = (
+        select(GroupMember)
+        .where(GroupMember.group_id == group.id)
+        .where(GroupMember.member_id == requester_member.id)
+    )
+    group_member_result = await db.execute(group_member_query)
+    requester_group_membership = group_member_result.scalars().first()
+    
+    if not requester_group_membership:
+        logger.warning(f"[get_group_couriers] Пользователь {requester_id} не является членом группы {group_telegram_id}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User is not a member of this group")
+    
+    # Проверяем, является ли запрашивающий старшим курьером или создателем
+    is_authorized = (
+        requester_group_membership.is_senior_courier or 
+        requester_group_membership.role == 'creator'
+    )
+    
+    if not is_authorized:
+        logger.warning(f"[get_group_couriers] Доступ запрещен для пользователя {requester_id} (не старший курьер/не создатель)")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only senior couriers and group creators can access this endpoint")
+    
+    # Получаем всех участников группы
+    # Создаем JOIN запрос, чтобы получить данные из GroupMember и Member одновременно
+    couriers_query = (
+        select(GroupMember, Member)
+        .join(Member, GroupMember.member_id == Member.id)
+        .where(GroupMember.group_id == group.id)
+        .where(Member.user_id != requester_id)  # Исключаем запрашивающего пользователя из результатов
+    )
+    
+    couriers_result = await db.execute(couriers_query)
+    couriers_data = couriers_result.all()
+    
+    # Преобразуем результат в список CourierInfo
+    couriers_list = []
+    for group_member, member in couriers_data:
+        courier_info = {
+            "id": member.id,
+            "user_id": member.user_id,
+            "first_name": member.first_name,
+            "last_name": member.last_name,
+            "photo_url": member.photo_url,
+            "username": member.username,
+            "is_senior_courier": group_member.is_senior_courier,
+            "role": group_member.role
+        }
+        couriers_list.append(CourierInfo(**courier_info))
+    
+    logger.info(f"[get_group_couriers] Успешно получен список курьеров для группы {group_telegram_id}: {len(couriers_list)} записей")
+    return couriers_list

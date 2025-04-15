@@ -11,7 +11,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
       - BOT_HOST=0.0.0.0
       - BOT_PORT=8003
     networks:
@@ -59,7 +59,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
     command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8002"]
     deploy:
       resources:
@@ -93,7 +93,7 @@ services:
       - POSTGRES_PORT=5432
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
       - HOST=0.0.0.0
       - PYTHONPATH=/app
     depends_on:
@@ -130,12 +130,12 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     environment:
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d

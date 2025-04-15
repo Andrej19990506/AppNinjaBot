@@ -14,6 +14,7 @@ import Footer from '../Inventory/Footer';
 import SlotSettings, { SlotSettingsRef } from './CourierCalendar/components/SlotSettings';
 import { SettingsOverlay as ModalBackdropOverlay } from './CourierCalendar/styles';
 import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
+import CouriersList from './CouriersList';
 
 const Container = styled.div`
     padding: 20px;
@@ -53,6 +54,9 @@ const CourierSchedule: React.FC = () => {
     const [currentModalStep, setCurrentModalStep] = useState(1);
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
     const slotSettingsRef = useRef<SlotSettingsRef>(null);
+    
+    // Новые состояния для списка курьеров
+    const [isCouriersListOpen, setIsCouriersListOpen] = useState(false);
 
     const courierChatId = useMemo(() => {
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
@@ -323,6 +327,33 @@ const CourierSchedule: React.FC = () => {
         setShowSlotSettings(true);
     }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);
 
+    // Новый обработчик долгого нажатия на слот
+    const handleLongPress = useCallback((shiftType: 'day' | 'night', slotIndex: number) => {
+        console.log(`[CourierSchedule] Long press detected on ${shiftType} slot ${slotIndex}`, { 
+            isCouriersListOpen, 
+            currentState: 'setting to true'
+        });
+        
+        // Установим флаг и проверим, что он установился
+        setIsCouriersListOpen(true);
+        
+        // Проверка в следующем тике, установился ли флаг
+        setTimeout(() => {
+            console.log('[CourierSchedule] Check after setTimeout', { 
+                isCouriersListOpenAfterTimeout: isCouriersListOpen 
+            });
+        }, 0);
+    }, [isCouriersListOpen]);
+    
+    // Закрытие списка курьеров
+    const handleCloseCouriersList = useCallback(() => {
+        console.log('[CourierSchedule] Closing couriers list', { 
+            isCouriersListOpen, 
+            currentState: 'setting to false'
+        });
+        setIsCouriersListOpen(false);
+    }, []);
+
     return (
         <Container>
             <Header>
@@ -361,6 +392,17 @@ const CourierSchedule: React.FC = () => {
                         if (isSettingsPanelOpen) closeSettingsPanel();
                         if (showShiftAccessSettings) handleCloseShiftAccessSettings();
                     }}
+                    onLongPress={handleLongPress}
+                />
+            )}
+            
+            {/* Добавляем компонент списка курьеров */}
+            {user && courierChatIdString && (
+                <CouriersList
+                    isOpen={isCouriersListOpen}
+                    onClose={handleCloseCouriersList}
+                    groupId={courierChatIdString}
+                    requesterId={String(user.id)}
                 />
             )}
             

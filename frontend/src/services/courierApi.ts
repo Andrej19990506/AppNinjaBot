@@ -772,4 +772,55 @@ export const addReserve = async (data: AddReserveApiData): Promise<ApiReserve> =
     }
 };
 
+// Интерфейс для данных курьера, возвращаемых API
+export interface CourierInfo {
+    id: number;
+    user_id: number;
+    first_name: string | null;
+    last_name: string | null;
+    photo_url: string | null;
+    is_senior_courier: boolean | null;
+    role: string | null;
+    username: string | null;
+}
+
+/**
+ * Получает список всех курьеров для группы (кроме запрашивающего пользователя).
+ * @param groupTelegramId Telegram ID группы
+ * @param requesterId Telegram ID запрашивающего пользователя (должен быть старшим курьером или создателем)
+ * @returns Массив объектов CourierInfo с данными курьеров
+ */
+export const getGroupCouriers = async (
+    groupTelegramId: number | string,
+    requesterId: number | string
+): Promise<CourierInfo[]> => {
+    logger.info(`[courierApi] 📡 Запрос списка курьеров для группы ID: ${groupTelegramId}, запрашивает: ${requesterId}`);
+    try {
+        // Формируем URL без слеша на конце
+        const response = await axiosInstance.get<CourierInfo[]>(`/api/v1/groups/${groupTelegramId}/couriers`, {
+            params: { requester_id: requesterId }
+        });
+        logger.info(`[courierApi] ✅ Список курьеров для группы ${groupTelegramId} получен: ${response.data.length} курьеров`);
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при запросе списка курьеров для группы ${groupTelegramId}`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            
+            if (status === 404) {
+                throw new Error(detail || 'Группа или пользователь не найдены.');
+            }
+            if (status === 403) {
+                throw new Error(detail || 'Только старшие курьеры и создатели группы имеют доступ к списку курьеров.');
+            }
+            
+            throw new Error(detail || error.message || 'Ошибка при получении списка курьеров.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при получении списка курьеров.');
+    }
+};
+
 // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---

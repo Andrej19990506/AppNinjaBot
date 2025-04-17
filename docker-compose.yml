@@ -38,6 +38,7 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000
     environment:
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
 
   scheduler:
     build:
@@ -132,6 +133,8 @@ services:
     image: postgres:15-alpine
     expose:
       - "5432"
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
@@ -149,8 +152,28 @@ services:
       retries: 5
       start_period: 10s
 
+  adminer:
+    image: adminer # Используем официальный образ Adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080" # Открываем порт 8080 на хосте
+    environment:
+      # Предзаполняем сервер по умолчанию (имя сервиса postgres)
+      - ADMINER_DEFAULT_SERVER=postgres 
+      # Используем приятную тему оформления
+      - ADMINER_DESIGN=flat 
+    depends_on:
+      - postgres # Запускаем после postgres
+    networks:
+      - ninja_network # Подключаем к той же сети, что и postgres
+
 volumes:
   shared-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./backend/shared
   postgres-data:
 
 networks:

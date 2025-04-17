@@ -13,8 +13,8 @@ class GroupMember(Base):
     is_senior_courier = Column(Boolean, nullable=True)
 
     # Связи с основными таблицами
-    group = relationship("Group", back_populates="members_association")
-    member = relationship("Member", back_populates="groups_association")
+    group = relationship("Group", back_populates="members")
+    member = relationship("Member", back_populates="groups")
 
     # Ограничение уникальности: пара (group_id, member_id) должна быть уникальной
     __table_args__ = (

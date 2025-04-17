@@ -12,10 +12,10 @@ import RestaurantIcon from '@mui/icons-material/Restaurant';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import styles from './MainMenu.module.css';
-import { useAppSelector } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { RootState } from '../../store/store';
-// Импортируем иконку для плейсхолдера фото
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { fetchInventory, selectInventoryChats, selectInventoryLoading, selectInventoryError } from '../../store/slices/inventorySlice';
 
 const chefMenuItems = [
     { id: 'events', title: 'События', path: '/events', icon: EventIcon },
@@ -108,46 +108,81 @@ const menuPositions = {
 const MainMenu: React.FC = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const dispatch = useAppDispatch();
     const [isVisible, setIsVisible] = useState(true);
     const { user } = useAppSelector((state: RootState) => state.user);
+    const inventoryChats = useAppSelector(selectInventoryChats);
+    const isLoadingInventory = useAppSelector(selectInventoryLoading);
+    const inventoryError = useAppSelector(selectInventoryError);
     
     // Проверяем членство в группах
     const isChefMember = useMemo(() => user?.groups?.some(group => group.group_type === "chef") ?? false, [user]);
     const isCourierMember = useMemo(() => user?.groups?.some(group => group.group_type === "courier") ?? false, [user]);
     
-    // Определяем начальную роль более точно и мемоизируем функцию
+    // Определяем начальную роль
     const getInitialRole = useCallback((): 'chef' | 'courier' | 'none' => {
-        if (isCourierMember) return 'courier'; // Приоритет курьеру, если есть обе роли
+        if (isCourierMember) return 'courier';
         if (isChefMember) return 'chef';
-        return 'none'; // Если нет ни одной из ролей
-    }, [isChefMember, isCourierMember]); // Зависимости для useCallback
+        return 'none';
+    }, [isChefMember, isCourierMember]);
 
-    // Добавляем состояние для переключения между интерфейсами
-    const [activeRole, setActiveRole] = useState<'chef' | 'courier' | 'none'>(getInitialRole());
+    const [activeRole, setActiveRole] = useState<'chef' | 'courier' | 'none'>('none'); // Начинаем с 'none'
 
-    // Обновляем активную роль, если пользовательские данные изменились (например, после инициализации)
-    useEffect(() => {
-        setActiveRole(getInitialRole());
-    }, [getInitialRole]); // Теперь зависимость - мемоизированная функция getInitialRole
-
-    // Переключение между режимами работы (только если возможно)
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const toggleRole = () => {
-        if (canToggleRole) { // Убедимся, что переключение возможно
-             setActiveRole(prev => prev === 'chef' ? 'courier' : 'chef');
+    // --- Функция для загрузки инвентаря (если нужно) ---
+    const loadInventoryIfNeeded = useCallback(() => {
+        // Загружаем только если активна роль повара, данных нет и не идет загрузка/нет ошибки
+        if (!isLoadingInventory && !inventoryError && inventoryChats.length === 0) {
+            // Проверяем, что user существует и имеет ID
+            if (user?.id) {
+                console.log(`[MainMenu] Вызов fetchInventory(${user.id}, role: ${activeRole}) из loadInventoryIfNeeded...`);
+                dispatch(fetchInventory({ userId: user.id, role: activeRole }));
+            } else {
+                console.warn('[MainMenu] Попытка вызвать fetchInventory без user.id');
+            }
         }
-    };
+         console.log('[MainMenu] Проверка loadInventoryIfNeeded:', { role: activeRole, isLoading: isLoadingInventory, hasError: !!inventoryError, chatsLength: inventoryChats.length });
+    }, [isLoadingInventory, inventoryError, inventoryChats.length, dispatch, activeRole, user?.id]); // Добавили user.id в зависимости
+
+    // --- Обновляем роль при инициализации пользователя ---
+    useEffect(() => {
+        if (user) {
+            const initialRole = getInitialRole();
+            setActiveRole(initialRole);
+            // Убираем вызов loadInventoryIfNeeded отсюда, его будет делать следующий useEffect
+        }
+    }, [user, getInitialRole]);
+
+    // --- НОВЫЙ useEffect: Загружаем инвентарь ПРИ ИЗМЕНЕНИИ activeRole на 'chef' ---
+    useEffect(() => {
+        console.log(`[MainMenu] useEffect[activeRole] сработал. Новая роль: ${activeRole}`);
+        if (activeRole === 'chef') {
+            loadInventoryIfNeeded();
+        }
+        // Предыдущий useEffect для инициализации тоже можно убрать, т.к. этот сработает после него.
+        // Но для ясности оставим оба.
+    }, [activeRole, loadInventoryIfNeeded]); // Зависит от activeRole и loadInventoryIfNeeded
 
     // Определяем, какое меню показывать
     const currentMenuItems = useMemo(() => {
         if (activeRole === 'chef') return chefMenuItems;
         if (activeRole === 'courier') return courierMenuItems;
-        return []; // Пустой массив, если роль 'none'
+        return [];
     }, [activeRole]);
     
-    // Проверяем, можно ли переключаться между режимами
     const canToggleRole = isChefMember && isCourierMember;
+
+    // --- Обработчик клика по кнопке роли ---
+    const handleRoleButtonClick = (role: 'chef' | 'courier') => {
+        console.log(`[MainMenu] Клик по кнопке роли: ${role}`);
+        setActiveRole(role);
+        // Убираем вызов loadInventoryIfNeeded отсюда
+    };
+
+    // --- Обработчик клика по пункту меню ---
+    const handleMenuItemClick = (path: string) => {
+        // Клик на Инвентарь (или другие пункты) просто навигирует
+        navigate(path);
+    };
 
     return (
         <AnimatePresence mode="wait">
@@ -192,7 +227,7 @@ const MainMenu: React.FC = () => {
                                     <motion.div className={styles.roleToggleContainer}>
                                         <motion.button 
                                             className={`${styles.roleButton} ${activeRole === 'chef' ? styles.activeRole : ''}`}
-                                            onClick={() => setActiveRole('chef')}
+                                            onClick={() => handleRoleButtonClick('chef')}
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
@@ -201,7 +236,7 @@ const MainMenu: React.FC = () => {
                                         </motion.button>
                                         <motion.button 
                                             className={`${styles.roleButton} ${activeRole === 'courier' ? styles.activeRole : ''}`}
-                                            onClick={() => setActiveRole('courier')}
+                                            onClick={() => handleRoleButtonClick('courier')}
                                             whileHover={{ scale: 1.02 }}
                                             whileTap={{ scale: 0.98 }}
                                         >
@@ -220,7 +255,7 @@ const MainMenu: React.FC = () => {
                                         <motion.div
                                             key={item.id}
                                             className={styles.menuItem}
-                                            onClick={() => navigate(item.path)}
+                                            onClick={() => handleMenuItemClick(item.path)}
                                             variants={itemVariants}
                                             whileHover={{ 
                                                 scale: 1.03, 

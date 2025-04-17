@@ -4,15 +4,20 @@ import {
   fetchInventory, 
   fetchChatInventory, 
   updateInventoryData,
-  updateProgress 
+  updateProgress,
+  updateInventoryItem,
+  selectChat
 } from '../store/slices/inventorySlice';
 import { useNavigate } from 'react-router-dom';
 import { ChatResponse, Admin } from '../types/inventory';
+import axios from 'axios';
+import config from '../config';
 
 interface UseInventoryLoaderProps {
   chatId?: string;
   currentUserId: number | null;
   isAdmin: boolean;
+  role: string | null;
 }
 
 interface InventoryState {
@@ -22,7 +27,7 @@ interface InventoryState {
     };
 }
 
-export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInventoryLoaderProps) => {
+export const useInventoryLoader = ({ chatId, currentUserId, isAdmin, role }: UseInventoryLoaderProps) => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -82,24 +87,36 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
 
   // Функция для загрузки шаблона инвентаря из JSON-файла
   const loadInventoryTemplate = useCallback(async () => {
-    console.log('🔄 Загрузка шаблона инвентаря...');
-    console.log('📊 Параметры:', { chatId, currentUserId, isAdmin });
+    console.log('🔄 Загрузка шаблона инвентаря с API...');
+    // console.log('📊 Параметры:', { chatId, currentUserId, isAdmin }); // Параметры больше не нужны для шаблона
     
     try {
-      setIsLoading(true);
-      console.log('⏳ Начало загрузки шаблона...');
-      const result = await dispatch(fetchInventory()).unwrap();
-      console.log('✅ Шаблон успешно загружен:', result);
-      return result;
+      setIsLoading(true); // Можно оставить или убрать, если загрузка быстрая
+      console.log('⏳ [loadInventoryTemplate] Запрос к GET /inventory/template...');
+      
+      // ИСПРАВЛЕНО: Запрос к новому эндпоинту с правильным префиксом
+      // ПРЕДПОЛОЖЕНИЕ: config.API_URL = http://localhost:8000
+      const response = await axios.get(`${config.API_URL}/api/v1/groups/inventory/template`);
+      
+      const templateData = response.data;
+      if (!templateData || typeof templateData !== 'object') {
+          console.error('❌ [loadInventoryTemplate] Получены неверные данные шаблона:', templateData);
+          throw new Error('Invalid template data received from server');
+      }
+
+      console.log('✅ [loadInventoryTemplate] Шаблон успешно загружен с API:', templateData);
+      return templateData; // Возвращаем структуру шаблона
+
     } catch (error) {
-      console.error('❌ Ошибка при загрузке шаблона:', error);
-      setError('Не удалось загрузить шаблон инвентаря');
+      console.error('❌ [loadInventoryTemplate] Ошибка при загрузке шаблона с API:', error);
+      setError('Не удалось загрузить шаблон инвентаря с сервера');
       throw error;
     } finally {
       setIsLoading(false);
-      console.log('⏳ Загрузка шаблона завершена');
+      console.log('⏳ [loadInventoryTemplate] Загрузка шаблона завершена');
     }
-  }, [dispatch, chatId, currentUserId, isAdmin]);
+  // Убираем лишние зависимости, оставляем только setIsLoading и setError, если они используются
+  }, [setIsLoading, setError]); 
   
   // Функция для проверки и применения шаблона инвентаря, если инвентарь пуст
   const checkAndApplyTemplate = useCallback(async (currentState: InventoryState) => {
@@ -115,162 +132,222 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
       retryCount: retryCount.current
     });
 
-    if (!inventory || inventoryKeys.length === 0) {
-      console.log('📋 Инвентарь пуст, загружаем шаблон...');
+    if ((!inventory || inventoryKeys.length === 0) && chatId) { // Добавили проверку chatId
+      console.log('📋 [checkAndApplyTemplate] Инвентарь пуст, загружаем шаблон...');
       try {
-        await loadInventoryTemplate();
-        console.log('✅ Шаблон успешно применен');
-      } catch (error) {
-        console.error('❌ Ошибка при применении шаблона:', error);
-        if (retryCount.current < 3) {
-          console.log('🔄 Повторная попытка загрузки шаблона...');
-          retryCount.current += 1;
-          setTimeout(() => checkAndApplyTemplate(currentState), 1000);
+        const templateData = await loadInventoryTemplate(); // Получаем шаблон
+        console.log('✅ [checkAndApplyTemplate] Шаблон загружен:', templateData);
+
+        // <<< ИЗМЕНЕНО: Отправляем шаблон напрямую через axios >>>
+        if (templateData && Object.keys(templateData).length > 0) { 
+             console.log(`📤 [checkAndApplyTemplate] Отправка шаблона НАПРЯМУЮ на POST ${config.API_URL}/api/v1/groups/inventory/${chatId}...`);
+             
+             // Формируем payload для API
+             const payloadToSend = {
+                inventory: templateData,
+                metadata: { // Отправляем базовые метаданные
+                     lastUpdated: new Date().toISOString(),
+                     progress: 0, // Начальный прогресс
+                     chat_id: chatId
+                     // Можно добавить currentUser, если бэкенд его использует при создании
+                     // currentUser: { id: currentUserId, first_name: ??? }
+                }
+                // history здесь не нужно
+             };
+             
+             // Отправляем POST запрос
+             const response = await axios.post(`${config.API_URL}/api/v1/groups/inventory/${chatId}`, payloadToSend);
+             console.log('✅ [checkAndApplyTemplate] Ответ от сервера на POST шаблона:', response.data);
+             
+             // Важно: После успешной отправки нужно обновить состояние в Redux,
+             // чтобы интерфейс отобразил загруженный инвентарь.
+             // Диспатчим обновление данных, имитируя ответ от WebSocket или API.
+             dispatch(updateInventoryData({
+                 chatId: chatId,
+                 data: {
+                     inventory: templateData,
+                     metadata: payloadToSend.metadata,
+                     type: 'full' // Указываем, что это полное обновление
+                 }
+             }));
+
+             console.log(`✅ [checkAndApplyTemplate] Шаблон успешно отправлен и применен локально для chatId: ${chatId}`);
         } else {
-          console.error('❌ Превышено количество попыток загрузки шаблона');
-          setError('Не удалось загрузить шаблон после нескольких попыток');
+            console.warn('❌ [checkAndApplyTemplate] Не удалось отправить шаблон: templateData пусто.');
+        }
+
+        templateApplied.current = true; // Отмечаем, что попытка применения была
+      } catch (error) { // Обработка ошибок axios и loadInventoryTemplate
+        console.error('❌ [checkAndApplyTemplate] Ошибка при загрузке или отправке шаблона:', error);
+        // Логика повторных попыток
+        if (retryCount.current < 3) {
+          console.log('🔄 Повторная попытка применения шаблона...');
+          retryCount.current += 1;
+          setTimeout(() => checkAndApplyTemplate({ // Передаем фиктивное состояние
+             selectedChat: { chat_id: chatId || '', inventory: {}}
+          }), 2000); // Увеличим задержку
+        } else {
+          console.error('❌ Превышено количество попыток применения шаблона');
+          setError('Не удалось применить шаблон инвентаря после нескольких попыток');
         }
       }
     } else {
-      console.log('✅ Инвентарь уже содержит данные:', inventoryKeys);
+      if (!chatId) {
+          console.warn('[checkAndApplyTemplate] Пропуск применения шаблона: chatId не определен.');
+      }
+      console.log('✅ [checkAndApplyTemplate] Инвентарь уже содержит данные или chatId не определен.');
+      templateApplied.current = true; // Считаем, что шаблон не нужен или уже применен
     }
-  }, [loadInventoryTemplate, chatId]);
+  // Обновляем зависимости: добавляем dispatch, currentUserId (если используется в payloadToSend)
+  }, [loadInventoryTemplate, chatId, dispatch, setError, currentUserId]); // Убираем checkAndApplyTemplate из зависимостей самого себя
 
   // Основная функция загрузки инвентаря
   const loadInventoryData = useCallback(async (forceReload = false) => {
-    try {
-        setIsLoading(true);
-        setLoadingProgress(0);
-        console.log('🔄 Загрузка данных инвентаря:', { chatId, currentUserId, isAdmin });
+    // Убираем isInitialized.current, загрузка будет управляться при монтировании или при смене chatId
+    console.log('🔄 [loadInventoryData] Запуск загрузки данных:', { chatId, currentUserId, isAdmin, forceReload });
+    setIsLoading(true);
+    setError(null);
+    setLoadingProgress(0);
 
+    try {
         // Проверяем наличие необходимых параметров
         if (!currentUserId) {
-            console.warn('⚠️ Отсутствует ID пользователя');
+            console.warn('⚠️ [loadInventoryData] Отсутствует ID пользователя, загрузка прервана.');
+            setIsLoading(false);
             return;
         }
 
-        // Имитация прогресса во время искусственной задержки
-        const progressInterval = setInterval(() => {
-            setLoadingProgress(prev => Math.min(prev + 5, 70));
-        }, 100);
-
-        // Искусственная задержка для демонстрации анимации
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        clearInterval(progressInterval);
-        setLoadingProgress(80);
-
+        // Имитация начального прогресса
+        setLoadingProgress(10);
+        
         if (chatId) {
-            console.log('📥 Загрузка данных для конкретного чата:', chatId);
-            const result = await dispatch(fetchChatInventory(chatId)).unwrap() as ChatResponse;
+            console.log('📥 [loadInventoryData] Загрузка данных для конкретного чата:', chatId);
+            
+            // Имитация прогресса во время запроса
+            const progressInterval = setInterval(() => {
+                setLoadingProgress(prev => Math.min(prev + 15, 80)); 
+            }, 200);
+            
+            // Загружаем данные чата
+            const resultAction = await dispatch(fetchChatInventory(chatId));
+            clearInterval(progressInterval);
             setLoadingProgress(90);
-            
-            // Проверяем доступ к чату
-            if (result && result.data) {
-                const hasAccess = isAdmin || (result.data.admins && result.data.admins.some((admin: Admin) => admin.user_id === currentUserId));
-                if (!hasAccess) {
-                    throw new Error('У вас нет доступа к этому чату');
-                }
+
+            // Проверяем результат thunk
+            if (fetchChatInventory.rejected.match(resultAction)) {
+                throw new Error(resultAction.error.message || 'Не удалось загрузить данные чата');
             }
             
-            // Проверяем, пустой ли инвентарь
-            if (result && result.data && (!result.data.inventory || Object.keys(result.data.inventory).length === 0)) {
-                console.log('⚠️ Инвентарь пуст, загружаем шаблон...');
-                // Здесь можно добавить логику загрузки шаблона
+            const result = resultAction.payload as ChatResponse; // Утверждаем тип payload
+            
+            if (!result || !result.data) {
+                throw new Error('Получен неверный ответ от API');
             }
+
+            // Проверяем доступ (опционально, если права не проверяются иначе)
+            // const hasAccess = isAdmin || (result.data.admins && result.data.admins.some((admin: Admin) => admin.user_id === currentUserId));
+            // if (!hasAccess) {
+            //     throw new Error('У вас нет доступа к этому чату');
+            // }
+
+            // --- ЛОГИКА ПРИМЕНЕНИЯ ШАБЛОНА ПЕРЕНЕСЕНА СЮДА ---
+            const inventory = result.data.inventory;
+            const inventoryKeys = inventory ? Object.keys(inventory) : [];
+            console.log('[loadInventoryData] Проверка инвентаря после загрузки:', { inventoryKeys });
+
+            if (!inventory || inventoryKeys.length === 0) {
+                console.log('⚠️ [loadInventoryData] Инвентарь пуст после загрузки, пытаемся применить шаблон...');
+                // Создаем фиктивное состояние, т.к. checkAndApplyTemplate его ожидает
+                const currentState: InventoryState = {
+                    selectedChat: {
+                        chat_id: chatId,
+                        inventory: {}
+                    }
+                };
+                // Вызываем проверку и применение шаблона
+                await checkAndApplyTemplate(currentState);
+                // Отмечаем, что шаблон применен (или была попытка)
+                templateApplied.current = true; 
+            } else {
+                 console.log('✅ [loadInventoryData] Инвентарь содержит данные, шаблон не требуется.');
+                 templateApplied.current = true; // Считаем, что шаблон уже есть
+            }
+            // -----------------------------------------------------
+
+            setLoadingProgress(100);
+
+            // <<< ШАГ 2: ДИСПАТЧ selectChat ПОСЛЕ ЗАВЕРШЕНИЯ ЗАГРУЗКИ >>>
+            if (chatId) {
+                console.log(`🎯 [loadInventoryData] Диспатчим selectChat для chatId: ${chatId}`);
+                dispatch(selectChat(chatId)); // Выбираем чат в Redux
+            }
+            
+            isInitialized.current = true; // Отмечаем, что инициализация завершена
         } else {
-            console.log('📥 Загрузка списка чатов');
-            await dispatch(fetchInventory()).unwrap();
+            // Если chatId не указан (например, на главной /inventory)
+            console.log('[loadInventoryData] chatId не указан, загрузка данных чата не выполняется.');
+            // Загрузка общего списка чатов (если требуется при начальном входе)
+            if (currentUserId && role) {
+                console.log('🔄 [loadInventoryData] Загрузка общего списка чатов...');
+                await dispatch(fetchInventory({ userId: currentUserId, role }));
+                console.log('✅ [loadInventoryData] Общий список чатов загружен.');
+            } else {
+                 console.warn('[loadInventoryData] Недостаточно данных для загрузки общего списка чатов (userId, role).');
+            }
         }
 
-        setLoadingProgress(100);
-        setError(null);
-        isInitialized.current = true;
-    } catch (error) {
-        console.error('❌ Ошибка при загрузке данных:', error);
-        setError(error instanceof Error ? error.message : 'Произошла ошибка при загрузке данных');
+        console.log('✅ [loadInventoryData] Загрузка данных успешно завершена.');
+    } catch (err: any) {
+        console.error('❌ [loadInventoryData] Ошибка при загрузке данных:', err);
+        setError(err instanceof Error ? err.message : 'Произошла ошибка при загрузке данных');
         setLoadingProgress(100);
     } finally {
         // Добавляем небольшую задержку перед скрытием скелетона
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300)); // Уменьшил задержку
         setIsLoading(false);
+        console.log('🏁 [loadInventoryData] Состояние isLoading установлено в false.');
     }
-}, [dispatch, chatId, currentUserId, isAdmin]);
+// Обновляем зависимости
+}, [dispatch, chatId, currentUserId, isAdmin, checkAndApplyTemplate]);
 
-  // Эффект для инициализации приложения
+  // Эффект для инициализации и перезагрузки при смене chatId
   useEffect(() => {
     let isMounted = true;
-    
-    const initializeApp = async () => {
-      if (!isInitialized.current && isMounted) {
-        console.log('🔍 Начало инициализации:', {
-          chatId,
-          currentUserId,
-          isAdmin,
-          isInitialized: isInitialized.current
-        });
-        
-        try {
-          await loadInventoryData();
-          console.log('✅ Инициализация завершена успешно');
-        } catch (error) {
-          console.error('❌ Ошибка при инициализации:', error);
-        }
-      }
-    };
+    console.log(`🔄 [useEffect/init] Запуск эффекта инициализации/перезагрузки. chatId: ${chatId}, currentUserId: ${currentUserId}`);
     
     if (currentUserId) {
-      initializeApp();
+        console.log('🚀 [useEffect/init] Вызов loadInventoryData...');
+        loadInventoryData(); // Вызываем загрузку при монтировании или смене chatId/userId
+    } else {
+        console.warn('⚠️ [useEffect/init] currentUserId отсутствует, инициализация пропускается.');
     }
     
     return () => {
       isMounted = false;
+      console.log('🧹 [useEffect/init] Очистка эффекта инициализации.');
     };
-  }, [currentUserId, loadInventoryData, chatId, isAdmin]);
+  // Зависим от loadInventoryData, чтобы перезапускать при его изменении (включая chatId, currentUserId)
+  }, [loadInventoryData, currentUserId]); // Убрали chatId и isAdmin, т.к. они в зависимостях loadInventoryData
   
-  // Добавляем новый эффект для принудительной проверки пустого инвентаря
+  // Периодическое обновление списка чатов (ОСТАВЛЯЕМ)
   useEffect(() => {
-    let isMounted = true;
-    
-    // Если инициализация завершена, но шаблон не применен, и у нас есть ID чата
-    if (isInitialized.current && !templateApplied.current && chatId && !isLoading) {
-      console.log('⚠️ Инициализация завершена, но шаблон не применен, проверяем инвентарь...');
-      
-      // Загружаем инвентарь чата и проверяем, нужно ли применить шаблон
-      dispatch(fetchChatInventory(chatId)).then(result => {
-        if (isMounted && result.payload) {
-          console.log('📦 Получены данные чата:', result.payload);
-          const inventory = typeof result.payload === 'object' && result.payload ? result.payload : {};
-          
-          const currentState: InventoryState = {
-            selectedChat: {
-              chat_id: chatId,
-              inventory: inventory
-            }
-          };
-          checkAndApplyTemplate(currentState);
-        }
-      });
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [chatId, isLoading, dispatch, checkAndApplyTemplate]);
-  
-  // Периодическое обновление списка чатов
-  useEffect(() => {
-    if (!isInitialized.current || !currentUserId) return;
+    if (!currentUserId) return;
     
     const updateInterval = setInterval(() => {
       if (!chatId) { // Обновляем только если не находимся в инвентаре
-        dispatch(fetchInventory());
+        if (currentUserId) { // Доп. проверка на userId
+            // console.log('[useInventoryLoader] Периодическое обновление списка чатов...');
+            // dispatch(fetchInventory({ userId: currentUserId, role: role })); // Пока закомментируем, чтобы не спамить
+        } else {
+            console.warn('[useInventoryLoader] Попытка обновить список чатов без userId');
+        }
       }
     }, 30000);
     
     return () => clearInterval(updateInterval);
-  }, [dispatch, chatId, currentUserId]);
+  }, [dispatch, chatId, currentUserId, role]);
   
-  // Эффект для проверки прав администратора
+  // Эффект для проверки прав администратора (ОСТАВЛЯЕМ)
   useEffect(() => {
     if (!currentUserId) return;
     
@@ -285,16 +362,25 @@ export const useInventoryLoader = ({ chatId, currentUserId, isAdmin }: UseInvent
       
       // Если мы находимся на странице инвентаризации, возвращаемся к списку
       if (window.location.pathname.includes(`/inventory/${chatId}`)) {
-        dispatch(fetchChatInventory(chatId));
+        // dispatch(fetchChatInventory(chatId)); // Не нужно перегружать данные перед выходом
         navigate('/inventory');
       }
     }
   }, [chatId, isAdmin, currentUserId, dispatch, navigate]);
   
+  // УДАЛЯЕМ отдельный useEffect для проверки и применения шаблона
+  // useEffect(() => {
+  //   let isMounted = true;
+  //   if (isInitialized.current && !templateApplied.current && chatId && !isLoading) {
+  //     // ... логика вызова checkAndApplyTemplate ...
+  //   }
+  //   return () => { isMounted = false; };
+  // }, [isInitialized, templateApplied, chatId, isLoading, dispatch, checkAndApplyTemplate, chats]); 
+  
   return {
     isLoading,
     error,
-    isInitialized: isInitialized.current,
+    // isInitialized: isInitialized.current, // Больше не нужно наружу
     loadInventoryData,
     loadInventoryTemplate,
     loadingProgress,

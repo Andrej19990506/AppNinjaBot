@@ -536,9 +536,9 @@ const historyApi = {
         console.log('📑 Категория:', category);
         console.log('🆔 ID товара:', itemId);
         
-        const url = `/item_history/${chatId}/${encodeURIComponent(category)}/${encodeURIComponent(itemName)}`;
+        const url = `/api/v1/groups/inventory/history/${chatId}/${encodeURIComponent(category)}/${encodeURIComponent(itemName)}`;
         console.log('🔗 URL запроса:', url);
-        console.log('🔗 Полный URL:', `${baseURL}${url}`);
+        console.log('🔗 Полный URL:', `${axiosInstance.defaults.baseURL}${url}`);
         
         return axiosInstance.get(url);
     },

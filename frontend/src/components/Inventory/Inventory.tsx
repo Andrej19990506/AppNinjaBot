@@ -43,20 +43,23 @@ interface Chat {
 }
 
 const Inventory: React.FC = () => {
+    // --- 1. Инициализация хуков React и Router ---
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const { chatId } = useParams<{ chatId?: string }>();
+
+    // --- 2. Инициализация селекторов Redux ---
     const { error: reduxError, selectedChat, items } = useAppSelector(state => state.inventory);
     const currentUser = useAppSelector(state => state.user.user);
     
-    // Все состояния
+    // --- 3. Инициализация состояния компонента (useState) ---
     const [notifications, setNotifications] = useState<Array<{ id: string; type: string; message?: string; title?: string }>>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
     const [showChatModal, setShowChatModal] = useState(false);
     const [selectedChatForModal, setSelectedChatForModal] = useState<ChatItem | null>(null);
     
-    // Все хуки должны быть вызваны до любых условных операторов
+    // --- 4. Инициализация кастомных хуков ---
     const {
         isLoading: isInventoryLoading,
         error: loaderError,
@@ -64,7 +67,8 @@ const Inventory: React.FC = () => {
     } = useInventoryLoader({
         chatId: chatId,
         currentUserId: currentUser?.id || null,
-        isAdmin: currentUser?.isAdmin || false
+        isAdmin: currentUser?.isAdmin || false,
+        role: null // TODO: Определить, как получать активную роль
     });
     
     const {
@@ -173,47 +177,15 @@ const Inventory: React.FC = () => {
         )
     });
 
-    // Объединяем все ошибки
-    const error = loaderError || reduxError;
-
-    // Эффект для загрузки списка чатов
+    // --- 5. Инициализация useEffect хуков ---
     useEffect(() => {
-        if (!currentUser?.id) {
-            console.log('⚠️ Пользователь не инициализирован');
-            return;
-        }
-
-        if (!selectedChat && !isInventoryLoading) {
-            console.log('📥 Загрузка списка чатов');
-            dispatch(fetchInventory());
-        }
-    }, [currentUser?.id, selectedChat, isInventoryLoading, dispatch]);
-
-    useEffect(() => {
-        if (!selectedChat || !currentUser?.id) return;
-        
-        const userInfo = {
-            id: currentUser.id,
-            first_name: currentUser.first_name,
-            photo_url: currentUser.photo_url
-        };
-        
-        // TODO: Восстановить функционал присоединения к комнате после реализации WebSocket
-        console.log('Должны подключиться к комнате:', selectedChat.chat_id, userInfo);
-        
-        return () => {
-            // TODO: Восстановить функционал отключения от комнаты после реализации WebSocket
-            console.log('Должны отключиться от комнаты:', selectedChat.chat_id, userInfo);
-        };
-    }, [currentUser?.id, currentUser?.isAdmin, currentUser?.first_name, currentUser?.photo_url, selectedChat]);
-
-    useEffect(() => {
+        // Эффект для показа диалога завершения
         if (selectedChat?.metadata?.progress === 100 && chatId) {
             setShowCompleteDialog(true);
         }
     }, [selectedChat?.metadata?.progress, chatId]);
 
-    // Все callback функции
+    // --- 6. Инициализация useCallback хуков ---
     const getHeaderTitle = useCallback(() => {
         if (!selectedChat) return 'Инвентарь';
         if (!selectedCategory) return selectedChat.chat_title;
@@ -230,46 +202,51 @@ const Inventory: React.FC = () => {
         setShowCompleteDialog(false);
     }, []);
 
-    const handleChatSelect = useCallback((chatId: string, chat: ChatItem) => {
+    const handleChatSelect = useCallback((chatIdParam: string, chat: ChatItem) => {
         if (!currentUser?.id) return;
+        console.log(`[Inventory] handleChatSelect вызван для chatId: ${chatIdParam}`);
+        const currentUrlChatId = chatId; // Текущий chatId из URL
 
-        // Проверяем права администратора
-        dispatch(checkAdminRights({
-            userId: currentUser.id,
-            chatId: chatId,
-            admins: chat.admins,
-            context: 'inventory'
-        })).unwrap()
-        .then((adminData: { isAdmin: boolean }) => {
-            if (adminData.isAdmin) {
-                // Для админа сразу показываем модальное окно
-                setSelectedChatForModal(chat);
-                setShowChatModal(true);
-            } else {
-                // Для обычного пользователя просто выбираем чат
-                dispatch(selectChat(chatId));
-                navigate(`/inventory/${chatId}`);
-            }
-        })
-        .catch((error: Error) => {
-            console.error('❌ Ошибка при проверке прав администратора:', error);
-        });
-    }, [dispatch, navigate, currentUser]);
+        // Убираем немедленную навигацию. Логика показа модального окна
+        // и последующей навигации должна быть в ChatSelector.
+        if (!currentUrlChatId) {
+            console.log(`[Inventory] Выбран чат ${chatIdParam} в ChatSelector. Модальное окно должно открыться там.`);
+            // navigate(`/inventory/${chatIdParam}`); // <-- КОММЕНТИРУЕМ ИЛИ УДАЛЯЕМ ЭТО
+        } else {
+            // Логика для случая, когда клик происходит УЖЕ на странице инвентаря
+            // Возможно, здесь тоже нужно показывать модальное окно?
+            // Пока оставим как есть, но основная проблема была в блоке if.
+            console.log(`[Inventory] handleChatSelect вызван на странице /inventory/${currentUrlChatId}`);
+            dispatch(checkAdminRights({
+                userId: currentUser.id,
+                chatId: chatIdParam,
+                admins: chat.admins,
+                context: 'inventory'
+            })).unwrap()
+            .then((adminData: { isAdmin: boolean }) => {
+                if (adminData.isAdmin) {
+                    // Показываем модальное окно из Inventory.tsx
+                    // (убедитесь, что оно есть и настроено)
+                    setSelectedChatForModal(chat);
+                    setShowChatModal(true);
+                } else {
+                    console.warn("[Inventory] Попытка выбрать чат, находясь уже на странице инвентаря - действие проигнорировано для не-админа.");
+                }
+            })
+            .catch((error: Error) => {
+                console.error('❌ Ошибка при проверке прав администратора:', error);
+            });
+        }
+    }, [dispatch, /* navigate, */ currentUser, chatId]); // Убираем navigate из зависимостей, если он больше не используется напрямую
 
     const handleStartInventory = useCallback(async () => {
         if (!selectedChatForModal) return;
-
         try {
             console.log('🚀 Запуск процесса инвентаризации...');
-            
-            // Выбираем чат и делаем навигацию
             await dispatch(selectChat(selectedChatForModal.chat_id)).unwrap();
             navigate(`/inventory/${selectedChatForModal.chat_id}`, { replace: true });
-            
-            // Закрываем модалку
             setShowChatModal(false);
             setSelectedChatForModal(null);
-            
             console.log('✅ Процесс инвентаризации запущен');
         } catch (error) {
             console.error('❌ Ошибка при запуске инвентаризации:', error);
@@ -277,21 +254,19 @@ const Inventory: React.FC = () => {
         }
     }, [dispatch, navigate, selectedChatForModal]);
 
-    const handleResetInventory = useCallback(async (chatId: string): Promise<void> => {
+    const handleResetInventory = useCallback(async (chatIdParam: string): Promise<void> => {
         try {
-            // Отправляем запрос на сброс инвентаризации
-            await axios.post(`${config.API_URL}/inventory/${chatId}/reset`);
-            
-            // После успешного сброса обновляем данные инвентаря
-            await dispatch(fetchChatInventory(chatId));
+            await axios.post(`${config.API_URL}/inventory/${chatIdParam}/reset`);
+            await dispatch(fetchChatInventory(chatIdParam));
         } catch (error) {
             console.error('Ошибка при сбросе инвентаризации:', error);
             throw error;
         }
     }, [dispatch]);
 
-    // Преобразование данных
-    const chatForFooter: Chat | null = selectedChat ? {
+    // --- 7. Прочие переменные и вычисления ---
+    const error = loaderError || reduxError; // Объединяем ошибки
+    const chatForFooter: Chat | null = selectedChat ? { // Данные для футера
         id: selectedChat.chat_id,
         name: selectedChat.chat_title,
         type: 'group',
@@ -299,143 +274,159 @@ const Inventory: React.FC = () => {
         updated_at: selectedChat.metadata?.lastUpdated || ''
     } : null;
 
-    // Рендеринг компонента
-    if (isInventoryLoading) {
+    // --- 8. Условный рендеринг (ранние возвраты) ---
+    // Важно: Все хуки выше УЖЕ были вызваны к этому моменту
+
+    // --- 8.1. Рендеринг для страницы выбора чата --- 
+    if (!chatId) {
+        if (isInventoryLoading) {
+            return (
+                <div className={styles.container}>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+                        <ChatListSkeleton loadingProgress={loadingProgress} />
+                    </motion.div>
+                </div>
+            );
+        }
+        if (error) {
+             return (
+                <div className={styles.container}>
+                    <div className={styles.errorWrapper}>
+                        <p className={styles.errorMessage}>{error}</p>
+                        <button className={styles.retryButton} onClick={() => window.location.reload()}>Повторить</button>
+                    </div>
+                </div>
+            );
+        }
+        // Рендеринг ChatSelector, если нет chatId и нет загрузки/ошибки
+        console.log('[Inventory] Рендерим ChatSelector, так как chatId не найден в URL');
         return (
-            <div className={styles.container}>
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                >
-                    <ChatListSkeleton loadingProgress={loadingProgress} />
-                </motion.div>
+             <div className={styles.container}>
+                <ChatSelector
+                    chats={items.map(chat => ({
+                        chat_id: chat.chat_id,
+                        chat_title: chat.chat_title,
+                        admins: chat.admins || [],
+                        members: chat.members,
+                        inventory: chat.inventory,
+                        metadata: {
+                            progress: chat.metadata?.progress || 0,
+                            lastUpdated: chat.metadata?.lastUpdated || new Date().toISOString(),
+                            chat_id: chat.chat_id
+                        }
+                    }))}
+                    onChatSelect={handleChatSelect}
+                    onResetInventory={handleResetInventory}
+                    mode="inventory"
+                    onHomeClick={() => navigate('/')}
+                />
+                {/* Модальное окно из Inventory.tsx для случая клика на чат, УЖЕ находясь на странице инвентаря */}
+                {selectedChatForModal && (
+                    <ChatModal
+                        chat={selectedChatForModal}
+                        open={showChatModal}
+                        onClose={() => {
+                            setShowChatModal(false);
+                            setSelectedChatForModal(null);
+                        }}
+                        onStartAction={handleStartInventory} // Эта кнопка должна навигировать
+                        mode="inventory"
+                        title="Подтверждение инвентаризации"
+                        actionButtonText="Перейти к инвентаризации"
+                    />
+                )}
             </div>
         );
     }
 
+    // --- 8.2. Рендеринг для страницы ДЕТАЛЕЙ инвентаря (chatId есть) --- 
+    if (isInventoryLoading) {
+         console.log(`[Inventory] Показываем скелетон для chatId: ${chatId} (isInventoryLoading)`);
+        return <div className={styles.container}><ChatListSkeleton loadingProgress={loadingProgress} /></div>;
+    }
     if (error) {
+        console.error(`[Inventory] Показываем ошибку для chatId: ${chatId}:`, error);
         return (
             <div className={styles.container}>
                 <div className={styles.errorWrapper}>
                     <p className={styles.errorMessage}>{error}</p>
-                    <button className={styles.retryButton} onClick={() => window.location.reload()}>
-                        Повторить
-                    </button>
+                    <button className={styles.retryButton} onClick={() => dispatch(fetchChatInventory(chatId))}>Повторить</button>
                 </div>
             </div>
         );
     }
-
-    if (chatId && selectedChat) {
-        return (
-            <div className={styles.container}>
-                <Header 
-                    title={getHeaderTitle()}
-                    progress={selectedChat?.metadata?.progress || 0}
-                    notifications={notifications}
-                    hasUnreadNotifications={hasUnreadNotifications}
-                    onNotificationClose={handleNotificationClose}
-                />
-                <div className={styles.content}>
-                    {hasValidInventory ? (
-                        <motion.div 
-                            className={styles.mainSection}
-                            initial={{ y: "100%", opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30,
-                                mass: 0.8
-                            }}
-                        >
-                            {!selectedItem && (
-                                <div className={`${styles.searchContainer} ${isSearchFocused ? styles.searchActive : ''}`}>
-                                    <InventorySearch 
-                                        onSearch={handleSearch}
-                                        isSearching={isSearching}
-                                        searchResults={searchResults}
-                                        onClearSearch={handleClearSearch}
-                                        onFocusChange={handleSearchFocusChange}
-                                    />
-                                </div>
-                            )}
-                            
-                            <div className={isSearchFocused && searchQuery ? styles.contentBlurred : ''} style={{ overflow: 'visible', minHeight: '60vh' }}>
-                                {currentView}
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <div className={styles.inventoryLoadingWrapper}>
-                            <div className={styles.loadingSpinner} />
-                            <p>Loading inventory data...</p>
-                        </div>
-                    )}
-                </div>
-                <Footer 
-                    selectedChat={chatForFooter!}
-                    selectedCategory={selectedCategory || undefined}
-                    selectedItem={selectedItem || undefined}
-                    onBack={handleBack}
-                    onChatSelect={() => navigate('/inventory')}
-                />
-                <InventoryCompleteDialog
-                    isOpen={showCompleteDialog}
-                    onClose={handleCloseCompleteDialog}
-                    inventoryData={selectedChat as any}
-                    chatId={selectedChat?.chat_id || ''}
-                />
-            </div>
-        );
+    
+    // Убираем проверку (!selectedChat || selectedChat.chat_id !== chatId)
+    // Вместо этого проверяем hasValidInventory
+    if (!hasValidInventory) {
+        // Показываем состояние загрузки/ожидания, пока useInventoryView не скажет, что инвентарь валиден
+        console.log(`[Inventory] Показываем заглушку загрузки для chatId: ${chatId}, т.к. hasValidInventory=false`);
+        // Можно использовать тот же скелетон или просто текст
+        return <div className={styles.container}><ChatListSkeleton loadingProgress={loadingProgress} /></div>;
+        // return <div className={styles.container}><p>Подготовка данных инвентаря...</p></div>;
     }
 
+    // --- 9. Финальный рендеринг (детали инвентаря) --- 
+    // Сюда мы попадаем, только если chatId есть, нет загрузки/ошибки, и hasValidInventory = true
+    console.log(`[Inventory] Рендерим ПОЛНЫЕ детали инвентаря для chatId: ${chatId}, selectedChat: ${selectedChat?.chat_id}`);
+    // Добавляем проверку, что selectedChat действительно загружен, на всякий случай
+    if (!selectedChat) {
+        console.error(`[Inventory] ОШИБКА РЕНДЕРИНГА: selectedChat is null/undefined, хотя hasValidInventory=true! chatId=${chatId}`);
+        return <div className={styles.container}><p>Произошла внутренняя ошибка.</p></div>;
+    }
+    
     return (
         <div className={styles.container}>
-            <ChatSelector
-                chats={items.map(chat => ({
-                    chat_id: chat.chat_id,
-                    chat_title: chat.chat_title,
-                    admins: chat.admins.map(admin => ({
-                        ...admin,
-                        is_bot: false,
-                        can_manage_chat: admin.status === 'creator' || admin.status === 'administrator',
-                        can_delete_messages: admin.status === 'creator' || admin.status === 'administrator',
-                        can_manage_voice_chats: admin.status === 'creator' || admin.status === 'administrator',
-                        can_restrict_members: admin.status === 'creator' || admin.status === 'administrator',
-                        can_promote_members: admin.status === 'creator',
-                        can_change_info: admin.status === 'creator' || admin.status === 'administrator',
-                        can_invite_users: admin.status === 'creator' || admin.status === 'administrator',
-                        can_pin_messages: admin.status === 'creator' || admin.status === 'administrator'
-                    })),
-                    members: chat.members,
-                    inventory: chat.inventory,
-                    metadata: {
-                        progress: chat.metadata?.progress || 0,
-                        lastUpdated: chat.metadata?.lastUpdated || new Date().toISOString(),
-                        chat_id: chat.chat_id
-                    }
-                }))}
-                onChatSelect={handleChatSelect}
-                onResetInventory={handleResetInventory}
-                mode="inventory"
+            <Header 
+                title={getHeaderTitle()}
+                progress={selectedChat?.metadata?.progress || 0}
+                notifications={notifications}
+                hasUnreadNotifications={hasUnreadNotifications}
+                onNotificationClose={handleNotificationClose}
             />
-
-            {selectedChatForModal && (
-                <ChatModal
-                    chat={selectedChatForModal}
-                    open={showChatModal}
-                    onClose={() => {
-                        setShowChatModal(false);
-                        setSelectedChatForModal(null);
+            <div className={styles.content}>
+                 {/* Убираем дублирующую проверку hasValidInventory здесь, она уже сделана выше */}
+                <motion.div 
+                    className={styles.mainSection}
+                    initial={{ y: "100%", opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 30,
+                        mass: 0.8
                     }}
-                    onStartAction={handleStartInventory}
-                    mode="inventory"
-                    title="Подтверждение инвентаризации"
-                    actionButtonText="Приступить к инвентаризации"
-                />
-            )}
+                >
+                    {!selectedItem && (
+                        <div className={`${styles.searchContainer} ${isSearchFocused ? styles.searchActive : ''}`}>
+                            <InventorySearch 
+                                onSearch={handleSearch}
+                                isSearching={isSearching}
+                                searchResults={searchResults}
+                                onClearSearch={handleClearSearch}
+                                onFocusChange={handleSearchFocusChange}
+                            />
+                        </div>
+                    )}
+                    
+                    <div className={isSearchFocused && searchQuery ? styles.contentBlurred : ''} style={{ overflow: 'visible', minHeight: '60vh' }}>
+                        {currentView} 
+                    </div>
+                </motion.div>
+            </div>
+            <Footer 
+                selectedChat={chatForFooter!} // selectedChat здесь уже не null
+                selectedCategory={selectedCategory || undefined}
+                selectedItem={selectedItem || undefined}
+                onBack={handleBack}
+                onChatSelect={() => navigate('/inventory')}
+            />
+            <InventoryCompleteDialog
+                isOpen={showCompleteDialog}
+                onClose={handleCloseCompleteDialog}
+                inventoryData={selectedChat as any}
+                chatId={selectedChat?.chat_id || ''}
+            />
         </div>
     );
 };

@@ -6,4 +6,5 @@ sqlalchemy[asyncio]
 asyncpg
 pydantic-settings
 alembic
-httpx 
+httpx
+loguru 

@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # --- Настройки FastAPI (если нужны) ---
     API_V1_STR: str = "/api/v1" # Пример префикса для версионирования API
     PROJECT_NAME: str = "AppNinjaBot API"
+    PROJECT_VERSION: str = "0.1.0"
 
     # --- Настройки JWT (позже) ---
     # JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "default_secret")

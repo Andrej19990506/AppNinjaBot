@@ -22,8 +22,8 @@ import Modal from '@mui/material/Modal';
 
 // Расширяем тип HistoryRecord
 interface ExtendedHistoryRecord extends HistoryRecord {
-    newQuantity: number;
-    oldQuantity: number;
+    new_quantity: number;
+    old_quantity: number;
 }
 
 interface ItemHistoryProps {
@@ -530,14 +530,16 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         if (isMobile) {
             return (
                 <Tooltip title="Загрузка истории..." arrow>
-                    <Fab 
-                        color="primary" 
-                        size="medium" 
-                        className={styles.historyFab}
-                        disabled
-                    >
-                        <HistoryIcon />
-                    </Fab>
+                    <span> 
+                        <Fab 
+                            color="primary" 
+                            size="medium" 
+                            className={styles.historyFab}
+                            disabled
+                        >
+                            <HistoryIcon />
+                        </Fab>
+                    </span>
                 </Tooltip>
             );
         }
@@ -731,18 +733,18 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                                             {formatAction(record.action, record.type)}
                                                         </span>
                                                         <span className={styles.quantity}>
-                                                            {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
+                                                            {Math.abs((record.new_quantity ?? 0) - (record.old_quantity ?? 0))}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <div className={styles.rightContent}>
                                                     <div className={styles.quantityChange}>
                                                         <span className={styles.oldQuantity}>
-                                                            {record.oldQuantity ?? 0}
+                                                            {record.old_quantity ?? 0}
                                                         </span>
                                                         <span className={styles.arrow}>→</span>
                                                         <span className={styles.newQuantity}>
-                                                            {record.newQuantity ?? 0}
+                                                            {record.new_quantity ?? 0}
                                                         </span>
                                                     </div>
                                                     <time className={styles.timestamp}>
@@ -913,18 +915,18 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                                     {formatAction(record.action, record.type)}
                                                 </span>
                                                 <span className={styles.quantity}>
-                                                    {Math.abs((record.newQuantity ?? 0) - (record.oldQuantity ?? 0))}
+                                                    {Math.abs((record.new_quantity ?? 0) - (record.old_quantity ?? 0))}
                                                 </span>
                                             </div>
                                         </div>
                                         <div className={styles.rightContent}>
                                             <div className={styles.quantityChange}>
                                                 <span className={styles.oldQuantity}>
-                                                    {record.oldQuantity ?? 0}
+                                                    {record.old_quantity ?? 0}
                                                 </span>
                                                 <span className={styles.arrow}>→</span>
                                                 <span className={styles.newQuantity}>
-                                                    {record.newQuantity ?? 0}
+                                                    {record.new_quantity ?? 0}
                                                 </span>
                                             </div>
                                             <time className={styles.timestamp}>

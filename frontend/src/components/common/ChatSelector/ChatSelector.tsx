@@ -92,7 +92,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     onHomeClick
 }) => {
     const dispatch = useAppDispatch();
-    const currentUser = useAppSelector((state: RootState) => state.user) as unknown as User;
+    const currentUser = useAppSelector((state: RootState) => state.user.user);
     const [resetConfirmation, setResetConfirmation] = useState<{ chatId: string; button: HTMLButtonElement } | null>(null);
     const [systemNotification, setSystemNotification] = useState<SystemNotificationType>({ message: '', type: 'success' });
     const [activeIndex, setActiveIndex] = useState(0);

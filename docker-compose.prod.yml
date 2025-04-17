@@ -131,6 +131,7 @@ services:
           memory: 128M
 
   postgres:
+    ports: []
     restart: unless-stopped
     deploy:
       resources:

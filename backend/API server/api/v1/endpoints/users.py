@@ -48,7 +48,7 @@ async def get_user_groups_context(
     # 2. Получить связанные GroupMember и Group, используя жадную загрузку
     member_with_associations_query = (
         select(Member)
-        .options(selectinload(Member.groups_association)
+        .options(selectinload(Member.groups)
                  .selectinload(GroupMember.group))
         .where(Member.id == member.id)
     )
@@ -57,8 +57,8 @@ async def get_user_groups_context(
 
     # 3. Подготовить список для ответа
     groups_context = []
-    if member_with_associations and member_with_associations.groups_association:
-        for assoc in member_with_associations.groups_association:
+    if member_with_associations and member_with_associations.groups:
+        for assoc in member_with_associations.groups:
             if assoc.group:
                 group_data = assoc.group.__dict__
                 group_data['role'] = assoc.role

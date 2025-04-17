@@ -27,6 +27,8 @@ class ItemHistory:
         self.data_dir = data_dir
         self.history_dir = data_dir / 'history'
         self.history_dir.mkdir(parents=True, exist_ok=True)
+        
+    VALID_TYPES = ['raw', 'semifinished']
 
     def _get_history_file(self, chat_id: str) -> Path:
         return self.history_dir / f'history_{chat_id}.json'
@@ -59,6 +61,8 @@ class ItemHistory:
             if missing_fields:
                 raise ValueError(f"Missing required fields: {', '.join(missing_fields)}")
             
+            # Валидация типа
+            if record['type'] not in self.VALID_TYPES:
             # Генерируем уникальный ID и добавляем метку времени
             record['id'] = str(uuid.uuid4())
             if 'timestamp' not in record:

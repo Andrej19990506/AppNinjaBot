@@ -31,6 +31,10 @@ import { useWebSocketSync } from './hooks/useWebSocketSync';
 // <<< Импортируем новый компонент-обработчик >>>
 import NotificationHandler from './components/notifications/NotificationHandler';
 
+// NEW: Импортируем страницу инвентаря и защищенный маршрут
+import InventoryPage from './pages/InventoryPage';
+import ProtectedChefRoute from './components/ProtectedChefRoute';
+
 // --- Заглушки --- 
 const LoadingScreen: React.FC<{ message: string }> = ({ message }) => <div>{message}...</div>;
 const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
@@ -82,8 +86,6 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 function App() {
   logger.log('🔄 Инициализация главного меню (запускается рендер App)...');
 
- 
-
   return (
     <Provider store={store}>
       <CustomThemeProvider>
@@ -97,8 +99,35 @@ function App() {
               <NotificationHandler />
               <Routes>
                 <Route path="/" element={<MainMenu />} />
-                <Route path="/courier-schedule" element={<CourierSchedule />} />
-                <Route path="/admin" element={<AdminPanel />} /> {/* Используем заглушку */} 
+                {/* Используем ProtectedCourierRoute для /courier-schedule */}
+                <Route 
+                  path="/courier-schedule" 
+                  element={ 
+                    /*<ProtectedCourierRoute>*/
+                      <CourierSchedule /> 
+                    /*</ProtectedCourierRoute>*/ // TODO: Раскомментировать защиту курьера позже
+                  }
+                 />
+                <Route path="/admin" element={<AdminPanel />} /> 
+
+                {/* NEW: Добавляем маршруты для инвентаря */}
+                <Route 
+                    path="/inventory" 
+                    element={
+                        <ProtectedChefRoute>
+                            <InventoryPage />
+                        </ProtectedChefRoute>
+                    }
+                 />
+                 <Route 
+                    path="/inventory/:chatId" // Маршрут с параметром chatId
+                    element={
+                        <ProtectedChefRoute>
+                            <InventoryPage />
+                        </ProtectedChefRoute>
+                    }
+                 />
+                
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </AppInitializer>

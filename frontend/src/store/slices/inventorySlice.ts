@@ -105,13 +105,31 @@ const initialState: InventoryState = {
     lastSentItemSuggestion: null
 };
 
-export const fetchInventory = createAsyncThunk(
+export const fetchInventory = createAsyncThunk<
+    ChatInventory[],
+    { userId: number, role: string | null },
+    { rejectValue: string }
+>(
     InventoryActionTypes.FETCH_INVENTORY,
-    async () => {
-        console.log('🔄 Начало загрузки списка чатов');
-        const response = await axios.get<ChatInventory[]>(`${config.API_URL}/chats`);
-        console.log('✅ Получены данные:', response.data);
-        return response.data;
+    async (arg, { rejectWithValue }) => {
+        const { userId, role } = arg;
+        console.log(`🔄 Начало загрузки списка чатов для пользователя ${userId} ${role ? `(роль: ${role})` : ''}`);
+        try {
+            const params: Record<string, any> = { user_id: userId };
+            if (role && role !== 'none') {
+                params.group_type = role;
+            }
+            console.log(`🔍 Параметры запроса к /chats:`, params);
+            const response = await axios.get<ChatInventory[]>(`${config.API_URL}/api/v1/groups/chats`, {
+                params: params
+            });
+            console.log(`✅ Получены данные чатов для пользователя ${userId} ${role ? `(роль: ${role})` : ''}:`, response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error(`❌ Ошибка при загрузке списка чатов для пользователя ${userId} ${role ? `(роль: ${role})` : ''}:`, error);
+            const message = error.response?.data?.detail || error.message || 'Failed to fetch chats';
+            return rejectWithValue(message);
+        }
     }
 );
 
@@ -120,7 +138,7 @@ export const fetchChatInventory = createAsyncThunk<ChatResponse, string>(
     async (chatId: string) => {
         try {
             // Получаем данные инвентаря
-            const inventoryResponse = await axios.get(`${config.API_URL}/inventory/${chatId}`);
+            const inventoryResponse = await axios.get(`${config.API_URL}/api/v1/groups/inventory/${chatId}`);
             const inventoryData = inventoryResponse.data;
 
             if (!inventoryData) {
@@ -185,15 +203,15 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
             let newQuantity = 0;
             let itemType = 'raw';
 
-            if (!currentItem?.semifinished && payload.item.semifinished) {
+            if (!currentItem?.semifinished && payload.item?.semifinished) {
                 actionType = 'добавлен полуфабрикат';
                 itemType = 'semifinished';
                 oldQuantity = 0;
-                newQuantity = payload.item.semifinished.quantity;
-            } else if (currentItem?.semifinished && !payload.item.semifinished) {
+                newQuantity = payload.item.semifinished.quantity || 0;
+            } else if (currentItem?.semifinished && !payload.item?.semifinished) {
                 actionType = 'удален полуфабрикат';
                 itemType = 'semifinished';
-                oldQuantity = currentItem.semifinished.quantity;
+                oldQuantity = currentItem.semifinished?.quantity || 0;
                 newQuantity = 0;
             } else if (currentItem?.raw?.quantity !== payload.item?.raw?.quantity) {
                 actionType = 'изменено количество сырья';
@@ -234,7 +252,7 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
                     action: actionType === 'добавлен полуфабрикат' ? 'add_option' :
                             actionType === 'удален полуфабрикат' ? 'remove_option' :
                             newQuantity > oldQuantity ? 'add' : 'remove',
-                    type: itemType,
+                    itemType: itemType,
                     oldQuantity,
                     newQuantity,
                     category: payload.category,
@@ -244,7 +262,7 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
 
             console.log('📤 Sending data to server:', inventoryData);
 
-            const response = await axios.post(`${config.API_URL}/inventory/${payload.chatId}`, inventoryData);
+            const response = await axios.post(`${config.API_URL}/api/v1/groups/inventory/${payload.chatId}`, inventoryData);
             console.log(`✅ ${actionType} successfully saved:`, response.data);
 
             return {
@@ -325,13 +343,15 @@ const calculateInventoryProgress = (inventory: Inventory): number => {
 
     Object.entries(inventory).forEach(([_, items]) => {
         Object.values(items).forEach((item) => {
-            if (item.raw) {
+            // Проверяем наличие свойства raw перед обращением к нему
+            if (item && item.raw) {
                 totalItems++;
                 if (item.raw.filled || item.raw.quantity > 0 || item.raw.isOutOfStock) {
                     filledItems++;
                 }
             }
-            if (item.semifinished) {
+            // Проверяем наличие свойства semifinished перед обращением к нему
+            if (item && item.semifinished) {
                 totalItems++;
                 if (item.semifinished.filled || item.semifinished.quantity > 0) {
                     filledItems++;
@@ -635,7 +655,7 @@ const inventorySlice = createSlice({
                     // Обновляем чат в списке
                     state.items[chatIndex] = updatedChat;
                     
-                    // Если это выбранный чат, обновляем его тоже
+                    // ----> ИСПРАВЛЕНИЕ: Обновляем selectedChat и при полном обновлении <----
                     if (state.selectedChatId === chatId) {
                         state.selectedChat = updatedChat;
                     }
@@ -676,7 +696,7 @@ const inventorySlice = createSlice({
                     // Обновляем чат в списке
                     state.items[chatIndex] = updatedChat;
                     
-                    // Если это выбранный чат, обновляем его тоже
+                    // ----> ИСПРАВЛЕНИЕ: Обновляем selectedChat и при полном обновлении <----
                     if (state.selectedChatId === chatId) {
                         state.selectedChat = updatedChat;
                     }
@@ -854,39 +874,24 @@ const inventorySlice = createSlice({
                 // Рассчитываем прогресс для загруженного инвентаря
                 const progress = calculateInventoryProgress(action.payload.data.inventory);
                 
-                // Обновляем данные инвентаря в выбранном чате
-                if (state.selectedChat && state.selectedChat.chat_id === action.payload.chatId) {
-                    const oldInventory = state.selectedChat.inventory;
-                    state.selectedChat.inventory = action.payload.data.inventory;
-                    state.selectedChat.metadata = {
-                        ...action.payload.data.metadata,
-                        chat_id: action.payload.chatId,
-                        progress,
-                        lastUpdated: new Date().toISOString()
-                    };
-                    
-                    console.debug('🔍 Redux Debug - Обновление инвентаря в выбранном чате:', {
-                        chatId: action.payload.chatId,
-                        oldInventoryKeys: Object.keys(oldInventory || {}),
-                        newInventoryKeys: Object.keys(action.payload.data.inventory || {}),
-                        changed: JSON.stringify(oldInventory) !== JSON.stringify(action.payload.data.inventory),
-                        newInventoryData: action.payload.data.inventory,
-                        progress
-                    });
-                }
-
                 // Также обновляем данные в общем списке чатов
                 const chatIndex = state.items.findIndex(chat => chat.chat_id === action.payload.chatId);
                 if (chatIndex !== -1) {
                     const oldInventory = state.items[chatIndex].inventory;
-                    state.items[chatIndex].inventory = action.payload.data.inventory;
-                    state.items[chatIndex].metadata = {
-                        ...action.payload.data.metadata,
-                        chat_id: action.payload.chatId,
-                        progress,
-                        lastUpdated: new Date().toISOString()
+                    // Создаем обновленный объект чата для списка
+                    const updatedChatDataForList = {
+                        ...state.items[chatIndex], // Берем старые данные из списка
+                        inventory: action.payload.data.inventory,
+                        metadata: {
+                            ...action.payload.data.metadata,
+                            chat_id: action.payload.chatId,
+                            progress,
+                            lastUpdated: new Date().toISOString()
+                        }
                     };
-                    
+                    // Обновляем чат в списке
+                    state.items[chatIndex] = updatedChatDataForList;
+
                     console.debug('🔍 Redux Debug - Обновление инвентаря в списке чатов:', {
                         chatId: action.payload.chatId,
                         chatIndex,
@@ -1023,6 +1028,29 @@ export const {
     setLastSentItemSuggestion
 } = inventorySlice.actions;
 export default inventorySlice.reducer;
+
+// <<<--- ДОБАВЛЯЕМ ЭКСПОРТ СЕЛЕКТОРОВ --->>>
+
+// Основные селекторы состояния инвентаря
+export const selectInventoryState = (state: RootState) => state.inventory;
+export const selectInventoryChats = (state: RootState): ChatInventory[] => state.inventory.items;
+export const selectSelectedChatData = (state: RootState): ChatInventory | null => state.inventory.selectedChat;
+export const selectSelectedChatId = (state: RootState): string | null => state.inventory.selectedChatId;
+export const selectInventoryLoading = (state: RootState): boolean => state.inventory.isLoading;
+export const selectInventoryError = (state: RootState): string | null => state.inventory.error;
+
+// Селектор для выбранного товара (если он используется где-то еще)
+export const selectSelectedItemData = (state: RootState): InventoryItem | null => state.inventory.selectedItem;
+
+// Селекторы для истории
+export const selectHistoryState = (state: RootState) => state.inventory.history;
+export const selectHistoryRecordsForItem = (itemId: string) => (state: RootState): HistoryRecord[] => state.inventory.history.records[itemId] || [];
+export const selectHistoryLoading = (state: RootState): boolean => state.inventory.history.isLoading;
+export const selectHistoryError = (state: RootState): string | null => state.inventory.history.error;
+
+// Селектор для последнего отправленного предложения
+// @ts-ignore
+export const selectLastSentItemSuggestion = (state: RootState): ItemSuggestion | null => state.inventory.lastSentItemSuggestion;
 
 // Middleware для WebSocket
 export const setupHistoryWebSocket = (store: any) => {

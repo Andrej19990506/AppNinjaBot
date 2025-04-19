@@ -2,17 +2,20 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime
 from sqlalchemy import select, text
 from sqlalchemy.orm import selectinload
 import json
 import logging
+from fastapi import status
 
 from db.session import get_db_session
 import crud
 import schemas
 from models.reserve import Reserve
 from models.group import Group
+from models.member import Member
+from models.group_member import GroupMember
 
 # Настроим логгер (или убедимся, что он настроен глобально)
 logger = logging.getLogger(__name__)
@@ -27,14 +30,35 @@ async def add_to_reserve(
     """Добавляет пользователя в резерв на указанную дату."""
     # TODO: Добавить проверку прав доступа (например, только админ или сам пользователь)
     
-    print(f"DEBUG: Создание резерва с данными: user_telegram_id={reserve_in.user_telegram_id}, group_telegram_id={reserve_in.group_telegram_id}, date={reserve_in.reserve_date}")
+    print(f"DEBUG: Создание резерва с данными: user_telegram_id={reserve_in.user_telegram_id}, group_telegram_id={reserve_in.group_telegram_id}, date={reserve_in.reserve_date}, type={type(reserve_in.reserve_date)}")
     
+    # <<< НАЧАЛО ЯВНОЙ ПРОВЕРКИ И КОНВЕРТАЦИИ ДАТЫ >>>
+    reserve_date_obj: date
+    if isinstance(reserve_in.reserve_date, str):
+        try:
+            # Пробуем преобразовать строку в дату
+            reserve_date_obj = datetime.strptime(reserve_in.reserve_date, '%Y-%m-%d').date()
+            print(f"DEBUG: Дата была строкой, преобразована в {type(reserve_date_obj)}")
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid date format. Use YYYY-MM-DD.")
+    elif isinstance(reserve_in.reserve_date, date):
+        # Если это уже объект date, просто используем его
+        reserve_date_obj = reserve_in.reserve_date
+        print(f"DEBUG: Дата уже имеет тип {type(reserve_date_obj)}")
+    else:
+        # Если тип неожиданный, выбрасываем ошибку
+        raise HTTPException(status_code=422, detail=f"Unexpected type for date: {type(reserve_in.reserve_date)}")
+    # <<< КОНЕЦ ЯВНОЙ ПРОВЕРКИ И КОНВЕРТАЦИИ ДАТЫ >>>
+
     # Проверяем, нет ли уже резерва у пользователя на эту дату
+    # --- ДОБАВЛЯЕМ ЛОГИРОВАНИЕ ПЕРЕД ВЫЗОВОМ CRUD ---
+    logger.info(f"Вызов check_existing_reserve с user_telegram_id={reserve_in.user_telegram_id}, group_telegram_id={reserve_in.group_telegram_id}, reserve_date={reserve_date_obj} (тип: {type(reserve_date_obj)})")
+    # --- КОНЕЦ ЛОГИРОВАНИЯ ---
     existing_reserve = await crud.reserve.check_existing_reserve(
         db=db, 
         user_telegram_id=reserve_in.user_telegram_id,
         group_telegram_id=reserve_in.group_telegram_id,
-        reserve_date=reserve_in.reserve_date
+        reserve_date=reserve_date_obj
     )
     
     if existing_reserve:
@@ -185,44 +209,73 @@ async def read_all_reserves(
 @router.delete("/{reserve_id}", response_model=schemas.ReserveRead)
 async def remove_from_reserve(
     reserve_id: UUID,
+    requester_telegram_id: int = Query(..., description="Telegram ID of the user attempting the action (Sent by Frontend)"),
     db: AsyncSession = Depends(get_db_session),
 ):
-    """Удаляет пользователя из резерва по ID записи резерва."""
-    # TODO: Добавить проверку прав доступа
+    """Удаляет пользователя из резерва по ID записи резерва. Проверяет права старшего курьера."""
     
-    # Исправляем имя функции: get_reserve_by_id -> get_reserve
+    logger.info(f"[Remove Reserve] Attempt by user {requester_telegram_id} to delete reserve {reserve_id}")
+    
+    # Находим резерв для удаления и связанные данные
     reserve_to_delete = await crud.reserve.get_reserve(db=db, reserve_id=reserve_id)
     if reserve_to_delete is None:
+        logger.warning(f"[Remove Reserve] Reserve entry {reserve_id} not found.")
         raise HTTPException(status_code=404, detail="Reserve entry not found")
-    
-    # Сохраняем нужные данные для WebSocket перед удалением
-    deleted_reserve_id = str(reserve_to_delete.id)
-    # Убедимся, что group и group_id загружены (может потребоваться await db.refresh)
+
+    # Убедимся, что группа загружена для проверки прав и для WebSocket
     if not hasattr(reserve_to_delete, 'group') or not reserve_to_delete.group:
-         await db.refresh(reserve_to_delete, attribute_names=['group']) # Загружаем группу
+         await db.refresh(reserve_to_delete, attribute_names=['group']) 
          if not reserve_to_delete.group:
-              logger.error(f"Не удалось загрузить группу для резерва {deleted_reserve_id} перед удалением.")
-              # Можно либо продолжить без chat_id, либо вернуть ошибку
-              # Пока продолжим, но событие не отправим
-              group_telegram_id_for_event = None
-         else:
-             group_telegram_id_for_event = str(reserve_to_delete.group.group_id)
-    else:
-         group_telegram_id_for_event = str(reserve_to_delete.group.group_id)
+              logger.error(f"[Remove Reserve] Не удалось загрузить группу для резерва {reserve_id} перед проверкой прав/удалением.")
+              raise HTTPException(status_code=500, detail="Failed to load group data for the reserve.")
+              
+    target_group = reserve_to_delete.group
+    group_telegram_id_for_event = str(target_group.group_id)
+    deleted_reserve_id = str(reserve_to_delete.id) # Сохраняем ID для WebSocket
+    
+    # <<< НАЧАЛО: ПРОВЕРКА ПРАВ СТАРШЕГО КУРЬЕРА >>>
+    # Находим пользователя по ID, присланному фронтом
+    requester_member_result = await db.execute(
+        select(Member).where(Member.user_id == requester_telegram_id)
+    )
+    requester_member: Member | None = requester_member_result.scalar_one_or_none()
+
+    if requester_member is None:
+        logger.warning(f"[Remove Reserve] Requester member {requester_telegram_id} not found.")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Provided requester ID not found.")
+
+    # Находим запись GroupMember для этого пользователя в группе этого резерва
+    requester_gm_result = await db.execute(
+        select(GroupMember).where(
+            (GroupMember.member_id == requester_member.id) &
+            (GroupMember.group_id == target_group.id) # Используем ID группы из резерва
+        )
+    )
+    requester_gm: GroupMember | None = requester_gm_result.scalar_one_or_none()
+
+    # Проверяем, является ли пользователь с ID из запроса старшим курьером
+    if not requester_gm or not requester_gm.is_senior_courier:
+        logger.warning(f"[Remove Reserve] User {requester_telegram_id} is NOT a senior courier in group {target_group.group_id}. Access denied for deleting reserve {reserve_id}.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Action requires senior courier permissions."
+        )
+    
+    logger.info(f"[Remove Reserve] User {requester_telegram_id} IS a senior courier in group {target_group.group_id}. Permissions granted.")
+    # <<< КОНЕЦ: ПРОВЕРКА ПРАВ >>>
 
     # Теперь удаляем резерв
-    # Используем reserve_to_delete, который уже содержит нужный объект
-    await db.delete(reserve_to_delete) 
+    await db.delete(reserve_to_delete)
     await db.commit() # Коммитим удаление
+    logger.info(f"[Remove Reserve] Successfully deleted reserve {reserve_id}")
 
     # --- Отправка NOTIFY после удаления --- >
     if group_telegram_id_for_event:
         try:
             notify_payload = json.dumps({
                 "type": "reserve_removed",
-                # Передаем ТЕЛЕГРАМ ID группы, который сохранили ранее
                 "chat_id": group_telegram_id_for_event,
-                "data": { # В data передаем только ID удаленного резерва
+                "data": { 
                     "id": deleted_reserve_id
                 }
             })
@@ -237,5 +290,5 @@ async def remove_from_reserve(
          logger.warning(f"Не отправлено WebSocket событие 'reserve_removed' для резерва {deleted_reserve_id}, так как не удалось определить chat_id.")
     # --- Конец блока NOTIFY ---   
      
-    # Возвращаем данные удаленного резерва 
+    # Возвращаем данные удаленного резерва (для консистентности, хотя в DELETE часто возвращают 204)
     return reserve_to_delete 

@@ -1,5 +1,5 @@
 # Stage 1: Build the React application
-FROM node:18-alpine as builder
+FROM node:18 as builder
 
 WORKDIR /app
 
@@ -9,11 +9,11 @@ ARG REACT_APP_WS_URL
 # ARG REACT_APP_VERSION # Uncomment if version is passed as arg and needed during build
 
 # Copy package files and install dependencies
-COPY package*.json ./
+COPY package.json ./
 # Use ci for potentially faster and more reliable installs in CI/CD
 # RUN npm ci 
 # Trying npm install as a workaround for ci failure
-RUN npm install 
+RUN npm install
 
 # Copy the rest of the application code
 COPY . .

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { InventoryItem } from '../types/inventory';
 
 interface UseInventoryViewProps {
@@ -33,12 +33,12 @@ export function useInventoryView({
   isLoading = false
 }: UseInventoryViewProps) {
   // Проверяем, есть ли в инвентаре категории
-  const hasCategories = useMemo(() => {
+  const hasCategories = useCallback(() => {
     return !!inventory && Object.keys(inventory).length > 0;
   }, [inventory]);
   
   // Мемоизированное представление для текущего состояния навигации
-  const currentView = useMemo(() => {
+  const currentView = useCallback(() => {
     // Если поиск активен и есть компонент поиска, отображаем его
     if (searchActive && renderSearch) {
       return renderSearch();
@@ -65,13 +65,13 @@ export function useInventoryView({
   ]);
   
   // Получаем список категорий из инвентаря
-  const categories = useMemo(() => {
+  const categories = useCallback(() => {
     if (!inventory) return [];
     return Object.keys(inventory);
   }, [inventory]);
   
   // Получаем товары для выбранной категории
-  const categoryItems = useMemo(() => {
+  const categoryItems = useCallback(() => {
     if (!selectedCategory || !inventory || !inventory[selectedCategory]) {
       return {};
     }
@@ -79,7 +79,7 @@ export function useInventoryView({
   }, [selectedCategory, inventory]);
   
   // Получаем выбранный товар
-  const currentItem = useMemo(() => {
+  const currentItem = useCallback(() => {
     if (!selectedCategory || !selectedItem || !inventory) {
       return null;
     }
@@ -92,18 +92,18 @@ export function useInventoryView({
   
   // Определяем, считать ли инвентарь валидным для отображения
   // Упрощенная логика: валидно, если не грузится и есть категории
-  const hasValidInventory = useMemo(() => {
+  const hasValidInventory = useCallback(() => {
     // Если инвентарь загружается, считаем его невалидным
     if (isLoading) {
       return false;
     }
     
     // Если не загружается, валидность определяется наличием категорий
-    const isValid = hasCategories; // hasCategories вычисляется выше
+    const isValid = hasCategories(); // hasCategories вычисляется выше
     
     console.log('🔍 Проверка валидности инвентаря (упрощенная):', {
       isLoading,
-      hasCategories,
+      hasCategories: hasCategories(),
       // wasInventoryLoaded, // Убрали эту зависимость
       isValid,
       // autoSetAttempts: autoSetAttemptsRef.current // Убрали счетчик попыток

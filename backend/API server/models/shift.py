@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
@@ -20,7 +20,7 @@ class Shift(Base):
     # Внешний ключ к таблице groups (group_id там int)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False) 
 
-    date = Column(String, nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
     shift_type = Column(String, nullable=False) # 'day' или 'night'
     slot_index = Column(Integer, nullable=False)
     

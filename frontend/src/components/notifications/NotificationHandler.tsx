@@ -4,8 +4,7 @@ import { useAppDispatch } from '../../store/hooks';
 import { SystemNotification } from './index'; // Импорт из index.ts папки notifications
 import { 
     selectAllNotifications, 
-    removeNotification, 
-    Notification // Импортируем тип Notification
+    removeNotification 
 } from '../../store/slices/notificationSlice';
 
 const NotificationHandler: React.FC = () => {
@@ -16,14 +15,15 @@ const NotificationHandler: React.FC = () => {
     dispatch(removeNotification(id));
   };
 
-  // Фильтруем уведомления, чтобы показать только тосты и обеспечить наличие ID
-  const toastNotifications = notifications.filter(
-    (n): n is Notification & { id: string; isToast: true } => typeof n.id === 'string' && n.isToast === true
-  );
+  // УБИРАЕМ ФИЛЬТРАЦИЮ - ПЕРЕДАЕМ ВСЕ УВЕДОМЛЕНИЯ
+  // const systemNotifications = notifications.filter(
+  //   (n): n is Notification & { id: string } => 
+  //     typeof n.id === 'string' && !n.isToast 
+  // );
 
   return (
     <SystemNotification 
-      notifications={toastNotifications}
+      notifications={notifications} // <<< ПЕРЕДАЕМ НЕОТФИЛЬТРОВАННЫЕ УВЕДОМЛЕНИЯ
       onClose={handleCloseNotification} 
     />
   );

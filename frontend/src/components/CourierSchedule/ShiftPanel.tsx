@@ -1,20 +1,15 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components'; // Возвращаем styled
-import { useSelector } from 'react-redux'; // Возвращаем useSelector
-import { RootState } from '../../store/store'; // Импортируем RootState
-import { ShiftSlot } from '../../types/shifts'; // Импортируем ShiftSlot
-// Удаляем локальное определение ShiftSlotLocal
-// interface ShiftSlotLocal {
-//     id?: string;
-//     userId?: string;
-//     photoUrl?: string | null;
-//     firstName?: string;
-//     lastName?: string;
-//     slotIndex: number;
-// }
+// import { useSelector } from 'react-redux'; // <<< УДАЛЯЕМ
+// import { RootState } from '../../store/store'; // <<< УДАЛЯЕМ
+// import { ShiftSlot } from '../../types/shifts'; // <<< УДАЛЯЕМ
 
 import ShiftPanelContainer from './ShiftPanelContainer';
 import { logger } from '../../utils/logger';
+import { LayoutGroup } from 'framer-motion'; 
+// import ShiftSlotComponent, { ShiftSlotProps } from './components/ShiftSlot'; // <<< УДАЛЯЕМ
+import { CourierShift } from '../../types/shifts'; // ОСТАВЛЯЕМ
+// import { AnimatePresence } from 'framer-motion'; // <<< УДАЛЯЕМ
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
 const ShiftSection = styled.div`
@@ -78,21 +73,26 @@ const ReserveLinkButton = styled.button`
 // --- -------------------------------------------------------------- ---
 
 interface ShiftPanelProps {
-    date: Date;
-    dayShifts: ShiftSlot[];
-    nightShifts: ShiftSlot[];
+    date: Date | null;
+    dayShifts: CourierShift[];
+    nightShifts: CourierShift[];
     maxDaySlots: number;
     maxNightSlots: number;
     currentUserId: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => void;
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number) => void;
     onSwitchToReserve: () => void;
     showSuccessMessage: (message: string) => void;
-    isLoading: boolean; // Общий флаг загрузки (переименован из isBookingLoading в ShiftSelectionDialog)
+    showErrorMessage?: (message: string) => void;
+    isLoading: boolean;
     loadingSlot: number | null;
     loadingType: 'day' | 'night' | null;
     chatId?: string;
-    isBookingLoading?: boolean; // <-- Добавляем опциональный пропс
+    isSenior?: boolean;
+    draggingShiftType?: 'day' | 'night' | null;
+    isDraggingGlobal?: boolean;
+    processingShiftId?: string | null;
+    isProcessingMove?: boolean;
 }
 
 /**
@@ -113,31 +113,27 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     onSlotSelect, 
     onSwitchToReserve, 
     showSuccessMessage, // Этот проп тоже пока не используется напрямую здесь
-    isLoading,
-    loadingSlot,
-    loadingType,
-    chatId
+    showErrorMessage, // <<< Получаем новый проп
+    isLoading = false,
+    loadingSlot = null,
+    loadingType = null,
+    chatId,
+    isSenior,
+    draggingShiftType,
+    isDraggingGlobal,
+    processingShiftId,
+    isProcessingMove
 }) => {
-    // Получаем user целиком, чтобы достать группы
-    const user = useSelector((state: RootState) => state.user.user);
-    
-    // Определяем статус старшего для текущей группы
-    const isSenior = useMemo(() => {
-        if (!user || !user.groups || !chatId) return false;
-        const currentGroup = user.groups.find(g => String(g.chat_id) === chatId);
-        return currentGroup?.is_senior_courier ?? false;
-    }, [user, chatId]);
-    
-    // Логгируем приходящие смены
-    logger.debug('[ShiftPanel] Rendering with shifts:', { dayShifts, nightShifts, currentUserId, isSenior });
+    // Логгируем приходящий isSenior
+    logger.debug('[ShiftPanel] Rendering with isSenior:', isSenior);
 
     // Определяем, есть ли у пользователя дневная/ночная смена
-    const userHasDayShift = dayShifts.some(shift => shift.userId === currentUserId);
-    const userHasNightShift = nightShifts.some(shift => shift.userId === currentUserId);
+    const userHasDayShift = useMemo(() => dayShifts.some(shift => shift.userId === currentUserId), [dayShifts, currentUserId]);
+    const userHasNightShift = useMemo(() => nightShifts.some(shift => shift.userId === currentUserId), [nightShifts, currentUserId]);
     logger.debug('[ShiftPanel] Calculated user shift presence:', { userHasDayShift, userHasNightShift }); // Доп. лог
 
     // Вычисляем состояния для подсказок (используем userHasDayShift || userHasNightShift)
-    const userHasShift = userHasDayShift || userHasNightShift; // Обновляем эту логику
+    const userHasShift = userHasDayShift || userHasNightShift; 
     const totalSlots = maxDaySlots + maxNightSlots;
     const totalOccupiedSlots = dayShifts.length + nightShifts.length;
     const isFullyBooked = totalOccupiedSlots >= totalSlots;
@@ -148,42 +144,56 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 <ShiftTitle>
                     <ShiftIcon>☀️</ShiftIcon> Дневная смена
                 </ShiftTitle>
-                <ShiftPanelContainer
-                    shiftType="day"
-                    shifts={dayShifts}
-                    maxSlots={maxDaySlots}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    onSlotSelect={onSlotSelect}
-                    isLoading={isLoading && loadingType === 'day'}
-                    loadingSlot={loadingType === 'day' ? loadingSlot : null}
-                    userHasShift={userHasDayShift} // <-- Передаем флаг для дневной смены
-                    chatId={chatId}
-                />
+                <LayoutGroup>
+                    <ShiftPanelContainer
+                        shiftType="day"
+                        shifts={dayShifts}
+                        maxSlots={maxDaySlots}
+                        currentUserId={currentUserId}
+                        currentUserName={currentUserName}
+                        onSlotSelect={onSlotSelect}
+                        isLoading={isLoading && loadingType === 'day'}
+                        loadingSlot={loadingType === 'day' ? loadingSlot : null}
+                        userHasShift={userHasDayShift}
+                        chatId={chatId}
+                        isSenior={isSenior}
+                        showSuccessMessage={showSuccessMessage}
+                        showErrorMessage={showErrorMessage}
+                        draggingShiftType={draggingShiftType}
+                        isDraggingGlobal={isDraggingGlobal}
+                    />
+                </LayoutGroup>
             </ShiftSection>
 
             <ShiftSection key="night-shift-section">
                 <ShiftTitle>
                     <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
                 </ShiftTitle>
-                <ShiftPanelContainer
-                    shiftType="night"
-                    shifts={nightShifts}
-                    maxSlots={maxNightSlots}
-                    currentUserId={currentUserId}
-                    currentUserName={currentUserName}
-                    onSlotSelect={onSlotSelect}
-                    isLoading={isLoading && loadingType === 'night'}
-                    loadingSlot={loadingType === 'night' ? loadingSlot : null}
-                    userHasShift={userHasNightShift} // <-- Передаем флаг для ночной смены
-                    chatId={chatId}
-                />
+                <LayoutGroup>
+                    <ShiftPanelContainer
+                        shiftType="night"
+                        shifts={nightShifts}
+                        maxSlots={maxNightSlots}
+                        currentUserId={currentUserId}
+                        currentUserName={currentUserName}
+                        onSlotSelect={onSlotSelect}
+                        isLoading={isLoading && loadingType === 'night'}
+                        loadingSlot={loadingType === 'night' ? loadingSlot : null}
+                        userHasShift={userHasNightShift}
+                        chatId={chatId}
+                        isSenior={isSenior}
+                        showSuccessMessage={showSuccessMessage}
+                        showErrorMessage={showErrorMessage}
+                        draggingShiftType={draggingShiftType}
+                        isDraggingGlobal={isDraggingGlobal}
+                    />
+                </LayoutGroup>
             </ShiftSection>
 
-            {/* Условный рендеринг подсказок */} 
+            {/* Подсказка для старшего рендерится на основе isSenior */}
             {isSenior && (
                 <SeniorHint>
-                    ⭐ Как старший курьер, вы можете записывать или снимать со слотов других курьеров, нажимая на соответствующие слоты.
+                    ⭐ Как старший курьер, вы можете перетаскивать аватары других курьеров в зону удаления (корзину).
                 </SeniorHint>
             )}
 

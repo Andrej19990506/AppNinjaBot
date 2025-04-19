@@ -105,11 +105,14 @@ export const useReserveManagement = (currentUserId: string | undefined, chatId: 
         logger.info(`[useReserveManagement] Попытка отменить резерв ID: ${reserveId}`);
 
         // Используем thunk removeReserveByIdThunk
-        await dispatch(removeReserveByIdThunk({ reserveId })).unwrap();
+        await dispatch(removeReserveByIdThunk({
+             reserveId, 
+             requesterTelegramId: String(currentUserId ?? '')
+        })).unwrap();
 
         logger.info(`[useReserveManagement] Thunk отмены резерва ID ${reserveId} успешно выполнен.`);
 
-    }, [dispatch]); // Зависимость только от dispatch
+    }, [dispatch, currentUserId]); // Зависимость только от dispatch
 
     // 6. Возвращаем новый набор функций и данных
     return {

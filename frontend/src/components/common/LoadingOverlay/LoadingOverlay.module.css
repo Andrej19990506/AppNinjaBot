@@ -1,0 +1,101 @@
+/* LoadingOverlay.module.css */
+
+.overlay {
+  position: fixed; /* Позиционируем относительно viewport */
+  top: 0;
+  left: 0;
+  width: 100vw; /* Ширина viewport */
+  height: 100vh; /* Высота viewport */
+  /* background: linear-gradient(135deg, var(--orange-primary) 0%, var(--orange-dark) 100%); */ /* Оранжевый градиент - ЗАМЕНЯЕМ */
+  /* background: linear-gradient(to top, #1A242F 0%, #2C3E50 100%); */ /* Темный градиент СНИЗУ ВВЕРХ - ЗАМЕНЯЕМ */
+  /* background: linear-gradient(to top, var(--orange-dark) 0%, var(--orange-primary) 100%); */ /* Оранжевый градиент СНИЗУ ВВЕРХ - ЗАМЕНЯЕМ */
+  background: linear-gradient(135deg, var(--orange-dark) 0%, var(--orange-primary) 100%); /* Оранжевый ДИАГОНАЛЬНЫЙ градиент */
+  display: flex;
+  flex-direction: column; /* Располагаем лого и текст (если будет) вертикально */
+  justify-content: center; /* Центрируем по вертикали */
+  align-items: center; /* Центрируем по горизонтали */
+  z-index: 9999; /* Поверх всех остальных элементов */
+  /* Убираем transition, opacity и transform - ими будет управлять Framer Motion */
+  /* transition: transform var(--transition-slow) ease-in-out, opacity var(--transition-slow) ease-in-out; */
+  opacity: 0;
+  overflow: hidden; /* Добавим, чтобы контент точно не вылезал при transform */
+}
+
+/* Убираем стили для логотипа */
+/*
+.logo {
+  max-width: 150px;
+  height: auto;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+*/
+
+/* Стиль для текста пока не нужен */
+/* .text { ... } */
+
+/* Класс .slideOut больше не нужен */
+/* .slideOut {
+  transform: translateX(-100%);
+  opacity: 0;
+} */
+
+/* Стили для контейнера точек */
+.dotsContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Стили для отдельной точки */
+.dot {
+  background-color: rgba(255, 255, 255, 0.8); /* Белые полупрозрачные точки на темном фоне */
+  border-radius: 50%;
+  width: 10px; /* Размер точки */
+  height: 10px;
+  margin: 0 5px; /* Расстояние между точками */
+  animation: dot-pulse 1.4s infinite ease-in-out both; /* Применяем анимацию */
+}
+
+/* Задаем задержку анимации для каждой точки */
+.dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+/* Анимация пульсации для точек */
+@keyframes dot-pulse {
+  0%, 80%, 100% {
+    transform: scale(0.8); /* Маленький размер */
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1.2); /* Увеличенный размер */
+    opacity: 1;
+  }
+}
+
+/* УДАЛЯЕМ НЕНУЖНЫЙ КЛАСС ДЛЯ LOTTIE АНИМАЦИИ */
+/*
+.lottieAnimation {
+  width: 200px;
+  height: 200px;
+}
+*/ 

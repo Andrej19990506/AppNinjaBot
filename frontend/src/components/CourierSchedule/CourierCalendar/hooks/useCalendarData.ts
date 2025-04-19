@@ -19,15 +19,13 @@ export const useCalendarData = (currentUserId: string) => {
     const isLoading = useSelector(selectIsLoading);
     const error = useSelector(selectError);
     const user = useSelector(selectUser);
+    const userGroups = user?.groups;
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    const getChatId = useCallback((): number | undefined => {
-        const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
-        return courierGroup?.chat_id;
-    }, [user?.groups]);
-
     const loadCalendarData = useCallback(() => {
-        const chatId = getChatId();
+        const courierGroup = userGroups?.find(g => g.group_type === 'courier');
+        const chatId = courierGroup?.chat_id;
+
         if (chatId !== undefined) {
             logger.info(`[useCalendarData] Загрузка данных для chatId: ${chatId}`);
             dispatch(fetchShifts());
@@ -36,7 +34,7 @@ export const useCalendarData = (currentUserId: string) => {
         } else {
             logger.warn('[useCalendarData] chatId не определен, данные не загружены.');
         }
-    }, [dispatch, getChatId]);
+    }, [dispatch, userGroups]);
 
     const refetchData = useCallback(() => {
         logger.info('[useCalendarData] Refetching calendar data...');

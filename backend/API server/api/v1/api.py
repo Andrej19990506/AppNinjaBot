@@ -7,6 +7,8 @@ from .endpoints.users import router as users_router
 from .endpoints.groups import router as groups_router 
 # from .endpoints.group_settings import router as group_settings_router # УДАЛЕНО
 from .endpoints.shifts import router as shifts_router
+# <<< ИСПРАВЛЯЕМ ИМПОРТ РОУТЕРА РЕЗЕРВОВ (ИЗ ПАПКИ endpoints) >>>
+from .endpoints.reserve import router as reserve_router 
 
 # Сюда же можно импортировать другие роутеры из endpoints, если они там есть/будут
 # from .endpoints import couriers # Например
@@ -19,6 +21,8 @@ api_router.include_router(users_router, prefix="/users", tags=["Users"])
 api_router.include_router(groups_router, prefix="/groups", tags=["Groups"]) 
 # api_router.include_router(group_settings_router, prefix="/groups", tags=["Group Settings"]) # УДАЛЕНО
 api_router.include_router(shifts_router, prefix="/shifts", tags=["Shifts"])
+# <<< ПОДКЛЮЧАЕМ РОУТЕР РЕЗЕРВОВ >>>
+api_router.include_router(reserve_router, prefix="/reserves", tags=["Reserves"])
 
 # Подключаем другие роутеры, если они есть
 # api_router.include_router(couriers.router, prefix="/couriers", tags=["Couriers"]) 

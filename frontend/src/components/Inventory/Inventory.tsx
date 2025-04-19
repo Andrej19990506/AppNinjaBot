@@ -2,7 +2,6 @@ import React, { useEffect, useCallback, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { 
-    fetchInventory, 
     fetchChatInventory,
     selectChat
 } from '../../store/slices/inventorySlice';
@@ -410,7 +409,7 @@ const Inventory: React.FC = () => {
                     )}
                     
                     <div className={isSearchFocused && searchQuery ? styles.contentBlurred : ''} style={{ overflow: 'visible', minHeight: '60vh' }}>
-                        {currentView} 
+                        {currentView()}
                     </div>
                 </motion.div>
             </div>

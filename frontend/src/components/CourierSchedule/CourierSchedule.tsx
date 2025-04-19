@@ -63,6 +63,10 @@ const CourierSchedule: React.FC = () => {
         return courierGroup ? Number(courierGroup.chat_id) : undefined;
     }, [user?.groups]);
 
+    const courierChatIdString = useMemo(() => {
+        return courierChatId?.toString();
+    }, [courierChatId]);
+
     const currentCourierGroup = useMemo(() => {
         if (!user?.groups || !courierChatId) return null;
         return user.groups.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId));
@@ -74,10 +78,6 @@ const CourierSchedule: React.FC = () => {
             dispatch(fetchSlotConfig({ chatId: courierChatId }));
         }
     }, [dispatch, courierChatId]);
-
-    const courierChatIdString = useMemo(() => {
-        return courierChatId?.toString();
-    }, [courierChatId]);
 
     useEffect(() => {
         if (!user) return;
@@ -352,7 +352,7 @@ const CourierSchedule: React.FC = () => {
             currentState: 'setting to false'
         });
         setIsCouriersListOpen(false);
-    }, []);
+    }, [isCouriersListOpen]);
 
     return (
         <Container>

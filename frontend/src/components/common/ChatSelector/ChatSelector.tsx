@@ -18,13 +18,7 @@ import ChatModal from '../ChatModal/ChatModal';
 import { setSelectedChat, setContext, ChatContext } from '../../../store/slices/chatSlice';
 import { Admin } from '../../../types/inventory';
 
-// Расширение типа UserState для TypeScript
-interface User {
-    id: number;
-    first_name?: string;
-    photo_url?: string;
-    isAdmin?: boolean;
-}
+
 
 // Общий интерфейс для чата, который будет использоваться во всех режимах
 export interface ChatItem {

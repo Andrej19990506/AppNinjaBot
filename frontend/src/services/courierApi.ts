@@ -1,7 +1,9 @@
 import axios, { AxiosError } from 'axios'; // Импортируем axios для isAxiosError
 import { axiosInstance } from './api'; // <<< УБРАЛ ИМПОРТ extractErrorDetails
 import { logger } from '../utils/logger'; // <<< ДОБАВЛЕН ИМПОРТ ЛОГГЕРА
-// import config from '../config'; // Убрал, т.к. baseURL используется
+import { axiosInstance as apiClient } from './api'; // <<< Используем axiosInstance из ./api и переименовываем в apiClient
+import type { CourierShift } from '../types/shifts'; // <<< УДАЛЯЕМ ReserveEntry
+// import { CourierProfile, CourierStatus } from '../types/courierTypes'; // <<< УБИРАЕМ ИМПОРТ ИЗ НЕСУЩЕСТВУЮЩЕГО ФАЙЛА
 
 // Интерфейс для ответа от API статуса
 interface CourierStatusResponse {
@@ -225,38 +227,40 @@ export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
 };
 
 /**
- * Отменяет смену курьера.
- * @param shiftId ID смены для отмены
- * @param chatId ID чата, в котором находится смена
+ * Отменяет (удаляет) смену старшим курьером.
+ * 
+ * @param shiftId - UUID смены для удаления.
+ * @param requesterTelegramId - Telegram ID старшего курьера, выполняющего удаление.
+ * @returns Promise<void>
  */
-export const cancelShift = async (shiftId: string, chatId: string): Promise<{ success: boolean }> => {
-    console.log(`[courierApi] 📡 Отмена смены ID: ${shiftId} в чате: ${chatId}`);
+export const deleteShiftAsSenior = async (shiftId: string, requesterTelegramId: string): Promise<void> => {
+    logger.log(`[courierApi] deleteShiftAsSenior: Attempting to delete shift ${shiftId} by senior ${requesterTelegramId}`);
     try {
-        // В DELETE запросах параметры обычно передаются в URL или как query params
+        // <<< ИЗМЕНЕНИЕ: Используем правильный query параметр requester_telegram_id >>>
         const response = await axiosInstance.delete(`/api/v1/shifts/${shiftId}`, {
-            params: { chat_id: chatId }
+            params: { requester_telegram_id: requesterTelegramId } 
         });
-        // Обычно DELETE возвращает 200 OK или 204 No Content при успехе
-        console.log(`[courierApi] ✅ Смена ID: ${shiftId} отменена. Статус: ${response.status}`);
-        return { success: true };
-    } catch (error) {
-        console.error(`[courierApi] ❌ Ошибка при отмене смены ID: ${shiftId}`, error);
-        if (axios.isAxiosError(error)) {
-            const status = error.response?.status;
-            const detail = error.response?.data?.detail;
-            if (status === 404) {
-                throw new Error(detail || 'Смена не найдена.');
-            }
-            if (status === 403) {
-                throw new Error(detail || 'У вас нет прав на отмену этой смены.');
-            }
-            throw new Error(detail || error.message || 'Ошибка при отмене смены.');
-        } else if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error('Неизвестная ошибка при отмене смены.');
+        logger.log(`[courierApi] deleteShiftAsSenior: Shift ${shiftId} deleted successfully`, response.status);
+        // 204 No Content не имеет тела ответа
+    } catch (error: any) {
+        const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
+        logger.error(`[courierApi] ❌ Error deleting shift ${shiftId} as senior ${requesterTelegramId}:`, errorMessage, error.response?.status, error.response?.data);
+        // Перебрасываем ошибку с более понятным сообщением, если возможно
+        throw new Error(`Ошибка удаления смены старшим курьером: ${errorMessage}`);
     }
 };
+
+// --- СТАРЫЙ ВАРИАНТ (ОСТАВИМ НА ВСЯКИЙ СЛУЧАЙ, НО НЕ ИСПОЛЬЗУЕМ) ---
+// export const cancelShift = async (shiftId: string, chatId: string): Promise<void> => {
+//     logger.log(`[courierApi] Отмена смены ID: ${shiftId} для чата ${chatId}`);
+//     try {
+//         const response = await apiClient.delete(`/api/v1/shifts/${shiftId}?chat_id=${chatId}`);
+//         logger.log('[courierApi] Смена успешно отменена', response.data);
+//     } catch (error: any) {
+//         logger.error(`[courierApi] ❌ Ошибка при отмене смены ID: ${shiftId}`, error);
+//         throw new Error(error.response?.data?.detail || error.message || 'Не удалось отменить смену');
+//     }
+// };
 
 // Интерфейс для настроек доступа к сменам (из shiftsSlice)
 export interface AccessSettings {
@@ -505,20 +509,41 @@ export const getReserves = async (groupTelegramId: string | number, reserveDate?
 };
 
 /**
- * Удаляет резерв по ID.
+ * Удаляет резерв по ID от имени указанного пользователя (старшего курьера).
  * @param reserveId ID резерва для удаления
+ * @param requesterTelegramId Telegram ID пользователя, выполняющего удаление
  */
-export const deleteReserve = async (reserveId: string): Promise<ApiReserve> => {
-    logger.info(`[courierApi] 📡 Запрос на удаление резерва ID: ${reserveId}`);
+export const deleteReserve = async (
+    reserveId: string, 
+    requesterTelegramId: number | string
+): Promise<ApiReserve> => {
+    logger.info(`[courierApi] 📡 Запрос на удаление резерва ID: ${reserveId} от имени ${requesterTelegramId}`);
     try {
-        // Убедимся, что используем правильный URL
-        const response = await axiosInstance.delete<ApiReserve>(`/api/v1/reserves/${reserveId}`); 
-        logger.info(`[courierApi] ✅ Резерв ID: ${reserveId} удален`, response.data);
+        const response = await axiosInstance.delete<ApiReserve>(
+            `/api/v1/reserves/${reserveId}`, 
+            { 
+                params: { requester_telegram_id: requesterTelegramId } // <<< Передаем ID запрашивающего
+            }
+        );
+        logger.info(`[courierApi] ✅ Резерв ID: ${reserveId} удален пользователем ${requesterTelegramId}`, response.data);
         return response.data; // Возвращаем удаленный объект резерва
     } catch (error) {
-        logger.error(`[courierApi] ❌ Ошибка при удалении резерва ID: ${reserveId}`, error);
-        // Можно добавить более детальную обработку ошибок 404, 403 и т.д.
-        throw error;
+        logger.error(`[courierApi] ❌ Ошибка при удалении резерва ID: ${reserveId} пользователем ${requesterTelegramId}`, error);
+        // Добавляем более детальную обработку ошибок, как в бэкенде
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                throw new Error(detail || 'Запись резерва не найдена.');
+            }
+            if (status === 403) {
+                throw new Error(detail || 'У вас нет прав старшего курьера для удаления этого резерва.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при удалении резерва.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при удалении резерва.');
     }
 };
 
@@ -823,4 +848,88 @@ export const getGroupCouriers = async (
     }
 };
 
+// ===> НОВАЯ ФУНКЦИЯ ДЛЯ ПЕРЕМЕЩЕНИЯ СМЕНЫ В РЕЗЕРВ <===
+
+/**
+ * Перемещает курьера из смены в резерв от имени старшего курьера.
+ * @param shiftId ID смены для перемещения
+ * @param requesterId Telegram ID пользователя (старшего курьера), выполняющего действие
+ * @returns Данные созданной записи резерва (ApiReserve)
+ */
+export const moveShiftToReserve = async (
+    shiftId: string, 
+    requesterId: string | number
+): Promise<ApiReserve> => {
+    logger.info(`[courierApi] 📡 Запрос на перемещение смены ID: ${shiftId} в резерв от имени старшего курьера ID: ${requesterId}`);
+    try {
+        // Отправляем POST запрос на новый эндпоинт с ID старшего курьера в query параметрах
+        const response = await axiosInstance.post<ApiReserve>(
+            `/api/v1/shifts/${shiftId}/move_to_reserve`,
+            null, // Тело запроса POST пустое
+            { 
+                params: { requester_telegram_id: requesterId } 
+            }
+        );
+        logger.info(`[courierApi] ✅ Смена ID: ${shiftId} перемещена в резерв старшим курьером ${requesterId}. Создан резерв:`, response.data);
+        return response.data; // Возвращаем данные созданного резерва
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при перемещении смены ID: ${shiftId} в резерв старшим курьером ${requesterId}`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                throw new Error(detail || 'Смена не найдена или связанные данные отсутствуют.');
+            }
+            if (status === 403) {
+                // Эта ошибка означает, что requesterId не является старшим курьером ИЛИ пользователь/группа в ID запроса не найдены
+                throw new Error(detail || 'Действие требует прав старшего курьера или указанный ID не найден.');
+            }
+            if (status === 409) {
+                // Конфликт - курьер уже в резерве на эту дату
+                throw new Error(detail || 'Курьер уже находится в резерве на эту дату.');
+            }
+            // Можно добавить обработку 500 ошибки, если бэкенд не смог создать резерв после удаления смены
+             if (status === 500) {
+                 throw new Error(detail || 'Внутренняя ошибка сервера при перемещении в резерв.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при перемещении смены в резерв.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при перемещении смены в резерв.');
+    }
+};
+
 // --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
+
+/**
+ * Обновляет тип и/или слот существующей смены.
+ * Требует прав старшего курьера.
+ * @param shiftId ID смены для обновления (UUID)
+ * @param requesterId Telegram ID пользователя, выполняющего действие
+ * @param targetShiftType Новый тип смены ('day' или 'night')
+ * @param targetSlotIndex Новый индекс слота (число)
+ * @returns Обновленные данные смены (CourierShift)
+ */
+export const updateShiftSlot = async (
+    shiftId: string,
+    requesterId: string, 
+    targetShiftType: 'day' | 'night',
+    targetSlotIndex: number
+): Promise<CourierShift> => {
+    try {
+        logger.info(`[API updateShiftSlot] Attempting to update shift ${shiftId} by ${requesterId} to ${targetShiftType} slot ${targetSlotIndex}`);
+        
+        const response = await apiClient.patch<CourierShift>(
+            `/api/v1/shifts/${shiftId}/move?requester_telegram_id=${requesterId}`,
+            { target_shift_type: targetShiftType, target_slot_index: targetSlotIndex } 
+        );
+        
+        logger.info("[API updateShiftSlot] Shift updated successfully:", response.data);
+        return response.data;
+        
+    } catch (error: any) { 
+        logger.error(`[API updateShiftSlot] Error updating shift ${shiftId}:`, error?.response?.data || error.message);
+        throw error;
+    }
+};

@@ -1,13 +1,47 @@
 import React from 'react';
-import { LoadingContainer, Spinner, LoadingText } from './styles';
+import { 
+  LoadingContainer, 
+  LoadingText,
+  LoadingCard,
+  IconWrapper,
+  Circle,
+  CircleInner,
+  CircleCore,
+  CalendarIconWrapper,
+  CalendarIcon,
+  LoadingTitle,
+  ProgressBar
+} from './styles';
 
-const LoadingOverlay: React.FC = () => {
-    return (
-        <LoadingContainer>
-            <Spinner />
-            <LoadingText>Загрузка календаря...</LoadingText>
-        </LoadingContainer>
-    );
+interface LoadingOverlayProps {
+  isVisible?: boolean;
+}
+
+const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ isVisible = true }) => {
+  if (!isVisible) return null;
+  
+  return (
+    <LoadingContainer>
+      <LoadingCard>
+        <IconWrapper>
+          <Circle />
+          <CircleInner />
+          <CircleCore />
+          <CalendarIconWrapper>
+            <CalendarIcon />
+          </CalendarIconWrapper>
+        </IconWrapper>
+        
+        <LoadingTitle>Загрузка календаря</LoadingTitle>
+        
+        <LoadingText>
+          Собираем актуальную информацию о доступных сменах и резервах...
+        </LoadingText>
+        
+        <ProgressBar />
+      </LoadingCard>
+    </LoadingContainer>
+  );
 };
 
 export default LoadingOverlay; 

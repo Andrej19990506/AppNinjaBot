@@ -24,7 +24,7 @@ class GroupBase(BaseModel):
     is_senior_courier: Optional[bool] = None
 
     class Config:
-        orm_mode = True # Позволяет Pydantic читать данные из ORM моделей
+        from_attributes = True # Позволяет Pydantic читать данные из ORM моделей
 
 # Схема для основных данных пользователя (использовалась в заглушке)
 class UserDataBase(BaseModel):
@@ -53,7 +53,7 @@ class UserProfileResponse(BaseModel):
     # created_at: datetime? и т.д.
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Модели для запросов (если понадобятся)
 # class UserCreate(BaseModel):
@@ -112,5 +112,13 @@ class UserProfileResponse(BaseModel):
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
 
+    class Config:
+        from_attributes = True
+
+# Схема для чтения полного профиля пользователя, включая группы
+class UserProfile(UserDataBase):
+    id: int
+    groups: List[GroupBase] = [] # Добавляем список групп
+    
     class Config:
         from_attributes = True 

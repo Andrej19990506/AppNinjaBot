@@ -6,16 +6,18 @@ import { useCalendarData } from './hooks/useCalendarData';
 import { useReserveManagement } from './hooks/useReserveManagement';
 import { isDateAvailable } from './utils/dateUtils';
 import { isIOS } from './utils/touchUtils';
-import LoadingOverlay from '../LoadingOverlay';
+import LoadingOverlay from './components/LoadingOverlay';
 import { CalendarContainer, MonthsContainer, MonthContainer } from './styles';
 import MonthSection from './components/MonthSection';
 import { useAvailabilityCheck } from './hooks/useAvailabilityCheck';
 import { useAccessSettingsSync } from './hooks/useAccessSettingsSync';
-import { fetchAccessSettings, selectSlotConfig } from '../../../store/slices/shiftsSlice';
+import { fetchAccessSettings, selectSlotConfig, removeShiftLocally } from '../../../store/slices/shiftsSlice';
 import { logger } from '../../../utils/logger';
 import { format } from 'date-fns';
 import { RootState } from '../../../store/store';
 import ShiftSelectionDialog from '../ShiftSelectionDialog';
+import { addNotification, NotificationTypes } from '../../../store/slices/notificationSlice';
+import { deleteShiftAsSenior } from '../../../services/courierApi';
 
 const CourierCalendar: React.FC<CalendarProps> = ({
     currentUserId,
@@ -25,6 +27,9 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     chatId,
     onShiftSelect
 }) => {
+    // Принудительное отображение загрузочного экрана
+    const [forceLoading, setForceLoading] = useState(true);
+    
     const dispatch = useAppDispatch();
     const slotConfig = useSelector((state: RootState) => selectSlotConfig(state));
     
@@ -68,6 +73,22 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     useAvailabilityCheck(chatId || '', () => {});
 
+    // Устанавливаем принудительную задержку
+    useEffect(() => {
+        logger.info('[CourierCalendar] Начало принудительной задержки загрузки (4 секунды)');
+        
+        // Задержка в 4 секунды для отображения загрузочного экрана
+        const timer = setTimeout(() => {
+            setForceLoading(false);
+            logger.info('[CourierCalendar] Принудительная задержка загрузки завершена');
+        }, 4000);
+        
+        // Очистка таймера при размонтировании
+        return () => {
+            clearTimeout(timer);
+            logger.info('[CourierCalendar] Таймер задержки очищен');
+        };
+    }, []); // Пустой массив зависимостей - выполняется один раз при монтировании
     
     useEffect(() => {
         if (chatId) {
@@ -123,8 +144,59 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         
     }, [selectedDateForDialog, onShiftSelect]);
 
-    const combinedIsLoading = isShiftsLoading || isReservesLoading;
+    // Обновляем handleDeleteShift: принимаем requesterId и вызываем deleteShiftAsSenior
+    const handleDeleteShift = useCallback(async (shiftId: string, requesterId: string): Promise<any> => {
+        logger.info(`[CourierCalendar] handleDeleteShift called for shift ID: ${shiftId} by requester ID: ${requesterId}`);
+        // TODO: Добавить реальную обработку ошибок API?
+        try {
+            // Вызываем новую функцию API
+            await deleteShiftAsSenior(shiftId, requesterId);
+            
+            // Если API вызов успешен, удаляем локально
+            dispatch(removeShiftLocally(shiftId)); 
+            logger.info(`[CourierCalendar] Successfully deleted shift ${shiftId} via API and removed locally.`);
+            return Promise.resolve(); // Успех
+        } catch (error: any) {
+            logger.error(`[CourierCalendar] Error deleting shift ${shiftId} via API:`, error);
+            // Возвращаем ошибку, чтобы ShiftSelectionDialog мог её обработать (показать уведомление)
+            return Promise.reject(error); 
+        }
+    }, [dispatch]); // Зависимость от requesterId здесь не нужна, т.к. он приходит аргументом
 
+    // NEW Handler for Moving to Reserve (passed to ShiftSelectionDialog)
+    const handleMoveToReserve = useCallback(async (shiftId: string, courierId: string): Promise<any> => {
+        logger.info(`[CourierCalendar] handleMoveToReserve called for shift ID: ${shiftId}, Courier ID: ${courierId}`);
+        // TODO: Add API call to move shift to reserve on the backend here
+        try {
+            // --- Replace with actual API call --- 
+            await new Promise(resolve => setTimeout(resolve, 100)); // Simulate minimal delay
+            // --- End Replace --- 
+
+            // If API call is successful, dispatch action to remove from Redux state (assuming it's removed from shifts)
+            // IMPORTANT: Backend should handle adding to reserve list. We only remove from shifts locally.
+            dispatch(removeShiftLocally(shiftId)); 
+            logger.info(`[CourierCalendar] Successfully moved shift ${shiftId} to reserve (locally removed) after simulated backend call.`);
+            return Promise.resolve(); // Indicate success
+        } catch (error) {
+            logger.error(`[CourierCalendar] Error moving shift ${shiftId} to reserve:`, error);
+            // TODO: Handle API error
+            return Promise.reject(error); // Indicate failure
+        }
+    }, [dispatch]);
+
+    // Handler for showing notifications
+    const handleShowNotification = useCallback((type: NotificationTypes, message: string, title?: string) => {
+        logger.info(`[CourierCalendar] Dispatching notification: ${type} - ${message}`);
+        dispatch(addNotification({ type, message, title, isToast: true }));
+    }, [dispatch]);
+
+    // Если forceLoading=true, всегда показываем экран загрузки
+    if (forceLoading) {
+        return <LoadingOverlay />;
+    }
+
+    // Стандартная проверка на загрузку и ошибки
+    const combinedIsLoading = isShiftsLoading || isReservesLoading;
     if (combinedIsLoading && !shifts.length) {
         return <LoadingOverlay />;
     }
@@ -172,6 +244,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     nightShifts={selectedDateShifts.nightShifts}
                     slotConfig={slotConfig}
                     currentUserId={currentUserId}
+                    requesterId={currentUserId}
                     currentUserAvatar={currentUserAvatar}
                     currentUserName={currentUserName}
                     onSlotSelect={handleDialogShiftSelect}
@@ -182,6 +255,9 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     cancelReserveById={cancelReserveById}
                     isLoading={isReservesLoading}
                     error={reservesError}
+                    onDeleteShift={handleDeleteShift}
+                    onMoveToReserve={handleMoveToReserve}
+                    showNotification={handleShowNotification}
                 />
             )}
         </>

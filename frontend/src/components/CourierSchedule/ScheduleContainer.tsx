@@ -138,6 +138,16 @@ const ScheduleContainer: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const user = useSelector(selectUser);
     const chatId = useMemo(() => user?.groups?.find(g => g.group_type === 'courier')?.chat_id, [user?.groups]);
+
+    // Вычисляем isSenior здесь
+    const isSenior = useMemo(() => {
+        if (!user?.groups || !chatId) return false;
+        const currentGroup = user.groups.find(g => String(g.chat_id) === String(chatId));
+        // Добавим лог для проверки вычисления isSenior
+        logger.debug(`[ScheduleContainer] Calculated isSenior for chatId ${chatId}: ${currentGroup?.is_senior_courier ?? false}`);
+        return currentGroup?.is_senior_courier ?? false;
+    }, [user?.groups, chatId]);
+
     const allShifts = useSelector((state: RootState) => state.shifts.shifts);
     const allReserves = useSelector(selectAllReserves);
     const accessSettings = useSelector((state: RootState) => state.shifts.accessSettings);
@@ -192,10 +202,6 @@ const ScheduleContainer: React.FC = () => {
             return;
         }
 
-        // Находим текущую группу для определения статуса старшего
-        const currentGroup = user.groups?.find(g => String(g.chat_id) === String(chatId));
-        const isSenior = currentGroup?.is_senior_courier ?? false;
-
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
         const relevantShifts = shiftType === 'day' ? currentDayShifts : currentNightShifts;
         const clickedSlot = relevantShifts.find(s => s.slotIndex === slotIndex);
@@ -242,7 +248,7 @@ const ScheduleContainer: React.FC = () => {
                 setLoadingSlotIndex(null);
              }
         }
-    }, [user, selectedDate, chatId, dispatch, allShifts, formattedDate]);
+    }, [user, selectedDate, chatId, dispatch, allShifts, formattedDate, isSenior]);
     
     // Обновляем handleAddToReserve для использования Thunk
     const handleAddToReserve = useCallback(async () => {
@@ -307,7 +313,7 @@ const ScheduleContainer: React.FC = () => {
         try {
             logger.info(`[ScheduleContainer] Удаление резерва ID: ${reserveId} через Thunk`);
             // Вызываем Thunk removeReserveByIdThunk
-            await dispatch(removeReserveByIdThunk({ reserveId })).unwrap();
+            await dispatch(removeReserveByIdThunk({ reserveId, requesterTelegramId: String(user?.id ?? '') })).unwrap();
             setSuccessMessage('Вы успешно удалены из резерва');
         } catch (error: any) {
             logger.error('Ошибка при удалении из резерва:', error);
@@ -371,15 +377,10 @@ const ScheduleContainer: React.FC = () => {
     // Форматирование даты для отображения
     const formattedDisplayDate = format(selectedDate, 'EEEE, d MMMM', { locale: ru });
     
-    // Вычисляем лимиты слотов для выбранной даты
-    const { currentMaxDay, currentMaxNight } = useMemo(() => {
-        const dayIndex = selectedDate.getDay(); // 0 for Sunday, 1 for Monday, etc.
-        const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
-        return {
-            currentMaxDay: dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS,
-            currentMaxNight: dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS
-        };
-    }, [selectedDate, slotConfig]);
+    // Определяем максимальное количество слотов
+    const dayConfig = useMemo(() => slotConfig ? slotConfig[selectedDate.getDay()] : undefined, [slotConfig, selectedDate]);
+    const currentMaxDay = useMemo(() => dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS, [dayConfig]);
+    const currentMaxNight = useMemo(() => dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS, [dayConfig]);
 
     // Общий индикатор загрузки (можно улучшить, разделив по типу операции)
     const isLoading = isLoadingShifts || isLoadingReserves || (loadingSlotIndex !== null);
@@ -404,38 +405,72 @@ const ScheduleContainer: React.FC = () => {
                 </DateButton>
             </DateSelector>
             
-            <ShiftPanel
-                date={selectedDate}
-                dayShifts={dayShifts.map(shift => ({
-                    id: shift.id,
-                    userId: shift.userId,
-                    photoUrl: shift.photoUrl,
-                    firstName: shift.firstName,
-                    lastName: shift.lastName,
-                    shiftType: shift.shiftType,
-                    slotIndex: shift.slotIndex,
-                }))}
-                nightShifts={nightShifts.map(shift => ({
-                    id: shift.id,
-                    userId: shift.userId,
-                    photoUrl: shift.photoUrl,
-                    firstName: shift.firstName,
-                    lastName: shift.lastName,
-                    shiftType: shift.shiftType,
-                    slotIndex: shift.slotIndex,
-                }))}
-                maxDaySlots={currentMaxDay}
-                maxNightSlots={currentMaxNight}
-                currentUserId={user?.id ? String(user.id) : ''}
-                currentUserName={`${user?.first_name || ''} ${user?.last_name || ''}`}
-                onSlotSelect={handleSlotSelect}
-                onSwitchToReserve={switchToReserves}
-                showSuccessMessage={setSuccessMessage}
-                isLoading={isLoadingShifts || (loadingSlotIndex !== null)}
-                loadingSlot={loadingSlotIndex}
-                loadingType={loadingShiftType}
-                chatId={chatId}
-            />
+            {mode === 'shifts' && (
+                <ShiftPanel
+                    date={selectedDate}
+                    dayShifts={dayShifts.map(shift => ({
+                        id: shift.id,
+                        userId: shift.userId,
+                        photoUrl: shift.photoUrl,
+                        firstName: shift.firstName,
+                        lastName: shift.lastName,
+                        isCurrentUser: String(shift.userId) === String(user?.id),
+                        shiftType: 'day',
+                        slotIndex: shift.slotIndex,
+                        date: format(selectedDate, 'yyyy-MM-dd')
+                    }))}
+                    nightShifts={nightShifts.map(shift => ({
+                        id: shift.id,
+                        userId: shift.userId,
+                        photoUrl: shift.photoUrl,
+                        firstName: shift.firstName,
+                        lastName: shift.lastName,
+                        isCurrentUser: String(shift.userId) === String(user?.id),
+                        shiftType: 'night',
+                        slotIndex: shift.slotIndex,
+                        date: format(selectedDate, 'yyyy-MM-dd')
+                    }))}
+                    maxDaySlots={currentMaxDay}
+                    maxNightSlots={currentMaxNight}
+                    currentUserId={String(user?.id ?? '')}
+                    onSlotSelect={handleSlotSelect}
+                    onSwitchToReserve={switchToReserves}
+                    showSuccessMessage={(msg) => setSuccessMessage(msg)}
+                    isLoading={isLoadingShifts || (loadingShiftType !== null && loadingSlotIndex !== null)}
+                    loadingSlot={loadingSlotIndex}
+                    loadingType={loadingShiftType}
+                    chatId={String(chatId ?? '')}
+                    isSenior={isSenior}
+                />
+            )}
+            
+            {mode === 'reserves' && (
+                <ReservePanel
+                    date={selectedDate}
+                    currentUserId={String(user?.id ?? '')}
+                    currentUserAvatar={user?.photo_url}
+                    currentUserName={`${user?.first_name} ${user?.last_name}`}
+                    dayShifts={dayShifts}
+                    nightShifts={nightShifts}
+                    onSwitchToShifts={switchToShifts}
+                    getDisplayReservesForDate={(date) => 
+                        allReserves.filter(r => r.date === (date ? format(date, 'yyyy-MM-dd') : null))
+                    }
+                    isCurrentUserInReserveForDate={(date) => 
+                        allReserves.some(r => 
+                            r.date === (date ? format(date, 'yyyy-MM-dd') : null) && 
+                            String(r.userId) === String(user?.id)
+                        )
+                    }
+                    addCurrentUserToReserve={handleAddToReserve}
+                    cancelReserveById={handleRemoveFromReserve}
+                    isLoading={isLoadingReserves}
+                    error={null}
+                    showSuccessMessage={(msg) => setSuccessMessage(msg)}
+                    chatId={String(chatId ?? '')}
+                    isCurrentUserSenior={isSenior}
+                />
+            )}
             
             <Snackbar
                 open={!!successMessage}

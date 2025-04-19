@@ -5,12 +5,13 @@ import {
     getReserves,
     addReserve,
     deleteReserve,
-    ApiReserve // Тип резерва, который приходит от API
+    ApiReserve, // Тип резерва, который приходит от API
+    deleteShiftAsSenior // <<< ДОБАВЛЯЕМ ИМПОРТ deleteShiftAsSenior >>>
 } from '../../services/courierApi'; // Функции для общения с API
 import { logger } from '../../utils/logger';
 import { format } from 'date-fns';
 // Импортируем необходимое из shiftsSlice
-import { cancelShift, selectAllShifts } from './shiftsSlice';
+import { selectAllShifts } from './shiftsSlice';
 
 // Функция для преобразования данных от API в наш внутренний формат
 // Убедись, что поля соответствуют твоей модели ApiReserve
@@ -119,16 +120,14 @@ export const addCurrentUserToReserveThunk = createAsyncThunk<
                     for (const shiftToCancel of userShiftsOnDate) {
                         logger.debug(`[reservesSlice] Отмена смены ID: ${shiftToCancel.id}`);
                         try {
-                            await dispatch(cancelShift({
-                                shiftId: shiftToCancel.id,
-                                chatId: String(groupTelegramId),
-                                userId: String(userTelegramId),
-                                date: formattedDate
-                            })).unwrap(); // unwrap пробросит ошибку, если cancelShift был rejected
-                            logger.info(`[reservesSlice] Смена ID ${shiftToCancel.id} успешно отменена.`);
+                            // <<< ИСПРАВЛЕНО: Вызываем deleteShiftAsSenior из courierApi >>>
+                            // Передаем ID смены и ID пользователя (как requesterId)
+                            await deleteShiftAsSenior(shiftToCancel.id, String(userTelegramId));
+                            // Не используем dispatch и unwrap здесь, т.к. deleteShiftAsSenior - это прямой вызов API
+                            logger.info(`[reservesSlice] Запрос на удаление смены ID ${shiftToCancel.id} отправлен.`);
                         } catch (cancelError: any) {
                             // Логируем ошибку отмены, но не прерываем процесс
-                            logger.error(`[reservesSlice] Ошибка при отмене смены ID ${shiftToCancel.id} после добавления в резерв:`, cancelError?.message || cancelError);
+                            logger.error(`[reservesSlice] Ошибка при отправке запроса на удаление смены ID ${shiftToCancel.id} после добавления в резерв:`, cancelError?.message || cancelError);
                         }
                     }
                 }
@@ -151,20 +150,19 @@ export const addCurrentUserToReserveThunk = createAsyncThunk<
 // 3. Thunk для удаления резерва по ID
 export const removeReserveByIdThunk = createAsyncThunk<
     { id: string }, 
-    { reserveId: string },
+    { reserveId: string; requesterTelegramId: number | string; },
     { rejectValue: string }
 >(
     'reserves/removeById',
-    async ({ reserveId }, { rejectWithValue }) => {
+    async ({ reserveId, requesterTelegramId }, { rejectWithValue }) => {
         try {
-            logger.debug(`[reservesSlice] Попытка удалить резерв ID: ${reserveId}`);
-            // Используем импортированную deleteReserve
-            await deleteReserve(reserveId); 
+            logger.debug(`[reservesSlice] Попытка удалить резерв ID: ${reserveId} от имени ${requesterTelegramId}`);
+            await deleteReserve(reserveId, requesterTelegramId); 
             logger.debug('[reservesSlice] Резерв успешно удален через API');
             return { id: reserveId };
         } catch (error: any) {
             const errorMsg = error.response?.data?.detail || error.message || 'Unknown error';
-            logger.error(`[reservesSlice] Ошибка удаления резерва ID ${reserveId}:`, errorMsg);
+            logger.error(`[reservesSlice] Ошибка удаления резерва ID ${reserveId} от имени ${requesterTelegramId}:`, errorMsg);
             return rejectWithValue(errorMsg);
         }
     }

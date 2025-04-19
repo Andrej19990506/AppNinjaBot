@@ -125,6 +125,10 @@ async def read_chats_for_user(
     result = await db.execute(groups_query)
     groups = result.unique().scalars().all() # unique() чтобы избежать дублей из-за JOIN
 
+    # <<< ДОБАВИТЬ ЛОГ ЗДЕСЬ >>>
+    logger.info(f"[read_chats_for_user] Found groups from DB query (user_id={user_id}, group_type={group_type}): {[g.group_id for g in groups]}")
+    # <<< ------------------- >>>
+
     response_list: List[ChatWithAdmins] = []
     for group in groups:
         admins_list: List[AdminInfo] = []
@@ -869,13 +873,12 @@ async def update_inventory_for_chat(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not process inventory data")
 
 # --- НОВЫЙ ЭНДПОИНТ ИСТОРИИ --- 
-from models.inventory_history import InventoryHistory # <-- Возвращаем исходный импорт
 from sqlalchemy import desc # <-- Импорт для сортировки
 from typing import Dict, Any # <-- Импорт типов
 
 # Роут для истории конкретного товара
 @router.get(
-    "/inventory/history/{chat_id}/{category}/{item_name}",
+    "/inventory/history/{chat_id}/{category}/{item_name:path}", # Добавили :path к item_name
     response_model=List[Dict[str, Any]], # Возвращаем список словарей
     summary="Get Item History",
     description="Retrieves the history of changes for a specific item in a chat.",

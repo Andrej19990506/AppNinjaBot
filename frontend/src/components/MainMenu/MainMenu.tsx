@@ -34,7 +34,7 @@ const itemVariants = {
         opacity: 1, 
         y: 0, 
         scale: 1,
-        transition: { duration: 0.3, ease: "easeOut" } 
+        transition: { duration: 0.3, ease: "easeOut", delay: 0.35 } 
     },
     exit: { 
         opacity: 0, 
@@ -56,7 +56,8 @@ const noAccessCardVariants = {
             damping: 20,
             when: "beforeChildren", // Сначала анимируем карточку
             staggerChildren: 0.1,  // Потом ее содержимое
-            delayChildren: 0.1
+            delayChildren: 0.1,
+            delay: 0.35 // ДОБАВЛЯЕМ ЗАДЕРЖКУ И СЮДА
         }
     },
     exit: {
@@ -109,8 +110,11 @@ const MainMenu: React.FC = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
     const dispatch = useAppDispatch();
-    const [isVisible, setIsVisible] = useState(true);
     const { user } = useAppSelector((state: RootState) => state.user);
+    
+    // <<< ДОБАВЛЯЕМ ЛОГ >>>
+    console.log('[MainMenu] User object from Redux:', user);
+
     const inventoryChats = useAppSelector(selectInventoryChats);
     const isLoadingInventory = useAppSelector(selectInventoryLoading);
     const inventoryError = useAppSelector(selectInventoryError);
@@ -186,19 +190,140 @@ const MainMenu: React.FC = () => {
 
     return (
         <AnimatePresence mode="wait">
-            {isVisible && (
-                <motion.div 
-                    className={styles.container} 
-                    initial="hidden"
-                    animate="visible"
-                    exit="exit"
-                >
-                    {activeRole !== 'none' ? (
-                        // Обертка для случая, когда есть роли
-                        <>
-                            {/* Блок с информацией о пользователе */}
-                            <motion.div className={styles.userInfoContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                                {user?.photo_url ? (
+            <motion.div 
+                className={styles.container} 
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+            >
+                {activeRole !== 'none' ? (
+                    // Обертка для случая, когда есть роли
+                    <>
+                        {/* Блок с информацией о пользователе */}
+                        <motion.div className={styles.userInfoContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                            {user?.photo_url ? (
+                                <img src={user.photo_url} alt="User" className={styles.userPhoto} />
+                            ) : (
+                                <AccountCircleIcon className={styles.userPhotoPlaceholder} />
+                            )}
+                            <span className={styles.userName}>
+                                {user?.first_name || user?.username || 'Пользователь'}
+                            </span>
+                        </motion.div>
+
+                        {/* Заголовок (для обычного меню) */}
+                        <motion.h1 
+                            className={styles.title}
+                            variants={itemVariants} initial="hidden" animate="visible" exit="exit"
+                            style={{
+                                minWidth: menuPositions.title.width,
+                                minHeight: menuPositions.title.height,
+                                marginBottom: menuPositions.title.marginBottom
+                            }}
+                        >
+                            Главное меню
+                        </motion.h1>
+
+                        {/* Переключатель ролей */}
+                        {canToggleRole && (
+                            <motion.div className={styles.roleToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                                <motion.div className={styles.roleToggleContainer}>
+                                    <motion.button 
+                                        className={`${styles.roleButton} ${activeRole === 'chef' ? styles.activeRole : ''}`}
+                                        onClick={() => handleRoleButtonClick('chef')}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <RestaurantIcon className={styles.roleIcon} />
+                                        <span>Повар</span>
+                                    </motion.button>
+                                    <motion.button 
+                                        className={`${styles.roleButton} ${activeRole === 'courier' ? styles.activeRole : ''}`}
+                                        onClick={() => handleRoleButtonClick('courier')}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <DirectionsRunIcon className={styles.roleIcon} />
+                                        <span>Курьер</span>
+                                    </motion.button>
+                                </motion.div>
+                            </motion.div>
+                        )}
+
+                        {/* Сетка меню */}
+                        <motion.div className={styles.menuGrid} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                            {currentMenuItems.map((item, index) => {
+                                const Icon = item.icon;
+                                return (
+                                    <motion.div
+                                        key={item.id}
+                                        className={styles.menuItem}
+                                        onClick={() => handleMenuItemClick(item.path)}
+                                        variants={itemVariants}
+                                        whileHover={{ 
+                                            scale: 1.03, 
+                                            boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
+                                            transition: { duration: 0.2 }
+                                        }}
+                                        whileTap={{ scale: 0.98 }}
+                                    >
+                                        <motion.div 
+                                            className={styles.iconWrapper}
+                                            style={{
+                                                width: menuPositions.icon.width,
+                                                height: menuPositions.icon.height
+                                            }}
+                                        >
+                                            <Icon />
+                                        </motion.div>
+                                        <motion.span 
+                                            className={styles.menuTitle}
+                                            style={{
+                                                minWidth: menuPositions.text.width,
+                                                minHeight: menuPositions.text.height
+                                            }}
+                                        >
+                                            {item.title}
+                                        </motion.span>
+                                    </motion.div>
+                                );
+                            })}
+                        </motion.div>
+
+                        {/* Переключатель темы (для обычного меню) */}
+                        <motion.div className={styles.themeToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                            <motion.button 
+                                className={styles.themeButton} 
+                                onClick={toggleTheme}
+                                tabIndex={0}
+                                style={{
+                                    minWidth: menuPositions.button.width,
+                                    minHeight: menuPositions.button.height
+                                }}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <span className={styles.icon}>
+                                    {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+                                </span>
+                                {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+                            </motion.button>
+                        </motion.div>
+                    </>
+                ) : (
+                    // Обертка для случая "Нет доступа"
+                    <>
+                        {/* ---- НОВЫЙ ДИЗАЙН ЭКРАНА "НЕТ ДОСТУПА" ---- */}
+                        <motion.div 
+                            className={styles.noAccessCard} 
+                            variants={noAccessCardVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                         >
+                            {/* Информация о пользователе ВНУТРИ карточки */}
+                            <motion.div className={styles.userInfoContainer} variants={noAccessContentVariants}>
+                                 {user?.photo_url ? (
                                     <img src={user.photo_url} alt="User" className={styles.userPhoto} />
                                 ) : (
                                     <AccountCircleIcon className={styles.userPhotoPlaceholder} />
@@ -207,172 +332,49 @@ const MainMenu: React.FC = () => {
                                     {user?.first_name || user?.username || 'Пользователь'}
                                 </span>
                             </motion.div>
+                            
+                            {/* Новая иконка с отдельной анимацией */}
+                            <motion.div variants={noAccessIconVariants}> 
+                                <LockOutlinedIcon className={styles.noAccessIcon} />
+                            </motion.div>
 
-                            {/* Заголовок (для обычного меню) */}
-                            <motion.h1 
-                                className={styles.title}
-                                variants={itemVariants} initial="hidden" animate="visible" exit="exit"
+                            {/* Текст */}
+                            <motion.p className={styles.noAccessText} variants={noAccessContentVariants}>
+                                Доступ ограничен
+                            </motion.p>
+                            <motion.p className={styles.noAccessInfo} variants={noAccessContentVariants}>
+                                У вас нет прав для использования функций этого приложения.
+                                Пожалуйста, обратитесь к администратору.
+                            </motion.p>
+                       </motion.div>
+                       
+                       {/* Переключатель темы (внизу, отдельно от карточки) */}
+                       <motion.div 
+                           className={styles.themeToggle} 
+                           variants={itemVariants} 
+                           initial="hidden" animate="visible" exit="exit"
+                           style={{ marginTop: 'auto' }} 
+                       >
+                           <motion.button 
+                               className={styles.themeButton} 
+                               onClick={toggleTheme}
+                               tabIndex={0}
                                 style={{
-                                    minWidth: menuPositions.title.width,
-                                    minHeight: menuPositions.title.height,
-                                    marginBottom: menuPositions.title.marginBottom
+                                    minWidth: menuPositions.button.width,
+                                    minHeight: menuPositions.button.height
                                 }}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
                             >
-                                Главное меню
-                            </motion.h1>
-
-                            {/* Переключатель ролей */}
-                            {canToggleRole && (
-                                <motion.div className={styles.roleToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                                    <motion.div className={styles.roleToggleContainer}>
-                                        <motion.button 
-                                            className={`${styles.roleButton} ${activeRole === 'chef' ? styles.activeRole : ''}`}
-                                            onClick={() => handleRoleButtonClick('chef')}
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <RestaurantIcon className={styles.roleIcon} />
-                                            <span>Повар</span>
-                                        </motion.button>
-                                        <motion.button 
-                                            className={`${styles.roleButton} ${activeRole === 'courier' ? styles.activeRole : ''}`}
-                                            onClick={() => handleRoleButtonClick('courier')}
-                                            whileHover={{ scale: 1.02 }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <DirectionsRunIcon className={styles.roleIcon} />
-                                            <span>Курьер</span>
-                                        </motion.button>
-                                    </motion.div>
-                                </motion.div>
-                            )}
-
-                            {/* Сетка меню */}
-                            <motion.div className={styles.menuGrid} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                                {currentMenuItems.map((item, index) => {
-                                    const Icon = item.icon;
-                                    return (
-                                        <motion.div
-                                            key={item.id}
-                                            className={styles.menuItem}
-                                            onClick={() => handleMenuItemClick(item.path)}
-                                            variants={itemVariants}
-                                            whileHover={{ 
-                                                scale: 1.03, 
-                                                boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
-                                                transition: { duration: 0.2 }
-                                            }}
-                                            whileTap={{ scale: 0.98 }}
-                                        >
-                                            <motion.div 
-                                                className={styles.iconWrapper}
-                                                style={{
-                                                    width: menuPositions.icon.width,
-                                                    height: menuPositions.icon.height
-                                                }}
-                                            >
-                                                <Icon />
-                                            </motion.div>
-                                            <motion.span 
-                                                className={styles.menuTitle}
-                                                style={{
-                                                    minWidth: menuPositions.text.width,
-                                                    minHeight: menuPositions.text.height
-                                                }}
-                                            >
-                                                {item.title}
-                                            </motion.span>
-                                        </motion.div>
-                                    );
-                                })}
-                            </motion.div>
-
-                            {/* Переключатель темы (для обычного меню) */}
-                            <motion.div className={styles.themeToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                                <motion.button 
-                                    className={styles.themeButton} 
-                                    onClick={toggleTheme}
-                                    tabIndex={0}
-                                    style={{
-                                        minWidth: menuPositions.button.width,
-                                        minHeight: menuPositions.button.height
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    <span className={styles.icon}>
-                                        {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-                                    </span>
-                                    {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-                                </motion.button>
-                            </motion.div>
-                        </>
-                    ) : (
-                        // Обертка для случая "Нет доступа"
-                        <>
-                            {/* ---- НОВЫЙ ДИЗАЙН ЭКРАНА "НЕТ ДОСТУПА" ---- */}
-                            <motion.div 
-                                className={styles.noAccessCard} 
-                                variants={noAccessCardVariants}
-                                initial="hidden"
-                                animate="visible"
-                                exit="exit"
-                             >
-                                {/* Информация о пользователе ВНУТРИ карточки */}
-                                <motion.div className={styles.userInfoContainer} variants={noAccessContentVariants}>
-                                     {user?.photo_url ? (
-                                        <img src={user.photo_url} alt="User" className={styles.userPhoto} />
-                                    ) : (
-                                        <AccountCircleIcon className={styles.userPhotoPlaceholder} />
-                                    )}
-                                    <span className={styles.userName}>
-                                        {user?.first_name || user?.username || 'Пользователь'}
-                                    </span>
-                                </motion.div>
-                                
-                                {/* Новая иконка с отдельной анимацией */}
-                                <motion.div variants={noAccessIconVariants}> 
-                                    <LockOutlinedIcon className={styles.noAccessIcon} />
-                                </motion.div>
-
-                                {/* Текст */}
-                                <motion.p className={styles.noAccessText} variants={noAccessContentVariants}>
-                                    Доступ ограничен
-                                </motion.p>
-                                <motion.p className={styles.noAccessInfo} variants={noAccessContentVariants}>
-                                    У вас нет прав для использования функций этого приложения.
-                                    Пожалуйста, обратитесь к администратору.
-                                </motion.p>
-                           </motion.div>
-                           
-                           {/* Переключатель темы (внизу, отдельно от карточки) */}
-                           <motion.div 
-                               className={styles.themeToggle} 
-                               variants={itemVariants} 
-                               initial="hidden" animate="visible" exit="exit"
-                               style={{ marginTop: 'auto' }} 
-                           >
-                               <motion.button 
-                                   className={styles.themeButton} 
-                                   onClick={toggleTheme}
-                                   tabIndex={0}
-                                    style={{
-                                        minWidth: menuPositions.button.width,
-                                        minHeight: menuPositions.button.height
-                                    }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                >
-                                    <span className={styles.icon}>
-                                        {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-                                    </span>
-                                    {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-                               </motion.button>
-                           </motion.div>
-                        </>
-                    )}
-                </motion.div>
-            )}
+                                <span className={styles.icon}>
+                                    {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+                                </span>
+                                {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
+                           </motion.button>
+                       </motion.div>
+                    </>
+                )}
+            </motion.div>
         </AnimatePresence>
     );
 };

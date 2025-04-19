@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, date
 import uuid
 
 # Базовая схема для общих полей
 class ShiftBase(BaseModel):
-    date: str
+    date: date
     shift_type: str # 'day' или 'night'
     slot_index: int
     group_id: int # ID группы (нашей внутренней)
@@ -22,7 +22,7 @@ class ShiftMemberInfo(BaseModel):
     last_name: Optional[str] = None
     username: Optional[str] = None
     photo_url: Optional[str] = None
-    is_senior_courier: bool = False
+    is_senior_courier: Optional[bool] = None
 
     class ConfigDict:
         from_attributes = True
@@ -39,7 +39,7 @@ class ShiftRead(ShiftBase):
 
 # Схема для обновления смены (на будущее)
 class ShiftUpdate(BaseModel):
-    date: Optional[str] = None
+    date: Optional[date] = None
     shift_type: Optional[str] = None
     slot_index: Optional[int] = None
     # Не позволяем менять member_id или group_id через этот эндпоинт 

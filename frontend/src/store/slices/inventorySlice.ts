@@ -21,7 +21,7 @@ import type {
 } from '../../types/inventory';
 import { WebApp } from '../../types/telegram';
 import config from '../../config';
-import { api } from '../../services/api';
+import { api, axiosInstance } from '../../services/api';
 import { socketService } from '../../services/socket';
 import { RootState } from '../store';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -120,7 +120,7 @@ export const fetchInventory = createAsyncThunk<
                 params.group_type = role;
             }
             console.log(`🔍 Параметры запроса к /chats:`, params);
-            const response = await axios.get<ChatInventory[]>(`${config.API_URL}/api/v1/groups/chats`, {
+            const response = await axiosInstance.get<ChatInventory[]>('/api/v1/groups/chats', {
                 params: params
             });
             console.log(`✅ Получены данные чатов для пользователя ${userId} ${role ? `(роль: ${role})` : ''}:`, response.data);
@@ -137,8 +137,8 @@ export const fetchChatInventory = createAsyncThunk<ChatResponse, string>(
     'inventory/fetchChatInventory',
     async (chatId: string) => {
         try {
-            // Получаем данные инвентаря
-            const inventoryResponse = await axios.get(`${config.API_URL}/api/v1/groups/inventory/${chatId}`);
+            // Получаем данные инвентаря, ИСПОЛЬЗУЯ axiosInstance и относительный путь
+            const inventoryResponse = await axiosInstance.get(`/api/v1/groups/inventory/${chatId}`);
             const inventoryData = inventoryResponse.data;
 
             if (!inventoryData) {
@@ -151,8 +151,8 @@ export const fetchChatInventory = createAsyncThunk<ChatResponse, string>(
                 data: {
                     inventory: inventoryData.inventory || {},
                     metadata: {
-                        lastUpdated: inventoryData.lastUpdated || new Date().toISOString(),
-                        progress: inventoryData.progress || 0,
+                        lastUpdated: inventoryData.metadata?.lastUpdated || new Date().toISOString(), // Используем metadata из ответа
+                        progress: inventoryData.metadata?.progress || 0, // Используем metadata из ответа
                     },
                     chat_title: inventoryData.chat_title || chatId,
                     admins: inventoryData.admins || []
@@ -160,9 +160,10 @@ export const fetchChatInventory = createAsyncThunk<ChatResponse, string>(
             };
 
             return response;
-        } catch (error) {
+        } catch (error) { // Добавим тип any для error
             console.error('Error fetching chat inventory:', error);
-            throw error;
+            // Перебрасываем ошибку, чтобы extraReducer мог ее поймать
+            throw error; 
         }
     }
 );
@@ -240,7 +241,7 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
                 inventory: updatedInventory,
                 metadata: {
                     lastUpdated: new Date().toISOString(),
-                    progress: 0,
+                    progress: 0, // TODO: Рассчитать и передать актуальный прогресс?
                     chat_id: payload.chatId,
                     currentUser: {
                         id: currentUser?.id,
@@ -256,21 +257,25 @@ export const updateInventoryItem = createAsyncThunk<UpdateInventoryResult, Updat
                     oldQuantity,
                     newQuantity,
                     category: payload.category,
-                    itemName: payload.itemId
+                    itemName: payload.itemId, // Убедимся, что имя товара передается
+                    userId: currentUser?.id // Добавляем ID пользователя в историю
                 }
             };
 
-            console.log('📤 Sending data to server:', inventoryData);
+            console.log('📤 Sending data to server via axiosInstance:', inventoryData);
 
-            const response = await axios.post(`${config.API_URL}/api/v1/groups/inventory/${payload.chatId}`, inventoryData);
+            // ИСПОЛЬЗУЕМ axiosInstance и относительный путь
+            const response = await axiosInstance.post(`/api/v1/groups/inventory/${payload.chatId}`, inventoryData);
             console.log(`✅ ${actionType} successfully saved:`, response.data);
 
             return {
                 chatId: payload.chatId,
                 inventory: updatedInventory
             };
-        } catch (error) {
-            return rejectWithValue(error);
+        } catch (error: any) { // Добавляем тип any для error
+            console.error('❌ Ошибка при обновлении инвентаря:', error);
+            // Перебрасываем ошибку для обработки в extraReducers или UI
+            return rejectWithValue(error.response?.data || error.message || 'Update failed');
         }
     }
 );

@@ -1,10 +1,11 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { ReserveEntry, ShiftSlot as ShiftSlotType } from '../../types/shifts';
 import { logger } from '../../utils/logger';
+import { deleteReserve } from '../../services/courierApi';
 
 // Обновляем интерфейс пропсов
 interface ReservePanelProps {
@@ -56,12 +57,23 @@ const ReserveGrid = styled.div`
     margin: 24px 0;
 `;
 
-const SlotButton = styled.button<{ $isOccupied?: boolean }>`
+const SlotButton = styled.button<{
+    $isOccupied?: boolean;
+    $isConfirming?: boolean;
+    $isDeleting?: boolean;
+}>`
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    border: 2px dashed ${props => props.$isOccupied ? 'transparent' : 'var(--primary-color)'};
-    background: ${props => props.$isOccupied ? 'transparent' : 'rgba(76, 175, 80, 0.05)'};
+    border: none;
+    background: ${props => props.$isOccupied
+        ? 'transparent'
+        : 'rgba(var(--primary-color-rgb), 0.05)'};
+    box-shadow: ${props => props.$isConfirming
+        ? '0 0 0 3px var(--danger-color), 0 0 8px 2px rgba(244, 67, 54, 0.5)'
+        : props.$isOccupied
+            ? '0 0 0 2px var(--primary-color)'
+            : '0 0 0 2px dashed var(--primary-color)'};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -69,14 +81,23 @@ const SlotButton = styled.button<{ $isOccupied?: boolean }>`
     transition: all 0.3s ease;
     position: relative;
     overflow: visible;
+    filter: ${props => props.$isDeleting ? 'brightness(0.6)' : 'none'};
 
     &:hover {
         transform: ${props => props.$isOccupied ? 'none' : 'scale(1.05)'};
-        background: ${props => props.$isOccupied ? 'transparent' : 'rgba(76, 175, 80, 0.1)'};
+        background: ${props => props.$isOccupied
+            ? 'transparent'
+            : 'rgba(var(--primary-color-rgb), 0.1)'};
     }
 
     &:active {
         transform: ${props => props.$isOccupied ? 'none' : 'scale(0.95)'};
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        filter: brightness(0.8);
+        box-shadow: 0 0 0 2px var(--grey-light);
     }
 `;
 
@@ -86,12 +107,13 @@ const PlusIcon = styled.div`
     font-weight: 300;
 `;
 
-const CourierAvatar = styled.img`
+const CourierAvatar = styled.img<{ $isLoading?: boolean }>`
     width: 100%;
     height: 100%;
     object-fit: cover;
     border-radius: 50%;
-    border: 2px solid var(--primary-color);
+    opacity: ${props => props.$isLoading ? 0.5 : 1};
+    transition: opacity 0.3s ease;
 `;
 
 const SlotTooltip = styled.div`
@@ -129,38 +151,6 @@ const SlotButtonWrapper = styled.div`
     }
 `;
 
-const CurrentUserReserve = styled(SlotButton)`
-    &:hover .current-user-avatar {
-        filter: brightness(0.7);
-    }
-    
-    &:hover .delete-reserve-button {
-        opacity: 1;
-    }
-`;
-
-const DeleteButton = styled.div`
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(244, 67, 54, 0.6);
-    color: white;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
-    font-weight: bold;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-    z-index: 5;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-`;
 
 
 // Стилизованная кнопка для добавления в резерв с индикатором загрузки
@@ -277,12 +267,59 @@ const ErrorText = styled.p`
     margin-bottom: 16px;
 `;
 
+const DeleteConfirmationIcon = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(244, 67, 54, 0.7);
+    color: white;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 5;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+`;
+
+const LoadingOverlay = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 6;
+    border-radius: 50%;
+
+    .loader {
+        width: 24px;
+        height: 24px;
+        border: 3px solid rgba(var(--text-color-rgb), 0.3);
+        border-top-color: var(--text-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+`;
+
 // Компонент панели резервов
 const ReservePanel: React.FC<ReservePanelProps> = ({
     date,
     currentUserId,
-    currentUserAvatar,
-    currentUserName,
     dayShifts = [],
     nightShifts = [],
     onSwitchToShifts,
@@ -309,7 +346,10 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     // Локальное состояние для ошибок UI и ID удаляемого резерва
     const [uiError, setUiError] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false); // Локальный лоадер для кнопки добавления
-    const [removingReserveId, setRemovingReserveId] = useState<string | null>(null); // Локальный лоадер для кнопки удаления
+    const [deletingReserveId, setDeletingReserveId] = useState<string | null>(null);
+    const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+    const [tooltipTargetId, setTooltipTargetId] = useState<string | null>(null);
+    const confirmationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Получаем резервы для текущей даты 
     // Добавляем проверку, что это функция, перед вызовом
@@ -370,27 +410,83 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         }
     }, [addCurrentUserToReserve, date, showSuccessMessage]);
 
-    const handleCancelReserve = useCallback(async (reserveId: string) => {
-        if (!reserveId) {
-            logger.warn('[ReservePanel] handleCancelReserve called with empty reserveId');
-            return;
+    // --- Получение Telegram ID текущего пользователя ---
+    const currentUserTelegramId = parseInt(currentUserId, 10);
+
+    // --- Логика сброса подтверждения И тултипа ---
+    const resetState = useCallback(() => {
+        if (confirmationTimerRef.current) {
+            clearTimeout(confirmationTimerRef.current);
+            confirmationTimerRef.current = null;
         }
-        setUiError(null); // Сброс локальной ошибки
-        setRemovingReserveId(reserveId); // Включаем локальный лоадер удаления для конкретной кнопки
-        logger.info(`[ReservePanel] handleCancelReserve started for ID: ${reserveId}`);
+        setConfirmingDeleteId(null);
+        setTooltipTargetId(null);
+        logger.log(`[ReservePanel] State reset (confirmation & tooltip)`);
+    }, []);
+
+    // Эффект для сброса подтверждения ПО ТАЙМЕРУ
+    useEffect(() => {
+        if (confirmingDeleteId) {
+            logger.log(`[ReservePanel] Confirmation activated for ${confirmingDeleteId}. Starting timer.`);
+            confirmationTimerRef.current = setTimeout(() => {
+                logger.log(`[ReservePanel] Confirmation timeout for ${confirmingDeleteId}. Resetting state.`);
+                resetState(); // Сбрасываем и подтверждение, и тултип
+            }, 4000); // Таймер подтверждения (4 секунды)
+        }
+        // Очистка при размонтировании или изменении ID
+        return () => {
+            if (confirmationTimerRef.current) {
+                clearTimeout(confirmationTimerRef.current);
+            }
+        };
+    }, [confirmingDeleteId, resetState]);
+
+    // --- Новая функция для УДАЛЕНИЯ резерва (вызывается старшим) ---
+    const handleDeleteReserve = useCallback(async (reserveIdToDelete: string) => {
+        if (deletingReserveId) return;
+        setDeletingReserveId(reserveIdToDelete);
+        resetState();
+
+        logger.log(`[ReservePanel] Deleting reserve ${reserveIdToDelete} by senior ${currentUserTelegramId}`);
+
         try {
-            await cancelReserveById(reserveId); // Используем функцию из пропсов
-            logger.info(`[ReservePanel] cancelReserveById successful for ID: ${reserveId}`);
-            showSuccessMessage('Резерв успешно отменен!');
-            // forceUpdate(); // Обновление данных теперь через Redux/WebSocket
+            // <<< ИСПОЛЬЗУЕМ ИМПОРТИРОВАННУЮ ФУНКЦИЮ API >>>
+            const deletedData = await deleteReserve(reserveIdToDelete, currentUserTelegramId);
+            
+            logger.log(`[ReservePanel] Reserve ${reserveIdToDelete} deleted successfully via API. Data:`, deletedData);
+            showSuccessMessage('Резерв курьера удален.');
+            // Обновление списка должно произойти через WebSocket/Redux
+
         } catch (err: any) {
-            const errorMsg = err?.message || 'Не удалось отменить резерв';
-            logger.error('[ReservePanel] Error cancelling reserve:', err);
-            setUiError(errorMsg); // Показываем локальную ошибку
+             logger.error(`Ошибка при вызове API удаления резерва ${reserveIdToDelete}:`, err);
+             // TODO: Показать пользователю сообщение об ошибке (err.message)
         } finally {
-            setRemovingReserveId(null); // Выключаем локальный лоадер удаления
+            setDeletingReserveId(null);
         }
-    }, [cancelReserveById, showSuccessMessage]);
+    }, [resetState, showSuccessMessage, deletingReserveId, currentUserTelegramId]);
+
+    // --- ОБНОВЛЕННЫЙ обработчик КЛИКА (теперь единственный) ---
+    const handleCourierClick = (reserveId: string) => {
+        logger.log(`[ReservePanel] handleCourierClick called for reserveId: ${reserveId}. Current confirmation: ${confirmingDeleteId}`);
+        if (deletingReserveId) return; // Игнорируем во время удаления
+
+        if (confirmingDeleteId === reserveId) {
+            // Второй клик = ПОДТВЕРЖДЕНИЕ УДАЛЕНИЯ
+            logger.log(`[ReservePanel] Click confirms delete for ${reserveId}`);
+            // Таймер будет очищен в resetState внутри handleDeleteReserve
+            handleDeleteReserve(reserveId);
+        } else {
+            // Первый клик = ПОКАЗАТЬ ПОДТВЕРЖДЕНИЕ И ТУЛТИП
+            logger.log(`[ReservePanel] First click on ${reserveId}. Activating confirmation and tooltip.`);
+            // Сбрасываем предыдущее состояние (если было на другой иконке)
+            resetState(); 
+            // Устанавливаем новое состояние
+            setConfirmingDeleteId(reserveId);
+            setTooltipTargetId(reserveId); 
+            // Таймер для сброса запустится в useEffect
+        }
+    };
+    // --- Конец обновленного обработчика клика ---
 
     // --- Рендеринг ---
 
@@ -414,50 +510,81 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
             )}
 
             {/* Сетка с резервами */}
-            <ReserveGrid>
-                {/* Отображаем занятые слоты (резервы) */}
+            <ReserveGrid
+                onClick={(e) => {
+                    const targetElement = e.target as HTMLElement;
+                    // Ищем ближайшего родителя-кнопку с aria-label
+                    const clickedButton = targetElement.closest('button[aria-label]'); 
+                    // <<< ДОБАВЛЕН ЛОГ >>>
+                    logger.log('[ReservePanel] Click on grid detected. Target:', targetElement, 'Clicked button found:', clickedButton);
+                    if (!clickedButton) { // Если НЕ кликнули на кнопку (или ее дочерний элемент)
+                        logger.log('[ReservePanel] Click was outside a button. Resetting state.');
+                        resetState(); // Вызываем сброс состояния
+                    } else {
+                        // <<< ДОБАВЛЕН ЛОГ >>>
+                        logger.log('[ReservePanel] Click was inside a button. Doing nothing on grid level.');
+                    }
+                }}
+            >
                 {reserves.map((reserve) => {
-                    const isCurrent = String(reserve.userId) === String(currentUserId);
-                    // Используем поля напрямую из reserve
-                    const avatarSrc = isCurrent ? currentUserAvatar : reserve.photoUrl;
-                    const name = isCurrent ? currentUserName : reserve.firstName || 'Неизвестный курьер'; // Берем firstName
-                    const isSenior = reserve.isSeniorCourier; // Берем isSeniorCourier
-                    const isRemovingThis = removingReserveId === reserve.id; // Проверяем, удаляется ли именно этот резерв
+                    // Используем поля напрямую из объекта reserve
+                    const isCurrent = String(reserve.userId) === currentUserId;
+                    const isConfirming = confirmingDeleteId === reserve.id;
+                    const isDeleting = deletingReserveId === reserve.id;
+                    const canInteract = isCurrentUserSenior;
+
+                    // <<< ЛОГ ПЕРЕД РЕНДЕРОМ >>>
+                    logger.debug(`[ReservePanel] Rendering reserve ${reserve.id}. isCurrent: ${isCurrent}, isSenior: ${isCurrentUserSenior}, canInteract: ${canInteract}`);
+
+                    const avatarSrc = reserve.photoUrl;
+                    const isSenior = reserve.isSeniorCourier;
+                    const tooltipText = `${reserve.firstName || ''} ${reserve.lastName || ''}`.trim() || `ID: ${reserve.userId}`;
+
+                    // <<< НОВОЕ: Показываем ли тултип для этой иконки >>>
+                    const showTooltip = tooltipTargetId === reserve.id;
 
                     return (
                         <SlotButtonWrapper key={reserve.id}>
-                            {isCurrent ? (
-                                // Кнопка для отмены своего резерва
-                                <CurrentUserReserve
-                                    $isOccupied
-                                    onClick={() => handleCancelReserve(reserve.id)}
-                                    disabled={isHookLoading || isRemovingThis || isAdding} // Блокируем во время любых загрузок
-                                    aria-label={`Отменить резерв ${name}`}
-                                >
-                                    <CourierAvatar
-                                        className="current-user-avatar"
-                                        src={avatarSrc || defaultAvatar}
-                                        alt={`Аватар ${name}`}
-                                        onError={(e) => (e.currentTarget.src = defaultAvatar)}
-                                    />
-                                    {isSenior && <SeniorBadge title="Старший курьер">★</SeniorBadge>}
-                                    {/* Кнопка удаления поверх */}
-                                    <DeleteButton className="delete-reserve-button">
-                                        {isRemovingThis ? <div className="loader"></div> : '✕'}
-                                    </DeleteButton>
-                                </CurrentUserReserve>
-                            ) : (
-                                // Просто занятый слот (другой курьер)
-                                <SlotButton $isOccupied disabled aria-label={`Резерв ${name}`}>
-                                    <CourierAvatar
-                                        src={avatarSrc || defaultAvatar}
-                                        alt={`Аватар ${name}`}
-                                        onError={(e) => (e.currentTarget.src = defaultAvatar)}
-                                    />
-                                    {isSenior && <SeniorBadge title="Старший курьер">★</SeniorBadge>}
-                                </SlotButton>
+                            <SlotButton
+                                $isOccupied={true}
+                                $isConfirming={isConfirming}
+                                $isDeleting={isDeleting}
+                                onClick={canInteract ? (e) => {
+                                    e.stopPropagation(); 
+                                    handleCourierClick(reserve.id)
+                                } : undefined}
+                                disabled={deletingReserveId !== null && !isDeleting}
+                                aria-label={tooltipText}
+                            >
+                                <CourierAvatar
+                                    src={avatarSrc || defaultAvatar}
+                                    alt={tooltipText}
+                                    $isLoading={isDeleting}
+                                    onError={(e) => { if (e.currentTarget.src !== defaultAvatar) e.currentTarget.src = defaultAvatar; }}
+                                />
+                                {/* Значок старшего курьера */}
+                                {isSenior && !isConfirming && !isDeleting && (
+                                    <SeniorBadge title="Старший курьер">★</SeniorBadge>
+                                )}
+                                {/* Иконка подтверждения удаления */}
+                                {isConfirming && !isDeleting && (
+                                    <DeleteConfirmationIcon title="Нажмите еще раз для удаления">
+                                        ×
+                                    </DeleteConfirmationIcon>
+                                )}
+                                {/* Лоадер удаления */}
+                                {isDeleting && (
+                                    <LoadingOverlay>
+                                        <div className="loader"></div>
+                                    </LoadingOverlay>
+                                )}
+                            </SlotButton>
+                            {/* Условный рендеринг тултипа */}
+                            {showTooltip && (
+                                <SlotTooltip style={{ opacity: 1, pointerEvents: 'none' }}>
+                                    {tooltipText}
+                                </SlotTooltip>
                             )}
-                            <SlotTooltip>{name}</SlotTooltip>
                         </SlotButtonWrapper>
                     );
                 })}
@@ -465,13 +592,12 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
                 {/* ===> ОТОБРАЖЕНИЕ КНОПКИ ДОБАВЛЕНИЯ (по новому условию) <=== */}
                 {showAddReserveButton && (
                     <ReserveButtonWithLoader
-                        onClick={handleReserveClick} // Был handleAddToReserve, переименовал для ясности?
-                        disabled={isAdding || isHookLoading || removingReserveId !== null}
+                        onClick={handleReserveClick}
+                        disabled={isAdding || isHookLoading || deletingReserveId !== null}
                         title="Записаться в резерв"
                         aria-label="Добавить себя в резерв"
                     >
                         {(isAdding || isHookLoading) ? <div className="loader"></div> : <PlusIcon>+</PlusIcon>}
-                        <SlotTooltip>Добавить себя</SlotTooltip>
                     </ReserveButtonWithLoader>
                 )}
             </ReserveGrid>
@@ -490,4 +616,4 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
     );
 };
 
-export default ReservePanel; 
+export default React.memo(ReservePanel); 

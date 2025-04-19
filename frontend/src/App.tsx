@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Provider, useSelector /*, useDispatch*/ } from 'react-redux';
 // Возвращаем BrowserRouter
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; 
@@ -6,7 +6,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'; 
 import { ThemeProvider as CustomThemeProvider } from './contexts/ThemeContext'; 
 // Импортируем объект темы MUI
-import { theme } from './styles/themes/theme'; // <-- Нашли тему!
+import { theme } from './styles/themes/theme';
 // import { PersistGate } from 'redux-persist/integration/react';
 import store /*, { persistor } */ from './store/store'; // <-- Исправлен импорт store, persistor комментируем
 // Возвращаем импорт селекторов
@@ -30,57 +30,98 @@ import { useWebSocketSync } from './hooks/useWebSocketSync';
 // import styled from 'styled-components'; // <<< Удаляем импорт
 // <<< Импортируем новый компонент-обработчик >>>
 import NotificationHandler from './components/notifications/NotificationHandler';
+// import { AnimatePresence } from 'framer-motion'; // <<< УДАЛЯЕМ НЕИСПОЛЬЗУЕМЫЙ ИМПОРТ
 
 // NEW: Импортируем страницу инвентаря и защищенный маршрут
 import InventoryPage from './pages/InventoryPage';
 import ProtectedChefRoute from './components/ProtectedChefRoute';
 
+// ИМПОРТИРУЕМ новый LoadingOverlay
+import LoadingOverlay from './components/common/LoadingOverlay/LoadingOverlay';
+
 // --- Заглушки --- 
-const LoadingScreen: React.FC<{ message: string }> = ({ message }) => <div>{message}...</div>;
 const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
 const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
-// const theme = {}; // <-- Убираем заглушку темы
-// const selectIsUserInitialized = (state: any) => state.user.isInitialized;
-// const selectUserInitializationError = (state: any) => state.user.error;
-// const selectUser = (state: any) => state.user.user;
-// --- ------------------------------- ---
+
+
+const MIN_LOADING_TIME = 3000; // Минимальное время отображения в миллисекундах (УВЕЛИЧЕНО)
 
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
   const isUserInitialized = useSelector(selectIsUserInitialized);
   const initError = useSelector(selectUserInitializationError);
-  // const _user = useSelector(selectUser); // <<< Удаляем неиспользуемую переменную
   const initStarted = useRef(false);
+  const initStartTimeRef = useRef<number | null>(null); // Для хранения времени старта
+
+  // Состояние для управления видимостью оверлея (отличается от реальной загрузки)
+  const [showOverlay, setShowOverlay] = useState(true); 
+
+  // Флаг реальной загрузки (для рендера children)
+  const isActuallyLoading = !isUserInitialized && !initError;
 
   useEffect(() => {
+    // Запускаем инициализацию и засекаем время только один раз
     if (!isUserInitialized && !initError && !initStarted.current) {
       initStarted.current = true;
+      initStartTimeRef.current = Date.now(); // Засекаем время старта
+      setShowOverlay(true); // Убедимся, что оверлей показан в начале
       logger.log('🚀 [AppInitializer] Начало инициализации приложения...');
       
       dispatch(initializeFromTelegram()).unwrap()
         .then((initResult) => {
-            // ... (логика после инициализации остается)
+            // ... (логика после успешной инициализации)
         })
         .catch((error) => {
           logger.error('❌ [AppInitializer] Ошибка инициализации пользователя:', error);
+          // Ошибку обрабатываем в следующем useEffect
         });
     }
   }, [dispatch, isUserInitialized, initError]);
 
-  // Вызываем хук для централизованной подписки на WS
+  // Эффект для управления скрытием оверлея с учетом минимального времени
+  useEffect(() => {
+    if (!isActuallyLoading && initStartTimeRef.current) {
+      // Инициализация завершена (успешно или с ошибкой)
+      const elapsedTime = Date.now() - initStartTimeRef.current;
+      const remainingTime = MIN_LOADING_TIME - elapsedTime;
+
+      if (remainingTime > 0) {
+        // Если прошло меньше минимального времени, ждем остаток
+        const timer = setTimeout(() => {
+          setShowOverlay(false); // Скрываем оверлей после задержки
+        }, remainingTime);
+        return () => clearTimeout(timer);
+      } else {
+        // Если времени прошло достаточно, скрываем сразу
+        setShowOverlay(false);
+      }
+    } 
+    // Этот эффект должен зависеть только от isActuallyLoading, чтобы сработать один раз при завершении
+  }, [isActuallyLoading]);
+
   useWebSocketSync();
 
-  if (!isUserInitialized && !initError) {
-    return <LoadingScreen message="Инициализация приложения..." />;
-  }
+  // LoadingOverlay управляется состоянием showOverlay
+  // Основной контент рендерится только ПОСЛЕ того, как showOverlay станет false
+  return (
+    <>
+      {/* Убираем внешнюю AnimatePresence и возвращаем isLoading */}
+      {/* @ts-ignore // Игнорируем ошибку TS2786 для AnimatePresence - Убираем этот коммент */}
+      {/* <AnimatePresence> */}
+        {/* Используем тернарный оператор вместо && - Возвращаем isLoading */}
+        {/* {showOverlay ? <LoadingOverlay /> : null } */}
+        <LoadingOverlay isLoading={showOverlay} /> { /* Возвращаем isLoading */ }
+      {/* </AnimatePresence> */}
 
-  if (initError) {
-    logger.error(`[AppInitializer] Отображение ошибки инициализации: ${initError}`);
-    return <ErrorDisplay message={`Ошибка инициализации: ${initError}`} />;
-  }
-
-  logger.log('[AppInitializer] Инициализация завершена, рендер основного приложения.');
-  return <>{children}</>;
+      {/* Рендерим контент ТОЛЬКО когда showOverlay = false И нет ошибки - возвращаем !showOverlay */}
+      {!showOverlay && !initError && (
+        <>{children}</>
+      )}
+      {initError && (
+        <ErrorDisplay message={`Ошибка инициализации: ${initError}`} />
+      )}
+    </>
+  );
 };
 
 function App() {

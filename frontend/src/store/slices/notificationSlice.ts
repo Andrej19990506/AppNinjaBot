@@ -76,6 +76,8 @@ const initialState: NotificationState = {
     unreadCount: savedNotifications.filter(n => !n.read).length
 };
 
+const MAX_VISIBLE_TOASTS = 2; // Максимальное количество видимых ТОСТОВ
+
 const notificationSlice = createSlice({
     name: 'notification',
     initialState,
@@ -93,12 +95,39 @@ const notificationSlice = createSlice({
                 notification.id = generateUniqueNotificationId();
             }
             
+            // --- НАЧАЛО: Логика ограничения количества видимых ТОСТОВ ---
+            if (notification.isToast) { // Применяем логику только для ТОСТОВЫХ уведомлений
+                // Фильтруем текущие видимые (тостовые) уведомления
+                const visibleToasts = state.items.filter(item => item.isToast === true);
+                
+                // Если лимит достигнут или превышен
+                if (visibleToasts.length >= MAX_VISIBLE_TOASTS) {
+                    // Находим ID самого старого видимого тоста
+                    const oldestVisibleToastId = visibleToasts[0]?.id;
+                    
+                    // Если ID найден, ищем его индекс в общем массиве и удаляем
+                    if (oldestVisibleToastId) {
+                        const indexToRemove = state.items.findIndex(item => item.id === oldestVisibleToastId);
+                        if (indexToRemove !== -1) {
+                            // Для тостов счетчик непрочитанных не трогаем
+                            // Удаляем элемент из общего массива
+                            state.items.splice(indexToRemove, 1);
+                            console.log(`[NotificationSlice] Removed oldest toast ${oldestVisibleToastId} due to limit.`);
+                        }
+                    }
+                }
+            }
+            // --- КОНЕЦ: Логика ограничения ТОСТОВ ---
+            
+            // Добавляем новое уведомление в конец массива
             state.items.push(notification);
-            if (!notification.read) {
+            
+            // Обновляем счетчик непрочитанных, если новое - непрочитанное (только для НЕ тостов)
+            if (!notification.read && !notification.isToast) { 
                 state.unreadCount++;
             }
             
-            // Сохраняем уведомления
+            // Сохраняем системные уведомления (логика saveNotifications остается)
             saveNotifications(state.items);
         },
         removeNotification: (state, action: PayloadAction<string>) => {

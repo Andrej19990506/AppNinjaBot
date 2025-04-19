@@ -4,7 +4,7 @@ import { RootState } from '../store';
 import { socketService } from '../../services/socket';
 import config from '../../config';
 // import { format } from 'date-fns'; // <<< Удаляем неиспользуемый импорт
-import { bookShift as bookShiftApi, cancelShift as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse } from '../../services/courierApi';
+import { bookShift as bookShiftApi, deleteShiftAsSenior as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse } from '../../services/courierApi';
 import { CourierShift /*, ReserveEntry*/ } from '../../types/shifts';
 import { removeReserveByIdThunk } from './reservesSlice';
 import { logger } from '../../utils/logger'; // <<< Добавляем импорт логгера
@@ -240,7 +240,10 @@ export const bookShift = createAsyncThunk<
             if (reserveEntry) {
                 logger.info(`[shiftsSlice] Пользователь ${userId} найден в резерве на ${date}. Запуск удаления из резерва...`);
                 try {
-                    await dispatch(removeReserveByIdThunk({ reserveId: reserveEntry.id })).unwrap();
+                    await dispatch(removeReserveByIdThunk({ 
+                        reserveId: reserveEntry.id, 
+                        requesterTelegramId: parseInt(userId, 10) // Используем userId текущего пользователя
+                    })).unwrap();
                     logger.info(`[shiftsSlice] Thunk removeReserveByIdThunk успешно запущен для резерва ID: ${reserveEntry.id}`);
                 } catch (removeError) {
                     logger.error(`[shiftsSlice] Ошибка при попытке удаления из резерва после бронирования смены:`, removeError);
@@ -264,16 +267,17 @@ export const bookShift = createAsyncThunk<
 
 // --- THUNK для отмены смены ---
 export const cancelShift = createAsyncThunk<
-    { success: boolean; shiftId: string; userId: string; date: string; }, // Возвращаем ID отмененной смены и данные для возможного добавления в резерв
-    { shiftId: string; chatId: string; userId: string; date: string; }, // Принимаем ID смены, чата, пользователя и дату
-    { rejectValue: string; state: RootState } // Добавили state
+    { success: boolean; shiftId: string; userId: string; date: string; }, 
+    { shiftId: string; chatId: string; userId: string; date: string; }, 
+    { rejectValue: string; state: RootState } 
 >(
     'shifts/cancelShift',
     async ({ shiftId, chatId, userId, date }, { rejectWithValue, getState }) => {
-        logger.info(`[shiftsSlice] Запуск cancelShift thunk: shiftId=${shiftId}, chatId=${chatId}`);
+        logger.info(`[shiftsSlice] Запуск cancelShift thunk: shiftId=${shiftId}, userId=${userId}`);
         try {
-            await cancelShiftApi(shiftId, chatId);
-            logger.info(`[shiftsSlice] ✅ Смена ID: ${shiftId} успешно отменена через API.`);
+            // Вызываем deleteShiftAsSenior, передавая shiftId и userId (как requesterId)
+            await cancelShiftApi(shiftId, String(userId ?? ''));
+            logger.info(`[shiftsSlice] ✅ Смена ID: ${shiftId} успешно отменена через API (deleteShiftAsSenior).`);
             
             // Возвращаем ID и доп. данные для редьюсера
             return { success: true, shiftId, userId, date }; 
@@ -539,6 +543,14 @@ const shiftsSlice = createSlice({
         shiftRemoved: (state, action: PayloadAction<string>) => {
             // ... существующий код редюсера shiftRemoved ...
         },
+        // ADDED Reducer for optimistic UI update
+        removeShiftLocally: (state, action: PayloadAction<string>) => {
+            const shiftIdToRemove = action.payload;
+            logger.info(`[shiftsSlice] Removing shift locally: ${shiftIdToRemove}`);
+            state.shifts = state.shifts.filter(shift => shift.id !== shiftIdToRemove);
+            // Note: We might also need to update reserves if the deleted shift was a reserve placement?
+            // For now, just removing from the main shifts array.
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -717,7 +729,8 @@ export const {
     updateSlotConfigLocal, 
     clearShifts,
     shiftAddedOrUpdated,
-    shiftRemoved
+    shiftRemoved,
+    removeShiftLocally
 } = shiftsSlice.actions;
 
 // Селекторы

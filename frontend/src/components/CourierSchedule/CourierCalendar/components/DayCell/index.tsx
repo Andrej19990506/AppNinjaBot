@@ -80,39 +80,6 @@ const DayCell: React.FC<DayCellProps> = ({
             );
         }
 
-        if (isAvailable && !userHasShift) {
-            if (dayShifts.length > 0) {
-                const shift = dayShifts[0];
-                const courier = usersById[shift.userId];
-                return (
-                    <CourierAvatar 
-                        src={courier?.photo_url || defaultAvatar}
-                        alt={courier?.first_name || 'Курьер'}
-                        title={`${courier?.first_name || 'Курьер'} ${courier?.last_name || ''} (День)`}
-                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                            const img = e.currentTarget;
-                            img.src = defaultAvatar;
-                        }}
-                    />
-                );
-            }
-            if (nightShifts.length > 0) {
-                const shift = nightShifts[0];
-                const courier = usersById[shift.userId];
-                return (
-                    <CourierAvatar 
-                        src={courier?.photo_url || defaultAvatar}
-                        alt={courier?.first_name || 'Курьер'}
-                        title={`${courier?.first_name || 'Курьер'} ${courier?.last_name || ''} (Ночь)`}
-                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                            const img = e.currentTarget;
-                            img.src = defaultAvatar;
-                        }}
-                    />
-                );
-            }
-        }
-
         if (inReserve) {
             return (
                 <ReserveSlotIndicator>

@@ -17,6 +17,10 @@ WORKDIR /app
 # Обновляем pip и устанавливаем зависимости
 # Копируем только requirements.txt для кеширования слоя Docker
 COPY requirements.txt .
+
+# <<< ДОБАВЛЯЕМ УСТАНОВКУ curl >>>
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 

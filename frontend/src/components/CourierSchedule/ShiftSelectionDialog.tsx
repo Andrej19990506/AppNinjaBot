@@ -29,6 +29,8 @@ import { refreshCourierProfileFromTelegram } from '../../services/courierApi';
 import { useAppDispatch } from '../../store/hooks';
 // <<< Добавляем импорт User >>>
 import { User } from '../../types/user';
+// <<< ДОБАВЛЯЕМ ИМПОРТ defaultAvatar >>>
+import defaultAvatar from '../../assets/images/Ninja.jpg';
 
 const rotateAnimation = keyframes`
   from {
@@ -1105,14 +1107,15 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 {(() => {
                                     const userIdNum = selectedCourier?.userId ? parseInt(String(selectedCourier.userId), 10) : null;
                                     const latestUserData = userIdNum ? usersById[userIdNum] : null;
-                                    const photoUrl = latestUserData?.photo_url || (selectedCourier as any)?.photoUrl || (selectedCourier as any)?.photo_url || '';
+                                    // <<< ИСПОЛЬЗУЕМ defaultAvatar как fallback >>>
+                                    const photoUrl = latestUserData?.photo_url || (selectedCourier as any)?.photoUrl || (selectedCourier as any)?.photo_url;
                                     return (
                                         <img 
-                                            src={photoUrl || '/assets/images/Ninja.jpg'} 
+                                            src={photoUrl || defaultAvatar} // <<< Используем defaultAvatar
                                             alt="Фото курьера"
                                             onError={(e) => {
                                                 const img = e.target as HTMLImageElement;
-                                                img.src = '/assets/images/Ninja.jpg';
+                                                img.src = defaultAvatar; // <<< Используем defaultAvatar
                                             }}
                                         />
                                     );

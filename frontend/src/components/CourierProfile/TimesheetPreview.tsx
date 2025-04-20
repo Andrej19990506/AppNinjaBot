@@ -296,12 +296,12 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
     slotConfig,
     groupTitle
 }) => {
+    // <<< Переносим useState наверх >>>
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
     if (!isOpen) {
         return null;
     }
-
-    // <<< Добавляем состояние для отслеживания открытия меню >>>
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // <<< Функция для получения дня недели (0=Пн, 6=Вс) из даты YYYY-MM-DD >>>
     const getWeekdayIndex = (dateStr: string): number | null => {

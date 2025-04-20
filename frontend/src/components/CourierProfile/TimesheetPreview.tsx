@@ -1,5 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+// <<< РАСКОММЕНТИРУЕМ импорты antd и icons >>>
+import { Dropdown, Button, Menu } from 'antd';
+import { DownOutlined } from '@ant-design/icons';
 // import { SettingsOverlay as ModalBackdropOverlay } from '../CourierSchedule/CourierCalendar/styles'; // <<< УДАЛЯЕМ
 import { TimesheetResponse, CourierTimesheetData } from '../../types/timesheet'; 
 // <<< Импортируем тип для конфига слотов и ДЕФОЛТНЫЕ значения >>>
@@ -8,7 +11,7 @@ import { WeeklySlotConfig, SlotConfigForDay, defaultSingleDaySlotConfig } from '
 interface TimesheetPreviewProps {
     isOpen: boolean;
     onClose: () => void;
-    onDownload: () => void;
+    onSendRequest: (destination: 'user' | 'group') => void;
     data: TimesheetResponse | null; 
     isLoading: boolean;
     error: string | null;
@@ -33,10 +36,40 @@ const FullPageContainer = styled.div`
     color: var(--text-color);
     padding: 1.5rem; // Отступы по краям страницы
     box-sizing: border-box; // Учитываем padding в размере
-    overflow: hidden; // Убираем скролл у основного контейнера
+    // overflow: hidden; // <<< УБИРАЕМ overflow: hidden
 
     @media (max-width: 768px) {
         padding: 1rem; // Уменьшаем отступы на мобильных
+    }
+    
+    /* <<< Стили для кастомного класса дропдауна >>> */
+    .timesheet-dropdown { 
+        /* Задаем высокий z-index самому контейнеру дропдауна */
+        z-index: 1200 !important; 
+
+        /* Стилизуем меню внутри */
+        .ant-dropdown-menu {
+            background-color: var(--card-background);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            box-shadow: var(--shadow-md);
+            padding: 4px;
+
+            .ant-dropdown-menu-item {
+                color: var(--text-color);
+                border-radius: var(--radius-sm);
+                padding: 8px 12px;
+                
+                &:hover,
+                &.ant-dropdown-menu-item-active {
+                    background-color: var(--hover-overlay);
+                    color: var(--primary-color);
+                }
+                 &:last-child {
+                    margin-bottom: 0;
+                }
+            }
+        }
     }
 `;
 
@@ -193,15 +226,17 @@ const SlotDaySetting = styled.div`
 
 const Footer = styled.div`
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between; // <<< Меняем на space-between
+    align-items: center; // <<< Выравниваем по центру для кнопок
     gap: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border-color);
-    flex-shrink: 0; // Футер не должен сжиматься
+    flex-shrink: 0;
 `;
 
 // Basic Button styling (reuse or create a shared Button component later)
-const Button = styled.button`
+// <<< ПЕРЕИМЕНОВЫВАЕМ Button в BaseButton, чтобы избежать конфликта с antd >>>
+const BaseButton = styled.button`
     padding: 0.6rem 1.2rem;
     border-radius: var(--radius-md);
     border: 1px solid var(--button-border-color);
@@ -216,7 +251,8 @@ const Button = styled.button`
     }
 `;
 
-const PrimaryButton = styled(Button)`
+// <<< Обновляем наследование для PrimaryButton >>>
+const PrimaryButton = styled(BaseButton)`
     background-color: var(--button-primary-background);
     color: var(--button-primary-text);
     border-color: var(--button-primary-border);
@@ -227,7 +263,8 @@ const PrimaryButton = styled(Button)`
     }
 `;
 
-const SecondaryButton = styled(Button)`
+// <<< Обновляем наследование для SecondaryButton >>>
+const SecondaryButton = styled(BaseButton)`
     background-color: var(--button-secondary-background);
     color: var(--button-secondary-text);
     border-color: var(--button-secondary-border);
@@ -242,10 +279,17 @@ const weekdaysRu = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 // <<< Массив коротких дней недели (для отображения настроек) >>>
 const weekdaysRuShort = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
+// <<< Стилизованная обертка для иконки стрелки >>>
+const ArrowIcon = styled(DownOutlined)<{ $isOpen: boolean }>`
+    margin-left: 8px;
+    transition: transform var(--transition-normal);
+    transform: rotate(${props => props.$isOpen ? '180deg' : '0deg'});
+`;
+
 const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
     isOpen,
     onClose,
-    onDownload,
+    onSendRequest,
     data,
     isLoading,
     error,
@@ -255,6 +299,9 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
     if (!isOpen) {
         return null;
     }
+
+    // <<< Добавляем состояние для отслеживания открытия меню >>>
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     // <<< Функция для получения дня недели (0=Пн, 6=Вс) из даты YYYY-MM-DD >>>
     const getWeekdayIndex = (dateStr: string): number | null => {
@@ -341,8 +388,27 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
         );
     };
 
+    // Определяем реальные элементы меню
+    const menuItems = [
+        { label: 'В личные сообщения', key: 'user' },
+        { label: `В чат группы (${groupTitle || '...'})`, key: 'group' },
+    ];
+
+    const handleMenuClick = ({ key }: { key: string }) => {
+        onSendRequest(key as 'user' | 'group');
+    };
+    
+    // <<< ЛОГИРУЕМ СОСТОЯНИЕ ПЕРЕД РЕНДЕРОМ >>>
+    console.log('[TimesheetPreview] State before render:', {
+        isLoading,
+        error,
+        dataExists: !!data,
+        rowsExist: !!data?.rows,
+        rowsLength: data?.rows?.length,
+        isDisabled: isLoading || !!error || !data || !data?.rows || data?.rows?.length === 0
+    });
+
     return (
-        // <<< Используем FullPageContainer вместо фрагмента и старого контейнера >>>
         <FullPageContainer>
             <Header>
                 {/* <<< Оборачиваем заголовок >>> */}
@@ -359,12 +425,20 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
             </ContentArea>
             <Footer>
                 <SecondaryButton onClick={onClose}>Закрыть</SecondaryButton>
-                <PrimaryButton 
-                    onClick={onDownload} 
+                
+                <Dropdown 
+                    menu={{ items: menuItems, onClick: handleMenuClick }}
                     disabled={isLoading || !!error || !data || !data.rows || data.rows.length === 0}
+                    trigger={['click']}
+                    getPopupContainer={(triggerNode: HTMLElement) => document.body}
+                    overlayStyle={{ zIndex: 1200 }} 
+                    overlayClassName="timesheet-dropdown-overlay"
+                    onOpenChange={(open: boolean) => setIsDropdownOpen(open)} 
                 >
-                    Скачать CSV
-                </PrimaryButton>
+                    <PrimaryButton>
+                        Отправить <ArrowIcon $isOpen={isDropdownOpen} />
+                    </PrimaryButton>
+                </Dropdown>
             </Footer>
         </FullPageContainer>
     );

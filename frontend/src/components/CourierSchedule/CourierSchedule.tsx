@@ -18,8 +18,8 @@ import CouriersList from './CouriersList';
 import TimesheetPreview from '../CourierProfile/TimesheetPreview';
 // <<< Импортируем типы для табеля >>>
 import { TimesheetResponse } from '../../types/timesheet';
-// <<< Импортируем API функцию >>>
-import { getTimesheetData, downloadTimesheet } from '../../services/courierApi';
+// <<< Импортируем НОВУЮ API функцию и УДАЛЯЕМ старую >>>
+import { getTimesheetData, requestTimesheetViaBot } from '../../services/courierApi';
 // <<< Добавляем импорт типа конфига слотов из Redux >>>
 import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
 
@@ -95,42 +95,38 @@ const CourierSchedule: React.FC = () => {
         }
     }, [dispatch, courierChatId]);
 
-    useEffect(() => {
-        if (!user) return;
+    // <<< ВРЕМЕННО КОММЕНТИРУЕМ useEffect для открытия профиля >>>
+    // useEffect(() => {
+    //     if (!user) return;
+    //     const profileNotFilled = !user.first_name?.trim() || !user.last_name?.trim();
+    //     let shouldOpenForSeniority = false;
+    //     if (!profileNotFilled && currentCourierGroup) {
+    //         const isAdminOrCreator = 
+    //             currentCourierGroup.role === 'administrator' || 
+    //             currentCourierGroup.role === 'creator' ||
+    //             currentCourierGroup.role === 'admin';
+    //         const isSeniorStatusNull = currentCourierGroup.is_senior_courier === null;
+    //         shouldOpenForSeniority = isAdminOrCreator && isSeniorStatusNull;
+    //     }
+    //     if (profileNotFilled || shouldOpenForSeniority) {
+    //         console.log(`[CourierSchedule] Opening profile dialog. Reason: ${profileNotFilled ? 'Profile not filled' : 'Admin/Creator needs to set senior status'}`);
+    //         setIsProfileDialogOpen(true);
+    //     } else {
+    //         if (isProfileDialogOpen) {
+    //              console.log('[CourierSchedule] Closing profile dialog as conditions are met.');
+    //              setIsProfileDialogOpen(false); 
+    //         }
+    //     }
+    // }, [user, currentCourierGroup, isProfileDialogOpen]);
 
-        const profileNotFilled = !user.first_name?.trim() || !user.last_name?.trim();
-        
-        let shouldOpenForSeniority = false;
-        if (!profileNotFilled && currentCourierGroup) {
-            const isAdminOrCreator = 
-                currentCourierGroup.role === 'administrator' || 
-                currentCourierGroup.role === 'creator' ||
-                currentCourierGroup.role === 'admin';
-            
-            const isSeniorStatusNull = currentCourierGroup.is_senior_courier === null;
-            
-            shouldOpenForSeniority = isAdminOrCreator && isSeniorStatusNull;
-        }
-
-        if (profileNotFilled || shouldOpenForSeniority) {
-            console.log(`[CourierSchedule] Opening profile dialog. Reason: ${profileNotFilled ? 'Profile not filled' : 'Admin/Creator needs to set senior status'}`);
-            setIsProfileDialogOpen(true);
-        } else {
-            if (isProfileDialogOpen) {
-                 console.log('[CourierSchedule] Closing profile dialog as conditions are met.');
-                 setIsProfileDialogOpen(false); 
-            }
-        }
-    }, [user, currentCourierGroup, isProfileDialogOpen]);
-
+    // <<< ВОЗВРАЩАЕМ useEffect, который ставит overflow: hidden на body >>>
     useEffect(() => {
         const originalOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
-        console.log('[CourierSchedule] Body scroll disabled.');
-
+        console.log('[CourierSchedule] Body scroll disabled (Restored).');
         return () => {
             document.body.style.overflow = originalOverflow;
-            console.log('[CourierSchedule] Body scroll restored on unmount.');
+            console.log('[CourierSchedule] Body scroll restored on unmount (Restored).');
         };
     }, []);
 
@@ -252,19 +248,20 @@ const CourierSchedule: React.FC = () => {
         }
     }, [activeModalType]);
 
-    useEffect(() => {
-        let intervalId: NodeJS.Timeout | null = null;
-        if (activeModalType === 'slotSettings') {
-            intervalId = setInterval(() => {
-                setIsModalDirty(slotSettingsRef.current?.isDirty ?? false);
-            }, 300);
-        } else {
-            if (activeModalType !== 'shiftAccess') {
-                setIsModalDirty(false); 
-            }
-        }
-        return () => { if (intervalId) clearInterval(intervalId); };
-    }, [activeModalType]);
+    // <<< ВРЕМЕННО КОММЕНТИРУЕМ useEffect для проверки isDirty >>>
+    // useEffect(() => {
+    //     let intervalId: NodeJS.Timeout | null = null;
+    //     if (activeModalType === 'slotSettings') {
+    //         intervalId = setInterval(() => {
+    //             setIsModalDirty(slotSettingsRef.current?.isDirty ?? false);
+    //         }, 300);
+    //     } else {
+    //         if (activeModalType !== 'shiftAccess') {
+    //             setIsModalDirty(false); 
+    //         }
+    //     }
+    //     return () => { if (intervalId) clearInterval(intervalId); };
+    // }, [activeModalType]);
 
     const handleModalSave = async () => {
         if (activeModalType === 'shiftAccess') {
@@ -409,30 +406,49 @@ const CourierSchedule: React.FC = () => {
     }, [closeSettingsPanel, courierChatIdString, dispatch]);
 
     const handleCloseTimesheetPreview = useCallback(() => {
+        console.warn('[CourierSchedule] handleCloseTimesheetPreview ВЫЗВАНА!'); 
         setIsTimesheetPreviewVisible(false);
         setTimesheetData(null);
         setTimesheetError(null);
         setIsTimesheetLoading(false);
     }, []);
 
-    const handleDownloadTimesheet = useCallback(async () => {
-        if (!courierChatIdString) {
-             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу для скачивания табеля.' }));
+    // <<< Новый обработчик запроса на отправку табеля >>>
+    const handleSendTimesheetRequest = useCallback(async (destination: 'user' | 'group') => {
+        if (!user?.id) {
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось идентифицировать пользователя.' }));
             return;
         }
-        console.log(`[CourierSchedule] Запрос на скачивание табеля для chatId: ${courierChatIdString}`);
-        try {
-            // <<< Используем реальную API функцию для скачивания >>>
-            await downloadTimesheet(courierChatIdString); 
-            
-            // Уведомление об успехе теперь обрабатывается внутри downloadTimesheet или через общий обработчик скачивания
-
-        } catch (error: any) {
-            console.error('[CourierSchedule] Ошибка при скачивании табеля:', error);
-            const message = error?.message || 'Не удалось скачать файл табеля.';
-             dispatch(addNotification({ type: NotificationTypes.ERROR, message: message }));
+        if (!courierChatIdString) {
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу.' }));
+            return;
         }
-    }, [courierChatIdString, dispatch]);
+
+        const destinationText = destination === 'user' ? "личный чат" : "чат группы";
+        dispatch(addNotification({ type: NotificationTypes.INFO, message: `Запрос на отправку табеля в ${destinationText} отправлен...` }));
+
+        setIsTimesheetLoading(true); // Ставим isLoading для кнопки в TimesheetPreview
+        try {
+            // <<< ИСПРАВЛЯЕМ ВЫЗОВ: Передаем объект аргументов >>>
+            await requestTimesheetViaBot({
+                groupTelegramId: courierChatIdString,
+                userId: String(user.id),
+                destination: destination,
+            });
+            dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: `Запрос принят. Табель скоро будет отправлен в ${destinationText}.` }));
+            handleCloseTimesheetPreview();
+        } catch (error: any) {
+            const message = error.message || 'Неизвестная ошибка при запросе табеля.';
+            setTimesheetError(message);
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: `Ошибка: ${message}` }));
+        } finally {
+             // Сбрасываем isLoading только если не было ошибки
+             if (!timesheetError) {
+                 setIsTimesheetLoading(false);
+             }
+        }
+    }, [user?.id, courierChatIdString, dispatch, handleCloseTimesheetPreview, timesheetError]);
+
     // <<< Конец логики для Табеля >>>
 
     return (
@@ -525,16 +541,16 @@ const CourierSchedule: React.FC = () => {
 
             {/* <<< Рендеринг превью табеля >>> */}
             {isTimesheetPreviewVisible && courierChatIdString && (
-                <TimesheetPreview 
+                <TimesheetPreview
                     isOpen={isTimesheetPreviewVisible}
                     onClose={handleCloseTimesheetPreview}
-                    onDownload={handleDownloadTimesheet}
+                    onSendRequest={handleSendTimesheetRequest}
                     data={timesheetData}
                     isLoading={isTimesheetLoading}
                     error={timesheetError}
-                    chatId={courierChatIdString}
-                    slotConfig={slotConfig}
-                    groupTitle={currentCourierGroup?.title || ''}
+                    chatId={courierChatIdString} 
+                    slotConfig={slotConfig as WeeklySlotConfig | null}
+                    groupTitle={currentCourierGroup?.title ?? ''}
                 />
             )}
             {/* <<< Конец рендеринга >>> */}

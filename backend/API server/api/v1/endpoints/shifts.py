@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Path as FastApiPath
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
@@ -16,19 +16,45 @@ import openpyxl
 from io import BytesIO
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
+import os
+import uuid
+import httpx
+from pathlib import Path
+from fastapi import BackgroundTasks
+import re # <<< Добавляем импорт для регулярных выражений
 
 # Используем АБСОЛЮТНЫЕ импорты от /app
-from db.session import get_db_session
+from db.session import get_db_session, AsyncSessionFactory
 from models.shift import Shift
 from schemas.shift import ShiftRead, ShiftCreate, ShiftBase
 from models.member import Member
 from models.group import Group
 from models.group_member import GroupMember
 from models.reserve import Reserve
-import schemas # <<< ДОБАВИТЬ ЭТОТ ИМПОРТ
+import schemas
 
 # Инициализируем логгер
 logger = logging.getLogger(__name__)
+
+# Используем Path из pathlib
+SHARED_FOLDER = Path("/app/shared/timesheets")
+SHARED_FOLDER.mkdir(parents=True, exist_ok=True)
+
+# <<< URL сервиса бота >>>
+BOT_INTERNAL_URL = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
+
+# <<< Новая вспомогательная функция для очистки имени файла >>>
+def sanitize_filename(name: str) -> str:
+    """Удаляет или заменяет недопустимые символы в имени файла."""
+    # Удаляем символы, недопустимые в большинстве файловых систем
+    name = re.sub(r'[<>:"/\|?*]', '_', name)
+    # Заменяем множественные пробелы или подчеркивания на одно подчеркивание
+    name = re.sub(r'\s+', '_', name)
+    name = re.sub(r'_+', '_', name)
+    # Убираем подчеркивания в начале/конце
+    name = name.strip('_')
+    # Ограничиваем длину, если нужно (например, 100 символов)
+    return name[:100]
 
 # <<< Новая схема для создания через Telegram ID >>>
 class ShiftCreateTelegram(BaseModel):
@@ -794,7 +820,7 @@ async def get_formatted_timesheet_data(
             description="Retrieves timesheet data, pivoted by courier and date.",
             tags=["Timesheet"])
 async def get_timesheet_data_pivoted(
-    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    group_telegram_id: int = FastApiPath(..., description="Telegram ID of the group"),
     db: AsyncSession = Depends(get_db_session)
 ):
     """Формирует и возвращает данные табеля, сгруппированные по курьерам и датам."""
@@ -823,13 +849,267 @@ async def get_timesheet_data_pivoted(
         logger.error(f"[Timesheet Pivoted] Error getting formatted data for group {group_telegram_id}: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing timesheet data")
 
-# --- Новый эндпоинт GET /timesheet/download для Excel --- 
+# --- Вспомогательная функция для генерации и сохранения файла --- 
+async def generate_and_save_timesheet(group_telegram_id: int, db: AsyncSession) -> Optional[Path]:
+    """Генерирует табель Excel и сохраняет его во временный файл."""
+    logger.info(f"[Timesheet Gen & Save] Начало генерации для группы {group_telegram_id}")
+    
+    # Находим внутренний ID группы и получаем данные группы
+    group_result = await db.execute(
+        select(Group).where(Group.group_id == group_telegram_id)
+    )
+    db_group = group_result.scalar_one_or_none()
+    
+    if not db_group:
+        logger.error(f"[Timesheet Gen & Save] Группа {group_telegram_id} не найдена.")
+        # В оригинальном коде download был HTTP Exception, здесь вернем None
+        return None 
+
+    # Получаем данные табеля
+    try:
+        pivoted_data = await get_formatted_timesheet_data(
+            group_internal_id=db_group.id, 
+            group_telegram_id=group_telegram_id, 
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"[Timesheet Gen & Save] Ошибка получения pivoted_data для группы {group_telegram_id}: {e}", exc_info=True)
+        return None # Не можем сгенерировать файл
+
+    # Генерируем XLSX файл в памяти (логика из download_timesheet_data_pivoted_xlsx)
+    # TODO: Вынести генерацию Excel в отдельную функцию, чтобы не дублировать код
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Timesheet"
+    
+    # Стили...
+    title_font = Font(bold=True, size=14)
+    header_font = Font(bold=True)
+    centered_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    data_alignment = Alignment(horizontal='center', vertical='center') 
+    left_alignment = Alignment(horizontal='left', vertical='center')
+    thin_border_side = Side(style='thin')
+    thin_border = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+    weekend_fill = PatternFill(start_color="E0E0E0", end_color="E0E0E0", fill_type="solid")
+
+    # Название группы
+    title_cell = sheet.cell(row=1, column=1, value=f"Табель для группы: {db_group.title}")
+    title_cell.font = title_font
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    table_width = 1 + len(pivoted_data.columns) 
+    if table_width > 1:
+        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=table_width)
+    
+    # Заголовки
+    header_row_idx = 2
+    weekdays_ru = {0: 'пн', 1: 'вт', 2: 'ср', 3: 'чт', 4: 'пт', 5: 'сб', 6: 'вс'}
+    weekend_indices = {5, 6} 
+    weekend_columns = [] 
+    headers = ["ФИ Курьера"]
+    for col_idx, date_str in enumerate(pivoted_data.columns):
+        try:
+            dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_num = dt_obj.day
+            weekday_num = dt_obj.weekday()
+            weekday_str = weekdays_ru.get(weekday_num, '?')
+            header_val = f"{day_num}\n{weekday_str}"
+            headers.append(header_val)
+            if weekday_num in weekend_indices:
+                weekend_columns.append(col_idx + 2)
+        except ValueError:
+            headers.append(date_str)
+            
+    for col, header_value in enumerate(headers, start=1):
+         sheet.cell(row=header_row_idx, column=col, value=header_value)
+         # Стили заголовков...
+         cell = sheet.cell(row=header_row_idx, column=col)
+         cell.font = header_font
+         cell.alignment = centered_alignment
+         cell.border = thin_border
+         if col > 1:
+             sheet.column_dimensions[get_column_letter(col)].width = 7
+    sheet.column_dimensions[get_column_letter(1)].width = 30
+
+    # Данные
+    if pivoted_data.rows:
+        for row_idx_offset, courier_row in enumerate(pivoted_data.rows):
+            current_row_idx = header_row_idx + 1 + row_idx_offset
+            date_values = [courier_row.dates.get(date_col) for date_col in pivoted_data.columns]
+            row_to_append = [courier_row.courier_name] + [(val if val is not None else "") for val in date_values]
+            for col, value in enumerate(row_to_append, start=1):
+                 cell = sheet.cell(row=current_row_idx, column=col, value=value)
+                 # Стили данных...
+                 cell.alignment = data_alignment 
+                 cell.border = thin_border
+    else:
+        sheet.append([])
+        
+    last_data_row = sheet.max_row
+    
+    # Выходные...
+    for col_idx_to_fill in weekend_columns:
+        for row_idx in range(header_row_idx, last_data_row + 1):
+            sheet.cell(row=row_idx, column=col_idx_to_fill).fill = weekend_fill
+
+    # Настройки слотов...
+    start_row_for_slots = last_data_row + 6
+    group_slot_config = db_group.slot_config or {}
+    schedule_header_cell = sheet.cell(row=start_row_for_slots, column=1, value="Согласно расписания (День/Ночь)")
+    # Стили...
+    schedule_header_cell.font = header_font 
+    schedule_header_cell.border = thin_border
+    schedule_header_cell.alignment = left_alignment
+    
+    for col_idx, date_str in enumerate(pivoted_data.columns): 
+        excel_col_index = col_idx + 2 
+        
+        day_slots_str = "-"
+        night_slots_str = "-"
+        is_weekend_col = False
+        
+        try:
+            dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_index = dt_obj.weekday()
+            slot_config_key = str((day_index + 1) % 7)
+            config_for_day_dict: Optional[Dict] = group_slot_config.get(slot_config_key)
+            
+            day_slots = config_for_day_dict.get('maxDaySlots') if config_for_day_dict else None
+            night_slots = config_for_day_dict.get('maxNightSlots') if config_for_day_dict else None
+            
+            # <<< Исправляем получение дефолтных значений >>>
+            default_slots = default_single_day_slot_config # Берем объект Pydantic
+            day_slots_str = str(day_slots) if day_slots is not None else str(default_slots.maxDaySlots)
+            night_slots_str = str(night_slots) if night_slots is not None else str(default_slots.maxNightSlots)
+            
+            if day_index in weekend_indices:
+                 is_weekend_col = True
+                 
+        except ValueError:
+             logger.warning(f"[Timesheet Download XLSX] Invalid date format in column {excel_col_index} for slot config row.")
+        
+        slot_value_str = f"{day_slots_str} / {night_slots_str}"
+        
+        # Записываем значение слотов в нужную колонку
+        slot_cell = sheet.cell(row=start_row_for_slots, column=excel_col_index, value=slot_value_str) # <<< Используем start_row_for_slots
+        slot_cell.border = thin_border
+        slot_cell.alignment = centered_alignment 
+        if is_weekend_col:
+             slot_cell.fill = weekend_fill 
+             
+    # Устанавливаем ширину для колонок (если нужно скорректировать)
+    sheet.column_dimensions[get_column_letter(1)].width = 35 # Пошире для заголовка строки
+    # Ширина остальных колонок уже установлена при обработке заголовков дат
+
+    # 4. Сохраняем в файл
+    # <<< ИЗМЕНЯЕМ ЛОГИКУ ГЕНЕРАЦИИ ИМЕНИ ФАЙЛА >>>
+    safe_group_title = sanitize_filename(db_group.title or f"group_{group_telegram_id}")
+    date_part = "no_dates"
+    if pivoted_data.columns:
+        first_date = pivoted_data.columns[0]
+        last_date = pivoted_data.columns[-1]
+        if first_date == last_date:
+            date_part = first_date
+        else:
+            date_part = f"{first_date}_to_{last_date}"
+    else:
+        # Если дат нет, используем текущую дату для уникальности
+        date_part = datetime.now().strftime("%Y%m%d")
+
+    file_timestamp = datetime.now().strftime("%H%M%S") # Оставляем время для доп. уникальности
+    filename = f"Табель_{safe_group_title}_{date_part}_{file_timestamp}.xlsx"
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ В ГЕНЕРАЦИИ ИМЕНИ >>>
+    
+    filepath = SHARED_FOLDER / filename
+    try:
+        workbook.save(filepath)
+        logger.info(f"[Timesheet Gen & Save] Файл сохранен: {filepath}")
+        return filepath
+    except Exception as e:
+        logger.error(f"[Timesheet Gen & Save] Ошибка сохранения файла {filepath}: {e}")
+        return None # Ошибка сохранения
+
+
+# --- Фоновая задача для отправки боту --- 
+# <<< Добавляем destination и меняем user_telegram_id на requester_telegram_id >>>
+async def trigger_bot_to_send_timesheet(requester_telegram_id: int, group_telegram_id: int, destination: str):
+    """Фоновая задача: генерирует табель и просит бота отправить его в указанное место."""
+    logger.info(f"[BG Task] Запуск фоновой задачи для отправки табеля группы {group_telegram_id} (запросил {requester_telegram_id}, назначение: {destination})")
+    filepath: Optional[Path] = None
+    
+    async with AsyncSessionFactory() as db:
+        try:
+            filepath = await generate_and_save_timesheet(group_telegram_id, db)
+
+            if not filepath:
+                logger.error(f"[BG Task] Не удалось сгенерировать или сохранить файл для группы {group_telegram_id}. Отправка боту отменена.")
+                # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
+                return
+            
+            # <<< Определяем, куда отправить файл >>>
+            target_chat_id: int
+            if destination == 'group':
+                target_chat_id = group_telegram_id
+                logger.info(f"[BG Task] Файл будет отправлен в чат группы: {target_chat_id}")
+            else: # По умолчанию или если destination == 'user'
+                target_chat_id = requester_telegram_id
+                logger.info(f"[BG Task] Файл будет отправлен в ЛС пользователю: {target_chat_id}")
+
+            bot_endpoint = f"{BOT_INTERNAL_URL}/internal/send-file"
+            payload = {
+                # <<< Меняем user_telegram_id на target_chat_id >>>
+                "target_chat_id": target_chat_id, 
+                "file_path": str(filepath)
+            }
+            logger.info(f"[BG Task] Отправка запроса боту: {bot_endpoint} с payload: {payload}")
+
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                try:
+                    response = await client.post(bot_endpoint, json=payload)
+                    response.raise_for_status() 
+                    logger.info(f"[BG Task] Успешный ответ от бота (статус {response.status_code}) для файла {filepath}")
+                    # ... (удаление файла) ...
+                except Exception as e:
+                    logger.error(f"[BG Task] Ошибка при взаимодействии с ботом ({bot_endpoint}): {e}", exc_info=True)
+                    # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
+
+        except Exception as e:
+            logger.error(f"[BG Task] Непредвиденная ошибка в фоновой задаче для группы {group_telegram_id}: {e}", exc_info=True)
+            # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
+
+# --- Новый эндпоинт для запроса отправки через бота --- 
+@router.post("/groups/{group_telegram_id}/timesheet/send-to-bot", 
+             status_code=status.HTTP_202_ACCEPTED,
+             summary="Request Timesheet via Bot",
+             description="Initiates background generation and sending of the timesheet Excel file via Telegram bot to the requesting user or the group.", # Обновлено описание
+             tags=["Timesheet"])
+async def request_timesheet_via_bot(
+    background_tasks: BackgroundTasks,
+    group_telegram_id: int = FastApiPath(..., description="Telegram ID of the group"),
+    requester_telegram_id: int = Query(..., description="Telegram ID of the user requesting the timesheet"),
+    # <<< Добавляем destination как query параметр >>>
+    destination: str = Query('user', description="Куда отправить файл: 'user' (в ЛС) или 'group' (в чат группы)", pattern="^(user|group)$" ), 
+    # db сессия здесь не нужна
+):
+    logger.info(f"[Send To Bot] Пользователь {requester_telegram_id} запросил табель для группы {group_telegram_id} через бота. Назначение: {destination}")
+
+    # Добавляем фоновую задачу (передаем ID из query и destination)
+    background_tasks.add_task(
+        trigger_bot_to_send_timesheet,
+        requester_telegram_id=requester_telegram_id,
+        group_telegram_id=group_telegram_id,
+        destination=destination # <<< Передаем destination
+    )
+
+    return {"status": "accepted", "message": f"Табель формируется и скоро будет отправлен {( 'вам в ЛС' if destination == 'user' else 'в чат группы')} ботом."}
+
+
+# --- Существующий эндпоинт GET /timesheet/download --- 
 @router.get("/groups/{group_telegram_id}/timesheet/download", 
             summary="Download Pivoted Timesheet Data as XLSX",
             description="Retrieves pivoted timesheet data and returns it as an Excel (.xlsx) file.",
             tags=["Timesheet"])
 async def download_timesheet_data_pivoted_xlsx(
-    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    group_telegram_id: int = FastApiPath(..., description="Telegram ID of the group"),
     db: AsyncSession = Depends(get_db_session)
 ):
     logger.info(f"[Timesheet Download XLSX] GET /groups/{group_telegram_id}/timesheet/download - Request received")

@@ -36,3 +36,32 @@
     transform: rotate(360deg);
   }
 }
+/* Стили для выпадающего меню табеля */
+.timesheet-dropdown-overlay .ant-dropdown-menu {
+  background-color: var(--card-background); /* Фон меню */
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); /* Скругление углов */
+  box-shadow: var(--shadow-md);
+  padding: 4px; /* Небольшой внутренний отступ */
+}
+
+.timesheet-dropdown-overlay .ant-dropdown-menu-item,
+.timesheet-dropdown-overlay .ant-dropdown-menu-item span { /* <<< Добавляем span >>> */
+  /* color: var(--text-color); */ 
+  color: #FFFFFF !important; /* <<< Устанавливаем белый цвет текста + !important >>> */
+  border-radius: var(--radius-sm);
+  padding: 8px 12px; /* Отступы внутри пункта */
+}
+
+.timesheet-dropdown-overlay .ant-dropdown-menu-item:hover,
+.timesheet-dropdown-overlay .ant-dropdown-menu-item:hover span,
+.timesheet-dropdown-overlay .ant-dropdown-menu-item.ant-dropdown-menu-item-active,
+.timesheet-dropdown-overlay .ant-dropdown-menu-item.ant-dropdown-menu-item-active span { /* <<< Добавляем span >>> */
+  background-color: var(--hover-overlay); /* Фон при наведении */
+  color: #FFFFFF !important; /* <<< Цвет текста при наведении + !important >>> */
+}
+
+/* Убираем лишний отступ у последнего элемента, если нужно */
+.timesheet-dropdown-overlay .ant-dropdown-menu-item:last-child {
+  margin-bottom: 0;
+}

@@ -22,6 +22,8 @@
     "@types/node": "^16.18.80",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
+    "antd": "^5.19.3",
+    "@ant-design/icons": "^5.4.0",
     "axios": "^1.6.7",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.0",

@@ -7,4 +7,5 @@ asyncpg
 pydantic-settings
 alembic
 httpx
-loguru 
+loguru
+openpyxl 

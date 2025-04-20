@@ -1,14 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from sqlalchemy import text, Date as SQLDate
 import json
 import logging
-from typing import List, Optional
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Set
+from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import date, datetime
+import io
+import csv
+from fastapi.responses import StreamingResponse
+import openpyxl
+from io import BytesIO
+from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+from openpyxl.utils import get_column_letter
 
 # Используем АБСОЛЮТНЫЕ импорты от /app
 from db.session import get_db_session
@@ -19,10 +26,6 @@ from models.group import Group
 from models.group_member import GroupMember
 from models.reserve import Reserve
 import schemas # <<< ДОБАВИТЬ ЭТОТ ИМПОРТ
-
-# Добавляем схемы для создания и базовую
-# Убираем дубликат импорта ShiftRead и ShiftBase
-# from schemas.shift import ShiftRead, ShiftCreate, ShiftBase 
 
 # Инициализируем логгер
 logger = logging.getLogger(__name__)
@@ -679,3 +682,337 @@ async def update_shift_slot(
 
     logger.info(f"[Update Shift Slot] Successfully updated shift {shift_id}")
     return db_shift # Возвращаем обновленный объект Shift (Pydantic сам преобразует в ShiftRead) 
+
+# ===> TIMESHEET ENDPOINTS <===
+
+# --- Обновленные схемы для Timesheet ---
+class CourierTimesheetData(BaseModel):
+    """Данные по одному курьеру для табеля."""
+    user_id: int
+    courier_name: str
+    # Ключ - дата 'YYYY-MM-DD', значение - строка с информацией о смене (пока тип смены)
+    dates: Dict[str, Optional[str]] = Field(default_factory=dict)
+
+class TimesheetResponse(BaseModel):
+    """Структура ответа для эндпоинта табеля."""
+    columns: List[str] # Список дат YYYY-MM-DD в качестве колонок
+    rows: List[CourierTimesheetData]
+
+# <<< Определяем типы и дефолтные значения для SlotConfig прямо здесь >>>
+class SlotConfigForDay(BaseModel):
+    """Описывает конфигурацию слотов для одного дня."""
+    maxDaySlots: int
+    maxNightSlots: int
+
+default_single_day_slot_config = SlotConfigForDay(maxDaySlots=4, maxNightSlots=2)
+
+# --- Вспомогательная функция для получения и форматирования данных табеля ---
+async def get_formatted_timesheet_data(
+    group_internal_id: int,
+    group_telegram_id: int, # Добавляем для логирования
+    db: AsyncSession
+) -> TimesheetResponse:
+    """Получает смены, группирует их и возвращает в формате TimesheetResponse."""
+    
+    # 1. Получить все смены для этой группы с данными курьеров
+    stmt = (
+        select(Shift)
+        .options(joinedload(Shift.member))
+        .where(Shift.group_id == group_internal_id)
+        .order_by(Shift.date, Shift.member_id, Shift.shift_type)
+    )
+    result = await db.execute(stmt)
+    shifts = result.scalars().all()
+    logger.info(f"[Timesheet Helper] Found {len(shifts)} shifts for group {group_telegram_id} (internal ID: {group_internal_id})")
+
+    if not shifts:
+        return TimesheetResponse(columns=[], rows=[]) # Возвращаем пустой ответ, если смен нет
+
+    # 2. Собрать данные по курьерам и уникальные даты
+    courier_data: Dict[int, CourierTimesheetData] = {}
+    unique_dates: Set[date] = set()
+
+    for shift in shifts:
+        unique_dates.add(shift.date)
+        if not shift.member:
+            logger.warning(f"[Timesheet Helper] Shift ID {shift.id} has no associated member. Skipping.")
+            continue
+
+        member_id = shift.member.id
+        user_id = shift.member.user_id
+
+        # Добавляем курьера, если его еще нет
+        if user_id not in courier_data:
+            courier_name = f"{shift.member.first_name or ''} {shift.member.last_name or ''}".strip()
+            if not courier_name:
+                courier_name = f"User {user_id}" # Fallback
+            courier_data[user_id] = CourierTimesheetData(user_id=user_id, courier_name=courier_name)
+        
+        # Добавляем информацию о смене на эту дату
+        date_str = shift.date.isoformat()
+        
+        # <<< Определяем значение для ячейки >>>
+        if shift.shift_type == 'day':
+            current_shift_info = '10' 
+        elif shift.shift_type == 'night':
+            current_shift_info = '18'
+        else:
+            current_shift_info = shift.shift_type.capitalize() # Fallback на всякий случай
+            
+        # TODO: Решить, как обрабатывать несколько смен в день (если возможно)
+        # Пока просто записываем тип смены. Если запись уже есть, можно добавить через "/"
+        existing_info = courier_data[user_id].dates.get(date_str)
+        if existing_info:
+            # Проверяем, чтобы не дублировать (если вдруг придут две одинаковые)
+            if current_shift_info not in existing_info.split('/'):
+                 courier_data[user_id].dates[date_str] = f"{existing_info}/{current_shift_info}"
+        else:
+            courier_data[user_id].dates[date_str] = current_shift_info
+
+    # 3. Подготовить финальный ответ
+    sorted_dates = sorted(list(unique_dates))
+    sorted_date_strings = [d.isoformat() for d in sorted_dates]
+    
+    final_rows: List[CourierTimesheetData] = []
+    # Сортируем курьеров по имени для порядка
+    sorted_courier_ids = sorted(courier_data.keys(), key=lambda uid: courier_data[uid].courier_name)
+
+    for user_id in sorted_courier_ids:
+        courier = courier_data[user_id]
+        # Убедимся, что у каждого курьера есть запись для каждой даты
+        complete_dates = {date_str: courier.dates.get(date_str) for date_str in sorted_date_strings}
+        courier.dates = complete_dates
+        final_rows.append(courier)
+
+    logger.info(f"[Timesheet Helper] Generated {len(final_rows)} rows and {len(sorted_date_strings)} columns for group {group_telegram_id}")
+    return TimesheetResponse(columns=sorted_date_strings, rows=final_rows)
+
+# --- Обновленный эндпоинт GET /timesheet ---
+@router.get("/groups/{group_telegram_id}/timesheet", 
+            response_model=TimesheetResponse, # <<< Используем новую схему ответа
+            summary="Get Timesheet Data (Pivoted)",
+            description="Retrieves timesheet data, pivoted by courier and date.",
+            tags=["Timesheet"])
+async def get_timesheet_data_pivoted(
+    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Формирует и возвращает данные табеля, сгруппированные по курьерам и датам."""
+    logger.info(f"[Timesheet Pivoted] GET /groups/{group_telegram_id}/timesheet - Request received")
+    
+    # 1. Найти внутренний ID группы
+    group_result = await db.execute(
+        select(Group.id).where(Group.group_id == group_telegram_id)
+    )
+    group_internal_id = group_result.scalar_one_or_none()
+    
+    if group_internal_id is None:
+        logger.warning(f"[Timesheet Pivoted] Group {group_telegram_id} not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group {group_telegram_id} not found")
+
+    # 2. Получить отформатированные данные с помощью хелпера
+    try:
+        response_data = await get_formatted_timesheet_data(
+            group_internal_id=group_internal_id, 
+            group_telegram_id=group_telegram_id, 
+            db=db
+        )
+        logger.info(f"[Timesheet Pivoted] Successfully generated pivoted data for group {group_telegram_id}")
+        return response_data
+    except Exception as e:
+        logger.error(f"[Timesheet Pivoted] Error getting formatted data for group {group_telegram_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing timesheet data")
+
+# --- Новый эндпоинт GET /timesheet/download для Excel --- 
+@router.get("/groups/{group_telegram_id}/timesheet/download", 
+            summary="Download Pivoted Timesheet Data as XLSX",
+            description="Retrieves pivoted timesheet data and returns it as an Excel (.xlsx) file.",
+            tags=["Timesheet"])
+async def download_timesheet_data_pivoted_xlsx(
+    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    logger.info(f"[Timesheet Download XLSX] GET /groups/{group_telegram_id}/timesheet/download - Request received")
+    
+    # 1. Получаем внутренний ID группы
+    group_result = await db.execute(
+        select(Group.id).where(Group.group_id == group_telegram_id)
+    )
+    group_internal_id = group_result.scalar_one_or_none()
+    if group_internal_id is None:
+        logger.warning(f"[Timesheet Download XLSX] Group {group_telegram_id} not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group {group_telegram_id} not found")
+        
+    # 1.5 Получаем данные табеля И данные группы (slot_config и title)
+    try:
+        pivoted_data = await get_formatted_timesheet_data(
+            group_internal_id=group_internal_id, 
+            group_telegram_id=group_telegram_id, 
+            db=db
+        )
+        
+        # <<< Запрашиваем и title, и slot_config >>>
+        group_data_result = await db.execute(
+             select(Group.title, Group.slot_config).where(Group.id == group_internal_id)
+        )
+        group_data = group_data_result.first() # Получаем кортеж (title, slot_config)
+        group_title = group_data.title if group_data else "Неизвестная группа"
+        group_slot_config = group_data.slot_config if group_data and group_data.slot_config else {}
+        logger.info(f"[Timesheet Download XLSX] Got title '{group_title}' and slot config for group {group_telegram_id}")
+
+    except Exception as e:
+         logger.error(f"[Timesheet Download XLSX] Error getting formatted data or group config for group {group_telegram_id}: {e}", exc_info=True)
+         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error retrieving data")
+
+    # 2. Генерируем XLSX файл в памяти
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Timesheet"
+    
+    # Определяем стили
+    title_font = Font(bold=True, size=14)
+    header_font = Font(bold=True)
+    centered_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    data_alignment = Alignment(horizontal='center', vertical='center') 
+    left_alignment = Alignment(horizontal='left', vertical='center') # Для названий дней недели
+    thin_border_side = Side(style='thin')
+    thin_border = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
+    weekend_fill = PatternFill(start_color="E0E0E0", end_color="E0E0E0", fill_type="solid")
+
+    # <<< Добавляем строку с названием группы >>>
+    title_cell = sheet.cell(row=1, column=1, value=f"Табель для группы: {group_title}")
+    title_cell.font = title_font
+    title_cell.alignment = Alignment(horizontal='center', vertical='center')
+    # Объединяем ячейки на всю ширину будущей таблицы
+    # Ширина = 1 (ФИО) + кол-во дат
+    table_width = 1 + len(pivoted_data.columns) 
+    if table_width > 1:
+        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=table_width)
+    
+    # <<< Заголовки основной таблицы теперь начинаются со строки 2 >>>
+    header_row_idx = 2
+    weekdays_ru = {0: 'пн', 1: 'вт', 2: 'ср', 3: 'чт', 4: 'пт', 5: 'сб', 6: 'вс'}
+    weekend_indices = {5, 6} 
+    weekend_columns = [] 
+    
+    headers = ["ФИ Курьера"]
+    for col_idx, date_str in enumerate(pivoted_data.columns):
+        try:
+            dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_num = dt_obj.day
+            weekday_num = dt_obj.weekday() # 0 для Пн, 6 для Вс
+            weekday_str = weekdays_ru.get(weekday_num, '?')
+            header_val = f"{day_num}\n{weekday_str}"
+            headers.append(header_val)
+            if weekday_num in weekend_indices:
+                weekend_columns.append(col_idx + 2)
+        except ValueError:
+            logger.warning(f"[Timesheet Download XLSX] Invalid date format: {date_str}.")
+            headers.append(date_str)
+            
+    # <<< Записываем заголовки в строку header_row_idx >>>
+    sheet.append(headers) # Это запишет в следующую свободную строку, нужно явно указать
+    for col, header_value in enumerate(headers, start=1):
+         sheet.cell(row=header_row_idx, column=col, value=header_value)
+
+    # Применяем стили к заголовкам и устанавливаем ширину
+    sheet.column_dimensions[get_column_letter(1)].width = 30 
+    for col_idx, header_val in enumerate(headers):
+        cell = sheet.cell(row=header_row_idx, column=col_idx + 1)
+        cell.font = header_font
+        cell.alignment = centered_alignment
+        cell.border = thin_border
+        if col_idx > 0: 
+            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 7 
+
+    # Записываем строки данных и применяем стили (начиная с header_row_idx + 1)
+    if pivoted_data.rows:
+        for row_idx_offset, courier_row in enumerate(pivoted_data.rows):
+            current_row_idx = header_row_idx + 1 + row_idx_offset
+            date_values = [courier_row.dates.get(date_col) for date_col in pivoted_data.columns]
+            row_to_append = [courier_row.courier_name] + [(val if val is not None else "") for val in date_values]
+            # Записываем данные в нужную строку
+            for col, value in enumerate(row_to_append, start=1):
+                 sheet.cell(row=current_row_idx, column=col, value=value)
+                 
+            # Применяем стили к ячейкам строки
+            for col_idx, value in enumerate(row_to_append, start=1):
+                 cell = sheet.cell(row=current_row_idx, column=col_idx)
+                 cell.alignment = data_alignment 
+                 cell.border = thin_border
+    else:
+        logger.info(f"[Timesheet Download XLSX] No data rows to write for group {group_telegram_id}")
+        # Добавим пустую строку, если данных нет, чтобы настройки слотов не прилипли к заголовку
+        sheet.append([]) # Добавит строку после заголовка
+        
+    last_data_row = sheet.max_row # Обновляем последнюю строку
+    
+    # Выделяем колонки выходных дней (до last_data_row)
+    for col_idx_to_fill in weekend_columns:
+        # Начинаем со строки заголовков таблицы
+        for row_idx in range(header_row_idx, last_data_row + 1): 
+            sheet.cell(row=row_idx, column=col_idx_to_fill).fill = weekend_fill
+
+    # 3. Добавляем Настройки Слотов с отступом
+    start_row_for_slots = last_data_row + 6
+    
+    # Заголовок в первой колонке
+    schedule_header_cell = sheet.cell(row=start_row_for_slots, column=1, value="Согласно расписания (День/Ночь)")
+    schedule_header_cell.font = header_font 
+    schedule_header_cell.border = thin_border
+    schedule_header_cell.alignment = left_alignment
+    
+    # Запись настроек для каждого дня недели НАЧИНАЯ СО ВТОРОЙ КОЛОНКИ
+    for col_idx, date_str in enumerate(pivoted_data.columns): 
+        excel_col_index = col_idx + 2 
+        
+        day_slots_str = "-"
+        night_slots_str = "-"
+        is_weekend_col = False
+        
+        try:
+            dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            day_index = dt_obj.weekday() # Получаем индекс 0=Пн ... 6=Вс
+            
+            # <<< Возвращаем конвертацию индекса (0=Пн -> 1, ..., 6=Вс -> 0) >>>
+            slot_config_key = str((day_index + 1) % 7)
+            config_for_day_dict: Optional[Dict] = group_slot_config.get(slot_config_key)
+            
+            day_slots = config_for_day_dict.get('maxDaySlots') if config_for_day_dict else None
+            night_slots = config_for_day_dict.get('maxNightSlots') if config_for_day_dict else None
+            
+            day_slots_str = str(day_slots) if day_slots is not None else str(default_single_day_slot_config.maxDaySlots)
+            night_slots_str = str(night_slots) if night_slots is not None else str(default_single_day_slot_config.maxNightSlots)
+            
+            if day_index in weekend_indices:
+                 is_weekend_col = True
+                 
+        except ValueError:
+             logger.warning(f"[Timesheet Download XLSX] Invalid date format in column {excel_col_index} for slot config row.")
+        
+        slot_value_str = f"{day_slots_str} / {night_slots_str}"
+        
+        # Записываем значение слотов в нужную колонку
+        slot_cell = sheet.cell(row=start_row_for_slots, column=excel_col_index, value=slot_value_str) # <<< Используем start_row_for_slots
+        slot_cell.border = thin_border
+        slot_cell.alignment = centered_alignment 
+        if is_weekend_col:
+             slot_cell.fill = weekend_fill 
+             
+    # Устанавливаем ширину для колонок (если нужно скорректировать)
+    sheet.column_dimensions[get_column_letter(1)].width = 35 # Пошире для заголовка строки
+    # Ширина остальных колонок уже установлена при обработке заголовков дат
+
+    # 4. Сохраняем в буфер и возвращаем
+    excel_buffer = BytesIO()
+    workbook.save(excel_buffer)
+    excel_buffer.seek(0)
+    
+    filename = f"timesheet_pivoted_{group_telegram_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    logger.info(f"[Timesheet Download XLSX] Sending XLSX file: {filename} for group {group_telegram_id}")
+    return StreamingResponse(
+        excel_buffer, 
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    ) 

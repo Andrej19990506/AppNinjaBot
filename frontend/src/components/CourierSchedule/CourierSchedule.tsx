@@ -15,6 +15,13 @@ import SlotSettings, { SlotSettingsRef } from './CourierCalendar/components/Slot
 import { SettingsOverlay as ModalBackdropOverlay } from './CourierCalendar/styles';
 import ShiftAccessModal from '../CourierProfile/ShiftAccessModal';
 import CouriersList from './CouriersList';
+import TimesheetPreview from '../CourierProfile/TimesheetPreview';
+// <<< Импортируем типы для табеля >>>
+import { TimesheetResponse } from '../../types/timesheet';
+// <<< Импортируем API функцию >>>
+import { getTimesheetData, downloadTimesheet } from '../../services/courierApi';
+// <<< Добавляем импорт типа конфига слотов из Redux >>>
+import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
 
 const Container = styled.div`
     padding: 20px;
@@ -55,8 +62,17 @@ const CourierSchedule: React.FC = () => {
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
     const slotSettingsRef = useRef<SlotSettingsRef>(null);
     
+    // <<< Состояния для Табеля >>>
+    const [isTimesheetLoading, setIsTimesheetLoading] = useState(false);
+    const [timesheetData, setTimesheetData] = useState<TimesheetResponse | null>(null);
+    const [isTimesheetPreviewVisible, setIsTimesheetPreviewVisible] = useState(false);
+    const [timesheetError, setTimesheetError] = useState<string | null>(null);
+
     // Новые состояния для списка курьеров
     const [isCouriersListOpen, setIsCouriersListOpen] = useState(false);
+
+    // <<< Получаем конфиг слотов из стейта >>>
+    const slotConfig = useAppSelector((state) => state.shifts.slotConfig);
 
     const courierChatId = useMemo(() => {
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
@@ -354,6 +370,71 @@ const CourierSchedule: React.FC = () => {
         setIsCouriersListOpen(false);
     }, [isCouriersListOpen]);
 
+    // <<< Логика для Табеля >>>
+    const handleOpenTimesheet = useCallback(async () => {
+        closeSettingsPanel();
+        if (!courierChatIdString) {
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: 'Не удалось определить группу для получения табеля.'
+            }));
+            setTimesheetError('Не удалось определить группу.');
+            return;
+        }
+
+        setIsTimesheetLoading(true);
+        setTimesheetError(null);
+        setTimesheetData(null); 
+        setIsTimesheetPreviewVisible(true); // Открываем превью сразу, чтобы показать загрузку
+
+        try {
+            // <<< Используем реальную API функцию >>>
+            const data = await getTimesheetData(courierChatIdString);
+            
+            setTimesheetData(data); // <<< Устанавливаем реальные данные >>>
+
+        } catch (error: any) {
+            console.error('[CourierSchedule] Ошибка при загрузке данных табеля:', error);
+            const message = error?.message || 'Не удалось загрузить данные табеля.';
+            setTimesheetError(message);
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: message
+            }));
+            // Не закрываем окно, чтобы показать ошибку
+        } finally {
+            setIsTimesheetLoading(false);
+        }
+
+    }, [closeSettingsPanel, courierChatIdString, dispatch]);
+
+    const handleCloseTimesheetPreview = useCallback(() => {
+        setIsTimesheetPreviewVisible(false);
+        setTimesheetData(null);
+        setTimesheetError(null);
+        setIsTimesheetLoading(false);
+    }, []);
+
+    const handleDownloadTimesheet = useCallback(async () => {
+        if (!courierChatIdString) {
+             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу для скачивания табеля.' }));
+            return;
+        }
+        console.log(`[CourierSchedule] Запрос на скачивание табеля для chatId: ${courierChatIdString}`);
+        try {
+            // <<< Используем реальную API функцию для скачивания >>>
+            await downloadTimesheet(courierChatIdString); 
+            
+            // Уведомление об успехе теперь обрабатывается внутри downloadTimesheet или через общий обработчик скачивания
+
+        } catch (error: any) {
+            console.error('[CourierSchedule] Ошибка при скачивании табеля:', error);
+            const message = error?.message || 'Не удалось скачать файл табеля.';
+             dispatch(addNotification({ type: NotificationTypes.ERROR, message: message }));
+        }
+    }, [courierChatIdString, dispatch]);
+    // <<< Конец логики для Табеля >>>
+
     return (
         <Container>
             <Header>
@@ -439,7 +520,24 @@ const CourierSchedule: React.FC = () => {
                 onClose={closeSettingsPanel}
                 onOpenShiftAccess={handleOpenShiftAccessModal}
                 onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
+                onOpenTimesheet={handleOpenTimesheet} 
             />
+
+            {/* <<< Рендеринг превью табеля >>> */}
+            {isTimesheetPreviewVisible && courierChatIdString && (
+                <TimesheetPreview 
+                    isOpen={isTimesheetPreviewVisible}
+                    onClose={handleCloseTimesheetPreview}
+                    onDownload={handleDownloadTimesheet}
+                    data={timesheetData}
+                    isLoading={isTimesheetLoading}
+                    error={timesheetError}
+                    chatId={courierChatIdString}
+                    slotConfig={slotConfig}
+                    groupTitle={currentCourierGroup?.title || ''}
+                />
+            )}
+            {/* <<< Конец рендеринга >>> */}
 
             <Footer 
                 onBack={handleFooterBack}

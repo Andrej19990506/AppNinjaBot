@@ -478,8 +478,10 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         }
     };
 
-    const handleEmptySlotClick = () => {
+    const handleEmptySlotClick = (e: React.MouseEvent) => {
+        e.preventDefault();
         if (!isDisabledForStyles) {
+            logger.log(`[ShiftSlot ${shiftType}-${slotIndex}] Empty slot clicked.`);
             onSlotClick(shiftType, slotIndex);
         }
     };

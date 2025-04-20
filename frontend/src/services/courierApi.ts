@@ -4,6 +4,7 @@ import { logger } from '../utils/logger'; // <<< ДОБАВЛЕН ИМПОРТ �
 import { axiosInstance as apiClient } from './api'; // <<< Используем axiosInstance из ./api и переименовываем в apiClient
 import type { CourierShift } from '../types/shifts'; // <<< УДАЛЯЕМ ReserveEntry
 // import { CourierProfile, CourierStatus } from '../types/courierTypes'; // <<< УБИРАЕМ ИМПОРТ ИЗ НЕСУЩЕСТВУЮЩЕГО ФАЙЛА
+import { TimesheetResponse } from '../types/timesheet'; // <<< Используем TimesheetResponse
 
 // Интерфейс для ответа от API статуса
 interface CourierStatusResponse {
@@ -931,5 +932,110 @@ export const updateShiftSlot = async (
     } catch (error: any) { 
         logger.error(`[API updateShiftSlot] Error updating shift ${shiftId}:`, error?.response?.data || error.message);
         throw error;
+    }
+};
+
+// ===> TIMESHEET API FUNCTIONS <===
+
+/**
+ * Получает данные табеля для указанной группы.
+ * @param groupTelegramId Telegram ID группы
+ */
+export const getTimesheetData = async (
+    groupTelegramId: number | string
+): Promise<TimesheetResponse> => {
+    logger.info(`[courierApi] 📡 Запрос данных табеля для группы ID: ${groupTelegramId}`);
+    const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet`; 
+    try {
+        const response = await axiosInstance.get<TimesheetResponse>(endpoint);
+        logger.info(`[courierApi] ✅ Данные табеля для группы ${groupTelegramId} получены:`, response.data);
+        return response.data || { columns: [], rows: [] };
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при запросе данных табеля для группы ${groupTelegramId} с эндпоинта ${endpoint}`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                 throw new Error(detail || 'Группа не найдена или данные табеля отсутствуют.');
+            }
+             if (status === 403) {
+                 throw new Error(detail || 'У вас нет прав для просмотра табеля.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при получении данных табеля.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при получении данных табеля.');
+    }
+};
+
+/**
+ * Запрашивает и инициирует скачивание файла табеля (Excel).
+ * @param groupTelegramId Telegram ID группы
+ */
+export const downloadTimesheet = async (
+    groupTelegramId: number | string
+): Promise<void> => {
+    logger.info(`[courierApi] 📡 Запрос на скачивание табеля Excel для группы ID: ${groupTelegramId}`);
+    const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet/download`; 
+    try {
+        const response = await axiosInstance.get(endpoint, {
+            responseType: 'blob', // Важно для получения файла
+        });
+        const blob = response.data;
+        // Пытаемся получить имя файла из заголовка Content-Disposition
+        const contentDisposition = response.headers['content-disposition'];
+        let fileName = `timesheet_${groupTelegramId}.xlsx`; 
+        if (contentDisposition) {
+            const fileNameMatch = contentDisposition.match(/filename="?(.+?)"?$/i);
+            if (fileNameMatch && fileNameMatch[1]) {
+                fileName = fileNameMatch[1];
+            }
+        }
+        
+        logger.info(`[courierApi] Filename determined from headers (or default): '${fileName}'`);
+
+        // Создаем ссылку для скачивания
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName); // <<< Убедимся, что используем это имя
+        document.body.appendChild(link);
+        link.click();
+        
+        // Очистка
+        link.parentNode?.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        logger.info(`[courierApi] ✅ Инициировано скачивание файла табеля: ${fileName}`);
+
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при скачивании файла табеля для группы ${groupTelegramId} с эндпоинта ${endpoint}`, error);
+         if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            // Ошибку Blob сложно прочитать стандартно, т.к. она может быть в теле Blob
+            // Можно попытаться прочитать Blob как текст, если это ошибка (например, 4xx/5xx)
+            let detail = 'Ошибка при скачивании файла.';
+            if (error.response && error.response.data instanceof Blob && error.response.data.type.includes('json')) {
+                try {
+                    const errorJson = JSON.parse(await error.response.data.text());
+                    detail = errorJson.detail || detail;
+                } catch (e) {
+                    logger.error('[courierApi] Не удалось распарсить Blob ошибки как JSON', e);
+                }
+            } else {
+                 detail = error.response?.data?.detail || error.message || detail;
+            }
+             
+            if (status === 404) {
+                 throw new Error(detail || 'Группа не найдена или файл табеля не может быть создан.');
+            }
+             if (status === 403) {
+                 throw new Error(detail || 'У вас нет прав для скачивания табеля.');
+            }
+            throw new Error(detail || 'Ошибка при скачивании файла табеля.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при скачивании файла табеля.');
     }
 };

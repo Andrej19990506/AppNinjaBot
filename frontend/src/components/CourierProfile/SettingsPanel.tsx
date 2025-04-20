@@ -164,17 +164,18 @@ interface SettingsPanelProps {
     onClose: () => void;
     onOpenShiftAccess: () => void;
     onOpenSlotSettings: () => void; 
+    onOpenTimesheet: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
     isOpen, 
     onClose, 
     onOpenShiftAccess,
-    onOpenSlotSettings
+    onOpenSlotSettings,
+    onOpenTimesheet 
 }) => {
     const [hasMounted, setHasMounted] = useState(false);
 
-    // Лог при каждом рендере
     console.log(`[SettingsPanel] Render. Props isOpen: ${isOpen}, State hasMounted: ${hasMounted}`);
 
     useEffect(() => {
@@ -190,16 +191,18 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         onOpenSlotSettings();
     };
 
-    // Лог перед проверкой
+    const handleTimesheetClick = () => {
+        onOpenTimesheet();
+    };
+
     console.log(`[SettingsPanel] Checking condition !hasMounted && !isOpen: ${!hasMounted && !isOpen}`);
-    // Не рендерим панель при первом монтировании, если она должна быть закрыта
     if (!hasMounted && !isOpen) {
         console.log('[SettingsPanel] Condition met, returning null.');
         return null;
     }
 
     console.log('[SettingsPanel] Condition not met or already mounted, rendering panel.');
-    // Убираем hasMounted из пропсов SidePanelContainer
+    // Добавляем явный return для основного JSX
     return (
         <SidePanelContainer $isOpen={isOpen}>
             <PanelHeader>
@@ -215,6 +218,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 <SettingsOption onClick={handleSlotSettingsClick}> 
                     <OptionLabel>Настройка слотов</OptionLabel>
                     <OptionIcon>📊</OptionIcon> 
+                </SettingsOption>
+                <SettingsOption onClick={handleTimesheetClick}>
+                    <OptionLabel>Табель</OptionLabel>
+                    <OptionIcon>📄</OptionIcon>
                 </SettingsOption>
             </PanelContent>
         </SidePanelContainer>

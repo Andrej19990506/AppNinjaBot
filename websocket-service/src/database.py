@@ -40,22 +40,29 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
             logger.info(f"Payload: {data}")
 
             event_type = data.get('type')
-            chat_id = data.get('chat_id')
-            # Другие данные могут быть в data.get('data') или просто в data
-
-            if not event_type or not chat_id:
-                logger.warning("Получено уведомление без 'type' или 'chat_id' в payload.")
+            
+            # <<< ИЗМЕНЕННАЯ ЛОГИКА ОБРАБОТКИ >>>
+            if not event_type:
+                logger.warning("Получено уведомление без 'type' в payload.")
                 return
-
-            # Определяем комнату Socket.IO (должна быть 'couriers_<chat_id>')
-            # room_name = str(chat_id) # Старая логика
-            room_name = f"couriers_{chat_id}" # Новая логика с префиксом
-            logger.info(f"Целевая комната: {room_name}") # Добавим лог для проверки
-
-            logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
-            # Отправляем событие клиентам в нужной комнате
-            await sio.emit(event_type, data, room=room_name)
-            logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")
+                
+            if event_type == 'profile_updated':
+                # Отправляем всем подключенным (без указания комнаты)
+                logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}'")
+                await sio.emit(event_type, data) # Убираем room=...
+                logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено.")
+            else:
+                # Для остальных событий ожидаем chat_id
+                chat_id = data.get('chat_id')
+                if not chat_id:
+                    logger.warning(f"Получено уведомление типа '{event_type}' без 'chat_id' в payload.")
+                    return
+                    
+                room_name = f"couriers_{chat_id}"
+                logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
+                await sio.emit(event_type, data, room=room_name)
+                logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")
+            # <<< КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ >>>
 
         except json.JSONDecodeError:
             logger.error(f"Ошибка декодирования JSON из payload: {payload}")

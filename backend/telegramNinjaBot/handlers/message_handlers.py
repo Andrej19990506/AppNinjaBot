@@ -28,11 +28,25 @@ class MessageHandler:
     
     def _ensure_file_exists(self, file_path: str, default_content: dict) -> None:
         """Проверяет существование файла и создает его с дефолтным содержимым если нужно"""
-        if not os.path.exists(file_path):
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(default_content, f, ensure_ascii=False, indent=2)
-            logger.info(f"Создан файл {os.path.basename(file_path)} с дефолтным содержимым")
+        try:
+            # Проверяем существование файла
+            if not os.path.exists(file_path):
+                # Проверяем существование директории
+                dir_path = os.path.dirname(file_path)
+                if dir_path and not os.path.exists(dir_path):
+                    logger.info(f"Создание директории: {dir_path}")
+                    os.makedirs(dir_path, exist_ok=True)
+                
+                # Создаем файл с дефолтным содержимым
+                logger.info(f"Создание файла: {file_path}")
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_content, f, ensure_ascii=False, indent=2)
+                logger.info(f"✅ Создан файл {os.path.basename(file_path)}")
+            else:
+                logger.debug(f"Файл {os.path.basename(file_path)} уже существует")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при создании файла {file_path}: {str(e)}")
+            logger.error(traceback.format_exc())
 
     async def handle_private_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик личных сообщений пользователя боту"""

@@ -1,6 +1,7 @@
-import React, { useCallback, memo } from 'react';
+import React, { useCallback, memo, useState, useEffect, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { registerForShift, selectIsRegistered, selectIsLoading } from '../../store/slices/courierSlice';
+import { selectUsersById } from '../../store/slices/userSlice';
 import { addNotification, NotificationTypes } from '../../store/slices/notificationSlice';
 import defaultAvatar from '../../assets/images/Ninja.jpg';
 
@@ -41,24 +42,121 @@ const SeniorCourierBadge = styled.div`
     }
 `;
 
+// Добавляем стили для модального окна
+const ModalOverlay = styled.div<{ $isOpen: boolean, $isClosing: boolean }>`
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: ${props => props.$isClosing ? 0 : 1};
+    transition: opacity 0.3s ease;
+    backdrop-filter: blur(4px);
+`;
+
+const ModalContent = styled.div<{ $isClosing: boolean }>`
+    background-color: var(--card-background);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: var(--shadow-lg);
+    opacity: ${props => props.$isClosing ? 0 : 1};
+    transform: ${props => props.$isClosing ? 'translateY(20px)' : 'translateY(0)'};
+    transition: all 0.3s ease;
+`;
+
+const CloseButton = styled.button`
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 1.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+
+    &:hover {
+        color: var(--text-color);
+    }
+`;
+
+const ProfileButton = styled.button`
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--gradient-primary);
+    color: white;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 16px;
+    width: 100%;
+    transition: all var(--transition-fast);
+
+    &:hover {
+        transform: var(--hover-transform);
+        box-shadow: var(--shadow-md);
+    }
+
+    &:active {
+        transform: var(--active-transform);
+    }
+`;
+
 interface CourierProfileProps {
-    onRegisterClick: () => void;
+    onRegisterClick?: () => void;
     isSeniorCourier?: boolean;
     isLoadingSettings?: boolean;
+    targetUserId?: string | number | null;
+    isOpen?: boolean;
+    onClose?: () => void;
+    isModal?: boolean;
+    hideOwnStatus?: boolean;
 }
 
-// Используем memo для предотвращения лишних рендеров
 const CourierProfile = memo(({ 
     onRegisterClick, 
     isSeniorCourier,
+    isLoadingSettings,
+    targetUserId,
+    isOpen = false,
+    onClose,
+    isModal = false,
+    hideOwnStatus = false
 }: CourierProfileProps) => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state) => state.user);
+    const usersById = useAppSelector(selectUsersById);
     const isRegistered = useAppSelector(selectIsRegistered);
-    const isLoading = useAppSelector(selectIsLoading);
+    const isLoadingProfile = useAppSelector(selectIsLoading);
+    const [isClosing, setIsClosing] = useState(false);
 
-    // Мемоизируем обработчик регистрации для предотвращения лишних рендеров
+    const profileUserId = useMemo(() => {
+        const id = targetUserId ?? user?.id;
+        if (typeof id === 'string') return parseInt(id, 10);
+        return id ?? null;
+    }, [targetUserId, user?.id]);
+
+    const userInfoFromRedux = useMemo(() => 
+        profileUserId ? usersById[profileUserId] : null, 
+        [usersById, profileUserId]
+    );
+
+    const displayFirstName = userInfoFromRedux?.first_name ?? (profileUserId === user?.id ? user?.first_name : '?');
+    const displayLastName = userInfoFromRedux?.last_name ?? (profileUserId === user?.id ? user?.last_name : '');
+    const displayPhotoUrl = userInfoFromRedux?.photo_url ?? (profileUserId === user?.id ? user?.photo_url : defaultAvatar);
+    const displayName = `${displayFirstName} ${displayLastName}`.trim();
+
     const handleRegisterClick = useCallback(async () => {
+        if (!onRegisterClick || !user) return;
         console.log('[CourierProfile] handleRegisterClick called');
         try {
             await dispatch(registerForShift()).unwrap();
@@ -72,52 +170,82 @@ const CourierProfile = memo(({
                 duration: 5000
             }));
         }
-    }, [dispatch, onRegisterClick]);
+    }, [dispatch, onRegisterClick, user]);
 
-    console.log('CourierProfile рендерится');
+    const handleClose = useCallback(() => {
+        if (onClose) {
+            setIsClosing(true);
+            setTimeout(() => {
+                onClose();
+                setIsClosing(false);
+            }, 300);
+        }
+    }, [onClose]);
 
-    return (
-        <>
-            <ProfileContainer>
-                <AvatarWrapper>
-                    <AvatarContainer>
-                        <Avatar 
-                            src={user?.photo_url || defaultAvatar} 
-                            alt={`${user?.first_name} ${user?.last_name}`}
-                            onError={(e) => {
-                                const img = e.target as HTMLImageElement;
-                                img.src = defaultAvatar;
-                            }}
-                        />
-                        {isLoading && (
-                            <LoadingOverlay>
-                                <LoadingSpinner />
-                            </LoadingOverlay>
-                        )}
-                    </AvatarContainer>
-                    {isSeniorCourier && (
-                        <SeniorCourierBadge />
+    if (isModal && !isOpen && !isClosing) {
+        return null;
+    }
+
+    console.log('CourierProfile рендерится, isModal:', isModal, 'profileUserId:', profileUserId);
+
+    const profileContent = (
+        <ProfileContainer>
+            <AvatarWrapper>
+                <AvatarContainer>
+                    <Avatar 
+                        src={displayPhotoUrl || defaultAvatar}
+                        alt={displayName}
+                        onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.src = defaultAvatar;
+                        }}
+                    />
+                    {isLoadingProfile && (
+                        <LoadingOverlay>
+                            <LoadingSpinner />
+                        </LoadingOverlay>
                     )}
-                </AvatarWrapper>
-                <CourierName>
-                    {user?.first_name} {user?.last_name}
-                </CourierName>
-                <StatusText $isRegistered={isRegistered}>
+                </AvatarContainer>
+                {isSeniorCourier && (
+                    <SeniorCourierBadge />
+                )}
+            </AvatarWrapper>
+            <CourierName>
+                {displayName}
+            </CourierName>
+            {!hideOwnStatus && profileUserId === user?.id && (
+                 <StatusText $isRegistered={isRegistered}>
                     {isRegistered 
                         ? '✅ Вы записаны на смену' 
                         : 'Вы еще не записались на смену'}
-                </StatusText>
-                {!isRegistered && (
-                    <RegisterButton 
-                        onClick={handleRegisterClick}
-                        disabled={isLoading}
-                    >
-                        {isLoading ? 'Регистрация...' : 'Записаться на смену'}
-                    </RegisterButton>
-                )}
-            </ProfileContainer>
-        </>
+                 </StatusText>
+            )}
+            {!hideOwnStatus && !isRegistered && profileUserId === user?.id && (
+                <RegisterButton 
+                    onClick={handleRegisterClick}
+                    disabled={isLoadingProfile}
+                >
+                    {isLoadingProfile ? 'Регистрация...' : 'Записаться на смену'}
+                </RegisterButton>
+            )}
+        </ProfileContainer>
     );
+
+    if (isModal) {
+        return (
+            <ModalOverlay $isOpen={isOpen} $isClosing={isClosing} onClick={handleClose}>
+                <ModalContent $isClosing={isClosing} onClick={(e) => e.stopPropagation()}>
+                    <CloseButton onClick={handleClose}>&times;</CloseButton>
+                    {profileContent}
+                    <ProfileButton onClick={handleClose}>
+                        Закрыть
+                    </ProfileButton>
+                </ModalContent>
+            </ModalOverlay>
+        );
+    }
+
+    return profileContent;
 });
 
 export default CourierProfile; 

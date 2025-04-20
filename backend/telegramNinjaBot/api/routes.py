@@ -28,6 +28,10 @@ class SendFilePayload(BaseModel):
     target_chat_id: int
     file_path: str
 
+# Модель для эндпоинта обновления данных пользователя
+class RefreshUserPayload(BaseModel):
+    user_id: int
+
 # Создаем APIRouter
 router = APIRouter()
 
@@ -171,6 +175,21 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
             logger.error("❌ Экземпляр бота не доступен в app.state при запросе send-file")
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
 
+        # Преобразуем формат ID чата
+        chat_id = str(payload.target_chat_id)
+        processed_chat_id: int
+        try:
+            if chat_id.startswith('-100'):
+                processed_chat_id = int(chat_id.replace('-100', '-'))
+            elif chat_id.startswith('-'):
+                processed_chat_id = int(chat_id)
+            else:
+                processed_chat_id = int(chat_id)
+            logger.info(f"ID чата {chat_id} обработан как {processed_chat_id}")
+        except ValueError:
+            logger.error(f"Не удалось преобразовать chat_id '{chat_id}' в число")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {chat_id}")
+
         # Валидация пути к файлу
         requested_path = Path(payload.file_path)
         logger.info(f"Проверка пути файла: {requested_path}")
@@ -203,33 +222,124 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
         try:
             # <<< Открываем файл для чтения в бинарном режиме >>>
             with open(resolved_path, "rb") as document_file:
-                await bot_app.bot.send_document(
-                    chat_id=payload.target_chat_id,
-                    document=document_file, 
-                    filename=resolved_path.name,
-                    caption=f"Ваш табель за {datetime.now().strftime('%Y-%m-%d')} готов."
-                )
-            logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id}")
-            
-            # Удаление файла после отправки (можно убрать, если API это делает)
-            # try:
-            #    resolved_path.unlink()
-            #    logger.info(f"Файл {resolved_path} удален после отправки.")
-            # except OSError as unlink_err:
-            #    logger.error(f"Ошибка удаления файла {resolved_path}: {unlink_err}")
-
+                try:
+                    await bot_app.bot.send_document(
+                        chat_id=processed_chat_id,
+                        document=document_file, 
+                        filename=resolved_path.name,
+                        caption=f"Ваш табель за {datetime.now().strftime('%Y-%m-%d')} готов."
+                    )
+                    logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id}")
+                except Exception as send_err:
+                    logger.warning(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {processed_chat_id}: {send_err}")
+                    if str(processed_chat_id).startswith('-100'):
+                        logger.info(f"Попытка отправить в чат без префикса -100: {processed_chat_id}")
+                        alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
+                        document_file.seek(0)  # Сбрасываем указатель файла на начало
+                        try:
+                            await bot_app.bot.send_document(
+                                chat_id=alternative_chat_id,
+                                document=document_file,
+                                filename=resolved_path.name,
+                                caption=f"Ваш табель за {datetime.now().strftime('%Y-%m-%d')} готов."
+                            )
+                            logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id}")
+                        except Exception as alt_send_err:
+                            logger.error(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
+                            raise alt_send_err
+                    else:
+                        raise send_err
             return {"success": True, "message": "File sent successfully"}
-
         except Exception as send_err:
             logger.error(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {payload.target_chat_id}: {send_err}", exc_info=True)
             error_message = str(send_err)
             if hasattr(send_err, 'message'):
-                 error_message = send_err.message
+                error_message = send_err.message
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document via Telegram: {error_message}")
 
-    except HTTPException as http_exc:
-        # Перебрасываем HTTP исключения, чтобы FastAPI их правильно обработал
-        raise http_exc
     except Exception as e:
         logger.error(f"❌ Непредвиденная ошибка в /internal/send-file: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}") 
+
+# --- НОВЫЙ ЭНДПОИНТ /api/refresh_user --- 
+@router.post("/refresh_user", tags=["API"], status_code=status.HTTP_200_OK)
+async def refresh_user_data(payload: RefreshUserPayload, request: Request):
+    """
+    Получает актуальные данные пользователя из Telegram и возвращает их.
+    Этот эндпоинт вызывается API сервером для обновления данных пользователя в БД.
+    """
+    logger.info(f"📬 Получен запрос на /api/refresh_user для пользователя ID {payload.user_id}")
+    
+    try:
+        # Получаем экземпляр бота
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе refresh_user")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
+                               detail="Bot instance not available")
+
+        # Получаем данные пользователя из Telegram
+        try:
+            # Пытаемся получить информацию о пользователе через getChatMember
+            # Это работает, даже если пользователь не общался с ботом недавно
+            # Но требует, чтобы пользователь был членом чата с ботом
+            user_id = payload.user_id
+            logger.info(f"Получение данных пользователя {user_id} из Telegram")
+            
+            # Попробуем получить информацию пользователя через getChat
+            try:
+                chat = await bot_app.bot.get_chat(user_id)
+                user_data = {
+                    "user_id": chat.id,
+                    "first_name": chat.first_name or "",
+                    "last_name": chat.last_name or "",
+                    "username": chat.username or "",
+                    "photo_url": ""  # Получим фото отдельно
+                }
+                
+                # Попытаемся получить фото профиля
+                try:
+                    photos = await bot_app.bot.get_user_profile_photos(user_id, limit=1)
+                    if photos and photos.photos and len(photos.photos) > 0:
+                        photo = photos.photos[0][-1]  # Берём лучшее качество из первого фото
+                        photo_file = await bot_app.bot.get_file(photo.file_id)
+                        user_data["photo_url"] = photo_file.file_path
+                except Exception as photo_err:
+                    logger.warning(f"⚠️ Не удалось получить фото пользователя {user_id}: {photo_err}")
+                    # Игнорируем эту ошибку, просто оставляем photo_url пустым
+                
+                logger.info(f"✅ Данные пользователя {user_id} успешно получены")
+                return user_data
+                
+            except Exception as chat_err:
+                logger.warning(f"⚠️ Не удалось получить данные через getChat: {chat_err}")
+                # Попробуем другой подход - через getChatMember, но для этого
+                # нужно знать ID чата, где пользователь состоит вместе с ботом
+                
+                # Здесь можно добавить код для получения данных через getChatMember,
+                # если у вас есть доступ к чатам, где состоит пользователь
+                
+                # Если все методы не сработали:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"User information cannot be retrieved from Telegram: {chat_err}"
+                )
+                
+        except HTTPException as http_exc:
+            raise http_exc
+        except Exception as e:
+            logger.error(f"❌ Ошибка при получении данных пользователя {payload.user_id}: {e}", 
+                         exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error retrieving user data from Telegram: {e}"
+            )
+            
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в /api/refresh_user: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {e}"
+        ) 

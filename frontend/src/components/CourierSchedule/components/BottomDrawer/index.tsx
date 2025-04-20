@@ -194,13 +194,15 @@ interface BottomDrawerProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  customHeader?: React.ReactNode;
 }
 
 const BottomDrawer: React.FC<BottomDrawerProps> = ({
   isOpen,
   onClose,
   title,
-  children
+  children,
+  customHeader
 }) => {
   const drawerRef = useRef<HTMLDivElement>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -279,14 +281,16 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
         $isOpen={isOpen} 
         $isClosing={isClosing}
       >
-        <DrawerHeader>
-          <DrawerTitle>{title}</DrawerTitle>
-          <CloseButton onClick={handleClose} aria-label="Close">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </CloseButton>
-        </DrawerHeader>
+        {customHeader || (
+          <DrawerHeader>
+            <DrawerTitle>{title}</DrawerTitle>
+            <CloseButton onClick={handleClose} aria-label="Close">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </CloseButton>
+          </DrawerHeader>
+        )}
         <DrawerContent $isClosing={isClosing}>
           {children}
         </DrawerContent>

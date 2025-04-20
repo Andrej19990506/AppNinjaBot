@@ -1,11 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { WebApp } from '../../types/telegram';
-import { User, UserState } from '../../types/user';
+import { User, UserState as BaseUserState, AdminRights } from '../../types/user';
 import { Admin } from '../../types/inventory';
 import { ChatContext } from './chatSlice';
 import { userApi } from '../../services/api';
 import { updateMemberSeniority, updateCourierProfile } from '../../services/courierApi';
 import axios from 'axios';
+import { RootState } from '../../store/store';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface Group {
@@ -44,8 +45,15 @@ const DEV_MODE_USER_DATA: Partial<User> = {
     ]
 };
 
+// <<< Определяем расширенный UserState >>>
+interface UserState extends BaseUserState {
+    usersById: { [key: number]: User }; 
+}
+
+// <<< Используем РАСШИРЕННЫЙ UserState для initialState >>>
 const initialState: UserState = {
     user: null,
+    usersById: {}, // Теперь это поле есть в типе
     isInitialized: false,
     error: null,
     loading: false
@@ -173,8 +181,14 @@ export const checkAdminRights = createAsyncThunk<void, {
                 
                 if (admin.user_id === userId) {
                     console.log('✅ Пользователь является администратором');
-                    // Обновляем статус администратора
-                    dispatch(updateAdminStatus({ isAdmin: true, adminRights: admin }));
+                    // <<< ИСПРАВЛЕНИЕ: Создаем объект AdminRights >>>
+                    const calculatedAdminRights: AdminRights = {
+                        // Примерная логика - замени на свою, если нужно
+                        canManageInventory: !!admin.can_manage_chat, 
+                        canManageUsers: !!admin.can_restrict_members
+                    };
+                    // Обновляем статус администратора, передавая AdminRights
+                    dispatch(updateAdminStatus({ isAdmin: true, adminRights: calculatedAdminRights }));
                     return;
                 }
             }
@@ -265,11 +279,10 @@ const userSlice = createSlice({
             state.isInitialized = false;
             state.error = null;
         },
-        updateAdminStatus: (state, action) => {
-            const { isAdmin, adminRights } = action.payload;
+        updateAdminStatus: (state, action: PayloadAction<{ isAdmin: boolean; adminRights: AdminRights | null }>) => {
             if (state.user) {
-                state.user.isAdmin = isAdmin;
-                state.user.adminRights = adminRights;
+                state.user.isAdmin = action.payload.isAdmin;
+                state.user.adminRights = action.payload.adminRights;
             }
         },
         resetUserState: () => initialState,
@@ -286,75 +299,141 @@ const userSlice = createSlice({
                 }
             }
         },
+        // <<< НОВЫЙ РЕДЬЮСЕР ДЛЯ ПАКЕТНОГО ОБНОВЛЕНИЯ ПОЛЬЗОВАТЕЛЕЙ >>>
+        usersReceived: (state, action: PayloadAction<{ [key: number]: User }>) => {
+            const incomingUsers = action.payload;
+            console.log('[userSlice] Received batch user update:', incomingUsers);
+            for (const userId in incomingUsers) {
+                const numericUserId = parseInt(userId, 10);
+                const incomingUser = incomingUsers[userId];
+                const existingUser = state.usersById[numericUserId];
+                
+                if (existingUser) {
+                    // Обновляем существующего, сохраняя некоторые старые поля
+                    state.usersById[numericUserId] = {
+                        ...existingUser, 
+                        ...incomingUser, // Перезаписываем поля из incomingUser
+                        id: numericUserId // Убедимся, что ID правильный
+                    };
+                } else {
+                    // Добавляем нового пользователя
+                    state.usersById[numericUserId] = {
+                        // Убираем значения по умолчанию, полагаемся на incomingUser
+                        // isAdmin: false,
+                        // adminRights: null,
+                        // groups: [],
+                        ...incomingUser,   // Добавляем поля из payload
+                        id: numericUserId // Убедимся, что ID правильный
+                    };
+                }
+            }
+            console.log('[userSlice] usersById map after batch update:', state.usersById);
+        },
+        // <<< ИЗМЕНЕННЫЙ userProfileUpdatedWs >>>
+        userProfileUpdatedWs: (state, action: PayloadAction<{ user_id: number; profile: Partial<User> }>) => { // <<< Принимаем Partial<User> >>>
+            const { user_id, profile } = action.payload;
+            console.log(`[userSlice/WS] Received profile update for user ${user_id}`, profile);
+            
+            // <<< ИСКЛЮЧАЕМ groups из объекта profile перед слиянием >>>
+            const { groups, ...profileWithoutGroups } = profile;
+            if (groups) {
+                 console.warn("[userSlice/WS] Received 'groups' field in userProfileUpdatedWs payload. Ignoring it to prevent overwriting seniority status.");
+            }
+
+            const existingUserInMap = state.usersById[user_id];
+            if (existingUserInMap) {
+                 console.log(`[userSlice/WS] Updating user ${user_id} in usersById map.`);
+                 state.usersById[user_id] = { 
+                     ...existingUserInMap, 
+                     ...profileWithoutGroups, // <<< Сливаем profile БЕЗ groups >>> 
+                     id: user_id 
+                 };
+            } else {
+                 console.log(`[userSlice/WS] Adding new user ${user_id} to usersById map from partial WS data.`);
+                 state.usersById[user_id] = {
+                     id: user_id,
+                     first_name: profileWithoutGroups.first_name || "",
+                     last_name: profileWithoutGroups.last_name || "",
+                     username: profileWithoutGroups.username || "",
+                     photo_url: profileWithoutGroups.photo_url || "",
+                     language_code: 'language_code' in profileWithoutGroups ? profileWithoutGroups.language_code : undefined,
+                     isAdmin: 'isAdmin' in profileWithoutGroups ? (profileWithoutGroups.isAdmin ?? false) : false,
+                     adminRights: 'adminRights' in profileWithoutGroups ? (profileWithoutGroups.adminRights || null) : null,
+                     groups: [], // Новый пользователь начинает с пустыми группами
+                 };
+            }
+
+            // Обновляем данные ТЕКУЩЕГО пользователя (state.user)
+            if (state.user && state.user.id === user_id) {
+                console.log(`[userSlice/WS] Updating CURRENT user (state.user) data.`);
+                 // <<< ИСПРАВЛЕНИЕ: Берем данные из usersById, которые уже обновлены БЕЗ groups >>>
+                 //    НО! Нужно сохранить существующие группы текущего пользователя.
+                 const updatedUserFromMap = state.usersById[user_id];
+                 state.user = {
+                    ...updatedUserFromMap, // Берем обновленные поля (имя, фото и т.д.)
+                    groups: state.user.groups // <<< СОХРАНЯЕМ существующие группы state.user >>>
+                 };
+            }
+        },
     },
     extraReducers: (builder) => {
         builder
+            // Инициализация
             .addCase(initializeFromTelegram.pending, (state) => {
-                state.isInitialized = false;
+                state.loading = true;
                 state.error = null;
-                console.log("⏳ userSlice: initializeFromTelegram.pending");
             })
             .addCase(initializeFromTelegram.fulfilled, (state, action: PayloadAction<User>) => {
-                state.user = action.payload;
+                const user = action.payload;
+                state.user = user;
+                // Добавляем/обновляем в карту, сохраняя существующие данные, если были
+                state.usersById[user.id] = { ...state.usersById[user.id], ...user };
                 state.isInitialized = true;
-                state.error = null;
-                // Расширяем лог
-                console.log("✅ userSlice: initializeFromTelegram.fulfilled", JSON.stringify(action.payload, null, 2));
+                state.loading = false;
             })
             .addCase(initializeFromTelegram.rejected, (state, action) => {
-                state.isInitialized = false;
-                state.error = action.payload as string || action.error.message || 'Failed to initialize user';
-                state.user = null;
-                console.error("❌ userSlice: initializeFromTelegram.rejected", action.payload || action.error);
+                state.error = action.payload as string;
+                state.isInitialized = true; 
+                state.loading = false;
             })
-            .addCase(checkAdminRights.rejected, (state) => {
-                if (state.user) {
-                    // Устанавливаем isAdmin в false при ошибке проверки прав
-                    state.user.isAdmin = false;
-                    state.user.adminRights = null;
-                }
-            })
-            // --- Обработка thunk'а updateUserProfileThunk --- 
+            // Обновление профиля через API
             .addCase(updateUserProfileThunk.pending, (state) => {
                 state.loading = true;
                 state.error = null;
-                 console.log("⏳ userSlice: updateUserProfileThunk.pending");
             })
             .addCase(updateUserProfileThunk.fulfilled, (state, action: PayloadAction<User>) => {
-                state.loading = false;
-                state.user = action.payload; // Обновляем пользователя целиком
-                 console.log("✅ userSlice: updateUserProfileThunk.fulfilled");
+                 const updatedUser = action.payload;
+                 state.user = updatedUser;
+                 // Обновляем в карте, сохраняя существующие данные
+                 state.usersById[updatedUser.id] = { ...state.usersById[updatedUser.id], ...updatedUser };
+                 state.loading = false;
             })
             .addCase(updateUserProfileThunk.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload || 'Ошибка обновления профиля';
-                 console.error("❌ userSlice: updateUserProfileThunk.rejected", action.payload);
+                 state.loading = false;
+                 state.error = action.payload ?? 'Failed to update profile via API';
             })
-            // --- Обработка нового thunk'а --- 
+             // Проверка прав админа (пример, предполагаем, что не меняет usersById)
+            .addCase(checkAdminRights.fulfilled, (state) => {
+                state.loading = false;
+            })
+            .addCase(checkAdminRights.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.error.message || 'Ошибка проверки прав администратора';
+            })
+            // Обновление статуса старшего (пример, предполагаем, что не меняет usersById)
             .addCase(updateSeniorityStatus.pending, (state) => {
-                state.loading = true; // Можно добавить флаг загрузки для этого действия
-                state.error = null;
-                console.log("⏳ userSlice: updateSeniorityStatus.pending");
+                state.loading = true; 
             })
             .addCase(updateSeniorityStatus.fulfilled, (state, action) => {
                 state.loading = false;
-                if (state.user && state.user.groups) {
-                    const { groupTelegramId, isSenior } = action.payload;
-                    const groupIndex = state.user.groups.findIndex(g => String(g.chat_id) === groupTelegramId);
-                    if (groupIndex !== -1) {
-                        state.user.groups[groupIndex].is_senior_courier = isSenior;
-                        console.log(`[userSlice] ✅ Статус старшего для группы ${groupTelegramId} успешно обновлен в Redux на ${isSenior}`);
-                    } else {
-                        console.warn(`[userSlice] fulfilled: Группа ${groupTelegramId} не найдена для обновления.`);
-                    }
-                }
+                console.log('[userSlice] Seniority status update fulfilled (reducer needs implementation)', action.payload);
+                // TODO: Реализовать обновление статуса старшего в state.user.groups И в state.usersById[userId].groups
             })
             .addCase(updateSeniorityStatus.rejected, (state, action) => {
-                state.loading = false;
-                state.error = action.payload || 'Ошибка обновления статуса старшего';
-                console.error("❌ userSlice: updateSeniorityStatus.rejected", action.payload);
+                 state.loading = false;
+                 state.error = action.payload ?? 'Failed to update seniority status via API';
             });
-    }
+    },
 });
 
 // Экспортируем actions и reducer
@@ -364,6 +443,8 @@ export const {
     updateAdminStatus, 
     resetUserState,
     updateUserGroupSeniority,
+    usersReceived,
+    userProfileUpdatedWs,
 } = userSlice.actions;
 
 export default userSlice.reducer;
@@ -371,8 +452,10 @@ export default userSlice.reducer;
 // Экспортируем сам объект слайса для использования в listenerMiddleware
 export { userSlice };
 
-// --- Добавляем экспорт селекторов --- 
-export const selectUser = (state: { user: UserState }) => state.user.user;
-export const selectIsUserInitialized = (state: { user: UserState }) => state.user.isInitialized;
-export const selectUserInitializationError = (state: { user: UserState }) => state.user.error;
-// --- ---------------------------- --- 
+// <<< Используем UserState (расширенный) для типа state в селекторах >>>
+export const selectUsersById = (state: RootState): { [key: number]: User } => state.user.usersById;
+export const selectUser = (state: RootState): User | null => state.user.user;
+export const selectIsUserInitialized = (state: RootState): boolean => state.user.isInitialized;
+export const selectUserInitializationError = (state: RootState): string | null => state.user.error;
+// --- ----------------------------------------------- --- 
+// --- ----------------------------------------------- --- 

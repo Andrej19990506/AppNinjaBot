@@ -10,6 +10,7 @@ import { LayoutGroup } from 'framer-motion';
 // import ShiftSlotComponent, { ShiftSlotProps } from './components/ShiftSlot'; // <<< УДАЛЯЕМ
 import { CourierShift } from '../../types/shifts'; // ОСТАВЛЯЕМ
 // import { AnimatePresence } from 'framer-motion'; // <<< УДАЛЯЕМ
+import { format } from 'date-fns';
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
 const ShiftSection = styled.div`
@@ -93,6 +94,7 @@ interface ShiftPanelProps {
     isDraggingGlobal?: boolean;
     processingShiftId?: string | null;
     isProcessingMove?: boolean;
+    onOpenProfile?: (courier: CourierShift) => void;
 }
 
 /**
@@ -122,7 +124,8 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     draggingShiftType,
     isDraggingGlobal,
     processingShiftId,
-    isProcessingMove
+    isProcessingMove,
+    onOpenProfile
 }) => {
     // Логгируем приходящий isSenior
     logger.debug('[ShiftPanel] Rendering with isSenior:', isSenior);
@@ -161,6 +164,11 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                         showErrorMessage={showErrorMessage}
                         draggingShiftType={draggingShiftType}
                         isDraggingGlobal={isDraggingGlobal}
+                        onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
+                            ...shiftSlot,
+                            date: format(date || new Date(), 'yyyy-MM-dd'),
+                            shiftType: 'day'
+                        } as CourierShift) : undefined}
                     />
                 </LayoutGroup>
             </ShiftSection>
@@ -186,6 +194,11 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                         showErrorMessage={showErrorMessage}
                         draggingShiftType={draggingShiftType}
                         isDraggingGlobal={isDraggingGlobal}
+                        onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
+                            ...shiftSlot,
+                            date: format(date || new Date(), 'yyyy-MM-dd'),
+                            shiftType: 'night'
+                        } as CourierShift) : undefined}
                     />
                 </LayoutGroup>
             </ShiftSection>

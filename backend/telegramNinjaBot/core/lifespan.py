@@ -4,6 +4,7 @@ import httpx
 from fastapi import FastAPI
 import os # Добавим os для переменных окружения БД
 import asyncpg # Импортируем asyncpg
+import asyncio
 
 # Импортируем Application и типы PTB
 from telegram import Update
@@ -78,17 +79,39 @@ async def lifespan(app: FastAPI):
 
         # 5. Создание экземпляра Application
         logger.info("Создание экземпляра Telegram Application...")
-        bot_app = (
-            Application.builder()
-            .token(config.TOKEN) 
-            .connect_timeout(60.0)
-            .read_timeout(60.0)
-            .write_timeout(60.0)
-            .pool_timeout(60.0)
-            # Передаем наш httpx клиент, если PTB его поддерживает
-            # .http_client(http_client) # Уточнить совместимость PTB и httpx клиента
-            .build()
-        )
+        
+        # Проверяем режим работы
+        environment = os.getenv('ENVIRONMENT', 'development')
+        use_polling = os.getenv('USE_POLLING', 'false').lower() == 'true'
+        
+        # Определяем, используем ли лонг-поллинг
+        use_long_polling = (environment == 'development' or use_polling)
+        
+        # Создаем разные билдеры для вебхука и лонг-поллинга
+        if use_long_polling:
+            logger.info("🔄 Инициализация бота в режиме long polling...")
+            # Для лонг-поллинга создаем экземпляр без вебхука
+            bot_app = (
+                Application.builder()
+                .token(config.TOKEN) 
+                .connect_timeout(60.0)
+                .read_timeout(60.0)
+                .write_timeout(60.0)
+                .pool_timeout(60.0)
+                .build()
+            )
+        else:
+            # Для вебхука используем стандартную инициализацию
+            bot_app = (
+                Application.builder()
+                .token(config.TOKEN) 
+                .connect_timeout(60.0)
+                .read_timeout(60.0)
+                .write_timeout(60.0)
+                .pool_timeout(60.0)
+                .build()
+            )
+        
         app.state.bot_application = bot_app # Сохраняем приложение бота
         logger.info("✅ Экземпляр Telegram Application создан")
         
@@ -112,32 +135,44 @@ async def lifespan(app: FastAPI):
         bot_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, message_handler.handle_private_message))
         bot_app.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUP, handle_webapp_data))
         bot_app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
-        # Callback Queries
-        # bot_app.add_handler(CallbackQueryHandler(handle_deletion_callback)) # <-- Удаляем
         logger.info("✅ Обработчики Telegram зарегистрированы")
 
-        # 8. Инициализация и старт Application + установка вебхука
-        logger.info("Инициализация Telegram Application...")
+        # 8. Инициализация, запуск Application и настройка вебхука/лонг-поллинга
+        logger.info("Инициализация и запуск Telegram Application...")
         await bot_app.initialize()
         await bot_app.start()
-        logger.info("✅ Telegram Application инициализировано и запущено")
-
-        # Установка вебхука
-        if not config.WEBHOOK_URL or not config.WEBHOOK_PATH:
-            logger.error("WEBHOOK_URL или WEBHOOK_PATH не заданы. Вебхук НЕ УСТАНОВЛЕН.")
+        logger.info("✅ Telegram Application запущено")
+        
+        # Настраиваем режим работы в зависимости от окружения
+        if use_long_polling:
+            # В режиме лонг-поллинга удаляем вебхук и запускаем update_queue
+            logger.info("🔄 Настройка режима long polling...")
+            
+            # Сначала удаляем вебхук, если он был установлен
+            await bot_app.bot.delete_webhook(drop_pending_updates=True)
+            logger.info("✅ Вебхук удален для режима long polling")
+            
+            # Запускаем метод для получения обновлений (не блокирующий)
+            # Это создаст в экземпляре update_queue, куда будут попадать обновления
+            asyncio.create_task(bot_app.updater.start_polling(drop_pending_updates=True))
+            logger.info("✅ Long polling запущен успешно")
         else:
-            webhook_url = f"{config.WEBHOOK_URL.rstrip('/')}{config.WEBHOOK_PATH}"
-            secret_token = config.WEBHOOK_SECRET
-            logger.info(f"Попытка установить вебхук: {webhook_url}")
-            try:
-                await bot_app.bot.set_webhook(
-                    url=webhook_url,
-                    allowed_updates=Update.ALL_TYPES,
-                    secret_token=secret_token
-                )
-                logger.info(f"✅ Вебхук успешно установлен: {webhook_url}")
-            except Exception as e:
-                logger.error(f"❌ Ошибка при установке вебхука: {e}. Приложение продолжит работу, но вебхук может быть неактивен.")
+            # В режиме вебхука устанавливаем его
+            if not config.WEBHOOK_URL or not config.WEBHOOK_PATH:
+                logger.error("WEBHOOK_URL или WEBHOOK_PATH не заданы. Вебхук НЕ УСТАНОВЛЕН.")
+            else:
+                webhook_url = f"{config.WEBHOOK_URL.rstrip('/')}{config.WEBHOOK_PATH}"
+                secret_token = config.WEBHOOK_SECRET
+                logger.info(f"Попытка установить вебхук: {webhook_url}")
+                try:
+                    await bot_app.bot.set_webhook(
+                        url=webhook_url,
+                        allowed_updates=Update.ALL_TYPES,
+                        secret_token=secret_token
+                    )
+                    logger.info(f"✅ Вебхук успешно установлен: {webhook_url}")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при установке вебхука: {e}. Приложение продолжит работу, но вебхук может быть неактивен.")
 
         # Приложение готово к работе
         logger.info("🏁 Lifespan инициализация завершена, приложение готово к работе.")

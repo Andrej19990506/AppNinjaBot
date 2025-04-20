@@ -35,6 +35,9 @@ import {
 } from '../store/slices/reservesSlice';
 // Импортируем экшен для уведомлений
 import { addNotification, NotificationTypes } from '../store/slices/notificationSlice';
+// <<< ИМПОРТ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ >>>
+import { userProfileUpdatedWs } from '../store/slices/userSlice'; // Оставляем только action 
+import { User } from '../types/user'; // <<< ИМПОРТИРУЕМ ТИП ОТДЕЛЬНО >>>
 
 // Селектор для получения ID курьерского чата из стейта пользователя
 const selectCurrentCourierChatId = (state: RootState): string | undefined => {
@@ -93,6 +96,26 @@ export const useWebSocketSync = () => {
         }
 
         logger.info(`[useWebSocketSync] Настройка WebSocket подписок для группы ${currentGroupId}...`);
+
+        // === НОВЫЙ ОБРАБОТЧИК ПРОФИЛЯ ===
+        interface ProfileUpdatedPayload {
+            type: 'profile_updated';
+            user_id: number;
+            data: User; // <<< ИСПОЛЬЗУЕМ User >>>
+        }
+
+        const handleProfileUpdated = (payload: ProfileUpdatedPayload) => {
+            logger.debug('[WS] Received event: profile_updated', payload);
+            // Опционально: проверить, относится ли обновление к текущему пользователю
+            // const currentUserId = useSelector((state: RootState) => state.user.user?.id);
+            // if (currentUserId && payload.user_id === currentUserId) {
+                logger.info(`[useWebSocketSync] User profile updated via WS for user ${payload.user_id}. Dispatching update.`);
+                // Диспатчим action для обновления профиля пользователя
+                dispatch(userProfileUpdatedWs({ user_id: payload.user_id, profile: payload.data }));
+            // } else {
+            //     logger.log(`[useWebSocketSync] Profile update for different user (${payload.user_id}), ignoring.`);
+            // }
+        };
 
         // --- Обработчики событий --- 
         // Переименовываем обработчик для ясности
@@ -229,6 +252,8 @@ export const useWebSocketSync = () => {
         const unsubscribeTransferred = socketService.subscribe('reserve_transferred_to_shift', handleReserveTransferred);
         // === НОВАЯ ПОДПИСКА ===
         const unsubscribeShiftAccessSent = socketService.subscribe('shift_access_sent', handleShiftAccessSent);
+        // === НОВАЯ ПОДПИСКА НА ПРОФИЛЬ ===
+        const unsubscribeProfileUpdated = socketService.subscribe('profile_updated', handleProfileUpdated);
 
         logger.info('[useWebSocketSync] WebSocket подписки успешно установлены.');
 
@@ -246,6 +271,8 @@ export const useWebSocketSync = () => {
             unsubscribeTransferred();
             // === НОВАЯ ОТПИСКА ===
             unsubscribeShiftAccessSent(); 
+            // === НОВАЯ ОТПИСКА ПРОФИЛЯ ===
+            unsubscribeProfileUpdated();
             logger.info('[useWebSocketSync] WebSocket отписки выполнены.');
         };
 

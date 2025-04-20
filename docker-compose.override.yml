@@ -5,12 +5,11 @@ services:
     volumes:
       - ./backend/telegramNinjaBot:/app/telegramNinjaBot
       - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
-      - /app/telegramNinjaBot/__pycache__
-      - /app/telegramNinjaBot/handlers/__pycache__
-      - /app/telegramNinjaBot/services/__pycache__
     environment:
       - API_URL=http://server:8000
       - ENVIRONMENT=development
+      - USE_POLLING=true
+      - PYTHONDONTWRITEBYTECODE=1
     env_file:
       - ./backend/telegramNinjaBot/.env.dev
     ports:
@@ -26,20 +25,16 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/API server:/app
-      - /app/__pycache__
     environment:
+      - PYTHONDONTWRITEBYTECODE=1
       - PYTHONPYCACHEPREFIX=/tmp/pycache
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
       - ENVIRONMENT=development
       - PYTHONPATH=/app
+      - BOT_API_URL=http://bot:8003
     env_file:
       - ./backend/API server/.env
-    command: [
-        "sh", "-c",
-        "echo 'Waiting for PostgreSQL...' && python wait-for-postgres.py && \
-         echo 'Applying Alembic migrations...' && alembic upgrade head && \
-         echo 'Starting Uvicorn...' && uvicorn main:app --host 0.0.0.0 --port 8000"
-    ]
+    command: ["bash", "-c", "/usr/local/bin/python wait-for-postgres.py && /bin/echo 'Applying Alembic migrations...' && /usr/local/bin/alembic upgrade head && /bin/echo 'Starting Uvicorn...' && /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000"]
     restart: unless-stopped
     depends_on:
       - postgres
@@ -52,10 +47,10 @@ services:
     volumes:
       - ./backend/scheduler:/app
       - ./backend/shared:/app/shared
-      - /app/__pycache__
     env_file:
       - ./backend/scheduler/.env_scheduler
     environment:
+      - PYTHONDONTWRITEBYTECODE=1
       - API_URL=http://server:8000
       - BOT_URL=http://bot:8003
       - ENVIRONMENT=development
@@ -88,27 +83,11 @@ services:
     ports:
       - "8001:8001"
     environment:
+      - PYTHONDONTWRITEBYTECODE=1
       - CORS_ALLOWED_ORIGINS=http://localhost:3000
       - ENVIRONMENT=development
       - PYTHONPATH=/app
       - PYTHONUNBUFFERED=1
     command: ["sh", "-c", "uvicorn src.server:socket_app --host 0.0.0.0 --port 8001"]
     depends_on:
-      - postgres
-
-  cloudflared-tunnel:
-    image: cloudflare/cloudflared:latest
-    container_name: dev-bot-tunnel-runner
-    restart: unless-stopped
-    command: tunnel --config /etc/cloudflared/config.yml run
-    volumes:
-      - C:\Users\malah\.cloudflared:/etc/cloudflared
-    networks:
-      - ninja_network
-    depends_on:
-      - bot
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    environment:
-      - TUNNEL_ORIGIN_CERT=/etc/cloudflared/cert.pem
-      - TUNNEL_METRICS=0.0.0.0:20000 
+      - postgres 

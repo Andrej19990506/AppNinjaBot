@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import ShiftSlotComponent from './components/ShiftSlot';
 import { ShiftSlot } from '../../types/shifts';
@@ -33,6 +33,7 @@ interface ShiftPanelContainerProps {
     showErrorMessage?: (message: string) => void;
     draggingShiftType?: 'day' | 'night' | null;
     isDraggingGlobal?: boolean;
+    onOpenProfile?: (courier: ShiftSlot) => void;
 }
 
 const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
@@ -50,9 +51,39 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     showSuccessMessage,
     showErrorMessage,
     draggingShiftType,
-    isDraggingGlobal
+    isDraggingGlobal,
+    onOpenProfile
 }) => {
-    
+    const [activeTooltipSlot, setActiveTooltipSlot] = useState<{ type: 'day' | 'night', index: number } | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    const handleRequestTooltip = useCallback((type: 'day' | 'night', index: number) => {
+        if (activeTooltipSlot?.type === type && activeTooltipSlot?.index === index) {
+            setActiveTooltipSlot(null);
+        } else {
+            setActiveTooltipSlot({ type, index });
+        }
+    }, [activeTooltipSlot]);
+
+    const handleCloseTooltip = useCallback(() => {
+        setActiveTooltipSlot(null);
+    }, []);
+
+    useEffect(() => {
+        if (!activeTooltipSlot) return;
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                handleCloseTooltip();
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [activeTooltipSlot, handleCloseTooltip]);
+
     useShiftUIState({
         onSlotSelect,
         currentUserId,
@@ -75,6 +106,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
             
             const key = slotData ? slotData.id : `${shiftType}-empty-${i}`;
 
+            const isActiveTooltipForThisSlot = activeTooltipSlot?.type === shiftType && activeTooltipSlot?.index === i;
+
             slots.push(
                 <motion.div
                     key={key}
@@ -90,6 +123,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         isDisabled={isDisabled}
                         onSlotClick={() => {
                             if (!slotData && !isDisabled) {
+                                handleCloseTooltip();
                                 onSlotSelect(shiftType, i, undefined, false);
                             }
                         }}
@@ -102,6 +136,9 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         showErrorMessage={showErrorMessage}
                         draggingShiftType={draggingShiftType ?? null}
                         isDraggingGlobal={isDraggingGlobal ?? false}
+                        onOpenProfile={onOpenProfile}
+                        isActiveTooltip={isActiveTooltipForThisSlot}
+                        onRequestTooltip={handleRequestTooltip}
                     />
                 </motion.div>
             );
@@ -111,7 +148,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
 
     return (
         <>
-            <SlotsGrid>
+            <SlotsGrid ref={containerRef}>
                 {/* @ts-ignore - Suppressing TS2786 related to AnimatePresence return type */}
                 <AnimatePresence initial={false}>
                     <>

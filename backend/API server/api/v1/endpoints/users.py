@@ -3,6 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
+import httpx
+import asyncio
+from fastapi.responses import JSONResponse
+import os
+from dotenv import load_dotenv
+import json
+import logging
+from sqlalchemy import text
+
+# Загружаем переменные окружения
+load_dotenv()
 
 # Проверь и скорректируй эти пути, если необходимо:
 from db.session import get_db_session
@@ -11,10 +22,16 @@ from models import Member, Group, GroupMember
 from pydantic import BaseModel
 from schemas import GroupRead, UserProfileResponse, UserGroupsContextResponse
 
+# --- Инициализируем логгер --- 
+logger = logging.getLogger(__name__)
+
 # --- НОВАЯ СХЕМА ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ --- 
 class UserProfileUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+
+# Получаем URL бота из переменных окружения 
+BOT_API_URL = os.getenv("BOT_API_URL", "http://bot:8000")
 
 router = APIRouter()
 
@@ -165,4 +182,145 @@ async def update_user_profile(
         )
 
     return member
+
+@router.post(
+    "/{user_id}/refresh",
+    response_model=UserProfileResponse,
+    summary="Refresh User Profile from Telegram",
+    description="Fetches latest user data from Telegram via the bot and updates the database",
+    tags=["Users"]
+)
+async def refresh_user_profile_from_telegram(
+    user_id: int,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Refreshes user profile by fetching latest data from Telegram.
+    
+    Process:
+    1. Find the user in our database to confirm they exist
+    2. Send request to bot API to fetch latest Telegram data
+    3. Update our database with the data received from bot
+    4. Return the updated user profile
+    """
+    # 1. Проверяем, что пользователь существует в БД
+    member_query = select(Member).where(Member.user_id == user_id)
+    member_result = await db.execute(member_query)
+    member = member_result.scalars().first()
+
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь с ID {user_id} не найден в базе данных."
+        )
+    
+    # 2. Отправляем запрос боту для получения актуальных данных из Telegram
+    try:
+        # --- Заменяем httpx на curl ---
+        command = f'curl -X POST -H "Content-Type: application/json" -d \'{{"user_id": {user_id}}}\'' \
+                  f' http://bot:8003/refresh_user -f -s -S --connect-timeout 15 --max-time 30'
+        logger.info(f"[CURL Refresh] Executing: {command}")
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+
+        logger.info(f"[CURL Refresh] Exit code: {proc.returncode}")
+        stdout_decoded = stdout.decode().strip() if stdout else ""
+        stderr_decoded = stderr.decode().strip() if stderr else ""
+        
+        if stdout_decoded:
+            logger.info(f"[CURL Refresh] STDOUT: {stdout_decoded}")
+        if stderr_decoded:
+            logger.error(f"[CURL Refresh] STDERR: {stderr_decoded}")
+
+        if proc.returncode != 0:
+            error_detail = stderr_decoded or f"Curl command failed with exit code {proc.returncode}"
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE if proc.returncode in [7, 28] else status.HTTP_502_BAD_GATEWAY # 7=connect failed, 28=timeout
+            raise HTTPException(
+                status_code=status_code,
+                detail=f"Failed to fetch from bot via curl: {error_detail}"
+            )
+
+        try:
+            telegram_data = json.loads(stdout_decoded)
+        except json.JSONDecodeError:
+             raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Bot responded with invalid JSON via curl: {stdout_decoded}"
+            )
+        # --- Конец замены ---
+
+        # 3. Обновляем данные пользователя в нашей БД
+        try:
+            # <<< ИЗМЕНЕНИЕ: Обновляем имя/фамилию только если они пусты в БД >>>
+            if "first_name" in telegram_data and not member.first_name:
+                member.first_name = telegram_data["first_name"]
+                logger.info(f"Updating empty first_name for user {user_id} from Telegram data.")
+            
+            if "last_name" in telegram_data and not member.last_name:
+                member.last_name = telegram_data["last_name"]
+                logger.info(f"Updating empty last_name for user {user_id} from Telegram data.")
+
+            # <<< Обновляем username и photo_url всегда, если они есть >>>
+            if "username" in telegram_data and member.username != telegram_data["username"]:
+                member.username = telegram_data["username"]
+                logger.info(f"Updating username for user {user_id} from Telegram data.")
+            
+            if "photo_url" in telegram_data and member.photo_url != telegram_data["photo_url"]:
+                member.photo_url = telegram_data["photo_url"]
+                logger.info(f"Updating photo_url for user {user_id} from Telegram data.")
+            
+            await db.commit()
+            await db.refresh(member)
+        except Exception as e:
+            await db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Ошибка при обновлении профиля: {str(e)}"
+            )
+        
+        # --- Отправка NOTIFY после успешного обновления (ОДНОГО, БЕЗ CHAT_ID) --- >
+        try:
+            pydantic_profile = UserProfileResponse.model_validate(member)
+            profile_data_dict = pydantic_profile.model_dump(mode='json')
+            
+            notify_payload_dict = {
+                "type": "profile_updated",
+                "user_id": member.user_id, 
+                # "chat_id": target_chat_id, # <<< УБИРАЕМ chat_id >>>
+                "data": profile_data_dict
+            }
+            notify_payload_json = json.dumps(notify_payload_dict)
+
+            if len(notify_payload_json.encode('utf-8')) < 7900:
+                escaped_payload = notify_payload_json.replace("'", "''")
+                sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+                await db.execute(sql_command)
+                logger.info(f"[Refresh Profile] Sent GLOBAL NOTIFY for updated profile user_id {member.user_id}")
+            else:
+                logger.warning(f"[Refresh Profile] NOTIFY payload for user_id {member.user_id} is too large. Skipping.")
+                
+        except Exception as notify_err:
+            logger.error(f"[Refresh Profile] Failed to send GLOBAL NOTIFY for user_id {member.user_id}: {notify_err}", exc_info=True)
+        # --- Конец блока NOTIFY ---
+        
+        # 4. Возвращаем обновленный профиль
+        return member
+    except asyncio.TimeoutError: # Если proc.communicate() зависнет
+         raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Curl command communication timed out."
+        )
+    except Exception as e: # Ловим другие ошибки (создание процесса и т.д.)
+        logger.error(f"Error during curl execution: {e}", exc_info=True)
+        # Используем уже существующий логгер
+        # logger = logging.getLogger(__name__) # Не нужно переопределять
+        # logger.error(f"Error during curl execution: {e}", exc_info=True) 
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to execute curl to connect to bot: {str(e)}"
+        )
 

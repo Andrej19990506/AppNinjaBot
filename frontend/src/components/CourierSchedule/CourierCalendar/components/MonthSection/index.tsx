@@ -13,6 +13,7 @@ import {
     DaysGrid
 } from './styles';
 import { AccessSettings, WeeklySlotConfig } from '../../../../../store/slices/shiftsSlice';
+import { User } from '../../../../../types/user';
 
 interface MonthSectionProps {
     month: Date;
@@ -27,6 +28,7 @@ interface MonthSectionProps {
     accessSettings: AccessSettings | null;
     slotConfig: WeeklySlotConfig | null;
     isDateAvailable: (date: Date) => boolean;
+    usersById: { [key: string]: User };
 }
 
 const MonthSection: React.FC<MonthSectionProps> = ({
@@ -41,7 +43,8 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     currentUserId,
     accessSettings,
     slotConfig,
-    isDateAvailable
+    isDateAvailable,
+    usersById
 }) => {
     const days = getDaysInMonth(month);
 
@@ -73,12 +76,12 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             isAvailable={isDateAvailable(date)}
                             onClick={() => onDayClick(date)}
                             currentUserId={currentUserId}
-                            currentUserAvatar={currentUserAvatar}
                             getDayShifts={getDayShifts}
                             getNightShifts={getNightShifts}
                             hasUserShift={hasUserShift}
                             userIsInReserve={userIsInReserve}
                             slotConfig={slotConfig}
+                            usersById={usersById}
                         />
                     );
                 })}

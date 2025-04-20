@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import styled, { css } from 'styled-components';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../store/store';
+import { selectUsersById } from '../../../store/slices/userSlice';
 import defaultAvatar from '../../../assets/images/Ninja.jpg';
 // @ts-ignore
 import { useDraggable, useDroppable, DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
@@ -33,6 +36,11 @@ export interface ShiftSlotProps {
     isOver?: boolean;
     isDragging?: boolean; // Добавим флаг для активного перетаскивания
     isPotentialDropTarget?: boolean;
+    // Добавляем пропс для открытия профиля курьера
+    onOpenProfile?: (courier: ShiftSlot) => void;
+    // <<< НОВЫЕ ПРОПСЫ ДЛЯ ТУЛТИПА >>>
+    isActiveTooltip?: boolean;
+    onRequestTooltip?: (type: 'day' | 'night', index: number) => void;
 }
 
 // Стили
@@ -352,17 +360,34 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     showSuccessMessage,
     showErrorMessage,
     draggingShiftType,
-    isDraggingGlobal
+    isDraggingGlobal,
+    onOpenProfile,
+    isActiveTooltip,    // <<< Получаем проп
+    onRequestTooltip  // <<< Получаем проп
 }): React.ReactElement | null => {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-    const [showTooltip, setShowTooltip] = useState(false);
     const [isDeletingSelf, setIsDeletingSelf] = useState(false);
     const confirmationTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // <<< ПОЛУЧАЕМ АКТУАЛЬНЫЕ ДАННЫЕ КУРЬЕРА ИЗ REDUX >>>
+    const usersById = useSelector(selectUsersById);
+    const courierUserId = useMemo(() => {
+        const id = courier?.userId;
+        if (typeof id === 'string') return parseInt(id, 10);
+        if (typeof id === 'number') return id;
+        return null;
+    }, [courier?.userId]);
+
+    const courierInfoFromRedux = useMemo(() =>
+        courierUserId ? usersById[courierUserId] : null,
+        [usersById, courierUserId]
+    );
+    // <<< --------------------------------------------- >>>
 
     const isOccupied = Boolean(courier);
     const isCurrentUser = isOccupied && courier?.userId === currentUserId;
     
-    const isDisabledForStyles = (isOccupied && !isCurrentUser && !isSenior) || (!isOccupied && propIsDisabled) || isDeletingSelf;
+    const isDisabledForStyles = (!isOccupied && propIsDisabled) || isDeletingSelf;
     const isClickDisabled = isLoading || isError || isDisabledForStyles;
     
     const isCurrentUserSlot = isOccupied && courier && String(courier.userId) === currentUserId;
@@ -415,8 +440,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
             confirmationTimerRef.current = null;
         }
         setIsConfirmingDelete(false);
-        setShowTooltip(false);
-        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] State reset.`);
+        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] State reset (delete confirm only).`);
     }, [shiftType, slotIndex]);
 
     useEffect(() => {
@@ -465,16 +489,26 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
 
     const handleAvatarClick = (e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation(); 
-        if (!canDeleteSelf || isDeletingSelf) return;
+        if (isDeletingSelf) return;
 
-        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] Avatar clicked. Current confirmation: ${isConfirmingDelete}`);
+        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] Avatar clicked. Current confirmation: ${isConfirmingDelete}, Requesting tooltip.`);
 
-        if (isConfirmingDelete) {
+        if (canDeleteSelf && isConfirmingDelete) {
             handleDeleteSelf();
-        } else {
-            resetState();
+        } else if (canDeleteSelf) {
+            // Сначала запросим тултип, потом установим флаг подтверждения
+            if (onRequestTooltip) {
+                onRequestTooltip(shiftType, slotIndex);
+            }
+            resetState(); // Сброс предыдущего таймера, если был
             setIsConfirmingDelete(true);
-            setShowTooltip(true);
+        } else {
+            // Просто запросим тултип
+            if (onRequestTooltip) {
+                onRequestTooltip(shiftType, slotIndex);
+            }
+             // Reset confirmation state if it was somehow active without being deletable
+            resetState(); 
         }
     };
 
@@ -488,8 +522,14 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
 
     const tooltipText = useMemo(() => {
         if (!courier) return '';
-        return `${courier.firstName || ''} ${courier.lastName || ''}`.trim() || `ID: ${courier.userId}`;
-    }, [courier]);
+        // Пытаемся взять имя из Redux, если нет - из пропса courier
+        const firstName = courierInfoFromRedux?.first_name ?? courier.firstName ?? '';
+        const lastName = courierInfoFromRedux?.last_name ?? courier.lastName ?? '';
+        const name = `${firstName} ${lastName}`.trim();
+        const idText = name ? name : `ID: ${courier.userId}`;
+        // Статус старшего берем из пропса courier
+        return courier.isSeniorCourier ? `${idText}\nСтарший курьер ★` : idText;
+    }, [courier, courierInfoFromRedux]);
 
     // <<< USE DROPPABLE (для ВСЕХ ПУСТЫХ слотов) >>>
     const droppableId = `empty-drop-${shiftType}-${slotIndex}`;
@@ -575,7 +615,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                     <TooltipWrapper 
                         {...(canDrag ? listeners : {})}
                         style={style}
-                        onClick={canDeleteSelf ? handleAvatarClick : undefined}
+                        onClick={handleAvatarClick}
                     >
                         <CourierAvatarContainer
                             $isDisabled={(!canDrag && !isCurrentUser) ?? false}
@@ -584,15 +624,15 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                             title={tooltipText}
                         >
                             <CourierAvatarImage 
-                                src={courier.photoUrl || defaultAvatar}
-                                alt={`${courier.firstName} ${courier.lastName}`}
+                                src={courierInfoFromRedux?.photo_url ?? courier.photoUrl ?? defaultAvatar}
+                                alt={tooltipText.split('\n')[0]}
                                 className={isCurrentUser ? 'current-user' : ''}
                                 onError={(e) => {
                                     const img = e.target as HTMLImageElement;
                                     img.src = defaultAvatar;
                                 }}
                             />
-                            {showSeniorBadge && !isConfirmingDelete && !isDeletingSelf && (
+                            {showSeniorBadge && !isDeletingSelf && (
                                 <SeniorBadge />
                             )}
                             {isConfirmingDelete && !isDeletingSelf && (
@@ -604,9 +644,47 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                                 <LoadingOverlay><LoadingSpinner /></LoadingOverlay>
                             )}
                         </CourierAvatarContainer>
-                        {showTooltip && (
-                            <SlotTooltip style={{ opacity: 1, pointerEvents: 'none' }}>
-                                {tooltipText}
+                        {/* <<< Используем isActiveTooltip для рендеринга >>> */}
+                        {isActiveTooltip && (
+                            <SlotTooltip style={{ opacity: 1, pointerEvents: 'auto' }}>
+                                <div>
+                                    <div>{tooltipText.split('\n')[0]}</div>
+                                    {courier.isSeniorCourier && <div style={{ color: '#FFD700' }}>Старший курьер ★</div>}
+                                    <button 
+                                        style={{ 
+                                            marginTop: '5px', 
+                                            padding: '5px 10px', 
+                                            backgroundColor: 'var(--primary-color)', 
+                                            color: 'white', 
+                                            border: 'none', 
+                                            borderRadius: 'var(--radius-sm)', 
+                                            cursor: 'pointer', 
+                                            transition: 'var(--transition-normal)', 
+                                            boxShadow: 'var(--shadow-sm)', 
+                                            fontSize: '12px', 
+                                            fontWeight: '500' 
+                                        }} 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            console.log(`Открыть профиль курьера ${courier.userId}`);
+                                            if (onOpenProfile && courier) {
+                                                onOpenProfile(courier);
+                                            }
+                                        }} 
+                                        onMouseEnter={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            target.style.backgroundColor = 'var(--primary-light)';
+                                            target.style.transform = 'var(--hover-transform)';
+                                        }} 
+                                        onMouseLeave={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            target.style.backgroundColor = 'var(--primary-color)';
+                                            target.style.transform = 'none';
+                                        }}
+                                    >
+                                        Открыть профиль
+                                    </button>
+                                </div>
                             </SlotTooltip>
                         )}
                     </TooltipWrapper>

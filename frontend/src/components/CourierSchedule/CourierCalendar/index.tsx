@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSelector } from 'react-redux';
-import { useAppDispatch } from '../../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../../store/hooks';
 import { CalendarProps } from './types';
 import { useCalendarData } from './hooks/useCalendarData';
 import { useReserveManagement } from './hooks/useReserveManagement';
@@ -18,6 +18,7 @@ import { RootState } from '../../../store/store';
 import ShiftSelectionDialog from '../ShiftSelectionDialog';
 import { addNotification, NotificationTypes } from '../../../store/slices/notificationSlice';
 import { deleteShiftAsSenior } from '../../../services/courierApi';
+import { selectUsersById } from '../../../store/slices/userSlice';
 
 const CourierCalendar: React.FC<CalendarProps> = ({
     currentUserId,
@@ -25,13 +26,17 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     currentUserName,
     onClose,
     chatId,
-    onShiftSelect
+    onShiftSelect,
+    onOpenSlotSettings,
+    onLongPress,
+    onOpenProfile
 }) => {
     // Принудительное отображение загрузочного экрана
     const [forceLoading, setForceLoading] = useState(true);
     
     const dispatch = useAppDispatch();
     const slotConfig = useSelector((state: RootState) => selectSlotConfig(state));
+    const usersById = useAppSelector(selectUsersById);
     
     const [selectedDateForDialog, setSelectedDateForDialog] = useState<Date | null>(null);
 
@@ -229,6 +234,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                                 isDateAvailable={(date: Date) => accessSettings ? isDateAvailable(date, currentUserId, accessSettings) : false}
                                 selectedDate={selectedDateForDialog}
                                 currentUserAvatar={currentUserAvatar}
+                                usersById={usersById}
                             />
                         </MonthContainer>
                     ))}
@@ -258,6 +264,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     onDeleteShift={handleDeleteShift}
                     onMoveToReserve={handleMoveToReserve}
                     showNotification={handleShowNotification}
+                    onOpenProfile={onOpenProfile}
                 />
             )}
         </>

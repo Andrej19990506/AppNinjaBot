@@ -105,14 +105,39 @@ const ErrorMessage = styled.div`
   margin: 10px 0;
 `;
 
+// Стили для элементов списка курьеров
+const CourierItem = styled.div`
+    padding: 10px;
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    &:hover {
+        background-color: #f5f5f5;
+    }
+`;
+
+const CourierAvatar = styled.img`
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+`;
+
+const CourierInfo = styled.div`
+    flex: 1;
+`;
+
 interface CouriersListProps {
   isOpen: boolean;
   onClose: () => void;
-  groupId: string | number;
-  requesterId: string | number;
+  groupId: string;
+  requesterId: string;
+  onOpenProfile?: (courier: any) => void;
 }
 
-const CouriersList: React.FC<CouriersListProps> = ({ isOpen, onClose, groupId, requesterId }) => {
+const CouriersList: React.FC<CouriersListProps> = ({ isOpen, onClose, groupId, requesterId, onOpenProfile }) => {
   const [isClosing, setIsClosing] = useState(false);
   const dispatch = useDispatch<AppDispatch>();
   
@@ -167,9 +192,33 @@ const CouriersList: React.FC<CouriersListProps> = ({ isOpen, onClose, groupId, r
           <ErrorMessage>{error}</ErrorMessage>
         ) : (
           <div>
-            <h4>Hello World!</h4>
-            <p>Здесь будет список курьеров группы (id: {groupId})</p>
-            <p>Количество курьеров: {couriers.length}</p>
+            {couriers.length > 0 ? (
+                couriers.map((courier: any) => (
+                    <CourierItem 
+                        key={courier.id || courier.user_id} 
+                        onClick={() => {
+                            if (onOpenProfile) {
+                                onOpenProfile(courier);
+                            }
+                        }}
+                    >
+                        <CourierAvatar 
+                            src={courier.photo_url || 'path/to/default/avatar.jpg'} 
+                            alt={`${courier.first_name} ${courier.last_name}`} 
+                            onError={(e) => {
+                                const img = e.target as HTMLImageElement;
+                                img.src = 'path/to/default/avatar.jpg';
+                            }}
+                        />
+                        <CourierInfo>
+                            <div>{courier.first_name} {courier.last_name}</div>
+                            <div style={{ fontSize: '0.8rem', color: '#888' }}>ID: {courier.id || courier.user_id}</div>
+                        </CourierInfo>
+                    </CourierItem>
+                ))
+            ) : (
+                <div>Нет курьеров в списке.</div>
+            )}
           </div>
         )}
       </SidePanel>

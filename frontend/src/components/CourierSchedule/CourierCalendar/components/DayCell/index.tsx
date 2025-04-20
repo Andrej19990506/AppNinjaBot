@@ -4,6 +4,7 @@ import defaultAvatar from '../../../../../assets/images/Ninja.jpg';
 import { CourierShift } from '../../types';
 import { WeeklySlotConfig } from '../../../../../store/slices/shiftsSlice';
 import { SLOTS_CONFIG } from '../../constants';
+import { User } from '../../../../../types/user';
 import {
     DayCellContainer,
     CourierAvatar,
@@ -23,12 +24,12 @@ interface DayCellProps {
     isAvailable: boolean;
     onClick: () => void;
     currentUserId: string;
-    currentUserAvatar?: string;
     getDayShifts: (date: Date) => CourierShift[];
     getNightShifts: (date: Date) => CourierShift[];
     hasUserShift: (date: Date) => boolean;
     userIsInReserve: (date: Date) => boolean;
     slotConfig: WeeklySlotConfig | null;
+    usersById: { [key: string]: User };
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -39,12 +40,12 @@ const DayCell: React.FC<DayCellProps> = ({
     isAvailable,
     onClick,
     currentUserId,
-    currentUserAvatar,
     getDayShifts,
     getNightShifts,
     hasUserShift,
     userIsInReserve,
-    slotConfig
+    slotConfig,
+    usersById
 }) => {
     if (!date) {
         return <DayCellContainer as="div" />;
@@ -65,16 +66,51 @@ const DayCell: React.FC<DayCellProps> = ({
             const userShift = [...dayShifts, ...nightShifts].find(shift => 
                 String(shift.userId) === String(currentUserId)
             );
+            const currentUserData = usersById[currentUserId];
+
             return (
                 <CourierAvatar 
-                    src={userShift?.photo_url || currentUserAvatar || defaultAvatar}
-                    alt={userShift?.firstName || 'Пользователь'}
+                    src={currentUserData?.photo_url || defaultAvatar}
+                    alt={currentUserData?.first_name || 'Текущий'}
                     onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                         const img = e.currentTarget;
                         img.src = defaultAvatar;
                     }}
                 />
             );
+        }
+
+        if (isAvailable && !userHasShift) {
+            if (dayShifts.length > 0) {
+                const shift = dayShifts[0];
+                const courier = usersById[shift.userId];
+                return (
+                    <CourierAvatar 
+                        src={courier?.photo_url || defaultAvatar}
+                        alt={courier?.first_name || 'Курьер'}
+                        title={`${courier?.first_name || 'Курьер'} ${courier?.last_name || ''} (День)`}
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                            const img = e.currentTarget;
+                            img.src = defaultAvatar;
+                        }}
+                    />
+                );
+            }
+            if (nightShifts.length > 0) {
+                const shift = nightShifts[0];
+                const courier = usersById[shift.userId];
+                return (
+                    <CourierAvatar 
+                        src={courier?.photo_url || defaultAvatar}
+                        alt={courier?.first_name || 'Курьер'}
+                        title={`${courier?.first_name || 'Курьер'} ${courier?.last_name || ''} (Ночь)`}
+                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+                            const img = e.currentTarget;
+                            img.src = defaultAvatar;
+                        }}
+                    />
+                );
+            }
         }
 
         if (inReserve) {

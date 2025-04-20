@@ -59,6 +59,7 @@ export interface CalendarProps {
     refetchData?: () => void;
     onOpenSlotSettings?: (dayIndex: number) => void;
     onLongPress?: (shiftType: 'day' | 'night', slotIndex: number) => void;
+    onOpenProfile?: (courier: any) => void;
 }
 
 export interface DayCellProps {

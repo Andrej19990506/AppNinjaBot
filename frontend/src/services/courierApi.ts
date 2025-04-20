@@ -1038,3 +1038,48 @@ export const requestTimesheetViaBot = async ({
         throw new Error('Неизвестная ошибка при запросе отправки табеля.');
     }
 };
+
+/**
+ * Обновляет данные курьера путем запроса актуальной информации из Telegram.
+ * Функция вызывает специальный эндпоинт API, который обращается к боту для получения обновленных данных.
+ * 
+ * @param userId - Telegram ID пользователя, чей профиль нужно обновить
+ * @returns Promise с обновленными данными пользователя
+ */
+export const refreshCourierProfileFromTelegram = async (userId: number | string): Promise<any> => {
+    const telegramId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+    if (isNaN(telegramId)) {
+        logger.error('[courierApi] ❌ Invalid userId provided for refreshCourierProfileFromTelegram', { userId });
+        throw new Error('Invalid User ID');
+    }
+    
+    logger.info(`[courierApi] 📡 Запрос обновления профиля курьера ID: ${telegramId} из Telegram`);
+    try {
+        const response = await axiosInstance.post(`/api/v1/users/${telegramId}/refresh`);
+        logger.info(`[courierApi] ✅ Профиль курьера ID: ${telegramId} обновлен из Telegram:`, response.data);
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при обновлении профиля курьера ID: ${telegramId} из Telegram`, error);
+        
+        if (axios.isAxiosError(error)) {
+            const axiosError = error as AxiosError<any>;
+            const status = axiosError.response?.status;
+            const responseData = axiosError.response?.data;
+            const detail = responseData?.detail;
+
+            if (axiosError.code === 'ERR_NETWORK') {
+                throw new Error('Ошибка сети. Пожалуйста, проверьте подключение к интернету.');
+            }
+            if (status === 404) {
+                throw new Error(detail || 'Пользователь не найден в Telegram или базе данных.');
+            }
+            if (status === 502 || status === 503) {
+                throw new Error(detail || 'Сервис бота недоступен. Попробуйте позже.');
+            }
+            throw new Error(detail || axiosError.message || 'Ошибка при обновлении профиля из Telegram.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Произошла неизвестная ошибка при обновлении профиля из Telegram.');
+    }
+};

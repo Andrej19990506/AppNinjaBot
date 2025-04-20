@@ -74,6 +74,11 @@ const CourierSchedule: React.FC = () => {
     // <<< Получаем конфиг слотов из стейта >>>
     const slotConfig = useAppSelector((state) => state.shifts.slotConfig);
 
+    // Добавим новое состояние для хранения данных выбранного курьера
+    const [selectedCourier, setSelectedCourier] = useState<any | null>(null);
+    // Состояние для отображения модального окна профиля
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
     const courierChatId = useMemo(() => {
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
         return courierGroup ? Number(courierGroup.chat_id) : undefined;
@@ -451,6 +456,24 @@ const CourierSchedule: React.FC = () => {
 
     // <<< Конец логики для Табеля >>>
 
+    // Добавим функцию для открытия профиля курьера
+    const handleOpenCourierProfile = useCallback((courier: any) => {
+        console.log('[CourierSchedule] Opening profile for courier:', courier);
+        setSelectedCourier({
+            first_name: courier.firstName || courier.first_name || '',
+            last_name: courier.lastName || courier.last_name || '',
+            photo_url: courier.photoUrl || courier.photo_url || undefined,
+            isSeniorCourier: courier.isSeniorCourier || courier.is_senior_courier || false
+        });
+        setIsProfileModalOpen(true);
+    }, []);
+
+    // Добавим функцию для закрытия профиля курьера
+    const handleCloseProfileModal = useCallback(() => {
+        setIsProfileModalOpen(false);
+        setSelectedCourier(null);
+    }, []);
+
     return (
         <Container>
             <Header>
@@ -490,6 +513,7 @@ const CourierSchedule: React.FC = () => {
                         if (showShiftAccessSettings) handleCloseShiftAccessSettings();
                     }}
                     onLongPress={handleLongPress}
+                    onOpenProfile={handleOpenCourierProfile}
                 />
             )}
             
@@ -500,6 +524,7 @@ const CourierSchedule: React.FC = () => {
                     onClose={handleCloseCouriersList}
                     groupId={courierChatIdString}
                     requesterId={String(user.id)}
+                    onOpenProfile={handleOpenCourierProfile}
                 />
             )}
             
@@ -570,6 +595,17 @@ const CourierSchedule: React.FC = () => {
                 onModalCancel={handleModalCancel}
                 isModalSaveDisabled={getIsModalSaveDisabled()}
             />
+
+            {/* Добавим рендеринг модального окна профиля */}
+            {isProfileModalOpen && selectedCourier && (
+                <CourierProfile 
+                    isSeniorCourier={selectedCourier.isSeniorCourier}
+                    targetUserId={selectedCourier.userId}
+                    isModal={true}
+                    isOpen={isProfileModalOpen}
+                    onClose={handleCloseProfileModal}
+                />
+            )}
         </Container>
     );
 };

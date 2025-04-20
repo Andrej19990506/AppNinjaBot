@@ -5,9 +5,10 @@ import { socketService } from '../../services/socket';
 import config from '../../config';
 // import { format } from 'date-fns'; // <<< Удаляем неиспользуемый импорт
 import { bookShift as bookShiftApi, deleteShiftAsSenior as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse } from '../../services/courierApi';
-import { CourierShift /*, ReserveEntry*/ } from '../../types/shifts';
+import { CourierShift, User } from '../../types';
 import { removeReserveByIdThunk } from './reservesSlice';
 import { logger } from '../../utils/logger'; // <<< Добавляем импорт логгера
+import { usersReceived } from './userSlice'; // <<< Импортируем новый action
 
 const API_BASE_URL = config.API_URL;
 
@@ -140,24 +141,53 @@ export const shiftEvents = {
 // Асинхронные thunks
 export const fetchShifts = createAsyncThunk(
     'shifts/fetchShifts',
-    async (_, { getState, rejectWithValue }) => {
+    async (_, { getState, rejectWithValue, dispatch }) => {
         const state = getState() as RootState;
-        const chatId = state.user.user?.groups && state.user.user.groups.length > 0 
-            ? state.user.user.groups[0].chat_id 
-            : undefined;
+        const chatId = state.user.user?.groups?.find(g => g.group_type === 'courier')?.chat_id;
 
-        if (chatId === undefined) {
-            console.warn('[shiftsSlice] No chat_id available, cannot fetch shifts');
+        if (!chatId) {
+            logger.warn('[shiftsSlice] No chat_id available, cannot fetch shifts');
             return rejectWithValue('Chat ID not found');
         }
 
         try {
-            console.log('[shiftsSlice] Fetching shifts for chat_id:', chatId);
-            const shiftsData = await getShifts(chatId);
-            console.log('[shiftsSlice] Fetched shifts via getShifts:', shiftsData);
-            return shiftsData;
+            logger.info('[shiftsSlice] Fetching shifts for chat_id:', chatId);
+            const shiftsData: ApiShift[] = await getShifts(chatId);
+            logger.info('[shiftsSlice] Fetched shifts via getShifts:', shiftsData);
+
+            // <<< НАЧАЛО: Сбор и диспатч данных пользователей >>>
+            const usersMap: { [key: number]: User } = {};
+            for (const apiShift of shiftsData) {
+                const memberData = apiShift.member;
+                const userId = memberData?.user_id ?? apiShift.user_id;
+
+                if (userId && !usersMap[userId]) { // Собираем только уникальных пользователей
+                    // Создаем объект User, добавляя поля по умолчанию
+                    usersMap[userId] = {
+                        id: userId,
+                        first_name: memberData?.first_name ?? apiShift.first_name ?? '',
+                        last_name: memberData?.last_name ?? apiShift.last_name ?? '',
+                        username: memberData?.username,
+                        photo_url: memberData?.photo_url ?? apiShift.photo_url,
+                        // Добавляем поля по умолчанию, которых нет в ApiShift/Member
+                        isAdmin: false, 
+                        adminRights: null,
+                        groups: [], 
+                        // Добавляем isSeniorCourier из member, если есть
+                        isSeniorCourier: memberData?.is_senior_courier ?? false,
+                    };
+                }
+            }
+            
+            if (Object.keys(usersMap).length > 0) {
+                logger.info('[shiftsSlice] Dispatching usersReceived with users from fetched shifts:', usersMap);
+                dispatch(usersReceived(usersMap));
+            }
+            // <<< КОНЕЦ: Сбор и диспатч данных пользователей >>>
+
+            return shiftsData; // Возвращаем исходные данные смен для редьюсера fetchShifts.fulfilled
         } catch (error: any) {
-            console.error('Error fetching shifts:', error.message || error);
+            logger.error('Error fetching shifts:', error.message || error);
             return rejectWithValue(error.message || 'Failed to fetch shifts');
         }
     }

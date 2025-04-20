@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, FC } from 'react';
-import styled, { css } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import { ReserveEntry, CourierShift } from '../../types/shifts';
 import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
 import { SLOTS_CONFIG } from './CourierCalendar/constants';
@@ -11,7 +11,7 @@ import BottomDrawer from './components/BottomDrawer';
 import ShiftConfirmationDialog from './components/ShiftConfirmationDialog';
 import { logger } from '../../utils/logger';
 import { useSelector } from 'react-redux';
-import { selectUser } from '../../store/slices/userSlice';
+import { selectUser, userProfileUpdatedWs, selectUsersById } from '../../store/slices/userSlice';
 import { NotificationTypes } from '../../store/slices/notificationSlice';
 // @ts-ignore
 import { DndContext, KeyboardSensor, useSensor, useSensors, DragEndEvent, MouseSensor, TouchSensor, DragOverlay, DragStartEvent, pointerWithin, DragOverEvent } from '@dnd-kit/core';
@@ -21,6 +21,176 @@ import DeleteDropZone, { DELETE_DROP_ZONE_ID } from './DeleteDropZone';
 import ReserveDropZone, { RESERVE_DROP_ZONE_ID } from './ReserveDropZone';
 // Импортируем новую функцию API
 import { moveShiftToReserve, updateShiftSlot } from '../../services/courierApi';
+import CourierProfile from '../../components/CourierProfile/CourierProfile';
+import { CourierShift as CourierShiftType } from './CourierCalendar/types';
+// Импортируем функцию для обновления профиля
+import { refreshCourierProfileFromTelegram } from '../../services/courierApi';
+// <<< Добавляем useAppDispatch >>>
+import { useAppDispatch } from '../../store/hooks';
+// <<< Добавляем импорт User >>>
+import { User } from '../../types/user';
+
+const rotateAnimation = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+// Добавим новый styled компонент для иконки обновления
+const RefreshIcon = styled.span<{ $isRefreshing: boolean }>`
+  font-size: 14px;
+  display: inline-block;
+  ${props => props.$isRefreshing && css`
+    animation: ${rotateAnimation} 1s linear infinite;
+  `}
+`;
+
+// Добавляем стилизованные компоненты для кнопок профиля
+const ProfileHeaderContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-color);
+  position: relative;
+  background-color: var(--card-background);
+  z-index: 2;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+`;
+
+const CourierInfoContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const CourierPhoto = styled.div`
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--primary-color);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
+  
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+`;
+
+const CourierName = styled.span`
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--text-color);
+  background: var(--gradient-primary);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+`;
+
+const HeaderButtonsContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const RefreshButton = styled.button<{ $isRefreshing: boolean }>`
+  background: ${props => props.$isRefreshing ? 'var(--primary-color)' : 'var(--gradient-primary)'};
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 8px;
+  width: 36px;
+  height: 36px;
+  cursor: ${props => props.$isRefreshing ? 'default' : 'pointer'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: ${props => props.$isRefreshing ? 0.8 : 1};
+  box-shadow: var(--shadow-sm);
+  transform: ${props => props.$isRefreshing ? 'scale(0.98)' : 'scale(1)'};
+  
+  &:hover:not(:disabled) {
+    transform: scale(1.03);
+    box-shadow: var(--shadow-md);
+  }
+  
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+  
+  &:disabled {
+    cursor: not-allowed;
+  }
+
+  ${RefreshIcon} {
+      font-size: 18px; 
+  }
+`;
+
+const CloseButton = styled.button`
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  transition: all var(--transition-normal);
+  width: 32px;
+  height: 32px;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-color);
+  }
+  
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    color: var(--text-color);
+  }
+  
+  &:active {
+    transform: scale(0.92);
+  }
+  
+  svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.5;
+  }
+`;
+
+const HeaderDivider = styled.div`
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--gradient-primary);
+  opacity: 0.5;
+`;
 
 const ModeSwitchContainer = styled.div`
     display: flex;
@@ -163,12 +333,60 @@ interface ShiftSelectionDialogProps {
     onMoveToReserve?: (shiftId: string, courierId: string) => Promise<any>;
     onShiftDeletedLocally?: (shiftId: string) => void;
     showNotification?: (type: NotificationTypes, message: string, title?: string) => void;
+    onOpenProfile?: (courier: CourierShift) => void;
 }
 
 interface PendingShiftAction {
     shiftType: 'day' | 'night';
     slotIndex: number;
 }
+
+const SeniorCourierBadge = styled.div`
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 1px 3px rgba(var(--primary-rgb), 0.15);
+    z-index: 2;
+    border: 1.5px solid var(--card-background);
+    
+    &::before {
+        content: '⭐';
+        font-size: 10px;
+        line-height: 1;
+    }
+`;
+
+// <<< НОВЫЙ КОМПОНЕНТ: Блок "В разработке" >>>
+const DevelopmentNotice = styled.div`
+  margin-top: 24px;
+  padding: 16px;
+  text-align: center;
+  border: 1px dashed var(--warning-color);
+  border-radius: var(--radius);
+  background-color: var(--warning-background);
+  color: var(--text-secondary);
+`;
+
+const AnimatedGearIcon = styled.span`
+  display: inline-block;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  animation: ${rotateAnimation} 2s linear infinite;
+  color: var(--warning-color);
+`;
+
+const DevelopmentText = styled.p`
+  margin: 0;
+  font-size: 0.9rem;
+`;
+// <<< КОНЕЦ НОВОГО КОМПОНЕНТА >>>
 
 const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     isOpen,
@@ -193,7 +411,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     onMoveToReserve,
     onShiftDeletedLocally,
     showNotification,
+    onOpenProfile
 }) => {
+    const dispatch = useAppDispatch(); // <<< Инициализируем dispatch
     const [mode, setMode] = useState<'shifts' | 'reserves'>('shifts');
     const [internalIsBookingLoading, setInternalIsBookingLoading] = useState(false);
     const [loadingSlot, setLoadingSlot] = useState<number | null>(null);
@@ -230,7 +450,15 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     // <<< НОВОЕ СОСТОЯНИЕ ДЛЯ ОБРАБОТКИ ПЕРЕМЕЩЕНИЯ СЛОТА >>>
     const [isProcessingMove, setIsProcessingMove] = useState(false);
 
+    // Добавляем состояние для отображения профиля курьера
+    const [selectedCourier, setSelectedCourier] = useState<CourierShift | null>(null);
+    const [showCourierProfile, setShowCourierProfile] = useState(false);
+
+    // Добавляем состояние загрузки для кнопки обновления профиля
+    const [isProfileRefreshing, setIsProfileRefreshing] = useState(false);
+
     const user = useSelector(selectUser);
+    const usersById = useSelector(selectUsersById);
     const isCurrentUserSenior = useMemo(() => {
         if (!user || !user.groups || !chatId) {
             return false;
@@ -240,6 +468,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         logger.debug(`[ShiftSelectionDialog] Computed isCurrentUserSenior for chatId ${chatId}: ${isSenior}`);
         return isSenior;
     }, [user, chatId]);
+
+    const selectedCourierIsSenior = useMemo(() => {
+        if (!selectedCourier) return false;
+        return (selectedCourier as any).isSeniorCourier === true || (selectedCourier as any).is_senior_courier === true;
+    }, [selectedCourier]);
 
     logger.debug(`[ShiftSelectionDialog] Rendering component. Current mode: ${mode}, isOpen: ${isOpen}, initialModeSet: ${initialModeSet}`);
 
@@ -781,6 +1014,74 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)'
     };
 
+    // Добавляем обработчик для открытия профиля
+    const handleOpenCourierProfile = useCallback((courier: CourierShift) => {
+        setSelectedCourier(courier);
+        setShowCourierProfile(true);
+    }, []);
+    
+    // Добавляем обработчик для закрытия профиля и возврата к списку смен
+    const handleCloseProfile = useCallback(() => {
+        setShowCourierProfile(false);
+        setSelectedCourier(null);
+    }, []);
+
+    // Добавляем функцию обновления профиля курьера
+    const handleRefreshCourierProfile = useCallback(async () => {
+        if (!selectedCourier) return;
+        
+        setIsProfileRefreshing(true);
+        
+        if (showNotification) {
+            showNotification(
+                NotificationTypes.INFO,
+                `Обновление информации о курьере ${selectedCourier.firstName} ${selectedCourier.lastName}...`
+            );
+        }
+        
+        try {
+            const courierIdStr = selectedCourier.userId || (selectedCourier as any).user_id || selectedCourier.id || '';
+            const courierIdNum = parseInt(courierIdStr, 10);
+            
+            if (!courierIdNum) {
+                throw new Error('Не удалось определить ID курьера для обновления.');
+            }
+
+            const updatedCourierData = await refreshCourierProfileFromTelegram(courierIdStr);
+            
+            // <<< ДИСПАТЧИМ userProfileUpdatedWs с частичными данными >>>
+            const profileUpdate: Partial<import('../../types/user').User> = {
+                first_name: updatedCourierData.first_name,
+                last_name: updatedCourierData.last_name,
+                photo_url: updatedCourierData.photo_url,
+                username: updatedCourierData.username, // Добавим и username на всякий случай
+            };
+
+            dispatch(userProfileUpdatedWs({ 
+                user_id: courierIdNum, 
+                profile: profileUpdate 
+            }));
+            // --- Убираем обновление локального стейта ---
+            
+            if (showNotification) {
+                showNotification(
+                    NotificationTypes.SUCCESS,
+                    `Информация о курьере ${updatedCourierData.first_name} ${updatedCourierData.last_name} обновлена`
+                );
+            }
+        } catch (error) {
+            logger.error(`[ShiftSelectionDialog] Ошибка при обновлении профиля курьера:`, error);
+            if (showNotification) {
+                showNotification(
+                    NotificationTypes.ERROR,
+                    error instanceof Error ? error.message : 'Не удалось обновить профиль курьера из Telegram'
+                );
+            }
+        } finally {
+            setIsProfileRefreshing(false);
+        }
+    }, [selectedCourier, showNotification, setIsProfileRefreshing, dispatch]);
+
     return (
         <DndContext 
             sensors={sensors} 
@@ -792,21 +1093,86 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             <BottomDrawer
                 isOpen={isOpen}
                 onClose={onClose}
-                title={date ? `Смены на ${format(date, 'd MMMM yyyy', { locale: ru })}` : 'Выберите дату'}
+                title={
+                    showCourierProfile && selectedCourier 
+                        ? `Профиль курьера` 
+                        : (date ? `Смены на ${format(date, 'd MMMM yyyy', { locale: ru })}` : 'Выберите дату')
+                }
+                customHeader={showCourierProfile && selectedCourier ? (
+                    <ProfileHeaderContainer>
+                        <CourierInfoContainer>
+                            <CourierPhoto>
+                                {(() => {
+                                    const userIdNum = selectedCourier?.userId ? parseInt(String(selectedCourier.userId), 10) : null;
+                                    const latestUserData = userIdNum ? usersById[userIdNum] : null;
+                                    const photoUrl = latestUserData?.photo_url || (selectedCourier as any)?.photoUrl || (selectedCourier as any)?.photo_url || '';
+                                    return (
+                                        <img 
+                                            src={photoUrl || '/assets/images/Ninja.jpg'} 
+                                            alt="Фото курьера"
+                                            onError={(e) => {
+                                                const img = e.target as HTMLImageElement;
+                                                img.src = '/assets/images/Ninja.jpg';
+                                            }}
+                                        />
+                                    );
+                                })()}
+                                {selectedCourierIsSenior && <SeniorCourierBadge />}
+                            </CourierPhoto>
+                            <CourierName>
+                                {(() => {
+                                    const userIdNum = selectedCourier?.userId ? parseInt(String(selectedCourier.userId), 10) : null;
+                                    const latestUserData = userIdNum ? usersById[userIdNum] : null;
+                                    const firstName = latestUserData?.first_name || selectedCourier?.firstName || '';
+                                    const lastName = latestUserData?.last_name || selectedCourier?.lastName || '';
+                                    return `${firstName} ${lastName}`.trim();
+                                })()}
+                            </CourierName>
+                        </CourierInfoContainer>
+                        <HeaderButtonsContainer>
+                            <RefreshButton
+                                $isRefreshing={isProfileRefreshing}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!isProfileRefreshing) {
+                                        handleRefreshCourierProfile();
+                                    }
+                                }}
+                                disabled={isProfileRefreshing}
+                                aria-label={isProfileRefreshing ? "Обновление профиля..." : "Обновить профиль"}
+                            >
+                                <RefreshIcon $isRefreshing={isProfileRefreshing}>
+                                    ⟳
+                                </RefreshIcon> 
+                            </RefreshButton>
+                            <CloseButton
+                                onClick={onClose}
+                                aria-label="Закрыть"
+                            >
+                                <svg 
+                                    viewBox="0 0 24 24" 
+                                    fill="none" 
+                                    stroke="currentColor"
+                                >
+                                    <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </CloseButton>
+                        </HeaderButtonsContainer>
+                        <HeaderDivider />
+                    </ProfileHeaderContainer>
+                ) : undefined}
             >
-                {/* Рендерим либо контейнер зон, либо кнопки */} 
-                {showZones ? (
+                {/* Рендерим зоны только если не показываем профиль */}
+                {!showCourierProfile && showZones ? (
                     <FlexContainer> 
-                        {/* Передаем renderDeleteZone/renderReserveZone для условного рендеринга */} 
                         {renderDeleteZone && (
                             <DeleteDropZone 
                                 isOver={isOverDeleteZone}
                                 isProcessing={isProcessingDelete} 
                                 isConfirming={isConfirmingDelete} 
                                 courierData={confirmedDeletedCourier} 
-                                // Используем данные из shiftToDeleteData ИЛИ tempCourierData
                                 processingCourierData={shiftToDeleteData?.courier || tempCourierData}
-                                isAwaitingConfirmation={isDeleteAwaitingConfirmation} // Переименовано
+                                isAwaitingConfirmation={isDeleteAwaitingConfirmation}
                                 onConfirm={handleConfirmDelete} 
                                 onCancel={handleCancelDelete}
                             />
@@ -816,99 +1182,133 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 isOver={isOverReserveZone}
                                 isProcessing={isProcessingReserve} 
                                 isConfirming={isConfirmingReserve} 
-                                confirmedCourierData={confirmedReserveCourier} // Для галочки
-                                // Для ожидания/обработки используем shiftToReserveData или tempCourierData
+                                confirmedCourierData={confirmedReserveCourier}
                                 courierAwaitingActionData={shiftToReserveData?.courier || tempCourierData}
-                                isAwaitingConfirmation={isReserveAwaitingConfirmation} // Новое состояние
-                                onConfirm={handleConfirmReserve} // Новый обработчик
-                                onCancel={handleCancelReserve} // Новый обработчик
+                                isAwaitingConfirmation={isReserveAwaitingConfirmation}
+                                onConfirm={handleConfirmReserve}
+                                onCancel={handleCancelReserve}
                             />
                         )}
                     </FlexContainer>
-                ) : (
-                    /* Обычные кнопки переключения режимов */
+                ) : !showCourierProfile && (
                     <ModeSwitchContainer>
                         <ModeButton
                             $active={mode === 'shifts'}
                             onClick={() => setModeWrapper('shifts')}
-                            disabled={internalIsBookingLoading || isConfirmationOpen} // Убираем зависимость от зон
+                            disabled={internalIsBookingLoading || isConfirmationOpen}
                         >
                             {"Смены"}
                         </ModeButton>
                         <ModeButton
                             $active={mode === 'reserves'}
                             onClick={() => setModeWrapper('reserves')}
-                            disabled={internalIsBookingLoading || isConfirmationOpen} // Убираем зависимость от зон
+                            disabled={internalIsBookingLoading || isConfirmationOpen}
                         >
                             Резерв
                         </ModeButton>
                     </ModeSwitchContainer>
                 )}
 
-                {reserveError && <Alert severity="error" sx={{ mb: 2 }}>{reserveError}</Alert>} 
-                        
-                {mode === 'shifts' ? (
-                    isConfirmationOpen && pendingAction ? (
-                        <ShiftConfirmationDialog
-                            isOpen={isConfirmationOpen}
-                            onCancel={handleCloseConfirmation}
-                            onConfirm={handleConfirmAction}
-                            date={date}
-                            pendingShift={pendingAction}
-                            userName={currentUserName}
-                            userAvatar={currentUserAvatar}
+                {!showCourierProfile && reserveError && <Alert severity="error" sx={{ mb: 2 }}>{reserveError}</Alert>} 
+                
+                {/* Показываем профиль курьера или панели смен/резерва */}
+                {showCourierProfile && selectedCourier ? (
+                    <div style={{ padding: '10px 0' }}>
+                        <CourierProfile 
+                            isSeniorCourier={(selectedCourier as any)?.isSeniorCourier ?? false}
+                            targetUserId={selectedCourier.userId}
+                            hideOwnStatus={true}
                         />
+                        
+                        {/* <<< ПЕРЕМЕЩАЕМ БЛОК "В РАЗРАБОТКЕ" СЮДА >>> */}
+                        <DevelopmentNotice>
+                            <AnimatedGearIcon>⚙️</AnimatedGearIcon>
+                            <DevelopmentText>Функционал в разработке</DevelopmentText>
+                        </DevelopmentNotice>
+
+                        <button 
+                            style={{ 
+                                marginTop: '20px',
+                                padding: '12px 20px',
+                                backgroundColor: 'var(--primary-color)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 'var(--radius)',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                width: '100%',
+                                transition: 'all 0.2s ease'
+                            }}
+                            onClick={handleCloseProfile}
+                        >
+                            Вернуться к списку смен
+                        </button>
+                    </div>
+                ) : (
+                    mode === 'shifts' ? (
+                        isConfirmationOpen && pendingAction ? (
+                            <ShiftConfirmationDialog
+                                isOpen={isConfirmationOpen}
+                                onCancel={handleCloseConfirmation}
+                                onConfirm={handleConfirmAction}
+                                date={date}
+                                pendingShift={pendingAction}
+                                userName={currentUserName}
+                                userAvatar={currentUserAvatar}
+                            />
+                        ) : (
+                            <ShiftPanel
+                                date={date}
+                                dayShifts={dayShifts}
+                                nightShifts={nightShifts}
+                                maxDaySlots={currentMaxDay}
+                                maxNightSlots={currentMaxNight}
+                                currentUserId={currentUserId}
+                                currentUserName={currentUserName}
+                                onSlotSelect={handleSlotSelectWrapper}
+                                onSwitchToReserve={() => setModeWrapper('reserves')}
+                                showSuccessMessage={showSuccessMessage}
+                                showErrorMessage={(message) => {
+                                    if (showNotification) {
+                                        showNotification(NotificationTypes.ERROR, message);
+                                    } else {
+                                        logger.error("[ShiftSelectionDialog] showNotification is undefined, cannot display error:", message);
+                                    }
+                                }}
+                                isLoading={internalIsBookingLoading}
+                                loadingSlot={loadingSlot}
+                                loadingType={loadingType}
+                                chatId={chatId}
+                                isSenior={isCurrentUserSenior}
+                                draggingShiftType={draggingShiftType}
+                                isDraggingGlobal={isDraggingGlobally}
+                                processingShiftId={processingShiftId}
+                                isProcessingMove={isProcessingMove}
+                                onOpenProfile={handleOpenCourierProfile}
+                            />
+                        )
                     ) : (
-                        <ShiftPanel
+                        <ReservePanel
                             date={date}
+                            currentUserId={currentUserId}
+                            currentUserAvatar={currentUserAvatar}
+                            currentUserName={currentUserName}
                             dayShifts={dayShifts}
                             nightShifts={nightShifts}
-                            maxDaySlots={currentMaxDay}
-                            maxNightSlots={currentMaxNight}
-                            currentUserId={currentUserId}
-                            currentUserName={currentUserName}
-                            onSlotSelect={handleSlotSelectWrapper}
-                            onSwitchToReserve={() => setModeWrapper('reserves')}
+                            onSwitchToShifts={() => setModeWrapper('shifts')}
+                            getDisplayReservesForDate={getDisplayReservesForDate}
+                            isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
+                            addCurrentUserToReserve={addCurrentUserToReserve}
+                            cancelReserveById={cancelReserveById}
+                            isLoading={isReserveLoading}
+                            error={reserveError}
                             showSuccessMessage={showSuccessMessage}
-                            showErrorMessage={(message) => {
-                                if (showNotification) {
-                                    showNotification(NotificationTypes.ERROR, message);
-                                } else {
-                                    logger.error("[ShiftSelectionDialog] showNotification is undefined, cannot display error:", message);
-                                }
-                            }}
-                            isLoading={internalIsBookingLoading}
-                            loadingSlot={loadingSlot}
-                            loadingType={loadingType}
                             chatId={chatId}
-                            isSenior={isCurrentUserSenior}
-                            draggingShiftType={draggingShiftType}
-                            isDraggingGlobal={isDraggingGlobally}
-                            processingShiftId={processingShiftId}
-                            isProcessingMove={isProcessingMove}
+                            isCurrentUserSenior={isCurrentUserSenior}
                         />
                     )
-                ) : (
-                    <ReservePanel
-                        date={date}
-                        currentUserId={currentUserId}
-                        currentUserAvatar={currentUserAvatar}
-                        currentUserName={currentUserName}
-                        dayShifts={dayShifts}
-                        nightShifts={nightShifts}
-                        onSwitchToShifts={() => setModeWrapper('shifts')}
-                        getDisplayReservesForDate={getDisplayReservesForDate}
-                        isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
-                        addCurrentUserToReserve={addCurrentUserToReserve}
-                        cancelReserveById={cancelReserveById}
-                        isLoading={isReserveLoading}
-                        error={reserveError}
-                        showSuccessMessage={showSuccessMessage}
-                        chatId={chatId}
-                        isCurrentUserSenior={isCurrentUserSenior}
-                    />
                 )}
-
             </BottomDrawer>
 
             <DragOverlay 
@@ -921,7 +1321,6 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     <CourierDragAvatar courier={activeDragData.courier} />
                 ) : null}
             </DragOverlay>
-
         </DndContext>
     );
 });

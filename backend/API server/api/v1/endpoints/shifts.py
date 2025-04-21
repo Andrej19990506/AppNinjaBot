@@ -65,6 +65,15 @@ class ShiftCreateTelegram(BaseModel):
     group_telegram_id: int # Telegram ID группы
     # is_drag_action: Optional[bool] = None # Если нужно передавать
 
+# <<< Новая схема для НАЗНАЧЕНИЯ курьера старшим >>>
+class ShiftAssignBySenior(BaseModel):
+    assigner_telegram_id: int = Field(..., description="Telegram ID старшего курьера, выполняющего назначение")
+    target_user_telegram_id: int = Field(..., description="Telegram ID курьера, которого назначают на смену")
+    group_telegram_id: int = Field(..., description="Telegram ID группы, в которую происходит назначение")
+    date: str = Field(..., description="Дата смены в формате YYYY-MM-DD")
+    shift_type: str = Field(..., description="Тип смены ('day' или 'night')")
+    slot_index: int = Field(..., description="Индекс слота (начиная с 0)")
+
 router = APIRouter()
 
 @router.get("", response_model=List[ShiftRead])
@@ -708,6 +717,167 @@ async def update_shift_slot(
 
     logger.info(f"[Update Shift Slot] Successfully updated shift {shift_id}")
     return db_shift # Возвращаем обновленный объект Shift (Pydantic сам преобразует в ShiftRead) 
+
+# ===> НОВЫЙ ЭНДПОИНТ ДЛЯ НАЗНАЧЕНИЯ СМЕНЫ СТАРШИМ <===
+@router.post("/assign", response_model=ShiftRead, status_code=status.HTTP_201_CREATED)
+async def assign_shift_by_senior(
+    assignment_data: ShiftAssignBySenior,
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Назначает указанного курьера на смену старшим курьером."""
+    logger.info(f"[Assign Shift] Attempt by assigner {assignment_data.assigner_telegram_id} "
+                f"to assign target {assignment_data.target_user_telegram_id} "
+                f"to group {assignment_data.group_telegram_id} on {assignment_data.date} "
+                f"slot {assignment_data.shift_type}-{assignment_data.slot_index}")
+
+    async with db.begin(): # Используем транзакцию
+        # 1. Найти группу и ее настройки
+        group_result = await db.execute(
+            select(Group).where(Group.group_id == assignment_data.group_telegram_id)
+        )
+        group: Group | None = group_result.scalar_one_or_none()
+        if group is None:
+            logger.error(f"[Assign Shift] Group {assignment_data.group_telegram_id} not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group {assignment_data.group_telegram_id} not found")
+
+        # 2. Проверить права назначающего (assigner)
+        assigner_member_result = await db.execute(
+            select(Member).where(Member.user_id == assignment_data.assigner_telegram_id)
+        )
+        assigner_member: Member | None = assigner_member_result.scalar_one_or_none()
+        if assigner_member is None:
+            logger.warning(f"[Assign Shift] Assigner member {assignment_data.assigner_telegram_id} not found.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Assigner user ID not found.")
+
+        assigner_gm_result = await db.execute(
+            select(GroupMember.is_senior_courier).where(
+                (GroupMember.member_id == assigner_member.id) &
+                (GroupMember.group_id == group.id)
+            )
+        )
+        is_assigner_senior = assigner_gm_result.scalar_one_or_none()
+        if not is_assigner_senior:
+            logger.warning(f"[Assign Shift] User {assignment_data.assigner_telegram_id} is NOT senior in group {group.group_id}. Assignment denied.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Action requires senior courier permissions.")
+        logger.info(f"[Assign Shift] Assigner {assignment_data.assigner_telegram_id} IS senior. Permissions granted.")
+
+        # 3. Найти назначаемого пользователя (target)
+        target_member_result = await db.execute(
+            select(Member).where(Member.user_id == assignment_data.target_user_telegram_id)
+        )
+        target_member: Member | None = target_member_result.scalar_one_or_none()
+        if target_member is None:
+            logger.error(f"[Assign Shift] Target member {assignment_data.target_user_telegram_id} not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Target courier with ID {assignment_data.target_user_telegram_id} not found")
+
+        # 4. Преобразовать дату
+        try:
+            date_obj = datetime.strptime(assignment_data.date, '%Y-%m-%d').date()
+        except ValueError:
+            logger.error(f"[Assign Shift] Invalid date format: {assignment_data.date}")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid date format. Use YYYY-MM-DD.")
+
+        # 5. Проверить, свободен ли целевой слот
+        target_slot_occupied_stmt = (
+            select(Shift.id)
+            .where(
+                (Shift.group_id == group.id) &
+                (Shift.date == date_obj) &
+                (Shift.shift_type == assignment_data.shift_type) &
+                (Shift.slot_index == assignment_data.slot_index)
+            )
+        )
+        target_slot_occupied_result = await db.execute(target_slot_occupied_stmt)
+        occupied_shift_id = target_slot_occupied_result.scalar_one_or_none()
+        if occupied_shift_id:
+            logger.warning(f"[Assign Shift] Target slot {assignment_data.shift_type}-{assignment_data.slot_index} on {date_obj} is already occupied by shift {occupied_shift_id}.")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Target slot {assignment_data.shift_type} {assignment_data.slot_index + 1} is already occupied."
+            )
+
+        # 6. Обработать существующие смены НАЗНАЧАЕМОГО курьера (если allowMultipleShifts=false)
+        allow_multiple = group.access_settings.get('allowMultipleShifts', True)
+        if not allow_multiple:
+            logger.info(f"[Assign Shift] allowMultipleShifts is False. Checking existing shifts for target member {target_member.id} on {date_obj}...")
+            stmt_find_target_existing = (
+                select(Shift)
+                .where(
+                    Shift.member_id == target_member.id, # <<< Проверяем для target_member.id
+                    Shift.group_id == group.id,
+                    Shift.date == date_obj
+                )
+            )
+            target_existing_shifts_result = await db.execute(stmt_find_target_existing)
+            target_existing_shifts = target_existing_shifts_result.scalars().all()
+            if target_existing_shifts:
+                logger.info(f"[Assign Shift] Found {len(target_existing_shifts)} existing shift(s) for target member {target_member.id}. Deleting them...")
+                for existing_shift in target_existing_shifts:
+                    logger.debug(f"[Assign Shift] Deleting existing shift ID: {existing_shift.id} for target user.")
+                    await db.delete(existing_shift)
+            else:
+                logger.info(f"[Assign Shift] No existing shifts found for target member {target_member.id} on {date_obj}.")
+
+        # 7. Создать новую смену для НАЗНАЧАЕМОГО курьера
+        db_shift = Shift(
+            member_id=target_member.id, # <<< Используем ID назначаемого
+            group_id=group.id,
+            date=date_obj,
+            shift_type=assignment_data.shift_type,
+            slot_index=assignment_data.slot_index
+            # created_by можно добавить, если есть поле, указав assigner_member.id
+        )
+        db.add(db_shift)
+        await db.flush() # Flush для получения ID новой смены
+        await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member']) # Обновляем с нужными связями
+
+    # Транзакция завершится (commit или rollback)
+
+    # --- Отправка NOTIFY после успешной транзакции --- >
+    try:
+        # Добавляем статус старшего ПЕРЕД отправкой (для назначаемого курьера)
+        if db_shift.member:
+             is_target_senior = False 
+             gm_target_result = await db.execute(
+                 select(GroupMember.is_senior_courier)
+                 .where(
+                     (GroupMember.member_id == db_shift.member.id) &
+                     (GroupMember.group_id == group.id)
+                 )
+             )
+             target_senior_status = gm_target_result.scalar_one_or_none()
+             if target_senior_status is not None:
+                 is_target_senior = target_senior_status
+             try:
+                 setattr(db_shift.member, 'is_senior_courier', is_target_senior)
+             except AttributeError: pass
+
+        pydantic_shift = ShiftRead.model_validate(db_shift, from_attributes=True)
+        shift_data_dict = pydantic_shift.model_dump(exclude_none=True, mode='json')
+
+        notify_payload_dict = {
+            "type": "shifts_updated",
+            "chat_id": str(assignment_data.group_telegram_id),
+            "source": "shift_assignment", # Новый источник
+            "shift_data": shift_data_dict
+        }
+        notify_payload_json = json.dumps(notify_payload_dict)
+
+        if len(notify_payload_json.encode('utf-8')) < 7900:
+            escaped_payload = notify_payload_json.replace("'", "''")
+            sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+            await db.execute(sql_command)
+            logger.info(f"[Assign Shift] Sent NOTIFY for assigned shift_id {db_shift.id} in chat_id {assignment_data.group_telegram_id}")
+        else:
+            logger.warning(f"[Assign Shift] NOTIFY payload for assigned shift_id {db_shift.id} is too large. Skipping NOTIFY.")
+
+    except Exception as notify_err:
+        logger.error(f"[Assign Shift] Failed to send NOTIFY for chat_id {assignment_data.group_telegram_id}: {notify_err}", exc_info=True)
+    # --- Конец блока NOTIFY ---
+
+    logger.info(f"[Assign Shift] Successfully assigned shift {db_shift.id} for member {target_member.user_id}")
+    return db_shift # Возвращаем созданный объект Shift
+
 
 # ===> TIMESHEET ENDPOINTS <===
 

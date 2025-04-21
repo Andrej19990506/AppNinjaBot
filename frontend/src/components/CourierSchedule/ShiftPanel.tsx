@@ -1,16 +1,16 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components'; // Возвращаем styled
-// import { useSelector } from 'react-redux'; // <<< УДАЛЯЕМ
-// import { RootState } from '../../store/store'; // <<< УДАЛЯЕМ
-// import { ShiftSlot } from '../../types/shifts'; // <<< УДАЛЯЕМ
-
 import ShiftPanelContainer from './ShiftPanelContainer';
 import { logger } from '../../utils/logger';
 import { LayoutGroup } from 'framer-motion'; 
-// import ShiftSlotComponent, { ShiftSlotProps } from './components/ShiftSlot'; // <<< УДАЛЯЕМ
+import ShiftSlotComponent from './components/ShiftSlot';
 import { CourierShift } from '../../types/shifts'; // ОСТАВЛЯЕМ
-// import { AnimatePresence } from 'framer-motion'; // <<< УДАЛЯЕМ
 import { format } from 'date-fns';
+import CouriersPanel, { CouriersPanelProps } from './components/CouriersPanel';
+// import { ShiftType } from '../../types'; // <<< УДАЛЯЕМ ЭТОТ ИМПОРТ
+
+// Определяем ShiftType локально
+type ShiftType = CourierShift['shiftType']; // <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
 const ShiftSection = styled.div`
@@ -95,6 +95,12 @@ interface ShiftPanelProps {
     processingShiftId?: string | null;
     isProcessingMove?: boolean;
     onOpenProfile?: (courier: CourierShift) => void;
+    onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
+    isCouriersPanelOpen: boolean;
+    panelTargetShiftType: ShiftType | null;
+    panelTargetSlotIndex: number | null;
+    onCloseCouriersPanel: () => void;
+    activeDragId?: string | null;
 }
 
 /**
@@ -125,7 +131,13 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     isDraggingGlobal,
     processingShiftId,
     isProcessingMove,
-    onOpenProfile
+    onOpenProfile,
+    onLongPressEmptySlot,
+    isCouriersPanelOpen,
+    panelTargetShiftType,
+    panelTargetSlotIndex,
+    onCloseCouriersPanel,
+    activeDragId
 }) => {
     // Логгируем приходящий isSenior
     logger.debug('[ShiftPanel] Rendering with isSenior:', isSenior);
@@ -169,6 +181,7 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                             date: format(date || new Date(), 'yyyy-MM-dd'),
                             shiftType: 'day'
                         } as CourierShift) : undefined}
+                        onLongPressEmptySlot={onLongPressEmptySlot}
                     />
                 </LayoutGroup>
             </ShiftSection>
@@ -199,6 +212,7 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                             date: format(date || new Date(), 'yyyy-MM-dd'),
                             shiftType: 'night'
                         } as CourierShift) : undefined}
+                        onLongPressEmptySlot={onLongPressEmptySlot}
                     />
                 </LayoutGroup>
             </ShiftSection>
@@ -215,6 +229,17 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                     Все смены уже заняты.<br/>
                     Вы можете <ReserveLinkButton onClick={onSwitchToReserve}>записаться в резерв</ReserveLinkButton>.
                 </NoSlotsMessage>
+            )}
+
+            {/* <<< УСЛОВНЫЙ РЕНДЕРИНГ ПАНЕЛИ КУРЬЕРОВ >>> */}
+            {isCouriersPanelOpen && panelTargetShiftType && panelTargetSlotIndex !== null && (
+                 <CouriersPanel
+                     shiftType={panelTargetShiftType}
+                     slotIndex={panelTargetSlotIndex}
+                     onClose={onCloseCouriersPanel}
+                     chatId={chatId}
+                     date={date}
+                 />
             )}
         </>
     );

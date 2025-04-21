@@ -22,15 +22,23 @@ import ReserveDropZone, { RESERVE_DROP_ZONE_ID } from './ReserveDropZone';
 // Импортируем новую функцию API
 import { moveShiftToReserve, updateShiftSlot } from '../../services/courierApi';
 import CourierProfile from '../../components/CourierProfile/CourierProfile';
-import { CourierShift as CourierShiftType } from './CourierCalendar/types';
 // Импортируем функцию для обновления профиля
 import { refreshCourierProfileFromTelegram } from '../../services/courierApi';
 // <<< Добавляем useAppDispatch >>>
 import { useAppDispatch } from '../../store/hooks';
-// <<< Добавляем импорт User >>>
+// <<< Добавляем импорт User и CourierInfo >>>
 import { User } from '../../types/user';
+// <<< ИСПРАВЛЕНИЕ: Импортируем CourierInfo здесь >>>
+import { CourierInfo } from '../../services/courierApi';
+// <<< ДОБАВЛЯЕМ ИМПОРТ CourierIcon >>>
+import CourierIcon from './components/CourierIcon';
 // <<< ДОБАВЛЯЕМ ИМПОРТ defaultAvatar >>>
 import defaultAvatar from '../../assets/images/Ninja.jpg';
+// <<< Импортируем Thunk для назначения >>>
+import { assignCourierToShiftThunk } from '../../store/slices/shiftsSlice';
+
+// <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ ShiftType >>>
+type ShiftType = CourierShift['shiftType'];
 
 const rotateAnimation = keyframes`
   from {
@@ -449,6 +457,14 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [isReserveAwaitingConfirmation, setIsReserveAwaitingConfirmation] = useState(false);
     const [shiftToReserveData, setShiftToReserveData] = useState<ShiftToReserveData | null>(null);
 
+    // <<< НОВОЕ СОСТОЯНИЕ ДЛЯ ПОДТВЕРЖДЕНИЯ НАЗНАЧЕНИЯ >>>
+    const [isAwaitingAssignmentConfirmation, setIsAwaitingAssignmentConfirmation] = useState(false);
+    const [assignmentToConfirmData, setAssignmentToConfirmData] = useState<{
+        courier: CourierInfo;
+        shiftType: ShiftType;
+        slotIndex: number;
+    } | null>(null);
+
     // <<< НОВОЕ СОСТОЯНИЕ ДЛЯ ОБРАБОТКИ ПЕРЕМЕЩЕНИЯ СЛОТА >>>
     const [isProcessingMove, setIsProcessingMove] = useState(false);
 
@@ -458,6 +474,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     // Добавляем состояние загрузки для кнопки обновления профиля
     const [isProfileRefreshing, setIsProfileRefreshing] = useState(false);
+
+    // <<< ВОЗВРАЩАЕМ СОСТОЯНИЯ ДЛЯ ПАНЕЛИ >>>
+    const [isCouriersPanelOpen, setIsCouriersPanelOpen] = useState(false);
+    const [panelTargetShiftType, setPanelTargetShiftType] = useState<ShiftType | null>(null);
+    const [panelTargetSlotIndex, setPanelTargetSlotIndex] = useState<number | null>(null);
 
     const user = useSelector(selectUser);
     const usersById = useSelector(selectUsersById);
@@ -565,15 +586,20 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     const sensors = useSensors(
         useSensor(KeyboardSensor, {
+            // Опции для клавиатуры, если нужны
         }),
         useSensor(MouseSensor, {
+            // Требовать задержку перед началом перетаскивания мышью
             activationConstraint: {
-                distance: 10,
+                delay: 100,       // 100ms задержка для мыши
+                tolerance: 0,   // Без допуска смещения для мыши
             },
         }),
         useSensor(TouchSensor, {
+            // Требовать задержку и допускать небольшое смещение для тачскрина
             activationConstraint: {
-                distance: 10,
+                delay: 250,       // 250ms задержка (дольше, чем для мыши)
+                tolerance: 5,     // Допуск смещения в 5px во время задержки
             },
         })
     );
@@ -762,17 +788,54 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 setIsOverReserveZoneManually(false);
             }
             
+        // --- <<< НОВАЯ ЛОГИКА: Перетаскивание курьера из панели на пустой слот >>> ---
+        } else if (draggedData?.type === 'courier-from-panel' && droppedOnData?.type === 'empty-slot') {
+            const draggedCourier = draggedData?.courier as CourierInfo | undefined;
+            const targetShiftType = droppedOnData?.shiftType as ('day' | 'night' | null);
+            const targetSlotIndex = droppedOnData?.slotIndex;
+
+            logger.info(`[DndContext] Courier from panel dropped on empty slot. Courier ID: ${draggedCourier?.user_id}, Target Type: ${targetShiftType}, Target Index: ${targetSlotIndex}`);
+
+            // Проверяем все необходимые данные и права старшего курьера
+            if (draggedCourier && targetShiftType && targetSlotIndex !== undefined && isCurrentUserSenior && chatId && date) {
+                logger.info(`[DndContext] Valid drop of courier from panel by senior. Awaiting assignment confirmation...`);
+
+                // <<< ВМЕСТО ЭТОГО УСТАНАВЛИВАЕМ СОСТОЯНИЕ ДЛЯ ПОДТВЕРЖДЕНИЯ >>>
+                setAssignmentToConfirmData({
+                    courier: draggedCourier,
+                    shiftType: targetShiftType,
+                    slotIndex: targetSlotIndex,
+                });
+                setIsAwaitingAssignmentConfirmation(true);
+
+                // <<< Сбрасываем состояние перетаскивания СРАЗУ >>>
+                setActiveDragId(null);
+                setActiveDragData(null);
+                setIsOverDeleteZoneManually(false);
+                setIsOverReserveZoneManually(false);
+                // isDraggingGlobally сбросится позже, когда закроется окно подтверждения
+
+            } else {
+                logger.debug(`[DndContext] Invalid drop of courier from panel (not senior, missing data, or wrong target). Resetting drag state.`);
+                // Сбрасываем состояние перетаскивания при невалидном дропе
+                setActiveDragId(null);
+                setActiveDragData(null);
+                setIsOverDeleteZoneManually(false);
+                setIsOverReserveZoneManually(false);
+            }
+        // --- Конец новой логики ---
+            
         } else {
             // Остальные случаи (например, перетаскивание не того типа)
-            logger.debug(`[DndContext] Drag ended over invalid target or with invalid draggable type.`);
+            logger.debug(`[DndContext] Drag ended over invalid target or with invalid draggable type. Resetting drag state.`);
+            // Сбрасываем состояние перетаскивания
             setActiveDragId(null); 
             setActiveDragData(null);
-            // <<< И здесь сбрасываем состояние зон >>>
             setIsOverDeleteZoneManually(false);
             setIsOverReserveZoneManually(false);
         }
 
-        // Финальный сброс isDraggingGlobally теперь не нужен
+        // Финальный сброс isDraggingGlobally теперь не нужен, т.к. он сбрасывается в обработчиках подтверждения/отмены
 
     }, [
         // <<< ОБНОВЛЯЕМ ЗАВИСИМОСТИ >>>
@@ -797,7 +860,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsDraggingGlobally,
         setIsOverDeleteZoneManually, 
         setIsOverReserveZoneManually,
-        setIsProcessingMove // Добавлено
+        setIsProcessingMove, // Добавлено
+        dispatch,
+        chatId,
+        date,
+        currentUserId
     ]);
 
     // <<< Получаем тип перетаскиваемой смены >>>
@@ -988,25 +1055,35 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsDraggingGlobally
     ]);
 
-    // --- ФИНАЛЬНАЯ, ЕЩЕ БОЛЕЕ ПРОСТАЯ ЛОГИКА ВИДИМОСТИ ЗОН/КНОПОК --- 
-    
-    const isAwaitingAnyConfirmation = isDeleteAwaitingConfirmation || isReserveAwaitingConfirmation;
-    
-    // Показываем область зон, если есть активное перетаскивание ИЛИ ожидается подтверждение
-    // Используем activeDragId вместо isDraggingGlobally для большей точности момента
-    const showZones = Boolean(activeDragId) || isAwaitingAnyConfirmation;
+    // --- ОБНОВЛЯЕМ ЛОГИКУ ВИДИМОСТИ ЗОН --- 
 
-    // Логика видимости КОНКРЕТНЫХ зон внутри контейнера (если showZones=true)
-    // Показываем зону УДАЛЕНИЯ, если:
-    // 1. Идет перетаскивание (activeDragId есть) И НЕТ ожидания подтверждения ИЛИ
-    // 2. Ожидается подтверждение ИМЕННО для удаления.
-    const renderDeleteZone = (Boolean(activeDragId) && !isAwaitingAnyConfirmation) || isDeleteAwaitingConfirmation;
-    
-    // Показываем зону РЕЗЕРВА, если:
-    // 1. Идет перетаскивание (activeDragId есть) И НЕТ ожидания подтверждения ИЛИ
+    const isAwaitingAnyConfirmation = isDeleteAwaitingConfirmation || isReserveAwaitingConfirmation;
+
+    // <<< Показываем контейнер зон, если: >>>
+    // 1. Идет перетаскивание из слота (shift) ИЛИ
+    // 2. Ожидается ЛЮБОЕ подтверждение (удаление, резерв, НАЗНАЧЕНИЕ)
+    const showZonesContainer = 
+        (activeDragId && activeDragData?.type === 'shift') || 
+        isDeleteAwaitingConfirmation || 
+        isReserveAwaitingConfirmation ||
+        isAwaitingAssignmentConfirmation; // <<< Добавляем новое состояние
+
+    // <<< Показываем зону УДАЛЕНИЯ/НАЗНАЧЕНИЯ, если: >>>
+    // 1. Идет перетаскивание из слота И НЕТ другого ожидания ИЛИ
+    // 2. Ожидается подтверждение ИМЕННО для удаления ИЛИ
+    // 3. Ожидается подтверждение ИМЕННО для назначения.
+    const renderDeleteConfirmationZone = 
+        (activeDragId && activeDragData?.type === 'shift' && !isAwaitingAnyConfirmation) || 
+        isDeleteAwaitingConfirmation || 
+        isAwaitingAssignmentConfirmation; // <<< Добавляем новое состояние
+
+    // <<< Показываем зону РЕЗЕРВА, если: >>>
+    // 1. Идет перетаскивание из слота И НЕТ другого ожидания ИЛИ
     // 2. Ожидается подтверждение ИМЕННО для резерва.
-    const renderReserveZone = (Boolean(activeDragId) && !isAwaitingAnyConfirmation) || isReserveAwaitingConfirmation;
-    // --- КОНЕЦ ФИНАЛЬНОЙ ЛОГИКИ --- 
+    const renderReserveZone = 
+        (activeDragId && activeDragData?.type === 'shift' && !isAwaitingAnyConfirmation) || 
+        isReserveAwaitingConfirmation;
+    // --- КОНЕЦ ОБНОВЛЕНИЯ ЛОГИКИ --- 
 
     const isOverDeleteZone = isOverDeleteZoneManually;
     const isOverReserveZone = isOverReserveZoneManually;
@@ -1083,6 +1160,118 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             setIsProfileRefreshing(false);
         }
     }, [selectedCourier, showNotification, setIsProfileRefreshing, dispatch]);
+
+    // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ПАНЕЛИ >>>
+    const handleLongPressEmptySlot = useCallback((shiftType: ShiftType, slotIndex: number) => {
+        // <<< ПРОВЕРКА: Если панель уже открыта, ничего не делаем >>>
+        if (isCouriersPanelOpen) {
+            logger.debug('[ShiftSelectionDialog] handleLongPressEmptySlot called, but panel is already open. Ignoring.');
+            return;
+        }
+        // <<< Конец проверки >>>
+
+        logger.debug(`[ShiftSelectionDialog] Long press on empty slot: ${shiftType} ${slotIndex}. Opening panel.`);
+        setPanelTargetShiftType(shiftType);
+        setPanelTargetSlotIndex(slotIndex);
+        setIsCouriersPanelOpen(true);
+        // Добавляем isCouriersPanelOpen в зависимости useCallback
+    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpen]); // <<< ДОБАВИЛИ isCouriersPanelOpen В ЗАВИСИМОСТИ
+
+    // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ЗАКРЫТИЯ ПАНЕЛИ >>>
+    const handleCloseCouriersPanel = useCallback(() => {
+        logger.debug(`[ShiftSelectionDialog] Closing couriers panel`);
+        setIsCouriersPanelOpen(false);
+        setPanelTargetShiftType(null); // Сбрасываем цель при закрытии
+        setPanelTargetSlotIndex(null); // Сбрасываем цель при закрытии
+    }, [setIsCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex]); // Убедимся, что все зависимости здесь тоже есть
+
+    // <<< НОВЫЙ ОБРАБОТЧИК: Подтверждение назначения курьера >>>
+    const handleConfirmAssignment = useCallback(async () => {
+        if (!assignmentToConfirmData || !chatId || !date) {
+            logger.error('[ShiftSelectionDialog] handleConfirmAssignment called without necessary data.');
+            setIsAwaitingAssignmentConfirmation(false);
+            setAssignmentToConfirmData(null);
+            setIsDraggingGlobally(false);
+            return;
+        }
+
+        const { courier, shiftType, slotIndex } = assignmentToConfirmData;
+        logger.info(`[ShiftSelectionDialog] Confirming assignment for courier ${courier.user_id} to ${shiftType} slot ${slotIndex}`);
+
+        // Показываем индикацию загрузки (можно использовать существующие флаги или добавить новые)
+        // setLoadingType(shiftType);
+        // setLoadingSlot(slotIndex);
+        // setInternalIsBookingLoading(true); // Используем общий флаг?
+
+        try {
+            await dispatch(assignCourierToShiftThunk({
+                assignerId: String(currentUserId),
+                courier: courier,
+                groupTelegramId: chatId,
+                date: format(date, 'yyyy-MM-dd'),
+                shiftType: shiftType,
+                slotIndex: slotIndex
+            })).unwrap();
+
+            logger.info(`[ShiftSelectionDialog] Courier assignment successful via Thunk.`);
+            if (showNotification) {
+                showNotification(
+                    NotificationTypes.SUCCESS,
+                    `Курьер ${courier.first_name || ''} ${courier.last_name || ''} назначен на ${shiftType === 'day' ? 'дневной' : 'ночной'} слот ${slotIndex + 1}.`
+                );
+            }
+            // UI обновится через Redux
+
+        } catch (error: any) {
+            logger.error(`[ShiftSelectionDialog] Error during courier assignment Thunk:`, error);
+            if (showNotification) {
+                showNotification(
+                    NotificationTypes.ERROR,
+                    error?.message || 'Ошибка назначения курьера.',
+                    'Ошибка назначения'
+                );
+            }
+        } finally {
+            // Сбрасываем состояние подтверждения и флаг перетаскивания
+            setIsAwaitingAssignmentConfirmation(false);
+            setAssignmentToConfirmData(null);
+            setIsDraggingGlobally(false);
+            // Сбрасываем индикацию загрузки, если использовали
+            // setLoadingType(null);
+            // setLoadingSlot(null);
+            // setInternalIsBookingLoading(false);
+        }
+    }, [assignmentToConfirmData, chatId, date, currentUserId, dispatch, showNotification]);
+
+    // <<< НОВЫЙ ОБРАБОТЧИК: Отмена назначения курьера >>>
+    const handleCancelAssignment = useCallback(() => {
+        logger.info('[ShiftSelectionDialog] Cancelling assignment confirmation.');
+        setIsAwaitingAssignmentConfirmation(false);
+        setAssignmentToConfirmData(null);
+        setIsDraggingGlobally(false); // Сбрасываем и флаг перетаскивания
+    }, []);
+
+    // <<< DEFINE TYPE: Определяем тип для источника данных подтверждения >>>
+    type ConfirmationDataSource = 
+        | { type: 'assignment', data: CourierInfo }
+        | { type: 'delete', data: ConfirmedCourierInfo }
+        | null; // Добавляем null
+
+    // <<< HELPER: Возвращает источник данных для подтверждения >>>
+    const getConfirmationDataSource = (): ConfirmationDataSource => {
+        if (isAwaitingAssignmentConfirmation && assignmentToConfirmData) {
+            return { type: 'assignment', data: assignmentToConfirmData.courier };
+        } else if (isDeleteAwaitingConfirmation && shiftToDeleteData) {
+            return { type: 'delete', data: shiftToDeleteData.courier };
+        } else if (isProcessingDelete && (tempCourierData || shiftToDeleteData)) {
+            // Во время обработки удаления приоритет у tempCourierData
+            const source = tempCourierData || shiftToDeleteData?.courier;
+            if (source) {
+                return { type: 'delete', data: source };
+            }
+        }
+        return null; // Возвращаем null, если данных нет
+    };
 
     return (
         <DndContext 
@@ -1166,18 +1355,19 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 ) : undefined}
             >
                 {/* Рендерим зоны только если не показываем профиль */}
-                {!showCourierProfile && showZones ? (
+                {!showCourierProfile && showZonesContainer ? (
                     <FlexContainer> 
-                        {renderDeleteZone && (
+                        {renderDeleteConfirmationZone && (
                             <DeleteDropZone 
                                 isOver={isOverDeleteZone}
-                                isProcessing={isProcessingDelete} 
-                                isConfirming={isConfirmingDelete} 
-                                courierData={confirmedDeletedCourier} 
-                                processingCourierData={shiftToDeleteData?.courier || tempCourierData}
-                                isAwaitingConfirmation={isDeleteAwaitingConfirmation}
-                                onConfirm={handleConfirmDelete} 
-                                onCancel={handleCancelDelete}
+                                isProcessing={isProcessingDelete}
+                                isConfirming={isConfirmingDelete}
+                                isAwaitingConfirmation={isDeleteAwaitingConfirmation || isAwaitingAssignmentConfirmation}
+                                confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
+                                courierData={isConfirmingDelete ? confirmedDeletedCourier : null}
+                                confirmationDataSource={getConfirmationDataSource()}
+                                onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
+                                onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
                             />
                         )}
                         {renderReserveZone && (
@@ -1289,6 +1479,14 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 processingShiftId={processingShiftId}
                                 isProcessingMove={isProcessingMove}
                                 onOpenProfile={handleOpenCourierProfile}
+                                // <<< ДОБАВЛЯЕМ НЕДОСТАЮЩИЕ ПРОПСЫ >>>
+                                onLongPressEmptySlot={handleLongPressEmptySlot}
+                                isCouriersPanelOpen={isCouriersPanelOpen}
+                                panelTargetShiftType={panelTargetShiftType}
+                                panelTargetSlotIndex={panelTargetSlotIndex}
+                                onCloseCouriersPanel={handleCloseCouriersPanel}
+                                // <<< Передаем активный ID для панели >>>
+                                activeDragId={activeDragId} 
                             />
                         )
                     ) : (
@@ -1320,9 +1518,15 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 zIndex={9999}
                 dropAnimation={isProcessingMove ? null : standardDropAnimation}
             >
-                {activeDragId && activeDragData?.courier ? (
-                    <CourierDragAvatar courier={activeDragData.courier} />
-                ) : null}
+                {/* <<< ИЗМЕНЕНИЕ: Рендерим разное в зависимости от типа >>> */}
+                {activeDragId && activeDragData && (
+                    activeDragData.type === 'shift' && activeDragData.courier ? (
+                        <CourierDragAvatar courier={activeDragData.courier} />
+                    ) : activeDragData.type === 'courier-from-panel' && activeDragData.courier ? (
+                        // <<< Возвращаем CourierIcon >>>
+                        <CourierIcon courier={activeDragData.courier} />
+                    ) : null
+                )}
             </DragOverlay>
         </DndContext>
     );

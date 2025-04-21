@@ -3,12 +3,13 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '../store';
 import { socketService } from '../../services/socket';
 import config from '../../config';
-// import { format } from 'date-fns'; // <<< Удаляем неиспользуемый импорт
-import { bookShift as bookShiftApi, deleteShiftAsSenior as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse } from '../../services/courierApi';
+import { bookShift as bookShiftApi, deleteShiftAsSenior as cancelShiftApi, getShiftAccessSettings as getShiftAccessSettingsApi, updateShiftAccessSettings as updateShiftAccessSettingsApi, getShifts, ApiShift, getSlotConfig as getSlotConfigApi, SlotConfigResponse, assignCourierToShift, CourierInfo } from '../../services/courierApi';
 import { CourierShift, User } from '../../types';
 import { removeReserveByIdThunk } from './reservesSlice';
-import { logger } from '../../utils/logger'; // <<< Добавляем импорт логгера
-import { usersReceived } from './userSlice'; // <<< Импортируем новый action
+import { logger } from '../../utils/logger';
+import { usersReceived } from './userSlice';
+import { format } from 'date-fns';
+import { createSelector } from 'reselect';
 
 const API_BASE_URL = config.API_URL;
 
@@ -465,6 +466,41 @@ export const updateAccessRules = createAsyncThunk<
     }
 );
 
+// <<< НОВЫЙ THUNK ДЛЯ НАЗНАЧЕНИЯ КУРЬЕРА >>>
+export const assignCourierToShiftThunk = createAsyncThunk<
+    CourierShift, // Возвращаем созданную/обновленную смену
+    { // Аргументы thunk
+        assignerId: string; // ID того, кто назначает (старший)
+        courier: CourierInfo; // Данные назначаемого курьера
+        groupTelegramId: string; // ID группы
+        date: string; // Дата YYYY-MM-DD
+        shiftType: 'day' | 'night';
+        slotIndex: number;
+    },
+    { rejectValue: string } // Тип ошибки
+>(
+    'shifts/assignCourier',
+    async (data, { rejectWithValue }) => {
+        const { assignerId, courier, groupTelegramId, date, shiftType, slotIndex } = data;
+        logger.info(`[Thunk assignCourier] Попытка назначения курьера ${courier.user_id} на слот ${shiftType}-${slotIndex} от ${assignerId}`);
+        try {
+            const assignedShift = await assignCourierToShift({
+                assigner_telegram_id: assignerId,
+                target_user_telegram_id: courier.user_id, // Берем ID из объекта courier
+                group_telegram_id: groupTelegramId,
+                date: date,
+                shift_type: shiftType,
+                slot_index: slotIndex
+            });
+            logger.info(`[Thunk assignCourier] Курьер успешно назначен.`, assignedShift);
+            return assignedShift; // Возвращаем данные смены из API (или заглушки)
+        } catch (error: any) {
+            logger.error(`[Thunk assignCourier] Ошибка назначения курьера:`, error);
+            return rejectWithValue(error.message || 'Не удалось назначить курьера.');
+        }
+    }
+);
+
 const shiftsSlice = createSlice({
     name: 'shifts',
     initialState,
@@ -748,6 +784,31 @@ const shiftsSlice = createSlice({
                 state.settingsError = action.payload || 'Не удалось загрузить конфигурацию слотов';
                 // Не сбрасываем slotConfig, оставляем предыдущее или дефолтное значение
             })
+            // <<< ОБРАБОТЧИКИ ДЛЯ assignCourierToShiftThunk >>>
+            .addCase(assignCourierToShiftThunk.pending, (state, action) => {
+                // Можно добавить индикатор загрузки для конкретного слота, если нужно
+                state.isLoading = true; // Общий флаг загрузки
+                state.error = null;
+                 logger.debug('[shiftsSlice] Назначение курьера в процессе...');
+            })
+            .addCase(assignCourierToShiftThunk.fulfilled, (state, action: PayloadAction<CourierShift>) => {
+                state.isLoading = false;
+                // Добавляем или обновляем смену в стейте
+                const index = state.shifts.findIndex(shift => shift.id === action.payload.id || (shift.date === action.payload.date && shift.shiftType === action.payload.shiftType && shift.slotIndex === action.payload.slotIndex));
+                if (index !== -1) {
+                    // Обновляем существующую (маловероятно при назначении в пустой слот, но на всякий случай)
+                    state.shifts[index] = action.payload;
+                } else {
+                    // Добавляем новую
+                    state.shifts.push(action.payload);
+                }
+                logger.debug('[shiftsSlice] Курьер успешно назначен, смена добавлена/обновлена.');
+            })
+            .addCase(assignCourierToShiftThunk.rejected, (state, action) => {
+                state.isLoading = false;
+                state.error = action.payload ?? 'Неизвестная ошибка назначения курьера.';
+                 logger.error(`[shiftsSlice] Ошибка назначения курьера: ${state.error}`);
+            });
     }
 });
 
@@ -782,5 +843,32 @@ export const selectSlotConfigForDay = (dayIndex: number) => (state: RootState): 
     return dayConfig ?? defaultWeeklySlotConfig[dayIndex]; // <<< Возвращаем дефолт если undefined
 };
 // --- ------------------------------------------------------ --- 
+
+// Селектор для проверки, назначен ли *конкретный* курьер на дату
+export const selectIsCourierAssignedOnDate = (userId: string | null, date: string | null) => 
+    createSelector(
+        (state: RootState) => state.shifts.shifts,
+        (shifts) => {
+            if (!userId || !date) return false;
+            return shifts.some(shift => shift.user_id === parseInt(userId, 10) && shift.date === date);
+        }
+    );
+
+// <<< Новый селектор: возвращает карту назначенных курьеров на дату >>>
+export const selectAssignedCouriersMapOnDate = (date: string | null) =>
+    createSelector(
+        (state: RootState) => state.shifts.shifts,
+        (shifts) => {
+            const assignedMap: { [userId: string]: true } = {};
+            if (!date) return assignedMap; // Возвращаем пустой объект, если нет даты
+
+            shifts.forEach(shift => {
+                if (shift.date === date && shift.user_id !== null) { // Убедимся, что user_id не null
+                    assignedMap[String(shift.user_id)] = true;
+                }
+            });
+            return assignedMap;
+        }
+    );
 
 export default shiftsSlice.reducer; 

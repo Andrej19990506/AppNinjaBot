@@ -20,6 +20,7 @@ import { formatDateForAPI } from './CourierCalendar/utils/dateUtils';
 import { logger } from '../../utils/logger';
 import { SLOTS_CONFIG } from './CourierCalendar/constants';
 import { selectUser } from '../../store/slices/userSlice';
+import { CourierShift } from '../../types/shifts';
 
 // Стили
 const Container = styled.div`
@@ -134,6 +135,9 @@ const Alert: React.FC<{
     );
 };
 
+// <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ ShiftType >>>
+type ShiftType = CourierShift['shiftType'];
+
 const ScheduleContainer: React.FC = () => {
     const dispatch = useDispatch<AppDispatch>();
     const user = useSelector(selectUser);
@@ -160,6 +164,11 @@ const ScheduleContainer: React.FC = () => {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loadingSlotIndex, setLoadingSlotIndex] = useState<number | null>(null);
     const [loadingShiftType, setLoadingShiftType] = useState<'day' | 'night' | null>(null);
+    
+    // <<< НОВЫЕ СОСТОЯНИЯ ДЛЯ ПАНЕЛИ КУРЬЕРОВ >>>
+    const [isCouriersPanelOpen, setIsCouriersPanelOpen] = useState(false);
+    const [panelTargetShiftType, setPanelTargetShiftType] = useState<ShiftType | null>(null);
+    const [panelTargetSlotIndex, setPanelTargetSlotIndex] = useState<number | null>(null);
     
     const formattedDate = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
 
@@ -188,6 +197,30 @@ const ScheduleContainer: React.FC = () => {
     
     const switchToReserves = useCallback(() => {
         setMode('reserves');
+    }, []);
+    
+    // <<< НОВЫЙ ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ПАНЕЛИ >>>
+    const handleLongPressEmptySlot = useCallback((shiftType: ShiftType, slotIndex: number) => {
+        // <<< ПРОВЕРКА: Если панель уже открыта, ничего не делаем >>>
+        if (isCouriersPanelOpen) {
+            logger.debug('[ScheduleContainer] handleLongPressEmptySlot called, but panel is already open. Ignoring.');
+            return;
+        }
+        // <<< Конец проверки >>>
+
+        logger.debug(`[ScheduleContainer] Long press on empty slot: ${shiftType} ${slotIndex}. Opening panel.`);
+        setPanelTargetShiftType(shiftType);
+        setPanelTargetSlotIndex(slotIndex);
+        setIsCouriersPanelOpen(true);
+        // Добавляем isCouriersPanelOpen в зависимости useCallback
+    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpen]);
+
+    // <<< НОВЫЙ ОБРАБОТЧИК ДЛЯ ЗАКРЫТИЯ ПАНЕЛИ >>>
+    const handleCloseCouriersPanel = useCallback(() => {
+        logger.debug(`[ScheduleContainer] Closing couriers panel`);
+        setIsCouriersPanelOpen(false);
+        setPanelTargetShiftType(null);
+        setPanelTargetSlotIndex(null);
     }, []);
     
     // Восстанавливаем и дорабатываем handleSlotSelect
@@ -441,6 +474,11 @@ const ScheduleContainer: React.FC = () => {
                     loadingType={loadingShiftType}
                     chatId={String(chatId ?? '')}
                     isSenior={isSenior}
+                    onLongPressEmptySlot={handleLongPressEmptySlot}
+                    isCouriersPanelOpen={isCouriersPanelOpen}
+                    panelTargetShiftType={panelTargetShiftType}
+                    panelTargetSlotIndex={panelTargetSlotIndex}
+                    onCloseCouriersPanel={handleCloseCouriersPanel}
                 />
             )}
             

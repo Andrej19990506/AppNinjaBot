@@ -22,6 +22,7 @@ import { logger } from '../utils/logger';
 import { routeChanged } from './actions';
 import { Socket } from 'socket.io-client';
 import chatReducer from './slices/chatSlice';
+import availableCouriersReducer from './slices/availableCouriersSlice';
 // import inventoryItemsReducer from './slices/inventoryItemSlice';
 // import inventoryCategoriesReducer from './slices/inventoryCategorySlice';
 
@@ -101,6 +102,7 @@ const store = configureStore({
         chat: chatReducer,
         reserves: reservesReducer,
         socket: socketReducer,
+        availableCouriers: availableCouriersReducer,
     },
     // preloadedState, // Закомментировано
     middleware: (getDefaultMiddleware) =>
@@ -124,6 +126,7 @@ export type RootState = {
     chat: ReturnType<typeof chatReducer>;
     reserves: ReturnType<typeof reservesReducer>;
     socket: ReturnType<typeof socketReducer>;
+    availableCouriers: ReturnType<typeof availableCouriersReducer>;
 };
 
 export type AppDispatch = typeof store.dispatch;

@@ -34,6 +34,7 @@ interface ShiftPanelContainerProps {
     draggingShiftType?: 'day' | 'night' | null;
     isDraggingGlobal?: boolean;
     onOpenProfile?: (courier: ShiftSlot) => void;
+    onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
 }
 
 const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
@@ -52,7 +53,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     showErrorMessage,
     draggingShiftType,
     isDraggingGlobal,
-    onOpenProfile
+    onOpenProfile,
+    onLongPressEmptySlot
 }) => {
     const [activeTooltipSlot, setActiveTooltipSlot] = useState<{ type: 'day' | 'night', index: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +141,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         onOpenProfile={onOpenProfile}
                         isActiveTooltip={isActiveTooltipForThisSlot}
                         onRequestTooltip={handleRequestTooltip}
+                        onLongPressEmptySlot={onLongPressEmptySlot}
                     />
                 </motion.div>
             );

@@ -12,22 +12,34 @@ import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
+import { CourierInfo } from '../../services/courierApi';
 
+// Интерфейс для подтвержденного удаления (оставляем)
 interface ConfirmedCourierInfo {
     id: string;
     name: string;
     avatar: string | null;
 }
 
+// <<< DEFINE TYPE: Копируем тип для источника данных подтверждения >>>
+type ConfirmationDataSource = 
+    | { type: 'assignment', data: CourierInfo }
+    | { type: 'delete', data: ConfirmedCourierInfo }
+    | null;
+
+// <<< ОБНОВЛЯЕМ ИНТЕРФЕЙС ПРОПСОВ >>>
 interface DeleteDropZoneProps {
   isOver: boolean;
-  isProcessing: boolean;
-  isConfirming: boolean;
-  courierData: ConfirmedCourierInfo | null;
-  processingCourierData: ConfirmedCourierInfo | null;
+  isProcessing: boolean; // Только для удаления
+  isConfirming: boolean; // Только для удаления
+  courierData: ConfirmedCourierInfo | null; // Только для подтверждения УДАЛЕНИЯ
+  // <<< Убираем processingCourierData, добавляем confirmationDataSource >>>
+  // processingCourierData: CourierInfo | null; 
+  confirmationDataSource: ConfirmationDataSource;
   isAwaitingConfirmation: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmationType: 'delete' | 'assignment';
 }
 
 const DropZoneContainer = styled(motion.div)<{
@@ -130,11 +142,12 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
     isOver, 
     isProcessing, 
     isConfirming, 
-    courierData, 
-    processingCourierData,
+    courierData, // Для подтверждения удаления
+    confirmationDataSource, // Новый источник данных
     isAwaitingConfirmation,
     onConfirm,
     onCancel,
+    confirmationType,
 }) => {
   const { setNodeRef } = useDroppable({
     id: DELETE_DROP_ZONE_ID,
@@ -150,8 +163,27 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
       exit: { opacity: 0, scale: 0.7, transition: { duration: 0.15, ease: "easeIn" } }
   };
   
-  const displayProcessingOrWaitingData = isAwaitingConfirmation ? processingCourierData : (isProcessing ? processingCourierData : null);
-  const displayConfirmedData = courierData;
+  // <<< Вычисляем имя и аватар ИЗ confirmationDataSource >>>
+  const getDisplayInfo = (source: ConfirmationDataSource) => {
+    if (!source) return { name: '', avatar: null };
+    if (source.type === 'assignment') {
+        return {
+            name: `${source.data.first_name || ''} ${source.data.last_name || ''}`.trim() || 'Курьер',
+            avatar: source.data.photo_url || null
+        };
+    } else { // type === 'delete'
+        return {
+            name: source.data.name || 'Курьер',
+            avatar: source.data.avatar || null
+        };
+    }
+  };
+  const displayInfo = getDisplayInfo(confirmationDataSource);
+
+  // Данные для отображения во время isProcessing или isAwaitingConfirmation
+  const displayProcessingOrWaitingData = (isAwaitingConfirmation || isProcessing) ? confirmationDataSource : null;
+  // Данные для отображения галочки после УСПЕШНОГО УДАЛЕНИЯ
+  const displayConfirmedData = isConfirming ? courierData : null; 
 
   return (
     <DropZoneContainer 
@@ -175,15 +207,15 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
                     exit="exit"
                 >
                     <AwaitingConfirmationContent>
-                        <SmallAvatar src={displayProcessingOrWaitingData.avatar || defaultAvatar} alt={displayProcessingOrWaitingData.name} />
+                        <SmallAvatar src={displayInfo.avatar || defaultAvatar} alt={displayInfo.name} />
                         <ConfirmationText variant="body2">
-                            Удалить <strong>{displayProcessingOrWaitingData.name}</strong>?
+                            {confirmationType === 'assignment' ? 'Назначить' : 'Удалить'} <strong>{displayInfo.name}</strong>?
                         </ConfirmationText>
                         <ConfirmationActions>
-                            <IconButton onClick={onConfirm} size="small" color="success" aria-label="Подтвердить удаление">
+                            <IconButton onClick={onConfirm} size="small" color="success" aria-label={confirmationType === 'assignment' ? "Подтвердить назначение" : "Подтвердить удаление"}>
                                 <CheckIcon />
                             </IconButton>
-                            <IconButton onClick={onCancel} size="small" color="error" aria-label="Отменить удаление">
+                            <IconButton onClick={onCancel} size="small" color="error" aria-label={confirmationType === 'assignment' ? "Отменить назначение" : "Отменить удаление"}>
                                 <CloseIcon />
                             </IconButton>
                         </ConfirmationActions>
@@ -200,8 +232,8 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
                  >
                     <ProcessingOrConfirmationContent>
                          <SmallAvatar 
-                            src={(isProcessing ? displayProcessingOrWaitingData?.avatar : displayConfirmedData?.avatar) || defaultAvatar} 
-                            alt={(isProcessing ? displayProcessingOrWaitingData?.name : displayConfirmedData?.name) || 'Courier'} 
+                            src={(isProcessing ? displayInfo.avatar : displayConfirmedData?.avatar) || defaultAvatar} 
+                            alt={(isProcessing ? displayInfo.name : displayConfirmedData?.name) || 'Курьер'} 
                          />
                          {isProcessing && (
                              <CircularProgress size={24} color="inherit" />

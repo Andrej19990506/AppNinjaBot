@@ -1083,3 +1083,58 @@ export const refreshCourierProfileFromTelegram = async (userId: number | string)
         throw new Error('Произошла неизвестная ошибка при обновлении профиля из Telegram.');
     }
 };
+
+// <<< ДОБАВЛЯЕМ ИНТЕРФЕЙС И ЗАГЛУШКУ API >>>
+// <<< ОБНОВЛЯЕМ ИНТЕРФЕЙС ДЛЯ СООТВЕТСТВИЯ БЭКЕНДУ >>>
+interface AssignCourierApiData {
+    assigner_telegram_id: number | string;
+    target_user_telegram_id: number | string;
+    group_telegram_id: number | string;
+    date: string; // YYYY-MM-DD
+    shift_type: 'day' | 'night';
+    slot_index: number;
+}
+
+/**
+ * Назначает указанного курьера на указанный слот.
+ * Требует прав старшего курьера (проверяется на бэкенде).
+ * @param data - Данные для назначения.
+ * @returns - Данные созданной/обновленной смены.
+ */
+export const assignCourierToShift = async (data: AssignCourierApiData): Promise<ApiShift> => {
+    logger.info(`[courierApi] 📡 Назначение курьера ${data.target_user_telegram_id} на слот ${data.shift_type}-${data.slot_index} от ${data.assigner_telegram_id}`);
+    
+    // <<< РЕАЛЬНЫЙ ВЫЗОВ API >>>
+    try {
+        const response = await axiosInstance.post<ApiShift>('/api/v1/shifts/assign', data);
+        logger.info(`[courierApi] ✅ Курьер успешно назначен через API:`, response.data);
+        // <<< ВАЖНО: Возвращаем данные API как есть (ApiShift), маппинг будет в Thunk >>>
+        return response.data;
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при назначении курьера через API:`, error);
+        // Обработка ошибок Axios (можно скопировать/адаптировать из других функций)
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                throw new Error(detail || 'Группа или один из пользователей не найдены.');
+            }
+            if (status === 403) {
+                throw new Error(detail || 'Действие требует прав старшего курьера.');
+            }
+            if (status === 409) {
+                throw new Error(detail || 'Целевой слот уже занят.');
+            }
+            if (status === 422) {
+                throw new Error(detail || 'Ошибка валидации данных.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при назначении курьера.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Неизвестная ошибка при назначении курьера.');
+    }
+    // <<< КОНЕЦ РЕАЛЬНОГО ВЫЗОВА >>>
+};
+
+// ===> TIMESHEET API FUNCTIONS <===

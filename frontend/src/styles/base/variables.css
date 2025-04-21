@@ -33,6 +33,7 @@
     --error-background: rgb(231 76 60 / 10%);
     --success-color: #2ecc71;
     --success-background: rgb(46 204 113 / 10%);
+    --card-background-transparent: rgba(255, 255, 255, 0.85);
 
     /* Размеры и отступы */
     --header-height: 60px;
@@ -68,7 +69,7 @@
     --gradient-primary: linear-gradient(45deg, var(--orange-dark), var(--orange-primary));
     --gradient-dark: linear-gradient(45deg, var(--gray-900), var(--gray-800));
 
-    --navigation-height: 80px;
+    --navigation-height: 60px;
 
     /* Новые переменные */
     --success-color: #10B981;
@@ -77,6 +78,8 @@
     --success-background: rgba(16, 185, 129, 0.1);
     --warning-background: rgba(245, 158, 11, 0.1);
     --error-background: rgba(239, 68, 68, 0.1);
+
+    --card-background-transparent: rgba(30, 30, 30, 0.85);
 }
 
 /* Темная тема */
@@ -133,6 +136,8 @@
     --input-placeholder: #808080;
     --input-focus-border: var(--orange-primary);
     --input-focus-background: #333333;
+
+    --card-background-transparent: rgba(30, 30, 30, 0.85);
 }
 
 /* Утилитарные классы */

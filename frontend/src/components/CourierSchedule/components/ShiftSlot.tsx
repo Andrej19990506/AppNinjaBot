@@ -5,7 +5,7 @@ import { RootState } from '../../../store/store';
 import { selectUsersById } from '../../../store/slices/userSlice';
 import defaultAvatar from '../../../assets/images/Ninja.jpg';
 // @ts-ignore
-import { useDraggable, useDroppable, DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
+import { useDraggable, useDroppable, DraggableAttributes, DraggableSyntheticListeners, useDndContext } from '@dnd-kit/core';
 import { motion } from 'framer-motion';
 
 import type { ShiftSlot } from '../../../types/shifts';
@@ -41,6 +41,9 @@ export interface ShiftSlotProps {
     // <<< НОВЫЕ ПРОПСЫ ДЛЯ ТУЛТИПА >>>
     isActiveTooltip?: boolean;
     onRequestTooltip?: (type: 'day' | 'night', index: number) => void;
+    // <<< НОВЫЙ ПРОП ДЛЯ ДОЛГОГО НАЖАТИЯ (УБИРАЕМ ОПЦИОНАЛЬНОСТЬ) >>>
+    onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
+    $isPanelDragActive?: boolean; // Флаг остается
 }
 
 // Стили
@@ -50,6 +53,7 @@ const SlotButton = styled.button<{
     $isDropTarget?: boolean;
     $isAvailableEmpty?: boolean;
     $isPotentialDropTarget?: boolean;
+    $isPanelDragActive?: boolean; // Флаг остается
 }>`
     position: relative;
     width: 60px;
@@ -134,8 +138,8 @@ const SlotButton = styled.button<{
         transition: transform 0.1s ease-out, background-color 0.1s ease-out, border-color 0.1s ease-out, box-shadow 0.1s ease-out;
     `}
 
-    ${props => props.$isPotentialDropTarget && !props.$isDropTarget && css`
-        border-color: ${props.$isAvailableEmpty ? 'var(--primary-color)' : 'var(--border-color)'};
+    ${props => (props.$isPotentialDropTarget || props.$isPanelDragActive) && props.$isAvailableEmpty && !props.$isDropTarget && css`
+        border-color: var(--primary-color);
         border-style: dashed;
         box-shadow: 0 0 8px 2px var(--primary-color);
         transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
@@ -350,26 +354,29 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     slotIndex,
     courier,
     currentUserId,
+    isDisabled: propIsDisabled,
     onSlotClick,
     successAnimation,
     pressAnimationActive,
     isLoading,
     isError,
-    isDisabled: propIsDisabled,
     isSenior,
     showSuccessMessage,
     showErrorMessage,
     draggingShiftType,
     isDraggingGlobal,
     onOpenProfile,
-    isActiveTooltip,    // <<< Получаем проп
-    onRequestTooltip  // <<< Получаем проп
+    isActiveTooltip,
+    onRequestTooltip,
+    onLongPressEmptySlot,
+    $isPanelDragActive,
 }): React.ReactElement | null => {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingSelf, setIsDeletingSelf] = useState(false);
     const confirmationTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [longPressTriggered, setLongPressTriggered] = useState(false);
 
-    // <<< ПОЛУЧАЕМ АКТУАЛЬНЫЕ ДАННЫЕ КУРЬЕРА ИЗ REDUX >>>
     const usersById = useSelector(selectUsersById);
     const courierUserId = useMemo(() => {
         const id = courier?.userId;
@@ -382,7 +389,6 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         courierUserId ? usersById[courierUserId] : null,
         [usersById, courierUserId]
     );
-    // <<< --------------------------------------------- >>>
 
     const isOccupied = Boolean(courier);
     const isCurrentUser = isOccupied && courier?.userId === currentUserId;
@@ -496,18 +502,15 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         if (canDeleteSelf && isConfirmingDelete) {
             handleDeleteSelf();
         } else if (canDeleteSelf) {
-            // Сначала запросим тултип, потом установим флаг подтверждения
             if (onRequestTooltip) {
                 onRequestTooltip(shiftType, slotIndex);
             }
-            resetState(); // Сброс предыдущего таймера, если был
+            resetState();
             setIsConfirmingDelete(true);
         } else {
-            // Просто запросим тултип
             if (onRequestTooltip) {
                 onRequestTooltip(shiftType, slotIndex);
             }
-             // Reset confirmation state if it was somehow active without being deletable
             resetState(); 
         }
     };
@@ -522,16 +525,13 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
 
     const tooltipText = useMemo(() => {
         if (!courier) return '';
-        // Пытаемся взять имя из Redux, если нет - из пропса courier
         const firstName = courierInfoFromRedux?.first_name ?? courier.firstName ?? '';
         const lastName = courierInfoFromRedux?.last_name ?? courier.lastName ?? '';
         const name = `${firstName} ${lastName}`.trim();
         const idText = name ? name : `ID: ${courier.userId}`;
-        // Статус старшего берем из пропса courier
         return courier.isSeniorCourier ? `${idText}\nСтарший курьер ★` : idText;
     }, [courier, courierInfoFromRedux]);
 
-    // <<< USE DROPPABLE (для ВСЕХ ПУСТЫХ слотов) >>>
     const droppableId = `empty-drop-${shiftType}-${slotIndex}`;
     const { 
         isOver,
@@ -546,27 +546,16 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         }
     });
 
-    // <<< РАСКОММЕНТИРУЕМ вычисление isInvalidDropTarget >>>
     const isInvalidDropTarget = useMemo(() => {
-        // Считаем невалидной целью, если:
-        // 1. Над слотом находится перетаскиваемый элемент (isOver)
-        // 2. Слот пустой (!isOccupied)
-        // 3. Тип перетаскиваемого совпадает с типом слота (draggingShiftType === shiftType)
         return isOver && !isOccupied && draggingShiftType === shiftType;
     }, [isOver, isOccupied, draggingShiftType, shiftType]);
 
-    // <<< Вычисляем доступность пустого слота >>>
     const isAvailableEmpty = !isOccupied && !propIsDisabled;
 
-    // <<< Вычисляем, является ли слот ПОТЕНЦИАЛЬНОЙ валидной целью >>>
     const isPotentialDropTarget = useMemo(() => {
-        return isDraggingGlobal && // Идет перетаскивание?
-               !isOccupied && // Слот пустой?
-               draggingShiftType !== null && // Тип перетаскиваемого известен?
-               draggingShiftType !== shiftType; // Типы отличаются?
+        return isDraggingGlobal && !isOccupied && draggingShiftType !== null && draggingShiftType !== shiftType;
     }, [isDraggingGlobal, isOccupied, draggingShiftType, shiftType]);
 
-    // --- Объединяем setNodeRef --- 
     const setCombinedNodeRef = useCallback((node: HTMLElement | null) => {
         if (canDrag) {
             setDraggableNodeRef(node);
@@ -575,10 +564,62 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         }
     }, [canDrag, isOccupied, setDraggableNodeRef, setDroppableNodeRef]);
 
-    // Объединяем listeners: если можно перетаскивать, используем dragListeners
     const listeners = canDrag ? dragListeners : undefined;
-    // Объединяем attributes: если можно перетаскивать, используем dragAttributes
     const attributes = canDrag ? dragAttributes : {};
+
+    const handlePointerDown = () => {
+        logger.debug(`[ShiftSlot PointerDown ${shiftType}-${slotIndex}] Checking long press conditions:`, {
+            isCourierPresent: !!courier,
+            isDisabledSlot: isDisabledForStyles,
+            isUserSenior: isSenior,
+            isHandlerDefined: !!onLongPressEmptySlot
+        });
+
+        if (!courier && !isDisabledForStyles && isSenior && onLongPressEmptySlot) {
+            setLongPressTriggered(false);
+            longPressTimeoutRef.current = setTimeout(() => {
+                logger.debug(`[ShiftSlotComponent] Long press detected on empty slot: ${shiftType} ${slotIndex}`);
+                onLongPressEmptySlot(shiftType, slotIndex);
+                setLongPressTriggered(true);
+            }, 500);
+        } else {
+             logger.debug(`[ShiftSlot PointerDown ${shiftType}-${slotIndex}] Long press conditions NOT met.`);
+        }
+    };
+
+    const handlePointerUpOrLeave = () => {
+        if (longPressTimeoutRef.current) {
+            clearTimeout(longPressTimeoutRef.current);
+            longPressTimeoutRef.current = null;
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            if (longPressTimeoutRef.current) {
+                clearTimeout(longPressTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const { active: dndActive } = useDndContext();
+    const isPanelDragActive = dndActive?.data.current?.type === 'courier-from-panel';
+    const isSlotDragActive = dndActive?.data.current?.type === 'shift-slot';
+
+    useEffect(() => {
+        if (active) {
+            logger.debug(`[ShiftSlot ${shiftType}-${slotIndex}] Drag active. States:`, {
+                activeDragType: active.data.current?.type,
+                isPanelDragActive_local: isPanelDragActive,
+                isSlotDragActive_local: isSlotDragActive,
+                isPotentialDropTarget_local: isPotentialDropTarget,
+                isAvailableEmpty_local: isAvailableEmpty,
+                isDroppableOver_local: isOver,
+                isDisabled_prop: propIsDisabled,
+                isDisabled_local: isDisabledForStyles
+            });
+        }
+    }, [active, shiftType, slotIndex, isPanelDragActive, isSlotDragActive, isPotentialDropTarget, isAvailableEmpty, isOver, propIsDisabled, isDisabledForStyles]);
 
     return (
         <SlotButton
@@ -589,11 +630,19 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
             data-occupied={isOccupied}
             className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
             onClick={!isOccupied ? handleEmptySlotClick : undefined}
+            onMouseDown={!courier ? handlePointerDown : undefined}
+            onMouseUp={!courier ? handlePointerUpOrLeave : undefined}
+            onMouseLeave={!courier ? handlePointerUpOrLeave : undefined}
+            onTouchStart={!courier ? handlePointerDown : undefined}
+            onTouchEnd={!courier ? handlePointerUpOrLeave : undefined}
+            onTouchCancel={!courier ? handlePointerUpOrLeave : undefined}
+            style={{ touchAction: !courier && isSenior ? 'none' : 'auto', ...style }}
             $isOccupied={isOccupied}
             $isDisabled={isDisabledForStyles}
             $isDropTarget={isOver && !isInvalidDropTarget}
             $isAvailableEmpty={isAvailableEmpty}
             $isPotentialDropTarget={isPotentialDropTarget}
+            $isPanelDragActive={isPanelDragActive}
             aria-label={(isOccupied && courier) ? tooltipText : `Свободный слот ${slotIndex + 1}`}
             disabled={isClickDisabled}
             title={isDisabledForStyles ? "Слот недоступен" : (courier ? tooltipText : "Свободный слот")}
@@ -644,7 +693,6 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                                 <LoadingOverlay><LoadingSpinner /></LoadingOverlay>
                             )}
                         </CourierAvatarContainer>
-                        {/* <<< Используем isActiveTooltip для рендеринга >>> */}
                         {isActiveTooltip && (
                             <SlotTooltip style={{ opacity: 1, pointerEvents: 'auto' }}>
                                 <div>

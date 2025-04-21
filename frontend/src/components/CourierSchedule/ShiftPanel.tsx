@@ -14,7 +14,7 @@ type ShiftType = CourierShift['shiftType']; // <<< ДОБАВЛЯЕМ ЛОКАЛ
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
 const ShiftSection = styled.div`
-    margin-bottom: 24px;
+    margin-bottom: 37px;
     &:last-child {
         margin-bottom: 0;
     }

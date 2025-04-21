@@ -39,34 +39,63 @@ const CouriersPanelContainerStyled = styled(motion.div)`
     bottom: var(--navigation-height, 10px);
     left: 0.5rem;
     width: calc(100% - 1rem);
-    height: 90px;
+    height: 100px;
     background-color: var(--card-background);
     border-top: 2px solid var(--primary-color);
-    border-radius: var(--radius);
+    border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: 0 -4px 12px -2px rgba(var(--primary-rgb), 0.3);
     z-index: 1100;
-    padding: 0.5rem 1rem;
+    padding: 1.5rem 1rem 0.5rem 1rem;
     display: flex;
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     will-change: transform;
-    /* <<< Стили для отключения зума/выделения >>> */
     user-select: none;
-    -webkit-user-select: none; /* Safari */
-    -moz-user-select: none; /* Firefox */
-    -ms-user-select: none; /* IE10+ */
-    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -webkit-touch-callout: none;
+    box-sizing: border-box;
 `;
 
-// <<< Контейнер для прокручиваемых иконок >>>
+const CloseHandle = styled.div`
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    &:hover {
+        background-color: rgba(var(--primary-rgb), 0.05);
+    }
+`;
+
+const DownArrow = styled.div`
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--primary-color);
+    opacity: 0.7;
+    transition: opacity var(--transition-fast);
+
+    ${CloseHandle}:hover & {
+        opacity: 1;
+    }
+`;
+
 const CouriersScrollContainer = styled.div`
-    width: calc(100% - 36px - 1rem);
+    flex-grow: 1;
     overflow-x: auto;
     overflow-y: hidden;
     white-space: nowrap;
-    padding: 0.5rem 0;
     display: flex;
     gap: 0.8rem;
+    touch-action: pan-x;
+    margin-bottom: 0.5rem;
 
     &::-webkit-scrollbar {
         height: 6px;
@@ -83,41 +112,11 @@ const CouriersScrollContainer = styled.div`
     }
 `;
 
-const CloseButtonStyled = styled.button`
-    background: var(--primary-transparent);
-    color: var(--primary-color);
-    border: 1px solid var(--primary-transparent);
-    border-radius: 50%;
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    margin-left: 1rem;
-    flex-shrink: 0;
-    transition: all var(--transition-fast);
-    font-size: 1.4rem;
-    line-height: 1;
-
-    &:hover {
-        background: var(--primary-color);
-        color: white;
-        border-color: var(--primary-color);
-        transform: scale(1.1) rotate(90deg);
-    }
-
-     &:active {
-        transform: scale(0.95) rotate(45deg);
-    }
-`;
-
-// --- Новые стили для состояния загрузки/ошибки ---
 const StatusMessage = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%; // Занимает всю высоту контейнера скролла
+    height: 100%;
     flex-grow: 1;
     color: var(--text-secondary);
     font-size: 0.9rem;
@@ -126,7 +125,7 @@ const StatusMessage = styled.div`
     padding: 0 1rem;
 `;
 
-const LoadingSpinner = styled.div` // Простой спиннер
+const LoadingSpinner = styled.div`
     width: 20px;
     height: 20px;
     border: 3px solid var(--primary-transparent);
@@ -137,7 +136,6 @@ const LoadingSpinner = styled.div` // Простой спиннер
 
     @keyframes spin { to { transform: rotate(360deg); } }
 `;
-// --- Конец новых стилей ---
 
 // Интерфейс пропсов
 export interface CouriersPanelProps {
@@ -232,17 +230,19 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
 
     return (
         <React.Fragment>
-            {/* Оверлей удален */}
-            {/* Сам контейнер панели */}
             <CouriersPanelContainerStyled
                 ref={ref}
                 key="couriers-panel-content"
-                initial={{ x: "-100%", opacity: 0 }} // <<< Анимация слева
-                animate={{ x: 0, opacity: 1 }}      // <<< Анимация слева
-                exit={{ x: "-100%", opacity: 0 }}      // <<< Анимация слева
-                transition={{ type: "spring", stiffness: 350, damping: 30 }} // <<< Пружинная анимация
-                onDoubleClick={(e) => e.preventDefault()} // <<< Предотвращаем зум по двойному клику
+                initial={{ x: "-100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ y: "100%", opacity: 0 }}
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                onDoubleClick={(e) => e.preventDefault()}
             >
+                <CloseHandle onClick={onClose} title="Закрыть панель">
+                    <DownArrow />
+                </CloseHandle>
+
                 <CouriersScrollContainer ref={scrollContainerRef}>
                     {isLoading && (
                         <StatusMessage>
@@ -259,12 +259,12 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
                             Нет доступных курьеров для добавления в эту смену.
                          </StatusMessage>
                     )}
-                    {/* <<< Используем отфильтрованный список >>> */}
                     {!isLoading && !error && filteredAvailableCouriers.length > 0 && (
                         filteredAvailableCouriers.map(courier => (
                             <motion.div
                                 layout
                                 key={courier.user_id}
+                                onClick={() => handleCourierClick(courier)}
                             >
                                 <CourierIcon
                                     courier={courier}
@@ -274,10 +274,6 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
                         ))
                     )}
                 </CouriersScrollContainer>
-
-                <CloseButtonStyled onClick={onClose} title="Закрыть">
-                    ×
-                </CloseButtonStyled>
             </CouriersPanelContainerStyled>
         </React.Fragment>
     );

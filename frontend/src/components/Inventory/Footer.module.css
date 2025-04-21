@@ -37,8 +37,8 @@
 
 .container {
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     max-width: 800px;
     margin: 0 auto;
     padding: 0 16px;
@@ -477,6 +477,7 @@
     justify-content: center;
     width: 100%;
     position: relative;
+    margin-left: 10px;
 }
 
 .createButtonActive {
@@ -669,4 +670,77 @@
     margin-left: auto; /* Прижмет кнопку настроек вправо */
     /* Можно добавить отступ, если нужно */
     /* margin-left: 12px; */
+}
+
+/* Добавляем контейнеры для левой, центральной и правой частей */
+.leftSide, .centerSide, .rightSide {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Или другой отступ по умолчанию */
+}
+
+.centerSide {
+    flex-grow: 1; /* Позволяем центральной части занять доступное пространство */
+    justify-content: center; /* Центрируем контент в ней */
+}
+
+.rightSide {
+    justify-content: flex-end; /* Прижимаем правый контент к правому краю */
+}
+
+/* Стили для новой кнопки */
+.shiftModeButton {
+    padding: 8px 16px;
+    background-color: var(--primary-color); /* Основной цвет */
+    color: white;
+    border: none;
+    border-radius: 18px; /* Скругленные края */
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px; /* Минимальная ширина */
+    text-align: center;
+}
+
+.shiftModeButton:hover {
+    background-color: var(--primary-dark); /* Цвет при наведении */
+    box-shadow: var(--shadow-md);
+}
+
+.shiftModeButton:active {
+    transform: scale(0.97);
+    box-shadow: var(--shadow-xs);
+}
+
+/* --- Дополнительные стили для корректного отображения кнопок в футере --- */
+
+.backButton {
+    /* Можно убрать flex-grow, если он был */
+    /* ... другие стили ... */
+    display: flex;
+    align-items: center;
+    /* ... */
+}
+
+.createButtonWrapper,
+.generateDocButtonWrapper {
+    /* Убираем абсолютное позиционирование, если оно было */
+    /* position: absolute; */ 
+    /* right: 15px; */
+    /* bottom: 15px; */
+    /* z-index: 10; */
+
+    /* Добавляем margin, если нужно отделить от правых иконок */
+    margin-left: 10px; /* Пример */
+}
+
+.rightIconsContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* Отступ между иконками */
 } 

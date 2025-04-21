@@ -226,7 +226,15 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
   // Обработка клика вне контейнера
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (drawerRef.current && !drawerRef.current.contains(event.target as Node)) {
+      const targetElement = event.target as Node;
+      const footerElement = document.getElementById('app-footer');
+      const isClickInsideFooter = footerElement && footerElement.contains(targetElement);
+      
+      if (
+        drawerRef.current && 
+        !drawerRef.current.contains(targetElement) && 
+        !isClickInsideFooter
+      ) {
         handleClose();
       }
     };

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components'; // Возвращаем styled
 import ShiftPanelContainer from './ShiftPanelContainer';
 import { logger } from '../../utils/logger';
-import { LayoutGroup } from 'framer-motion'; 
+import { LayoutGroup, motion, AnimatePresence } from 'framer-motion'; 
 import ShiftSlotComponent from './components/ShiftSlot';
 import { CourierShift } from '../../types/shifts'; // ОСТАВЛЯЕМ
 import { format } from 'date-fns';
@@ -11,6 +11,9 @@ import CouriersPanel, { CouriersPanelProps } from './components/CouriersPanel';
 
 // Определяем ShiftType локально
 type ShiftType = CourierShift['shiftType']; // <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ
+
+// <<< КОНСТАНТА: Высота панели курьеров + небольшой запас >>>
+const COURIERS_PANEL_HEIGHT = 110; // px
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
 const ShiftSection = styled.div`
@@ -72,6 +75,11 @@ const ReserveLinkButton = styled.button`
     }
 `;
 // --- -------------------------------------------------------------- ---
+
+// <<< НОВЫЙ КОМПОНЕНТ: Обертка для контента, которая будет сдвигаться >>>
+const ShiftContentWrapper = styled(motion.div)`
+  transition: padding-bottom 0.3s ease-out;
+`;
 
 interface ShiftPanelProps {
     date: Date | null;
@@ -153,94 +161,104 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     const totalOccupiedSlots = dayShifts.length + nightShifts.length;
     const isFullyBooked = totalOccupiedSlots >= totalSlots;
     
+    // <<< Определяем нужный padding-bottom >>>
+    const bottomPadding = isCouriersPanelOpen ? `${COURIERS_PANEL_HEIGHT}px` : '0px';
+    
     return (
+        // <<< ИЗМЕНЕНИЕ: Возвращаем родительский фрагмент <> </> >>>
         <>
-            <ShiftSection key="day-shift-section">
-                <ShiftTitle>
-                    <ShiftIcon>☀️</ShiftIcon> Дневная смена
-                </ShiftTitle>
-                <LayoutGroup>
-                    <ShiftPanelContainer
-                        shiftType="day"
-                        shifts={dayShifts}
-                        maxSlots={maxDaySlots}
-                        currentUserId={currentUserId}
-                        currentUserName={currentUserName}
-                        onSlotSelect={onSlotSelect}
-                        isLoading={isLoading && loadingType === 'day'}
-                        loadingSlot={loadingType === 'day' ? loadingSlot : null}
-                        userHasShift={userHasDayShift}
-                        chatId={chatId}
-                        isSenior={isSenior}
-                        showSuccessMessage={showSuccessMessage}
-                        showErrorMessage={showErrorMessage}
-                        draggingShiftType={draggingShiftType}
-                        isDraggingGlobal={isDraggingGlobal}
-                        onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
-                            ...shiftSlot,
-                            date: format(date || new Date(), 'yyyy-MM-dd'),
-                            shiftType: 'day'
-                        } as CourierShift) : undefined}
-                        onLongPressEmptySlot={onLongPressEmptySlot}
-                    />
-                </LayoutGroup>
-            </ShiftSection>
+            {/* <<< ИЗМЕНЕНИЕ: Оборачиваем контент смен в ShiftContentWrapper >>> */}
+            <ShiftContentWrapper 
+                animate={{ paddingBottom: bottomPadding }}
+                transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
+            >
+                <ShiftSection key="day-shift-section">
+                    <ShiftTitle>
+                        <ShiftIcon>☀️</ShiftIcon> Дневная смена
+                    </ShiftTitle>
+                    <LayoutGroup>
+                        <ShiftPanelContainer
+                            shiftType="day"
+                            shifts={dayShifts}
+                            maxSlots={maxDaySlots}
+                            currentUserId={currentUserId}
+                            currentUserName={currentUserName}
+                            onSlotSelect={onSlotSelect}
+                            isLoading={isLoading && loadingType === 'day'}
+                            loadingSlot={loadingType === 'day' ? loadingSlot : null}
+                            userHasShift={userHasDayShift}
+                            chatId={chatId}
+                            isSenior={isSenior}
+                            showSuccessMessage={showSuccessMessage}
+                            showErrorMessage={showErrorMessage}
+                            draggingShiftType={draggingShiftType}
+                            isDraggingGlobal={isDraggingGlobal}
+                            onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
+                                ...shiftSlot,
+                                date: format(date || new Date(), 'yyyy-MM-dd'),
+                                shiftType: 'day'
+                            } as CourierShift) : undefined}
+                            onLongPressEmptySlot={onLongPressEmptySlot}
+                        />
+                    </LayoutGroup>
+                </ShiftSection>
 
-            <ShiftSection key="night-shift-section">
-                <ShiftTitle>
-                    <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
-                </ShiftTitle>
-                <LayoutGroup>
-                    <ShiftPanelContainer
-                        shiftType="night"
-                        shifts={nightShifts}
-                        maxSlots={maxNightSlots}
-                        currentUserId={currentUserId}
-                        currentUserName={currentUserName}
-                        onSlotSelect={onSlotSelect}
-                        isLoading={isLoading && loadingType === 'night'}
-                        loadingSlot={loadingType === 'night' ? loadingSlot : null}
-                        userHasShift={userHasNightShift}
-                        chatId={chatId}
-                        isSenior={isSenior}
-                        showSuccessMessage={showSuccessMessage}
-                        showErrorMessage={showErrorMessage}
-                        draggingShiftType={draggingShiftType}
-                        isDraggingGlobal={isDraggingGlobal}
-                        onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
-                            ...shiftSlot,
-                            date: format(date || new Date(), 'yyyy-MM-dd'),
-                            shiftType: 'night'
-                        } as CourierShift) : undefined}
-                        onLongPressEmptySlot={onLongPressEmptySlot}
-                    />
-                </LayoutGroup>
-            </ShiftSection>
+                <ShiftSection key="night-shift-section">
+                    <ShiftTitle>
+                        <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
+                    </ShiftTitle>
+                    <LayoutGroup>
+                        <ShiftPanelContainer
+                            shiftType="night"
+                            shifts={nightShifts}
+                            maxSlots={maxNightSlots}
+                            currentUserId={currentUserId}
+                            currentUserName={currentUserName}
+                            onSlotSelect={onSlotSelect}
+                            isLoading={isLoading && loadingType === 'night'}
+                            loadingSlot={loadingType === 'night' ? loadingSlot : null}
+                            userHasShift={userHasNightShift}
+                            chatId={chatId}
+                            isSenior={isSenior}
+                            showSuccessMessage={showSuccessMessage}
+                            showErrorMessage={showErrorMessage}
+                            draggingShiftType={draggingShiftType}
+                            isDraggingGlobal={isDraggingGlobal}
+                            onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
+                                ...shiftSlot,
+                                date: format(date || new Date(), 'yyyy-MM-dd'),
+                                shiftType: 'night'
+                            } as CourierShift) : undefined}
+                            onLongPressEmptySlot={onLongPressEmptySlot}
+                        />
+                    </LayoutGroup>
+                </ShiftSection>
 
-            {/* Подсказка для старшего рендерится на основе isSenior */}
-            {isSenior && (
-                <SeniorHint>
-                    ⭐ Как старший курьер, вы можете перетаскивать аватары других курьеров в зону удаления (корзину).
-                </SeniorHint>
-            )}
-
-            {isFullyBooked && !userHasShift && (
-                <NoSlotsMessage key="no-slots-message">
-                    Все смены уже заняты.<br/>
-                    Вы можете <ReserveLinkButton onClick={onSwitchToReserve}>записаться в резерв</ReserveLinkButton>.
-                </NoSlotsMessage>
-            )}
-
-            {/* <<< УСЛОВНЫЙ РЕНДЕРИНГ ПАНЕЛИ КУРЬЕРОВ >>> */}
-            {isCouriersPanelOpen && panelTargetShiftType && panelTargetSlotIndex !== null && (
-                 <CouriersPanel
-                     shiftType={panelTargetShiftType}
-                     slotIndex={panelTargetSlotIndex}
-                     onClose={onCloseCouriersPanel}
-                     chatId={chatId}
-                     date={date}
-                 />
-            )}
+                {isFullyBooked && !userHasShift && (
+                    <NoSlotsMessage key="no-slots-message">
+                        Все смены уже заняты.<br/>
+                        Вы можете <ReserveLinkButton onClick={onSwitchToReserve}>записаться в резерв</ReserveLinkButton>.
+                    </NoSlotsMessage>
+                )}
+                
+            </ShiftContentWrapper> 
+            {/* <<< КОНЕЦ ОБЕРТКИ >>> */}
+            
+            {/* <<< ИЗМЕНЕНИЕ: Рендерим панель курьеров ПОСЛЕ обертки >>> */}
+            {/* <<< ИЗМЕНЕНИЕ: Оборачиваем в AnimatePresence >>> */}
+            {/* @ts-ignore <<< Добавляем игнорирование ошибки >>> */}
+            <AnimatePresence> 
+                {isCouriersPanelOpen && panelTargetShiftType && panelTargetSlotIndex !== null && (
+                     <CouriersPanel
+                         key="couriers-panel" // Key обязателен для AnimatePresence
+                         shiftType={panelTargetShiftType!}
+                         slotIndex={panelTargetSlotIndex!}
+                         onClose={onCloseCouriersPanel}
+                         chatId={chatId}
+                         date={date}
+                     />
+                )}
+            </AnimatePresence> 
         </>
     );
 });

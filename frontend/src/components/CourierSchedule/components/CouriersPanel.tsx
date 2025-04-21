@@ -95,7 +95,7 @@ const CouriersScrollContainer = styled.div`
     display: flex;
     gap: 0.8rem;
     touch-action: pan-x;
-    margin-bottom: 0.5rem;
+    margin-bottom: -0.5rem;
 
     &::-webkit-scrollbar {
         height: 6px;
@@ -225,7 +225,6 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
         if (onCourierSelect) {
             onCourierSelect(courier, shiftType, slotIndex);
         }
-        onClose(); // Закрываем панель после выбора
     };
 
     return (
@@ -233,10 +232,10 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
             <CouriersPanelContainerStyled
                 ref={ref}
                 key="couriers-panel-content"
-                initial={{ x: "-100%", opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
+                initial={{ y: "100%", opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
                 exit={{ y: "100%", opacity: 0 }}
-                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
                 onDoubleClick={(e) => e.preventDefault()}
             >
                 <CloseHandle onClick={onClose} title="Закрыть панель">

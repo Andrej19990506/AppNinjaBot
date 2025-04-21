@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { getGroupCouriers, CourierInfo } from '../../services/courierApi'; // Импортируем API и тип
+import { getGroupCouriers, CourierInfo, ApiShift } from '../../services/courierApi'; // Импортируем API и тип
 import { logger } from '../../utils/logger';
 import { assignCourierToShiftThunk } from './shiftsSlice'; // Импорт thunk для назначения курьера
 import { format } from 'date-fns'; // Для форматирования даты
@@ -86,10 +86,13 @@ const availableCouriersSlice = createSlice({
                 // Не сбрасываем lastFetchedChatId, чтобы показать ошибку для этого чата
             })
             // Обработка успешного назначения курьера
-            .addCase(assignCourierToShiftThunk.fulfilled, (state, action) => {
-                const { date, userId } = action.payload;
+            .addCase(assignCourierToShiftThunk.fulfilled, (state, action: PayloadAction<ApiShift>) => {
+                const assignedShift = action.payload;
+                const userId = assignedShift.user_id;
+                const date = assignedShift.date;
+
                 if (!userId || !date) {
-                    logger.warn('[availableCouriersSlice] assignCourierToShiftThunk.fulfilled: userId или date отсутствуют в payload.');
+                    logger.warn('[availableCouriersSlice] assignCourierToShiftThunk.fulfilled: userId (user_id) или date отсутствуют в payload.', assignedShift);
                     return;
                 }
                 const dateKey = format(new Date(date), 'yyyy-MM-dd');

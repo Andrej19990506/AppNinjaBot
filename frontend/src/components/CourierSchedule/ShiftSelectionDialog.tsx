@@ -24,8 +24,8 @@ import { moveShiftToReserve, updateShiftSlot } from '../../services/courierApi';
 import CourierProfile from '../../components/CourierProfile/CourierProfile';
 // Импортируем функцию для обновления профиля
 import { refreshCourierProfileFromTelegram } from '../../services/courierApi';
-// <<< Добавляем useAppDispatch >>>
-import { useAppDispatch } from '../../store/hooks';
+// <<< ИЗМЕНЕНИЕ: Импорт useAppSelector >>>
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 // <<< Добавляем импорт User и CourierInfo >>>
 import { User } from '../../types/user';
 // <<< ИСПРАВЛЕНИЕ: Импортируем CourierInfo здесь >>>
@@ -34,8 +34,14 @@ import { CourierInfo } from '../../services/courierApi';
 import CourierIcon from './components/CourierIcon';
 // <<< ДОБАВЛЯЕМ ИМПОРТ defaultAvatar >>>
 import defaultAvatar from '../../assets/images/Ninja.jpg';
-// <<< Импортируем Thunk для назначения >>>
-import { assignCourierToShiftThunk } from '../../store/slices/shiftsSlice';
+// <<< ИЗМЕНЕНИЕ: Импорт actions и selectors из shiftsSlice >>>
+import { 
+    assignCourierToShiftThunk, 
+    setShiftDialogOpen, 
+    setShiftDialogMode, // <<< Добавляем setShiftDialogMode
+    selectIsShiftDialogOpen, 
+    selectShiftDialogMode 
+} from '../../store/slices/shiftsSlice';
 
 // <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ ShiftType >>>
 type ShiftType = CourierShift['shiftType'];
@@ -423,15 +429,15 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     showNotification,
     onOpenProfile
 }) => {
-    const dispatch = useAppDispatch(); // <<< Инициализируем dispatch
-    const [mode, setMode] = useState<'shifts' | 'reserves'>('shifts');
+    const dispatch = useAppDispatch();
+    // <<< ИЗМЕНЕНИЕ: Получаем режим из Redux, удаляем локальное состояние >>>
+    const shiftDialogMode = useAppSelector(selectShiftDialogMode);
     const [internalIsBookingLoading, setInternalIsBookingLoading] = useState(false);
     const [loadingSlot, setLoadingSlot] = useState<number | null>(null);
     const [loadingType, setLoadingType] = useState<'day' | 'night' | null>(null);
     
     const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<PendingShiftAction | null>(null);
-    const [initialModeSet, setInitialModeSet] = useState(false);
     
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
     const [activeDragData, setActiveDragData] = useState<any | null>(null);
@@ -480,8 +486,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [panelTargetShiftType, setPanelTargetShiftType] = useState<ShiftType | null>(null);
     const [panelTargetSlotIndex, setPanelTargetSlotIndex] = useState<number | null>(null);
 
-    const user = useSelector(selectUser);
-    const usersById = useSelector(selectUsersById);
+    const user = useAppSelector(selectUser);
+    const usersById = useAppSelector(selectUsersById);
     const isCurrentUserSenior = useMemo(() => {
         if (!user || !user.groups || !chatId) {
             return false;
@@ -497,22 +503,25 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         return (selectedCourier as any).isSeniorCourier === true || (selectedCourier as any).is_senior_courier === true;
     }, [selectedCourier]);
 
-    logger.debug(`[ShiftSelectionDialog] Rendering component. Current mode: ${mode}, isOpen: ${isOpen}, initialModeSet: ${initialModeSet}`);
+    logger.debug(`[ShiftSelectionDialog] Rendering component. isOpen: ${isOpen}`);
 
+    // <<< ИЗМЕНЕНИЕ: Обновляем состояние Redux при изменении isOpen >>>
     useEffect(() => {
-        logger.debug(`[ShiftSelectionDialog] useEffect [isOpen, initialModeSet] running. isOpen: ${isOpen}, initialModeSet: ${initialModeSet}`);
-        if (isOpen && !initialModeSet) {
-            logger.debug('[ShiftSelectionDialog] Condition Met (isOpen && !initialModeSet): Setting mode to shifts and initialModeSet to true.');
-            setMode('shifts');
-            setInitialModeSet(true);
+        if (isOpen) {
+            // Код, который выполняется при isOpen === true
+            logger.debug(`[ShiftSelectionDialog] isOpen is true. Dispatching open=true, mode=shifts.`);
+            dispatch(setShiftDialogOpen(true));
+            dispatch(setShiftDialogMode('shifts'));
+
+            // Возвращаем функцию очистки, которая сработает ПЕРЕД следующим запуском эффекта
+            // ИЛИ при размонтировании компонента, ЕСЛИ эффект был запущен (т.е. isOpen был true)
+            return () => {
+                logger.debug(`[ShiftSelectionDialog] Cleanup for OPEN state. Dispatching open=false.`);
+                dispatch(setShiftDialogOpen(false));
+            };
         }
-        else if (!isOpen && initialModeSet) {
-            logger.debug('[ShiftSelectionDialog] Condition Met (!isOpen && initialModeSet): Dialog closed, resetting initialModeSet to false.');
-            setInitialModeSet(false);
-        } else {
-            logger.debug('[ShiftSelectionDialog] Conditions NOT met for mode/initialModeSet change in this effect.');
-        }
-    }, [isOpen, initialModeSet]);
+        // Если isOpen изначально false, ничего не делаем и не возвращаем cleanup
+    }, [isOpen, dispatch]);
 
     const showSuccessMessage = (message: string) => {
         console.log('[ShiftSelectionDialog] showSuccessMessage:', message);
@@ -571,13 +580,6 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsConfirmationOpen(false);
         setPendingAction(null);
     }, [setIsConfirmationOpen, setPendingAction]);
-
-    const setModeWrapper = useCallback((newMode: 'shifts' | 'reserves') => {
-        setMode(prevMode => {
-            logger.debug(`[ShiftSelectionDialog] setMode called. Previous: ${prevMode}, Requested New: ${newMode}`);
-            return newMode;
-        });
-    }, [setMode]);
 
     const dayIndex = date.getDay();
     const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
@@ -1055,35 +1057,37 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsDraggingGlobally
     ]);
 
-    // --- ОБНОВЛЯЕМ ЛОГИКУ ВИДИМОСТИ ЗОН --- 
+    // <<< HELPER: Возвращает источник данных для подтверждения >>>
+    const getConfirmationDataSource = (): ConfirmationDataSource => {
+        if (isAwaitingAssignmentConfirmation && assignmentToConfirmData) {
+            return { type: 'assignment', data: assignmentToConfirmData.courier };
+        } else if (isDeleteAwaitingConfirmation && shiftToDeleteData) {
+            return { type: 'delete', data: shiftToDeleteData.courier };
+        } else if (isProcessingDelete && (tempCourierData || shiftToDeleteData)) {
+            // Во время обработки удаления приоритет у tempCourierData
+            const source = tempCourierData || shiftToDeleteData?.courier;
+            if (source) {
+                return { type: 'delete', data: source };
+            }
+        }
+        return null; // Возвращаем null, если данных нет
+    };
+    
+    // --- ИЗМЕНЕНИЕ: Определяем данные ПОСЛЕ getConfirmationDataSource ---
+    const isDraggingShift = activeDragId && activeDragData?.type === 'shift';
+    const isAwaitingDeleteOrAssign = isDeleteAwaitingConfirmation || isAwaitingAssignmentConfirmation;
+    const isWorkingOnDeleteOrAssign = isProcessingDelete || isConfirmingDelete || isAwaitingDeleteOrAssign;
+    const isWorkingOnReserve = isProcessingReserve || isConfirmingReserve || isReserveAwaitingConfirmation;
+    const isAnyZoneWorking = isWorkingOnDeleteOrAssign || isWorkingOnReserve;
 
-    const isAwaitingAnyConfirmation = isDeleteAwaitingConfirmation || isReserveAwaitingConfirmation;
+    const showZonesContainer = isDraggingShift || isAnyZoneWorking;
+    const renderDeleteZone = (isDraggingShift && !isAnyZoneWorking) || isWorkingOnDeleteOrAssign;
+    const renderReserveZone = (isDraggingShift && !isAnyZoneWorking) || isWorkingOnReserve;
 
-    // <<< Показываем контейнер зон, если: >>>
-    // 1. Идет перетаскивание из слота (shift) ИЛИ
-    // 2. Ожидается ЛЮБОЕ подтверждение (удаление, резерв, НАЗНАЧЕНИЕ)
-    const showZonesContainer = 
-        (activeDragId && activeDragData?.type === 'shift') || 
-        isDeleteAwaitingConfirmation || 
-        isReserveAwaitingConfirmation ||
-        isAwaitingAssignmentConfirmation; // <<< Добавляем новое состояние
-
-    // <<< Показываем зону УДАЛЕНИЯ/НАЗНАЧЕНИЯ, если: >>>
-    // 1. Идет перетаскивание из слота И НЕТ другого ожидания ИЛИ
-    // 2. Ожидается подтверждение ИМЕННО для удаления ИЛИ
-    // 3. Ожидается подтверждение ИМЕННО для назначения.
-    const renderDeleteConfirmationZone = 
-        (activeDragId && activeDragData?.type === 'shift' && !isAwaitingAnyConfirmation) || 
-        isDeleteAwaitingConfirmation || 
-        isAwaitingAssignmentConfirmation; // <<< Добавляем новое состояние
-
-    // <<< Показываем зону РЕЗЕРВА, если: >>>
-    // 1. Идет перетаскивание из слота И НЕТ другого ожидания ИЛИ
-    // 2. Ожидается подтверждение ИМЕННО для резерва.
-    const renderReserveZone = 
-        (activeDragId && activeDragData?.type === 'shift' && !isAwaitingAnyConfirmation) || 
-        isReserveAwaitingConfirmation;
-    // --- КОНЕЦ ОБНОВЛЕНИЯ ЛОГИКИ --- 
+    const deleteConfirmationDataSource = isWorkingOnDeleteOrAssign ? getConfirmationDataSource() : null;
+    // <<< ИЗМЕНЕНИЕ: Используем существующие данные для резерва >>>
+    const reserveAwaitingOrProcessingData = isWorkingOnReserve ? (shiftToReserveData?.courier || tempCourierData) : null; 
+    // --- КОНЕЦ ОПРЕДЕЛЕНИЯ ДАННЫХ ---
 
     const isOverDeleteZone = isOverDeleteZoneManually;
     const isOverReserveZone = isOverReserveZoneManually;
@@ -1257,22 +1261,6 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         | { type: 'delete', data: ConfirmedCourierInfo }
         | null; // Добавляем null
 
-    // <<< HELPER: Возвращает источник данных для подтверждения >>>
-    const getConfirmationDataSource = (): ConfirmationDataSource => {
-        if (isAwaitingAssignmentConfirmation && assignmentToConfirmData) {
-            return { type: 'assignment', data: assignmentToConfirmData.courier };
-        } else if (isDeleteAwaitingConfirmation && shiftToDeleteData) {
-            return { type: 'delete', data: shiftToDeleteData.courier };
-        } else if (isProcessingDelete && (tempCourierData || shiftToDeleteData)) {
-            // Во время обработки удаления приоритет у tempCourierData
-            const source = tempCourierData || shiftToDeleteData?.courier;
-            if (source) {
-                return { type: 'delete', data: source };
-            }
-        }
-        return null; // Возвращаем null, если данных нет
-    };
-
     return (
         <DndContext 
             sensors={sensors} 
@@ -1355,51 +1343,36 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 ) : undefined}
             >
                 {/* Рендерим зоны только если не показываем профиль */}
-                {!showCourierProfile && showZonesContainer ? (
+                {!showCourierProfile && showZonesContainer ? ( 
                     <FlexContainer> 
-                        {renderDeleteConfirmationZone && (
+                        {renderDeleteZone && ( 
                             <DeleteDropZone 
                                 isOver={isOverDeleteZone}
                                 isProcessing={isProcessingDelete}
                                 isConfirming={isConfirmingDelete}
-                                isAwaitingConfirmation={isDeleteAwaitingConfirmation || isAwaitingAssignmentConfirmation}
-                                confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
-                                courierData={isConfirmingDelete ? confirmedDeletedCourier : null}
-                                confirmationDataSource={getConfirmationDataSource()}
+                                courierData={confirmedDeletedCourier} // Для галочки успеха
+                                confirmationDataSource={deleteConfirmationDataSource} // Передаем общие данные
+                                isAwaitingConfirmation={isAwaitingDeleteOrAssign} // Передаем флаг ожидания
                                 onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
                                 onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
+                                confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
                             />
                         )}
-                        {renderReserveZone && (
+                        {renderReserveZone && ( 
                             <ReserveDropZone 
                                 isOver={isOverReserveZone}
                                 isProcessing={isProcessingReserve} 
                                 isConfirming={isConfirmingReserve} 
-                                confirmedCourierData={confirmedReserveCourier}
-                                courierAwaitingActionData={shiftToReserveData?.courier || tempCourierData}
-                                isAwaitingConfirmation={isReserveAwaitingConfirmation}
+                                confirmedCourierData={confirmedReserveCourier} // Для галочки успеха
+                                courierAwaitingActionData={reserveAwaitingOrProcessingData} // Передаем данные для ожидания/обработки
+                                isAwaitingConfirmation={isReserveAwaitingConfirmation} // Передаем флаг ожидания
                                 onConfirm={handleConfirmReserve}
                                 onCancel={handleCancelReserve}
                             />
                         )}
                     </FlexContainer>
                 ) : !showCourierProfile && (
-                    <ModeSwitchContainer>
-                        <ModeButton
-                            $active={mode === 'shifts'}
-                            onClick={() => setModeWrapper('shifts')}
-                            disabled={internalIsBookingLoading || isConfirmationOpen}
-                        >
-                            {"Смены"}
-                        </ModeButton>
-                        <ModeButton
-                            $active={mode === 'reserves'}
-                            onClick={() => setModeWrapper('reserves')}
-                            disabled={internalIsBookingLoading || isConfirmationOpen}
-                        >
-                            Резерв
-                        </ModeButton>
-                    </ModeSwitchContainer>
+                    null 
                 )}
 
                 {!showCourierProfile && reserveError && <Alert severity="error" sx={{ mb: 2 }}>{reserveError}</Alert>} 
@@ -1439,7 +1412,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                         </button>
                     </div>
                 ) : (
-                    mode === 'shifts' ? (
+                    shiftDialogMode === 'shifts' ? (
                         isConfirmationOpen && pendingAction ? (
                             <ShiftConfirmationDialog
                                 isOpen={isConfirmationOpen}
@@ -1460,7 +1433,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 currentUserId={currentUserId}
                                 currentUserName={currentUserName}
                                 onSlotSelect={handleSlotSelectWrapper}
-                                onSwitchToReserve={() => setModeWrapper('reserves')}
+                                onSwitchToReserve={() => dispatch(setShiftDialogMode('reserves'))}
                                 showSuccessMessage={showSuccessMessage}
                                 showErrorMessage={(message) => {
                                     if (showNotification) {
@@ -1497,7 +1470,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                             currentUserName={currentUserName}
                             dayShifts={dayShifts}
                             nightShifts={nightShifts}
-                            onSwitchToShifts={() => setModeWrapper('shifts')}
+                            onSwitchToShifts={() => dispatch(setShiftDialogMode('shifts'))}
                             getDisplayReservesForDate={getDisplayReservesForDate}
                             isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
                             addCurrentUserToReserve={addCurrentUserToReserve}

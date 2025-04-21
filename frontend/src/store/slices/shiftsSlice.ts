@@ -60,6 +60,9 @@ interface ShiftState {
     // --- ------------------------ --- 
     isLoadingSettings: boolean;
     settingsError: string | null;
+    // <<< НОВЫЕ ПОЛЯ СОСТОЯНИЯ ДЛЯ ДИАЛОГА >>>
+    isShiftDialogOpen: boolean;
+    shiftDialogMode: 'shifts' | 'reserves';
 }
 
 // Интерфейс параметров для Thunk bookShift
@@ -100,7 +103,10 @@ const initialState: ShiftState = {
     slotConfig: defaultWeeklySlotConfig, 
     // --- -------------------------------------- --- 
     isLoadingSettings: false,
-    settingsError: null
+    settingsError: null,
+    // <<< ИНИЦИАЛИЗАЦИЯ НОВЫХ ПОЛЕЙ >>>
+    isShiftDialogOpen: false,
+    shiftDialogMode: 'shifts',
 };
 
 // Глобальный EventEmitter для синхронизации компонентов
@@ -468,7 +474,7 @@ export const updateAccessRules = createAsyncThunk<
 
 // <<< НОВЫЙ THUNK ДЛЯ НАЗНАЧЕНИЯ КУРЬЕРА >>>
 export const assignCourierToShiftThunk = createAsyncThunk<
-    CourierShift, // Возвращаем созданную/обновленную смену
+    ApiShift, // <<< Указываем ApiShift
     { // Аргументы thunk
         assignerId: string; // ID того, кто назначает (старший)
         courier: CourierInfo; // Данные назначаемого курьера
@@ -601,6 +607,9 @@ const shiftsSlice = createSlice({
             state.error = null;
             state.accessSettings = null;
             state.slotConfig = defaultWeeklySlotConfig;
+            // <<< СБРОС СОСТОЯНИЯ ДИАЛОГА ПРИ ОЧИСТКЕ >>>
+            state.isShiftDialogOpen = false;
+            state.shiftDialogMode = 'shifts';
         },
         // --- Добавляем новый синхронный редюсер --- 
         shiftAddedOrUpdated: (state, action: PayloadAction<CourierShift>) => {
@@ -616,6 +625,23 @@ const shiftsSlice = createSlice({
             state.shifts = state.shifts.filter(shift => shift.id !== shiftIdToRemove);
             // Note: We might also need to update reserves if the deleted shift was a reserve placement?
             // For now, just removing from the main shifts array.
+        },
+        // <<< НОВЫЕ РЕДЬЮСЕРЫ ДЛЯ УПРАВЛЕНИЯ ДИАЛОГОМ >>>
+        setShiftDialogOpen: (state, action: PayloadAction<boolean>) => {
+            state.isShiftDialogOpen = action.payload;
+            // Сбрасываем режим на 'shifts' при открытии, если диалог был закрыт
+            if (action.payload && !state.isShiftDialogOpen) {
+                state.shiftDialogMode = 'shifts';
+            }
+             logger.debug(`[shiftsSlice] setShiftDialogOpen: ${action.payload}`);
+        },
+        setShiftDialogMode: (state, action: PayloadAction<'shifts' | 'reserves'>) => {
+            state.shiftDialogMode = action.payload;
+             logger.debug(`[shiftsSlice] setShiftDialogMode: ${action.payload}`);
+        },
+        toggleShiftDialogMode: (state) => {
+            state.shiftDialogMode = state.shiftDialogMode === 'shifts' ? 'reserves' : 'shifts';
+             logger.debug(`[shiftsSlice] toggleShiftDialogMode: new mode is ${state.shiftDialogMode}`);
         },
     },
     extraReducers: (builder) => {
@@ -791,18 +817,26 @@ const shiftsSlice = createSlice({
                 state.error = null;
                  logger.debug('[shiftsSlice] Назначение курьера в процессе...');
             })
-            .addCase(assignCourierToShiftThunk.fulfilled, (state, action: PayloadAction<CourierShift>) => {
+            .addCase(assignCourierToShiftThunk.fulfilled, (state, action: PayloadAction<ApiShift>) => {
                 state.isLoading = false;
-                // Добавляем или обновляем смену в стейте
-                const index = state.shifts.findIndex(shift => shift.id === action.payload.id || (shift.date === action.payload.date && shift.shiftType === action.payload.shiftType && shift.slotIndex === action.payload.slotIndex));
+                // <<< ИСПРАВЛЕНО: Маппим ApiShift в CourierShift перед добавлением в стейт >>>
+                const newShift = mapApiShiftToCourierShift(action.payload);
+                
+                // Добавляем или обновляем смену в стейте, используя смапленный newShift
+                const index = state.shifts.findIndex(shift => 
+                    shift.id === newShift.id || 
+                    (shift.date === newShift.date && 
+                     shift.shiftType === newShift.shiftType && 
+                     shift.slotIndex === newShift.slotIndex)
+                );
                 if (index !== -1) {
-                    // Обновляем существующую (маловероятно при назначении в пустой слот, но на всякий случай)
-                    state.shifts[index] = action.payload;
+                    // Обновляем существующую
+                    state.shifts[index] = newShift; 
                 } else {
                     // Добавляем новую
-                    state.shifts.push(action.payload);
+                    state.shifts.push(newShift);
                 }
-                logger.debug('[shiftsSlice] Курьер успешно назначен, смена добавлена/обновлена.');
+                logger.debug('[shiftsSlice] Курьер успешно назначен, смена добавлена/обновлена (тип CourierShift).');
             })
             .addCase(assignCourierToShiftThunk.rejected, (state, action) => {
                 state.isLoading = false;
@@ -821,7 +855,11 @@ export const {
     clearShifts,
     shiftAddedOrUpdated,
     shiftRemoved,
-    removeShiftLocally
+    removeShiftLocally,
+    // <<< ЭКСПОРТ НОВЫХ ACTIONS >>>
+    setShiftDialogOpen,
+    setShiftDialogMode,
+    toggleShiftDialogMode,
 } = shiftsSlice.actions;
 
 // Селекторы
@@ -870,5 +908,9 @@ export const selectAssignedCouriersMapOnDate = (date: string | null) =>
             return assignedMap;
         }
     );
+
+// <<< НОВЫЕ СЕЛЕКТОРЫ ДЛЯ ДИАЛОГА >>>
+export const selectIsShiftDialogOpen = (state: RootState): boolean => state.shifts.isShiftDialogOpen;
+export const selectShiftDialogMode = (state: RootState): 'shifts' | 'reserves' => state.shifts.shiftDialogMode;
 
 export default shiftsSlice.reducer; 

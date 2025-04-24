@@ -1,5 +1,5 @@
 import { configureStore, createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
-import type { ListenerEffectAPI, PayloadAction } from '@reduxjs/toolkit';
+import type { /* ListenerEffectAPI, PayloadAction */ } from '@reduxjs/toolkit';
 import inventoryReducer from './slices/inventorySlice';
 import writeOffReducer from './slices/writeOffSlice';
 import notificationReducer from './slices/notificationSlice';
@@ -18,7 +18,8 @@ import { socketService, SocketState as ServiceSocketState } from '../services/so
 // import throttle from 'lodash.throttle'; // Закомментировано
 import { logger } from '../utils/logger';
 import { routeChanged } from './actions';
-import { Socket } from 'socket.io-client';
+// Удаляем Socket из импорта
+import { /* Socket */ } from 'socket.io-client';
 import chatReducer from './slices/chatSlice';
 import availableCouriersReducer from './slices/availableCouriersSlice';
 // import inventoryItemsReducer from './slices/inventoryItemSlice';

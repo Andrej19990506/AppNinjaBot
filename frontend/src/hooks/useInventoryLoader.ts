@@ -1,12 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAppDispatch, useAppSelector } from '../store/hooks';
+import { useState, useEffect, /* useRef, */ useCallback } from 'react';
+// Удаляем неиспользуемый импорт useAppSelector
+import { useAppDispatch, /* useAppSelector */ } from '../store/hooks'; 
 import { 
   fetchInventory, 
   fetchChatInventory, 
-  updateInventoryData,
-  updateProgress,
+  // Удаляем неиспользуемый импорт updateInventoryData
+  // updateInventoryData,
+  // Удаляем неиспользуемый импорт updateProgress
+  // updateProgress,
 } from '../store/slices/inventorySlice';
-import { useNavigate } from 'react-router-dom';
+// Удаляем неиспользуемый импорт useNavigate
+// import { useNavigate } from 'react-router-dom'; 
 interface UseInventoryLoaderProps {
   chatId?: string;
   currentUserId: number | null;
@@ -15,52 +19,19 @@ interface UseInventoryLoaderProps {
 
 export const useInventoryLoader = ({ chatId, currentUserId, role }: UseInventoryLoaderProps) => {
   const dispatch = useAppDispatch();
-  const navigate = useNavigate();
+  // Удаляем неиспользуемую переменную navigate
+  // const navigate = useNavigate(); 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const chats = useAppSelector(state => state.inventory.items);
+  // Удаляем неиспользуемую переменную chats
+  // const chats = useAppSelector(state => state.inventory.items);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
 
-  // Обработчик обновлений инвентаря через WebSocket
-  const handleInventoryUpdate = useCallback((data: any) => {
-    const updateData = data.data || data;
-    const chatId = updateData.metadata?.chat_id || updateData.chatId;
-    
-    if (!chatId) {
-        console.warn('⚠️ Отсутствует chatId в данных обновления:', updateData);
-        return;
-    }
-
-    console.log('📦 Получено обновление инвентаря:', {
-        chatId,
-        hasInventory: !!updateData.inventory,
-        type: updateData.type || 'full',
-        timestamp: new Date().toISOString()
-    });
-
-    // Формируем данные для обновления Redux
-    const payload = {
-        chatId,
-        data: {
-            type: updateData.type || 'full',
-            inventory: updateData.inventory,
-            metadata: updateData.metadata,
-            category: updateData.category,
-            itemId: updateData.itemId,
-            item: updateData.item
-        }
-    };
-
-    console.log('📤 Отправка обновления в Redux:', payload);
-
-    // Отправляем обновление в Redux
-    dispatch(updateInventoryData(payload));
-    console.log('✅ Данные отправлены в Redux для обновления');
-
-    // Обновляем прогресс после обновления инвентаря
-    dispatch(updateProgress());
-  }, [dispatch]);
+  // Удаляем неиспользуемую переменную handleInventoryUpdate
+  // const handleInventoryUpdate = useCallback((data: any) => { 
+  //   // ... (код обработчика)
+  // }, [dispatch]);
 
   // Основная функция загрузки инвентаря
   const loadInventoryData = useCallback(async (forceReload = false) => {

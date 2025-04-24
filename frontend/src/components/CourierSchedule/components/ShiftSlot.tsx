@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import styled, { css } from 'styled-components';
 import { useSelector } from 'react-redux';
-import { RootState } from '../../../store/store';
 import { selectUsersById } from '../../../store/slices/userSlice';
 import defaultAvatar from '../../../assets/images/Ninja.jpg';
 // @ts-ignore
@@ -369,7 +368,6 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     isActiveTooltip,
     onRequestTooltip,
     onLongPressEmptySlot,
-    $isPanelDragActive,
 }): React.ReactElement | null => {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingSelf, setIsDeletingSelf] = useState(false);

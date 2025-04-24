@@ -99,7 +99,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     const dropdownRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const [isNavigating, setIsNavigating] = useState(false);
-    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+    // Закомментируем selectedChatId, т.к. он не используется
+    // const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [error, setError] = useState<string | null>(null);
     const cardsContainerRef = useRef<HTMLDivElement>(null);
@@ -234,7 +235,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
 
             // 4. If rights OK, set state to show modal
             setSelectedChatLocal(chat);
-            setSelectedChatId(chat.chat_id);
             setShowModal(true);
             console.log(`ChatSelector: Modal will be shown for chat ${chat.chat_id}`);
 
@@ -260,8 +260,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         setSystemNotification,
         // setError, // Only if using component-level error state
         setSelectedChatLocal,
-        setShowModal,
-        setSelectedChatId
+        setShowModal
         // isProcessingClickRef is a ref, not needed in deps
     ]);
 
@@ -299,7 +298,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
             // Reset navigation state and selected chat
             setIsNavigating(false);
             setSelectedChatLocal(null);
-            setSelectedChatId(null);
             console.log('ChatSelector: Navigation state reset');
         }
     }, [
@@ -311,8 +309,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         setIsNavigating,
         setShowModal,
         setError, // setError is used in catch block
-        setSelectedChatLocal,
-        setSelectedChatId
+        setSelectedChatLocal
     ]);
 
     const handleModalClose = useCallback(() => {
@@ -320,10 +317,9 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         if (!isNavigating) { 
             setShowModal(false);
             setSelectedChatLocal(null);
-            setSelectedChatId(null);
-            setIsNavigating(false); 
+            console.log('ChatSelector: handleModalClose - selected chat reset');
         }
-    }, [isNavigating, setShowModal, setSelectedChatLocal, setSelectedChatId, setIsNavigating]);
+    }, [isNavigating, setShowModal, setSelectedChatLocal]);
 
     const handleHomeClick = useCallback(() => {
         if (onHomeClick) {

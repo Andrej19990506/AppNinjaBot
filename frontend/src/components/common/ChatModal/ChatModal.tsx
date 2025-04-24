@@ -6,7 +6,6 @@ import { RootState } from '../../../store/store';
 import AdminProfile from '../AdminProfile/AdminProfile';
 import { SingleSystemNotification } from '../../notifications/SystemNotification';
 import styles from './ChatModal.module.css';
-import { Admin } from '../../../types/inventoryTypes';
 import { ChatContext } from '../../../store/slices/chatSlice';
 import { ChatItem } from '../ChatSelector/ChatSelector';
 

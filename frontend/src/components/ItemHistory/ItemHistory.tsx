@@ -9,15 +9,10 @@ import CloseIcon from '@mui/icons-material/Close';
 import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import InputLabel from '@mui/material/InputLabel';
 import IconButton from '@mui/material/IconButton';
-import Tooltip from '@mui/material/Tooltip';
-import Fab from '@mui/material/Fab';
 import type { HistoryRecord } from '../../types/inventory';
 import { 
     fetchItemHistory, 
-    clearItemHistory, 
     selectIsUpdatingItemId
 } from '../../store/slices/inventorySlice';
 import styles from './ItemHistory.module.css';
@@ -493,47 +488,17 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
     }, [dispatch, selectedChatId, itemId, category, itemName]);
 
     // Вычисление доступных дат и фильтрация
-    const { availableDates: _availableDates, mobileAvailableDates: _mobileAvailableDates, filteredHistory: _filteredHistory, hasValidHistory: _hasValidHistory, historyCount: _historyCount } = useMemo(() => {
+    const { 
+        hasValidHistory: _hasValidHistory, 
+    } = useMemo(() => {
         const relevantHistory = history.filter(record => !['add_option', 'remove_option'].includes(record.action));
-        const dates = relevantHistory.map(record => {
-            const date = new Date(record.timestamp);
-            return {
-                full: format(date, 'dd.MM.yyyy', { locale: ru }),
-                short: format(date, 'd MMM', { locale: ru })
-            };
-        });
-        const uniqueFullDates = Array.from(new Set(dates.map(d => d.full)));
-        const _availableDates = ['all', ...uniqueFullDates];
-        const _mobileAvailableDates = [{ full: 'all', short: 'Все' }, ...uniqueFullDates.map(fullDate => {
-            const date = dates.find(d => d.full === fullDate);
-            return { full: fullDate, short: date?.short || '' };
-        })];
-
-        const _filteredHistory = selectedDate === 'all' ? relevantHistory : relevantHistory.filter(record => {
-            const date = new Date(record.timestamp);
-            const formattedDate = format(date, 'dd.MM.yyyy', { locale: ru });
-            return formattedDate === selectedDate;
-        });
 
         const _hasValidHistory = relevantHistory.length > 0;
 
-        // Используем форматирование для надежного сравнения дат
-        const todayFormatted = format(new Date(), 'yyyy-MM-dd');
-        const _historyCount = relevantHistory.filter(record => {
-             const recordDateFormatted = format(new Date(record.timestamp), 'yyyy-MM-dd');
-             return recordDateFormatted === todayFormatted;
-        }).length;
-
-        console.log('[ItemHistory useMemo] Calculated _historyCount:', _historyCount);
-
         return {
-            availableDates: _availableDates,
-            mobileAvailableDates: _mobileAvailableDates,
-            filteredHistory: _filteredHistory,
             hasValidHistory: _hasValidHistory,
-            historyCount: _historyCount
         };
-    }, [history, selectedDate]);
+    }, [history]);
 
     // Форматирование действия
     const formatAction = (action: string, type: string): string => {
@@ -572,7 +537,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                     <HistoryContent 
                         hasItems={_hasValidHistory}
                         onOpenModal={openModal}
-                        historyCount={_historyCount}
+                        historyCount={historyCount}
                         isLoading={localLoading}
                         error={error}
                         isUpdating={isUpdating}
@@ -628,7 +593,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                     <MenuItem value="all">
                                         Все даты
                                     </MenuItem>
-                                    {_mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
+                                    {mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
                                         <MenuItem key={date.full} value={date.full}>
                                             {isMobile ? date.short : date.full}
                                         </MenuItem>
@@ -638,7 +603,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                         </div>
                         
                         <div className={styles.modalContent}>
-                            {!_filteredHistory || _filteredHistory.length === 0 ? (
+                            {filteredHistory.length === 0 ? (
                                 <HistoryContent 
                                     hasItems={false} 
                                     onOpenModal={openModal}
@@ -652,7 +617,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                     {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                                     {/* @ts-ignore */}
                                     <AnimatePresence mode="popLayout">
-                                        {_filteredHistory
+                                        {filteredHistory
                                         .filter(record => !['add_option', 'remove_option'].includes(record.action))
                                         .map((record: ExtendedHistoryRecord, index: number) => (
                                             <motion.div
@@ -721,7 +686,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                             </motion.div>
                                         ))}
                                     </AnimatePresence>
-                                    {_filteredHistory.length === 0 && (
+                                    {filteredHistory.length === 0 && (
                                         <motion.div 
                                             className={styles.emptyFilterMessage}
                                             initial={{ opacity: 0, y: 20 }}
@@ -764,9 +729,9 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                  transition={{ duration: 0.4 }}
             >
                  <HistoryContent
-                    hasItems={_hasValidHistory}
+                    hasItems={hasValidHistory}
                     onOpenModal={openModal}
-                    historyCount={_historyCount}
+                    historyCount={historyCount}
                     isLoading={localLoading}
                     error={error}
                     isUpdating={isUpdating}
@@ -802,7 +767,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                 displayEmpty
                             >
                                 <MenuItem value="all">Все даты</MenuItem>
-                                {_availableDates.filter(date => date !== 'all').map(date => (
+                                {availableDates.filter(date => date !== 'all').map(date => (
                                     <MenuItem key={date} value={date}>
                                         {date}
                                     </MenuItem>
@@ -816,7 +781,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                             {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                             {/* @ts-ignore */}
                             <AnimatePresence mode="popLayout">
-                                {_filteredHistory
+                                {filteredHistory
                                 .filter(record => !['add_option', 'remove_option'].includes(record.action))
                                 .map((record: ExtendedHistoryRecord, index: number) => (
                                     <motion.div

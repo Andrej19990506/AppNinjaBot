@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '../store/store';
+import { AppDispatch } from '../store/store';
 import { socketService } from '../services/socket';
 import { logger } from '../utils/logger';
 import { InventoryMetadata, InventoryItem } from '../types/inventoryTypes';

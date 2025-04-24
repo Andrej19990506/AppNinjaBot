@@ -3,41 +3,26 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store/store';
 import { socketService, SocketState } from '../services/socket';
 import { logger } from '../utils/logger';
-import { /* ApiShift, */ ApiReserve } from '../services/courierApi';
+import { ApiReserve } from '../services/courierApi';
 
 // Импортируем actions из слайсов
 import {
     shiftBookedWs,
     shiftCancelledWs,
-    // ApiShift // <<< Удаляем неправильный импорт
-    // Добавляем импорт Thunk для настроек доступа
     fetchAccessSettings,
     ShiftsUpdatedWsPayload // <<< Импортируем тип
 } from '../store/slices/shiftsSlice';
-// Удаляем старые импорты резервов
-// import {
-//     reserveAdded,
-//     reserveRemoved,
-//     bulkReserveRemoved,
-//     reserveTransferred,
-//     mapApiReserveToReserveEntry, 
-//     ApiReserve 
-// } from '../store/slices/reservesSlice';
-// Импортируем Thunk для перезагрузки резервов
 import { fetchReservesForGroup } from '../store/slices/reservesSlice';
-// Импортируем actions и Thunk для резервов
 import {
     reserveAdded,          // <<< Добавляем синхронный action
     reserveRemovedWs,      // <<< Добавляем синхронный action для WS
     mapApiReserveToReserveEntry // <<< Добавляем маппер
 } from '../store/slices/reservesSlice';
-// Импортируем экшен для уведомлений
 import { addNotification, NotificationTypes } from '../store/slices/notificationSlice';
-// <<< ИМПОРТ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ >>>
+
 import { userProfileUpdatedWs } from '../store/slices/userSlice'; // Оставляем только action 
 import { User } from '../types/user'; // <<< ИМПОРТИРУЕМ ТИП ОТДЕЛЬНО >>>
-// Импортируем Thunk для перезагрузки инвентаря
-import { fetchChatInventory } from '../store/slices/inventorySlice';
+
 
 // Селектор для получения ID курьерского чата из стейта пользователя
 const selectCurrentCourierChatId = (state: RootState): string | undefined => {
@@ -106,15 +91,10 @@ export const useWebSocketSync = () => {
 
         const handleProfileUpdated = (payload: ProfileUpdatedPayload) => {
             logger.debug('[WS] Received event: profile_updated', payload);
-            // Опционально: проверить, относится ли обновление к текущему пользователю
-            // const currentUserId = useSelector((state: RootState) => state.user.user?.id);
-            // if (currentUserId && payload.user_id === currentUserId) {
+
                 logger.info(`[useWebSocketSync] User profile updated via WS for user ${payload.user_id}. Dispatching update.`);
                 // Диспатчим action для обновления профиля пользователя
                 dispatch(userProfileUpdatedWs({ user_id: payload.user_id, profile: payload.data }));
-            // } else {
-            //     logger.log(`[useWebSocketSync] Profile update for different user (${payload.user_id}), ignoring.`);
-            // }
         };
 
         // --- Обработчики событий --- 

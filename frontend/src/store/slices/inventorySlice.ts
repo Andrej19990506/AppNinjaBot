@@ -9,7 +9,6 @@ import type {
 import { WebApp } from '../../types/telegram';
 import config from '../../config';
 import { api, axiosInstance } from '../../services/api';
-import { socketService } from '../../services/socket';
 import { RootState, AppDispatch } from '../store';
 import type {
     Inventory,
@@ -150,9 +149,8 @@ export const fetchChatInventory = createAsyncThunk<
     }
 >(
     'inventory/fetchChatInventory',
-    async (chatId: string, { getState, rejectWithValue }) => {
+    async (chatId: string, { rejectWithValue }) => {
         console.log(`[fetchChatInventory] Запрос инвентаря для чата ${chatId}`);
-        const state = getState();
         try {
             const inventoryResponse = await axiosInstance.get<InventoryData>(`/api/v1/inventory/${chatId}`);
             const inventoryData = inventoryResponse.data;
@@ -200,7 +198,6 @@ export const applyInventoryTemplate = createAsyncThunk<
              console.error('[applyInventoryTemplate] Нет ID пользователя для добавления в метаданные.');
              return rejectWithValue('Не удалось определить пользователя для применения шаблона.');
         }
-        const userNameToUse = user?.first_name ?? 'Система';
 
         try {
             console.log('[applyInventoryTemplate] Загрузка шаблона с GET /api/v1/groups/inventory/template...');
@@ -267,7 +264,6 @@ export const updateInventoryItem = createAsyncThunk<
 
         const state = getState();
         const currentUser = state.user.user;
-        const selectedChat = state.inventory.selectedChat;
         const currentInventory = state.inventory.selectedChat?.inventory || {};
         const currentItem = currentInventory[category]?.[itemId];
         

@@ -7,11 +7,7 @@ import { useAppDispatch } from '../../../store/hooks';
 import { selectUser } from '../../../store/slices/userSlice'; // Для получения ID текущего юзера
 import {
     fetchAvailableCouriers,
-    selectAvailableCouriers,
-    selectAvailableCouriersLoading,
-    selectAvailableCouriersError,
     clearAvailableCouriers,
-    selectLastFetchedChatIdForCouriers
 } from '../../../store/slices/availableCouriersSlice'; // Импорты из нового slice
 import CourierIcon from './CourierIcon'; // Импортируем иконку
 import { CourierInfo } from '../../../services/courierApi'; // Тип для onClick
@@ -20,19 +16,6 @@ import { format } from 'date-fns'; // <<< Добавляем импорт format
 import { selectAllShifts } from '../../../store/slices/shiftsSlice';
 import { CourierShift } from '../../../types/shifts'; // <<< Добавляем импорт типа
 
-// Анимация (если нужна)
-// const slideUp = keyframes` ... `;
-
-// Стили
-// const CouriersPanelOverlay = styled(motion.div)`
-//     position: fixed;
-//     top: 0;
-//     left: 0;
-//     right: 0;
-//     bottom: 0;
-//     background: rgba(0, 0, 0, 0.5);
-//     z-index: 1090; // Ниже панели, выше остального
-// `;
 
 const CouriersPanelContainerStyled = styled(motion.div)`
     position: fixed;

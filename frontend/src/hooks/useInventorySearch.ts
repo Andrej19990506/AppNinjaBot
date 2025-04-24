@@ -134,7 +134,7 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
     if (!isFocused && searchQuery) { 
       console.log('🔍 Фокус снят, но запрос остался, результаты для дропдауна должны сохраниться');
     }
-  }, []); // <--- Убираем зависимость от searchQuery
+  }, [searchQuery]);
   
   // Функция для перехода к товару из результатов поиска
   const handleSearchResultSelect = useCallback((category: string, itemId: string) => {

@@ -345,7 +345,6 @@ class SocketService {
   private handleDisconnect = (reason: Socket.DisconnectReason | string) => {
     logger.warn(`🔌 [socketService:handleDisconnect] Socket.IO отключен. Причина: ${reason}`);
     this.clearConnectionTimeout();
-    const wasConnected = this.state.isConnected;
     this.updateState({
       isConnected: false,
       isConnecting: false,

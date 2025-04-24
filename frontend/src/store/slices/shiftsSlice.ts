@@ -8,7 +8,6 @@ import { CourierShift, User } from '../../types';
 import { removeReserveByIdThunk } from './reservesSlice';
 import { logger } from '../../utils/logger';
 import { usersReceived } from './userSlice';
-import { format } from 'date-fns';
 import { createSelector } from 'reselect';
 
 const API_BASE_URL = config.API_URL;

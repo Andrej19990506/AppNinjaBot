@@ -32,21 +32,7 @@ export const useAvailabilityCheck = (chatId?: string, refreshCalendar?: () => vo
             return;
         }
         
-        const currentIsConnected = socketService.isConnected();
-        if (currentIsConnected) { 
-            logger.info(`✅ useAvailabilityCheck: Сокет ПОДКЛЮЧЕН (state: ${currentIsConnected}), пытаемся войти в комнату...`);
-            try {
-                const roomName = `couriers_${chatId}`; 
-                logger.info(`🔄 useAvailabilityCheck: Отправка join_room в комнату ${roomName}`);
-                socketService.emit('join_room', { room: roomName });
-            } catch (error) {
-                logger.error('❌ Ошибка при отправке join_room:', error);
-            }
-        } else {
-            logger.warn(`⚠️ useAvailabilityCheck: Вход в комнату отложен. State isConnected=${currentIsConnected}`);
-        }
-
-        logger.log(`[useAvailabilityCheck] Хук активен, chatId=${chatId}, isConnected=${currentIsConnected}, подписки настроены.`);
+        logger.log(`[useAvailabilityCheck] Хук активен, chatId=${chatId}. Настраиваем подписки...`);
         
         const handleAvailabilityUpdate = (data: AvailabilityUpdate) => {
             logger.log('🔄 [AvailabilityUpdate] Получено обновление доступности:', data);

@@ -1,59 +1,12 @@
-export interface InventoryMetadata {
-    lastUpdated: string;
-    progress: number;
-    chat_id: string;
-}
+import {
+    Inventory,
+    InventoryItem,
+    Admin,
+    InventoryMetadata,
+    InventoryHistoryItem
+} from './inventoryTypes';
 
-export interface InventoryItemData {
-    quantity: number;
-    filled: boolean;
-    isOutOfStock?: boolean;
-    name?: string;
-    description?: string;
-}
-
-export interface InventoryItem {
-    name: string;
-    quantity: number;
-    unit?: string;
-    lowStockThreshold?: number;
-    raw?: {
-        quantity: number;
-        filled: boolean;
-        isOutOfStock: boolean;
-    };
-    semifinished?: {
-        quantity: number;
-        filled: boolean;
-    };
-}
-
-export interface InventoryCategory {
-    [itemName: string]: InventoryItem;
-}
-
-export interface Inventory {
-    [category: string]: {
-        [itemId: string]: InventoryItem;
-    };
-}
-
-export interface Admin {
-    user_id: number;
-    first_name: string;
-    photo_url?: string;
-    status?: 'creator' | 'administrator' | 'member' | string;
-    is_bot?: boolean;
-    can_manage_chat?: boolean;
-    can_delete_messages?: boolean;
-    can_manage_voice_chats?: boolean;
-    can_restrict_members?: boolean;
-    can_promote_members?: boolean;
-    can_change_info?: boolean;
-    can_invite_users?: boolean;
-    can_pin_messages?: boolean;
-}
-
+// Интерфейс для элемента чата в стейте inventorySlice
 export interface ChatInventory {
     chat_id: string;
     chat_title: string;
@@ -63,149 +16,30 @@ export interface ChatInventory {
         first_name: string;
         photo_url?: string;
     }>;
-    inventory: {
-        [category: string]: {
-            [itemId: string]: InventoryItem;
-        };
-    };
-    metadata: {
-        lastUpdated: string;
-        progress: number;
-        chat_id: string;
-    };
+    inventory: Inventory;
+    metadata: InventoryMetadata;
 }
 
-export interface CurrentUser {
-    id: number | null;
-    isAdmin: boolean;
-    adminRights: Admin | null;
-    photo_url: string | null;
-    first_name: string | null;
-}
-
-export interface InventoryAuthor {
-    id: number;
-    first_name: string;
-    photo_url?: string;
-}
-
-export interface Author {
-    photo_url?: string | null;
-    first_name: string;
-}
-
-export interface HistoryRecord {
-    id: string;
-    type: string;
-    action: string;
-    timestamp: string;
-    data: any;
-    author?: Author | null;
-    newQuantity?: number;
-    oldQuantity?: number;
-}
-
+// Обновляем HistoryState для использования InventoryHistoryItem
 export interface HistoryState {
-    records: { [itemId: string]: HistoryRecord[] };
+    records: { [itemId: string]: InventoryHistoryItem[] };
     isLoading: boolean;
     error: string | null;
     lastUpdate: string | null;
 }
 
-export interface Item {
-    id: string;
-    name: string;
-    category: string;
-    quantity: number;
-    unit: string;
-    price: number;
-    total: number;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface Category {
-    id: string;
-    name: string;
-    items: InventoryItem[];
-}
-
-export interface Chat {
-    chat_id: string;
-    chat_title: string;
-    admins: Array<{
-        user_id: number;
-        first_name: string;
-        last_name?: string;
-        username?: string;
-        photo_url?: string;
-        status?: string;
-    }>;
-    members: Array<{
-        user_id: number;
-        first_name: string;
-        photo_url?: string;
-    }>;
-    inventory: {
-        items: Item[];
-        categories: Category[];
-    };
-}
-
+// Обновляем InventoryState
 export interface InventoryState {
     items: ChatInventory[];
     categories: any[];
     selectedChatId: string | null;
     selectedChat: ChatInventory | null;
-    selectedItem: any | null;
+    selectedItem: InventoryItem | null;
     isLoading: boolean;
     error: string | null;
-    history: {
-        records: { [key: string]: HistoryRecord[] };
-        lastUpdate: string | null;
-        isLoading: boolean;
-        error: string | null;
-    };
+    history: HistoryState;
     lastSentItemSuggestion: any | null;
-}
-
-export interface ItemHistoryEntry {
-    date: string;
-    action: 'add' | 'update' | 'delete' | 'order' | 'restock' | 'writeoff';
-    quantity?: number;
-    previousQuantity?: number;
-    newQuantity?: number;
-    userId?: string;
-    userName?: string;
-    note?: string;
-    actionDetails?: Record<string, any>;
-}
-
-export interface UpdateInventoryPayload {
-    chatId: string;
-    category: string;
-    itemId: string;
-    item: InventoryItem;
-}
-
-export interface UpdateInventoryResult {
-    chatId: string;
-    inventory: Inventory;
-}
-
-export interface ChatData {
-    inventory: Record<string, Record<string, InventoryItem>>;
-    metadata: {
-        lastUpdated: string;
-        progress: number;
-    };
-    chat_title: string;
-    admins: Admin[];
-}
-
-export interface ChatResponse {
-    chatId: string;
-    data: ChatData;
+    isUpdatingItemId: string | null;
 }
 
 // Action Types

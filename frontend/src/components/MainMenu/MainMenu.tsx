@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { RootState } from '../../store/store';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { fetchInventory, selectInventoryChats, selectInventoryLoading, selectInventoryError } from '../../store/slices/inventorySlice';
+import { userSlice, selectActiveRole } from '../../store/slices/userSlice';
 
 const chefMenuItems = [
     { id: 'events', title: 'События', path: '/events', icon: EventIcon },
@@ -112,8 +113,12 @@ const MainMenu: React.FC = () => {
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state: RootState) => state.user);
     
+    // <<< Получаем activeRole ИЗ REDUX >>>
+    const activeRole = useAppSelector(selectActiveRole);
+
     // <<< ДОБАВЛЯЕМ ЛОГ >>>
     console.log('[MainMenu] User object from Redux:', user);
+    console.log('[MainMenu] Active role from Redux:', activeRole);
 
     const inventoryChats = useAppSelector(selectInventoryChats);
     const isLoadingInventory = useAppSelector(selectInventoryLoading);
@@ -130,31 +135,42 @@ const MainMenu: React.FC = () => {
         return 'none';
     }, [isChefMember, isCourierMember]);
 
-    const [activeRole, setActiveRole] = useState<'chef' | 'courier' | 'none'>('none'); // Начинаем с 'none'
-
     // --- Функция для загрузки инвентаря (если нужно) ---
     const loadInventoryIfNeeded = useCallback(() => {
+        // Добавляем проверку: activeRole должна быть 'chef'
+        if (activeRole !== 'chef') {
+            console.log('[MainMenu] loadInventoryIfNeeded: Пропуск, т.к. activeRole не \'chef\'');
+            return;
+        }
+        
         // Загружаем только если активна роль повара, данных нет и не идет загрузка/нет ошибки
         if (!isLoadingInventory && !inventoryError && inventoryChats.length === 0) {
             // Проверяем, что user существует и имеет ID
             if (user?.id) {
                 console.log(`[MainMenu] Вызов fetchInventory(${user.id}, role: ${activeRole}) из loadInventoryIfNeeded...`);
-                dispatch(fetchInventory({ userId: user.id, role: activeRole }));
+                // Передаем явно 'chef', т.к. мы проверили это выше
+                dispatch(fetchInventory({ userId: user.id, role: 'chef' })); 
             } else {
                 console.warn('[MainMenu] Попытка вызвать fetchInventory без user.id');
             }
         }
          console.log('[MainMenu] Проверка loadInventoryIfNeeded:', { role: activeRole, isLoading: isLoadingInventory, hasError: !!inventoryError, chatsLength: inventoryChats.length });
-    }, [isLoadingInventory, inventoryError, inventoryChats.length, dispatch, activeRole, user?.id]); // Добавили user.id в зависимости
+    }, [isLoadingInventory, inventoryError, inventoryChats.length, dispatch, activeRole, user?.id]);
 
     // --- Обновляем роль при инициализации пользователя ---
     useEffect(() => {
         if (user) {
             const initialRole = getInitialRole();
-            setActiveRole(initialRole);
+            // <<< Диспатчим начальную роль в Redux >>>
+            // Проверяем, что роль в Redux еще не установлена или не совпадает
+            // чтобы избежать лишних диспатчей при HMR
+            if (activeRole !== initialRole) {
+                console.log(`[MainMenu] Dispatching initial role: ${initialRole}`);
+                dispatch(userSlice.actions.setActiveRole(initialRole));
+            }
             // Убираем вызов loadInventoryIfNeeded отсюда, его будет делать следующий useEffect
         }
-    }, [user, getInitialRole]);
+    }, [user, getInitialRole, dispatch]); // <<< Добавляем dispatch и activeRole в зависимости
 
     // --- НОВЫЙ useEffect: Загружаем инвентарь ПРИ ИЗМЕНЕНИИ activeRole на 'chef' ---
     useEffect(() => {
@@ -178,7 +194,11 @@ const MainMenu: React.FC = () => {
     // --- Обработчик клика по кнопке роли ---
     const handleRoleButtonClick = (role: 'chef' | 'courier') => {
         console.log(`[MainMenu] Клик по кнопке роли: ${role}`);
-        setActiveRole(role);
+        // <<< Логируем созданный экшен, используя новый импорт >>>
+        const action = userSlice.actions.setActiveRole(role); 
+        console.log('[MainMenu] Dispatching role change action:', action);
+        // <<< Диспатчим экшен, используя новый импорт >>>
+        dispatch(action); 
         // Убираем вызов loadInventoryIfNeeded отсюда
     };
 

@@ -13,7 +13,13 @@ from .endpoints.reserve import router as reserve_router
 # Сюда же можно импортировать другие роутеры из endpoints, если они там есть/будут
 # from .endpoints import couriers # Например
 
+# <<< ДОБАВЛЯЕМ ИМПОРТ НОВОГО РОУТЕРА >>>
+from .endpoints import inventory
+
 api_router = APIRouter()
+
+# <<< ПЕРЕМЕЩАЕМ inventory.router В НАЧАЛО >>>
+api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
 
 # Подключаем роутеры с префиксами и тегами
 api_router.include_router(users_router, prefix="/users", tags=["Users"])
@@ -26,3 +32,5 @@ api_router.include_router(reserve_router, prefix="/reserves", tags=["Reserves"])
 
 # Подключаем другие роутеры, если они есть
 # api_router.include_router(couriers.router, prefix="/couriers", tags=["Couriers"]) 
+
+# --- КОНЕЦ ФАЙЛА api.py --- 

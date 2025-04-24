@@ -16,7 +16,7 @@ import { checkAdminRights } from '../../../store/slices/userSlice';
 import { RootState } from '../../../store/store';
 import ChatModal from '../ChatModal/ChatModal';
 import { setSelectedChat, setContext, ChatContext } from '../../../store/slices/chatSlice';
-import { Admin } from '../../../types/inventory';
+import { Admin } from '../../../types/inventoryTypes';
 
 
 
@@ -48,7 +48,7 @@ interface SystemNotificationType {
 
 export interface ChatSelectorProps {
     chats: ChatItem[];
-    onChatSelect: (chatId: string, chat: ChatItem) => void;
+    onChatSelect?: (chatId: string, chat: ChatItem) => void;
     onResetInventory?: (chatId: string) => Promise<void>;
     mode: ChatContext;
     title?: string;
@@ -103,6 +103,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [error, setError] = useState<string | null>(null);
     const cardsContainerRef = useRef<HTMLDivElement>(null);
+    const isProcessingClickRef = useRef(false);
 
     useEffect(() => {
         cardRefs.current = cardRefs.current.slice(0, chats.length);
@@ -202,97 +203,127 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     }, [resetConfirmation, onResetInventory]);
 
     const handleChatClick = useCallback(async (chat: ChatItem) => {
+        // 1. Prevent double clicks
+        if (isProcessingClickRef.current) {
+            console.warn('ChatSelector: handleChatClick - prevented double execution via ref');
+            return;
+        }
+        isProcessingClickRef.current = true;
+
+        // 2. Check user ID
         if (!currentUser?.id) {
+            console.error('ChatSelector: User ID not found.');
             setSystemNotification({
                 message: 'Ошибка: ID пользователя не найден',
                 type: 'error'
             });
+            isProcessingClickRef.current = false; // Reset flag
             return;
         }
 
         try {
-            // Проверяем права администратора
+            console.log(`ChatSelector: handleChatClick - Checking admin rights for chat ${chat.chat_id}, user ${currentUser.id}, mode ${mode}`);
+            // 3. Check admin rights
             await dispatch(checkAdminRights({
                 userId: currentUser.id,
                 chatId: chat.chat_id,
                 admins: chat.admins,
                 context: mode
             })).unwrap();
+            console.log(`ChatSelector: Admin rights OK for chat ${chat.chat_id}`);
 
-            // Устанавливаем контекст и выбранный чат в Redux
-            dispatch(setContext(mode));
-            dispatch(setSelectedChat(chat.chat_id));
-            
-            // Вызываем колбэк выбора чата
-            onChatSelect(chat.chat_id, chat);
-            
-            // Показываем модальное окно
+            // 4. If rights OK, set state to show modal
             setSelectedChatLocal(chat);
-            setShowModal(true);
             setSelectedChatId(chat.chat_id);
+            setShowModal(true);
+            console.log(`ChatSelector: Modal will be shown for chat ${chat.chat_id}`);
+
         } catch (error: any) {
-            console.error('Ошибка при проверке прав:', error);
+            // 5. Handle rights error or other errors
+            console.error('ChatSelector: Admin rights check failed or other error:', error);
             setSystemNotification({
-                message: typeof error === 'string' ? error : error?.message || 'Ошибка при проверке прав',
+                message: typeof error === 'string' ? error : error?.message || 'Ошибка при проверке прав или другое действие',
                 type: 'error'
             });
-            setError(null);
+            // Optionally set component-level error state if needed
+            // setError('Failed to process chat selection.');
+        } finally {
+            // 6. Reset processing flag
+            isProcessingClickRef.current = false;
+            console.log('ChatSelector: handleChatClick finished processing.');
         }
-    }, [currentUser?.id, dispatch, mode, onChatSelect]);
+    }, [
+        // Dependencies for the logic above
+        currentUser?.id,
+        dispatch,
+        mode,
+        setSystemNotification,
+        // setError, // Only if using component-level error state
+        setSelectedChatLocal,
+        setShowModal,
+        setSelectedChatId
+        // isProcessingClickRef is a ref, not needed in deps
+    ]);
 
     const handleStartAction = useCallback(async () => {
-        const selectedChat = chats.find(chat => chat.chat_id === selectedChatId);
-        console.log('ChatSelector: handleStartAction called, selectedChat:', selectedChatId);
-        console.log('ChatSelector: isNavigating:', isNavigating);
-
-        if (!selectedChat || isNavigating) {
-            console.log('ChatSelector: Действие отменено - чат не выбран или уже идет навигация');
+        if (!selectedChatLocal || isNavigating) {
+            console.warn(`ChatSelector: handleStartAction called but no selected chat or already navigating. Selected: ${selectedChatLocal?.chat_id}, Navigating: ${isNavigating}`);
             return;
         }
 
+        setIsNavigating(true);
+        setShowModal(false); // Close modal immediately
+        console.log(`ChatSelector: handleStartAction for ${selectedChatLocal.chat_id}. Modal closed, navigating...`);
+
         try {
-            setIsNavigating(true);
-            console.log('ChatSelector: Setting isNavigating to true');
+            // 1. Dispatch Redux actions
+            dispatch(setContext(mode));
+            dispatch(setSelectedChat(selectedChatLocal.chat_id));
+            console.log(`ChatSelector: Redux context/chat set for ${selectedChatLocal.chat_id}`);
 
-            // Проверяем текущий URL
-            const targetUrl = `/inventory/${selectedChat.chat_id}`;
+            // 2. Navigate
+            const targetUrl = `/inventory/${selectedChatLocal.chat_id}`;
             const currentUrl = window.location.pathname;
-
-            console.log('ChatSelector: Starting transition to inventory');
-            
             if (currentUrl === targetUrl) {
                 console.log('ChatSelector: Already on target page, forcing reload');
                 window.location.reload();
                 return;
             }
-
-            // Устанавливаем выбранный чат в Redux перед навигацией
-            dispatch(setContext('inventory'));
-            dispatch(setSelectedChat(selectedChat.chat_id));
-            console.log('ChatSelector: Chat selected in Redux');
-
-            // Выполняем навигацию
             navigate(targetUrl, { replace: true });
-            console.log('ChatSelector: Navigation completed');
+            console.log(`ChatSelector: Navigation to ${targetUrl} completed`);
 
-            console.log('ChatSelector: Transition completed successfully');
         } catch (error) {
-            console.error('ChatSelector: Error during transition:', error);
+            console.error('ChatSelector: Error during navigation/redux dispatch:', error);
             setError('Произошла ошибка при переходе к инвентаризации');
         } finally {
+            // Reset navigation state and selected chat
             setIsNavigating(false);
-            console.log('ChatSelector: Reset navigation state');
+            setSelectedChatLocal(null);
+            setSelectedChatId(null);
+            console.log('ChatSelector: Navigation state reset');
         }
-    }, [selectedChatId, chats, isNavigating, dispatch, navigate]);
+    }, [
+        selectedChatLocal,
+        isNavigating,
+        navigate,
+        dispatch,
+        mode,
+        setIsNavigating,
+        setShowModal,
+        setError, // setError is used in catch block
+        setSelectedChatLocal,
+        setSelectedChatId
+    ]);
 
     const handleModalClose = useCallback(() => {
         console.log('ChatSelector: handleModalClose called, isNavigating:', isNavigating);
-        if (!isNavigating) {
+        if (!isNavigating) { 
             setShowModal(false);
             setSelectedChatLocal(null);
-            setIsNavigating(false);
+            setSelectedChatId(null);
+            setIsNavigating(false); 
         }
-    }, [isNavigating]);
+    }, [isNavigating, setShowModal, setSelectedChatLocal, setSelectedChatId, setIsNavigating]);
 
     const handleHomeClick = useCallback(() => {
         if (onHomeClick) {
@@ -302,7 +333,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         }
     }, [onHomeClick, navigate]);
 
-    // Обработчик свайпов
     useEffect(() => {
         if (!cardsContainerRef.current) return;
 
@@ -386,7 +416,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                         <div className={styles.chatInfo}>
                                             <h3 className={styles.chatTitle}>
                                                 {chat.chat_title}
-                                                {mode === 'inventory' && (
+                                                {mode === 'inventory' && chat.metadata?.progress !== undefined && chat.metadata.progress > 0 && (
                                                     <span className={`${styles.statusBadge} ${styles[getInventoryStatus(chat)]}`}>
                                                         {getStatusText(getInventoryStatus(chat))}
                                                     </span>
@@ -395,7 +425,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                         </div>
                                     </div>
                                     
-                                    {mode === 'inventory' && (
+                                    {mode === 'inventory' && chat.metadata?.progress !== undefined && (
                                         <div className={styles.progressSection}>
                                             <div className={styles.progressInfo}>
                                                 <div className={styles.progressStatus}>
@@ -407,11 +437,11 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                                         <PendingActions className={styles.icon} />
                                                     )}
                                                     <span className={styles.progressText}>
-                                                        {chat.metadata?.progress || 0}%
+                                                        {chat.metadata.progress}%
                                                     </span>
                                                 </div>
                                                 <div className={styles.progressActions}>
-                                                    {(chat.metadata?.progress || 0) > 0 && onResetInventory && (
+                                                    {(chat.metadata.progress || 0) > 0 && onResetInventory && (
                                                         <button
                                                             className={styles.resetButton}
                                                             onClick={(e) => handleResetInventory(chat.chat_id, e)}
@@ -423,7 +453,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                             </div>
                                             <LinearProgress 
                                                 variant="determinate" 
-                                                value={chat.metadata?.progress || 0}
+                                                value={chat.metadata.progress || 0}
                                                 className={styles.progress}
                                                 classes={{
                                                     bar: styles.progressBar
@@ -526,7 +556,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                 />
             )}
 
-            {showModal && selectedChatLocal && (
+            {showModal && (
                 <ChatModal
                     open={showModal}
                     onClose={handleModalClose}

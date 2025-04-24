@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { InventoryItem } from '../types/inventory';
+import { InventoryItem } from '../types/inventoryTypes';
 
 interface UseInventoryViewProps {
   selectedCategory: string | null;
@@ -13,7 +13,6 @@ interface UseInventoryViewProps {
   renderItems: (category: string) => JSX.Element;
   renderItemDetail: (category: string, itemId: string) => JSX.Element;
   searchActive: boolean;
-  renderSearch?: () => JSX.Element;
   isLoading?: boolean;
 }
 
@@ -29,7 +28,6 @@ export function useInventoryView({
   renderItems,
   renderItemDetail,
   searchActive,
-  renderSearch,
   isLoading = false
 }: UseInventoryViewProps) {
   // Проверяем, есть ли в инвентаре категории
@@ -39,11 +37,6 @@ export function useInventoryView({
   
   // Мемоизированное представление для текущего состояния навигации
   const currentView = useCallback(() => {
-    // Если поиск активен и есть компонент поиска, отображаем его
-    if (searchActive && renderSearch) {
-      return renderSearch();
-    }
-    
     // Определяем, какой компонент отображать на основе выбранной категории и товара
     if (!selectedCategory) {
       return renderCategories();
@@ -59,9 +52,7 @@ export function useInventoryView({
     selectedItem, 
     renderCategories, 
     renderItems, 
-    renderItemDetail,
-    searchActive,
-    renderSearch
+    renderItemDetail
   ]);
   
   // Получаем список категорий из инвентаря
@@ -104,9 +95,7 @@ export function useInventoryView({
     console.log('🔍 Проверка валидности инвентаря (упрощенная):', {
       isLoading,
       hasCategories: hasCategories(),
-      // wasInventoryLoaded, // Убрали эту зависимость
       isValid,
-      // autoSetAttempts: autoSetAttemptsRef.current // Убрали счетчик попыток
     });
     
     return isValid;
@@ -119,6 +108,5 @@ export function useInventoryView({
     categoryItems,
     currentItem,
     hasValidInventory,
-    // wasInventoryLoaded // Больше не возвращаем
   };
 } 

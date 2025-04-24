@@ -50,31 +50,27 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
             raise HTTPException(status_code=503, detail="Bot instance not available")
             
         # Преобразуем формат ID чата
-        chat_id = payload.chat_id
-        processed_chat_id: int | str
+        chat_id_str = payload.chat_id
+        processed_chat_id: int
         try:
-            if chat_id.startswith('-100'):
-                processed_chat_id = int(chat_id.replace('-100', '-'))
-            elif chat_id.startswith('-'):
-                 processed_chat_id = int(chat_id)
-            else:
-                processed_chat_id = int(chat_id)
-            logger.info(f"ID чата {chat_id} обработан как {processed_chat_id}")
+            # Просто преобразуем строку в int, Telegram сам разберется с форматом
+            processed_chat_id = int(chat_id_str)
+            logger.info(f"ID чата {chat_id_str} обработан как {processed_chat_id}")
         except ValueError:
-             logger.error(f"Не удалось преобразовать chat_id '{chat_id}' в число")
-             raise HTTPException(status_code=400, detail=f"Invalid chat_id format: {chat_id}")
+             logger.error(f"Не удалось преобразовать chat_id '{chat_id_str}' в число")
+             raise HTTPException(status_code=400, detail=f"Invalid chat_id format: {chat_id_str}")
 
         # Отправляем сообщение
         try:
             await bot_app.bot.send_message(
-                chat_id=processed_chat_id,
+                chat_id=processed_chat_id, # Теперь используем корректный ID
                 text=payload.text,
                 parse_mode=payload.parse_mode
             )
-            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id}")
+            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id_str}") # Логируем исходный строковый ID для ясности
             return {"success": True, "message": "Сообщение успешно отправлено"}
         except Exception as e:
-            logger.error(f"❌ Ошибка при вызове bot.send_message для чата {chat_id}: {e}")
+            logger.error(f"❌ Ошибка при вызове bot.send_message для чата {chat_id_str}: {e}") # Логируем исходный строковый ID
             error_message = str(e)
             if hasattr(e, 'message'):
                 error_message = e.message
@@ -176,19 +172,12 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
 
         # Преобразуем формат ID чата
-        chat_id = str(payload.target_chat_id)
-        processed_chat_id: int
         try:
-            if chat_id.startswith('-100'):
-                processed_chat_id = int(chat_id.replace('-100', '-'))
-            elif chat_id.startswith('-'):
-                processed_chat_id = int(chat_id)
-            else:
-                processed_chat_id = int(chat_id)
-            logger.info(f"ID чата {chat_id} обработан как {processed_chat_id}")
+            processed_chat_id = int(payload.target_chat_id)
+            logger.info(f"ID чата для отправки: {processed_chat_id}")
         except ValueError:
-            logger.error(f"Не удалось преобразовать chat_id '{chat_id}' в число")
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {chat_id}")
+            logger.error(f"Не удалось преобразовать target_chat_id '{payload.target_chat_id}' в число")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid target_chat_id format: {payload.target_chat_id}")
 
         # Валидация пути к файлу
         requested_path = Path(payload.file_path)

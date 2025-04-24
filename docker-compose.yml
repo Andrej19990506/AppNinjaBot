@@ -167,6 +167,24 @@ services:
     networks:
       - ninja_network # Подключаем к той же сети, что и postgres
 
+  # ---> ДОБАВЛЕНО: Сервис DragonflyDB <---
+  cache:
+    image: docker.dragonflydb.io/dragonflydb/dragonfly:latest
+    volumes:
+      - dragonfly_data:/data # Для сохранения данных (опционально)
+    # Порт не публикуем наружу по умолчанию, доступ внутри сети Docker
+    # ports:
+    #  - "6379:6379" 
+    networks:
+      - ninja_network # Подключаем к нашей сети
+    command: ["--logtostderr"] # Выводим логи в stderr для Docker
+    ulimits: # Рекомендуемые лимиты
+      memlock: -1
+      nofile:
+        soft: 65535
+        hard: 65535
+  # ---> КОНЕЦ ДОБАВЛЕНИЯ <---
+
 volumes:
   shared-data:
     driver: local
@@ -175,6 +193,9 @@ volumes:
       o: bind
       device: ./backend/shared
   postgres-data:
+  # ---> ДОБАВЛЕНО: Volume для DragonflyDB <---
+  dragonfly_data: 
+  # ---> КОНЕЦ ДОБАВЛЕНИЯ <---
 
 networks:
   ninja_network:

@@ -1,0 +1,30 @@
+import redis.asyncio as redis
+from typing import Optional
+
+# Глобальная переменная для хранения клиента (импортируется из main или передается)
+# Лучше использовать Request State или DI контейнер в будущем
+# Пока что предполагаем, что redis_client импортируется или доступен глобально
+# TODO: Рефакторить способ доступа к redis_client
+
+# Временное решение: импортируем напрямую из main, но это сохраняет риск
+# Лучше передавать клиент через Request state или через DI.
+# Эта версия все еще может вызвать проблемы при импорте, если main.py сам импортирует что-то отсюда
+# через другие модули.
+try:
+    # Попытка импорта, чтобы получить доступ к глобальной переменной
+    # ВНИМАНИЕ: Это не идеальное решение!
+    from ..main import redis_client as global_redis_client
+except ImportError:
+    # Если импорт не удался (например, при тестировании или другом сценарии),
+    # устанавливаем в None. Зависимость должна будет обработать это.
+    global_redis_client = None
+
+async def get_redis_client() -> Optional[redis.Redis]:
+    """
+    Dependency function to get the initialized Redis client.
+
+    Returns the global redis client instance initialized in main.py lifespan.
+    Returns None if the client failed to initialize.
+    """
+    # Возвращаем импортированный глобальный клиент
+    return global_redis_client 

@@ -1,5 +1,5 @@
 import { CourierShift } from './shifts';
-import { InventoryItem } from './inventory';
+import { InventoryItem } from './inventoryTypes';
 import { WriteOffItem } from './writeOff';
 import { Notification, User } from './index';
 import { Action, ThunkAction } from '@reduxjs/toolkit';

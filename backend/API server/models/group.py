@@ -34,6 +34,9 @@ class Group(Base):
     # <<< ДОБАВЛЯЕМ ПОЛЕ ДЛЯ ДАННЫХ ИНВЕНТАРЯ >>>
     json_inventory = Column(JSON, nullable=True, comment='Stores the actual inventory data as JSON')
 
+    # <<< ДОБАВЛЕНО: Поле для дополнительных кастомных товаров группы >>>
+    json_inventory_additions = Column(JSON, nullable=True, comment='Stores group-specific item additions/definitions')
+
     # Связь с ассоциативной таблицей group_members
     members: Mapped[List["GroupMember"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 

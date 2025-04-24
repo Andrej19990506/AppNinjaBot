@@ -6,25 +6,12 @@ import { RootState } from '../../../store/store';
 import AdminProfile from '../AdminProfile/AdminProfile';
 import { SingleSystemNotification } from '../../notifications/SystemNotification';
 import styles from './ChatModal.module.css';
-import { Admin } from '../../../types/inventory';
+import { Admin } from '../../../types/inventoryTypes';
 import { ChatContext } from '../../../store/slices/chatSlice';
+import { ChatItem } from '../ChatSelector/ChatSelector';
 
 export interface ChatModalProps {
-    chat?: {
-        chat_id: string;
-        chat_title: string;
-        admins: Admin[];
-        members?: Array<{
-            user_id: number;
-            first_name: string;
-            photo_url?: string;
-        }>;
-        metadata?: {
-            progress?: number;
-            lastUpdated?: string;
-            chat_id?: string;
-        };
-    };
+    chat?: ChatItem | null;
     open: boolean;
     onClose: () => void;
     onStartAction: () => Promise<void>;
@@ -255,4 +242,6 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
     return createPortal(dialogContent, document.body);
 });
 
-export default ChatModal; 
+// Wrap ChatModal with React.memo
+const MemoizedChatModal = React.memo(ChatModal);
+export default MemoizedChatModal; 

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { InventoryItem } from '../types/inventory';
+import { InventoryItem } from '../types/inventoryTypes';
 import { normalizeString } from '../components/Inventory/InventorySearch';
 
 interface SearchResult {
@@ -130,11 +130,11 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
     console.log(`🔍 Изменение состояния фокуса поиска: ${isFocused ? 'в фокусе' : 'не в фокусе'}`);
     setIsSearchFocused(isFocused);
     
-    // Если фокус пропал и есть поисковый запрос, сохраняем результаты для выпадающего списка
-    if (!isFocused && searchQuery) {
-      console.log('🔍 Фокус снят, сохраняем результаты только для выпадающего списка');
+    // Комментарий: логика ниже может понадобиться позже, но сейчас не влияет
+    if (!isFocused && searchQuery) { 
+      console.log('🔍 Фокус снят, но запрос остался, результаты для дропдауна должны сохраниться');
     }
-  }, [searchQuery]);
+  }, []); // <--- Убираем зависимость от searchQuery
   
   // Функция для перехода к товару из результатов поиска
   const handleSearchResultSelect = useCallback((category: string, itemId: string) => {

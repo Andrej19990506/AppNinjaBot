@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './CategoryGrid.module.css';
-import { Inventory } from '../../types/inventory';
+import { Inventory } from '../../types/inventoryTypes';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface CategoryGridProps {

@@ -4,7 +4,6 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import CategoryIcon from '@mui/icons-material/Category';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import { InventoryItem } from '../../types/inventory';
 import { SearchResult } from '../../types/search';
 import styles from './SearchBar.module.css';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
@@ -195,7 +194,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
                       <div className={styles.resultItemSubtitle}>
                         <Inventory2OutlinedIcon />
                         {highlightMatches(
-                          `${result.item.quantity} ${result.item.unit || 'шт'}`,
+                          `${result.item.raw?.quantity} ${result.item.unit || 'шт'}`,
                           result.matches
                             .filter(match => match.field === 'quantity' || match.field === 'unit')
                             .map(match => match.value)

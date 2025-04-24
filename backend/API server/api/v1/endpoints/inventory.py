@@ -1,0 +1,978 @@
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
+from sqlalchemy import desc, text # <-- ДОБАВЛЕН ИМПОРТ text
+from sqlalchemy.orm import selectinload # <--- ДОБАВЛЕН ИМПОРТ selectinload
+from sqlalchemy.orm.attributes import flag_modified # <--- ДОБАВЛЕН ИМПОРТ flag_modified
+from typing import List, Optional, Dict, Any
+import os
+import json
+from datetime import datetime
+import logging
+
+# Используем абсолютные импорты от корня /app
+from db.session import get_db_session, async_engine
+from sqlalchemy.ext.asyncio import AsyncSession # Добавляем импорт AsyncSession
+from models.group import Group
+from models.member import Member # Для поиска админов и автора истории
+from models.group_member import GroupMember # Для поиска админов
+from models.inventory_history import InventoryHistory # Для истории
+from schemas.inventory import InventoryData, InventoryUpdatePayload # Схемы для POST и GET /inventory/{chat_id}
+from schemas.user import UserSimple # Для информации об админах
+# Добавим импорт Pydantic для полей админов
+from pydantic import Field, BaseModel
+# ---> ДОБАВЛЕНИЕ: импорты для кэша и зависимостей < ---
+import redis.asyncio as redis # Типизация для клиента
+from core.dependencies import get_redis_client # Импортируем из нового файла
+from fastapi import Depends # Обновляем импорт Depends, чтобы он включал нашу зависимость
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+logger = logging.getLogger(__name__)
+# Убедись, что basicConfig вызывается где-то глобально или настрой логгер как нужно
+# logging.basicConfig(level=logging.INFO)
+
+router = APIRouter()
+
+# --- Вспомогательные функции (перенесены из groups.py) ---
+
+# Вспомогательная функция для получения группы по Telegram ID
+async def get_group_by_telegram_id(db: AsyncSession, group_telegram_id: int) -> Group | None:
+    """Вспомогательная функция для получения группы по Telegram ID."""
+    logger.info(f"[get_group_by_telegram_id] Ищем группу с group_id = {group_telegram_id} (тип: {type(group_telegram_id)})")
+    query = select(Group).where(Group.group_id == group_telegram_id)
+    logger.debug(f"[get_group_by_telegram_id] SQLAlchemy Query: {query}")
+    try:
+        result = await db.execute(query)
+        group = result.scalar_one_or_none()
+        logger.debug(f"[get_group_by_telegram_id] Результат scalar_one_or_none(): {group}")
+        return group
+    except Exception as e:
+        logger.exception(f"[get_group_by_telegram_id] Ошибка при выполнении запроса к БД для group_id={group_telegram_id}")
+        raise
+
+# Python version of calculateInventoryProgress
+def calculate_inventory_progress_py(inventory: Dict[str, Any] | None) -> int:
+    if not inventory:
+        return 0
+    total_items = 0
+    filled_items = 0
+    try:
+        for category_data in inventory.values():
+            if not isinstance(category_data, dict):
+                continue # Skip if category data is not a dict
+            for item in category_data.values():
+                if not isinstance(item, dict):
+                     continue # Skip if item data is not a dict
+                # Check raw item
+                raw = item.get('raw')
+                if isinstance(raw, dict):
+                    total_items += 1
+                    if raw.get('filled') or raw.get('quantity', 0) > 0 or raw.get('isOutOfStock'):
+                        filled_items += 1
+                # Check semifinished item
+                semifinished = item.get('semifinished')
+                if isinstance(semifinished, dict):
+                    total_items += 1
+                    # Semifinished doesn't have isOutOfStock usually
+                    if semifinished.get('filled') or semifinished.get('quantity', 0) > 0:
+                        filled_items += 1
+    except Exception as e:
+        logger.error(f"Error calculating progress: {e}. Inventory structure might be invalid.")
+        return 0 # Return 0 on error
+
+    if total_items == 0:
+        return 0
+
+    progress = round((filled_items / total_items) * 100)
+    # logger.debug(f"Calculated progress: {progress}% ({filled_items}/{total_items})") # Optional debug log
+    return progress
+
+# --- Pydantic модели для AdminInfo (если не вынесены в schemas) ---
+class AdminInfo(UserSimple):
+    # Можно добавить роль, если нужно
+    # role: str
+    pass
+
+# --- ЭНДПОИНТЫ ИНВЕНТАРЯ ---
+
+@router.get(
+    "/template",
+    response_model=Dict[str, Any], # Возвращаем просто словарь JSON
+    summary="Get Inventory Template",
+    description="Retrieves the default inventory template structure from a JSON file.",
+    tags=["Inventory", "Templates"]
+)
+async def get_inventory_template():
+    """
+    Reads and returns the inventory template from the predefined JSON file.
+    """
+    template_path = "/app/data/templates/inventory_template.json"
+    logger.info(f"[get_inventory_template] Attempting to read template from: {template_path}")
+
+    if not os.path.exists(template_path):
+        logger.error(f"[get_inventory_template] Template file not found at: {template_path}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Inventory template file not found on server.")
+
+    try:
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_data = json.load(f)
+        logger.info(f"[get_inventory_template] Template loaded successfully.")
+        return template_data
+    except json.JSONDecodeError as e:
+        logger.error(f"[get_inventory_template] Error decoding JSON template file: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading inventory template file.")
+    except Exception as e:
+        logger.exception(f"[get_inventory_template] An unexpected error occurred while reading the template file")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred.")
+
+
+@router.get(
+    "/{chat_id}",
+    # response_model=InventoryData, # Убрано, возвращаем словарь
+    summary="Get Inventory Data for a Chat",
+    description="Retrieves the current inventory data, metadata, and admins for a specific chat by its Telegram ID. Only for 'chef' groups.",
+    tags=["Inventory"]
+)
+async def read_inventory_for_chat(
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session),
+    # ---> ДОБАВЛЕНО: Зависимость клиента кэша < ---
+    redis_client: redis.Redis = Depends(get_redis_client) 
+    # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+):
+    """
+    Fetches inventory data for a specific chat. Only for 'chef' groups.
+    Caches the result for a short period.
+    """
+    logger.info(f"[read_inventory_for_chat] GET /inventory/{chat_id}")
+    cache_key = f"inventory:{chat_id}"
+    cache_ttl_seconds = 10 # Время жизни кэша в секундах
+
+    # ---> НАЧАЛО: Проверка кэша < ---
+    if redis_client:
+        try:
+            cached_data_json = await redis_client.get(cache_key)
+            if cached_data_json:
+                logger.info(f"[read_inventory_for_chat] Cache HIT for key: {cache_key}")
+                try:
+                    # Пытаемся распарсить JSON из кэша
+                    cached_data = json.loads(cached_data_json)
+                    # Важно: Проверить, что структура соответствует ожиданиям (хотя бы наличие ключа 'inventory')
+                    if isinstance(cached_data, dict) and "inventory" in cached_data:
+                        return cached_data
+                    else:
+                         logger.warning(f"[read_inventory_for_chat] Invalid data structure found in cache for key {cache_key}. Proceeding to fetch from DB.")
+                except json.JSONDecodeError:
+                     logger.warning(f"[read_inventory_for_chat] Failed to decode JSON from cache for key {cache_key}. Proceeding to fetch from DB.")
+            else:
+                 logger.info(f"[read_inventory_for_chat] Cache MISS for key: {cache_key}")
+        except Exception as e:
+            logger.error(f"[read_inventory_for_chat] Error accessing cache for key {cache_key}: {e}. Proceeding to fetch from DB.")
+    else:
+        logger.warning("[read_inventory_for_chat] Redis client is not available. Skipping cache check.")
+    # ---> КОНЕЦ: Проверка кэша < ---
+
+    # ---> Если кэш не сработал, идем в базу данных < ---
+    logger.info(f"[read_inventory_for_chat] Fetching data from database for chat_id: {chat_id}")
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+         logger.error(f"[read_inventory_for_chat] Invalid chat_id format: {chat_id}")
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    try:
+        # Получаем группу
+        group = await get_group_by_telegram_id(db, group_telegram_id)
+
+        if not group:
+            logger.warning(f"[read_inventory_for_chat] Group not found for chat_id: {chat_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+        if group.group_type != 'chef':
+            logger.warning(f"[read_inventory_for_chat] Inventory access denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data is only available for groups of type 'chef'")
+
+        # ---> НАЧАЛО НОВОЙ ЛОГИКИ <--- 
+        # 1. Получаем основной инвентарь из БД
+        base_inventory = group.json_inventory 
+
+        # 2. Если основной инвентарь пустой, загружаем шаблон
+        if not base_inventory:
+            logger.info(f"[read_inventory_for_chat] Inventory for chat {chat_id} is empty. Loading template.")
+            try:
+                # Используем существующую функцию для загрузки шаблона
+                template_inventory = await get_inventory_template()
+                # Создаем копию шаблона, чтобы не изменять оригинал
+                base_inventory = json.loads(json.dumps(template_inventory))
+                 # Сразу сохраняем шаблон в базу, чтобы он там был для будущих запросов
+                 # Делаем это в отдельной транзакции, чтобы не блокировать чтение
+                async with AsyncSession(async_engine) as update_db:
+                     async with update_db.begin():
+                          # Получаем группу еще раз для обновления
+                          group_to_update = await update_db.get(Group, group.id)
+                          if group_to_update:
+                              group_to_update.json_inventory = base_inventory
+                              await update_db.flush()
+                              logger.info(f"[read_inventory_for_chat] Saved template to DB for chat {chat_id}")
+                          else:
+                               logger.warning(f"[read_inventory_for_chat] Could not find group {chat_id} again to save template.")
+
+            except HTTPException as template_exc:
+                # Если шаблон не найден, возвращаем пустой инвентарь (или можно кинуть ошибку)
+                logger.error(f"[read_inventory_for_chat] Error loading template: {template_exc.detail}")
+                base_inventory = {}
+            except Exception as e:
+                logger.exception(f"[read_inventory_for_chat] Unexpected error loading template for chat {chat_id}")
+                base_inventory = {}
+        else:
+             # Важно: если инвентарь НЕ пустой, работаем с его копией, чтобы не изменить в БД
+             base_inventory = json.loads(json.dumps(group.json_inventory))
+
+        # 3. Получаем специфичные добавления для группы
+        group_additions = group.json_inventory_additions or {}
+
+        # 4. Сливаем добавления в базовый инвентарь
+        if group_additions:
+            logger.info(f"[read_inventory_for_chat] Merging {len(group_additions)} group-specific additions for chat {chat_id}")
+            for category, items in group_additions.items():
+                if not isinstance(items, dict):
+                     logger.warning(f"[read_inventory_for_chat] Invalid format in json_inventory_additions for category '{category}' in chat {chat_id}. Skipping.")
+                     continue
+                 
+                if category not in base_inventory:
+                    base_inventory[category] = {}
+                    logger.debug(f"[read_inventory_for_chat] Added new category '{category}' from additions.")
+                
+                for item_name, item_data in items.items():
+                     if not isinstance(item_data, dict):
+                         logger.warning(f"[read_inventory_for_chat] Invalid item data format for item '{item_name}' in category '{category}' additions. Skipping.")
+                         continue
+                     
+                     # Проверяем, существует ли товар с таким именем в базовом инвентаре этой категории
+                     if item_name not in base_inventory[category]:
+                          # Создаем стандартную структуру товара
+                          new_item = {
+                              "name": item_name,
+                              "raw": {"quantity": 0, "filled": False, "isOutOfStock": False},
+                              "itemType": "raw" # По умолчанию
+                          }
+                          # Добавляем semifinished, если указано в item_data ('has_semifinished')
+                          if item_data.get('has_semifinished') is True:
+                              new_item["semifinished"] = {"quantity": 0, "filled": False}
+                              new_item["itemType"] = "both"
+                          
+                          base_inventory[category][item_name] = new_item
+                          logger.debug(f"[read_inventory_for_chat] Added new item '{item_name}' to category '{category}' from additions.")
+                     else:
+                          # Если товар уже есть, можно логировать или ничего не делать
+                          # logger.debug(f"[read_inventory_for_chat] Item '{item_name}' in category '{category}' already exists in base inventory. Skipping addition.")
+                          pass 
+        # ---> КОНЕЦ НОВОЙ ЛОГИКИ <--- 
+
+        # Используем результат слияния (base_inventory) для ответа
+        final_inventory_data = base_inventory
+
+        # Получаем метаданные и админов как раньше
+        metadata = group.json_metadata or {}
+        last_updated = metadata.get("lastUpdated")
+        # Важно: Пересчитываем прогресс на основе финального инвентаря (base_inventory)
+        progress = calculate_inventory_progress_py(final_inventory_data)
+
+        admins_query = (
+            select(Member)
+            .join(GroupMember, GroupMember.member_id == Member.id)
+            .where(
+                GroupMember.group_id == group.id,
+                GroupMember.role.in_(['admin', 'creator'])
+            )
+        )
+        admins_result = await db.execute(admins_query)
+        admins = admins_result.scalars().all()
+
+        admins_list_of_dicts = []
+        for admin in admins:
+            admin_data = {
+                "id": admin.id,
+                "user_id": admin.user_id,
+                "first_name": admin.first_name,
+                "last_name": admin.last_name,
+                "username": admin.username,
+                "photo_url": str(admin.photo_url) if admin.photo_url else None
+            }
+            admins_list_of_dicts.append(admin_data)
+
+        # Формируем ответ, используя final_inventory_data и пересчитанный progress
+        response_dict = {
+            "inventory": final_inventory_data,
+            "metadata": {
+                "lastUpdated": last_updated, # Время последнего обновления не меняем здесь
+                "progress": progress, # Используем пересчитанный прогресс
+                "chat_id": chat_id
+            },
+            "chat_title": group.title,
+            "admins": admins_list_of_dicts
+        }
+
+        logger.info(f"[read_inventory_for_chat] Successfully retrieved and merged inventory for chat_id: {chat_id}")
+        
+        # ---> НАЧАЛО: Сохранение результата в кэш < ---
+        if redis_client:
+            try:
+                # Сериализуем в JSON перед сохранением
+                response_json_str = json.dumps(response_dict, default=str) # Используем default=str на всякий случай
+                await redis_client.set(cache_key, response_json_str, ex=cache_ttl_seconds)
+                logger.info(f"[read_inventory_for_chat] Result for key {cache_key} saved to cache with TTL {cache_ttl_seconds}s.")
+            except Exception as e:
+                logger.error(f"[read_inventory_for_chat] Failed to save result to cache for key {cache_key}: {e}")
+        else:
+            logger.warning("[read_inventory_for_chat] Redis client is not available. Skipping cache saving.")
+        # ---> КОНЕЦ: Сохранение результата в кэш < ---
+
+        return response_dict
+
+    except HTTPException as http_exc:
+         raise http_exc # Пробрасываем HTTP исключения
+    except Exception as e:
+        logger.exception(f"[read_inventory_for_chat] Error retrieving inventory for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not retrieve inventory data")
+
+
+@router.post(
+    "/{chat_id}",
+    response_model=InventoryData,
+    summary="Update Inventory Data for a Chat",
+    description="Updates the inventory data and metadata for a specific chat. Only available for 'chef' groups. Notifies via Database.",
+    tags=["Inventory"]
+)
+async def update_inventory_for_chat(
+    payload: InventoryUpdatePayload,
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Updates inventory data for a specific chat, only if it's a 'chef' group.
+    Saves history and notifies via PostgreSQL NOTIFY.
+    """
+    logger.info(f"[update_inventory_for_chat] POST /inventory/{chat_id}")
+
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[update_inventory_for_chat] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    calculated_progress = 0 # Инициализируем перед транзакцией
+    group_id_for_response = None # Для формирования ответа после транзакции
+    group_title_for_response = None
+    updated_inventory_for_response = {}
+    updated_metadata_for_response = {}
+    # Переменные для деталей измененного товара для NOTIFY
+    item_id_for_notify = None
+    category_for_notify = None
+
+    try:
+        async with db.begin(): # Используем транзакцию
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+
+            if not group:
+                logger.warning(f"[update_inventory_for_chat] Group not found for chat_id: {chat_id}")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+            if group.group_type != 'chef':
+                logger.warning(f"[update_inventory_for_chat] Inventory update denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups of type 'chef'")
+
+            # Сохраняем данные для ответа до их изменения
+            group_id_for_response = group.id
+            group_title_for_response = group.title
+
+            logger.info(f"Updating inventory for chat_id: {chat_id}")
+            group.json_inventory = payload.inventory
+            updated_inventory_for_response = group.json_inventory # Сохраняем обновленный инвентарь
+
+            calculated_progress = calculate_inventory_progress_py(payload.inventory)
+            metadata_to_save = {
+                "progress": calculated_progress,
+                "lastUpdated": datetime.now().isoformat(),
+                "chat_id": chat_id
+            }
+            logger.info(f"Calculated progress: {calculated_progress}%. Saving new metadata: {metadata_to_save}")
+            group.json_metadata = metadata_to_save
+            updated_metadata_for_response = group.json_metadata # Сохраняем обновленные метаданные
+
+            # --- ОБРАБОТКА И СОХРАНЕНИЕ ИСТОРИИ ---
+            new_history_record = None
+            if payload.history:
+                history_data = payload.history
+                author_member_id = payload.metadata.get('currentUser', {}).get('id') # User Telegram ID
+                category = history_data.get('category')
+                item_name = history_data.get('itemName')
+                item_type_from_history = history_data.get('itemType')
+                final_item_type = None
+
+                if item_type_from_history in ['raw', 'semifinished']:
+                    final_item_type = item_type_from_history
+                else:
+                    if item_type_from_history is not None:
+                        logger.warning(f"[update_inventory_for_chat] Invalid 'itemType' value ('{item_type_from_history}') in history payload for chat_id {chat_id}. Attempting to infer from inventory.")
+                    else:
+                         logger.warning(f"[update_inventory_for_chat] Missing 'itemType' key in history payload for chat_id {chat_id}. Attempting to infer from inventory.")
+
+                    if category and item_name and payload.inventory:
+                        item_in_inventory = payload.inventory.get(category, {}).get(item_name, {})
+                        if item_in_inventory:
+                            item_type_from_inventory = item_in_inventory.get('itemType')
+                            if item_type_from_inventory in ['raw', 'semifinished']:
+                                final_item_type = item_type_from_inventory
+                                logger.info(f"[update_inventory_for_chat] Inferred itemType '{final_item_type}' for {category}/{item_name} from inventory data.")
+                            else:
+                                 logger.warning(f"[update_inventory_for_chat] Found item {category}/{item_name} in inventory, but its itemType ('{item_type_from_inventory}') is invalid or missing.")
+                        else:
+                             logger.warning(f"[update_inventory_for_chat] Could not find item {category}/{item_name} in inventory payload to infer itemType.")
+                    else:
+                        logger.warning("[update_inventory_for_chat] Cannot infer itemType: Missing category, itemName, or inventory data in payload.")
+
+                if final_item_type is None:
+                    logger.error(f"[update_inventory_for_chat] Could not determine a valid itemType for history record: category='{category}', item='{item_name}'. Received itemType from history: '{item_type_from_history}'")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Could not determine a valid itemType ('raw' or 'semifinished') for the history record of item '{item_name}'."
+                    )
+
+                member_db_id = None
+                if author_member_id:
+                    member_query = select(Member.id).where(Member.user_id == author_member_id)
+                    member_result = await db.execute(member_query)
+                    member_db_id = member_result.scalar_one_or_none()
+                    if not member_db_id:
+                        logger.warning(f"[update_inventory_for_chat] Author member with Telegram ID {author_member_id} not found in DB for history record.")
+
+                new_history_record = InventoryHistory(
+                    group_id=group.id,
+                    category=category,
+                    item_name=item_name,
+                    action=history_data.get('action'),
+                    type=final_item_type,
+                    old_quantity=history_data.get('oldQuantity'),
+                    new_quantity=history_data.get('newQuantity'),
+                    author_id=member_db_id
+                )
+                db.add(new_history_record)
+                logger.info(f"[update_inventory_for_chat] Prepared history record for item: {item_name} with type: {final_item_type}")
+                # ----> ЗАПОМИНАЕМ ДЕТАЛИ ДЛЯ NOTIFY <----
+                item_id_for_notify = new_history_record.item_name
+                category_for_notify = new_history_record.category
+                # --------------------------------------
+            else:
+                logger.warning("[update_inventory_for_chat] History data not found in payload.")
+            # --- КОНЕЦ ОБРАБОТКИ ИСТОРИИ ---
+        
+        # Транзакция успешно завершилась (commit)
+        logger.info(f"[update_inventory_for_chat] DB transaction committed for chat_id: {chat_id}")
+
+    except HTTPException as http_exc:
+        # Ошибка HTTPException возникла внутри транзакции, db.begin() сделает rollback.
+        raise http_exc
+    except Exception as e:
+        # Ловим другие ошибки, db.begin() сделает rollback
+        logger.exception(f"[update_inventory_for_chat] Error during DB transaction for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not process inventory data due to DB error")
+
+    # --- ОТПРАВКА УВЕДОМЛЕНИЯ ЧЕРЕЗ PostgreSQL NOTIFY ---
+    # Происходит *после* успешного завершения транзакции db.begin()
+    if group_id_for_response is not None: # Убедимся, что транзакция прошла успешно
+        try:
+            # --- КОНЕЦ ПОЛУЧЕНИЯ АДМИНОВ (они больше не нужны для NOTIFY) ---
+
+            # Имя канала
+            pg_channel_name = "websocket_channel"
+            
+            # --- Формируем payload: всегда метаданные, опционально - обновленный item ---
+            notify_payload_dict = {
+                "type": "inventory_updated", 
+                "chat_id": str(chat_id), 
+                "metadata": updated_metadata_for_response, # Всегда отправляем актуальные метаданные
+            }
+            
+            # Если было обновление конкретного товара, добавляем его данные
+            if item_id_for_notify and category_for_notify:
+                # Получаем обновленный объект item из сохраненного инвентаря
+                updated_item_object = updated_inventory_for_response.get(category_for_notify, {}).get(item_id_for_notify)
+                
+                if updated_item_object:
+                    notify_payload_dict["item_id"] = item_id_for_notify
+                    notify_payload_dict["category"] = category_for_notify
+                    notify_payload_dict["item"] = updated_item_object # <-- Отправляем сам объект товара
+                    logger.info(f"Adding item object to NOTIFY payload: item_id={item_id_for_notify}, category={category_for_notify}")
+                else:
+                     logger.warning(f"Could not find updated item {category_for_notify}/{item_id_for_notify} in saved inventory for NOTIFY payload.")
+                     # Если не нашли, НЕ добавляем item_id/category, чтобы фронтенд обновил только метаданные
+            else:
+                logger.info("No specific item updated, sending metadata update only via NOTIFY.")
+            # --- КОНЕЦ ФОРМИРОВАНИЯ PAYLOAD ---
+
+            # Преобразуем в JSON строку
+            notify_payload_json = json.dumps(notify_payload_dict, default=str)
+
+            # Экранируем одинарные кавычки для SQL 
+            escaped_payload = notify_payload_json.replace("'", "''")
+
+            # Проверяем длину перед отправкой (PostgreSQL лимит ~8000 байт)
+            if len(escaped_payload) >= 7900: # Оставляем небольшой запас
+                 logger.warning(f"NOTIFY payload for chat_id {chat_id} is too long ({len(escaped_payload)} bytes). Skipping item data.")
+                 # Отправляем ТОЛЬКО метаданные в этом случае
+                 minimal_payload_dict = {
+                     "type": "inventory_updated", 
+                     "chat_id": str(chat_id), 
+                     "metadata": updated_metadata_for_response
+                 }
+                 notify_payload_json = json.dumps(minimal_payload_dict, default=str)
+                 escaped_payload = notify_payload_json.replace("'", "''")
+
+            # Создаем сессию для отправки NOTIFY
+            async with AsyncSession(async_engine) as notify_db:
+                sql_command = text(f"NOTIFY {pg_channel_name}, '{escaped_payload}'")
+                await notify_db.execute(sql_command)
+                await notify_db.commit() 
+                logger.info(f"Successfully sent inventory update NOTIFY to channel '{pg_channel_name}' for chat_id: {chat_id}. Payload length: {len(escaped_payload)}")
+
+        except Exception as notify_error:
+            logger.error(f"Failed to send PostgreSQL NOTIFY for chat_id {chat_id}: {notify_error}", exc_info=True)
+    else:
+        logger.error(f"[update_inventory_for_chat] Cannot send NOTIFY because group data was not available after transaction for chat_id: {chat_id}")
+    # --- КОНЕЦ ОТПРАВКИ УВЕДОМЛЕНИЯ --- 
+
+    # --- ФОРМИРОВАНИЕ HTTP ОТВЕТА --- 
+    try:
+        # Получаем админов для HTTP ответа
+        admins_list_for_http_response = []
+        # if 'admins_list_for_notify' in locals(): # Больше не получаем админов для notify
+        #     admins_list_for_http_response = [AdminInfo.model_validate(admin_dict) for admin_dict in admins_list_for_notify]
+        
+        if group_id_for_response: # Получаем админов всегда для HTTP ответа
+             async with AsyncSession(async_engine) as response_db:
+                 admins_query = (
+                     select(Member)
+                     .join(GroupMember, GroupMember.member_id == Member.id)
+                     .where(
+                         GroupMember.group_id == group_id_for_response,
+                         GroupMember.role.in_(['admin', 'creator'])
+                     )
+                 )
+                 admins_result = await response_db.execute(admins_query)
+                 admins = admins_result.scalars().all()
+                 admins_list_for_http_response = [AdminInfo.model_validate(admin) for admin in admins]
+        
+        # Формируем Pydantic модель ответа
+        response_data = InventoryData(
+            inventory=updated_inventory_for_response, 
+            metadata=updated_metadata_for_response,
+            chat_title=group_title_for_response, 
+            admins=admins_list_for_http_response
+        )
+        logger.info(f"[update_inventory_for_chat] Inventory update processed successfully for chat_id: {chat_id}. Returning HTTP response.")
+        return response_data
+    except Exception as resp_err:
+        logger.exception(f"[update_inventory_for_chat] Error formatting HTTP response after successful update for chat_id: {chat_id}: {resp_err}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Inventory updated but failed to format response.")
+
+
+# --- ЭНДПОИНТ ИСТОРИИ ---
+@router.get(
+    "/history/{chat_id}/{category}/{item_name:path}",
+    response_model=List[Dict[str, Any]],
+    summary="Get Item History",
+    description="Retrieves the history of changes for a specific item in a chat.",
+    tags=["Inventory", "History"]
+)
+async def get_item_history(
+    chat_id: str = Path(..., description="Telegram ID of the chat"),
+    category: str = Path(..., description="Category name"),
+    item_name: str = Path(..., description="Item name"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    logger.info(f"[get_item_history] Request for history: chat={chat_id}, category={category}, item={item_name}")
+    try:
+        # --- Проверка chat_id и поиск группы ---
+        try:
+            group_telegram_id = int(chat_id)
+        except ValueError:
+             logger.warning(f"[get_item_history] Invalid chat_id format: {chat_id}")
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+        group = await get_group_by_telegram_id(db, group_telegram_id)
+        # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ РЕЗУЛЬТАТА ПОИСКА ГРУППЫ <--- 
+        logger.info(f"[get_item_history] Group search result for chat_id {chat_id}: Group found = {group is not None}")
+        if not group:
+            logger.warning(f"[get_item_history] Group not found for chat_id: {chat_id}, raising 404.") # Added more detail
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+
+        if group.group_type != 'chef':
+             logger.warning(f"[get_item_history] History access denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef', raising 403.") # Added more detail
+             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory history is only available for groups of type 'chef'")
+
+        # --- Запрос истории из БД ---
+        history_query = (
+            select(InventoryHistory)
+            .options(selectinload(InventoryHistory.author_member))
+            .where(
+                InventoryHistory.group_id == group.id,
+                InventoryHistory.category == category,
+                InventoryHistory.item_name == item_name
+            )
+            .order_by(desc(InventoryHistory.timestamp))
+        )
+        # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ ПЕРЕД ВЫПОЛНЕНИЕМ ЗАПРОСА <--- 
+        logger.info(f"[get_item_history] Executing history query for group.id={group.id}, category='{category}', item_name='{item_name}'")
+        result = await db.execute(history_query)
+        history_records = result.scalars().all()
+        # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ КОЛИЧЕСТВА НАЙДЕННЫХ ЗАПИСЕЙ <--- 
+        logger.info(f"[get_item_history] Found {len(history_records)} history records in DB.")
+
+        # --- Формирование ответа ---
+        response_data = []
+        for record in history_records:
+            author_data = None
+            if record.author_member:
+                 author_data = {
+                     "user_id": record.author_member.user_id,
+                     "first_name": record.author_member.first_name,
+                     "photo_url": str(record.author_member.photo_url) if record.author_member.photo_url else None
+                 }
+
+            response_data.append({
+                "id": record.id,
+                "group_id": record.group_id,
+                "category": record.category,
+                "item_name": record.item_name,
+                "action": record.action,
+                "type": record.type,
+                "old_quantity": record.old_quantity,
+                "new_quantity": record.new_quantity,
+                "timestamp": record.timestamp.isoformat(),
+                "author": author_data
+            })
+        # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ ПЕРЕД ВОЗВРАТОМ ОТВЕТА <--- 
+        logger.info(f"[get_item_history] Returning response_data (length: {len(response_data)}). First item if exists: {response_data[0] if response_data else 'None'}")
+        return response_data
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"[get_item_history] Error fetching history for chat={chat_id}, item={item_name}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not fetch item history")
+
+# ---> ДОБАВЛЕНИЕ: Pydantic модель для добавления товара <---
+class AddItemPayload(BaseModel):
+    category: str = Field(..., description="Category name for the new item")
+    item_name: str = Field(..., description="Name of the new item")
+    has_semifinished: bool = Field(False, description="Does the item have a semifinished component?")
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+# ---> ДОБАВЛЕНИЕ: Новый эндпоинт для добавления товара в json_inventory_additions <---
+@router.post(
+    "/{chat_id}/items",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a Custom Inventory Item Definition",
+    description="Adds the definition of a new custom item to the group-specific additions (`json_inventory_additions`). This does not add the item to the main inventory directly, but defines it for future merging.",
+    tags=["Inventory", "Custom Items"]
+)
+async def add_custom_inventory_item(
+    payload: AddItemPayload,
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    # TODO: Добавить зависимость для проверки прав администратора
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Adds a custom item definition to the group's specific additions.
+    """
+    logger.info(f"[add_custom_inventory_item] POST /inventory/{chat_id}/items for item: {payload.category}/{payload.item_name}")
+
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[add_custom_inventory_item] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    # Проверка категории и имени на пустоту
+    if not payload.category or not payload.item_name:
+         logger.error(f"[add_custom_inventory_item] Category or item_name is empty for chat_id {chat_id}. Category: '{payload.category}', ItemName: '{payload.item_name}'")
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category and item name cannot be empty.")
+
+    try:
+        async with db.begin(): # Используем транзакцию
+            # Получаем группу с блокировкой для обновления
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+
+            if not group:
+                logger.warning(f"[add_custom_inventory_item] Group not found for chat_id: {chat_id}")
+                # Откат транзакции произойдет автоматически при выходе из блока `async with` из-за исключения
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+            if group.group_type != 'chef':
+                logger.warning(f"[add_custom_inventory_item] Add item denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Custom items can only be added to groups of type 'chef'")
+
+            # TODO: Проверка прав доступа пользователя (что он админ группы)
+
+            # ---> НАЧАЛО ИЗМЕНЕНИЯ: Проверка на существование в базовом инвентаре <---
+            base_inventory = group.json_inventory
+            if not base_inventory:
+                 logger.info(f"[add_custom_inventory_item] Base inventory is empty for chat {chat_id}, loading template for check.")
+                 try:
+                     base_inventory = await get_inventory_template() # Загружаем шаблон только для проверки
+                 except HTTPException as e:
+                     # Если шаблон не найден, считаем, что базовый инвентарь пуст, и позволяем добавление
+                     logger.warning(f"[add_custom_inventory_item] Template not found while checking for existing item: {e.detail}. Allowing addition.")
+                     base_inventory = {}
+                 except Exception as e:
+                     logger.exception(f"[add_custom_inventory_item] Error loading template for check. Allowing addition.")
+                     base_inventory = {}
+            
+            # Проверяем, существует ли товар в базовом инвентаре
+            if base_inventory and \
+               payload.category in base_inventory and \
+               isinstance(base_inventory[payload.category], dict) and \
+               payload.item_name in base_inventory[payload.category]:
+                logger.warning(f"[add_custom_inventory_item] Item '{payload.item_name}' already exists in base inventory category '{payload.category}' for chat {chat_id}. Rejecting request.")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, 
+                    detail=f"Item '{payload.item_name}' already exists in category '{payload.category}' in the base inventory."
+                )
+            # ---> КОНЕЦ ИЗМЕНЕНИЯ < ---
+
+            # Загружаем или инициализируем json_inventory_additions
+            additions = group.json_inventory_additions or {}
+            
+            # ---> ДОБАВЛЕНИЕ: Проверка на существование в additions <---
+            if payload.category in additions and \
+               isinstance(additions[payload.category], dict) and \
+               payload.item_name in additions[payload.category]:
+                logger.warning(f"[add_custom_inventory_item] Item definition '{payload.item_name}' already exists in additions category '{payload.category}' for chat {chat_id}. Rejecting request.")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT, 
+                    detail=f"Item definition '{payload.item_name}' already exists in category '{payload.category}' additions for this group."
+                )
+            # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+            # Обеспечиваем существование категории
+            if payload.category not in additions:
+                additions[payload.category] = {}
+                logger.info(f"[add_custom_inventory_item] Category '{payload.category}' not found in additions for chat {chat_id}, creating it.")
+            elif not isinstance(additions[payload.category], dict):
+                 logger.warning(f"[add_custom_inventory_item] Existing data for category '{payload.category}' in additions for chat {chat_id} is not a dict. Overwriting with a new dict.")
+                 additions[payload.category] = {}
+
+            # Добавляем или обновляем определение товара
+            item_definition = {"has_semifinished": payload.has_semifinished}
+            additions[payload.category][payload.item_name] = item_definition
+            logger.info(f"[add_custom_inventory_item] Added/Updated item '{payload.item_name}' in category '{payload.category}' additions for chat {chat_id}. Definition: {item_definition}")
+
+            # Сохраняем обновленные additions
+            group.json_inventory_additions = additions
+            # ---> ЯВНО ПОМЕЧАЕМ ПОЛЕ КАК ИЗМЕНЕННОЕ < ---
+            flag_modified(group, "json_inventory_additions")
+            # ------------------------------------------
+            # Не нужно вызывать db.add(group), т.к. он уже отслеживается сессией
+            # Не нужно вызывать db.flush() здесь, т.к. commit в конце блока `async with` сделает это
+            
+            # ---> ДОБАВЛЕНИЕ: Сохраняем метаданные для NOTIFY < ---
+            current_metadata = group.json_metadata or {}
+            # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+            
+        # Транзакция успешно завершена (commit)
+        logger.info(f"[add_custom_inventory_item] Successfully updated json_inventory_additions for chat_id: {chat_id}")
+        
+        # ---> ДОБАВЛЕНИЕ: Отправка уведомления NOTIFY < ---
+        try:
+            pg_channel_name = "websocket_channel"
+            notify_payload_dict = {
+                "type": "inventory_updated", 
+                "chat_id": str(chat_id),
+                "metadata": current_metadata, # Отправляем текущие метаданные
+                # Не отправляем item_id/category при добавлении определения
+            }
+            notify_payload_json = json.dumps(notify_payload_dict, default=str)
+            escaped_payload = notify_payload_json.replace("'", "''")
+
+            # Проверка длины
+            if len(escaped_payload) >= 7900:
+                 logger.warning(f"NOTIFY payload for item definition addition in chat_id {chat_id} is too long ({len(escaped_payload)} bytes). Sending minimal.")
+                 minimal_payload_dict = {"type": "inventory_updated", "chat_id": str(chat_id), "metadata": current_metadata}
+                 escaped_payload = json.dumps(minimal_payload_dict, default=str).replace("'", "''")
+
+            async with AsyncSession(async_engine) as notify_db:
+                sql_command = text(f"NOTIFY {pg_channel_name}, '{escaped_payload}'")
+                await notify_db.execute(sql_command)
+                await notify_db.commit() 
+                logger.info(f"Successfully sent item definition addition NOTIFY to channel '{pg_channel_name}' for chat_id: {chat_id}. Payload length: {len(escaped_payload)}")
+
+        except Exception as notify_error:
+            logger.error(f"Failed to send PostgreSQL NOTIFY after item definition addition for chat_id {chat_id}: {notify_error}", exc_info=True)
+        # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+        return {"message": f"Item '{payload.item_name}' definition added/updated in group additions successfully."}
+
+    except HTTPException as http_exc:
+        # Откат транзакции уже произошел (или произойдет при выходе из `async with`)
+        logger.error(f"[add_custom_inventory_item] HTTP Exception occurred: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        # Откат транзакции произойдет
+        logger.exception(f"[add_custom_inventory_item] Error processing add item request for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not add custom item definition due to a server error")
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+# ---> НАЧАЛО ДОБАВЛЕНИЯ: Эндпоинт для удаления товара <---
+@router.delete(
+    "/{chat_id}/items/{category}/{item_name:path}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete Inventory Item",
+    description="Deletes an item from both the main inventory (`json_inventory`) and the custom additions (`json_inventory_additions`) for the group. Updates metadata if deleted from main inventory.",
+    tags=["Inventory", "Custom Items"]
+)
+async def delete_inventory_item(
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    category: str = Path(..., description="Category name of the item to delete"),
+    item_name: str = Path(..., description="Name of the item to delete"),
+    # TODO: Добавить зависимость для проверки прав администратора
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Deletes an item definition and its data from the group's inventory and additions.
+    """
+    logger.info(f"[delete_inventory_item] DELETE /inventory/{chat_id}/items/{category}/{item_name}")
+
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[delete_inventory_item] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    deleted_from_inventory = False
+    deleted_from_additions = False
+    updated_metadata_for_notify = {} # Инициализируем для отправки NOTIFY
+
+    try:
+        async with db.begin(): # Используем транзакцию
+            # Получаем группу с блокировкой для обновления
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+
+            if not group:
+                logger.warning(f"[delete_inventory_item] Group not found for chat_id: {chat_id}")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+            if group.group_type != 'chef':
+                logger.warning(f"[delete_inventory_item] Delete item denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Items can only be deleted from groups of type 'chef'")
+
+            # TODO: Проверка прав доступа пользователя (что он админ группы)
+
+            # 1. Попытка удаления из основного инвентаря (json_inventory)
+            inventory = group.json_inventory
+            if inventory and isinstance(inventory, dict) and \
+               category in inventory and isinstance(inventory[category], dict) and \
+               item_name in inventory[category]:
+                
+                logger.info(f"[delete_inventory_item] Deleting '{item_name}' from category '{category}' in main inventory for chat {chat_id}.")
+                del inventory[category][item_name]
+                # Опционально: удалить пустую категорию
+                if not inventory[category]:
+                    logger.info(f"[delete_inventory_item] Category '{category}' became empty in main inventory, removing it.")
+                    del inventory[category]
+                
+                group.json_inventory = inventory
+                flag_modified(group, "json_inventory")
+                deleted_from_inventory = True
+            else:
+                logger.info(f"[delete_inventory_item] Item '{item_name}' in category '{category}' not found in main inventory for chat {chat_id}.")
+
+            # 2. Попытка удаления из добавлений (json_inventory_additions)
+            additions = group.json_inventory_additions
+            if additions and isinstance(additions, dict) and \
+               category in additions and isinstance(additions[category], dict) and \
+               item_name in additions[category]:
+               
+                logger.info(f"[delete_inventory_item] Deleting definition '{item_name}' from category '{category}' in additions for chat {chat_id}.")
+                del additions[category][item_name]
+                # Опционально: удалить пустую категорию
+                if not additions[category]:
+                    logger.info(f"[delete_inventory_item] Category '{category}' became empty in additions, removing it.")
+                    del additions[category]
+
+                group.json_inventory_additions = additions
+                flag_modified(group, "json_inventory_additions")
+                deleted_from_additions = True
+            else:
+                 logger.info(f"[delete_inventory_item] Item definition '{item_name}' in category '{category}' not found in additions for chat {chat_id}.")
+
+            # 3. Проверка, было ли что-то удалено
+            if not deleted_from_inventory and not deleted_from_additions:
+                logger.warning(f"[delete_inventory_item] Item '{item_name}' in category '{category}' not found anywhere for chat {chat_id}. Raising 404.")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, 
+                    detail=f"Item '{item_name}' not found in category '{category}' for this group."
+                )
+
+            # 4. Обновление метаданных, если удалено из основного инвентаря
+            metadata = group.json_metadata or {}
+            if deleted_from_inventory:
+                new_progress = calculate_inventory_progress_py(group.json_inventory)
+                metadata['progress'] = new_progress
+                metadata['lastUpdated'] = datetime.now().isoformat()
+                group.json_metadata = metadata
+                flag_modified(group, "json_metadata")
+                logger.info(f"[delete_inventory_item] Metadata updated for chat {chat_id}: progress={new_progress}, lastUpdated set.")
+            
+            updated_metadata_for_notify = metadata # Сохраняем метаданные для отправки в NOTIFY
+
+        # Транзакция успешно завершена (commit)
+        logger.info(f"[delete_inventory_item] DB transaction committed for chat_id: {chat_id} after deleting '{item_name}'.")
+
+    except HTTPException as http_exc:
+        # Откат транзакции произойдет
+        logger.error(f"[delete_inventory_item] HTTP Exception occurred: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        # Откат транзакции произойдет
+        logger.exception(f"[delete_inventory_item] Error processing delete item request for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not delete item due to a server error")
+
+    # 5. Отправка уведомления NOTIFY (после успешного коммита)
+    try:
+        pg_channel_name = "websocket_channel"
+        notify_payload_dict = {
+            "type": "inventory_updated", 
+            "chat_id": str(chat_id),
+            "metadata": updated_metadata_for_notify, # Отправляем актуальные метаданные
+            # Не отправляем item_id/category при удалении, т.к. товара больше нет
+        }
+        notify_payload_json = json.dumps(notify_payload_dict, default=str)
+        escaped_payload = notify_payload_json.replace("'", "''")
+
+        # Проверка длины (на всякий случай)
+        if len(escaped_payload) >= 7900:
+             logger.warning(f"NOTIFY payload for deletion in chat_id {chat_id} is too long ({len(escaped_payload)} bytes). Sending minimal.")
+             minimal_payload_dict = {"type": "inventory_updated", "chat_id": str(chat_id), "metadata": updated_metadata_for_notify}
+             escaped_payload = json.dumps(minimal_payload_dict, default=str).replace("'", "''")
+
+        async with AsyncSession(async_engine) as notify_db:
+            sql_command = text(f"NOTIFY {pg_channel_name}, '{escaped_payload}'")
+            await notify_db.execute(sql_command)
+            await notify_db.commit() 
+            logger.info(f"Successfully sent inventory delete NOTIFY to channel '{pg_channel_name}' for chat_id: {chat_id}. Payload length: {len(escaped_payload)}")
+
+    except Exception as notify_error:
+        logger.error(f"Failed to send PostgreSQL NOTIFY after item deletion for chat_id {chat_id}: {notify_error}", exc_info=True)
+
+    # 6. Возвращаем ответ
+    return {"message": f"Item '{item_name}' in category '{category}' deleted successfully."}
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+# --- ЭНДПОИНТ ИСТОРИИ ---

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useEffect, useRef, useState, memo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { format } from 'date-fns';
@@ -15,7 +15,11 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Fab from '@mui/material/Fab';
 import type { HistoryRecord } from '../../types/inventory';
-import { fetchItemHistory, clearItemHistory } from '../../store/slices/inventorySlice';
+import { 
+    fetchItemHistory, 
+    clearItemHistory, 
+    selectIsUpdatingItemId
+} from '../../store/slices/inventorySlice';
 import styles from './ItemHistory.module.css';
 import { useHistoryAnimations } from './hooks/useHistoryAnimations';
 import Modal from '@mui/material/Modal';
@@ -115,130 +119,147 @@ const getInitialDate = (history: ExtendedHistoryRecord[]): string => {
     return format(new Date(lastRecord.timestamp), 'dd.MM.yyyy', { locale: ru });
 };
 
-// Обновляем компонент HistoryContent для правильной проверки наличия истории
-const HistoryContent = ({ hasItems, onOpenModal, historyCount }: { 
+// Упрощенный HistoryContent
+const HistoryContent = ({ hasItems, onOpenModal, historyCount, isLoading, error, isUpdating }: { 
     hasItems: boolean; 
     onOpenModal: () => void;
     historyCount: number;
+    isLoading: boolean;
+    error: string | null;
+    isUpdating: boolean;
 }) => {
-    console.log('🔍 Отображение контента истории:', { hasItems, historyCount });
+    console.log('🔍 [HistoryContent] Rendering with props:', { hasItems, historyCount, isLoading, error, isUpdating });
+    
     return (
         <div 
-            className={`${styles.emptyHistoryContainer} ${hasItems ? styles.hasItems : ''}`} 
-            onClick={hasItems ? onOpenModal : undefined}
+            className={`${styles.emptyHistoryContainer} ${hasItems ? styles.hasItems : ''} ${isLoading ? styles.loadingState : ''} ${error ? styles.errorState : ''}`}
+            onClick={hasItems && !isLoading && !error ? onOpenModal : undefined}
         >
-            <div className={styles.emptyHistoryIcon}>
-                {hasItems && <span className={styles.historyCount}>{historyCount}</span>}
-                <svg 
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    xmlns="http://www.w3.org/2000/svg"
-                    className={hasItems ? styles.historyIconSvg : styles.emptyIconSvg}
-                >
-                    {hasItems ? (
-                        <g className={styles.rotatingGroup}>
-                            <path 
-                                d="M12 7v5l3 3" 
-                                stroke="currentColor" 
-                                strokeWidth="2" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                className={styles.clockHands}
-                            />
-                            <path 
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-                                stroke="currentColor" 
-                                strokeWidth="2" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                className={styles.circlePathFilled}
-                            />
-                            <path
-                                d="M16 12l-2 2m0 0l-2 2m2-2l2 2m-2-2l-2-2"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                className={styles.historyDots}
-                            />
-                        </g>
-                    ) : (
-                        <g className={styles.pulsingGroup}>
-                            <path 
-                                d="M12 7v5l2.5 2.5" 
-                                stroke="currentColor" 
-                                strokeWidth="2" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                className={styles.clockHandsEmpty}
-                            />
-                            <path 
-                                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
-                                stroke="currentColor" 
-                                strokeWidth="2" 
-                                strokeLinecap="round" 
-                                strokeLinejoin="round"
-                                className={styles.circlePathEmpty}
-                            />
-                            <circle
-                                cx="12"
-                                cy="12"
-                                r="3"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                className={styles.centerDot}
-                            />
-                        </g>
-                    )}
-                </svg>
-            </div>
-            <h3 className={styles.emptyHistoryTitle}>
-                {hasItems ? 'История' : 'История пуста'}
-            </h3>
-            <p className={styles.emptyHistoryText}>
-                {hasItems 
-                    ? 'Кликните на иконку, чтобы посмотреть историю изменений'
-                    : 'Здесь будут отображаться изменения количества сырья и полуфабрикатов'
-                }
-            </p>
+             {/* Контейнер для взаимозаменяемых элементов: лоадер, ошибка, иконка */} 
+             <div className={styles.iconPlaceholder}> 
+                 {/* Лоадер (рендерится только при isLoading) */} 
+                 {isLoading && (
+                    <div className={styles.loaderAnimation}></div>
+                 )}
+
+                 {/* Иконка ошибки (рендерится только при error и не isLoading) */} 
+                 {error && !isLoading && (
+                      <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className={styles.errorIconSvg}>
+                          <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                      </svg>
+                 )}
+
+                 {/* Иконка истории (рендерится только если НЕ isLoading и НЕ error) */} 
+                 {!isLoading && !error && (
+                     <div className={styles.emptyHistoryIcon}>
+                         {/* Условный рендеринг: либо лоадер счетчика, либо сам счетчик */}
+                         {isUpdating ? (
+                            <div className={styles.countLoader}></div> 
+                         ) : (
+                            // Показываем счетчик, если есть итемы и кол-во > 0
+                            hasItems && historyCount > 0 && <span className={styles.historyCount}>{historyCount}</span>
+                         )}
+                         
+                         {/* SVG иконка рендерится всегда (когда не загрузка/ошибка), класс и содержимое зависят от hasItems */}
+                         <svg 
+                             viewBox="0 0 24 24" 
+                             fill="none" 
+                             xmlns="http://www.w3.org/2000/svg"
+                             // Применяем нужный класс в зависимости от hasItems
+                             className={hasItems ? styles.historyIconSvg : styles.emptyIconSvg}
+                         >
+                           {/* Внутреннее содержимое SVG зависит от hasItems */}
+                           {hasItems ? (
+                               <g className={styles.rotatingGroup}>
+                                   <path 
+                                       d="M12 7v5l3 3" 
+                                       stroke="currentColor" 
+                                       strokeWidth="2" 
+                                       strokeLinecap="round" 
+                                       strokeLinejoin="round"
+                                       className={styles.clockHands}
+                                   />
+                                   <path 
+                                       d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                                       stroke="currentColor" 
+                                       strokeWidth="2" 
+                                       strokeLinecap="round" 
+                                       strokeLinejoin="round"
+                                       className={styles.circlePathFilled}
+                                   />
+                                   <path
+                                       d="M16 12l-2 2m0 0l-2 2m2-2l2 2m-2-2l-2-2"
+                                       stroke="currentColor"
+                                       strokeWidth="2"
+                                       strokeLinecap="round"
+                                       strokeLinejoin="round"
+                                       className={styles.historyDots}
+                                   />
+                               </g>
+                           ) : (
+                               <g className={styles.pulsingGroup}>
+                                   <path 
+                                       d="M12 7v5l2.5 2.5" 
+                                       stroke="currentColor" 
+                                       strokeWidth="2" 
+                                       strokeLinecap="round" 
+                                       strokeLinejoin="round"
+                                       className={styles.clockHandsEmpty}
+                                   />
+                                   <path 
+                                       d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                                       stroke="currentColor" 
+                                       strokeWidth="2" 
+                                       strokeLinecap="round" 
+                                       strokeLinejoin="round"
+                                       className={styles.circlePathEmpty}
+                                   />
+                                   <circle
+                                       cx="12"
+                                       cy="12"
+                                       r="3"
+                                       stroke="currentColor"
+                                       strokeWidth="2"
+                                       className={styles.centerDot}
+                                   />
+                               </g>
+                           )}
+                         </svg>
+                     </div>
+                 )}
+             </div>
+             
+             {/* Текстовый блок (обновляем текст в зависимости от состояния) */} 
+             <div className={styles.textContainer}>
+                 <h3 className={styles.emptyHistoryTitle}>
+                     {isLoading ? 'Загрузка...' : error ? 'Ошибка' : hasItems ? 'История' : 'История пуста'}
+                 </h3>
+                 <p className={styles.emptyHistoryText}>
+                     {isLoading ? 'Пожалуйста, подождите...' :
+                      error ? error :
+                      hasItems ? 'Кликните на иконку, чтобы посмотреть историю изменений' :
+                      'Здесь будут отображаться изменения количества сырья и полуфабрикатов'}
+                 </p>
+             </div>
         </div>
     );
 };
 
 // Компонент для отображения истории
-const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, category, className = '' }) => {
+const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, className = '' }) => {
     const dispatch = useAppDispatch();
     const history = useAppSelector(state => state.inventory.history.records[itemId] || []) as ExtendedHistoryRecord[];
-    const isLoading = useAppSelector(state => state.inventory.history.isLoading);
     const error = useAppSelector(state => state.inventory.history.error);
     const selectedChatId = useAppSelector(state => state.inventory.selectedChatId);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const lastUpdate = useAppSelector(state => state.inventory.history.lastUpdate);
-
+    const updatingItemId = useAppSelector(selectIsUpdatingItemId);
+    const [localLoading, setLocalLoading] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(() => getInitialDate(history));
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const [hasNewHistory, setHasNewHistory] = useState<boolean>(false);
-    const prevHistoryLength = useRef<number>(history.length);
-    const pulseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [isMobile, setIsMobile] = useState<boolean>(false);
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const modalRef = useRef<HTMLDivElement>(null);
-    
-    // Получаем рефы и функции анимаций
-    const {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        headerRef,
-        timelineRef,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        filterRef,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        animateNewHistoryItem,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        animateHistoryItemUpdate,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        animateHistoryItemRemoval,
-        animateFilterChange
-    } = useHistoryAnimations();
+    const { animateFilterChange, timelineRef } = useHistoryAnimations();
+
+    const isUpdating = updatingItemId === itemId;
 
     // Определяем функции открытия и закрытия модального окна в начале компонента
     const closeModal = useCallback(() => {
@@ -447,6 +468,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         console.log('🆔 ID товара:', itemId);
         
         if (selectedChatId && itemId) {
+            setLocalLoading(true);
             dispatch(fetchItemHistory({ 
                 chatId: selectedChatId, 
                 itemId,
@@ -455,52 +477,63 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
             }))
             .unwrap()
             .then((result) => {
-                console.log('✅ История успешно загружена:', result);
+                console.log('✅ История успешно загружена (локальная обработка):', result);
             })
             .catch((error) => {
-                console.error('❌ Ошибка загрузки истории:', error);
+                console.error('❌ Ошибка загрузки истории (локальная обработка):', error);
+            })
+            .finally(() => {
+                setLocalLoading(false);
             });
         }
 
         return () => {
-            dispatch(clearItemHistory());
+            console.log('🧹 Effect cleanup: Skipping clearItemHistory for now.');
         };
     }, [dispatch, selectedChatId, itemId, category, itemName]);
 
-    // Обновляем выбранную дату при изменении истории
-    useEffect(() => {
-        if (history.length > prevHistoryLength.current) {
-            // Если появились новые записи
-            const initialDate = getInitialDate(history);
-            setSelectedDate(initialDate);
-            setHasNewHistory(true);
-            
-            if (pulseTimeoutRef.current) {
-                clearTimeout(pulseTimeoutRef.current);
-            }
-            
-            pulseTimeoutRef.current = setTimeout(() => {
-                setHasNewHistory(false);
-            }, 2000);
-        }
-        prevHistoryLength.current = history.length;
-    }, [history]);
+    // Вычисление доступных дат и фильтрация
+    const { availableDates: _availableDates, mobileAvailableDates: _mobileAvailableDates, filteredHistory: _filteredHistory, hasValidHistory: _hasValidHistory, historyCount: _historyCount } = useMemo(() => {
+        const relevantHistory = history.filter(record => !['add_option', 'remove_option'].includes(record.action));
+        const dates = relevantHistory.map(record => {
+            const date = new Date(record.timestamp);
+            return {
+                full: format(date, 'dd.MM.yyyy', { locale: ru }),
+                short: format(date, 'd MMM', { locale: ru })
+            };
+        });
+        const uniqueFullDates = Array.from(new Set(dates.map(d => d.full)));
+        const _availableDates = ['all', ...uniqueFullDates];
+        const _mobileAvailableDates = [{ full: 'all', short: 'Все' }, ...uniqueFullDates.map(fullDate => {
+            const date = dates.find(d => d.full === fullDate);
+            return { full: fullDate, short: date?.short || '' };
+        })];
 
-    // Очистка таймера
-    useEffect(() => {
-        return () => {
-            if (pulseTimeoutRef.current) {
-                clearTimeout(pulseTimeoutRef.current);
-            }
-        };
-    }, []);
+        const _filteredHistory = selectedDate === 'all' ? relevantHistory : relevantHistory.filter(record => {
+            const date = new Date(record.timestamp);
+            const formattedDate = format(date, 'dd.MM.yyyy', { locale: ru });
+            return formattedDate === selectedDate;
+        });
 
-    // Закрыть модальное окно при размонтировании компонента
-    useEffect(() => {
-        return () => {
-            closeModal();
+        const _hasValidHistory = relevantHistory.length > 0;
+
+        // Используем форматирование для надежного сравнения дат
+        const todayFormatted = format(new Date(), 'yyyy-MM-dd');
+        const _historyCount = relevantHistory.filter(record => {
+             const recordDateFormatted = format(new Date(record.timestamp), 'yyyy-MM-dd');
+             return recordDateFormatted === todayFormatted;
+        }).length;
+
+        console.log('[ItemHistory useMemo] Calculated _historyCount:', _historyCount);
+
+        return {
+            availableDates: _availableDates,
+            mobileAvailableDates: _mobileAvailableDates,
+            filteredHistory: _filteredHistory,
+            hasValidHistory: _hasValidHistory,
+            historyCount: _historyCount
         };
-    }, [closeModal]); // Добавляем closeModal в массив зависимостей
+    }, [history, selectedDate]);
 
     // Форматирование действия
     const formatAction = (action: string, type: string): string => {
@@ -526,78 +559,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         return type === 'raw' ? 'сырья' : 'полуфабрикатов';
     };
 
-    if (isLoading) {
-        if (isMobile) {
-            return (
-                <Tooltip title="Загрузка истории..." arrow>
-                    <span> 
-                        <Fab 
-                            color="primary" 
-                            size="medium" 
-                            className={styles.historyFab}
-                            disabled
-                        >
-                            <HistoryIcon />
-                        </Fab>
-                    </span>
-                </Tooltip>
-            );
-        }
-        
-        return (
-            <motion.div 
-                className={`${styles.container} ${styles.loadingContainer}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-            >
-                <div className={styles.loadingSpinner} />
-                <p>Загрузка истории...</p>
-            </motion.div>
-        );
-    }
-
-    if (error) {
-        if (isMobile) {
-            return (
-                <Tooltip title="Ошибка загрузки истории" arrow>
-                    <Fab 
-                        color="secondary" 
-                        size="medium" 
-                        className={styles.historyFab}
-                        onClick={() => {
-                            if (selectedChatId) {
-                                dispatch(fetchItemHistory({ chatId: selectedChatId, itemId, category, itemName }));
-                            }
-                        }}
-                    >
-                        <HistoryIcon />
-                    </Fab>
-                </Tooltip>
-            );
-        }
-        
-        return (
-            <motion.div 
-                className={`${styles.container} ${styles.errorContainer}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-            >
-                <p className={styles.errorMessage}>{error}</p>
-                <button 
-                    className={styles.retryButton}
-                    onClick={() => {
-                        if (selectedChatId) {
-                            dispatch(fetchItemHistory({ chatId: selectedChatId, itemId, category, itemName }));
-                        }
-                    }}
-                >
-                    Повторить загрузку
-                </button>
-            </motion.div>
-        );
-    }
-
-    // Обновляем рендер для мобильной версии
+    // Рендер для мобильной версии
     if (isMobile) {
         return (
             <>
@@ -608,12 +570,14 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                     transition={{ duration: 0.4 }}
                 >
                     <HistoryContent 
-                        hasItems={hasValidHistory} 
+                        hasItems={_hasValidHistory}
                         onOpenModal={openModal}
-                        historyCount={historyCount}
+                        historyCount={_historyCount}
+                        isLoading={localLoading}
+                        error={error}
+                        isUpdating={isUpdating}
                     />
                 </motion.div>
-
                 <Modal
                     open={isModalOpen}
                     onClose={closeModal}
@@ -664,7 +628,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                     <MenuItem value="all">
                                         Все даты
                                     </MenuItem>
-                                    {mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
+                                    {_mobileAvailableDates.filter(date => date.full !== 'all').map(date => (
                                         <MenuItem key={date.full} value={date.full}>
                                             {isMobile ? date.short : date.full}
                                         </MenuItem>
@@ -674,18 +638,21 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                         </div>
                         
                         <div className={styles.modalContent}>
-                            {!history || history.length === 0 ? (
+                            {!_filteredHistory || _filteredHistory.length === 0 ? (
                                 <HistoryContent 
                                     hasItems={false} 
                                     onOpenModal={openModal}
                                     historyCount={0}
+                                    isLoading={localLoading}
+                                    error={error}
+                                    isUpdating={isUpdating}
                                 />
                             ) : (
                                 <div ref={timelineRef} className={styles.timeline}>
                                     {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                                     {/* @ts-ignore */}
                                     <AnimatePresence mode="popLayout">
-                                        {filteredHistory
+                                        {_filteredHistory
                                         .filter(record => !['add_option', 'remove_option'].includes(record.action))
                                         .map((record: ExtendedHistoryRecord, index: number) => (
                                             <motion.div
@@ -754,7 +721,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                             </motion.div>
                                         ))}
                                     </AnimatePresence>
-                                    {filteredHistory.length === 0 && (
+                                    {_filteredHistory.length === 0 && (
                                         <motion.div 
                                             className={styles.emptyFilterMessage}
                                             initial={{ opacity: 0, y: 20 }}
@@ -787,45 +754,24 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
         );
     }
 
-    // Обновляем рендер для десктопной версии
-    if (!hasValidHistory) {
-        console.log('🔍 История пуста:', { history });
-        return (
-            <motion.div 
-                className={`${styles.container} ${styles.emptyContainer} ${className}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-            >
-                <HistoryContent 
-                    hasItems={false} 
-                    onOpenModal={openModal}
-                    historyCount={0}
-                />
-            </motion.div>
-        );
-    }
-
-    console.log('=== 📜 Рендер истории ===');
-    console.log('📦 Товар:', itemName);
-    console.log('📊 Количество записей:', history.length);
-    console.log('📝 Последняя запись:', history[0]);
-
+    // Рендер для десктопной версии
     return (
         <>
             <motion.div 
-                className={`${styles.container} ${className}`}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
+                 className={`${styles.container} ${className} ${!hasValidHistory && !localLoading && !error ? styles.emptyContainer : ''}`} // Добавляем emptyContainer только если точно пусто
+                 initial={{ opacity: 0, y: 20 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 transition={{ duration: 0.4 }}
             >
-                <HistoryContent 
-                    hasItems={true} 
+                 <HistoryContent
+                    hasItems={_hasValidHistory}
                     onOpenModal={openModal}
-                    historyCount={historyCount}
+                    historyCount={_historyCount}
+                    isLoading={localLoading}
+                    error={error}
+                    isUpdating={isUpdating}
                 />
             </motion.div>
-
             <Modal
                 open={isModalOpen}
                 onClose={closeModal}
@@ -856,7 +802,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                                 displayEmpty
                             >
                                 <MenuItem value="all">Все даты</MenuItem>
-                                {availableDates.filter(date => date !== 'all').map(date => (
+                                {_availableDates.filter(date => date !== 'all').map(date => (
                                     <MenuItem key={date} value={date}>
                                         {date}
                                     </MenuItem>
@@ -870,7 +816,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
                             {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
                             {/* @ts-ignore */}
                             <AnimatePresence mode="popLayout">
-                                {filteredHistory
+                                {_filteredHistory
                                 .filter(record => !['add_option', 'remove_option'].includes(record.action))
                                 .map((record: ExtendedHistoryRecord, index: number) => (
                                     <motion.div
@@ -942,7 +888,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = memo(({ itemId, itemName, catego
             </Modal>
         </>
     );
-});
+};
 
 ItemHistory.displayName = 'ItemHistory';
 

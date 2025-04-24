@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
 import CategoriesList from './CategoriesList';
 import ItemEdit from './ItemEdit';
-import ItemHistory from '../ItemHistory/ItemHistory';
-import CategoryGrid from './CategoryGrid';
 import ItemList from './ItemList';
-import InventorySearch from './InventorySearch';
-import SearchResultsDropdown from './SearchResultsDropdown';
 import styles from './Inventory.module.css';
-import { InventoryItem } from '../../types/inventory';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { InventoryItem } from '../../types/inventoryTypes';
 import SearchBar from './SearchBar';
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import HistoryIcon from '@mui/icons-material/History';
 import CloseIcon from '@mui/icons-material/Close';
-import TuneIcon from '@mui/icons-material/Tune';
 import { SearchResult } from '../../types/search';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
+import ItemHistory from '../ItemHistory/ItemHistory';
 
 interface DesktopLayoutProps {
     categories: string[];

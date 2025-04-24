@@ -1,8 +1,6 @@
 import { configureStore, createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
-import inventoryReducer /* , {
-    subscribeToInventoryEvents,
-    unsubscribeFromInventoryEvents
-} */ from './slices/inventorySlice'; // Закомментированы импорты событий
+import type { ListenerEffectAPI, PayloadAction } from '@reduxjs/toolkit';
+import inventoryReducer from './slices/inventorySlice';
 import writeOffReducer from './slices/writeOffSlice';
 import notificationReducer from './slices/notificationSlice';
 // import authReducer from './slices/authSlice'; // Закомментировано
@@ -15,7 +13,7 @@ import reservesReducer /* , {
     // subscribeToReserveEvents,
 } */ from './slices/reservesSlice';
 import socketReducer, { socketConnected, socketDisconnected } from './slices/socketSlice';
-import { socketService } from '../services/socket';
+import { socketService, SocketState as ServiceSocketState } from '../services/socket';
 // import { loadState, saveState } from './localStorage'; // Закомментировано
 // import throttle from 'lodash.throttle'; // Закомментировано
 import { logger } from '../utils/logger';
@@ -26,19 +24,16 @@ import availableCouriersReducer from './slices/availableCouriersSlice';
 // import inventoryItemsReducer from './slices/inventoryItemSlice';
 // import inventoryCategoriesReducer from './slices/inventoryCategorySlice';
 
-
 // Создаем listener middleware instance
 export const listenerMiddleware = createListenerMiddleware();
 
-// --- Переменные состояния для комнаты курьеров --- 
-let joinedCourierChatId: string | null = null;
-let pendingJoinChatId: string | null = null;
-let isOnCourierRoute: boolean = false;
+// --- Переменные состояния для комнаты --- 
+let joinedRoomId: string | null = null; // ID комнаты, в которой сейчас пользователь
+let pendingJoinRoomId: string | null = null; // Комната для входа при коннекте
 let currentPathname: string | null = null;
 
-// --- Хелперы для комнаты курьеров --- 
+// --- Хелперы для комнаты --- 
 const COURIER_ROUTE = '/courier-schedule';
-const isCourierRoute = (pathname?: string | null): boolean => pathname === COURIER_ROUTE;
 
 // Защита от прямого вызова до инициализации store
 const findCourierChatId = (state: RootState | null): string | undefined => {
@@ -49,43 +44,46 @@ const findCourierChatId = (state: RootState | null): string | undefined => {
     return state.user.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
 };
 
-const joinCourierRoom = (chatId: string) => {
+const joinRoom = (roomId: string) => {
     const state = store?.getState(); // Получаем state только когда функция вызвана
     if (!state) {
-        logger.error('[Store:CourierRoom] Попытка войти в комнату без инициализированного store!');
+        logger.error('[Store:RoomLogic] Попытка войти в комнату без инициализированного store!');
         return;
     }
     const user = state.user.user;
     if (!user) {
-        logger.error('[Store:CourierRoom] Попытка войти в комнату без данных пользователя!');
+        logger.error('[Store:RoomLogic] Попытка войти в комнату без данных пользователя!');
         return;
     }
-    if (joinedCourierChatId === chatId) {
-        logger.log(`[Store:CourierRoom] Уже в комнате ${chatId}, повторный вход не требуется.`);
+    if (joinedRoomId === roomId) {
+        logger.log(`[Store:RoomLogic] Уже в комнате ${roomId}, повторный вход не требуется.`);
         return;
     }
-    logger.log(`[Store:CourierRoom] 🚪 Вход в комнату курьеров: ${chatId}`);
-    socketService.joinRoom(chatId, {
+    if (joinedRoomId) {
+        logger.warn(`[Store:RoomLogic] Пытаемся войти в ${roomId}, но уже находимся в ${joinedRoomId}. Сначала выходим...`);
+        leaveRoom();
+    }
+    
+    logger.log(`[Store:RoomLogic] 🚪 Вход в комнату: ${roomId}`);
+    socketService.joinRoom(roomId, {
         userId: user.id,
-        firstName: user.first_name,
-        lastName: user.last_name
+        first_name: user.first_name,
+        last_name: user.last_name
     });
-    joinedCourierChatId = chatId;
-    pendingJoinChatId = null; // Вошли, ожидать больше не надо
+    joinedRoomId = roomId;
+    pendingJoinRoomId = null;
 };
 
-const leaveCourierRoom = () => {
-    if (joinedCourierChatId) {
-        const leavingChatId = joinedCourierChatId;
-        joinedCourierChatId = null; // Сначала сбрасываем флаг
-        pendingJoinChatId = null; // И ожидание тоже
-        logger.log(`[Store:CourierRoom] 🚪 Выход из комнаты курьеров: ${leavingChatId}`);
-        if (socketService.isInitialized() && socketService.isConnected()) { // Проверяем и инициализацию, и коннект
-            socketService.leaveRoom(leavingChatId);
+const leaveRoom = () => {
+    if (joinedRoomId) {
+        const leavingRoomId = joinedRoomId;
+        joinedRoomId = null;
+        pendingJoinRoomId = null;
+        logger.log(`[Store:RoomLogic] 🚪 Выход из комнаты: ${leavingRoomId}`);
+        if (socketService.isInitialized() && socketService.isConnected()) {
+            socketService.leaveRoom(leavingRoomId);
         }
     }
-    // Сбрасываем и ожидание на всякий случай
-    pendingJoinChatId = null;
 };
 
 // --- Конфигурация Store --- 
@@ -108,7 +106,7 @@ const store = configureStore({
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
             serializableCheck: false
-        }).prepend(listenerMiddleware.middleware),
+        }).prepend(listenerMiddleware.middleware)
 });
 
 // --- Определения типов (оставляем здесь) --- 
@@ -131,46 +129,14 @@ export type RootState = {
 
 export type AppDispatch = typeof store.dispatch;
 
-// --- Логика Listener Middleware --- 
-
-// Закомментируем связанные с localStorage части
-/*
-const actionsToPersist = [
-    authReducer.actions.setAuthData,
-    userReducer.actions.setUser,
-    inventoryReducer.actions.selectChat,
-    inventoryReducer.actions.clearSelectedChat
-];
-
-listenerMiddleware.startListening({
-    matcher: isAnyOf(...actionsToPersist),
-    effect: (action, listenerApi) => {
-        const state = listenerApi.getState() as RootState;
-        const stateToSave = {
-            auth: state.auth,
-            user: state.user,
-            inventory: {
-                selectedChatId: state.inventory.selectedChatId
-            }
-        };
-        saveState(stateToSave);
-    }
-});
-*/
 
 let unsubscribeSocketConnect: (() => void) | null = null;
-let unsubscribeSocketDisconnect: (() => void) | null = null;
-let isSubscribedToDomainEvents = false; // Флаг для доменных подписок
 
 // --- Переменные для хранения функций отписки от доменных событий ---
 let domainUnsubscribeFunctions: (() => void)[] = [];
 
 // Функция подписки на доменные события
 const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) => {
-    if (isSubscribedToDomainEvents) {
-        logger.log('[Store:setupSubscriptions] Domain events already subscribed.');
-        return; // Уже подписаны
-    }
     logger.log('[Store:setupSubscriptions] Subscribing to domain events...');
     
     unsubscribeDomainEvents(); 
@@ -195,11 +161,6 @@ const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) =>
 
 // Функция ОТПИСКИ от доменных событий
 const unsubscribeDomainEvents = () => {
-    if (!isSubscribedToDomainEvents && domainUnsubscribeFunctions.length === 0) {
-        // Не подписаны и нет сохраненных функций для отписки
-        // logger.log('[Store:unsubscribeDomainEvents] Not subscribed to domain events or no unsubscribe functions available.');
-        return; 
-    }
     logger.log('[Store:unsubscribeDomainEvents] Unsubscribing from domain events...');
     
     // Вызываем все сохраненные функции отписки
@@ -213,7 +174,6 @@ const unsubscribeDomainEvents = () => {
     
     // Сбрасываем флаг и массив
     domainUnsubscribeFunctions = [];
-    isSubscribedToDomainEvents = false;
     logger.log('[Store:unsubscribeDomainEvents] Successfully unsubscribed from domain events.');
 };
 
@@ -221,28 +181,19 @@ const unsubscribeDomainEvents = () => {
 const handleSocketConnect = () => {
     logger.log('[Store:handleSocketConnect] Socket connected!');
     const dispatch = store.dispatch;
-    const getState = store.getState; // Получаем getState
+    // const getState = store.getState; // getState больше не нужен здесь
     dispatch(socketConnected());
 
-    // 1. Настраиваем доменные подписки
-    setupSubscriptions(dispatch, getState); // Передаем getState
+    // 1. Настраиваем доменные подписки -> Перенесено в socketConnected листенер
+    // setupSubscriptions(dispatch, getState);
 
-    // 2. Логика комнаты курьеров при коннекте
-    if (pendingJoinChatId) {
-        logger.log(`[Store:handleSocketConnect] Входим в ОЖИДАЮЩУЮ комнату курьеров: ${pendingJoinChatId}`);
-        joinCourierRoom(pendingJoinChatId);
-    } else if (isOnCourierRoute && !joinedCourierChatId) {
-        const state = store?.getState();
-        const chatId = findCourierChatId(state);
-        if (chatId) {
-            logger.log(`[Store:handleSocketConnect] Сокет подключился на курьерском роуте. Входим в комнату: ${chatId}`);
-            joinCourierRoom(chatId);
-        }
-    }
+    // 2. Логика комнаты курьеров при коннекте -> Перенесено в socketConnected листенер
+    // if (pendingJoinRoomId) { ... }
+    // else if (currentPathname && !joinedRoomId) { ... }
 };
 
 // Глобальный обработчик Disconnect
-const handleSocketDisconnect = (reason: Socket.DisconnectReason) => {
+const handleSocketDisconnect = (reason: string): void => {
     logger.warn(`[Store:handleSocketDisconnect] Socket disconnected! Reason: ${reason}`);
     store.dispatch(socketDisconnected());
 
@@ -250,43 +201,66 @@ const handleSocketDisconnect = (reason: Socket.DisconnectReason) => {
     unsubscribeDomainEvents();
 
     // 2. Логика комнаты курьеров при дисконнекте
-    if (joinedCourierChatId) {
-        logger.log(`[Store:handleSocketDisconnect] Мы были в комнате ${joinedCourierChatId}.`);
-        const currentJoinedChatId = joinedCourierChatId;
-        joinedCourierChatId = null;
-        if (isOnCourierRoute) {
+    if (joinedRoomId) {
+        logger.log(`[Store:handleSocketDisconnect] Мы были в комнате ${joinedRoomId}.`);
+        const currentJoinedRoomId = joinedRoomId;
+        joinedRoomId = null;
+        if (currentPathname) {
             const state = store?.getState();
             const chatId = findCourierChatId(state);
-            if (chatId === currentJoinedChatId) {
+            if (chatId === currentJoinedRoomId) {
                  logger.log(`[Store:handleSocketDisconnect] ...но мы все еще на курьерском роуте (${currentPathname}). Ставим комнату ${chatId} в ожидание.`);
-                 pendingJoinChatId = chatId;
+                 pendingJoinRoomId = chatId;
             } else {
-                 logger.warn(`[Store:handleSocketDisconnect] ...но текущий chatId (${chatId}) не совпадает с тем, из которого вышли (${currentJoinedChatId}). Ожидание не ставим.`);
-                 pendingJoinChatId = null;
+                 logger.warn(`[Store:handleSocketDisconnect] ...но текущий chatId (${chatId}) не совпадает с тем, из которого вышли (${currentJoinedRoomId}). Ожидание не ставим.`);
+                 pendingJoinRoomId = null;
             }
         } else {
-             pendingJoinChatId = null;
+             pendingJoinRoomId = null;
         }
     } else {
-         pendingJoinChatId = null;
+         pendingJoinRoomId = null;
     }
 };
 
-// Функция запуска глобальных слушателей сокета
+// --- Функции обратного вызова для сокета --- 
+// Убираем socketCallbacks, т.к. будем вызывать обработчики напрямую из листенера
+// const socketCallbacks = {
+//     connect: handleSocketConnect,
+//     disconnect: handleSocketDisconnect
+// };
+
+// Функция для запуска/перезапуска листенеров состояния сокета
 const startSocketStateListener = () => {
-     logger.log('[Store:startSocketListener] Starting socket state listener...');
-    // Отписываемся от старых перед подпиской на новые
-    unsubscribeSocketConnect?.();
-    unsubscribeSocketDisconnect?.();
-
-    unsubscribeSocketConnect = socketService.subscribe('connect', handleSocketConnect);
-    unsubscribeSocketDisconnect = socketService.subscribe('disconnect', handleSocketDisconnect);
-
-    // Если сокет уже подключен в момент запуска слушателя
-    if (socketService.isInitialized() && socketService.isConnected()) { // Проверяем и инициализацию, и коннект
-        logger.log('[Store:startSocketListener] Socket already connected. Triggering connect handler manually.');
-        handleSocketConnect(); // Вызываем обработчик для настройки подписок и входа в комнату
+    logger.log('[Store:startSocketStateListener] Запуск функции...');
+    // Отписываемся от предыдущего, если он был
+    if (unsubscribeSocketConnect) {
+        logger.log('[Store:startSocketStateListener] Отписка от предыдущего слушателя...');
+        unsubscribeSocketConnect();
+        unsubscribeSocketConnect = null;
+        logger.log('[Store:startSocketStateListener] Отписка завершена.');
     }
+    
+    logger.log('[Store:startSocketStateListener] Вызов socketService.onStateChange для подписки...');
+    // Подписываемся на событие изменения состояния сокета
+    unsubscribeSocketConnect = socketService.onStateChange((newState: ServiceSocketState) => {
+        // !!! САМЫЙ ПЕРВЫЙ ЛОГ ВНУТРИ КОЛЛБЭКА !!!
+        logger.log(`[Store:onStateChangeCallback] !!! КОЛЛБЭК ВЫЗВАН !!! Новое состояние:`, newState);
+        
+        const currentIsConnected = store.getState().socket.isConnected;
+        logger.log(`[Store:onStateChangeCallback] Текущее состояние в Redux: ${currentIsConnected}`);
+
+        if (newState.isConnected && !currentIsConnected) {
+            logger.log('[Store:onStateChangeCallback] Условие (newState.isConnected && !currentIsConnected) === TRUE. Вызов handleSocketConnect...');
+            handleSocketConnect();
+        } else if (!newState.isConnected && currentIsConnected) {
+            logger.log('[Store:onStateChangeCallback] Условие (!newState.isConnected && currentIsConnected) === TRUE. Вызов handleSocketDisconnect...');
+            handleSocketDisconnect(newState.error || 'State changed to disconnected');
+        } else {
+             logger.log('[Store:onStateChangeCallback] Ни одно из условий не выполнено. Состояние Redux уже соответствует новому состоянию или состояние не изменилось значимо.');
+        }
+    });
+    logger.log('[Store:startSocketStateListener] Подписка через socketService.onStateChange ВЫПОЛНЕНА. Функция завершена.');
 };
 
 // --- Слушатели Middleware --- 
@@ -294,101 +268,179 @@ const startSocketStateListener = () => {
 // 1. Инициализация пользователя -> Инициализация сокета + Запуск слушателя состояния сокета + Первая попытка connect
 listenerMiddleware.startListening({
     actionCreator: initializeFromTelegram.fulfilled,
-    effect: async (action, listenerApi) => {
-        const userId = action.payload?.id; // Добавил проверку на payload
+    effect: (action, listenerApi) => {
+        const userId = action.payload.id;
         logger.log(`[Store:UserInitListener] User initialized. UserID: ${userId}`);
+        // Инициализируем и подключаем сокет
+        logger.log(`[Store:UserInitListener] Initializing socket...`);
+        socketService.init(`ws://${window.location.hostname}:8001`, userId);
+        logger.log('[Store:startSocketStateListener] Starting socket state listener...');
+        startSocketStateListener(); // Запускаем прослушивание состояния сокета
+        logger.log('[Store:UserInitListener] Attempting to connect socket...');
+        socketService.connect();
+        
+        // !!! setupSubscriptions вызывается здесь, при инициализации пользователя, а не при подключении сокета
+        // Вызываем setupSubscriptions при инициализации пользователя
+        // setupSubscriptions(listenerApi.dispatch as AppDispatch, listenerApi.getState as () => RootState);
+    }
+});
 
-        if (userId) {
-            if (!socketService.isInitialized()) {
-                logger.log(`[Store:UserInitListener] Initializing socket...`);
-                socketService.init(process.env.REACT_APP_WS_URL, userId);
-                // Запускаем слушатель состояния ТОЛЬКО после первой инициализации
-                startSocketStateListener();
-            } else {
-                logger.log(`[Store:UserInitListener] Socket already initialized. Ensuring state listener is running...`);
-                // На всякий случай перезапускаем слушатель, если сокет уже был, но вдруг слушатель отвалился
-                startSocketStateListener();
-            }
-
-            // Пытаемся подключиться
-            if (!socketService.isConnected()) {
-                logger.log(`[Store:UserInitListener] Attempting to connect socket...`);
-                socketService.connect();
-            } else {
-                // Если уже подключен, убедимся что handleConnect был вызван
-                 logger.log(`[Store:UserInitListener] Socket already connected. Triggering connect handler manually if needed...`);
-                 // handleSocketConnect(); // Убрал повторный вызов, т.к. он уже есть в startSocketStateListener
-            }
+// 2. Слушатель подключения сокета -> подписки на события и вход в комнату
+listenerMiddleware.startListening({
+    actionCreator: socketConnected,
+    effect: (action, listenerApi) => {
+        logger.log("[Store:SocketConnect] Listener triggered");
+        
+        // Подписываемся на основные события сокета (не доменные)
+        // setupSubscriptions здесь, чтобы гарантировать подписку после *каждого* успешного коннекта
+        setupSubscriptions(listenerApi.dispatch as AppDispatch, listenerApi.getState as () => RootState);
+        
+        // Проверяем, есть ли комната в ожидании
+        if (pendingJoinRoomId) {
+            logger.log(`[Store:SocketConnect] Found pending room: ${pendingJoinRoomId}. Joining...`);
+            joinRoom(pendingJoinRoomId); // pendingJoinRoomId будет сброшен внутри joinRoom
         } else {
-             logger.warn('[Store:UserInitListener] User initialized but no UserID found!');
+            logger.log("[Store:SocketConnect] No pending room to join.");
         }
     }
 });
 
-// 2. Слушатель смены роута -> вход/выход из комнаты курьеров
+// 3. Слушатель отключения сокета -> отписки и обновление состояния комнаты
+listenerMiddleware.startListening({
+    actionCreator: socketDisconnected,
+    effect: (action, listenerApi) => {
+        logger.warn("[Store:SocketDisconnect] Listener triggered");
+        // Отписываемся от событий домена при разрыве соединения
+        unsubscribeDomainEvents();
+        // Основные подписки (типа pong) не отменяем здесь, они должны управляться в setup/teardown
+        // или при полном логауте
+
+        const state = listenerApi.getState() as RootState;
+
+        if (joinedRoomId) {
+            logger.log(`[Store:SocketDisconnect] Was in room: ${joinedRoomId}. Checking if still on target route...`);
+            const currentJoinedRoomId = joinedRoomId; // Сохраняем ID комнаты, в которой были
+            joinedRoomId = null; // Считаем, что вышли из комнаты
+
+            // Проверяем, нужно ли снова войти в эту комнату при переподключении
+            let targetRoomForCurrentRoute: string | null = null;
+            if (currentPathname === COURIER_ROUTE) {
+                targetRoomForCurrentRoute = findCourierChatId(state) ?? null;
+            } else {
+                const inventoryMatch = currentPathname?.match(/^\/inventory\/([^/]+)$/);
+                if (inventoryMatch && inventoryMatch[1]) {
+                    targetRoomForCurrentRoute = inventoryMatch[1];
+                }
+            }
+            logger.log(`[Store:SocketDisconnect] Current route: ${currentPathname}, Target room for this route: ${targetRoomForCurrentRoute}`);
+
+            if (targetRoomForCurrentRoute === currentJoinedRoomId) {
+                logger.log(`[Store:SocketDisconnect] Still on the route for room ${currentJoinedRoomId}. Setting as pending.`);
+                pendingJoinRoomId = currentJoinedRoomId; // Ставим в ожидание
+            } else {
+                logger.log(`[Store:SocketDisconnect] Not on the route for room ${currentJoinedRoomId} anymore (or target is null). Clearing pending.`);
+                pendingJoinRoomId = null; // Сбрасываем ожидание
+            }
+        } else {
+            logger.log("[Store:SocketDisconnect] Was not in any room. Clearing pending.");
+            pendingJoinRoomId = null; // На всякий случай сбрасываем ожидание
+        }
+    }
+});
+
+// 4. Реакция на изменение маршрута
 listenerMiddleware.startListening({
     actionCreator: routeChanged,
     effect: (action, listenerApi) => {
-        logger.log(`[Store:RouteChange] Listener triggered for path: ${action.payload}`);
-        const newPathname = action.payload;
-        const oldPathname = currentPathname;
-        currentPathname = newPathname;
-
-        const wasOnCourier = isCourierRoute(oldPathname);
-        const nowOnCourier = isCourierRoute(newPathname);
+        const newPath = action.payload;
         const state = listenerApi.getState() as RootState;
+        const previousPath = currentPathname;
+        currentPathname = newPath;
         const isConnected = state.socket.isConnected;
-        isOnCourierRoute = nowOnCourier;
 
-        logger.log(`[Store:RouteChange] Route: ${oldPathname} -> ${newPathname}. IsCourier: ${nowOnCourier}. SocketConnected(from state): ${isConnected}`);
+        logger.log(`[Store:RouteChange] Listener triggered. Path: ${newPath}, Prev: ${previousPath}, Socket: ${isConnected}, CurrentRoom: ${joinedRoomId}`);
 
-        if (nowOnCourier && !wasOnCourier) {
-            logger.log('[Store:RouteChange] Вошли в курьерский раздел.');
-            const chatId = findCourierChatId(state);
-            if (chatId) {
-                if (isConnected) {
-                    logger.log('[Store:RouteChange] Сокет подключен (из state), входим в комнату курьеров...');
-                    joinCourierRoom(chatId);
-                } else {
-                    logger.log(`[Store:RouteChange] Сокет НЕ подключен (из state), ставим комнату курьеров ${chatId} в ожидание...`);
-                    pendingJoinChatId = chatId;
-                }
-            } else {
-                logger.warn('[Store:RouteChange] Не найден chatId курьера при входе в раздел.');
-            }
-        } else if (!nowOnCourier && wasOnCourier) {
-            logger.log('[Store:RouteChange] Вышли из курьерского раздела.');
-            leaveCourierRoom();
+        let targetRoomId: string | null = null;
+
+        // Определяем целевую комнату
+        if (newPath === COURIER_ROUTE) {
+            targetRoomId = findCourierChatId(state) ?? null;
+            logger.log(`[Store:RouteChange] Target is Courier Route. Found Chat ID: ${targetRoomId}`);
         } else {
-             logger.log(`[Store:RouteChange] Навигация ${nowOnCourier ? 'внутри' : 'вне'} курьерского раздела, комната не меняется.`);
+            const inventoryMatch = newPath.match(/^\/inventory\/([^/]+)$/); // Ищем /inventory/:chatId
+            if (inventoryMatch && inventoryMatch[1]) {
+                targetRoomId = inventoryMatch[1]; // chatId из пути
+                 // Добавим проверку, что это действительно чат повара?
+                 // const group = state.inventory.items.find(item => item.chat_id === targetRoomId);
+                 // if (group?.group_type !== 'chef') { targetRoomId = null; }
+                logger.log(`[Store:RouteChange] Target is Chef Inventory Route. Found Chat ID: ${targetRoomId}`);
+            } else {
+                logger.log(`[Store:RouteChange] Target is not a special room route.`);
+            }
+        }
+
+        // Логика входа/выхода
+        if (targetRoomId !== joinedRoomId) {
+            logger.log(`[Store:RouteChange] Room change needed. Current: ${joinedRoomId}, Target: ${targetRoomId}`);
+            // 1. Если были в комнате, выходим
+            if (joinedRoomId) {
+                logger.log(`[Store:RouteChange] Leaving current room: ${joinedRoomId}`);
+                leaveRoom(); // leaveRoom сама сбрасывает joinedRoomId и pendingJoinRoomId
+            }
+
+            // 2. Если новая комната есть, входим или ставим в ожидание
+            if (targetRoomId) {
+                // <<< ИСПРАВЛЕНИЕ: Формируем ПРАВИЛЬНОЕ имя комнаты >>>
+                let roomNameToJoin: string;
+                if (newPath === COURIER_ROUTE) {
+                    // Для курьеров targetRoomId - это и есть ID чата (имя комнаты)
+                    roomNameToJoin = targetRoomId;
+                } else {
+                    // Для инвентаря добавляем префикс
+                    roomNameToJoin = `inventory_${targetRoomId}`;
+                }
+                // <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
+
+                if (isConnected) {
+                    // Используем roomNameToJoin
+                    logger.log(`[Store:RouteChange] Joining new room: ${roomNameToJoin}`); 
+                    joinRoom(roomNameToJoin); 
+                } else {
+                    // Используем roomNameToJoin
+                    logger.log(`[Store:RouteChange] Socket not connected. Setting pending room: ${roomNameToJoin}`); 
+                    pendingJoinRoomId = roomNameToJoin; 
+                }
+            }
+             // Если targetRoomId = null, мы уже вышли на шаге 1, делать больше нечего.
+        } else {
+            logger.log(`[Store:RouteChange] No room change needed. Staying in room: ${joinedRoomId}`);
         }
     }
 });
 
-// 3. Слушатель логаута -> полный дисконнект и очистка
+// 5. Слушатель логаута -> полный дисконнект и очистка
 listenerMiddleware.startListening({
     matcher: isAnyOf(
         userSlice.actions.clearUserData,
         userSlice.actions.resetUserState
     ),
-    effect: async (action, listenerApi) => {
+    effect: (action, listenerApi: any) => {
         logger.warn(`[Store:LogoutListener] Disconnecting socket due to action: ${action.type}`);
-        listenerApi.dispatch(socketDisconnected());
-        unsubscribeDomainEvents();
-        leaveCourierRoom();
-        unsubscribeSocketConnect?.();
-        unsubscribeSocketDisconnect?.();
-        unsubscribeSocketConnect = null;
-        unsubscribeSocketDisconnect = null;
-        joinedCourierChatId = null;
-        pendingJoinChatId = null;
-        isOnCourierRoute = false;
+        // listenerApi.dispatch(socketDisconnected()); // Не вызываем диспатч, т.к. это приведет к рекурсии и лишним действиям
+        unsubscribeDomainEvents(); // Отписываемся от доменных событий
+        leaveRoom(); // Выходим из текущей комнаты (если были)
+        unsubscribeSocketConnect?.(); // Отписываемся от слушателя состояния сокета
+        // Сбрасываем новые переменные
+        joinedRoomId = null;
+        pendingJoinRoomId = null;
         currentPathname = null;
-        isSubscribedToDomainEvents = false;
+        // Полностью отключаем сокет
         if (socketService.isInitialized()) {
              socketService.disconnect();
         }
     }
 });
+
+
 
 export default store; 

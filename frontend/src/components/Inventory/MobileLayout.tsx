@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-// Импортируем иконки из Material-UI вместо react-icons
+import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
@@ -8,7 +7,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ItemList from './ItemList';
 import ItemEdit from './ItemEdit';
 import SearchBar from './SearchBar';
-import { InventoryItem } from '../../types/inventory';
+import { InventoryItem } from '../../types/inventoryTypes';
 import { SearchResult } from '../../types/search';
 import styles from './Inventory.module.css';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';

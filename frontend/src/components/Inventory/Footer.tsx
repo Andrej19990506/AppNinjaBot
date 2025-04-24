@@ -16,6 +16,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import SearchIcon from '@mui/icons-material/Search';
 
 // <<< ИЗМЕНЕНИЕ: Импорты из Redux >>>
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -169,6 +170,9 @@ interface FooterProps {
     onModalNext?: () => void;
     isModalNextDisabled?: boolean;
     showModalSteps?: boolean;
+    showInventorySearchButton?: boolean;
+    onInventorySearchClick?: () => void;
+    isSearchOpen?: boolean;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -196,7 +200,10 @@ const Footer: React.FC<FooterProps> = ({
     onModalBack,
     onModalNext,
     isModalNextDisabled = false,
-    showModalSteps = true
+    showModalSteps = true,
+    showInventorySearchButton = false,
+    onInventorySearchClick,
+    isSearchOpen = false
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -295,8 +302,11 @@ const Footer: React.FC<FooterProps> = ({
                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                                  </svg>
                             </motion.button>
+                        </div>
 
-                            {/* Кнопка Назад (если есть категория/предмет) */} 
+                        {/* --- Центральная часть --- */}
+                        <div className={styles.centerSide}>
+                            {/* <<< ИЗМЕНЕНИЕ: Кнопка Назад ПЕРЕМЕЩЕНА СЮДА >>> */} 
                             {(selectedCategory || selectedItem) && (
                                 <motion.button
                                     className={styles.backButton}
@@ -315,15 +325,12 @@ const Footer: React.FC<FooterProps> = ({
                                    </div>
                                 </motion.button>
                             )}
-                        </div>
-
-                        {/* --- Центральная часть (кнопка Смены/Резерв) --- */}
-                        <div className={styles.centerSide}>
-                            {/* <<< ИЗМЕНЕНИЕ: Условный рендеринг кнопки переключения режима >>> */}
+                            
+                            {/* Кнопка Смены/Резерв (остается здесь, если была) */} 
                             {isShiftDialogOpen && (
                                 <motion.button
-                                    className={styles.shiftModeButton} // <<< Новый класс
-                                    onClick={handleShiftModeToggle} // <<< Передаем обработчик
+                                    className={styles.shiftModeButton} 
+                                    onClick={handleShiftModeToggle} 
                                     whileHover={{ scale: 1.03 }}
                                     whileTap={{ scale: 0.97 }}
                                     initial={{ opacity: 0, scale: 0.8 }}
@@ -337,7 +344,7 @@ const Footer: React.FC<FooterProps> = ({
 
                         {/* --- Правая часть --- */}
                         <div className={styles.rightSide}> 
-                            {/* Контейнер для правых иконок (Настройки, Чат) */} 
+                            {/* Контейнер для правых иконок (Настройки, Чат, Поиск) */} 
                             <div className={styles.rightIconsContainer}> 
                                 {/* Кнопка Настройки (если нужно) */} 
                                 {showSettingsButton && (
@@ -358,6 +365,23 @@ const Footer: React.FC<FooterProps> = ({
                                         onClick={onChatSelect}
                                     />
                                 )}
+
+                                {/* --- НОВАЯ Кнопка Поиска для Инвентаря --- */}
+                                {showInventorySearchButton && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.searchInventoryButton}`}
+                                        onClick={onInventorySearchClick}
+                                        whileHover={{ scale: 1.05, rotate: isSearchOpen ? -5 : 5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title={isSearchOpen ? "Закрыть поиск" : "Поиск по инвентарю"}
+                                    >
+                                        {isSearchOpen ? 
+                                            <CloseIcon className={styles.icon} /> : 
+                                            <SearchIcon className={styles.icon} />
+                                        }
+                                    </motion.button>
+                                )}
+                                {/* --- КОНЕЦ НОВОЙ Кнопки Поиска --- */}
                             </div>
                             
                             {/* Кнопка Создать/Акт (если нужно) */} 

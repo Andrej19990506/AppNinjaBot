@@ -58,7 +58,16 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                     logger.warning(f"Получено уведомление типа '{event_type}' без 'chat_id' в payload.")
                     return
                     
-                room_name = f"couriers_{chat_id}"
+                # <<< ИСПРАВЛЕНИЕ: Определяем комнату на основе event_type >>>
+                room_name = None
+                if event_type == 'inventory_updated':
+                    room_name = f"inventory_{chat_id}" # Комната для инвентаря
+                elif event_type in ['reserve_added', 'reserve_removed', 'shifts_updated', 'shift_cancelled', 'bulk_reserve_removed', 'reserve_transferred_to_shift', 'shift_access_sent']: # Добавьте другие типы событий курьеров, если нужно
+                    room_name = f"couriers_{chat_id}" # Комната для курьеров
+                else:
+                    logger.warning(f"Неизвестный тип события '{event_type}' для отправки в комнату.")
+                    return # Не отправляем, если не знаем куда
+
                 logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
                 await sio.emit(event_type, data, room=room_name)
                 logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")

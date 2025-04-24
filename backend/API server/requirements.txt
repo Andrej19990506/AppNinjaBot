@@ -8,4 +8,5 @@ pydantic-settings
 alembic
 httpx
 loguru
-openpyxl 
+openpyxl
+redis>=5.0.0 

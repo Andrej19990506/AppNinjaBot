@@ -124,8 +124,7 @@ export const selectWriteOffChat = createAsyncThunk(
             // Преобразуем админов в нужный формат
             const formattedAdmins = chat.admins.map(admin => ({
                 user_id: admin.user_id,
-                first_name: admin.first_name,
-                status: admin.status
+                first_name: admin.first_name || ''
             }));
 
             await dispatch(checkAdminRights({

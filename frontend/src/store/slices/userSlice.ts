@@ -1,9 +1,9 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { WebApp } from '../../types/telegram';
 import { User, UserState as BaseUserState, AdminRights } from '../../types/user';
-import { Admin } from '../../types/inventory';
+import { Admin } from '../../types/inventoryTypes';
 import { ChatContext } from './chatSlice';
-import { userApi } from '../../services/api';
+import { api } from '../../services/api';
 import { updateMemberSeniority, updateCourierProfile } from '../../services/courierApi';
 import axios from 'axios';
 import { RootState } from '../../store/store';
@@ -48,12 +48,14 @@ const DEV_MODE_USER_DATA: Partial<User> = {
 // <<< Определяем расширенный UserState >>>
 interface UserState extends BaseUserState {
     usersById: { [key: number]: User }; 
+    activeRole: string | null;
 }
 
 // <<< Используем РАСШИРЕННЫЙ UserState для initialState >>>
 const initialState: UserState = {
     user: null,
     usersById: {}, // Теперь это поле есть в типе
+    activeRole: null,
     isInitialized: false,
     error: null,
     loading: false
@@ -117,13 +119,13 @@ export const initializeFromTelegram = createAsyncThunk(
 
         try {
             console.log(`🔄 Загрузка контекста (групп) для пользователя ${userId}...`);
-            const groupsData = await userApi.getUserContext(userId);
+            const groupsData = await api.user.getUserContext(userId);
             user.groups = groupsData;
             console.log('✅ Контекст (группы) пользователя загружен:', user.groups);
 
             try {
                 console.log(`🔄 Загрузка профиля для пользователя ${userId}...`);
-                const profileData = await userApi.getUserProfile(userId);
+                const profileData = await api.user.getUserProfile(userId);
                 
                 if (profileData) {
                     console.log('✅ Профиль пользователя загружен:', profileData);
@@ -181,11 +183,11 @@ export const checkAdminRights = createAsyncThunk<void, {
                 
                 if (admin.user_id === userId) {
                     console.log('✅ Пользователь является администратором');
-                    // <<< ИСПРАВЛЕНИЕ: Создаем объект AdminRights >>>
+                    // <<< ИСПРАВЛЕНИЕ: Устанавливаем права в true, если пользователь найден в списке админов >>>
                     const calculatedAdminRights: AdminRights = {
-                        // Примерная логика - замени на свою, если нужно
-                        canManageInventory: !!admin.can_manage_chat, 
-                        canManageUsers: !!admin.can_restrict_members
+                        // Устанавливаем права в true, так как пользователь - админ чата
+                        canManageInventory: true, 
+                        canManageUsers: true // Или другая логика, если нужно
                     };
                     // Обновляем статус администратора, передавая AdminRights
                     dispatch(updateAdminStatus({ isAdmin: true, adminRights: calculatedAdminRights }));
@@ -375,6 +377,11 @@ const userSlice = createSlice({
                  };
             }
         },
+        // <<< НОВЫЙ РЕДЬЮСЕР ДЛЯ УСТАНОВКИ РОЛИ >>>
+        setActiveRole: (state, action: PayloadAction<string | null>) => {
+            console.log(`[userSlice] Установка activeRole: ${action.payload}`);
+            state.activeRole = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder
@@ -445,6 +452,7 @@ export const {
     updateUserGroupSeniority,
     usersReceived,
     userProfileUpdatedWs,
+    setActiveRole,
 } = userSlice.actions;
 
 export default userSlice.reducer;
@@ -457,5 +465,6 @@ export const selectUsersById = (state: RootState): { [key: number]: User } => st
 export const selectUser = (state: RootState): User | null => state.user.user;
 export const selectIsUserInitialized = (state: RootState): boolean => state.user.isInitialized;
 export const selectUserInitializationError = (state: RootState): string | null => state.user.error;
+export const selectActiveRole = (state: RootState): string | null => state.user.activeRole;
 // --- ----------------------------------------------- --- 
 // --- ----------------------------------------------- --- 

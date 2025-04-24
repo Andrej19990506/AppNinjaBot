@@ -1,7 +1,7 @@
 .container {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    min-height: 100vh;
     width: 100%;
     overflow: hidden;
     position: relative;
@@ -9,14 +9,9 @@
 }
 
 .content {
-    display: flex;
-    flex: 1 1;
+    flex-grow: 1;
     position: relative;
-    padding: 20px;
-    padding-bottom: calc(20px + 60px);
-    overflow: visible;
-    z-index: 1;
-    align-items: center;;
+    transition: padding-top 0.3s ease;
 }
 
 .mainSection {
@@ -24,14 +19,13 @@
     margin: 0 auto;
     width: 100%;
     margin-bottom: 20px;
-    height: 70vh; /* Добавляем высоту для корректного скроллинга */
     display: flex;
     flex-direction: column;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
     position: relative;
     z-index: 2;
-    overflow: visible; /* Разрешаем контенту переполняться */
+    overflow: visible;
 }
 
 .mainSection > *:last-child {
@@ -55,28 +49,24 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    padding: 40px;
+    text-align: center;
     height: 100%;
-    gap: 20px;
+    flex-grow: 1;
 }
 
 .errorMessage {
-    color: #e74c3c;
-    text-align: center;
-    font-size: 1.1rem;
+    color: var(--error-color);
+    margin-bottom: 20px;
 }
 
 .retryButton {
     padding: 10px 20px;
-    background-color: #3498db;
+    background-color: var(--primary-color);
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius);
     cursor: pointer;
-    transition: background-color 0.3s;
-}
-
-.retryButton:hover {
-    background-color: #2980b9;
 }
 
 .itemEditContainer {
@@ -235,20 +225,21 @@
 }
 
 /* Стили для списка элементов */
+/* --- ИЗМЕНЕНИЕ: Возвращаем общее правило --- */
 :global(.ItemList_list__EL7Vr),
 :global(.CategoryGrid_grid__j65fG) {
-    flex: 1;
+    flex: 1; /* Возвращаем flex: 1 */
     overflow-y: auto !important;
     padding-right: 10px;
-    min-height: 0; /* Важно для работы flex-контейнера со скроллом */
-    max-height: 60vh; /* Ограничиваем высоту для активации скролла */
+    min-height: 0; 
+    max-height: 60vh; 
 }
 
 /* Стили для контейнера поиска */
 .searchContainer {
+    position: relative;
     margin-bottom: 20px;
     width: 100%;
-    position: relative;
     z-index: 9000; /* Высокий z-index для контейнера поиска */
 }
 
@@ -290,5 +281,61 @@
 /* Специальные стили для ItemList внутри mainSection */
 .mainSection :global(.ItemList_list__EL7Vr) {
     overflow-y: auto !important;
-    max-height: 60vh; /* Ограничиваем высоту для активации скролла */
+    max-height: 65vh; /* Ограничиваем высоту для активации скролла */
+}
+
+/* Стиль для сдвига контента, когда поиск активен */
+.contentShifted {
+    padding-top: 60px; /* Примерный сдвиг, подстроить под высоту SearchBar */
+}
+
+/* Стили для десктопной версии */
+@media (min-width: 1024px) {
+    .container {
+        flex-direction: row;
+    }
+    
+    .sidebar {
+        width: 300px;
+        border-right: 1px solid var(--border-color);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+    }
+
+    .mainContentArea {
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        overflow-y: auto; /* Позволяет скроллить только основную область */
+    }
+
+    .content {
+        padding: 20px; /* Другие отступы для десктопа */
+        flex-grow: 1;
+        display: flex; /* Чтобы ItemEdit и ItemHistory могли быть рядом */
+        gap: 20px;
+    }
+
+    .itemDetailView {
+        width: 100%; /* Занимает всю доступную ширину */
+    }
+    
+    .itemHistory {
+        margin-top: 0;
+        border-top: none;
+        padding-top: 0;
+        /* Можно задать фиксированную ширину или flex-basis */
+        flex-shrink: 0; 
+        width: 300px; 
+    }
+
+    /* Убираем сдвиг контента на десктопе, т.к. поиск может быть в другом месте */
+    .contentShifted {
+        padding-top: 20px; 
+    }
 }

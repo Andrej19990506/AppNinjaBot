@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import ShoppingBasketIcon from '@mui/icons-material/ShoppingBasket';
-import { InventoryItem } from '../../types/inventory';
+import { InventoryItem } from '../../types/inventoryTypes';
 import styles from './Inventory.module.css';
 
 interface CategoriesListProps {
@@ -25,19 +25,22 @@ const CategoriesList: React.FC<CategoriesListProps> = ({
   
   // Проверка на низкий уровень запасов
   const isLowStock = (item: InventoryItem) => {
-    return item.quantity && item.quantity <= (item.lowStockThreshold || 5);
+    const quantity = item.raw?.quantity ?? 0;
+    const threshold = 5;
+    return quantity > 0 && quantity <= threshold;
   };
   
   // Проверка на отсутствие товара на складе
   const isOutOfStock = (item: InventoryItem) => {
-    return item.quantity === 0 || item.raw?.isOutOfStock;
+    const quantity = item.raw?.quantity ?? 0;
+    return quantity === 0 || item.raw?.isOutOfStock;
   };
   
   // Получение общего количества товаров в категории
   const getCategoryTotalQuantity = (category: string) => {
     if (!items[category]) return 0;
     
-    return Object.values(items[category]).reduce((total, item) => total + (item.quantity || 0), 0);
+    return Object.values(items[category]).reduce((total, item) => total + (item.raw?.quantity ?? 0), 0);
   };
   
   return (

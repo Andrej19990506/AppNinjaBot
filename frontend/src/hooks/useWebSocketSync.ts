@@ -3,8 +3,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../store/store';
 import { socketService, SocketState } from '../services/socket';
 import { logger } from '../utils/logger';
-// Импортируем ApiShift из правильного места
-// УДАЛЯЕМ неиспользуемый импорт ApiShift
 import { /* ApiShift, */ ApiReserve } from '../services/courierApi';
 
 // Импортируем actions из слайсов
@@ -38,6 +36,8 @@ import { addNotification, NotificationTypes } from '../store/slices/notification
 // <<< ИМПОРТ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ >>>
 import { userProfileUpdatedWs } from '../store/slices/userSlice'; // Оставляем только action 
 import { User } from '../types/user'; // <<< ИМПОРТИРУЕМ ТИП ОТДЕЛЬНО >>>
+// Импортируем Thunk для перезагрузки инвентаря
+import { fetchChatInventory } from '../store/slices/inventorySlice';
 
 // Селектор для получения ID курьерского чата из стейта пользователя
 const selectCurrentCourierChatId = (state: RootState): string | undefined => {

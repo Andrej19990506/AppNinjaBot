@@ -1,4 +1,4 @@
-import { InventoryItem } from './inventory';
+import { InventoryItem } from './inventoryTypes';
 
 export interface SearchMatch {
   field: string;

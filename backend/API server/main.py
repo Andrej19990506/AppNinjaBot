@@ -13,6 +13,7 @@ import logging
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
+import redis.asyncio as redis
 
 # Импортируем роутеры
 # Удаляем старые импорты
@@ -36,14 +37,48 @@ async def create_tables():
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables checked/created.")
 
+# ---> ДОБАВЛЕНИЕ: Настройка клиента Redis/DragonflyDB < ---
+# Глобальная переменная для хранения клиента (или использовать state)
+redis_client = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Код, который выполняется при старте
+    logger.info("Приложение запускается...")
+    # Создаем таблицы при старте (если они не существуют)
+    await create_tables()
+    
+    # ---> Инициализация Redis клиента < ---
+    global redis_client
+    redis_host = os.getenv("REDIS_HOST", "cache") # Имя сервиса из docker-compose
+    redis_port = int(os.getenv("REDIS_PORT", 6379))
+    try:
+        redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True) # decode_responses=True для строк
+        await redis_client.ping() # Проверяем соединение
+        logger.info(f"Успешное подключение к Redis/DragonflyDB по адресу {redis_host}:{redis_port}")
+    except Exception as e:
+        logger.error(f"Не удалось подключиться к Redis/DragonflyDB: {e}")
+        redis_client = None # Устанавливаем в None, если не удалось подключиться
+    # ---> Конец инициализации Redis < ---
+
+    yield # Приложение работает
+
+    # Код, который выполняется при остановке
+    logger.info("Приложение останавливается...")
+    # ---> Закрытие Redis клиента < ---
+    if redis_client:
+        await redis_client.close()
+        logger.info("Соединение с Redis/DragonflyDB закрыто.")
+    # ---> Конец закрытия Redis < ---
+
+# ---> Создание экземпляра FastAPI с lifespan < ---
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url=f"{settings.API_V1_STR}/docs", # Стандартный путь для Swagger
     redoc_url=f"{settings.API_V1_STR}/redoc", # Стандартный путь для ReDoc
-    # Добавляем обработчик запуска для создания таблиц
-    on_startup=[create_tables]
+    lifespan=lifespan # Используем новый lifespan
 )
 
 # Добавляем настройки CORS

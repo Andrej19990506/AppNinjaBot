@@ -1,4 +1,5 @@
-import { ChatInventory, Admin, InventoryItem } from './inventory';
+import { ChatInventory } from './inventory';
+import { Admin, InventoryItem } from './inventoryTypes';
 import { User } from './user';
 
 export interface WriteOffMetadata {

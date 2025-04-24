@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import styles from './ItemList.module.css';
-import { InventoryItem } from '../../types/inventory';
+import { InventoryItem } from '../../types/inventoryTypes';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { removeInventoryItem, addInventoryItem } from '../../store/slices/inventorySlice';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -9,6 +9,8 @@ import DeleteConfirmationModal from './DeleteConfirmationModal';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 // Интерфейс для результатов поиска
 interface SearchResult {
@@ -37,8 +39,8 @@ const ItemList: React.FC<ItemListProps> = ({
     onSelect, 
     chatId, 
     searchQuery = '', 
-    searchResults = [], 
-    onSearchResultSelect 
+    searchResults = [],
+    onSearchResultSelect
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,6 +56,7 @@ const ItemList: React.FC<ItemListProps> = ({
     const [deleteItem, setDeleteItem] = useState<{ id: string; name: string } | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [newItemName, setNewItemName] = useState('');
+    const [newItemHasSemifinshed, setNewItemHasSemifinshed] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     
     // Определяем статус товара (заполнен/пуст/нет в наличии)
@@ -130,13 +133,9 @@ const ItemList: React.FC<ItemListProps> = ({
         return result;
     };
     
-    // Получаем результаты поиска из текущей категории
+    // Filter results for the CURRENT category (for highlighting)
     const currentCategoryResults = searchQuery && searchResults ? 
         searchResults.filter(result => result.category === category) : [];
-    
-    // Получаем результаты поиска из других категорий
-    const otherCategoryResults = searchQuery && searchResults ? 
-        searchResults.filter(result => result.category !== category) : [];
     
     // Обработка клика по товару
     const handleItemClick = (itemId: string) => {
@@ -155,6 +154,7 @@ const ItemList: React.FC<ItemListProps> = ({
     const handleShowAddForm = () => {
         setShowAddForm(true);
         setNewItemName('');
+        setNewItemHasSemifinshed(false);
         // Фокус на инпуте после отображения формы
         setTimeout(() => {
             inputRef.current?.focus();
@@ -171,6 +171,11 @@ const ItemList: React.FC<ItemListProps> = ({
         setNewItemName(e.target.value);
     };
     
+    // Handler for checkbox change
+    const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        setNewItemHasSemifinshed(event.target.checked);
+    };
+    
     // Обработка нажатия Enter в поле ввода
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && newItemName.trim()) {
@@ -183,9 +188,15 @@ const ItemList: React.FC<ItemListProps> = ({
     // Функция для добавления нового товара
     const handleAddItem = () => {
         if (newItemName.trim()) {
-            dispatch(addInventoryItem({ chatId, category, itemId: newItemName.trim() }));
+            dispatch(addInventoryItem({ 
+                chatId, 
+                category, 
+                itemId: newItemName.trim(), 
+                hasSemifinshed: newItemHasSemifinshed 
+            }));
             setShowAddForm(false);
             setNewItemName('');
+            setNewItemHasSemifinshed(false);
         }
     };
     
@@ -235,6 +246,17 @@ const ItemList: React.FC<ItemListProps> = ({
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
                     />
+                    <FormControlLabel 
+                        control={
+                            <Checkbox 
+                                checked={newItemHasSemifinshed}
+                                onChange={handleCheckboxChange}
+                                size="small"
+                            />
+                        }
+                        label="Есть полуфабрикат?"
+                        className={styles.addItemCheckboxLabel}
+                    />
                     <div className={styles.addItemButtons}>
                         <button 
                             className={styles.okButton} 
@@ -272,7 +294,7 @@ const ItemList: React.FC<ItemListProps> = ({
                     <AnimatePresenceWrapper>
                         {itemsArray.map(({ id: itemId, ...item }) => {
                             const status = getItemStatus(item);
-                            const isSearchResult = searchQuery && currentCategoryResults.some(
+                            const isSearchResult = currentCategoryResults.some(
                                 result => result.itemId === itemId
                             );
                             
@@ -301,7 +323,7 @@ const ItemList: React.FC<ItemListProps> = ({
                                     layout
                                 >
                                     <h3 className={styles.itemTitle}>
-                                        {searchQuery && isSearchResult ? 
+                                        {isSearchResult ? 
                                             highlightMatch(itemId, searchQuery) : itemId
                                         }
                                     </h3>
@@ -340,64 +362,6 @@ const ItemList: React.FC<ItemListProps> = ({
                             );
                         })}
                     </AnimatePresenceWrapper>
-                </div>
-            )}
-            
-            {/* Отображение результатов из других категорий */}
-            {searchQuery && otherCategoryResults.length > 0 && (
-                <div className={styles.otherResultsSection}>
-                    <h3 className={styles.otherResultsTitle}>Результаты из других категорий:</h3>
-                    <div className={styles.otherResultsList}>
-                        {otherCategoryResults.map((result) => {
-                            const { category: resultCategory, itemId, item } = result;
-                            const status = getItemStatus(item);
-                            
-                            return (
-                                <motion.div
-                                    key={`${resultCategory}-${itemId}`}
-                                    className={`${styles.itemCard} ${styles[status]} ${styles.searchResult}`}
-                                    onClick={() => onSearchResultSelect?.(resultCategory, itemId)}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    transition={{
-                                        type: "spring",
-                                        stiffness: 500,
-                                        damping: 30,
-                                        mass: 1
-                                    }}
-                                    layout
-                                >
-                                    <div className={styles.categoryLabel}>{resultCategory}</div>
-                                    <h3 className={styles.itemTitle}>
-                                        {highlightMatch(itemId, searchQuery)}
-                                    </h3>
-                                    
-                                    {status === 'filled' && (
-                                        <motion.div 
-                                            className={styles.filledBadge}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        />
-                                    )}
-                                    
-                                    {status === 'outOfStock' && (
-                                        <motion.div 
-                                            className={styles.outOfStockBadge}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        >
-                                            Нет в наличии
-                                        </motion.div>
-                                    )}
-                                </motion.div>
-                            );
-                        })}
-                    </div>
                 </div>
             )}
             

@@ -159,42 +159,10 @@ class SocketService {
   private setupEventHandlers(): void {
     if (!this.socket) return;
 
-    this.socket.on('connect', () => {
-      this.state.isConnecting = false;
-      logger.log('✅ Socket.IO подключен, id:', this.socket?.id);
-    });
-
-    this.socket.on('disconnect', (reason) => {
-      this.state.isConnecting = false;
-      logger.warn(`⚠️ Socket.IO отключен: ${reason}`);
-    });
-
-    this.socket.on('connect_error', (error) => {
-      this.state.isConnecting = false;
-      
-      // Более детальное логирование различных типов ошибок
-      const errorDetails = {
-        message: error.message || String(error),
-        name: error.name || 'Unknown',
-        stack: error.stack,
-        code: (error as any).code,
-        type: (error as any).type,
-        description: (error as any).description,
-      };
-      
-      logger.error('❌ Ошибка подключения Socket.IO:', errorDetails);
-    });
-
-    this.socket.on('error', (error) => {
-      // Более детальное логирование различных типов ошибок
-      const errorDetails = error instanceof Error ? {
-        message: error.message,
-        name: error.name,
-        stack: error.stack
-      } : error;
-      
-      logger.error('❌ Ошибка сокета:', errorDetails);
-    });
+    this.socket.on('connect', this.handleConnect);
+    this.socket.on('disconnect', this.handleDisconnect);
+    this.socket.on('connect_error', this.handleConnectError);
+    this.socket.on('error', this.handleGenericError);
 
     // Обработка системных сообщений
     this.socket.on('message', (data: any) => {
@@ -329,75 +297,88 @@ class SocketService {
 
   // --- Управление подключением ---
   public connect(): void {
-    logger.log('[socketService] Вызов connect()');
     if (!this.socket) {
-      logger.error('[socketService] connect(): Сокет не инициализирован!');
-      this.updateState({ error: 'Socket not initialized before connect' });
+      logger.error('❌ Попытка подключения неинициализированного сокета');
       return;
     }
-    if (this.state.isConnected) {
-      logger.warn('[socketService] connect(): Сокет уже подключен.');
+    if (this.state.isConnected || this.state.isConnecting) {
+      logger.warn('⚠️ Сокет уже подключен или подключается');
       return;
     }
-    if (this.state.isConnecting) {
-        logger.warn('[socketService] connect(): Подключение уже в процессе (isConnecting=true).');
-        return;
-    }
-    
+
+    logger.log('[socketService] Вызов connect()');
+    this.updateState({ isConnecting: true, error: null });
     logger.log('[socketService] connect(): Установка isConnecting = true и вызов this.socket.connect()...');
-    // ВОТ ЗДЕСЬ ставим флаг перед вызовом
-    this.updateState({ isConnecting: true, error: null }); 
+    
+    this.clearConnectionTimeout();
+
+    this.connectionTimeout = setTimeout(() => {
+      if (this.state.isConnecting && !this.state.isConnected) {
+        logger.error('❌ Таймаут подключения Socket.IO');
+        this.handleConnectError(new Error('Connection timeout'));
+      }
+    }, 15000);
+
     try {
-      this.socket.connect();
-      logger.log('[socketService] connect(): this.socket.connect() вызван успешно.');
+        this.socket.connect();
+        logger.log('[socketService] connect(): this.socket.connect() вызван успешно.');
     } catch (error) {
-      logger.error('[socketService] connect(): Ошибка при вызове this.socket.connect():', error);
-      this.updateState({ isConnecting: false, error: error instanceof Error ? error.message : String(error) });
+        logger.error('❌ Ошибка при вызове this.socket.connect():', error);
+        this.handleConnectError(error instanceof Error ? error : new Error('Connect call failed'));
     }
   }
 
   private handleConnect = () => {
-    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
-    console.log("!!!!! handleConnect ВЫЗВАН !!!!!"); 
-    logger.info(`[socketService] handleConnect: WebSocket ПОДКЛЮЧЕН! SID: ${this.socket?.id}, Транспорт: ${this.socket?.io?.engine?.transport?.name}`);
+    if (!this.socket) return;
+    logger.log(`✅ [socketService:handleConnect] Socket.IO подключен! ID: ${this.socket.id}, Transport: ${this.socket.io.engine.transport.name}`);
+    this.clearConnectionTimeout();
+    this.reconnectAttempts = 0;
     this.updateState({
       isConnected: true,
-      isConnecting: false, 
-      socketId: this.socket?.id || null,
-      transport: this.socket?.io?.engine?.transport?.name || null,
-      error: null, 
+      isConnecting: false,
+      socketId: this.socket.id,
+      transport: this.socket.io.engine.transport.name,
+      error: null,
     });
   };
 
-  private handleDisconnect = (reason: Socket.DisconnectReason) => {
-    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
-    console.log(`!!!!! handleDisconnect ВЫЗВАН (Причина: ${reason}) !!!!!`);
-    logger.warn(`[socketService] handleDisconnect: WebSocket ОТКЛЮЧЕН. Причина: ${reason}`);
-    const previousError = this.state.error;
+  private handleDisconnect = (reason: Socket.DisconnectReason | string) => {
+    logger.warn(`🔌 [socketService:handleDisconnect] Socket.IO отключен. Причина: ${reason}`);
+    this.clearConnectionTimeout();
+    const wasConnected = this.state.isConnected;
     this.updateState({
       isConnected: false,
       isConnecting: false,
       socketId: null,
       transport: null,
-      error: previousError || (reason === 'io client disconnect' ? null : reason), 
+      error: (reason === 'io server disconnect' || reason === 'transport error' || reason === 'transport close') ? String(reason) : null 
     });
   };
 
   private handleConnectError = (error: Error) => {
-    // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
-    console.log("!!!!! handleConnectError ВЫЗВАН !!!!!", error);
-    logger.error(`[socketService] handleConnectError: ОШИБКА ПОДКЛЮЧЕНИЯ WebSocket: ${error.message}`, error);
+    const errorDetails = {
+        message: error.message || String(error),
+        name: error.name || 'Unknown',
+        code: (error as any).code,
+        type: (error as any).type,
+        description: (error as any).description,
+      };
+    logger.error('❌ [socketService:handleConnectError] Ошибка подключения Socket.IO:', errorDetails);
+    this.clearConnectionTimeout();
     this.updateState({
       isConnected: false,
       isConnecting: false,
-      error: `Connection Error: ${error.message}`, 
+      error: error.message || 'Connection Error',
     });
   };
 
   private handleGenericError = (error: Error) => {
-      // САМЫЙ ПЕРВЫЙ ЛОГ В ОБРАБОТЧИКЕ
-      console.log("!!!!! handleGenericError ВЫЗВАН !!!!!", error);
-      logger.error(`[socketService] handleGenericError: ОБЩАЯ ОШИБКА сокета: ${error.message}`, error);
+      const errorDetails = error instanceof Error ? {
+        message: error.message,
+        name: error.name,
+      } : error;
+      logger.error('❌ [socketService:handleGenericError] Общая ошибка сокета:', errorDetails);
+      this.updateState({ error: error.message || 'Socket Error' });
   };
 
   private clearConnectionTimeout() {
@@ -408,12 +389,14 @@ class SocketService {
   }
 
   private updateState(newState: Partial<SocketState>) {
-    const oldState = { ...this.state };
+    const previousState = { ...this.state };
     this.state = { ...this.state, ...newState };
-    // Проверяем, изменилось ли состояние, чтобы не спамить событиями
-    if (JSON.stringify(oldState) !== JSON.stringify(this.state)) {
-      logger.debug('🚦 SocketService: State updated', this.state);
-      this.stateChangeEmitter.emit('change', this.state);
+    logger.log('🚦 SocketService: State updated', this.state);
+    if (JSON.stringify(previousState) !== JSON.stringify(this.state)) {
+       logger.log('📢 SocketService: Emitting state change');
+       this.stateChangeEmitter.emit('change', this.state);
+    } else {
+       logger.log('💤 SocketService: State did not change, not emitting.');
     }
   }
 
@@ -493,17 +476,24 @@ class SocketService {
       return false;
     }
 
+    const socket = this.socket;
+
     return new Promise((resolve) => {
-      this.socket?.emit('leave_room', { room }, (response: any) => {
-        if (response?.error) {
-          logger.error('❌ Ошибка при выходе из комнаты:', response.error);
-          resolve(false);
-        } else {
-          logger.log(`✅ Успешно покинули комнату: ${room}`);
-          this.updateState({ isConnected: false });
-          resolve(true);
-        }
-      });
+      logger.log(`🚪 Попытка покинуть комнату: ${room}`);
+      try {
+        socket.emit('leave_room', room, (response: any) => {
+          if (response && response.status === 'success') {
+            logger.log(`✅ Успешно покинули комнату: ${room}`);
+            resolve(true);
+          } else {
+            logger.error('❌ Ошибка при выходе из комнаты:', response);
+            resolve(false);
+          }
+        });
+      } catch (error) {
+        logger.error('❌ Ошибка при выходе из комнаты:', error);
+        resolve(false);
+      }
     });
   }
 

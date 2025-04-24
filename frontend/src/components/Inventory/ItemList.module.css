@@ -45,6 +45,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin: 0 10px 0 10px;
 }
 
 .addItemInput {
@@ -467,6 +468,7 @@
     background: rgba(var(--card-rgb), 0.98);
     border: 1px solid rgba(var(--border-rgb), 0.1);
     border-radius: var(--radius-lg);
+    margin-top: 10px;
     padding: 20px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -753,7 +755,7 @@
   align-items: center;
   justify-content: center;
   padding: 12px 24px;
-  margin: 0 0 20px 0;
+  margin: 10px 10px 0px 10px;
   background-color: var(--primary-color);
   color: white;
   border: none;

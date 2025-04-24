@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 // import { motion } from 'framer-motion'; // Неиспользуемый импорт
 import styles from './ItemEdit.module.css';
-import { InventoryItem } from '../../types/inventory';
+import { InventoryItem } from '../../types/inventoryTypes';
 import { socketService } from '../../services/socket';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { updateInventoryItem, updateProgress } from '../../store/slices/inventorySlice';
+import { updateInventoryItem, updateProgress, fetchItemHistory } from '../../store/slices/inventorySlice';
 
 interface ItemEditProps {
     category: string;
@@ -304,47 +304,56 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     };
 
     const handleSubmit = async () => {
-        if (!currentActiveItem || !currentInputValue) return;
+        if (!currentActiveItem) return;
 
-        const value = parseInt(currentInputValue);
-        if (isNaN(value)) return;
-
-        const newItem = { ...item };
         const { type, operation } = currentActiveItem;
+        const value = parseInt(currentInputValue, 10);
 
-        if (type === 'raw' && newItem.raw) {
-            const currentValue = newItem.raw.quantity;
-            const newQuantity = operation === 'add' ? 
-                currentValue + value : 
-                Math.max(0, currentValue - value);
-            
-            newItem.raw = {
-                ...newItem.raw,
-                quantity: newQuantity,
-                filled: newQuantity > 0,
-                isOutOfStock: newItem.raw.isOutOfStock
-            };
-        } else if (type === 'semifinished' && newItem.semifinished) {
-            const currentValue = newItem.semifinished.quantity;
-            const newQuantity = operation === 'add' ? 
-                currentValue + value : 
-                Math.max(0, currentValue - value);
-            
-            newItem.semifinished = {
-                ...newItem.semifinished,
-                quantity: newQuantity,
-                filled: newQuantity > 0
-            };
+        if (isNaN(value) || value < 0) {
+            console.error('Некорректное значение в поле ввода');
+            setCurrentInputValue('');
+            setCurrentActiveItem(null); // Сбрасываем активное состояние
+            return;
         }
 
         try {
-            setItem(newItem);
+            setIsLoading(true);
+            const currentQuantity = item[type]?.quantity ?? 0;
+            const newQuantity = operation === 'add' ? currentQuantity + value : Math.max(0, currentQuantity - value);
+
+            const newItem = { ...item };
+            if (type === 'raw' && newItem.raw) {
+                newItem.raw = {
+                    ...newItem.raw,
+                    quantity: newQuantity,
+                    filled: newQuantity > 0,
+                    isOutOfStock: false // Сбрасываем isOutOfStock при ручном вводе
+                };
+            } else if (type === 'semifinished' && newItem.semifinished) {
+                newItem.semifinished = {
+                    ...newItem.semifinished,
+                    quantity: newQuantity,
+                    filled: newQuantity > 0
+                };
+            }
+
+            setItem(newItem); // Обновляем локальное состояние
+            
+            // Обновляем инвентарь и ждем завершения
             await dispatch(updateInventoryItem({
                 chatId,
                 category,
-                itemId,
+                itemId: itemId,
                 item: newItem
             })).unwrap();
+
+            // <<< ОБНОВЛЯЕМ ИСТОРИЮ ПОСЛЕ УСПЕШНОГО СОХРАНЕНИЯ >>>
+            dispatch(fetchItemHistory({
+                chatId: chatId,
+                category: category,
+                itemId: itemId,
+                itemName: itemId
+            }));
 
             // Явно вызываем обновление прогресса
             dispatch(updateProgress());
@@ -358,18 +367,23 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                     },
                     type: 'item_update',
                     category,
-                    itemId,
+                    itemId: itemId,
                     item: newItem
                 }
             };
 
             socketService.emit('inventory_update', updateData);
-            onUpdate();
-            setCurrentActiveItem(null);
-            setCurrentInputValue('');
+            onUpdate(); // Вызываем коллбэк обновления
+
         } catch (error) {
             console.error('Ошибка при обновлении количества:', error);
-            setItem(item);
+            // В случае ошибки можно откатить локальное состояние
+            // setItem(initialItem); 
+            setError('Не удалось обновить товар');
+        } finally {
+            setIsLoading(false);
+            setCurrentActiveItem(null);
+            setCurrentInputValue('');
         }
     };
 

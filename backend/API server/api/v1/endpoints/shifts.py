@@ -2,13 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status, Path as Fa
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
-from sqlalchemy import text, Date as SQLDate
+from sqlalchemy import text, Date as SQLDate, extract
 import json
 import logging
-from typing import List, Optional, Dict, Set
+from typing import List, Optional, Dict, Set, Any, Tuple # <<< Добавляем Tuple
 from pydantic import BaseModel, Field
 from uuid import UUID
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, time, timezone 
 import io
 import csv
 from fastapi.responses import StreamingResponse
@@ -891,8 +891,13 @@ class CourierTimesheetData(BaseModel):
 
 class TimesheetResponse(BaseModel):
     """Структура ответа для эндпоинта табеля."""
-    columns: List[str] # Список дат YYYY-MM-DD в качестве колонок
+    columns: List[str] 
     rows: List[CourierTimesheetData]
+
+# <<< НОВАЯ СХЕМА ДЛЯ ДОСТУПНЫХ ПЕРИОДОВ >>>
+class AvailablePeriod(BaseModel):
+    year: int
+    month: int # Месяц будет 1-12
 
 # <<< Определяем типы и дефолтные значения для SlotConfig прямо здесь >>>
 class SlotConfigForDay(BaseModel):
@@ -903,33 +908,136 @@ class SlotConfigForDay(BaseModel):
 default_single_day_slot_config = SlotConfigForDay(maxDaySlots=4, maxNightSlots=2)
 
 # --- Вспомогательная функция для получения и форматирования данных табеля ---
+# <<< ДОБАВЛЯЕМ ПАРАМЕТРЫ ПЕРИОДА, НО ПОКА НЕ ИСПОЛЬЗУЕМ ИХ >>>
 async def get_formatted_timesheet_data(
     group_internal_id: int,
-    group_telegram_id: int, # Добавляем для логирования
-    db: AsyncSession
-) -> TimesheetResponse:
-    """Получает смены, группирует их и возвращает в формате TimesheetResponse."""
-    
-    # 1. Получить все смены для этой группы с данными курьеров
+    group_telegram_id: int, 
+    db: AsyncSession,
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    is_weekly: bool = False,
+    access_settings: Dict[str, Any] = {} # <<< Добавляем access_settings
+) -> Tuple[TimesheetResponse, Optional[str], Optional[str]]:
+    """Получает смены (с фильтрацией по периоду/неделе для записи), группирует и возвращает."""
+    logger.info(f"[Timesheet Helper] Called for group {group_telegram_id}, period: year={year}, month={month}, weekly={is_weekly}",
+                 extra={"access_settings_received": bool(access_settings)})
+
+    filter_conditions = [Shift.group_id == group_internal_id]
+    period_description = "all time"
+    # <<< Переменные для хранения дат периода >>>
+    start_date_str: Optional[str] = None
+    end_date_str: Optional[str] = None 
+
+    if is_weekly:
+        try:
+            KRT = timezone(timedelta(hours=7))
+            
+            # <<< Читаем день из настроек (0=Вс ... 5=Пт ...) >>>
+            setting_start_day = int(access_settings.get('registrationStartDay', 0)) 
+            # <<< Конвертируем в Python конвенцию (0=Пн ... 6=Вс) >>>
+            python_start_day = (setting_start_day - 1 + 7) % 7 
+            logger.info(f"[Timesheet Helper] Read setting start day {setting_start_day}, converted to Python weekday {python_start_day}")
+            
+            start_hour = int(access_settings.get('registrationStartHour', 0))
+            start_minute = int(access_settings.get('registrationStartMinute', 0))
+            offset_type = access_settings.get('offsetType', 'weeks') 
+            offset_amount = int(access_settings.get('offsetAmount', 1))
+            period_days = int(access_settings.get('periodLength', 7))
+            
+            now_krt = datetime.now(KRT) 
+            today_krt = now_krt.date()
+            # <<< Используем python_start_day в расчетах >>>
+            current_weekday_krt = today_krt.weekday()
+            days_since_last_start_day = (current_weekday_krt - python_start_day + 7) % 7
+            last_registration_day_date_krt = today_krt - timedelta(days=days_since_last_start_day)
+            
+            registration_time_naive = time(start_hour, start_minute)
+            registration_datetime_krt_today = datetime.combine(today_krt, registration_time_naive, tzinfo=KRT)
+            last_registration_datetime_krt = datetime.combine(last_registration_day_date_krt, registration_time_naive, tzinfo=KRT)
+
+            # <<< Сравнение времени в KRT (используем python_start_day) >>>
+            if current_weekday_krt == python_start_day and now_krt < registration_datetime_krt_today:
+                last_registration_datetime_krt -= timedelta(weeks=1)
+                logger.info(f"[Timesheet Helper] Registration time {start_hour}:{start_minute:02d} KRT not yet passed today (weekday {current_weekday_krt} == start day {python_start_day}). Using previous registration time: {last_registration_datetime_krt}")
+            else:
+                 logger.info(f"[Timesheet Helper] Last registration time considered: {last_registration_datetime_krt}")
+            
+            last_registration_date_krt = last_registration_datetime_krt.date()
+            
+            # <<< Расчет периода (используем python_start_day) >>>
+            if offset_type == 'weeks':
+                start_of_registration_week = last_registration_date_krt - timedelta(days=last_registration_date_krt.weekday())
+                start_of_booking_week = start_of_registration_week + timedelta(weeks=offset_amount)
+                logger.info(f"[Timesheet Helper] Calculating booking week based on offsetType='weeks', offset={offset_amount}")
+            elif offset_type == 'days':
+                start_of_booking_week = last_registration_date_krt + timedelta(days=offset_amount)
+                logger.info(f"[Timesheet Helper] Calculating booking week based on offsetType='days', offset={offset_amount}")
+            else: 
+                 start_of_registration_week = last_registration_date_krt - timedelta(days=last_registration_date_krt.weekday())
+                 start_of_booking_week = start_of_registration_week
+                 logger.info(f"[Timesheet Helper] Calculating booking week based on offsetType='{offset_type}' (no offset applied)")
+            
+            end_of_booking_week = start_of_booking_week + timedelta(days=period_days - 1)
+
+            # <<< Сохраняем рассчитанные даты >>>
+            start_date_str = start_of_booking_week.isoformat()
+            end_date_str = end_of_booking_week.isoformat()
+
+            filter_conditions.append(Shift.date.between(start_of_booking_week, end_of_booking_week))
+            period_description = f"booking week ({start_date_str} to {end_date_str}) based on settings"
+            logger.info(f"[Timesheet Helper] Applying booking week filter: {start_date_str} - {end_date_str}")
+        except Exception as e:
+             # ... (Fallback остается) ...
+             logger.error(f"[Timesheet Helper] Error calculating booking week from access_settings: {e}. Falling back to current calendar week.", exc_info=True)
+             today_fallback = date.today()
+             start_of_week_fallback = today_fallback - timedelta(days=today_fallback.weekday())
+             end_of_week_fallback = start_of_week_fallback + timedelta(days=6)
+             filter_conditions.append(Shift.date.between(start_of_week_fallback, end_of_week_fallback))
+             period_description = f"current calendar week (fallback) ({start_of_week_fallback.isoformat()} to {end_of_week_fallback.isoformat()})"
+    elif year is not None and month is not None:
+        # ... (логика год/месяц) ...
+        if 1 <= month <= 12:
+            # <<< Рассчитываем начало и конец месяца для этого случая >>>
+            try:
+                 first_day_of_month = date(year, month, 1)
+                 # Находим последний день месяца
+                 next_month = first_day_of_month.replace(day=28) + timedelta(days=4) # Гарантированно следующий месяц
+                 last_day_of_month = next_month - timedelta(days=next_month.day)
+                 start_date_str = first_day_of_month.isoformat()
+                 end_date_str = last_day_of_month.isoformat()
+            except ValueError: # Некорректный год/месяц
+                 logger.warning(f"Invalid year/month for date range calculation: {year}-{month}")
+                 pass # Даты останутся None
+            
+            filter_conditions.append(extract('year', Shift.date) == year)
+            filter_conditions.append(extract('month', Shift.date) == month)
+            period_description = f"year {year}, month {month}"
+            logger.info(f"[Timesheet Helper] Applying monthly filter: year={year}, month={month}")
+        else:
+             logger.warning(f"[Timesheet Helper] Invalid month provided: {month}. Ignoring filter.")
+             period_description = "all time (invalid month ignored)"
+
+    # 1. Запрос смен с фильтрами
     stmt = (
         select(Shift)
         .options(joinedload(Shift.member))
-        .where(Shift.group_id == group_internal_id)
+        .where(*filter_conditions)
         .order_by(Shift.date, Shift.member_id, Shift.shift_type)
     )
     result = await db.execute(stmt)
     shifts = result.scalars().all()
-    logger.info(f"[Timesheet Helper] Found {len(shifts)} shifts for group {group_telegram_id} (internal ID: {group_internal_id})")
+    logger.info(f"[Timesheet Helper] Found {len(shifts)} shifts for group {group_telegram_id} (internal ID: {group_internal_id}) for period: {period_description}")
 
     if not shifts:
-        return TimesheetResponse(columns=[], rows=[]) # Возвращаем пустой ответ, если смен нет
+        # <<< Возвращаем пустой ответ и None для дат >>>
+        return TimesheetResponse(columns=[], rows=[]), start_date_str, end_date_str
 
-    # 2. Собрать данные по курьерам и уникальные даты
+    # 2. Собрать данные по курьерам и уникальные даты (из отфильтрованных смен)
     courier_data: Dict[int, CourierTimesheetData] = {}
     unique_dates: Set[date] = set()
 
     for shift in shifts:
-        unique_dates.add(shift.date)
+        unique_dates.add(shift.date) # Даты будут только из выбранного периода
         if not shift.member:
             logger.warning(f"[Timesheet Helper] Shift ID {shift.id} has no associated member. Skipping.")
             continue
@@ -970,48 +1078,64 @@ async def get_formatted_timesheet_data(
     sorted_date_strings = [d.isoformat() for d in sorted_dates]
     
     final_rows: List[CourierTimesheetData] = []
-    # Сортируем курьеров по имени для порядка
     sorted_courier_ids = sorted(courier_data.keys(), key=lambda uid: courier_data[uid].courier_name)
 
     for user_id in sorted_courier_ids:
         courier = courier_data[user_id]
-        # Убедимся, что у каждого курьера есть запись для каждой даты
         complete_dates = {date_str: courier.dates.get(date_str) for date_str in sorted_date_strings}
         courier.dates = complete_dates
         final_rows.append(courier)
 
-    logger.info(f"[Timesheet Helper] Generated {len(final_rows)} rows and {len(sorted_date_strings)} columns for group {group_telegram_id}")
-    return TimesheetResponse(columns=sorted_date_strings, rows=final_rows)
+    logger.info(f"[Timesheet Helper] Generated {len(final_rows)} rows and {len(sorted_date_strings)} columns for group {group_telegram_id} ({period_description})")
+    
+    # <<< Возвращаем данные и сохраненные даты периода >>>
+    return TimesheetResponse(columns=sorted_date_strings, rows=final_rows), start_date_str, end_date_str
 
-# --- Обновленный эндпоинт GET /timesheet ---
-@router.get("/groups/{group_telegram_id}/timesheet", 
-            response_model=TimesheetResponse, # <<< Используем новую схему ответа
+# --- Обновленный эндпоинт GET /timesheets ---
+@router.get("/timesheets", 
+            response_model=TimesheetResponse, 
             summary="Get Timesheet Data (Pivoted)",
-            description="Retrieves timesheet data, pivoted by courier and date.",
+            description="Retrieves timesheet data, pivoted by courier and date, optionally filtered by period.", 
             tags=["Timesheet"])
 async def get_timesheet_data_pivoted(
-    group_telegram_id: int = FastApiPath(..., description="Telegram ID of the group"),
+    group_telegram_id: int = Query(..., description="Telegram ID of the group"),
+    year: Optional[int] = Query(None, description="Filter by year (e.g., 2024)"),
+    month: Optional[int] = Query(None, description="Filter by month (1-12)"),
+    is_weekly: bool = Query(False, description="Filter by the current week (overrides year/month if true)"),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Формирует и возвращает данные табеля, сгруппированные по курьерам и датам."""
-    logger.info(f"[Timesheet Pivoted] GET /groups/{group_telegram_id}/timesheet - Request received")
+    """Формирует и возвращает данные табеля, сгруппированные по курьерам и датам.
+    Позволяет фильтровать по году/месяцу или по текущей неделе.
+    """
+    logger.info(f"[Timesheet Pivoted] GET /timesheets - Request received for group {group_telegram_id}", 
+                 extra={"query_params": {"year": year, "month": month, "is_weekly": is_weekly}})
     
-    # 1. Найти внутренний ID группы
+    # 1. Найти группу и ее access_settings
     group_result = await db.execute(
-        select(Group.id).where(Group.group_id == group_telegram_id)
+        # <<< Запрашиваем весь объект Group >>>
+        select(Group).where(Group.group_id == group_telegram_id)
     )
-    group_internal_id = group_result.scalar_one_or_none()
+    group = group_result.scalar_one_or_none()
     
-    if group_internal_id is None:
+    if group is None:
         logger.warning(f"[Timesheet Pivoted] Group {group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group {group_telegram_id} not found")
+        
+    group_internal_id = group.id # Получаем ID из объекта
+    access_settings = group.access_settings or {} # Получаем настройки (или пустой dict)
+    logger.info(f"[Timesheet Pivoted] Found group {group.id} with access settings: {access_settings}")
 
     # 2. Получить отформатированные данные с помощью хелпера
     try:
-        response_data = await get_formatted_timesheet_data(
+        response_data, start_date_str, end_date_str = await get_formatted_timesheet_data(
             group_internal_id=group_internal_id, 
             group_telegram_id=group_telegram_id, 
-            db=db
+            db=db,
+            year=year,
+            month=month,
+            is_weekly=is_weekly,
+            # <<< Передаем access_settings >>>
+            access_settings=access_settings
         )
         logger.info(f"[Timesheet Pivoted] Successfully generated pivoted data for group {group_telegram_id}")
         return response_data
@@ -1020,39 +1144,18 @@ async def get_timesheet_data_pivoted(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error processing timesheet data")
 
 # --- Вспомогательная функция для генерации и сохранения файла --- 
-async def generate_and_save_timesheet(group_telegram_id: int, db: AsyncSession) -> Optional[Path]:
-    """Генерирует табель Excel и сохраняет его во временный файл."""
-    logger.info(f"[Timesheet Gen & Save] Начало генерации для группы {group_telegram_id}")
+# <<< Обновляем возвращаемый тип >>>
+async def generate_and_save_timesheet(group_telegram_id: int, db: AsyncSession,
+                                      year: Optional[int] = None,
+                                      month: Optional[int] = None,
+                                      is_weekly: bool = False) -> Tuple[Optional[Path], Optional[str], Optional[str]]:
+    """Генерирует табель Excel (с учетом периода) и сохраняет его во временный файл.
+    Возвращает путь к файлу и строки дат начала/конца периода (если применимо).
+    """
+    logger.info(f"[Timesheet Gen & Save] Начало генерации для группы {group_telegram_id}",
+                 extra={"period_params": {"year": year, "month": month, "is_weekly": is_weekly}})
     
-    # Находим внутренний ID группы и получаем данные группы
-    group_result = await db.execute(
-        select(Group).where(Group.group_id == group_telegram_id)
-    )
-    db_group = group_result.scalar_one_or_none()
-    
-    if not db_group:
-        logger.error(f"[Timesheet Gen & Save] Группа {group_telegram_id} не найдена.")
-        # В оригинальном коде download был HTTP Exception, здесь вернем None
-        return None 
-
-    # Получаем данные табеля
-    try:
-        pivoted_data = await get_formatted_timesheet_data(
-            group_internal_id=db_group.id, 
-            group_telegram_id=group_telegram_id, 
-            db=db
-        )
-    except Exception as e:
-        logger.error(f"[Timesheet Gen & Save] Ошибка получения pivoted_data для группы {group_telegram_id}: {e}", exc_info=True)
-        return None # Не можем сгенерировать файл
-
-    # Генерируем XLSX файл в памяти (логика из download_timesheet_data_pivoted_xlsx)
-    # TODO: Вынести генерацию Excel в отдельную функцию, чтобы не дублировать код
-    workbook = openpyxl.Workbook()
-    sheet = workbook.active
-    sheet.title = "Timesheet"
-    
-    # Стили...
+    # <<< КОПИРУЕМ ОПРЕДЕЛЕНИЯ СТИЛЕЙ ИЗ download_timesheet_data_pivoted_xlsx >>>
     title_font = Font(bold=True, size=14)
     header_font = Font(bold=True)
     centered_alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
@@ -1061,174 +1164,263 @@ async def generate_and_save_timesheet(group_telegram_id: int, db: AsyncSession) 
     thin_border_side = Side(style='thin')
     thin_border = Border(left=thin_border_side, right=thin_border_side, top=thin_border_side, bottom=thin_border_side)
     weekend_fill = PatternFill(start_color="E0E0E0", end_color="E0E0E0", fill_type="solid")
+    weekdays_ru = {0: 'пн', 1: 'вт', 2: 'ср', 3: 'чт', 4: 'пт', 5: 'сб', 6: 'вс'}
+    weekend_indices = {5, 6} 
+    # <<< КОНЕЦ КОПИРОВАНИЯ СТИЛЕЙ >>>
 
-    # Название группы
-    title_cell = sheet.cell(row=1, column=1, value=f"Табель для группы: {db_group.title}")
-    title_cell.font = title_font
+    # Находим внутренний ID группы и получаем данные группы
+    group_result = await db.execute(
+        select(Group).where(Group.group_id == group_telegram_id)
+    )
+    db_group = group_result.scalar_one_or_none()
+    
+    if not db_group:
+        logger.error(f"[Timesheet Gen & Save] Группа {group_telegram_id} не найдена.")
+        return None, None, None 
+        
+    # <<< ИЗМЕНЕНИЕ: Получаем и slot_config тоже >>>
+    group_title = db_group.title or f"Группа {group_telegram_id}"
+    group_slot_config = db_group.slot_config or {}
+    logger.info(f"[Timesheet Gen & Save] Got title '{group_title}' and slot config for group {group_telegram_id}")
+
+    # Получаем данные табеля, передавая параметры периода
+    try:
+        # <<< Распаковываем результат >>>
+        pivoted_data, start_date_str, end_date_str = await get_formatted_timesheet_data(
+            group_internal_id=db_group.id, 
+            group_telegram_id=group_telegram_id, 
+            db=db,
+            year=year, # <<< Передаем year
+            month=month, # <<< Передаем month
+            is_weekly=is_weekly, # <<< Передаем is_weekly
+            access_settings=db_group.access_settings or {} # Передаем настройки доступа
+        )
+    except Exception as e:
+        logger.error(f"[Timesheet Gen & Save] Ошибка получения pivoted_data для группы {group_telegram_id}: {e}", exc_info=True)
+        # <<< Возвращаем None для всех значений >>>
+        return None, None, None 
+
+    # Генерируем XLSX файл в памяти...
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Timesheet"
+    
+    # <<< ИСПОЛЬЗУЕМ СКОПИРОВАННЫЕ СТИЛИ >>>
+
+    # Добавляем строку с названием группы
+    title_cell = sheet.cell(row=1, column=1, value=f"Табель для группы: {group_title}")
+    title_cell.font = title_font # Используем title_font
     title_cell.alignment = Alignment(horizontal='center', vertical='center')
     table_width = 1 + len(pivoted_data.columns) 
     if table_width > 1:
         sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=table_width)
     
-    # Заголовки
-    header_row_idx = 2
-    weekdays_ru = {0: 'пн', 1: 'вт', 2: 'ср', 3: 'чт', 4: 'пт', 5: 'сб', 6: 'вс'}
-    weekend_indices = {5, 6} 
+    # Заголовки основной таблицы теперь начинаются со строки 2
+    header_row_idx = 2 
     weekend_columns = [] 
+    
     headers = ["ФИ Курьера"]
     for col_idx, date_str in enumerate(pivoted_data.columns):
         try:
             dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
             day_num = dt_obj.day
             weekday_num = dt_obj.weekday()
-            weekday_str = weekdays_ru.get(weekday_num, '?')
+            weekday_str = weekdays_ru.get(weekday_num, '?') # Используем weekdays_ru
             header_val = f"{day_num}\n{weekday_str}"
             headers.append(header_val)
-            if weekday_num in weekend_indices:
+            if weekday_num in weekend_indices: # Используем weekend_indices
                 weekend_columns.append(col_idx + 2)
         except ValueError:
+            logger.warning(f"[Timesheet Gen & Save] Invalid date format: {date_str}.")
             headers.append(date_str)
             
+    # Записываем заголовки в строку header_row_idx
     for col, header_value in enumerate(headers, start=1):
          sheet.cell(row=header_row_idx, column=col, value=header_value)
-         # Стили заголовков...
-         cell = sheet.cell(row=header_row_idx, column=col)
-         cell.font = header_font
-         cell.alignment = centered_alignment
-         cell.border = thin_border
-         if col > 1:
-             sheet.column_dimensions[get_column_letter(col)].width = 7
-    sheet.column_dimensions[get_column_letter(1)].width = 30
 
-    # Данные
+    # Применяем стили к заголовкам и устанавливаем ширину
+    sheet.column_dimensions[get_column_letter(1)].width = 30 
+    for col_idx, header_val in enumerate(headers):
+        cell = sheet.cell(row=header_row_idx, column=col_idx + 1)
+        cell.font = header_font # Используем header_font
+        cell.alignment = centered_alignment # Используем centered_alignment
+        cell.border = thin_border # Используем thin_border
+        if col_idx > 0: 
+            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 7 
+            
+    # <<< ОПРЕДЕЛЯЕМ ИНДЕКС СТРОКИ ЗАГОЛОВКОВ (как в download_timesheet_data_pivoted_xlsx) >>>
+    # header_row_idx = 2 # Уже определено выше
+    
+    # <<< ДОБАВЛЕНЫ ЛОГИ ПЕРЕД ЗАПИСЬЮ ДАННЫХ >>>
+    logger.info(f"[Timesheet Gen & Save] Перед записью данных в Excel. Найдено колонок: {len(pivoted_data.columns)}, Найдено строк: {len(pivoted_data.rows)}")
+
+    # Записываем строки данных и применяем стили (начиная с header_row_idx + 1)
     if pivoted_data.rows:
+        logger.info(f"[Timesheet Gen & Save] Вход в цикл записи строк данных (rows > 0).") # <<< ЛОГ
         for row_idx_offset, courier_row in enumerate(pivoted_data.rows):
             current_row_idx = header_row_idx + 1 + row_idx_offset
             date_values = [courier_row.dates.get(date_col) for date_col in pivoted_data.columns]
             row_to_append = [courier_row.courier_name] + [(val if val is not None else "") for val in date_values]
+            # Записываем данные в нужную строку
             for col, value in enumerate(row_to_append, start=1):
-                 cell = sheet.cell(row=current_row_idx, column=col, value=value)
-                 # Стили данных...
-                 cell.alignment = data_alignment 
-                 cell.border = thin_border
+                 sheet.cell(row=current_row_idx, column=col, value=value)
+                 
+            # Применяем стили к ячейкам строки
+            for col_idx, value in enumerate(row_to_append, start=1):
+                 cell = sheet.cell(row=current_row_idx, column=col_idx)
+                 cell.alignment = data_alignment # <<< Используем data_alignment >>>
+                 cell.border = thin_border # <<< Используем thin_border >>>
+        logger.info(f"[Timesheet Gen & Save] Завершили цикл записи {len(pivoted_data.rows)} строк данных.") # <<< ЛОГ
     else:
-        sheet.append([])
+        logger.info(f"[Timesheet Gen & Save] Нет строк данных для записи (pivoted_data.rows пуст).") # <<< ЛОГ
+        sheet.append([]) 
         
-    last_data_row = sheet.max_row
+    last_data_row = sheet.max_row 
     
-    # Выходные...
+    # Выделяем колонки выходных дней (до last_data_row)
     for col_idx_to_fill in weekend_columns:
-        for row_idx in range(header_row_idx, last_data_row + 1):
-            sheet.cell(row=row_idx, column=col_idx_to_fill).fill = weekend_fill
+        for row_idx in range(header_row_idx, last_data_row + 1): 
+            sheet.cell(row=row_idx, column=col_idx_to_fill).fill = weekend_fill # Используем weekend_fill
 
-    # Настройки слотов...
+    # 3. Добавляем Настройки Слотов с отступом
     start_row_for_slots = last_data_row + 6
-    group_slot_config = db_group.slot_config or {}
-    schedule_header_cell = sheet.cell(row=start_row_for_slots, column=1, value="Согласно расписания (День/Ночь)")
-    # Стили...
-    schedule_header_cell.font = header_font 
-    schedule_header_cell.border = thin_border
-    schedule_header_cell.alignment = left_alignment
     
+    schedule_header_cell = sheet.cell(row=start_row_for_slots, column=1, value="Согласно расписания (День/Ночь)")
+    schedule_header_cell.font = header_font # Используем header_font
+    schedule_header_cell.border = thin_border # Используем thin_border
+    schedule_header_cell.alignment = left_alignment # Используем left_alignment
+    
+    # Запись настроек для каждого дня недели НАЧИНАЯ СО ВТОРОЙ КОЛОНКИ
     for col_idx, date_str in enumerate(pivoted_data.columns): 
         excel_col_index = col_idx + 2 
-        
         day_slots_str = "-"
         night_slots_str = "-"
         is_weekend_col = False
-        
         try:
             dt_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
             day_index = dt_obj.weekday()
             slot_config_key = str((day_index + 1) % 7)
             config_for_day_dict: Optional[Dict] = group_slot_config.get(slot_config_key)
-            
             day_slots = config_for_day_dict.get('maxDaySlots') if config_for_day_dict else None
             night_slots = config_for_day_dict.get('maxNightSlots') if config_for_day_dict else None
-            
-            # <<< Исправляем получение дефолтных значений >>>
-            default_slots = default_single_day_slot_config # Берем объект Pydantic
-            day_slots_str = str(day_slots) if day_slots is not None else str(default_slots.maxDaySlots)
-            night_slots_str = str(night_slots) if night_slots is not None else str(default_slots.maxNightSlots)
-            
+            day_slots_str = str(day_slots) if day_slots is not None else str(default_single_day_slot_config.maxDaySlots)
+            night_slots_str = str(night_slots) if night_slots is not None else str(default_single_day_slot_config.maxNightSlots)
             if day_index in weekend_indices:
                  is_weekend_col = True
-                 
         except ValueError:
-             logger.warning(f"[Timesheet Download XLSX] Invalid date format in column {excel_col_index} for slot config row.")
-        
+             logger.warning(f"[Timesheet Gen & Save] Invalid date format in column {excel_col_index} for slot config row.")
         slot_value_str = f"{day_slots_str} / {night_slots_str}"
-        
-        # Записываем значение слотов в нужную колонку
-        slot_cell = sheet.cell(row=start_row_for_slots, column=excel_col_index, value=slot_value_str) # <<< Используем start_row_for_slots
-        slot_cell.border = thin_border
-        slot_cell.alignment = centered_alignment 
+        slot_cell = sheet.cell(row=start_row_for_slots, column=excel_col_index, value=slot_value_str)
+        slot_cell.border = thin_border # Используем thin_border
+        slot_cell.alignment = centered_alignment # Используем centered_alignment
         if is_weekend_col:
-             slot_cell.fill = weekend_fill 
+             slot_cell.fill = weekend_fill # Используем weekend_fill
              
-    # Устанавливаем ширину для колонок (если нужно скорректировать)
-    sheet.column_dimensions[get_column_letter(1)].width = 35 # Пошире для заголовка строки
-    # Ширина остальных колонок уже установлена при обработке заголовков дат
+    # Устанавливаем ширину для колонок
+    sheet.column_dimensions[get_column_letter(1)].width = 35 
 
     # 4. Сохраняем в файл
-    # <<< ИЗМЕНЯЕМ ЛОГИКУ ГЕНЕРАЦИИ ИМЕНИ ФАЙЛА >>>
+    # <<< ИЗМЕНЯЕМ ЛОГИКУ ГЕНЕРАЦИИ ИМЕНИ ФАЙЛА С УЧЕТОМ ПЕРИОДА >>>
     safe_group_title = sanitize_filename(db_group.title or f"group_{group_telegram_id}")
-    date_part = "no_dates"
-    if pivoted_data.columns:
+    period_str = "unknown_period"
+    if is_weekly:
+        # Попробуем получить даты из pivoted_data если они есть
+        if pivoted_data.columns:
+            first_date = pivoted_data.columns[0]
+            try:
+                 start_of_week = datetime.strptime(first_date, '%Y-%m-%d').date()
+                 week_num = start_of_week.isocalendar()[1]
+                 period_str = f"week_{start_of_week.year}-W{week_num:02d}"
+            except ValueError: pass # Оставим unknown_period
+        else:
+             # Если нет данных, используем текущую неделю
+             today = date.today()
+             start_of_week = today - timedelta(days=today.weekday())
+             week_num = start_of_week.isocalendar()[1]
+             period_str = f"week_{start_of_week.year}-W{week_num:02d}_(no_data)" 
+    elif year is not None and month is not None:
+        period_str = f"{year}-{month:02d}"
+    elif pivoted_data.columns:
         first_date = pivoted_data.columns[0]
         last_date = pivoted_data.columns[-1]
-        if first_date == last_date:
-            date_part = first_date
-        else:
-            date_part = f"{first_date}_to_{last_date}"
+        period_str = f"{first_date}_to_{last_date}" if first_date != last_date else first_date
     else:
-        # Если дат нет, используем текущую дату для уникальности
-        date_part = datetime.now().strftime("%Y%m%d")
+        period_str = datetime.now().strftime("%Y%m%d") + "_(no_data)"
 
-    file_timestamp = datetime.now().strftime("%H%M%S") # Оставляем время для доп. уникальности
-    filename = f"Табель_{safe_group_title}_{date_part}_{file_timestamp}.xlsx"
+    file_timestamp = datetime.now().strftime("%H%M%S")
+    filename = f"Табель_{safe_group_title}_{period_str}_{file_timestamp}.xlsx"
     # <<< КОНЕЦ ИЗМЕНЕНИЙ В ГЕНЕРАЦИИ ИМЕНИ >>>
     
     filepath = SHARED_FOLDER / filename
+    logger.info(f"[Timesheet Gen & Save] Попытка сохранить workbook в файл: {filepath}")
     try:
         workbook.save(filepath)
-        logger.info(f"[Timesheet Gen & Save] Файл сохранен: {filepath}")
-        return filepath
+        logger.info(f"[Timesheet Gen & Save] workbook.save() выполнен для {filepath}. Проверяем размер файла...")
+        
+        # <<< ДОБАВЛЕНА ПРОВЕРКА РАЗМЕРА ФАЙЛА >>>
+        try:
+            if filepath.exists():
+                file_size = filepath.stat().st_size
+                logger.info(f"[Timesheet Gen & Save] Файл {filepath} существует. Размер: {file_size} байт.")
+                if file_size == 0:
+                     logger.warning(f"[Timesheet Gen & Save] ВНИМАНИЕ: Файл {filepath} сохранен с нулевым размером!")
+            else:
+                 logger.error(f"[Timesheet Gen & Save] ОШИБКА: Файл {filepath} не существует после сохранения!")
+        except Exception as stat_err:
+            logger.error(f"[Timesheet Gen & Save] Ошибка при проверке файла {filepath}: {stat_err}")
+        # <<< КОНЕЦ ПРОВЕРКИ РАЗМЕРА >>>
+            
+        return filepath, start_date_str, end_date_str
     except Exception as e:
-        logger.error(f"[Timesheet Gen & Save] Ошибка сохранения файла {filepath}: {e}")
-        return None # Ошибка сохранения
-
+        logger.error(f"[Timesheet Gen & Save] Ошибка при вызове workbook.save({filepath}): {e}", exc_info=True)
+        return None, None, None
 
 # --- Фоновая задача для отправки боту --- 
-# <<< Добавляем destination и меняем user_telegram_id на requester_telegram_id >>>
-async def trigger_bot_to_send_timesheet(requester_telegram_id: int, group_telegram_id: int, destination: str):
-    """Фоновая задача: генерирует табель и просит бота отправить его в указанное место."""
-    logger.info(f"[BG Task] Запуск фоновой задачи для отправки табеля группы {group_telegram_id} (запросил {requester_telegram_id}, назначение: {destination})")
+# <<< Обновляем сигнатуру: добавляем параметры периода >>>
+async def trigger_bot_to_send_timesheet(requester_telegram_id: int, group_telegram_id: int, destination: str,
+                                      year: Optional[int] = None,
+                                      month: Optional[int] = None,
+                                      is_weekly: bool = False):
+    """Фоновая задача: генерирует табель (с учетом периода) и просит бота отправить его."""
+    logger.info(f"[BG Task] Запуск фоновой задачи для отправки табеля группы {group_telegram_id} (запросил {requester_telegram_id}, назначение: {destination})",
+                 extra={"period_params": {"year": year, "month": month, "is_weekly": is_weekly}})
     filepath: Optional[Path] = None
     
     async with AsyncSessionFactory() as db:
         try:
-            filepath = await generate_and_save_timesheet(group_telegram_id, db)
+            # <<< Передаем параметры периода в функцию генерации файла >>>
+            # <<< Распаковываем результат, включающий даты >>>
+            filepath, start_date_str, end_date_str = await generate_and_save_timesheet(
+                group_telegram_id=group_telegram_id, 
+                db=db,
+                year=year,
+                month=month,
+                is_weekly=is_weekly
+            )
 
             if not filepath:
                 logger.error(f"[BG Task] Не удалось сгенерировать или сохранить файл для группы {group_telegram_id}. Отправка боту отменена.")
-                # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
                 return
             
-            # <<< Определяем, куда отправить файл >>>
+            # <<< Логика определения target_chat_id и отправки боту остается прежней >>>
             target_chat_id: int
             if destination == 'group':
                 target_chat_id = group_telegram_id
-                logger.info(f"[BG Task] Файл будет отправлен в чат группы: {target_chat_id}")
-            else: # По умолчанию или если destination == 'user'
+            else: 
                 target_chat_id = requester_telegram_id
-                logger.info(f"[BG Task] Файл будет отправлен в ЛС пользователю: {target_chat_id}")
+            logger.info(f"[BG Task] Файл {filepath.name} будет отправлен в чат {target_chat_id}")
 
             bot_endpoint = f"{BOT_INTERNAL_URL}/internal/send-file"
             payload = {
-                # <<< Меняем user_telegram_id на target_chat_id >>>
                 "target_chat_id": target_chat_id, 
-                "file_path": str(filepath)
+                "file_path": str(filepath),
+                # <<< Передаем базовую информацию о периоде >>>
+                "period_year": year, 
+                "period_month": month, 
+                "period_is_weekly": is_weekly,
+                # <<< ДОБАВЛЯЕМ РАССЧИТАННЫЕ ДАТЫ (если они есть) >>>
+                "period_start_date": start_date_str, 
+                "period_end_date": end_date_str 
             }
             logger.info(f"[BG Task] Отправка запроса боту: {bot_endpoint} с payload: {payload}")
 
@@ -1237,37 +1429,48 @@ async def trigger_bot_to_send_timesheet(requester_telegram_id: int, group_telegr
                     response = await client.post(bot_endpoint, json=payload)
                     response.raise_for_status() 
                     logger.info(f"[BG Task] Успешный ответ от бота (статус {response.status_code}) для файла {filepath}")
-                    # ... (удаление файла) ...
+                    # <<< ДОБАВЛЯЕМ УДАЛЕНИЕ ФАЙЛА ПОСЛЕ УСПЕШНОЙ ОТПРАВКИ >>>
+                    try:
+                        filepath.unlink()
+                        logger.info(f"[BG Task] Временный файл {filepath} удален.")
+                    except OSError as unlink_err:
+                        logger.error(f"[BG Task] Ошибка при удалении файла {filepath}: {unlink_err}")
                 except Exception as e:
                     logger.error(f"[BG Task] Ошибка при взаимодействии с ботом ({bot_endpoint}): {e}", exc_info=True)
-                    # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
+                    # TODO: Отправить уведомление об ошибке запросившему пользователю?
 
         except Exception as e:
             logger.error(f"[BG Task] Непредвиденная ошибка в фоновой задаче для группы {group_telegram_id}: {e}", exc_info=True)
-            # <<< TODO: Отправить уведомление об ошибке запросившему пользователю? >>>
+            # TODO: Отправить уведомление об ошибке запросившему пользователю?
 
 # --- Новый эндпоинт для запроса отправки через бота --- 
 @router.post("/groups/{group_telegram_id}/timesheet/send-to-bot", 
              status_code=status.HTTP_202_ACCEPTED,
              summary="Request Timesheet via Bot",
-             description="Initiates background generation and sending of the timesheet Excel file via Telegram bot to the requesting user or the group.", # Обновлено описание
+             description="Initiates background generation and sending of the timesheet Excel file via Telegram bot to the requesting user or the group, optionally filtered by period.", # <<< Обновляем описание
              tags=["Timesheet"])
 async def request_timesheet_via_bot(
     background_tasks: BackgroundTasks,
     group_telegram_id: int = FastApiPath(..., description="Telegram ID of the group"),
     requester_telegram_id: int = Query(..., description="Telegram ID of the user requesting the timesheet"),
-    # <<< Добавляем destination как query параметр >>>
     destination: str = Query('user', description="Куда отправить файл: 'user' (в ЛС) или 'group' (в чат группы)", pattern="^(user|group)$" ), 
-    # db сессия здесь не нужна
+    # <<< Добавляем параметры периода >>>
+    year: Optional[int] = Query(None, description="Filter by year (e.g., 2024)"),
+    month: Optional[int] = Query(None, description="Filter by month (1-12)"),
+    is_weekly: bool = Query(False, description="Filter by the current week (overrides year/month if true)"),
 ):
-    logger.info(f"[Send To Bot] Пользователь {requester_telegram_id} запросил табель для группы {group_telegram_id} через бота. Назначение: {destination}")
+    logger.info(f"[Send To Bot] User {requester_telegram_id} requested timesheet for group {group_telegram_id} via bot. Destination: {destination}",
+                 extra={"period_params": {"year": year, "month": month, "is_weekly": is_weekly}})
 
-    # Добавляем фоновую задачу (передаем ID из query и destination)
+    # Добавляем фоновую задачу, передавая параметры периода
     background_tasks.add_task(
         trigger_bot_to_send_timesheet,
         requester_telegram_id=requester_telegram_id,
         group_telegram_id=group_telegram_id,
-        destination=destination # <<< Передаем destination
+        destination=destination, 
+        year=year, # <<< Передаем year
+        month=month, # <<< Передаем month
+        is_weekly=is_weekly # <<< Передаем is_weekly
     )
 
     return {"status": "accepted", "message": f"Табель формируется и скоро будет отправлен {( 'вам в ЛС' if destination == 'user' else 'в чат группы')} ботом."}
@@ -1466,3 +1669,54 @@ async def download_timesheet_data_pivoted_xlsx(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     ) 
+
+# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ ДОСТУПНЫХ ПЕРИОДОВ --- 
+@router.get("/available-periods", 
+            response_model=List[AvailablePeriod], 
+            summary="Get Available Timesheet Periods",
+            description="Retrieves a list of unique year/month combinations for which shifts exist in the specified group.",
+            tags=["Timesheet"])
+async def get_available_timesheet_periods(
+    group_telegram_id: int = Query(..., description="Telegram ID of the group"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """Возвращает список доступных для выбора месяцев/годов для табеля группы."""
+    logger.info(f"[Available Periods] GET /available-periods - Request received for group {group_telegram_id}")
+
+    # 1. Найти внутренний ID группы
+    group_result = await db.execute(
+        select(Group.id).where(Group.group_id == group_telegram_id)
+    )
+    group_internal_id = group_result.scalar_one_or_none()
+    if group_internal_id is None: 
+        logger.warning(f"[Available Periods] Group {group_telegram_id} not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group {group_telegram_id} not found")
+
+    # 2. Запрос уникальных пар год/месяц из таблицы shifts
+    try:
+        stmt = (
+            select(
+                extract('year', Shift.date).label('year'), 
+                extract('month', Shift.date).label('month')
+            )
+            .where(Shift.group_id == group_internal_id)
+            .distinct()
+            .order_by(extract('year', Shift.date).desc(), extract('month', Shift.date).desc())
+        )
+        result = await db.execute(stmt)
+        # Получаем результат как список кортежей (year, month)
+        period_rows = result.all() 
+
+        # Преобразуем в список словарей/объектов Pydantic
+        available_periods = [
+            AvailablePeriod(year=row.year, month=row.month) 
+            for row in period_rows
+            if row.year is not None and row.month is not None # Доп. проверка на None
+        ]
+        
+        logger.info(f"[Available Periods] Found {len(available_periods)} distinct periods for group {group_telegram_id}")
+        return available_periods
+    
+    except Exception as e:
+        logger.error(f"[Available Periods] Error fetching available periods for group {group_telegram_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error retrieving available periods")

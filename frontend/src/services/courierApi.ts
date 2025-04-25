@@ -938,30 +938,38 @@ export const updateShiftSlot = async (
 // ===> TIMESHEET API FUNCTIONS <===
 
 /**
- * Получает данные табеля для указанной группы.
- * @param groupTelegramId Telegram ID группы
+ * Получает данные табеля для группы.
+ * @param groupTelegramId ID группы в Telegram
+ * @param options Опциональные параметры запроса (например, для фильтрации по периоду)
  */
 export const getTimesheetData = async (
-    groupTelegramId: number | string
+    groupTelegramId: number | string,
+    options?: { params?: Record<string, any> } 
 ): Promise<TimesheetResponse> => {
-    logger.info(`[courierApi] 📡 Запрос данных табеля для группы ID: ${groupTelegramId}`);
-    const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet`; 
+    logger.info(`[courierApi] 📡 Запрос данных табеля для группы ${groupTelegramId}`, { params: options?.params });
     try {
-        const response = await axiosInstance.get<TimesheetResponse>(endpoint);
-        logger.info(`[courierApi] ✅ Данные табеля для группы ${groupTelegramId} получены.`);
-        return response.data;
-    } catch (error) {
-        logger.error(`[courierApi] ❌ Ошибка при получении данных табеля для группы ${groupTelegramId}`, error);
-        // Обработка ошибок Axios
-        if (axios.isAxiosError(error)) {
-            const status = error.response?.status;
-            const detail = error.response?.data?.detail;
-            if (status === 404) {
-                 throw new Error(detail || 'Группа не найдена или данные табеля отсутствуют.');
+        // <<< ИСПРАВЛЯЕМ URL: добавляем префикс /shifts >>>
+        const response = await axiosInstance.get<TimesheetResponse>('/api/v1/shifts/timesheets', { 
+            params: {
+                group_telegram_id: groupTelegramId,
+                ...(options?.params || {}) 
             }
-             throw new Error(detail || error.message || 'Ошибка при получении данных табеля.');
+        });
+        logger.info(`[courierApi] ✅ Данные табеля для группы ${groupTelegramId} получены:`, response.data);
+        return response.data || { columns: [], rows: [] }; 
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при запросе табеля для группы ${groupTelegramId}`, { params: options?.params, error });
+        if (axios.isAxiosError(error)) {
+            // Если бэкенд вернет 404, когда данных нет, можно обработать это
+            if (error.response?.status === 404) {
+                logger.warn(`[courierApi] ℹ️ Табель для группы ${groupTelegramId} не найден (404). Возвращаем пустую структуру.`, { params: options?.params });
+                 // <<< УДАЛЯЕМ period ИЗ ВОЗВРАЩАЕМОЙ ЗАГЛУШКИ ПРИ 404 >>>
+                return { columns: [], rows: [] }; 
+            }
+            const detail = error.response?.data?.detail || error.message;
+            throw new Error(detail || 'Ошибка при получении данных табеля.');
         } else if (error instanceof Error) {
-             throw error; 
+            throw error;
         }
         throw new Error('Неизвестная ошибка при получении данных табеля.');
     }
@@ -993,31 +1001,42 @@ export const requestTimesheetViaBot = async ({
     groupTelegramId,
     userId,
     destination,
+    year,
+    month,
+    is_weekly
 }: {
     groupTelegramId: number | string;
     userId: number | string;
-    destination: 'user' | 'group'; // <<< Добавляем destination
+    destination: 'user' | 'group';
+    year?: number;
+    month?: number;
+    is_weekly?: boolean;
 }): Promise<{ status: string; message: string }> => {
-    logger.info(`[courierApi] 📡 Запрос на отправку табеля через бота для группы ID: ${groupTelegramId} от пользователя ID: ${userId}, назначение: ${destination}`);
-    // <<< Формируем URL с query параметрами >>>
-    const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet/send-to-bot?requester_telegram_id=${userId}&destination=${destination}`;
+    logger.info(`[courierApi] 📡 Запрос на отправку табеля через бота для группы ID: ${groupTelegramId} от пользователя ID: ${userId}, назначение: ${destination}, ` +
+                 `period: year=${year}, month=${month}, weekly=${is_weekly}`);
+    const params = new URLSearchParams({
+        requester_telegram_id: String(userId),
+        destination: destination,
+    });
+    if (year !== undefined) params.set('year', String(year));
+    if (month !== undefined) params.set('month', String(month));
+    if (is_weekly !== undefined) params.set('is_weekly', String(is_weekly).toLowerCase());
+    
+    const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet/send-to-bot?${params.toString()}`;
+    logger.info(`[courierApi] Sending POST request to: ${endpoint}`);
     try {
-        // Используем POST запрос, тело запроса не требуется
         const response = await axiosInstance.post(endpoint);
         
-        // Ожидаем успешный ответ (202 Accepted)
         if (response.status === 202 && response.data) {
              logger.info(`[courierApi] ✅ Запрос на отправку табеля через бота принят бэкендом. Status: ${response.status}`, response.data);
-             return response.data; // Возвращаем { status: "accepted", message: "..." }
+             return response.data;
         } else {
-            // Неожиданный ответ
             logger.error(`[courierApi] ❌ Неожиданный ответ от ${endpoint}: Status ${response.status}`, response.data);
             throw new Error(`Неожиданный ответ от сервера: ${response.status}`);
         }
 
     } catch (error) {
         logger.error(`[courierApi] ❌ Ошибка при запросе отправки табеля через бота для группы ${groupTelegramId} (${endpoint})`, error);
-        // Обработка ошибок Axios
         if (axios.isAxiosError(error)) {
             const status = error.response?.status;
             const detail = error.response?.data?.detail;
@@ -1028,7 +1047,6 @@ export const requestTimesheetViaBot = async ({
                  throw new Error(detail || 'Доступ запрещен. У вас нет прав?');
             }
              if (status === 400) {
-                 // Например, если у пользователя нет telegram_user_id или неверный destination
                  throw new Error(detail || 'Ошибка данных запроса. Возможно, не найден ID пользователя Telegram или неверное назначение.');
             }
              throw new Error(detail || error.message || 'Ошибка при запросе отправки табеля.');
@@ -1104,15 +1122,12 @@ interface AssignCourierApiData {
 export const assignCourierToShift = async (data: AssignCourierApiData): Promise<ApiShift> => {
     logger.info(`[courierApi] 📡 Назначение курьера ${data.target_user_telegram_id} на слот ${data.shift_type}-${data.slot_index} от ${data.assigner_telegram_id}`);
     
-    // <<< РЕАЛЬНЫЙ ВЫЗОВ API >>>
     try {
         const response = await axiosInstance.post<ApiShift>('/api/v1/shifts/assign', data);
         logger.info(`[courierApi] ✅ Курьер успешно назначен через API:`, response.data);
-        // <<< ВАЖНО: Возвращаем данные API как есть (ApiShift), маппинг будет в Thunk >>>
         return response.data;
     } catch (error) {
         logger.error(`[courierApi] ❌ Ошибка при назначении курьера через API:`, error);
-        // Обработка ошибок Axios (можно скопировать/адаптировать из других функций)
         if (axios.isAxiosError(error)) {
             const status = error.response?.status;
             const detail = error.response?.data?.detail;
@@ -1134,7 +1149,47 @@ export const assignCourierToShift = async (data: AssignCourierApiData): Promise<
         }
         throw new Error('Неизвестная ошибка при назначении курьера.');
     }
-    // <<< КОНЕЦ РЕАЛЬНОГО ВЫЗОВА >>>
 };
 
 // ===> TIMESHEET API FUNCTIONS <===
+
+// ===> НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ДОСТУПНЫХ ПЕРИОДОВ <===
+
+// Интерфейс для ответа от нового эндпоинта
+interface AvailablePeriodResponse {
+    year: number;
+    month: number; // Ожидаем 1-12 от бэкенда
+}
+
+/**
+ * Получает список доступных периодов (год/месяц) для табеля группы.
+ * @param groupTelegramId Telegram ID группы
+ */
+export const getAvailableTimesheetPeriods = async (
+    groupTelegramId: number | string
+): Promise<AvailablePeriodResponse[]> => {
+    logger.info(`[courierApi] 📡 Запрос доступных периодов для табеля группы ${groupTelegramId}`);
+    try {
+        const response = await axiosInstance.get<AvailablePeriodResponse[]>(
+            `/api/v1/shifts/available-periods`, // Используем новый эндпоинт
+            {
+                params: { group_telegram_id: groupTelegramId } // Передаем ID группы
+            }
+        );
+        logger.info(`[courierApi] ✅ Получено ${response.data?.length || 0} доступных периодов для группы ${groupTelegramId}`);
+        // Преобразуем месяц из 1-12 (от бэка) в 0-11 (для Date в JS) <<< ВАЖНО!
+        return (response.data || []).map(period => ({ 
+            ...period, 
+            month: period.month - 1 
+        }));
+    } catch (error) {
+        logger.error(`[courierApi] ❌ Ошибка при запросе доступных периодов для группы ${groupTelegramId}`, error);
+        // В случае ошибки возвращаем пустой массив, чтобы не ломать интерфейс
+        // Можно добавить более специфичную обработку 404, если нужно
+        return []; 
+    }
+};
+
+/**
+ * @deprecated Используйте requestTimesheetViaBot для инициирования отправки через бота.
+ */

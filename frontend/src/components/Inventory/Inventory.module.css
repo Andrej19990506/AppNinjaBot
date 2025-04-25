@@ -281,7 +281,7 @@
 /* Специальные стили для ItemList внутри mainSection */
 .mainSection :global(.ItemList_list__EL7Vr) {
     overflow-y: auto !important;
-    max-height: 65vh; /* Ограничиваем высоту для активации скролла */
+    max-height: 55vh; /* Ограничиваем высоту для активации скролла */
 }
 
 /* Стиль для сдвига контента, когда поиск активен */

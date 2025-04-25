@@ -272,13 +272,22 @@ listenerMiddleware.startListening({
     effect: (action, listenerApi) => {
         const userId = action.payload.id;
         logger.log(`[Store:UserInitListener] User initialized. UserID: ${userId}`);
-        // Инициализируем и подключаем сокет
+        // Инициализируем сокет
         logger.log(`[Store:UserInitListener] Initializing socket...`);
-        socketService.init(`ws://${window.location.hostname}:8001`, userId);
+        const wsUrl = window.APP_CONFIG?.WS_URL || process.env.REACT_APP_WS_URL || 'ws://localhost:8001'; // Fallback на случай отсутствия
+        socketService.init(wsUrl, userId); 
         logger.log('[Store:startSocketStateListener] Starting socket state listener...');
         startSocketStateListener(); // Запускаем прослушивание состояния сокета
         logger.log('[Store:UserInitListener] Attempting to connect socket...');
-        socketService.connect();
+        // <<< ДОБАВЛЯЕМ ОТЛАДКУ >>>
+        try {
+            logger.log('[Store:UserInitListener] >>> BEFORE socketService.connect()');
+            socketService.connect(); 
+            logger.log('[Store:UserInitListener] >>> AFTER socketService.connect() (no error thrown)');
+        } catch (error) {
+            logger.error('[Store:UserInitListener] >>> IMMEDIATE ERROR calling socketService.connect():', error);
+        }
+        // <<< КОНЕЦ ОТЛАДКИ >>>
         
         // !!! setupSubscriptions вызывается здесь, при инициализации пользователя, а не при подключении сокета
         // Вызываем setupSubscriptions при инициализации пользователя

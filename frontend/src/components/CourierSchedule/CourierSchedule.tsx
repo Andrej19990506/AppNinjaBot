@@ -22,6 +22,8 @@ import { TimesheetResponse } from '../../types/timesheet';
 import { getTimesheetData, requestTimesheetViaBot } from '../../services/courierApi';
 // <<< Добавляем импорт типа конфига слотов из Redux >>>
 import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
+// <<< Импортируем тип SelectedPeriod >>>
+import type { SelectedPeriod } from '../CourierProfile/TimesheetPreview';
 
 const Container = styled.div`
     padding: 20px;
@@ -67,6 +69,12 @@ const CourierSchedule: React.FC = () => {
     const [timesheetData, setTimesheetData] = useState<TimesheetResponse | null>(null);
     const [isTimesheetPreviewVisible, setIsTimesheetPreviewVisible] = useState(false);
     const [timesheetError, setTimesheetError] = useState<string | null>(null);
+    // <<< ДОБАВЛЯЕМ STATE ДЛЯ ВЫБРАННОГО ПЕРИОДА >>>
+    const [selectedPeriod, setSelectedPeriod] = useState<SelectedPeriod>({ 
+        type: 'month', 
+        year: new Date().getFullYear(), 
+        month: new Date().getMonth() 
+    });
 
     // Новые состояния для списка курьеров
     const [isCouriersListOpen, setIsCouriersListOpen] = useState(false);
@@ -372,89 +380,60 @@ const CourierSchedule: React.FC = () => {
         setIsCouriersListOpen(false);
     }, [isCouriersListOpen]);
 
-    // <<< Логика для Табеля >>>
-    const handleOpenTimesheet = useCallback(async () => {
-        closeSettingsPanel();
-        if (!courierChatIdString) {
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: 'Не удалось определить группу для получения табеля.'
-            }));
-            setTimesheetError('Не удалось определить группу.');
-            return;
-        }
-
+    // <<< ИЗМЕНЯЕМ fetchTimesheetData >>>
+    const fetchTimesheetData = useCallback(async (chatId: string, period: SelectedPeriod) => {
+        console.log(`[CourierSchedule] Fetching timesheet data for chat ${chatId}, period:`, period);
         setIsTimesheetLoading(true);
         setTimesheetError(null);
-        setTimesheetData(null); 
-        setIsTimesheetPreviewVisible(true); // Открываем превью сразу, чтобы показать загрузку
-
         try {
-            // <<< Используем реальную API функцию >>>
-            const data = await getTimesheetData(courierChatIdString);
-            
-            setTimesheetData(data); // <<< Устанавливаем реальные данные >>>
-
-        } catch (error: any) {
-            console.error('[CourierSchedule] Ошибка при загрузке данных табеля:', error);
-            const message = error?.message || 'Не удалось загрузить данные табеля.';
-            setTimesheetError(message);
-            dispatch(addNotification({
-                type: NotificationTypes.ERROR,
-                message: message
-            }));
-            // Не закрываем окно, чтобы показать ошибку
+            // <<< ФОРМИРУЕМ ПАРАМЕТРЫ ДЛЯ API >>>
+            const params: Record<string, any> = {};
+            if (period.type === 'month') {
+                if (period.year !== undefined) params.year = period.year;
+                // +1 т.к. API может ожидать 1-12 (убедитесь, что это так на бэкенде!)
+                if (period.month !== undefined) params.month = period.month + 1; 
+            } else if (period.type === 'week') {
+                params.is_weekly = true;
+            }
+            // <<< РАСКОММЕНТИРОВАЛИ ПЕРЕДАЧУ ПАРАМЕТРОВ >>>
+            // console.log('[CourierSchedule] TODO: Pass these params to getTimesheetData:', params);
+            const data = await getTimesheetData(chatId, { params }); // <<< Передаем параметры как второй аргумент
+            // const data = await getTimesheetData(chatId); // <<< УДАЛЯЕМ ВРЕМЕННЫЙ ВЫЗОВ
+            setTimesheetData(data);
+        } catch (err) {
+            console.error('[CourierSchedule] Error fetching timesheet data:', err);
+            setTimesheetError(err instanceof Error ? err.message : 'Не удалось загрузить табель');
+            setTimesheetData(null); 
         } finally {
             setIsTimesheetLoading(false);
         }
+    // <<< ДОБАВЛЯЕМ ЗАВИСИМОСТЬ getTimesheetData (хотя она стабильна) >>>
+    }, [getTimesheetData]); 
 
-    }, [closeSettingsPanel, courierChatIdString, dispatch]);
-
-    const handleCloseTimesheetPreview = useCallback(() => {
-        console.warn('[CourierSchedule] handleCloseTimesheetPreview ВЫЗВАНА!'); 
-        setIsTimesheetPreviewVisible(false);
-        setTimesheetData(null);
-        setTimesheetError(null);
-        setIsTimesheetLoading(false);
-    }, []);
-
-    // <<< Новый обработчик запроса на отправку табеля >>>
-    const handleSendTimesheetRequest = useCallback(async (destination: 'user' | 'group') => {
-        if (!user?.id) {
-            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось идентифицировать пользователя.' }));
-            return;
+    // <<< ДОБАВЛЯЕМ ОБРАБОТЧИК СМЕНЫ ПЕРИОДА >>>
+    const handleTimesheetPeriodChange = useCallback((newPeriod: SelectedPeriod) => {
+        console.log('[CourierSchedule] handleTimesheetPeriodChange called with:', newPeriod);
+        setSelectedPeriod(newPeriod);
+        // Вызываем загрузку данных для нового периода
+        if (courierChatIdString) { 
+            fetchTimesheetData(courierChatIdString, newPeriod);
+        } else {
+            console.error('[CourierSchedule] Cannot fetch timesheet data: courierChatIdString is missing.');
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
         }
+    // <<< Обновляем зависимости, fetchTimesheetData теперь стабильна благодаря useCallback >>>
+    }, [courierChatIdString, fetchTimesheetData, dispatch]); 
+
+    // <<< Обработчик для кнопки "Показать табель" >>>
+    const handleShowTimesheet = useCallback(() => {
         if (!courierChatIdString) {
-            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу.' }));
-            return;
+             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
+             return;
         }
-
-        const destinationText = destination === 'user' ? "личный чат" : "чат группы";
-        dispatch(addNotification({ type: NotificationTypes.INFO, message: `Запрос на отправку табеля в ${destinationText} отправлен...` }));
-
-        setIsTimesheetLoading(true); // Ставим isLoading для кнопки в TimesheetPreview
-        try {
-            // <<< ИСПРАВЛЯЕМ ВЫЗОВ: Передаем объект аргументов >>>
-            await requestTimesheetViaBot({
-                groupTelegramId: courierChatIdString,
-                userId: String(user.id),
-                destination: destination,
-            });
-            dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: `Запрос принят. Табель скоро будет отправлен в ${destinationText}.` }));
-            handleCloseTimesheetPreview();
-        } catch (error: any) {
-            const message = error.message || 'Неизвестная ошибка при запросе табеля.';
-            setTimesheetError(message);
-            dispatch(addNotification({ type: NotificationTypes.ERROR, message: `Ошибка: ${message}` }));
-        } finally {
-             // Сбрасываем isLoading только если не было ошибки
-             if (!timesheetError) {
-                 setIsTimesheetLoading(false);
-             }
-        }
-    }, [user?.id, courierChatIdString, dispatch, handleCloseTimesheetPreview, timesheetError]);
-
-    // <<< Конец логики для Табеля >>>
+        // <<< ИСПРАВЛЯЕМ ВЫЗОВ: Передаем selectedPeriod >>>
+        fetchTimesheetData(courierChatIdString, selectedPeriod); 
+        setIsTimesheetPreviewVisible(true);
+    }, [courierChatIdString, dispatch, fetchTimesheetData, selectedPeriod]);
 
     // Добавим функцию для открытия профиля курьера
     const handleOpenCourierProfile = useCallback((courier: any) => {
@@ -473,6 +452,45 @@ const CourierSchedule: React.FC = () => {
         setIsProfileModalOpen(false);
         setSelectedCourier(null);
     }, []);
+
+    // <<< НОВАЯ ФУНКЦИЯ-ОБЕРТКА ДЛЯ ОТПРАВКИ ТАБЕЛЯ >>>
+    const handleSendTimesheetRequestWrapper = useCallback(async (destination: 'user' | 'group') => {
+        // <<< Добавляем `originalLoadingState` и `destinationText` как локальные переменные >>>
+        const destinationText = destination === 'user' ? "личный чат" : "чат группы";
+        const originalLoadingState = isTimesheetLoading;
+
+        if (!user?.id) {
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось идентифицировать пользователя.' }));
+            return;
+        }
+        if (!courierChatIdString) {
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу.' }));
+            return;
+        }
+        
+        dispatch(addNotification({ type: NotificationTypes.INFO, message: `Запрос на отправку табеля в ${destinationText} отправлен...` }));
+
+        setIsTimesheetLoading(true); 
+        
+        try {
+            await requestTimesheetViaBot({
+                groupTelegramId: courierChatIdString,
+                userId: String(user.id),
+                destination: destination,
+                 year: selectedPeriod.type === 'month' ? selectedPeriod.year : undefined,
+                 month: selectedPeriod.type === 'month' ? (selectedPeriod.month !== undefined ? selectedPeriod.month + 1 : undefined) : undefined,
+                 is_weekly: selectedPeriod.type === 'week' ? true : undefined
+            });
+            dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: `Запрос принят. Табель скоро будет отправлен в ${destinationText}.` }));
+        } catch (error: any) {
+            const message = error.message || 'Неизвестная ошибка при запросе табеля.';
+            dispatch(addNotification({ type: NotificationTypes.ERROR, message: `Ошибка запроса табеля: ${message}` }));
+        } finally {
+             setIsTimesheetLoading(originalLoadingState);
+        }
+    // <<< ИСПРАВЛЯЕМ ЗАВИСИМОСТИ useCallback >>>
+    // Добавляем: user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading, requestTimesheetViaBot
+    }, [user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading, requestTimesheetViaBot]); 
 
     return (
         <Container>
@@ -561,24 +579,25 @@ const CourierSchedule: React.FC = () => {
                 onClose={closeSettingsPanel}
                 onOpenShiftAccess={handleOpenShiftAccessModal}
                 onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
-                onOpenTimesheet={handleOpenTimesheet} 
+                onOpenTimesheet={handleShowTimesheet} 
             />
 
-            {/* <<< Рендеринг превью табеля >>> */}
+            {/* <<< ИСПРАВЛЯЕМ ВЫЗОВ TimesheetPreview >>> */}
             {isTimesheetPreviewVisible && courierChatIdString && (
-                <TimesheetPreview
+                 <TimesheetPreview
                     isOpen={isTimesheetPreviewVisible}
-                    onClose={handleCloseTimesheetPreview}
-                    onSendRequest={handleSendTimesheetRequest}
+                    onClose={() => setIsTimesheetPreviewVisible(false)}
+                    // <<< Используем новую обертку >>>
+                    onSendRequest={handleSendTimesheetRequestWrapper} 
                     data={timesheetData}
                     isLoading={isTimesheetLoading}
                     error={timesheetError}
-                    chatId={courierChatIdString} 
-                    slotConfig={slotConfig as WeeklySlotConfig | null}
-                    groupTitle={currentCourierGroup?.title ?? ''}
-                />
-            )}
-            {/* <<< Конец рендеринга >>> */}
+                    chatId={courierChatIdString}
+                    slotConfig={slotConfig}
+                    groupTitle={currentCourierGroup?.title || 'Группа курьеров'} 
+                    onPeriodChange={handleTimesheetPeriodChange} 
+                 />
+             )}
 
             <Footer 
                 onBack={handleFooterBack}

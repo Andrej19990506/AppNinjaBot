@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
+from typing import Optional
 
 # Импортируем типы Telegram и Application
 from telegram import Update, InputFile
@@ -27,6 +28,11 @@ ALLOWED_FILE_DIR = Path("/app/shared/timesheets")
 class SendFilePayload(BaseModel):
     target_chat_id: int
     file_path: str
+    period_year: Optional[int] = None
+    period_month: Optional[int] = None # Ожидаем 1-12 от API
+    period_is_weekly: Optional[bool] = None
+    period_start_date: Optional[str] = None # YYYY-MM-DD
+    period_end_date: Optional[str] = None   # YYYY-MM-DD
 
 # Модель для эндпоинта обновления данных пользователя
 class RefreshUserPayload(BaseModel):
@@ -207,6 +213,40 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
 
         logger.info(f"Путь {resolved_path} прошел валидацию. Попытка отправки документа.")
 
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ: Генерация подписи >>>
+        caption = "📊 Табель"
+        months_ru = { 
+            1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь",
+            7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
+        }
+        
+        # <<< Функция для форматирования даты в ДД.ММ >>>
+        def format_date_short(date_str: Optional[str]) -> Optional[str]:
+            if not date_str:
+                return None
+            try:
+                # Преобразуем YYYY-MM-DD в DD.MM
+                return datetime.fromisoformat(date_str).strftime("%d.%m")
+            except ValueError:
+                 logger.warning(f"Не удалось распарсить дату '{date_str}' для подписи.")
+                 return None
+
+        # <<< Обновленная логика генерации подписи >>>
+        if payload.period_is_weekly:
+             start_formatted = format_date_short(payload.period_start_date)
+             end_formatted = format_date_short(payload.period_end_date)
+             if start_formatted and end_formatted:
+                 caption = f"🗓️ Табель за неделю: {start_formatted} - {end_formatted}"
+             else:
+                 # Fallback, если даты не пришли или не распарсились
+                 caption = "🗓️ Табель за текущую неделю для записи"
+        elif payload.period_year is not None and payload.period_month is not None:
+             month_name = months_ru.get(payload.period_month, f"Месяц {payload.period_month}")
+             caption = f"🗓️ Табель за {month_name} {payload.period_year}"
+        
+        logger.info(f"Сгенерирована подпись для файла: '{caption}'")
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ: Генерация подписи >>>
+
         # Отправка документа
         try:
             # <<< Открываем файл для чтения в бинарном режиме >>>
@@ -216,39 +256,47 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
                         chat_id=processed_chat_id,
                         document=document_file, 
                         filename=resolved_path.name,
-                        caption=f"Ваш табель за {datetime.now().strftime('%Y-%m-%d')} готов."
+                        caption=caption
                     )
-                    logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id}")
+                    logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id} с подписью.")
                 except Exception as send_err:
-                    logger.warning(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {processed_chat_id}: {send_err}")
-                    if str(processed_chat_id).startswith('-100'):
-                        logger.info(f"Попытка отправить в чат без префикса -100: {processed_chat_id}")
+                    logger.warning(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {processed_chat_id} (первая попытка): {send_err}")
+                    # <<< ИСПРАВЛЕНИЕ ЛОГИКИ ОБРАБОТКИ ОШИБКИ ОТПРАВКИ >>>
+                    # Пробуем альтернативный ID, если это группа и есть ошибка
+                    # (Логика остается прежней, но используем новый caption)
+                    if str(processed_chat_id).startswith('-100'): 
                         alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
-                        document_file.seek(0)  # Сбрасываем указатель файла на начало
+                        logger.info(f"Попытка отправить в чат {alternative_chat_id} (альтернативный ID)")
+                        document_file.seek(0)  # Сбрасываем указатель файла
                         try:
                             await bot_app.bot.send_document(
                                 chat_id=alternative_chat_id,
                                 document=document_file,
                                 filename=resolved_path.name,
-                                caption=f"Ваш табель за {datetime.now().strftime('%Y-%m-%d')} готов."
+                                caption=caption
                             )
-                            logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id}")
+                            logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id} с подписью.")
                         except Exception as alt_send_err:
                             logger.error(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
-                            raise alt_send_err
+                            # Перевыбрасываем ошибку второй попытки
+                            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document (alt ID): {alt_send_err}")
                     else:
-                        raise send_err
+                        # Если это не группа или ошибка не связана с ID, перевыбрасываем исходную ошибку
+                         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document: {send_err}")
+                        
             return {"success": True, "message": "File sent successfully"}
-        except Exception as send_err:
-            logger.error(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {payload.target_chat_id}: {send_err}", exc_info=True)
-            error_message = str(send_err)
-            if hasattr(send_err, 'message'):
-                error_message = send_err.message
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document via Telegram: {error_message}")
+        except HTTPException as http_exc: # Перехватываем HTTPException, чтобы не попасть в общий Exception
+             raise http_exc
+        except Exception as send_err: # Ошибки чтения файла или другие непредвиденные
+            logger.error(f"❌ Ошибка при обработке файла {resolved_path.name} или отправке в чат {payload.target_chat_id}: {send_err}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send document: {send_err}")
 
+    except HTTPException as http_exc:
+        # Перевыбрасываем HTTP исключения (например, от валидации)
+        raise http_exc
     except Exception as e:
         logger.error(f"❌ Непредвиденная ошибка в /internal/send-file: {e}", exc_info=True)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}") 
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}")
 
 # --- НОВЫЙ ЭНДПОИНТ /api/refresh_user --- 
 @router.post("/refresh_user", tags=["API"], status_code=status.HTTP_200_OK)

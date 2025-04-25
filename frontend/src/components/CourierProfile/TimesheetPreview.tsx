@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-// <<< РАСКОММЕНТИРУЕМ импорты antd и icons >>>
-import { Dropdown, Button, Menu } from 'antd';
-import { DownOutlined } from '@ant-design/icons';
+// <<< УДАЛЯЕМ импорты antd и icons >>>
+// import { Dropdown, Button, Menu } from 'antd';
+// import { DownOutlined, CalendarOutlined } from '@ant-design/icons';
 // import { SettingsOverlay as ModalBackdropOverlay } from '../CourierSchedule/CourierCalendar/styles'; // <<< УДАЛЯЕМ
 import { TimesheetResponse, CourierTimesheetData } from '../../types/timesheet'; 
 // <<< Импортируем тип для конфига слотов и ДЕФОЛТНЫЕ значения >>>
 import { WeeklySlotConfig, SlotConfigForDay, defaultSingleDaySlotConfig } from '../../store/slices/shiftsSlice'; 
+// <<< Импортируем новую API функцию >>>
+import { getAvailableTimesheetPeriods } from '../../services/courierApi'; 
+// <<< ВОЗВРАЩАЕМ ИМПОРТ SelectedPeriod (уточните путь, если он неверный) >>>
+// import type { SelectedPeriod } from '../CourierSchedule/CourierSchedule'; 
 
 interface TimesheetPreviewProps {
     isOpen: boolean;
@@ -20,6 +24,8 @@ interface TimesheetPreviewProps {
     slotConfig: WeeklySlotConfig | null;
     // <<< Добавляем проп для названия группы >>>
     groupTitle: string;
+    // <<< ДОБАВЛЯЕМ ПРОП ДЛЯ ОБРАБОТКИ СМЕНЫ ПЕРИОДА >>>
+    onPeriodChange: (newPeriod: SelectedPeriod) => void;
 }
 
 // <<< Обновляем стили контейнера для полного экрана >>>
@@ -36,40 +42,9 @@ const FullPageContainer = styled.div`
     color: var(--text-color);
     padding: 1.5rem; // Отступы по краям страницы
     box-sizing: border-box; // Учитываем padding в размере
-    // overflow: hidden; // <<< УБИРАЕМ overflow: hidden
 
     @media (max-width: 768px) {
         padding: 1rem; // Уменьшаем отступы на мобильных
-    }
-    
-    /* <<< Стили для кастомного класса дропдауна >>> */
-    .timesheet-dropdown { 
-        /* Задаем высокий z-index самому контейнеру дропдауна */
-        z-index: 1200 !important; 
-
-        /* Стилизуем меню внутри */
-        .ant-dropdown-menu {
-            background-color: var(--card-background);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-sm);
-            box-shadow: var(--shadow-md);
-            padding: 4px;
-
-            .ant-dropdown-menu-item {
-                color: var(--text-color);
-                border-radius: var(--radius-sm);
-                padding: 8px 12px;
-                
-                &:hover,
-                &.ant-dropdown-menu-item-active {
-                    background-color: var(--hover-overlay);
-                    color: var(--primary-color);
-                }
-                 &:last-child {
-                    margin-bottom: 0;
-                }
-            }
-        }
     }
 `;
 
@@ -224,10 +199,11 @@ const SlotDaySetting = styled.div`
     }
 `;
 
+// <<< ДОБАВЛЯЕМ ПЕРЕОПРЕДЕЛЕНИЕ СТИЛЕЙ BaseButton >>>
 const Footer = styled.div`
     display: flex;
-    justify-content: space-between; // <<< Меняем на space-between
-    align-items: center; // <<< Выравниваем по центру для кнопок
+    justify-content: space-between; 
+    align-items: center; 
     gap: 1rem;
     padding-top: 1rem;
     border-top: 1px solid var(--border-color);
@@ -253,12 +229,12 @@ const BaseButton = styled.button`
 
 // <<< Обновляем наследование для PrimaryButton >>>
 const PrimaryButton = styled(BaseButton)`
-    background-color: var(--button-primary-background);
-    color: var(--button-primary-text);
-    border-color: var(--button-primary-border);
+    background-color: var(--button-primary-background, var(--primary-color));
+    color: var(--button-primary-text, #fff);
+    border-color: var(--button-primary-border, var(--primary-color));
 
     &:hover:not(:disabled) {
-        background-color: var(--button-primary-background-hover);
+        background-color: var(--button-primary-background-hover, var(--primary-dark));
         box-shadow: var(--shadow-sm);
     }
 `;
@@ -279,25 +255,224 @@ const weekdaysRu = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 // <<< Массив коротких дней недели (для отображения настроек) >>>
 const weekdaysRuShort = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс'];
 
+// <<< СТИЛИ ДЛЯ КАСТОМНОГО ДРОПДАУНА >>>
+const DropdownWrapper = styled.div`
+    position: relative; // Для позиционирования меню
+`;
+
+const DropdownMenu = styled.div`
+    position: absolute;
+    bottom: calc(100% + 4px); // Появляется над кнопкой с небольшим отступом
+    left: 0; // По умолчанию выравниваем по левому краю кнопки
+    z-index: 1200;
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    box-shadow: var(--shadow-md);
+    min-width: 180px; // Минимальная ширина меню
+    animation: fadeInScaleUp 0.15s ease-out; // Анимация появления
+
+    /* Выравнивание по правому краю для меню "Отправить" */
+    &.alignRight {
+        left: auto;
+        right: 0;
+    }
+
+    @keyframes fadeInScaleUp {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(5px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+`;
+
+const DropdownMenuItem = styled.div<{ $isSelected?: boolean }>`
+    padding: 8px 12px;
+    cursor: pointer;
+    color: ${props => props.$isSelected ? 'var(--primary-color)' : 'var(--text-color)'};
+    background-color: ${props => props.$isSelected ? 'var(--primary-transparent)' : 'transparent'};
+    border-radius: var(--radius-sm);
+    margin-bottom: 2px;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+
+    &:hover {
+        background-color: ${props => props.$isSelected ? 'var(--primary-transparent)' : 'var(--hover-overlay)'};
+        color: var(--primary-color);
+    }
+`;
+
 // <<< Стилизованная обертка для иконки стрелки >>>
-const ArrowIcon = styled(DownOutlined)<{ $isOpen: boolean }>`
+const ArrowIconPlaceholder = styled.span<{ $isOpen: boolean }>`
+    display: inline-block;
     margin-left: 8px;
     transition: transform var(--transition-normal);
     transform: rotate(${props => props.$isOpen ? '180deg' : '0deg'});
+    vertical-align: middle; // Выравниваем по центру
+    &::after {
+        content: '▼'; /* Простой символ стрелки */
+        font-size: 0.7em; // Делаем стрелку чуть меньше
+    }
 `;
 
-const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
-    isOpen,
-    onClose,
-    onSendRequest,
-    data,
-    isLoading,
-    error,
-    slotConfig,
-    groupTitle
-}) => {
-    // <<< Переносим useState наверх >>>
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+// <<< НОВЫЙ КОМПОНЕНТ КНОПКИ ПЕРИОДА >>>
+const PeriodButton = styled(BaseButton)`
+    background-color: var(--card-background);
+    color: var(--text-color);
+    border-color: var(--border-color);
+
+    &:hover:not(:disabled) {
+        background-color: var(--hover-overlay);
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        ${ArrowIconPlaceholder} { /* Стили для иконки при наведении */
+            color: var(--primary-color);
+        }
+    }
+     &:focus {
+        box-shadow: 0 0 0 2px var(--primary-transparent);
+    }
+    
+    ${ArrowIconPlaceholder} { /* Начальные стили иконки */
+         color: var(--text-secondary);
+         transition: color var(--transition-fast);
+    }
+`;
+
+// --- Типы и константы ---
+
+// <<< ЭКСПОРТИРУЕМ SelectedPeriod ОТСЮДА >>>
+export interface SelectedPeriod {
+    type: 'month' | 'week';
+    year?: number; // Год (для месяца)
+    month?: number; // Месяц (0-11) (для месяца)
+}
+
+// Тип для AvailablePeriod, который используется в этом компоненте (0-11 месяц)
+interface AvailablePeriod {
+    year: number;
+    month: number; 
+}
+
+interface MenuItem {
+    label: string;
+    key: string;
+    type: 'item';
+}
+
+interface MenuDivider {
+    key: string;
+    type: 'divider';
+}
+// <<< КОНЕЦ ВОЗВРАЩЕНИЯ ТИПОВ >>>
+
+const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
+    const { // <<< Деструктуризация пропсов здесь >>>
+        isOpen,
+        onClose,
+        onSendRequest,
+        data,
+        isLoading,
+        error,
+        chatId,
+        slotConfig,
+        groupTitle,
+        onPeriodChange
+    } = props;
+
+    const [isPeriodDropdownOpen, setIsPeriodDropdownOpen] = useState(false);
+    const [isSendDropdownOpen, setIsSendDropdownOpen] = useState(false);
+    const periodDropdownRef = useRef<HTMLDivElement>(null);
+    const sendDropdownRef = useRef<HTMLDivElement>(null);
+
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const [selectedPeriod, setSelectedPeriod] = useState<SelectedPeriod>({ 
+        type: 'week' // <<< УСТАНАВЛИВАЕМ НАЧАЛЬНОЕ ЗНАЧЕНИЕ 'week' >>>
+        // year: currentYear, // Убираем год/месяц из начального состояния
+        // month: currentMonth // Убираем год/месяц из начального состояния
+    });
+    
+    // <<< Используем useState для availableMonths, инициализируем пустым >>>
+    const [availableMonths, setAvailableMonths] = useState<AvailablePeriod[]>([]);
+
+    // <<< ДОБАВЛЯЕМ useEffect ДЛЯ ЗАГРУЗКИ ПЕРИОДОВ ПРИ МОНТИРОВАНИИ >>>
+    useEffect(() => {
+        if (isOpen && chatId) { // Загружаем только если открыто и есть chatId
+            const fetchPeriods = async () => {
+                try {
+                    const periods = await getAvailableTimesheetPeriods(chatId);
+                    // Устанавливаем полученные периоды или текущий месяц, если список пуст
+                    setAvailableMonths(periods.length > 0 ? periods : [{ year: currentYear, month: currentMonth }]);
+                } catch (e) {
+                    console.error("[TimesheetPreview] Failed to fetch available periods:", e);
+                    // В случае ошибки ставим хотя бы текущий месяц
+                    setAvailableMonths([{ year: currentYear, month: currentMonth }]);
+                }
+            };
+            fetchPeriods();
+        }
+    }, [isOpen, chatId, currentYear, currentMonth]); // Зависим от isOpen и chatId
+
+    // <<< ДОБАВЛЯЕМ useEffect ДЛЯ ВЫЗОВА onPeriodChange ПРИ ОТКРЫТИИ >>>
+    useEffect(() => {
+        if (isOpen) {
+            // При открытии окна сообщаем родителю, что нужно загрузить неделю
+            console.log('[TimesheetPreview] Triggering initial period change to week on open');
+            onPeriodChange({ type: 'week' }); 
+        }
+        // Этот эффект должен сработать только один раз при изменении isOpen в true
+        // Мы не хотим вызывать onPeriodChange каждый раз при ре-рендере, когда isOpen=true
+        // Поэтому зависимость только от isOpen, но логика внутри if
+    }, [isOpen, onPeriodChange]); // Добавляем onPeriodChange в зависимости
+
+    // <<< useEffect для закрытия по клику вне (без изменений) >>>
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            // Закрываем меню периода
+            if (
+                periodDropdownRef.current && 
+                !periodDropdownRef.current.contains(event.target as Node) &&
+                isPeriodDropdownOpen // Проверяем, было ли оно открыто
+            ) {
+                // console.log('[TimesheetPreview] Click outside period dropdown');
+                setIsPeriodDropdownOpen(false);
+            }
+            // Закрываем меню отправки
+            if (
+                sendDropdownRef.current && 
+                !sendDropdownRef.current.contains(event.target as Node) &&
+                isSendDropdownOpen // Проверяем, было ли оно открыто
+            ) {
+                // console.log('[TimesheetPreview] Click outside send dropdown');
+                setIsSendDropdownOpen(false);
+            }
+        };
+
+        // Добавляем слушатель, только если хотя бы одно меню открыто
+        if (isPeriodDropdownOpen || isSendDropdownOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            // console.log('[TimesheetPreview] Added click outside listener');
+        } else {
+            // Если оба закрыты, удаляем слушатель (на случай если он остался)
+            document.removeEventListener('mousedown', handleClickOutside);
+             // console.log('[TimesheetPreview] Removed click outside listener (both closed)');
+        }
+
+        // Очистка при размонтировании компонента или изменении зависимостей
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            // console.log('[TimesheetPreview] Cleanup: Removed click outside listener');
+        };
+    }, [isPeriodDropdownOpen, isSendDropdownOpen]); // Зависим от состояния обоих меню
 
     if (!isOpen) {
         return null;
@@ -327,7 +502,6 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
         }
 
         const { columns, rows } = data;
-        const dateHeaders = columns;
 
         const formatDateHeader = (dateStr: string): string => {
              const index = getWeekdayIndex(dateStr);
@@ -388,16 +562,107 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
         );
     };
 
-    // Определяем реальные элементы меню
-    const menuItems = [
+    // --- Обработчики --- 
+    const handleSendMenuClick = ({ key }: { key: string }) => {
+        onSendRequest(key as 'user' | 'group');
+        // <<< Закрываем меню отправки после клика >>>
+        setIsSendDropdownOpen(false); 
+    };
+
+    // <<< ОБНОВЛЕННЫЙ ОБРАБОТЧИК СМЕНЫ ПЕРИОДА >>>
+    const handlePeriodMenuClick = (key: string) => {
+        let newPeriod: SelectedPeriod | null = null;
+
+        if (key === 'switch-to-week') {
+            newPeriod = { type: 'week' };
+        } else if (key === 'switch-to-month') {
+            // <<< Выбираем первый доступный месяц из ДИНАМИЧЕСКОГО списка >>>
+            const firstAvailableMonth = availableMonths[0] || { year: currentYear, month: currentMonth };
+            newPeriod = { type: 'month', year: firstAvailableMonth.year, month: firstAvailableMonth.month };
+        } else if (key.startsWith('month-')) {
+            const [, yearStr, monthStr] = key.split('-');
+            const year = parseInt(yearStr, 10);
+            const month = parseInt(monthStr, 10);
+            if (!isNaN(year) && !isNaN(month)) {
+                newPeriod = { type: 'month', year, month };
+            }
+        }
+
+        if (newPeriod && (newPeriod.type !== selectedPeriod.type || newPeriod.year !== selectedPeriod.year || newPeriod.month !== selectedPeriod.month)) {
+             console.log('[TimesheetPreview] Period changed to:', newPeriod);
+             setSelectedPeriod(newPeriod);
+             setIsPeriodDropdownOpen(false); 
+             onPeriodChange(newPeriod); 
+        } else {
+             setIsPeriodDropdownOpen(false);
+        }
+    };
+    
+    // --- Форматирование и генерация меню --- 
+    const formatMonthYear = (year: number, month: number): string => {
+        const date = new Date(year, month);
+        return date.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+    };
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const periodMenuItems = useMemo(() => {
+        const items: (MenuItem | MenuDivider)[] = [];
+        
+        if (selectedPeriod.type === 'month') {
+            // <<< Используем ДИНАМИЧЕСКИЙ список availableMonths >>>
+            availableMonths.forEach(m => {
+                items.push({
+                    label: formatMonthYear(m.year, m.month),
+                    key: `month-${m.year}-${m.month}`,
+                    type: 'item'
+                });
+            });
+            
+            if (availableMonths.length > 0) {
+                 items.push({ type: 'divider', key: 'divider-month' });
+            }
+            
+            items.push({
+                 label: 'Выбрать неделю',
+                 key: 'switch-to-week',
+                 type: 'item'
+            });
+            
+        } else { // type === 'week'
+             items.push({
+                 label: 'Выбрать месяц',
+                 key: 'switch-to-month',
+                 type: 'item'
+            });
+             items.push({ type: 'divider', key: 'divider-week' });
+             items.push({
+                 label: 'Текущая неделя',
+                 key: 'current-week', 
+                 type: 'item'
+             });
+        }
+        
+        // <<< ВОЗВРАЩАЕМ СФОРМИРОВАННЫЙ МАССИВ ЭЛЕМЕНТОВ >>>
+        return items;
+    }, [selectedPeriod.type, availableMonths]);
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const periodButtonLabel = useMemo(() => {
+        if (selectedPeriod.type === 'month' && selectedPeriod.year !== undefined && selectedPeriod.month !== undefined) {
+            return formatMonthYear(selectedPeriod.year, selectedPeriod.month);
+        } else if (selectedPeriod.type === 'week') {
+            return 'Текущая неделя'; // TODO: Уточнить
+        }
+        return 'Выбрать период'; // Fallback
+    }, [selectedPeriod]);
+
+    // <<< ВОССТАНАВЛИВАЕМ ОПРЕДЕЛЕНИЕ sendMenuItems >>>
+    const sendMenuItems = [
         { label: 'В личные сообщения', key: 'user' },
         { label: `В чат группы (${groupTitle || '...'})`, key: 'group' },
     ];
+    // <<< КОНЕЦ ВОССТАНОВЛЕНИЯ >>>
 
-    const handleMenuClick = ({ key }: { key: string }) => {
-        onSendRequest(key as 'user' | 'group');
-    };
-    
     // <<< ЛОГИРУЕМ СОСТОЯНИЕ ПЕРЕД РЕНДЕРОМ >>>
     console.log('[TimesheetPreview] State before render:', {
         isLoading,
@@ -426,19 +691,59 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = ({
             <Footer>
                 <SecondaryButton onClick={onClose}>Закрыть</SecondaryButton>
                 
-                <Dropdown 
-                    menu={{ items: menuItems, onClick: handleMenuClick }}
-                    disabled={isLoading || !!error || !data || !data.rows || data.rows.length === 0}
-                    trigger={['click']}
-                    getPopupContainer={(triggerNode: HTMLElement) => document.body}
-                    overlayStyle={{ zIndex: 1200 }} 
-                    overlayClassName="timesheet-dropdown-overlay"
-                    onOpenChange={(open: boolean) => setIsDropdownOpen(open)} 
-                >
-                    <PrimaryButton>
-                        Отправить <ArrowIcon $isOpen={isDropdownOpen} />
+                {/* Кастомный дропдаун выбора периода */}
+                <DropdownWrapper ref={periodDropdownRef}> 
+                    <PeriodButton onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}>
+                        {/* TODO: Иконка календаря */} {periodButtonLabel} <ArrowIconPlaceholder $isOpen={isPeriodDropdownOpen} />
+                    </PeriodButton>
+                    {isPeriodDropdownOpen && (
+                        <DropdownMenu>
+                            {periodMenuItems.map(item => (
+                                // <<< Проверяем тип перед рендерингом >>>
+                                item.type === 'divider' ? 
+                                <div key={item.key} style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }} /> :
+                                <DropdownMenuItem 
+                                    key={item.key} 
+                                    onClick={() => handlePeriodMenuClick(item.key)} 
+                                    $isSelected={(
+                                        selectedPeriod.type === 'month' && 
+                                        item.key === `month-${selectedPeriod.year}-${selectedPeriod.month}`
+                                    ) || (
+                                        selectedPeriod.type === 'week' && item.key === 'current-week'
+                                    )}
+                                >
+                                    {/* Теперь label точно есть у item */} 
+                                    {item.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenu>
+                    )}
+                </DropdownWrapper>
+                
+                {/* Кастомный дропдаун отправки */}
+                <DropdownWrapper ref={sendDropdownRef}> 
+                    <PrimaryButton 
+                        onClick={() => setIsSendDropdownOpen(!isSendDropdownOpen)}
+                        disabled={isLoading || !!error || !data || !data.rows || data.rows.length === 0}
+                    >
+                        Отправить <ArrowIconPlaceholder $isOpen={isSendDropdownOpen} />
                     </PrimaryButton>
-                </Dropdown>
+                    {isSendDropdownOpen && (
+                         <DropdownMenu className="alignRight"> {/* Выравниваем по правому краю */}
+                            {sendMenuItems.map(item => (
+                                <DropdownMenuItem 
+                                    key={item.key} 
+                                    onClick={() => { 
+                                        handleSendMenuClick({ key: item.key }); 
+                                        setIsSendDropdownOpen(false); // Закрываем меню после клика
+                                    }} 
+                                >
+                                    {item.label}
+                                </DropdownMenuItem>
+                            ))}
+                        </DropdownMenu>
+                    )}
+                </DropdownWrapper>
             </Footer>
         </FullPageContainer>
     );

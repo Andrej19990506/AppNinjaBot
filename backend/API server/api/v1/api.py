@@ -16,6 +16,9 @@ from .endpoints.reserve import router as reserve_router
 # <<< ДОБАВЛЯЕМ ИМПОРТ НОВОГО РОУТЕРА >>>
 from .endpoints import inventory
 
+# NEW: Импорт роутера событий
+from .endpoints.events import router as events_router
+
 api_router = APIRouter()
 
 # <<< ПЕРЕМЕЩАЕМ inventory.router В НАЧАЛО >>>
@@ -29,6 +32,9 @@ api_router.include_router(groups_router, prefix="/groups", tags=["Groups"])
 api_router.include_router(shifts_router, prefix="/shifts", tags=["Shifts"])
 # <<< ПОДКЛЮЧАЕМ РОУТЕР РЕЗЕРВОВ >>>
 api_router.include_router(reserve_router, prefix="/reserves", tags=["Reserves"])
+
+# NEW: Подключаем роутер событий
+api_router.include_router(events_router, prefix="/events", tags=["Events"])
 
 # Подключаем другие роутеры, если они есть
 # api_router.include_router(couriers.router, prefix="/couriers", tags=["Couriers"]) 

@@ -6,6 +6,8 @@ from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+import time
+import telegram
 
 # Импортируем типы Telegram и Application
 from telegram import Update, InputFile
@@ -24,6 +26,10 @@ logger = logging.getLogger(__name__)
 # Определяем базовую директорию для файлов табеля (для безопасности)
 ALLOWED_FILE_DIR = Path("/app/shared/timesheets")
 
+# ---> ДОБАВЛЕНИЕ: Директория для отчетов инвентаризации < ---
+ALLOWED_REPORTS_DIR = Path(os.getenv("SHARED_REPORTS_FOLDER", "/app/shared/inventory_reports"))
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
 # Модель для эндпоинта отправки файла
 class SendFilePayload(BaseModel):
     target_chat_id: int
@@ -37,6 +43,12 @@ class SendFilePayload(BaseModel):
 # Модель для эндпоинта обновления данных пользователя
 class RefreshUserPayload(BaseModel):
     user_id: int
+
+# ---> ДОБАВЛЕНИЕ: Модель для эндпоинта отправки Excel отчета < ---
+class SendExcelReportPayload(BaseModel):
+    chat_id: str # Принимаем как строку, т.к. API отправляет строку
+    file_path: str
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
 # Создаем APIRouter
 router = APIRouter()
@@ -380,3 +392,135 @@ async def refresh_user_data(payload: RefreshUserPayload, request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal server error: {e}"
         ) 
+
+# --- НОВЫЙ ЭНДПОИНТ /internal/send_excel_report --- 
+@router.post("/internal/send_excel_report", tags=["Internal"], status_code=status.HTTP_200_OK)
+async def send_excel_report_internal(payload: SendExcelReportPayload, request: Request):
+    """Принимает запрос от API Server и отправляет сгенерированный Excel отчет в группу."""
+    logger.info(f"📬 Получен внутренний запрос на /internal/send_excel_report для чата ID {payload.chat_id}")
+    logger.debug(f"Payload: {payload.model_dump()}")
+    resolved_path: Optional[Path] = None # Инициализируем перед try
+
+    try:
+        # Получаем экземпляр бота
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send_excel_report")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
+
+        # Преобразуем формат ID чата (ожидаем ID группы, он должен быть отрицательным)
+        try:
+            # Убедимся, что chat_id начинается с "-", как и должно быть для групп
+            if not payload.chat_id.startswith('-'):
+                # Если API прислал ID без минуса, пытаемся его добавить (хотя API должен слать правильный)
+                logger.warning(f"Получен chat_id '{payload.chat_id}' без минуса для группы. Пытаюсь добавить...")
+                processed_chat_id = int(f"-{payload.chat_id}")
+            else:
+                processed_chat_id = int(payload.chat_id)
+            logger.info(f"ID чата для отправки отчета: {processed_chat_id}")
+        except ValueError:
+            logger.error(f"Не удалось преобразовать chat_id '{payload.chat_id}' в число")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {payload.chat_id}")
+
+        # Валидация пути к файлу
+        requested_path = Path(payload.file_path)
+        logger.info(f"Проверка пути Excel файла: {requested_path}")
+
+        # 1. Проверка на абсолютный путь
+        if not requested_path.is_absolute():
+             logger.error(f"❌ Указан относительный путь для Excel: {requested_path}")
+             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Excel file path: Must be absolute.")
+
+        # 2. Проверка существования файла
+        if not requested_path.is_file():
+             logger.error(f"❌ Excel файл не найден по пути: {requested_path}")
+             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Excel file not found at path: {requested_path.name}")
+
+        # 3. Проверка нахождения файла в разрешенной директории отчетов
+        try:
+             resolved_path = requested_path.resolve(strict=True)
+             allowed_dir_resolved = ALLOWED_REPORTS_DIR.resolve(strict=True)
+             if not resolved_path.is_relative_to(allowed_dir_resolved):
+                 logger.error(f"❌ Попытка доступа к Excel файлу вне разрешенной директории: {resolved_path}")
+                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to the specified Excel file path.")
+        except Exception as path_resolve_err:
+             logger.error(f"❌ Ошибка при проверке пути Excel файла {requested_path}: {path_resolve_err}", exc_info=True)
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error validating Excel file path.")
+
+        logger.info(f"Путь Excel {resolved_path} прошел валидацию. Попытка отправки документа.")
+
+        # Формируем подпись для документа
+        report_date = datetime.now().strftime("%d.%m.%Y")
+        caption = f"📊 Отчет по инвентаризации от {report_date}"
+        logger.info(f"Сгенерирована подпись для Excel: '{caption}'")
+
+        # Отправка документа
+        try:
+            with open(resolved_path, "rb") as document_file:
+                await bot_app.bot.send_document(
+                    chat_id=processed_chat_id,
+                    document=InputFile(document_file, filename=resolved_path.name), # Оборачиваем в InputFile
+                    caption=caption
+                )
+                logger.info(f"✅ Excel файл {resolved_path.name} успешно отправлен в чат {payload.chat_id}.")
+            
+            # --- Удаление файла после успешной отправки --- 
+            try:
+                os.remove(resolved_path)
+                logger.info(f"✅ Временный Excel файл {resolved_path} удален после отправки.")
+            except Exception as remove_err:
+                logger.error(f"⚠️ Не удалось удалить временный Excel файл {resolved_path} после отправки: {remove_err}")
+                # Не прерываем выполнение, просто логируем
+            # --- Конец удаления файла --- 
+
+            return {"success": True, "message": "Excel report sent successfully"}
+
+        except telegram.error.TelegramError as tg_err:
+            logger.error(f"❌ Ошибка Telegram при отправке Excel {resolved_path.name} в чат {payload.chat_id}: {tg_err}")
+            # Попытка отправить с альтернативным ID (если это группа)
+            if str(processed_chat_id).startswith('-100'):
+                 alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
+                 logger.info(f"Попытка отправить Excel в чат {alternative_chat_id} (альтернативный ID)")
+                 try:
+                     with open(resolved_path, "rb") as document_file:
+                         await bot_app.bot.send_document(
+                             chat_id=alternative_chat_id,
+                             document=InputFile(document_file, filename=resolved_path.name),
+                             caption=caption
+                         )
+                         logger.info(f"✅ Excel файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id}.")
+                         # Удаляем файл после успешной второй попытки
+                         try:
+                             os.remove(resolved_path)
+                             logger.info(f"✅ Временный Excel файл {resolved_path} удален после второй попытки отправки.")
+                         except Exception as remove_err:
+                             logger.error(f"⚠️ Не удалось удалить временный Excel файл {resolved_path} после второй попытки отправки: {remove_err}")
+                         return {"success": True, "message": "Excel report sent successfully (alt ID)"}
+                 except Exception as alt_send_err:
+                     logger.error(f"❌ Ошибка при отправке Excel {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
+                     # Если и вторая попытка не удалась, выбрасываем ошибку
+                     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send Excel report (alt ID): {alt_send_err}")
+            else:
+                 # Если это не группа или другая ошибка Telegram
+                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Telegram error sending Excel report: {tg_err}")
+        except Exception as send_err: # Ошибки чтения файла или другие
+            logger.error(f"❌ Ошибка при обработке Excel файла {resolved_path.name} или отправке в чат {payload.chat_id}: {send_err}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send Excel report: {send_err}")
+
+    except HTTPException as http_exc:
+        # Перевыбрасываем HTTP исключения (например, от валидации)
+        # Важно: не удаляем файл, если была ошибка до отправки
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в /internal/send_excel_report: {e}", exc_info=True)
+        # Не удаляем файл, если была ошибка
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}")
+    finally:
+        # --- Дополнительная проверка на удаление файла, если он все еще существует после ошибки отправки --- 
+        # Это маловероятно из-за логики выше, но как подстраховка
+        if resolved_path and os.path.exists(resolved_path):
+            # Проверяем, была ли ошибка именно при отправке (не при валидации)
+            # Если ошибка была ДО отправки, файл удалять не нужно
+            # (Эту логику сложно точно реализовать здесь, лучше полагаться на удаление после успешной отправки)
+            pass # Пока не удаляем здесь, чтобы избежать случайного удаления
+            # logger.warning(f"Файл {resolved_path} не был удален из-за ошибки.") 

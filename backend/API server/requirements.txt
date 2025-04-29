@@ -9,4 +9,5 @@ alembic
 httpx
 loguru
 openpyxl
-redis>=5.0.0 
+redis>=5.0.0
+pandas

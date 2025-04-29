@@ -1,0 +1,94 @@
+.navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: var(--card-background);
+    border-top: 1px solid var(--border-color);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+}
+
+.navButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    border: none;
+    background: var(--primary-transparent);
+    color: var(--primary-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Эффект нажатия */
+.navButton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--primary-color);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.navButton:active::after {
+    opacity: 0.1;
+}
+
+/* Анимация при наведении */
+.navButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--primary-shadow);
+}
+
+.navButton:active {
+    transform: translateY(0);
+}
+
+/* Иконки */
+.navButton svg {
+    width: 24px;
+    height: 24px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Специфичные стили для кнопок */
+.backButton {
+    margin-right: auto;
+}
+
+.nextButton {
+    margin-left: auto;
+}
+
+/* Отключенное состояние */
+.navButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Safe area insets для iOS */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .navigation {
+        padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+}
+
+/* Темная тема */
+[data-theme="dark"] .navButton {
+    background: var(--primary-dark-transparent);
+}
+
+[data-theme="dark"] .navButton:hover {
+    box-shadow: 0 4px 12px var(--primary-dark-shadow);
+} 

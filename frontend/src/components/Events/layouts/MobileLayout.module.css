@@ -1,0 +1,122 @@
+/* Базовая структура */
+.mobileLayout {
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--background-color);
+    position: relative;
+}
+
+/* Контейнер для заголовка */
+.stepTitleContainer {
+    position: sticky;
+    top: 0;
+    background: var(--background-color);
+    z-index: 9;
+    padding-top: env(safe-area-inset-top);
+}
+
+/* Заголовок шага */
+.stepTitle {
+    padding: 20px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-color);
+}
+
+.stepTitle h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+    line-height: 1.2;
+}
+
+.stepSubtitle {
+    font-size: 15px;
+    color: var(--text-secondary);
+    margin: 8px 0 0;
+    line-height: 1.4;
+}
+
+/* Основной контейнер */
+.mainContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: auto;
+}
+
+/* Контейнер контента */
+.contentContainer {
+    margin-top: auto;
+    background: var(--card-background);
+    border-radius: 24px 24px 0 0;
+    box-shadow: var(--shadow-md);
+    padding: 16px;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
+    position: relative;
+    z-index: 1;
+}
+
+/* Темная тема */
+[data-theme="dark"] .contentContainer {
+    background: var(--card-background);
+    box-shadow: var(--shadow-md);
+}
+
+/* Адаптивность */
+@media (width <= 480px) {
+    .stepTitle {
+        padding: 16px;
+    }
+
+    .stepTitle h2 {
+        font-size: 20px;
+    }
+
+    .stepSubtitle {
+        font-size: 14px;
+        margin-top: 6px;
+    }
+
+    .contentContainer {
+        padding: 12px;
+        padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
+        border-radius: 20px 20px 0 0;
+    }
+}
+
+/* Для iOS */
+@supports (-webkit-touch-callout: none) {
+    .mobileLayout {
+        height: stretch;
+    }
+    
+    .contentContainer {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 80px);
+    }
+    
+    .mainContainer {
+        height: stretch;
+    }
+}
+
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: var(--background-primary);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 16px;
+    z-index: 10;
+}

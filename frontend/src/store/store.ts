@@ -25,6 +25,9 @@ import availableCouriersReducer from './slices/availableCouriersSlice';
 // import inventoryItemsReducer from './slices/inventoryItemSlice';
 // import inventoryCategoriesReducer from './slices/inventoryCategorySlice';
 
+// NEW: Импорт редьюсера событий
+import eventsReducer from './slices/eventsSlice';
+
 // Создаем listener middleware instance
 export const listenerMiddleware = createListenerMiddleware();
 
@@ -102,6 +105,8 @@ const store = configureStore({
         reserves: reservesReducer,
         socket: socketReducer,
         availableCouriers: availableCouriersReducer,
+        // NEW: Добавляем редьюсер событий
+        events: eventsReducer,
     },
     // preloadedState, // Закомментировано
     middleware: (getDefaultMiddleware) =>
@@ -126,6 +131,8 @@ export type RootState = {
     reserves: ReturnType<typeof reservesReducer>;
     socket: ReturnType<typeof socketReducer>;
     availableCouriers: ReturnType<typeof availableCouriersReducer>;
+    // NEW: Добавляем тип для среза событий
+    events: ReturnType<typeof eventsReducer>;
 };
 
 export type AppDispatch = typeof store.dispatch;

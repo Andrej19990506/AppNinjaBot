@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import desc, text # <-- ДОБАВЛЕН ИМПОРТ text
@@ -25,6 +25,19 @@ from pydantic import Field, BaseModel
 import redis.asyncio as redis # Типизация для клиента
 from core.dependencies import get_redis_client # Импортируем из нового файла
 from fastapi import Depends # Обновляем импорт Depends, чтобы он включал нашу зависимость
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+# ---> ДОБАВЛЕНИЕ: Импорты для генерации Excel <---
+import pandas as pd
+import openpyxl
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+# ---> ДОБАВЛЕНИЕ: Дополнительные импорты для Redis и вызова бота <---
+import uuid
+import httpx # Для асинхронных HTTP запросов к боту
+from pathlib import Path as FilePath # <--- Переименовано для избежания конфликта с fastapi.Path
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
 logger = logging.getLogger(__name__)
@@ -976,3 +989,352 @@ async def delete_inventory_item(
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
 # --- ЭНДПОИНТ ИСТОРИИ ---
+
+# Вспомогательная функция для генерации Excel-содержимого
+def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, Any], group_title: str) -> BytesIO:
+    """Генерирует Excel файл в памяти (BytesIO)"""
+    logger.info("Starting Excel generation...")
+    output = BytesIO()
+    try:
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            # 1. Метаданные (Информация о документе)
+            author_first_name = metadata.get('currentUser', {}).get('first_name', '')
+            author_last_name = metadata.get('currentUser', {}).get('last_name', '')
+            author_full_name = f"{author_first_name} {author_last_name}".strip()
+            
+            meta_info = {
+                'Поле': ['Дата:', 'Филиал:', 'Автор:'],
+                'Значение': [
+                    datetime.now().strftime('%d.%m.%Y %H:%M'),
+                    group_title,
+                    author_full_name if author_full_name else 'Не указан' # Отображаем 'Не указан' если имя пустое
+                ]
+            }
+            metadata_df = pd.DataFrame(meta_info)
+            metadata_df.to_excel(writer, sheet_name='Инвентаризация', index=False, header=False, startrow=0)
+            logger.debug("Metadata written to Excel.")
+
+            # 2. Данные инвентаря
+            excel_data = []
+            inventory_items = inventory_data # Используем напрямую переданные данные
+            current_category = None
+
+            # Сортируем категории, потом товары внутри категорий
+            sorted_categories = sorted(inventory_items.keys())
+
+            for category in sorted_categories:
+                items = inventory_items.get(category, {})
+                if not isinstance(items, dict): continue # Пропускаем, если формат категории неверный
+
+                sorted_item_names = sorted(items.keys())
+
+                # Добавляем пустую строку перед новой категорией (если это не первая)
+                if current_category is not None:
+                     excel_data.append({'Категория': '', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
+                
+                current_category = category # Устанавливаем текущую категорию
+
+                for item_name in sorted_item_names:
+                    item_data = items.get(item_name, {})
+                    if not isinstance(item_data, dict): continue # Пропускаем, если формат товара неверный
+                    
+                    raw_data = item_data.get('raw', {})
+                    semifinished_data = item_data.get('semifinished', {})
+
+                    # Получаем количество, учитывая None или отсутствие ключа
+                    raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
+                    semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
+
+                    # Если есть поле 'isOutOfStock', используем его
+                    raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
+                    # Для полуфабрикатов нет 'isOutOfStock'
+                    semifin_display = semifin_qty
+
+                    excel_data.append({
+                        'Категория': category,
+                        'Товар': item_name,
+                        'Сырье (шт.)': raw_display if raw_display is not None else '', # Пустая строка если None
+                        'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else '' # Пустая строка если None
+                    })
+            
+            df = pd.DataFrame(excel_data)
+            df.to_excel(writer, sheet_name='Инвентаризация', index=False, startrow=5) # Начинаем с 6 строки (0-based index 5)
+            logger.debug("Inventory data written to Excel.")
+
+            # 3. Форматирование
+            worksheet = writer.sheets['Инвентаризация']
+
+            # Форматирование метаданных
+            metadata_font = Font(bold=True)
+            metadata_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
+            border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+            for row in range(1, 4): # Строки 1, 2, 3
+                for col in range(1, 3): # Столбцы A, B
+                    cell = worksheet.cell(row=row, column=col)
+                    cell.font = metadata_font
+                    cell.fill = metadata_fill
+                    cell.alignment = Alignment(horizontal='left', vertical='center')
+                    cell.border = border_thin
+            
+            # Форматирование заголовков таблицы (строка 6)
+            header_font = Font(bold=True, color="FFFFFF") # Белый текст
+            header_fill = PatternFill(start_color='FF5F1F', end_color='FF5F1F', fill_type='solid') # Оранжевый фон
+            
+            header_row_index = 6 # Заголовки теперь в 6-й строке
+            for cell in worksheet[header_row_index]:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                cell.border = border_thin
+
+            # Форматирование данных и чередование цветов
+            current_category_for_style = None
+            current_color_is_gray = False
+            data_start_row = header_row_index + 1 # Данные начинаются со строки 7
+
+            for row_idx, excel_row_data in enumerate(excel_data, start=data_start_row):
+                 category_value = excel_row_data.get('Категория')
+
+                 # Определяем цвет строки
+                 row_fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid') # Белый по умолчанию
+                 if category_value: # Если есть значение в категории
+                      if category_value != current_category_for_style:
+                           current_category_for_style = category_value
+                           current_color_is_gray = not current_color_is_gray # Чередуем цвет при смене категории
+                      
+                      if current_color_is_gray:
+                          row_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid') # Серый
+
+                 # Применяем стиль ко всем ячейкам строки
+                 for col_idx in range(1, df.shape[1] + 1): # df.shape[1] - количество столбцов в DataFrame
+                      cell = worksheet.cell(row=row_idx, column=col_idx)
+                      cell.fill = row_fill
+                      # Выравнивание: Категория/Товар - влево, остальное - центр
+                      align_horizontal = 'left' if col_idx <= 2 else 'center'
+                      cell.alignment = Alignment(horizontal=align_horizontal, vertical='center', wrap_text=True)
+                      cell.border = border_thin
+
+            logger.debug("Cell formatting applied.")
+
+            # Автоподбор ширины столбцов
+            for col_idx, column_cells in enumerate(worksheet.columns, 1):
+                max_length = 0
+                column_letter = get_column_letter(col_idx)
+
+                # Устанавливаем минимальную ширину
+                min_width = 15 if col_idx <= 2 else 10 # Шире для Категории/Товара
+
+                for cell in column_cells:
+                    try:
+                         # Пропускаем пустые ячейки и заголовки метаданных при вычислении max_length
+                         if cell.value and cell.row >= header_row_index:
+                              cell_text_length = len(str(cell.value))
+                              # Учитываем перенос строки, если он есть
+                              lines = str(cell.value).split('\n')
+                              max_line_length = max(len(line) for line in lines) if lines else 0
+                              cell_text_length = max(cell_text_length, max_line_length) # Берем максимум
+
+                              if cell_text_length > max_length:
+                                  max_length = cell_text_length
+                    except Exception:
+                        pass # Игнорируем ошибки при доступе к значению ячейки
+                
+                # Устанавливаем ширину: (максимальная длина + небольшой запас) или минимальная ширина
+                adjusted_width = max(min_width, max_length + 3) # Добавляем запас +3
+                # Ограничиваем максимальную ширину, чтобы избежать слишком широких столбцов
+                max_allowed_width = 60
+                adjusted_width = min(adjusted_width, max_allowed_width)
+
+                worksheet.column_dimensions[column_letter].width = adjusted_width
+            logger.debug("Column widths adjusted.")
+
+        output.seek(0)
+        logger.info("Excel generation finished successfully.")
+        return output
+
+    except Exception as e:
+        logger.exception(f"Error generating Excel content: {e}")
+        # Возвращаем None, чтобы показать ошибку
+        return None # <-- ИЗМЕНЕНО: Возвращаем None вместо пустого буфера
+
+# --- ЭНДПОИНТ ДЛЯ ГЕНЕРАЦИИ EXCEL (БЕЗ СКАЧИВАНИЯ) ---
+@router.post(
+    "/{chat_id}/excel",
+    status_code=status.HTTP_200_OK,
+    summary="Trigger Excel Report Generation for a Chat",
+    description="Generates an Excel report of the current inventory for the chat and saves it server-side (or prepares it for the bot). Does not return the file directly.",
+    tags=["Inventory", "Reports"]
+)
+async def trigger_excel_generation(
+    background_tasks: BackgroundTasks, # Перемещаем background_tasks вперед
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session) # db теперь идет после
+):
+    logger.info(f"[trigger_excel_generation] POST /inventory/{chat_id}/excel")
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[trigger_excel_generation] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    try:
+        # Получаем группу, её инвентарь и метаданные
+        # Используем selectinload для метаданных, если они в отдельной таблице или нужны связанные данные
+        group_query = select(Group) \
+            .where(Group.group_id == group_telegram_id)
+            # .options(selectinload(Group.metadata_relation)) # Пример, если метаданные связаны
+
+        group_result = await db.execute(group_query)
+        group = group_result.scalar_one_or_none()
+
+        if not group:
+            logger.warning(f"[trigger_excel_generation] Group not found for chat_id: {chat_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+        if group.group_type != 'chef':
+            logger.warning(f"[trigger_excel_generation] Excel generation denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Excel reports can only be generated for groups of type 'chef'")
+
+        # ---> ИСПОЛЬЗОВАНИЕ НОВОЙ ЛОГИКИ СЛИЯНИЯ ДЛЯ ПОЛУЧЕНИЯ АКТУАЛЬНОГО ИНВЕНТАРЯ <---
+        # 1. Получаем основной инвентарь
+        base_inventory = group.json_inventory
+        
+        # 2. Загружаем шаблон, если основной пуст
+        if not base_inventory:
+            logger.info(f"[trigger_excel_generation] Base inventory empty for {chat_id}, loading template.")
+            try:
+                base_inventory = await get_inventory_template()
+            except HTTPException as e:
+                logger.error(f"[trigger_excel_generation] Failed to load template for Excel: {e.detail}. Using empty inventory.")
+                base_inventory = {}
+            except Exception as e:
+                logger.exception(f"[trigger_excel_generation] Unexpected error loading template for Excel. Using empty inventory.")
+                base_inventory = {}
+        else:
+             # Работаем с копией
+             base_inventory = json.loads(json.dumps(group.json_inventory))
+
+        # 3. Получаем и сливаем добавления
+        group_additions = group.json_inventory_additions or {}
+        if group_additions:
+            logger.info(f"[trigger_excel_generation] Merging additions for Excel generation for chat {chat_id}")
+            for category, items in group_additions.items():
+                if not isinstance(items, dict): continue
+                if category not in base_inventory: base_inventory[category] = {}
+                for item_name, item_data in items.items():
+                    if not isinstance(item_data, dict): continue
+                    if item_name not in base_inventory[category]:
+                         new_item = {
+                             "name": item_name,
+                             "raw": {"quantity": 0, "filled": False, "isOutOfStock": False},
+                             "itemType": "raw"
+                         }
+                         if item_data.get('has_semifinished') is True:
+                             new_item["semifinished"] = {"quantity": 0, "filled": False}
+                             new_item["itemType"] = "both"
+                         base_inventory[category][item_name] = new_item
+        
+        final_inventory_data = base_inventory # Инвентарь для Excel
+        # ---> КОНЕЦ ЛОГИКИ СЛИЯНИЯ <---
+
+        inventory_metadata = group.json_metadata or {} # Используем актуальные метаданные из БД
+        group_title = group.title
+
+        # Проверяем, есть ли вообще данные для генерации
+        if not final_inventory_data:
+             logger.warning(f"[trigger_excel_generation] No inventory data found for chat_id: {chat_id} after merging. Cannot generate Excel.")
+             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No inventory data available to generate the report.")
+
+        # Вызываем функцию генерации
+        excel_content_stream = _generate_excel_content(
+            inventory_data=final_inventory_data,
+            metadata=inventory_metadata,
+            group_title=group_title
+        )
+
+        # ---> ДОБАВЛЕНА ПРОВЕРКА НА ОШИБКУ ГЕНЕРАЦИИ <---
+        if excel_content_stream is None:
+            logger.error(f"[trigger_excel_generation] Excel generation function (_generate_excel_content) failed for chat_id: {chat_id}.")
+            # Кидаем ошибку 500, так как генерация не удалась
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate Excel content (internal function error).")
+        # ---> КОНЕЦ ПРОВЕРКИ <---
+
+        # Проверяем, вернула ли функция генерации содержимое (можно оставить для доп. уверенности)
+        excel_bytes = excel_content_stream.getvalue()
+        if not excel_bytes:
+             logger.error(f"[trigger_excel_generation] Excel generation function returned empty content (but not None) for chat_id: {chat_id}.")
+             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to generate Excel content (empty result).")
+
+        # --- Логика сохранения файла на диск --- 
+        # Определяем путь к общей папке
+        # Используем переменную окружения или значение по умолчанию
+        # ИЗМЕНЕНО: Путь теперь внутри /app/shared
+        shared_folder_path = FilePath(os.getenv("SHARED_REPORTS_FOLDER", "/app/shared/inventory_reports")) # <-- ИЗМЕНЕНО
+        shared_folder_path.mkdir(parents=True, exist_ok=True) # Создаем папку, если ее нет
+
+        # Генерируем уникальное имя файла
+        unique_filename = f"inventory_{chat_id}_{uuid.uuid4()}.xlsx"
+        save_file_path = shared_folder_path / unique_filename
+        absolute_file_path_str = str(save_file_path.resolve()) # Получаем абсолютный путь для передачи боту
+
+        try:
+            with open(save_file_path, "wb") as f:
+                f.write(excel_bytes)
+            logger.info(f"[trigger_excel_generation] Excel content for chat {chat_id} saved to: {save_file_path}")
+        except Exception as save_err:
+            logger.exception(f"[trigger_excel_generation] Failed to save Excel file to {save_file_path} for chat {chat_id}: {save_err}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save generated report.")
+        # --- Конец логики сохранения на диск ---
+
+        # --- Логика вызова бота --- 
+        # Используем ту же переменную окружения и базовый URL, что и для табелей
+        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot:8003") 
+        # Формируем полный URL для эндпоинта отправки Excel отчетов
+        send_report_endpoint = f"{bot_internal_base_url}/internal/send_excel_report" 
+        bot_payload = {
+            "chat_id": str(chat_id), # Убедимся, что это строка
+            "file_path": absolute_file_path_str # Передаем абсолютный путь к файлу
+        }
+
+        # Запускаем отправку запроса боту в фоновой задаче
+        background_tasks.add_task(send_inventory_report_to_bot, send_report_endpoint, bot_payload, absolute_file_path_str)
+
+        logger.info(f"[trigger_excel_generation] Excel generation process initiated for chat_id: {chat_id}. Bot notification task scheduled.")
+        return {
+            "status": "success",
+            "message": "Запрос на формирование и отправку отчета получен. Бот скоро отправит файл в группу.",
+            "chat_id": chat_id,
+            # Убираем redis_key, т.к. он больше не используется
+            # "redis_key": redis_key
+            "file_path": absolute_file_path_str # Возвращаем путь к файлу (для отладки)
+        }
+
+    except HTTPException as http_exc:
+        # Пробрасываем HTTP исключения, которые могли возникнуть при поиске группы или генерации
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"[trigger_excel_generation] Unexpected error generating Excel for chat_id: {chat_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during Excel generation.")
+
+# Асинхронная функция для отправки запроса боту в фоне и удаления файла
+async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_delete: str):
+    """Отправляет отчет боту и удаляет временный файл."""
+    logger.info(f"[BG Task - Inventory Report] Attempting to send request to bot. URL: {url}, Payload keys: {list(payload.keys())}")
+    async with httpx.AsyncClient(timeout=60.0) as client: # Добавлен таймаут
+        try:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            logger.info(f"[BG Task - Inventory Report] Successful response from bot (status {response.status_code}) for report {payload.get('chat_id')}")
+            # Удаляем временный файл после успешной отправки боту
+            try:
+                os.remove(file_path_to_delete)
+                logger.info(f"[BG Task - Inventory Report] Temporary file {file_path_to_delete} deleted.")
+            except OSError as unlink_err:
+                logger.error(f"[BG Task - Inventory Report] Failed to delete temporary file {file_path_to_delete}: {unlink_err}")
+        except httpx.RequestError as req_err:
+            logger.error(f"[BG Task - Inventory Report] Request error while contacting bot at {url}: {req_err}")
+        except httpx.HTTPStatusError as status_err:
+            logger.error(f"[BG Task - Inventory Report] Bot returned an error status {status_err.response.status_code} for {url}. Response: {status_err.response.text}")
+        except Exception as e:
+            logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({url})") # Используем logger.exception

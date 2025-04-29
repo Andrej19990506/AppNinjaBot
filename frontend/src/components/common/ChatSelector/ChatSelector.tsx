@@ -48,11 +48,12 @@ interface SystemNotificationType {
 
 export interface ChatSelectorProps {
     chats: ChatItem[];
-    onChatSelect?: (chatId: string, chat: ChatItem) => void;
+    onChatSelect?: (chatIds: string[]) => void;
     onResetInventory?: (chatId: string) => Promise<void>;
     mode: ChatContext;
     title?: string;
     onHomeClick?: () => void;
+    selectedChats?: string[];
 }
 
 // Константы для свайпа
@@ -83,7 +84,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     onResetInventory,
     mode = 'inventory',
     title = getTitleByMode(mode),
-    onHomeClick
+    onHomeClick,
+    selectedChats = []
 }) => {
     const dispatch = useAppDispatch();
     const currentUser = useAppSelector((state: RootState) => state.user.user);
@@ -223,28 +225,53 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         }
 
         try {
-            console.log(`ChatSelector: handleChatClick - Checking admin rights for chat ${chat.chat_id}, user ${currentUser.id}, mode ${mode}`);
-            // 3. Check admin rights
-            await dispatch(checkAdminRights({
-                userId: currentUser.id,
-                chatId: chat.chat_id,
-                admins: chat.admins,
-                context: mode
-            })).unwrap();
-            console.log(`ChatSelector: Admin rights OK for chat ${chat.chat_id}`);
+            console.log(`ChatSelector: handleChatClick - Processing chat ${chat.chat_id}, user ${currentUser.id}, mode ${mode}`);
 
-            // 4. If rights OK, set state to show modal
-            setSelectedChatLocal(chat);
-            setShowModal(true);
-            console.log(`ChatSelector: Modal will be shown for chat ${chat.chat_id}`);
+            // --- ИЗМЕНЕНИЕ: Пропускаем проверку прав для режима 'events' ---
+            if (mode !== 'events') {
+                console.log(`ChatSelector: Mode is '${mode}', checking admin rights...`);
+                // 3. Check admin rights (only if mode is not 'events')
+                await dispatch(checkAdminRights({
+                    userId: currentUser.id,
+                    chatId: chat.chat_id,
+                    admins: chat.admins,
+                    context: mode
+                })).unwrap();
+                console.log(`ChatSelector: Admin rights OK for chat ${chat.chat_id}`);
+
+                // 4. If rights OK, set state to show modal (for inventory/writeoff)
+                setSelectedChatLocal(chat);
+                setShowModal(true);
+                console.log(`ChatSelector: Modal will be shown for chat ${chat.chat_id}`);
+            
+            } else {
+                // 3b. Mode is 'events', skip admin check and call onChatSelect directly
+                console.log(`ChatSelector: Mode is 'events', skipping admin check. Calling onChatSelect...`);
+                if (onChatSelect) {
+                    // Используем пропс selectedChats вместо несуществующего selectedChatsInternal
+                    const isSelected = selectedChats.includes(chat.chat_id); 
+                    // Формируем новый массив ID на основе пропса selectedChats
+                    const newSelectedChats = isSelected
+                        ? selectedChats.filter((id: string) => id !== chat.chat_id) // Добавляем тип для id
+                        : [...selectedChats, chat.chat_id];
+                    
+                    // Вызываем onChatSelect с новым массивом, вместо setSelectedChatsInternal
+                    onChatSelect(newSelectedChats); 
+                    console.log(`ChatSelector: onChatSelect called with IDs: ${newSelectedChats.join(', ')}`);
+                } else {
+                    console.warn('ChatSelector: Mode is \'events\' but onChatSelect prop is missing.');
+                }
+            }
 
         } catch (error: any) {
-            // 5. Handle rights error or other errors
-            console.error('ChatSelector: Admin rights check failed or other error:', error);
-            setSystemNotification({
-                message: typeof error === 'string' ? error : error?.message || 'Ошибка при проверке прав или другое действие',
-                type: 'error'
-            });
+            // 5. Handle rights error or other errors (only relevant if admin check was performed)
+            if (mode !== 'events') { // Only show error if it came from admin check
+                console.error('ChatSelector: Admin rights check failed or other error:', error);
+                setSystemNotification({
+                    message: typeof error === 'string' ? error : error?.message || 'Ошибка при проверке прав или другое действие',
+                    type: 'error'
+                });
+            }
             // Optionally set component-level error state if needed
             // setError('Failed to process chat selection.');
         } finally {
@@ -258,6 +285,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         dispatch,
         mode,
         setSystemNotification,
+        onChatSelect, // Added dependency
+        selectedChats, // Added dependency
         // setError, // Only if using component-level error state
         setSelectedChatLocal,
         setShowModal

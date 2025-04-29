@@ -1,5 +1,6 @@
 import { axiosInstance } from './api'; // Предполагаем, что axiosInstance настроен здесь
 import { logger } from '../utils/logger';
+import { isAxiosError } from 'axios'; // <--- Импортируем isAxiosError напрямую
 import {
     InventoryData, 
     InventoryUpdatePayload, 
@@ -195,5 +196,40 @@ export const deleteInventoryItem = async (chatId: string, category: string, item
     } catch (error) {
         logger.error(`${logPrefix} Error deleting item:`, error);
         throw error;
+    }
+};
+
+// ---> ДОБАВЛЕНИЕ: Функция для запроса генерации и отправки Excel отчета <---
+/**
+ * Triggers the generation and sending of the inventory Excel report via the bot.
+ * @param chatId - The Telegram ID of the chat.
+ * @returns {Promise<{status: string, message: string, chat_id: string, file_path?: string}>} Response indicating the request status.
+ */
+export const triggerExcelReportGeneration = async (chatId: string): Promise<{status: string, message: string, chat_id: string, file_path?: string}> => {
+    const logPrefix = `[inventoryApi:triggerExcelReportGeneration chatId=${chatId}]`;
+    if (!chatId) {
+        const errorMsg = `${logPrefix} chatId is required.`;
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+    }
+    const url = `/api/v1/inventory/${chatId}/excel`;
+    try {
+        logger.log(`${logPrefix} Triggering Excel report generation at ${url}...`);
+        // Используем axiosInstance для POST запроса без тела
+        const response = await axiosInstance.post<any>(url);
+        logger.log(`${logPrefix} Excel report generation triggered successfully.`);
+        return response.data; // Возвращаем ответ от сервера {status: 'success', ...}
+    } catch (error: unknown) { // <--- Явно указываем тип unknown
+        logger.error(`${logPrefix} Error triggering Excel report generation:`, error);
+        // Попытка извлечь сообщение об ошибке из ответа сервера, если оно есть
+        if (isAxiosError(error) && error.response?.data?.detail) { // <--- Используем импортированный isAxiosError
+             throw new Error(error.response.data.detail);
+        }
+        // Если это не Axios ошибка или нет деталей, выбрасываем как есть или обернем в Error
+        if (error instanceof Error) {
+             throw error;
+        } else {
+             throw new Error('An unknown error occurred during report generation trigger.');
+        }
     }
 };

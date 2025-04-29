@@ -39,6 +39,10 @@ import ProtectedChefRoute from './components/ProtectedChefRoute';
 // ИМПОРТИРУЕМ новый LoadingOverlay
 import LoadingOverlay from './components/common/LoadingOverlay/LoadingOverlay';
 
+// NEW: Импортируем компоненты событий
+import EventList from './components/Events/EventList';
+import CreateEvent from './components/Events/CreateEvent';
+
 // --- Заглушки --- 
 const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
 const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
@@ -169,6 +173,24 @@ function App() {
                     }
                  />
                 
+                {/* NEW: Добавляем маршруты для событий */}
+                <Route 
+                    path="/events"
+                    element={
+                        <ProtectedChefRoute>
+                            <EventList />
+                        </ProtectedChefRoute>
+                    }
+                />
+                <Route 
+                    path="/events/new"
+                    element={
+                        <ProtectedChefRoute>
+                            <CreateEvent />
+                        </ProtectedChefRoute>
+                    }
+                />
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </AppInitializer>

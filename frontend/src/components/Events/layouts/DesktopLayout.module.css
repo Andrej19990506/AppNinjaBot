@@ -1,0 +1,85 @@
+/* Базовая структура */
+.desktopLayout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: 100vh;
+    padding-top: var(--header-height);
+}
+
+/* Боковая панель */
+.sidebar {
+    position: sticky;
+    top: var(--header-height);
+    height: calc(100vh - var(--header-height));
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+}
+
+/* Список шагов */
+.stepsList {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.stepItem {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.stepNumber {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+}
+
+/* Основной контент */
+.mainContent {
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Заголовок шага */
+.stepTitle {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 24px;
+}
+
+/* Контент шага */
+.stepContent {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Навигация */
+.navigation {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 0;
+    margin-top: auto;
+}
+
+.prevButton,
+.nextButton {
+    min-width: 160px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}

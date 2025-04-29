@@ -6,9 +6,11 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import config from '../config';
+import { triggerExcelReportGeneration } from '../services/inventoryApi';
 import { HotTable } from '@handsontable/react';
 import 'handsontable/dist/handsontable.full.css';
+import { useAppDispatch } from '../store/hooks';
+import { addNotification, NotificationTypes } from '../store/slices/notificationSlice';
 
 interface InventoryItem {
     raw: {
@@ -50,47 +52,48 @@ const InventoryCompleteDialog: React.FC<InventoryCompleteDialogProps> = ({
 }) => {
     const [isPreviewOpen, setIsPreviewOpen] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+    const [isSending, setIsSending] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
+    const dispatch = useAppDispatch();
 
-    const handleDownload = async () => {
+    const handleSendReport = async () => {
+        if (!chatId) {
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR, 
+                message: 'Не удалось определить ID чата.'
+            }));
+            return;
+        }
+
+        setIsSending(true);
+        dispatch(addNotification({
+            type: NotificationTypes.INFO,
+            message: 'Пожалуйста, подождите, генерируем и отправляем отчет в группу...',
+            duration: 4000
+        }));
+
         try {
-            setIsDownloading(true);
-            
-            if (!chatId) {
-                throw new Error('Missing chat ID');
+            const result = await triggerExcelReportGeneration(chatId);
+
+            dispatch(addNotification({
+                type: NotificationTypes.SUCCESS,
+                message: 'Отчет успешно отправлен в группу! Скоро он там появится.'
+            }));
+
+        } catch (error: unknown) {
+            console.error('Error sending report:', error);
+            let errorMessage = 'Не удалось отправить отчет. Пожалуйста, попробуйте еще раз.';
+            if (error instanceof Error) {
+                errorMessage = error.message;
             }
-
-            const filename = `inventory_${chatId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-            const downloadUrl = `${config.API_URL}/inventory/${chatId}/excel?download=true&filename=${encodeURIComponent(filename)}`;
-
-            if (window.Telegram?.WebApp) {
-                window.Telegram.WebApp.openLink(downloadUrl);
-            } else {
-                window.location.href = downloadUrl;
-            }
-
-            window.Telegram?.WebApp?.showPopup({
-                title: 'Успешно',
-                message: 'Файл Excel готов к скачиванию',
-                buttons: [{
-                    type: 'ok',
-                    text: 'OK'
-                }]
-            });
-
-        } catch (error) {
-            console.error('Error downloading Excel:', error);
-            window.Telegram?.WebApp?.showPopup({
-                title: 'Ошибка',
-                message: 'Не удалось скачать файл Excel. Пожалуйста, попробуйте еще раз.',
-                buttons: [{
-                    type: 'ok',
-                    text: 'OK'
-                }]
-            });
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: errorMessage
+            }));
         } finally {
-            setIsDownloading(false);
+            setIsSending(false);
         }
     };
 
@@ -257,13 +260,13 @@ const InventoryCompleteDialog: React.FC<InventoryCompleteDialogProps> = ({
 
                             <motion.button
                                 className={styles.downloadButton}
-                                onClick={handleDownload}
-                                disabled={isDownloading}
+                                onClick={handleSendReport}
+                                disabled={isSending}
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                             >
                                 <DownloadIcon />
-                                {isDownloading ? 'Скачивание...' : 'Скачать Excel'}
+                                {isSending ? 'Отправка...' : 'Отправить отчет в группу'}
                             </motion.button>
 
                             <motion.button

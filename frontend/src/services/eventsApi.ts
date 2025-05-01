@@ -11,8 +11,8 @@ export const getEvents = async (): Promise<EventRead[]> => {
     const logPrefix = '[eventsApi:getEvents]';
     logger.log(`${logPrefix} 📡 Запрос списка событий...`);
     try {
-        // Делаем GET-запрос на /api/v1/events
-        const response = await axiosInstance.get<EventRead[]>('/api/v1/events');
+        // Делаем GET-запрос на /api/v1/events/
+        const response = await axiosInstance.get<EventRead[]>('/api/v1/events/');
         logger.log(`${logPrefix} ✅ Список событий получен: ${response.data?.length ?? 0} шт.`);
         // Возвращаем массив событий или пустой массив, если данных нет
         return response.data || [];
@@ -46,7 +46,7 @@ export const createEvent = async (eventData: EventCreate): Promise<EventRead> =>
     const logPrefix = '[eventsApi:createEvent]';
     logger.log(`${logPrefix} 📡 Создание события...`, eventData);
     try {
-        const response = await axiosInstance.post<EventRead>('/api/v1/events', eventData);
+        const response = await axiosInstance.post<EventRead>('/api/v1/events/', eventData);
         logger.log(`${logPrefix} ✅ Событие создано:`, response.data);
         return response.data;
     } catch (error: any) {

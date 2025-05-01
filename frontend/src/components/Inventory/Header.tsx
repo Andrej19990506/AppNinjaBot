@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence } from 'framer-motion';
+import { animate } from 'framer-motion';
 import styles from './Header.module.css';
 import ChatNotification from './ChatNotification';
-import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
 interface HeaderProps {
     title: string;
@@ -27,8 +27,7 @@ const Header: React.FC<HeaderProps> = ({
     onNotificationClose,
     isInitialContext = false
 }) => {
-    const [isInitialAnimation, setIsInitialAnimation] = useState(true);
-    const [displayedProgress, setDisplayedProgress] = useState(0);
+    const [animatedProgress, setAnimatedProgress] = useState(progress);
 
     const getDisplayTitle = () => {
         if (isInitialContext) return title;
@@ -36,16 +35,15 @@ const Header: React.FC<HeaderProps> = ({
     };
 
     useEffect(() => {
-        if (isInitialAnimation) {
-            const timer = setTimeout(() => {
-                setIsInitialAnimation(false);
-                setDisplayedProgress(progress);
-            }, 1000);
-            return () => clearTimeout(timer);
-        } else {
-            setDisplayedProgress(progress);
-        }
-    }, [progress, isInitialAnimation]);
+        const controls = animate(animatedProgress, progress, {
+            duration: 1.5,
+            ease: "easeInOut",
+            onUpdate: (latest) => {
+                setAnimatedProgress(Math.round(latest));
+            }
+        });
+        return () => controls.stop();
+    }, [progress]);
 
     return (
         <motion.div 
@@ -74,30 +72,24 @@ const Header: React.FC<HeaderProps> = ({
             </div>
             <motion.div 
                 className={styles.progress}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
             >
                 <motion.div 
                     className={styles.progressBar}
-                    style={{ 
-                        width: `${displayedProgress}%`,
-                        transition: isInitialAnimation 
-                            ? 'width 1s cubic-bezier(0.34, 1.56, 0.64, 1)' 
-                            : 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)'
-                    }}
+                    initial={false}
+                    animate={{ width: `${progress}%` }}
+                    transition={{ duration: 1.5, ease: "easeInOut" }}
                 />
-                <AnimatePresenceWrapper mode="wait">
+                <div className={styles.progressTextContainer}>
+                    {/* @ts-ignore suppressing TS2786 error temporarily */}
                     <motion.span
-                        key={displayedProgress}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.3 }}
+                        className={styles.progressText}
+                        initial={{ opacity: 1 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.2 }}
                     >
-                        {displayedProgress}%
+                        {animatedProgress}%
                     </motion.span>
-                </AnimatePresenceWrapper>
+                </div>
             </motion.div>
         </motion.div>
     );

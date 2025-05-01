@@ -233,3 +233,36 @@ export const triggerExcelReportGeneration = async (chatId: string): Promise<{sta
         }
     }
 };
+
+// ---> ДОБАВЛЕНИЕ: Функция для сброса инвентаризации <---
+/**
+ * Resets the inventory data (quantities, statuses) for a specific chat.
+ * @param chatId - The Telegram ID of the chat.
+ * @returns {Promise<{message: string}>} Response indicating the reset status.
+ */
+export const resetChatInventory = async (chatId: string): Promise<{message: string}> => {
+    const logPrefix = `[inventoryApi:resetChatInventory chatId=${chatId}]`;
+    if (!chatId) {
+        const errorMsg = `${logPrefix} chatId is required.`;
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+    }
+    const url = `/api/v1/inventory/${chatId}/reset`;
+    try {
+        logger.log(`${logPrefix} Resetting inventory at ${url}...`);
+        // Отправляем POST запрос без тела
+        const response = await axiosInstance.post<{message: string}>(url);
+        logger.log(`${logPrefix} Inventory reset successfully.`);
+        return response.data; // Возвращаем ответ от сервера { message: "..." }
+    } catch (error: unknown) {
+        logger.error(`${logPrefix} Error resetting inventory:`, error);
+        if (isAxiosError(error) && error.response?.data?.detail) {
+             throw new Error(error.response.data.detail);
+        }
+        if (error instanceof Error) {
+             throw error;
+        } else {
+             throw new Error('An unknown error occurred during inventory reset.');
+        }
+    }
+};

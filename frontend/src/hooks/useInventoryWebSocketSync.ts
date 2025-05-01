@@ -29,7 +29,7 @@ export const useInventoryWebSocketSync = () => {
 
         // Интерфейс для payload из WebSocket
         interface InventoryUpdatedPayload {
-            type: 'inventory_updated'; 
+            type: 'inventory_updated' | 'inventory_reset' | string;
             chat_id: string;
             metadata: InventoryMetadata; 
             item_id?: string;
@@ -38,70 +38,72 @@ export const useInventoryWebSocketSync = () => {
         }
 
         const handleInventoryUpdated = (payload: InventoryUpdatedPayload) => {
-            if (payload.type !== 'inventory_updated') {
-                 logger.warn('[WS - Inventory Hook] Received event with wrong type:', payload.type);
-                 return;
-            }
             if (!payload.chat_id || !payload.metadata) {
-                 logger.error('[WS - Inventory Hook] Received incomplete event (missing chat_id or metadata)!', payload);
-                 return;
+                logger.error('[WS - Inventory Hook] Received incomplete event (missing chat_id or metadata)!', payload);
+                return;
             }
 
-            // Проверяем, является ли обновление для текущего чата
-            if (selectedInventoryChatId && String(payload.chat_id) === selectedInventoryChatId) {
-                logger.info(`[WS Sync] Событие inventory_updated для НАШЕГО чата ${selectedInventoryChatId}.`);
+            const isCurrentChat = selectedInventoryChatId && String(payload.chat_id) === selectedInventoryChatId;
+            logger.info(`[WS Sync] Получено событие типа "${payload.type}" для чата ${payload.chat_id}. ${isCurrentChat ? 'Это ТЕКУЩИЙ чат.' : 'Это ДРУГОЙ чат.'}`);
 
-                // Обновляем метаданные в любом случае, если они пришли
-                dispatch(receiveItemUpdate({
-                    chatId: payload.chat_id,
-                    metadata: payload.metadata
-                    // Не передаем item данные здесь, т.к. обработаем ниже или перезапросим
-                }));
-
-                // Проверяем, есть ли данные конкретного товара
-                if (payload.item_id && payload.category && payload.item) {
-                    // --- Обновление КОНКРЕТНОГО товара --- 
-                    logger.info(`[WS Sync] Обновляем конкретный товар: ${payload.category}/${payload.item_id}`);
+            switch (payload.type) {
+                case 'inventory_updated':
+                    if (isCurrentChat) {
+                        if (payload.item_id && payload.category && payload.item) {
+                            logger.info(`[WS Sync - inventory_updated] Обновляем конкретный товар: ${payload.category}/${payload.item_id}`);
+                            dispatch(receiveItemUpdate({
+                                chatId: payload.chat_id,
+                                type: payload.type,
+                                metadata: payload.metadata,
+                                item_id: payload.item_id,
+                                category: payload.category,
+                                item: payload.item
+                            }));
+                            
+                            logger.info(`[WS Sync - inventory_updated] Обновляем историю для ${payload.category}/${payload.item_id} в фоне...`);
+                            dispatch(fetchItemHistory({
+                                chatId: selectedInventoryChatId,
+                                itemId: payload.item_id, 
+                                category: payload.category,
+                                itemName: payload.item_id, 
+                                background: true 
+                            }));
+                        } else {
+                            logger.info(`[WS Sync - inventory_updated] Событие без деталей товара для ТЕКУЩЕГО чата. Перезапрашиваем весь инвентарь для ${payload.chat_id}...`);
+                            dispatch(fetchChatInventory(payload.chat_id));
+                        }
+                    } else {
+                        logger.log(`[WS Sync - inventory_updated] Обновляем только метаданные для ДРУГОГО (${payload.chat_id}) чата.`);
+                        dispatch(receiveItemUpdate({
+                            chatId: payload.chat_id,
+                            type: payload.type,
+                            metadata: payload.metadata
+                        }));
+                    }
+                    break;
+                
+                case 'inventory_reset':
+                    logger.info(`[WS Sync - inventory_reset] Получен сигнал сброса для чата ${payload.chat_id}. Диспатчим receiveItemUpdate...`);
                     dispatch(receiveItemUpdate({
                         chatId: payload.chat_id,
-                        metadata: payload.metadata, // Повторно, но безопасно
-                        item_id: payload.item_id,
-                        category: payload.category,
-                        item: payload.item
+                        type: payload.type,
+                        metadata: payload.metadata
                     }));
-                    
-                    // Обновляем историю в фоне
-                    logger.info(`[WS Sync] Обновляем историю для ${payload.category}/${payload.item_id} в фоне...`);
-                    dispatch(fetchItemHistory({
-                        chatId: selectedInventoryChatId,
-                        itemId: payload.item_id, 
-                        category: payload.category,
-                        itemName: payload.item_id, 
-                        background: true 
-                    }));
-                } else {
-                    // --- Вероятно, УДАЛЕНИЕ товара или только обновление метаданных --- 
-                    logger.info(`[WS Sync] Событие без деталей товара. Перезапрашиваем весь инвентарь для чата ${payload.chat_id}...`);
-                    dispatch(fetchChatInventory(payload.chat_id));
-                }
+                    break;
 
-            } else {
-                // --- Обновление для ДРУГОГО чата --- 
-                 logger.log(`[WS Sync] Событие inventory_updated для ДРУГОГО (${payload.chat_id}) чата. Обновляем только метаданные.`);
-                 // Обновляем только метаданные
-                 dispatch(receiveItemUpdate({
-                     chatId: payload.chat_id,
-                     metadata: payload.metadata
-                 }));
+                default:
+                    logger.warn(`[WS Sync] Получен неизвестный тип события: "${payload.type}" для чата ${payload.chat_id}. Игнорируем.`);
+                    break;
             }
         };
 
-        logger.log(`[useInventoryWebSocketSync] Subscribing to 'inventory_updated' for chat ${selectedInventoryChatId}`);
-        const unsubscribeInventoryUpdated = socketService.subscribe('inventory_updated', handleInventoryUpdated);
+        logger.log(`[useInventoryWebSocketSync] Подписка на 'inventory_updated' и 'inventory_reset' для selectedChatId: ${selectedInventoryChatId}`);
+        
+        const unsubscribeInventoryUpdate = socketService.subscribe('inventory_update', handleInventoryUpdated);
 
         return () => {
-            logger.log(`[useInventoryWebSocketSync] Cleanup function CALLED for chat ${selectedInventoryChatId}. Unsubscribing from 'inventory_updated'.`);
-            unsubscribeInventoryUpdated();
+            logger.log(`[useInventoryWebSocketSync] Cleanup. Отписка от 'inventory_update' для selectedChatId: ${selectedInventoryChatId}.`);
+            unsubscribeInventoryUpdate();
         };
     }, [dispatch, selectedInventoryChatId]);
 }; 

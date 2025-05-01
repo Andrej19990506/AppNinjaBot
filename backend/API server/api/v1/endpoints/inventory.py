@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from sqlalchemy import desc, text # <-- ДОБАВЛЕН ИМПОРТ text
 from sqlalchemy.orm import selectinload # <--- ДОБАВЛЕН ИМПОРТ selectinload
 from sqlalchemy.orm.attributes import flag_modified # <--- ДОБАВЛЕН ИМПОРТ flag_modified
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 import os
 import json
 from datetime import datetime
@@ -38,6 +38,9 @@ from fastapi.responses import StreamingResponse
 import uuid
 import httpx # Для асинхронных HTTP запросов к боту
 from pathlib import Path as FilePath # <--- Переименовано для избежания конфликта с fastapi.Path
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+# ---> ДОБАВЛЕНИЕ: Импорт typing для аннотаций <---
+from typing import List, Dict, Tuple, Any 
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
 logger = logging.getLogger(__name__)
@@ -991,13 +994,99 @@ async def delete_inventory_item(
 # --- ЭНДПОИНТ ИСТОРИИ ---
 
 # Вспомогательная функция для генерации Excel-содержимого
-def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, Any], group_title: str) -> BytesIO:
-    """Генерирует Excel файл в памяти (BytesIO)"""
-    logger.info("Starting Excel generation...")
+def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, Any], group_title: str) -> BytesIO | None: # <-- ИЗМЕНЕНО: возвращает None при ошибке
+    """Генерирует Excel файл в памяти (BytesIO) с новой сортировкой и группировкой."""
+    logger.info("Starting Excel generation with new sorting logic...")
     output = BytesIO()
     try:
+        # ---> НАЧАЛО НОВОЙ ЛОГИКИ СОРТИРОВКИ И ГРУППИРОВКИ <---
+        # --- ИЗМЕНЕНИЕ: Обновляем название категории --- 
+        special_category_names_lower = ["полуфабрикаты", "напитки", "упаковка и приборы"] 
+        main_items_list: List[Tuple[str, str, Dict[str, Any]]] = [] # (category_name, item_name, item_data)
+        # --- ИЗМЕНЕНИЕ: Обновляем ключи в словаре --- 
+        special_items_dict: Dict[str, List[Tuple[str, Dict[str, Any]]]] = {name: [] for name in special_category_names_lower} # key: lower_cat_name, value: [(item_name, item_data)]
+
+        # 1. Разделение данных
+        for category, items_dict in inventory_data.items():
+            if not isinstance(items_dict, dict): continue # Пропускаем некорректные данные
+            
+            category_lower = category.lower()
+            items_to_process = list(items_dict.items()) # Создаем список для безопасной итерации
+
+            for item_name, item_data in items_to_process:
+                if not isinstance(item_data, dict): continue # Пропускаем некорректные данные товара
+
+                if category_lower in special_category_names_lower:
+                    special_items_dict[category_lower].append((item_name, item_data))
+                else:
+                    main_items_list.append((category, item_name, item_data))
+
+        # 2. Сортировка
+        main_items_list.sort(key=lambda x: x[1]) # Сортировка основного списка по имени товара
+        for item_list in special_items_dict.values():
+            item_list.sort(key=lambda x: x[0]) # Сортировка специальных списков по имени товара
+
+        # 3. Формирование данных для Excel (excel_data)
+        excel_data = []
+        item_number = 1
+
+        # 3.1 Основной список
+        logger.debug(f"Processing {len(main_items_list)} main items...")
+        for category, item_name, item_data in main_items_list:
+            raw_data = item_data.get('raw', {})
+            semifinished_data = item_data.get('semifinished', {})
+            raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
+            semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
+            raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
+            semifin_display = semifin_qty
+
+            excel_data.append({
+                '№ п/п': item_number,
+                'Категория': category, # Оставляем категорию для ясности
+                'Товар': item_name,
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
+                'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
+            })
+            item_number += 1
+
+        # 3.2 Специальные категории
+        # --- ИЗМЕНЕНИЕ: Обновляем порядок вывода --- 
+        special_category_order = ["полуфабрикаты", "напитки", "упаковка и приборы"] # Порядок вывода
+        original_cap_map = {cat.lower(): cat for cat in inventory_data.keys()} # Карта для восстановления регистра заголовка
+
+        for special_cat_name_lower in special_category_order:
+            item_list = special_items_dict.get(special_cat_name_lower)
+            if item_list:
+                logger.debug(f"Processing special category '{special_cat_name_lower}' with {len(item_list)} items...")
+                # Добавляем пустую строку-разделитель
+                excel_data.append({'№ п/п': '', 'Категория': '', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
+                
+                # Добавляем заголовок специальной категории
+                original_cat_name = original_cap_map.get(special_cat_name_lower, special_cat_name_lower.capitalize())
+                excel_data.append({'№ п/п': '', 'Категория': original_cat_name + ':', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
+                
+                item_number = 1 # Сброс нумерации
+                for item_name, item_data in item_list:
+                    raw_data = item_data.get('raw', {})
+                    semifinished_data = item_data.get('semifinished', {})
+                    raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
+                    semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
+                    raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
+                    semifin_display = semifin_qty
+
+                    excel_data.append({
+                        '№ п/п': item_number,
+                        'Категория': '', # Не указываем категорию внутри спец. секции
+                        'Товар': item_name,
+                        'Сырье (шт.)': raw_display if raw_display is not None else '',
+                        'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
+                    })
+                    item_number += 1
+        # ---> КОНЕЦ НОВОЙ ЛОГИКИ СОРТИРОВКИ И ГРУППИРОВКИ <---
+
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 1. Метаданные (Информация о документе)
+            # 1. Метаданные (Информация о документе) - без изменений
+            # ... (код метаданных остается прежним) ...
             author_first_name = metadata.get('currentUser', {}).get('first_name', '')
             author_last_name = metadata.get('currentUser', {}).get('last_name', '')
             author_full_name = f"{author_first_name} {author_last_name}".strip()
@@ -1007,64 +1096,25 @@ def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, 
                 'Значение': [
                     datetime.now().strftime('%d.%m.%Y %H:%M'),
                     group_title,
-                    author_full_name if author_full_name else 'Не указан' # Отображаем 'Не указан' если имя пустое
+                    author_full_name if author_full_name else 'Не указан' 
                 ]
             }
             metadata_df = pd.DataFrame(meta_info)
             metadata_df.to_excel(writer, sheet_name='Инвентаризация', index=False, header=False, startrow=0)
             logger.debug("Metadata written to Excel.")
 
-            # 2. Данные инвентаря
-            excel_data = []
-            inventory_items = inventory_data # Используем напрямую переданные данные
-            current_category = None
-
-            # Сортируем категории, потом товары внутри категорий
-            sorted_categories = sorted(inventory_items.keys())
-
-            for category in sorted_categories:
-                items = inventory_items.get(category, {})
-                if not isinstance(items, dict): continue # Пропускаем, если формат категории неверный
-
-                sorted_item_names = sorted(items.keys())
-
-                # Добавляем пустую строку перед новой категорией (если это не первая)
-                if current_category is not None:
-                     excel_data.append({'Категория': '', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-                
-                current_category = category # Устанавливаем текущую категорию
-
-                for item_name in sorted_item_names:
-                    item_data = items.get(item_name, {})
-                    if not isinstance(item_data, dict): continue # Пропускаем, если формат товара неверный
-                    
-                    raw_data = item_data.get('raw', {})
-                    semifinished_data = item_data.get('semifinished', {})
-
-                    # Получаем количество, учитывая None или отсутствие ключа
-                    raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
-                    semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
-
-                    # Если есть поле 'isOutOfStock', используем его
-                    raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
-                    # Для полуфабрикатов нет 'isOutOfStock'
-                    semifin_display = semifin_qty
-
-                    excel_data.append({
-                        'Категория': category,
-                        'Товар': item_name,
-                        'Сырье (шт.)': raw_display if raw_display is not None else '', # Пустая строка если None
-                        'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else '' # Пустая строка если None
-                    })
-            
-            df = pd.DataFrame(excel_data)
+            # 2. Данные инвентаря (используем подготовленный excel_data)
+            # Определяем колонки DataFrame в нужном порядке
+            df_columns = ['№ п/п', 'Категория', 'Товар', 'Сырье (шт.)', 'Полуфабрикаты (шт.)']
+            df = pd.DataFrame(excel_data, columns=df_columns)
             df.to_excel(writer, sheet_name='Инвентаризация', index=False, startrow=5) # Начинаем с 6 строки (0-based index 5)
             logger.debug("Inventory data written to Excel.")
 
             # 3. Форматирование
             worksheet = writer.sheets['Инвентаризация']
 
-            # Форматирование метаданных
+            # Форматирование метаданных (строки 1-3) - без изменений
+            # ... (код форматирования метаданных) ...
             metadata_font = Font(bold=True)
             metadata_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
             border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
@@ -1077,73 +1127,110 @@ def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, 
                     cell.alignment = Alignment(horizontal='left', vertical='center')
                     cell.border = border_thin
             
-            # Форматирование заголовков таблицы (строка 6)
+            # Форматирование заголовков таблицы (строка 6) - добавлена колонка "№ п/п"
             header_font = Font(bold=True, color="FFFFFF") # Белый текст
             header_fill = PatternFill(start_color='FF5F1F', end_color='FF5F1F', fill_type='solid') # Оранжевый фон
             
             header_row_index = 6 # Заголовки теперь в 6-й строке
-            for cell in worksheet[header_row_index]:
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                cell.border = border_thin
+            for col_idx, header_text in enumerate(df_columns, 1):
+                 cell = worksheet.cell(row=header_row_index, column=col_idx)
+                 cell.value = header_text # Устанавливаем текст заголовка из df_columns
+                 cell.font = header_font
+                 cell.fill = header_fill
+                 # Выравнивание: № п/п и количества - центр, остальное - лево
+                 align_horizontal = 'center' if header_text in ['№ п/п', 'Сырье (шт.)', 'Полуфабрикаты (шт.)'] else 'left'
+                 cell.alignment = Alignment(horizontal=align_horizontal, vertical='center', wrap_text=True)
+                 cell.border = border_thin
 
-            # Форматирование данных и чередование цветов
-            current_category_for_style = None
-            current_color_is_gray = False
+            # ---> НАЧАЛО НОВОЙ ЛОГИКИ ФОРМАТИРОВАНИЯ ДАННЫХ <---
             data_start_row = header_row_index + 1 # Данные начинаются со строки 7
+            is_gray = False # Для чередования цветов
 
-            for row_idx, excel_row_data in enumerate(excel_data, start=data_start_row):
-                 category_value = excel_row_data.get('Категория')
+            for row_idx, row in enumerate(worksheet.iter_rows(min_row=data_start_row, max_col=len(df_columns)), start=data_start_row):
+                # Получаем значения для анализа строки
+                num_val = row[0].value # № п/п (A)
+                cat_val = row[1].value # Категория (B)
 
-                 # Определяем цвет строки
-                 row_fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid') # Белый по умолчанию
-                 if category_value: # Если есть значение в категории
-                      if category_value != current_category_for_style:
-                           current_category_for_style = category_value
-                           current_color_is_gray = not current_color_is_gray # Чередуем цвет при смене категории
-                      
-                      if current_color_is_gray:
-                          row_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid') # Серый
+                # Определяем тип строки
+                is_special_header = isinstance(cat_val, str) and cat_val.endswith(':')
+                is_empty_separator = (num_val is None or str(num_val).strip() == '') and \
+                                     (cat_val is None or str(cat_val).strip() == '')
+                is_data_row = not is_special_header and not is_empty_separator
 
-                 # Применяем стиль ко всем ячейкам строки
-                 for col_idx in range(1, df.shape[1] + 1): # df.shape[1] - количество столбцов в DataFrame
-                      cell = worksheet.cell(row=row_idx, column=col_idx)
-                      cell.fill = row_fill
-                      # Выравнивание: Категория/Товар - влево, остальное - центр
-                      align_horizontal = 'left' if col_idx <= 2 else 'center'
-                      cell.alignment = Alignment(horizontal=align_horizontal, vertical='center', wrap_text=True)
-                      cell.border = border_thin
+                if is_special_header:
+                    # Форматируем заголовок специальной категории
+                    row[1].font = Font(bold=True) # Делаем жирным
+                    # Можно объединить ячейки для заголовка, если нужно
+                    # worksheet.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=len(df_columns))
+                    # row[1].alignment = Alignment(horizontal='left', vertical='center')
+                    is_gray = False # Сброс цвета для новой секции
+                    # Применяем границы и убираем фон для строки заголовка
+                    for cell in row:
+                        cell.border = border_thin
+                        cell.fill = PatternFill(fill_type=None)
 
-            logger.debug("Cell formatting applied.")
+                elif is_empty_separator:
+                    # Очищаем форматирование для пустых строк-разделителей
+                     for cell in row:
+                         cell.border = None 
+                         cell.fill = PatternFill(fill_type=None) 
+                         # Можно задать высоту строки, если нужно worksheet.row_dimensions[row_idx].height = 10
+                
+                elif is_data_row:
+                    # Применяем чередующийся фон и стили к строкам данных
+                    row_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid') if is_gray else PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+                    for cell in row:
+                        cell.fill = row_fill
+                        cell.border = border_thin
+                        # Выравнивание: № п/п и количества - центр, Категория/Товар - лево
+                        col_letter = get_column_letter(cell.column)
+                        if col_letter == 'A' or col_letter in ['D', 'E']: # № п/п, Сырье, Полуфабрикаты
+                             cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                        elif col_letter in ['B', 'C']: # Категория, Товар
+                             cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
 
-            # Автоподбор ширины столбцов
+                    is_gray = not is_gray # Меняем цвет для следующей строки данных
+                else: 
+                    # Неожиданный тип строки - применяем базовые границы
+                    for cell in row:
+                         cell.border = border_thin
+
+            logger.debug("Cell formatting applied with new logic.")
+            # ---> КОНЕЦ НОВОЙ ЛОГИКИ ФОРМАТИРОВАНИЯ ДАННЫХ <---
+
+            # Автоподбор ширины столбцов (учитываем новую колонку '№ п/п')
             for col_idx, column_cells in enumerate(worksheet.columns, 1):
                 max_length = 0
                 column_letter = get_column_letter(col_idx)
 
                 # Устанавливаем минимальную ширину
-                min_width = 15 if col_idx <= 2 else 10 # Шире для Категории/Товара
-
-                for cell in column_cells:
-                    try:
-                         # Пропускаем пустые ячейки и заголовки метаданных при вычислении max_length
-                         if cell.value and cell.row >= header_row_index:
-                              cell_text_length = len(str(cell.value))
-                              # Учитываем перенос строки, если он есть
-                              lines = str(cell.value).split('\n')
-                              max_line_length = max(len(line) for line in lines) if lines else 0
-                              cell_text_length = max(cell_text_length, max_line_length) # Берем максимум
-
-                              if cell_text_length > max_length:
-                                  max_length = cell_text_length
-                    except Exception:
-                        pass # Игнорируем ошибки при доступе к значению ячейки
+                if column_letter == 'A': # № п/п
+                    min_width = 6
+                elif column_letter == 'B': # Категория
+                    min_width = 20
+                elif column_letter == 'C': # Товар
+                    min_width = 25
+                else: # Сырье, Полуфабрикаты
+                    min_width = 15 
                 
-                # Устанавливаем ширину: (максимальная длина + небольшой запас) или минимальная ширина
-                adjusted_width = max(min_width, max_length + 3) # Добавляем запас +3
-                # Ограничиваем максимальную ширину, чтобы избежать слишком широких столбцов
-                max_allowed_width = 60
+                # Находим максимальную длину содержимого (пропуская заголовки метаданных)
+                for cell in column_cells:
+                    if cell.value and cell.row >= header_row_index: # Начинаем с строки заголовков таблицы
+                         try:
+                             cell_text_length = 0
+                             lines = str(cell.value).split('\\n') # Используем \\n если pandas его вставляет
+                             if not lines: lines = str(cell.value).split('\n')
+                             max_line_length = max(len(line.strip()) for line in lines) if lines else 0
+                             cell_text_length = max_line_length
+                             
+                             if cell_text_length > max_length:
+                                 max_length = cell_text_length
+                         except Exception:
+                             pass 
+                
+                # Устанавливаем ширину
+                adjusted_width = max(min_width, max_length + 2) # Добавляем запас +2
+                max_allowed_width = 50 # Ограничение максимальной ширины
                 adjusted_width = min(adjusted_width, max_allowed_width)
 
                 worksheet.column_dimensions[column_letter].width = adjusted_width
@@ -1156,7 +1243,7 @@ def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, 
     except Exception as e:
         logger.exception(f"Error generating Excel content: {e}")
         # Возвращаем None, чтобы показать ошибку
-        return None # <-- ИЗМЕНЕНО: Возвращаем None вместо пустого буфера
+        return None 
 
 # --- ЭНДПОИНТ ДЛЯ ГЕНЕРАЦИИ EXCEL (БЕЗ СКАЧИВАНИЯ) ---
 @router.post(
@@ -1338,3 +1425,150 @@ async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_del
             logger.error(f"[BG Task - Inventory Report] Bot returned an error status {status_err.response.status_code} for {url}. Response: {status_err.response.text}")
         except Exception as e:
             logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({url})") # Используем logger.exception
+
+# ---> ДОБАВЛЕНИЕ: Новый эндпоинт для сброса инвентаризации <---
+@router.post(
+    "/{chat_id}/reset",
+    status_code=status.HTTP_200_OK,
+    summary="Reset Inventory Data for a Chat",
+    description="Resets the inventory quantities and statuses for a specific chat, keeping the structure. Only for 'chef' groups.",
+    tags=["Inventory"]
+)
+async def reset_inventory_for_chat(
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session),
+    # TODO: Добавить зависимость для проверки прав администратора
+):
+    """
+    Resets inventory quantities and statuses for a specific chat.
+    Loads template if inventory is empty. Updates metadata and notifies.
+    """
+    logger.info(f"[reset_inventory_for_chat] POST /inventory/{chat_id}/reset")
+
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[reset_inventory_for_chat] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    updated_metadata_for_notify = {} # Для отправки в NOTIFY
+
+    try:
+        async with db.begin(): # Используем транзакцию
+            # Получаем группу с блокировкой для обновления
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+
+            if not group:
+                logger.warning(f"[reset_inventory_for_chat] Group not found for chat_id: {chat_id}")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+            if group.group_type != 'chef':
+                logger.warning(f"[reset_inventory_for_chat] Reset denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory can only be reset for groups of type 'chef'")
+
+            # TODO: Проверка прав доступа пользователя (что он админ группы)
+
+            # 1. Получаем текущий инвентарь или шаблон
+            inventory_to_reset = group.json_inventory
+            if not inventory_to_reset:
+                logger.info(f"[reset_inventory_for_chat] Inventory empty for chat {chat_id}. Loading template to reset.")
+                try:
+                    # Загружаем шаблон, чтобы иметь структуру для сброса
+                    inventory_to_reset = await get_inventory_template()
+                    # Сохранять шаблон здесь не обязательно, т.к. он будет сохранен после сброса
+                except HTTPException as e:
+                    logger.error(f"[reset_inventory_for_chat] Template not found, cannot reset inventory structure for chat {chat_id}: {e.detail}")
+                    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Inventory template not found, cannot perform reset.")
+                except Exception as e:
+                    logger.exception(f"[reset_inventory_for_chat] Error loading template for chat {chat_id} during reset.")
+                    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error loading inventory template during reset.")
+            else:
+                 # Работаем с копией, чтобы изменения были зафиксированы flag_modified
+                 inventory_to_reset = json.loads(json.dumps(group.json_inventory))
+
+
+            # 2. Обнуляем значения
+            reset_count = 0
+            if isinstance(inventory_to_reset, dict):
+                for category_data in inventory_to_reset.values():
+                    if not isinstance(category_data, dict): continue
+                    for item_name, item_data in category_data.items():
+                         if not isinstance(item_data, dict): continue
+
+                         if 'raw' in item_data and isinstance(item_data['raw'], dict):
+                             item_data['raw']['quantity'] = 0
+                             item_data['raw']['filled'] = False
+                             item_data['raw']['isOutOfStock'] = False
+                             reset_count += 1
+                         
+                         if 'semifinished' in item_data and isinstance(item_data['semifinished'], dict):
+                             item_data['semifinished']['quantity'] = 0
+                             item_data['semifinished']['filled'] = False
+                             # isOutOfStock обычно нет для полуфабрикатов
+                             reset_count += 1 # Считаем сброс, если есть поле
+            
+            logger.info(f"[reset_inventory_for_chat] Reset {reset_count} item states for chat {chat_id}.")
+
+            # 3. Сохраняем сброшенный инвентарь
+            group.json_inventory = inventory_to_reset
+            flag_modified(group, "json_inventory")
+
+            # 4. Обновляем метаданные
+            metadata = group.json_metadata or {}
+            metadata['progress'] = 0
+            metadata['lastUpdated'] = datetime.now().isoformat()
+            metadata['chat_id'] = chat_id # Убедимся, что chat_id есть в метаданных
+            group.json_metadata = metadata
+            flag_modified(group, "json_metadata")
+            updated_metadata_for_notify = metadata # Сохраняем для NOTIFY
+            logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0, lastUpdated set.")
+
+        # Транзакция успешно завершена (commit)
+        logger.info(f"[reset_inventory_for_chat] DB transaction committed for chat_id: {chat_id} after reset.")
+
+    except HTTPException as http_exc:
+        # Откат транзакции произойдет автоматически
+        logger.error(f"[reset_inventory_for_chat] HTTP Exception occurred during reset: {http_exc.detail}")
+        raise http_exc
+    except Exception as e:
+        # Откат транзакции произойдет автоматически
+        logger.exception(f"[reset_inventory_for_chat] Error processing reset request for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not reset inventory due to a server error")
+
+    # 5. Отправка уведомления NOTIFY (после успешного коммита)
+    if updated_metadata_for_notify: # Проверяем, что метаданные были обновлены
+        try:
+            pg_channel_name = "websocket_channel"
+            notify_payload_dict = {
+                "type": "inventory_reset", # Используем новый тип для ясности
+                "chat_id": str(chat_id),
+                "metadata": updated_metadata_for_notify,
+                # При сбросе не передаем item_id/category/item
+            }
+            notify_payload_json = json.dumps(notify_payload_dict, default=str)
+            escaped_payload = notify_payload_json.replace("'", "''")
+
+            # Проверка длины (на всякий случай)
+            if len(escaped_payload) >= 7900:
+                 logger.warning(f"NOTIFY payload for reset in chat_id {chat_id} is too long ({len(escaped_payload)} bytes). Sending minimal.")
+                 # Вряд ли метаданные будут такими большими, но оставим проверку
+                 minimal_payload_dict = {"type": "inventory_reset", "chat_id": str(chat_id), "metadata": updated_metadata_for_notify}
+                 escaped_payload = json.dumps(minimal_payload_dict, default=str).replace("'", "''")
+
+            async with AsyncSession(async_engine) as notify_db:
+                sql_command = text(f"NOTIFY {pg_channel_name}, '{escaped_payload}'")
+                await notify_db.execute(sql_command)
+                await notify_db.commit()
+                logger.info(f"Successfully sent inventory reset NOTIFY to channel '{pg_channel_name}' for chat_id: {chat_id}. Payload length: {len(escaped_payload)}")
+
+        except Exception as notify_error:
+            logger.error(f"Failed to send PostgreSQL NOTIFY after inventory reset for chat_id {chat_id}: {notify_error}", exc_info=True)
+    else:
+         logger.warning(f"[reset_inventory_for_chat] Cannot send NOTIFY because updated metadata is missing for chat_id: {chat_id}")
+
+
+    # 6. Возвращаем ответ
+    return {"message": f"Inventory for chat {chat_id} has been reset successfully."}
+# ---> КОНЕЦ ДОБАВЛЕНИЯ <---

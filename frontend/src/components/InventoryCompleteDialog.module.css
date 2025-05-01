@@ -169,9 +169,8 @@
 }
 
 .previewContent {
-    flex: 1;
+    padding: 15px;
     overflow: auto;
-    padding: 24px;
 }
 
 .excelTable {
@@ -237,4 +236,85 @@
         width: 98%;
         height: 95vh;
     }
+}
+
+/* --- ДОБАВЛЕНИЕ: Стили для секции подтверждения --- */
+.confirmationSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    gap: 15px; /* Отступ между текстом и кнопками */
+}
+
+.confirmationSection h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 1.1em;
+    color: var(--text-color); /* Используем переменную цвета текста */
+}
+
+.confirmationSection p {
+    margin-bottom: 20px;
+    color: var(--text-secondary); /* Используем вторичный цвет текста */
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.confirmationButtons {
+    display: flex;
+    gap: 15px; /* Отступ между кнопками */
+    width: 100%;
+    justify-content: center;
+}
+
+.confirmButton {
+    display: inline-flex; /* Для выравнивания иконки и текста */
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px;
+    border-radius: 12px; /* Скругление как у других кнопок */
+    border: none;
+    font-weight: 600;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    min-width: 130px; /* Минимальная ширина для выравнивания */
+}
+
+.confirmButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.confirmButton:not(:disabled):active {
+    transform: scale(0.97);
+}
+
+/* Стиль кнопки "Да, сбросить" */
+.confirmResetButton {
+    background-color: var(--danger-color, #e74c3c); /* Красный цвет (с fallback) */
+    color: var(--text-color-on-primary, #fff);
+}
+
+.confirmResetButton:not(:disabled):hover {
+    background-color: var(--danger-dark, #c0392b);
+}
+
+/* Стиль кнопки "Отмена" */
+.cancelResetButton {
+    background-color: var(--button-secondary-bg, #6c757d); /* Серый цвет (с fallback) */
+    color: var(--button-secondary-text, #fff);
+}
+
+.cancelResetButton:not(:disabled):hover {
+    background-color: var(--button-secondary-hover-bg, #5a6268);
+}
+
+/* Стили для CircularProgress внутри кнопки */
+.confirmResetButton .MuiCircularProgress-root {
+    width: 20px !important; /* Переопределяем размер */
+    height: 20px !important;
+    margin-right: 8px; /* Отступ от текста, если он будет */
 } 

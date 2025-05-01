@@ -92,6 +92,7 @@ interface ItemUpdatePayload {
     item_id?: string;
     category?: string;
     item?: InventoryItem; 
+    type?: string;
 }
 
 const initialState: InventoryState = {
@@ -777,7 +778,10 @@ const inventorySlice = createSlice({
         // --- НОВЫЙ РЕДЬЮСЕР для частичного обновления из WebSocket ---
         receiveItemUpdate(state, action: PayloadAction<ItemUpdatePayload>) {
             const { chatId, metadata, item_id, category, item } = action.payload;
-            console.log(`[Reducer] Получено обновление из WebSocket для чата ${chatId}`, 
+            // ---> ИЗМЕНЕНИЕ: Добавляем тип сообщения из payload <--- 
+            const messageType = action.payload.type || 'inventory_updated'; // По умолчанию считаем обновлением, если тип не пришел
+            
+            console.log(`[Reducer] Получено обновление (${messageType}) из WebSocket для чата ${chatId}`, 
                 item_id ? `(Товар: ${category}/${item_id})` : '(Только метаданные)');
 
             const chatIndex = state.items.findIndex((chat: ChatInventory) => chat.chat_id === chatId); 
@@ -808,6 +812,38 @@ const inventorySlice = createSlice({
                     }
                     chatState.inventory[category][item_id] = item; // Обновляем товар
                     console.log(`[Reducer] Товар ${category}/${item_id} обновлен в стейте.`);
+                    // ---> ИЗМЕНЕНИЕ: Пересчитываем прогресс после обновления товара <--- 
+                    chatState.metadata.progress = calculateInventoryProgress(chatState.inventory);
+                }
+                // ---> ИЗМЕНЕНИЕ: Добавляем логику для сброса инвентаря <--- 
+                else if (messageType === 'inventory_reset') {
+                    if (chatState.inventory) {
+                        console.log(`[Reducer] Обнуление инвентаря для чата ${chatId}...`);
+                        let resetCount = 0;
+                        Object.values(chatState.inventory).forEach(categoryItems => {
+                            if (typeof categoryItems === 'object' && categoryItems !== null) {
+                                Object.values(categoryItems).forEach(itemData => {
+                                    if (typeof itemData === 'object' && itemData !== null) {
+                                        if (itemData.raw && typeof itemData.raw === 'object') {
+                                            itemData.raw.quantity = 0;
+                                            itemData.raw.filled = false;
+                                            itemData.raw.isOutOfStock = false;
+                                            resetCount++;
+                                        }
+                                        if (itemData.semifinished && typeof itemData.semifinished === 'object') {
+                                            itemData.semifinished.quantity = 0;
+                                            itemData.semifinished.filled = false;
+                                            resetCount++;
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                        console.log(`[Reducer] Сброшено ${resetCount} состояний товаров в стейте.`);
+                    } else {
+                        console.log(`[Reducer] Инвентарь для чата ${chatId} уже пуст или отсутствует, обнуление не требуется.`);
+                    }
+                     // Метаданные (с progress: 0) уже должны были обновиться выше
                 }
 
                 // 3. Обновляем выбранный чат, если он совпадает

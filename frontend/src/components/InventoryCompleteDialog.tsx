@@ -6,11 +6,15 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import CloseIcon from '@mui/icons-material/Close';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { triggerExcelReportGeneration } from '../services/inventoryApi';
+import ReplayIcon from '@mui/icons-material/Replay';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CircularProgress from '@mui/material/CircularProgress';
+import { triggerExcelReportGeneration, resetChatInventory } from '../services/inventoryApi';
 import { HotTable } from '@handsontable/react';
 import 'handsontable/dist/handsontable.full.css';
 import { useAppDispatch } from '../store/hooks';
 import { addNotification, NotificationTypes } from '../store/slices/notificationSlice';
+import { receiveItemUpdate } from '../store/slices/inventorySlice';
 
 interface InventoryItem {
     raw: {
@@ -54,6 +58,8 @@ const InventoryCompleteDialog: React.FC<InventoryCompleteDialogProps> = ({
     const [isDownloading, setIsDownloading] = useState(false);
     const [isPreviewLoading, setIsPreviewLoading] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+    const [isResetting, setIsResetting] = useState(false);
     const [previewData, setPreviewData] = useState<any[]>([]);
     const [headers, setHeaders] = useState<string[]>([]);
     const dispatch = useAppDispatch();
@@ -171,29 +177,54 @@ const InventoryCompleteDialog: React.FC<InventoryCompleteDialogProps> = ({
         ]
     };
 
-    const handleStartNewInventory = async () => {
-        try {
-            const response = await fetch(`${config.API_URL}/inventory/${chatId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to reset inventory');
-            }
-
-            onClose();
-            window.location.reload();
-        } catch (error) {
-            console.error('Error starting new inventory:', error);
-            window.Telegram?.WebApp?.showPopup({
-                title: 'Ошибка',
-                message: 'Произошла ошибка при начале новой инвентаризации',
-                buttons: [{
-                    type: 'ok',
-                    text: 'OK'
-                }]
-            });
+    const executeReset = async () => {
+        if (!chatId) {
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR, 
+                message: 'Не удалось определить ID чата для сброса.'
+            }));
+            return;
         }
+        
+        setIsResetting(true);
+        dispatch(addNotification({
+            type: NotificationTypes.INFO,
+            message: 'Сбрасываем данные инвентаризации...'
+        }));
+
+        try {
+            await resetChatInventory(chatId);
+            dispatch(receiveItemUpdate({
+                chatId: chatId,
+                type: 'inventory_reset',
+                metadata: {
+                    progress: 0,
+                    lastUpdated: new Date().toISOString(),
+                    chat_id: chatId
+                }
+            }));
+            dispatch(addNotification({
+                type: NotificationTypes.SUCCESS,
+                message: 'Инвентаризация успешно сброшена!'
+            }));
+            onClose();
+        } catch (error: any) {
+            console.error("Ошибка при сбросе инвентаризации:", error);
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR, 
+                message: `Ошибка сброса: ${error.message || 'Неизвестная ошибка'}` 
+            }));
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
+    const handleStartNewInventory = async () => {
+        setIsConfirmingReset(true);
+    };
+
+    const handleCancelReset = () => {
+        setIsConfirmingReset(false);
     };
 
     return (
@@ -234,49 +265,93 @@ const InventoryCompleteDialog: React.FC<InventoryCompleteDialogProps> = ({
                         </div>
 
                         <div className={styles.content}>
-                            <p>Все товары успешно подсчитаны. Теперь вы можете скачать отчет в формате Excel или просмотреть его.</p>
+                            {!isConfirmingReset ? (
+                                <>
+                                    <p>Все товары успешно подсчитаны. Теперь вы можете скачать отчет в формате Excel или просмотреть его.</p>
 
-                            <motion.div 
-                                className={styles.excelPreview}
-                                onClick={handlePreviewClick}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
+                                    <motion.div 
+                                        className={styles.excelPreview}
+                                        onClick={handlePreviewClick}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <motion.div 
+                                            className={styles.excelIcon}
+                                            animate={{ 
+                                                rotateY: [0, 360],
+                                            }}
+                                            transition={{ 
+                                                duration: 2,
+                                                repeat: Infinity,
+                                                ease: "linear"
+                                            }}
+                                        >
+                                            <DescriptionIcon />
+                                        </motion.div>
+                                        <span>Просмотреть отчет</span>
+                                    </motion.div>
+
+                                    <motion.button
+                                        className={styles.downloadButton}
+                                        onClick={handleSendReport}
+                                        disabled={isSending}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <DownloadIcon />
+                                        {isSending ? 'Отправка...' : 'Отправить отчет в группу'}
+                                    </motion.button>
+
+                                    <motion.button
+                                        className={styles.startNewButton}
+                                        onClick={handleStartNewInventory}
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <ReplayIcon style={{ marginRight: '8px' }} />
+                                        Начать новую инвентаризацию
+                                    </motion.button>
+                                </>
+                            ) : (
                                 <motion.div 
-                                    className={styles.excelIcon}
-                                    animate={{ 
-                                        rotateY: [0, 360],
-                                    }}
-                                    transition={{ 
-                                        duration: 2,
-                                        repeat: Infinity,
-                                        ease: "linear"
-                                    }}
+                                    className={styles.confirmationSection} 
+                                    key="confirmation"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
                                 >
-                                    <DescriptionIcon />
+                                    <h4>Подтвердите действие</h4>
+                                    <p>Вы уверены, что хотите сбросить текущую инвентаризацию? Все введенные данные (количество, статус 'нет в наличии') будут обнулены. Это действие нельзя отменить.</p>
+                                    <div className={styles.confirmationButtons}>
+                                        <motion.button
+                                            className={`${styles.confirmButton} ${styles.confirmResetButton}`}
+                                            onClick={executeReset}
+                                            disabled={isResetting}
+                                            whileHover={{ scale: isResetting ? 1 : 1.05 }}
+                                            whileTap={{ scale: isResetting ? 1 : 0.95 }}
+                                        >
+                                            {isResetting ? (
+                                                <CircularProgress size={20} color="inherit" /> 
+                                            ) : (
+                                                <>
+                                                    <CheckCircleIcon style={{ marginRight: '8px' }} />
+                                                    Да, сбросить
+                                                </>
+                                            )}
+                                        </motion.button>
+                                        <motion.button
+                                            className={`${styles.confirmButton} ${styles.cancelResetButton}`}
+                                            onClick={handleCancelReset}
+                                            disabled={isResetting}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                        >
+                                            <CancelIcon style={{ marginRight: '8px' }} />
+                                            Отмена
+                                        </motion.button>
+                                    </div>
                                 </motion.div>
-                                <span>Просмотреть отчет</span>
-                            </motion.div>
-
-                            <motion.button
-                                className={styles.downloadButton}
-                                onClick={handleSendReport}
-                                disabled={isSending}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                <DownloadIcon />
-                                {isSending ? 'Отправка...' : 'Отправить отчет в группу'}
-                            </motion.button>
-
-                            <motion.button
-                                className={styles.startNewButton}
-                                onClick={handleStartNewInventory}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                Начать новую инвентаризацию
-                            </motion.button>
+                            )}
                         </div>
                     </motion.div>
 

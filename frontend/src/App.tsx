@@ -182,14 +182,6 @@ function App() {
                         </ProtectedChefRoute>
                     }
                 />
-                <Route 
-                    path="/events/new"
-                    element={
-                        <ProtectedChefRoute>
-                            <CreateEvent />
-                        </ProtectedChefRoute>
-                    }
-                />
 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

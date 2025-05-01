@@ -2,6 +2,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Literal
 from datetime import datetime
+import uuid
 
 # --- Модели для Настроек Повтора ---
 class RepeatSettingsBase(BaseModel):
@@ -31,51 +32,59 @@ class RepeatSettingsCreate(RepeatSettingsBase):
     pass
 
 class RepeatSettingsRead(RepeatSettingsBase):
-    pass # На данный момент совпадает с Base
+    class Config:
+        orm_mode = True
 
 # --- Модели для Уведомлений ---
 class NotificationBase(BaseModel):
     message: str = Field(..., max_length=500)
     time: int = Field(..., ge=0, description="Время уведомления в минутах до события")
+    repeat: RepeatSettingsBase = Field(default_factory=RepeatSettingsBase)
+    chat_ids: List[int] = []
 
 class NotificationCreate(NotificationBase):
-    pass
+    repeat: RepeatSettingsCreate = Field(default_factory=RepeatSettingsCreate)
 
 class NotificationRead(NotificationBase):
-    pass # На данный момент совпадает с Base
+    id: uuid.UUID
+    repeat: Optional[RepeatSettingsRead] = None
+    class Config:
+        orm_mode = True
+
+# <<< ДОБАВЛЕНО: Схема для обновления уведомления >>>
+class NotificationUpdate(NotificationBase):
+    # Делаем все поля базового класса опциональными для частичного обновления
+    message: Optional[str] = Field(None, max_length=500)
+    time: Optional[int] = Field(None, ge=0)
+    # repeat и chat_ids тоже могут быть опциональными
+    repeat: Optional[RepeatSettingsCreate] = None # Используем Create, так как можем передать настройки
+    chat_ids: Optional[List[int]] = None
 
 # --- Модели для Статуса Планирования ---
 class SchedulingStatus(BaseModel):
     active: bool = True
+    class Config:
+        orm_mode = True
 
 # --- Основные Модели События ---
 class EventBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
+    date: Optional[datetime] = None
 
 class EventCreate(EventBase):
-    description: str = Field(..., max_length=1000) # Обязательно при создании
+    description: str = Field(..., max_length=1000)
     date: datetime
-    repeat: RepeatSettingsCreate = Field(default_factory=RepeatSettingsCreate) # Значение по умолчанию 'none'
-    notifications: List[NotificationCreate] = []
-    chat_ids: List[int] = []
 
 class EventUpdate(EventBase):
-    # Все поля опциональны при обновлении
-    date: Optional[datetime] = None
-    repeat: Optional[RepeatSettingsCreate] = None
-    notifications: Optional[List[NotificationCreate]] = None
-    chat_ids: Optional[List[int]] = None
-    # active: Optional[bool] = None # Можно добавить позже
+    pass
 
 class EventRead(EventBase):
     id: int
-    description: str # Описание должно быть всегда при чтении
+    description: str
     date: datetime
-    repeat: RepeatSettingsRead
-    notifications: List[NotificationRead]
-    chat_ids: List[int]
-    scheduling_status: SchedulingStatus = Field(default_factory=SchedulingStatus) # Статус по умолчанию
+    notifications: List[NotificationRead] = []
+    scheduling_status: SchedulingStatus = Field(default_factory=SchedulingStatus)
     last_check: Optional[datetime] = None
 
     class Config:
-        orm_mode = True # Для автоматического маппинга из SQLAlchemy моделей 
+        orm_mode = True 

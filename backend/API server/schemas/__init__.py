@@ -13,6 +13,7 @@ from .event import (
     RepeatSettingsCreate,
     RepeatSettingsRead,
     NotificationCreate,
+    NotificationUpdate,
     NotificationRead,
     SchedulingStatus
 )
@@ -35,6 +36,7 @@ __all__ = [
     "RepeatSettingsCreate",
     "RepeatSettingsRead",
     "NotificationCreate",
+    "NotificationUpdate",
     "NotificationRead",
     "SchedulingStatus",
 ] 

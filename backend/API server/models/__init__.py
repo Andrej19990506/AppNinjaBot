@@ -14,6 +14,8 @@ from .reserve import Reserve
 
 # NEW: Импорт модели Event
 from .event import Event
+# <<< ДОБАВЛЕНО: Импорт модели Notification >>>
+from .notification import Notification
 
 # Можно добавить __all__ для контроля импорта звездочкой, если нужно
 __all__ = [
@@ -32,4 +34,6 @@ __all__ = [
     # "ReserveMember",
     # NEW: Экспорт модели Event
     "Event",
+    # <<< ДОБАВЛЕНО: Экспорт модели Notification >>>
+    "Notification",
 ] 

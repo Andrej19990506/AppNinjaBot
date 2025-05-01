@@ -143,9 +143,12 @@ async def create_shift(
     shift_in: ShiftCreateTelegram,
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Создает новую запись о смене по Telegram ID пользователя и группы."""
-    
-    # 1. Найти пользователя (Member) ...
+    """Создает новую запись о смене по Telegram ID пользователя и группы.
+    Если запрошенный слот занят, пытается найти другой свободный слот того же типа.
+    """
+    logger.info(f"[Create Shift] Received request: {shift_in}")
+
+    # --- Шаг 1: Найти пользователя и группу (ВНЕ ТРАНЗАКЦИИ) ---
     member_result = await db.execute(
         select(Member).where(Member.user_id == shift_in.user_telegram_id)
     )
@@ -153,8 +156,7 @@ async def create_shift(
     if member is None:
         logger.error(f"[Create Shift] Member with Telegram ID {shift_in.user_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Member with Telegram ID {shift_in.user_telegram_id} not found")
-        
-    # 2. Найти группу (Group) и ее настройки
+
     group_result = await db.execute(
         select(Group).where(Group.group_id == shift_in.group_telegram_id)
     )
@@ -163,20 +165,20 @@ async def create_shift(
         logger.error(f"[Create Shift] Group with Telegram ID {shift_in.group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with Telegram ID {shift_in.group_telegram_id} not found")
 
-    # === НАЧАЛО: Преобразование строки даты в объект date ===
+    # --- Шаг 2: Преобразовать дату (ВНЕ ТРАНЗАКЦИИ) ---
     try:
         date_obj = datetime.strptime(shift_in.date, '%Y-%m-%d').date()
     except ValueError:
         logger.error(f"[Create Shift] Invalid date format received: {shift_in.date}")
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid date format. Use YYYY-MM-DD.")
-    # === КОНЕЦ: Преобразование ===
 
-    # === НАЧАЛО: Логика удаления старых смен при allowMultipleShifts=False ===
-    allow_multiple = group.access_settings.get('allowMultipleShifts', True) # По умолчанию разрешаем, если настройки нет
-    
+    # --- Шаг 3: Основная логика (теперь без явного db.begin()) ---
+    # Транзакция предполагается управляемой зависимостью get_db_session
+
+    # --- Шаг 3.1: Логика удаления старых смен при allowMultipleShifts=False ---
+    allow_multiple = group.access_settings.get('allowMultipleShifts', True)
     if not allow_multiple:
-        logger.info(f"[Create Shift] allowMultipleShifts is False for group {group.id}. Checking for existing shifts for member {member.id} on {date_obj}...")
-        # Ищем существующие смены для этого пользователя на эту дату в этой группе
+        logger.info(f"[Create Shift] allowMultipleShifts is False for group {group.id}. Checking existing shifts for member {member.id} on {date_obj}...")
         stmt_find_existing = (
             select(Shift)
             .where(
@@ -187,108 +189,161 @@ async def create_shift(
         )
         existing_shifts_result = await db.execute(stmt_find_existing)
         existing_shifts = existing_shifts_result.scalars().all()
-        
+
         if existing_shifts:
             logger.info(f"[Create Shift] Found {len(existing_shifts)} existing shift(s) for member {member.id} on {date_obj}. Deleting them...")
             for existing_shift in existing_shifts:
                 logger.debug(f"[Create Shift] Deleting existing shift ID: {existing_shift.id}")
                 await db.delete(existing_shift)
-            # Не вызываем commit здесь, он будет вызван после добавления новой смены
         else:
             logger.info(f"[Create Shift] No existing shifts found for member {member.id} on {date_obj}.")
     else:
-         logger.info(f"[Create Shift] allowMultipleShifts is True for group {group.id}. Skipping check for existing shifts.")
-    # === КОНЕЦ: Логика удаления старых смен ===
+            logger.info(f"[Create Shift] allowMultipleShifts is True for group {group.id}. Skipping check for existing shifts.")
 
-    # 3. Создать НОВУЮ смену
+    # --- Шаг 3.2: Проверка доступности слота и поиск свободного ---
+    target_slot_index: Optional[int] = None
+
+    # Сначала проверяем запрошенный слот
+    requested_slot_stmt = (
+        select(Shift.id)
+        .where(
+            Shift.group_id == group.id,
+            Shift.date == date_obj,
+            Shift.shift_type == shift_in.shift_type,
+            Shift.slot_index == shift_in.slot_index
+        )
+        .limit(1) # Достаточно одной записи для проверки
+    )
+    requested_slot_result = await db.execute(requested_slot_stmt)
+    is_requested_slot_occupied = requested_slot_result.scalar_one_or_none() is not None
+
+    if not is_requested_slot_occupied:
+        target_slot_index = shift_in.slot_index
+        logger.info(f"[Create Shift] Requested slot {shift_in.shift_type} index {shift_in.slot_index} is free.")
+    else:
+        logger.warning(f"[Create Shift] Requested slot {shift_in.shift_type} index {shift_in.slot_index} is occupied. Searching for alternatives...")
+
+        # Определяем лимиты слотов для данного типа смены
+        # TODO: Перенести default_single_day_slot_config или определить значения здесь
+        DEFAULT_MAX_DAY_SLOTS = 4
+        DEFAULT_MAX_NIGHT_SLOTS = 2
+        slot_config = group.slot_config or {}
+        if shift_in.shift_type == 'day':
+            max_slots = slot_config.get('maxDaySlots', DEFAULT_MAX_DAY_SLOTS)
+        elif shift_in.shift_type == 'night':
+            max_slots = slot_config.get('maxNightSlots', DEFAULT_MAX_NIGHT_SLOTS)
+        else:
+            logger.error(f"[Create Shift] Unknown shift_type: {shift_in.shift_type}")
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid shift type provided.")
+            
+        if max_slots <= 0:
+             logger.warning(f"[Create Shift] No slots configured for {shift_in.shift_type} shifts in group {group.id}.")
+             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Для {shift_in.shift_type} смен не настроены слоты в этой группе.")
+
+        # Ищем все занятые слоты этого типа на эту дату
+        occupied_slots_stmt = (
+            select(Shift.slot_index)
+            .where(
+                Shift.group_id == group.id,
+                Shift.date == date_obj,
+                Shift.shift_type == shift_in.shift_type
+            )
+        )
+        occupied_slots_result = await db.execute(occupied_slots_stmt)
+        occupied_indices = {row.slot_index for row in occupied_slots_result.all()}
+        logger.info(f"[Create Shift] Occupied {shift_in.shift_type} slots on {date_obj}: {occupied_indices}. Max allowed: {max_slots}")
+
+        # Ищем первый свободный слот
+        for potential_index in range(max_slots):
+            if potential_index not in occupied_indices:
+                target_slot_index = potential_index
+                logger.info(f"[Create Shift] Found free alternative slot: index {target_slot_index} (originally requested {shift_in.slot_index}).")
+                break # Нашли свободный, выходим из цикла
+
+        # Если после цикла не нашли свободный слот
+        if target_slot_index is None:
+            logger.warning(f"[Create Shift] No free {shift_in.shift_type} slots found on {date_obj} for group {group.id}.")
+            shift_type_rus = "дневные" if shift_in.shift_type == 'day' else "ночные"
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Все {shift_type_rus} слоты на {date_obj.strftime('%d.%m.%Y')} уже заняты.")
+
+    # --- Шаг 3.3: Создать НОВУЮ смену с найденным/подтвержденным слотом ---
+    if target_slot_index is None: # Дополнительная проверка на всякий случай
+            logger.error("[Create Shift] CRITICAL: target_slot_index is None after checks!")
+            raise HTTPException(status_code=500, detail="Internal server error during slot assignment.")
+
     db_shift = Shift(
-        member_id=member.id, 
-        group_id=group.id,   
+        member_id=member.id,
+        group_id=group.id,
         date=date_obj,
         shift_type=shift_in.shift_type,
-        slot_index=shift_in.slot_index
+        slot_index=target_slot_index # <<< Используем target_slot_index
     )
-    
     db.add(db_shift)
-    try:
-        await db.commit()
-        logger.info(f"[Create Shift] Shift committed for member {member.id} in group {group.id} ({shift_in.group_telegram_id}) on {date_obj}")
-        await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at'])
-        
-        # --- Отправка NOTIFY после успешного коммита --- >
+
+    # Flush, чтобы получить ID и данные для ответа/уведомления ДО коммита
+    await db.flush()
+    await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member']) # Обновляем с member
+
+    logger.info(f"[Create Shift] Shift object created for member {member.id}, slot {db_shift.shift_type} index {db_shift.slot_index}. Ready for commit by session manager.")
+
+    # --- Шаг 3.4: Подготовка данных для ответа и NOTIFY ---
+    created_shift_with_member: Shift | None = db_shift # Переименуем для ясности
+
+    if created_shift_with_member and created_shift_with_member.member:
+        # Добавляем статус старшего курьера ПЕРЕД ВОЗВРАТОМ/УВЕДОМЛЕНИЕМ
+        is_senior = False
+        gm_result = await db.execute(
+            select(GroupMember.is_senior_courier)
+            .where(
+                (GroupMember.member_id == created_shift_with_member.member.id) &
+                (GroupMember.group_id == created_shift_with_member.group_id)
+            )
+        )
+        senior_status = gm_result.scalar_one_or_none()
+        if senior_status is not None:
+            is_senior = senior_status
         try:
-            # Загружаем связанного Member для ответа И ДЛЯ NOTIFY
-            stmt = select(Shift).options(joinedload(Shift.member)).where(Shift.id == db_shift.id)
-            result = await db.execute(stmt)
-            created_shift_with_member: Shift | None = result.scalar_one_or_none()
+            setattr(created_shift_with_member.member, 'is_senior_courier', is_senior)
+        except AttributeError:
+            logger.warning(f"[Create Shift] Could not set is_senior_courier on response member {created_shift_with_member.member.id}")
 
-            if created_shift_with_member and created_shift_with_member.member:
-                # <<< НАЧАЛО ИЗМЕНЕНИЯ: Добавляем статус старшего курьера ПЕРЕД ВОЗВРАТОМ >>>
-                is_senior = False # По умолчанию
-                gm_result = await db.execute(
-                    select(GroupMember.is_senior_courier)
-                    .where(
-                        (GroupMember.member_id == created_shift_with_member.member.id) &
-                        (GroupMember.group_id == created_shift_with_member.group_id) # group_id есть у Shift
-                    )
-                )
-                senior_status = gm_result.scalar_one_or_none()
-                if senior_status is not None:
-                    is_senior = senior_status
+        # Конвертируем в Pydantic схему
+        try:
+            pydantic_shift = ShiftRead.model_validate(created_shift_with_member, from_attributes=True)
+            shift_data_dict = pydantic_shift.model_dump(exclude_none=True, mode='json')
+        except Exception as pydantic_error:
+             logger.error(f"[Create Shift] Error converting SQLAlchemy Shift to Pydantic ShiftRead: {pydantic_error}", exc_info=True)
+             shift_data_dict = None
 
-                try:
-                    setattr(created_shift_with_member.member, 'is_senior_courier', is_senior)
-                    logger.info(f"[Create Shift] Added is_senior_courier={is_senior} to response member {created_shift_with_member.member.id}")
-                except AttributeError:
-                    logger.warning(f"[Create Shift] Could not set is_senior_courier on response member {created_shift_with_member.member.id}")
-                    pass
-                # <<< КОНЕЦ ИЗМЕНЕНИЯ >>>
-                
-                # ===> ИСПРАВЛЕНИЕ: Сначала конвертируем в Pydantic схему <===
-                try:
-                    pydantic_shift = ShiftRead.model_validate(created_shift_with_member, from_attributes=True)
-                    shift_data_dict = pydantic_shift.model_dump(exclude_none=True, mode='json')
-                except Exception as pydantic_error:
-                     logger.error(f"[Create Shift] Error converting SQLAlchemy Shift to Pydantic ShiftRead: {pydantic_error}", exc_info=True)
-                     shift_data_dict = None
+        # Отправляем NOTIFY, если данные готовы
+        if shift_data_dict:
+            notify_payload_dict = {
+                "type": "shifts_updated",
+                "chat_id": str(shift_in.group_telegram_id),
+                "source": "shift_creation",
+                "shift_data": shift_data_dict # Содержит актуальный slot_index
+            }
+            notify_payload_json = json.dumps(notify_payload_dict)
 
-                # Только если успешно получили словарь, отправляем NOTIFY
-                if shift_data_dict:
-                    notify_payload_dict = {
-                        "type": "shifts_updated",
-                        "chat_id": str(shift_in.group_telegram_id),
-                        "source": "shift_creation",
-                        "shift_data": shift_data_dict
-                    }
-                    notify_payload_json = json.dumps(notify_payload_dict)
-
-                    if len(notify_payload_json.encode('utf-8')) < 7900:
-                        escaped_payload = notify_payload_json.replace("'", "''")
-                        sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
-                        await db.execute(sql_command)
-                        logger.info(f"[Create Shift] Sent NOTIFY with FULL data for shift_id {db_shift.id} in chat_id {shift_in.group_telegram_id}")
-                    else:
-                        logger.warning(f"[Create Shift] NOTIFY payload for shift_id {db_shift.id} is too large ({len(notify_payload_json.encode('utf-8'))} bytes). Skipping NOTIFY.")
-                else:
-                    logger.error(f"[Create Shift] Could not prepare shift_data_dict for NOTIFY (Shift ID: {db_shift.id})")
-
+            if len(notify_payload_json.encode('utf-8')) < 7900:
+                escaped_payload = notify_payload_json.replace("'", "''")
+                sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+                await db.execute(sql_command)
+                logger.info(f"[Create Shift] Sent NOTIFY with FULL data for shift_id {db_shift.id} (slot {db_shift.slot_index}) in chat_id {shift_in.group_telegram_id}")
             else:
-                logger.error(f"[Create Shift] Could not fetch created shift details after commit (Shift ID: {db_shift.id}). Cannot send NOTIFY.")
+                logger.warning(f"[Create Shift] NOTIFY payload for shift_id {db_shift.id} is too large. Skipping NOTIFY.")
+        else:
+            logger.error(f"[Create Shift] Could not prepare shift_data_dict for NOTIFY (Shift ID: {db_shift.id})")
+    else:
+        logger.error(f"[Create Shift] Could not get created shift details with member after flush (Shift ID: {db_shift.id}). Cannot send NOTIFY.")
 
-        except Exception as notify_err:
-            logger.error(f"[Create Shift] Failed to send NOTIFY for chat_id {shift_in.group_telegram_id}: {notify_err}", exc_info=True)
-        # --- Конец блока NOTIFY ---
+    # Коммит/rollback ожидается от управляющего контекста сессии
 
-        # Возвращаем созданный объект (он уже загружен и модифицирован)
-        return created_shift_with_member
-
-    except Exception as e:
-        await db.rollback()
-        logger.error(f"[Create Shift] Error during shift creation or commit: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while creating the shift."
-        ) 
+    # --- Шаг 4: Возвращаем результат ---
+    # Мы уже сделали refresh, объект db_shift актуален
+    logger.info(f"[Create Shift] Returning shift object for ID {db_shift.id}. Commit/rollback handled by session manager.")
+    # Возвращаем объект SQLAlchemy, FastAPI/Pydantic позаботится о сериализации
+    return db_shift
 
 # ===> ДОБАВЛЯЕМ ЭНДПОИНТ ДЛЯ УДАЛЕНИЯ СМЕНЫ <===
 @router.delete("/{shift_id}", status_code=status.HTTP_204_NO_CONTENT)

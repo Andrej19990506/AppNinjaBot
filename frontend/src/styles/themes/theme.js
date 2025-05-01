@@ -1,29 +1,38 @@
 import { createTheme } from '@mui/material/styles';
 
+// Значения по умолчанию (например, для светлой темы)
+const defaultTextColor = '#2c3e50'; 
+const defaultTextSecondary = '#666';
+const defaultBackgroundColor = '#fff';
+const defaultCardBackground = '#fff';
+const defaultRadius = 12; // Значение из --radius
+const defaultPrimaryLight = '#FF8B59'; // Значение из --orange-light
+const defaultPrimaryColor = '#FF5F1F'; // Значение из --orange-primary
+
 export const theme = createTheme({
   palette: {
     primary: {
-      main: '#FF5F1F',
-      light: '#FF8B59',
-      dark: '#E64500',
+      main: defaultPrimaryColor, // Используем статичное значение
+      light: defaultPrimaryLight, // Используем статичное значение
+      dark: '#E64500', // Оставляем статичное значение
     },
     background: {
-      default: 'var(--background-color)',
-      paper: 'var(--card-background)',
+      default: defaultBackgroundColor, // Используем статичное значение
+      paper: defaultCardBackground,    // Используем статичное значение
     },
     text: {
-      primary: 'var(--text-color)',
-      secondary: 'var(--text-secondary)',
+      primary: defaultTextColor,       // Используем статичное значение
+      secondary: defaultTextSecondary, // Используем статичное значение
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: defaultRadius, // Используем статичное значение
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 'var(--radius)',
+          borderRadius: defaultRadius, // Используем статичное значение
           textTransform: 'none',
         },
       },
@@ -31,9 +40,9 @@ export const theme = createTheme({
     MuiLinearProgress: {
       styleOverrides: {
         root: {
-          backgroundColor: 'var(--primary-light)',
+          backgroundColor: defaultPrimaryLight, // Используем статичное значение
           '& .MuiLinearProgress-bar': {
-            backgroundColor: 'var(--primary-color)',
+            backgroundColor: defaultPrimaryColor, // Используем статичное значение
           },
         },
       },

@@ -17,6 +17,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SearchIcon from '@mui/icons-material/Search';
+import styled from 'styled-components';
 
 // <<< ИЗМЕНЕНИЕ: Импорты из Redux >>>
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -144,6 +145,97 @@ const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
     );
 };
 
+// --- Создаем стилизованный компонент для кнопки "Создать событие" --- 
+const StyledCreateEventButton = styled(Button)`
+    background-color: var(--primary-color) !important;
+    color: var(--text-color-on-primary);
+    text-transform: none;
+    font-weight: 600;
+    border-radius: 16px; 
+
+    &:hover {
+        background-color: var(--primary-dark) !important;
+    }
+`;
+
+// --- Создаем стилизованный компонент для кнопки "Сформировать акт" ---
+const StyledGenerateDocButton = styled(Button)`
+    text-transform: none;
+    font-weight: 600;
+    border-radius: 12px; // << Фиксированное значение 
+    position: relative;
+    overflow: hidden;
+    background-color: var(--success-color) !important; // Используем CSS переменную
+    color: var(--text-color-on-primary);
+
+    &:hover {
+        background-color: var(--success-dark) !important;
+    }
+
+    &.Mui-disabled { // Стили для неактивного состояния
+        background-color: var(--disabled-bg-color) !important;
+        color: var(--disabled-text-color);
+        cursor: not-allowed;
+        // Убираем spinner в disabled состоянии, если он в startIcon
+        .MuiCircularProgress-root {
+            display: none;
+        }
+    }
+    
+    // Стили для спиннера, если он нужен ВНУТРИ кнопки, а не в startIcon
+    .generatingSpinner { 
+        color: var(--text-color-on-primary);
+    }
+`;
+
+// --- Создаем стилизованный компонент для ОБЩЕЙ кнопки "Создать/Обновить" ---
+const StyledGenericCreateButton = styled(Button)`
+    text-transform: none;
+    font-weight: 600;
+    border-radius: 16px; // Используем то же фиксированное значение, что и для Event
+    position: relative;
+    overflow: hidden;
+    // Добавляем базовые цвета, если нужно (можно переопределить классами)
+    background-color: var(--primary-color) !important;
+    color: var(--text-color-on-primary);
+
+    &:hover {
+        background-color: var(--primary-dark) !important;
+    }
+
+    // Стили для disabled состояния (пример)
+    &.Mui-disabled {
+        background-color: var(--disabled-bg-color) !important;
+        color: var(--disabled-text-color);
+    }
+
+    // Специфичные стили для "Обновить" можно добавить через класс updateButton,
+    // который добавляется в className ниже
+    &.updateButton {
+        background-color: var(--warning-color) !important; // Пример цвета для Обновить
+        &:hover {
+            background-color: var(--warning-dark) !important;
+        }
+    }
+
+    // Стили для ripple эффекта, если нужно
+    .ripple-effect {
+        position: absolute;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.7);
+        transform: scale(0);
+        animation: ripple 0.6s linear;
+        pointer-events: none; /* Чтобы не мешал кликам */
+    }
+
+    @keyframes ripple {
+        to {
+            transform: scale(4);
+            opacity: 0;
+        }
+    }
+`;
+
 interface FooterProps {
     selectedChat?: FooterChatInfo;
     selectedCategory?: string;
@@ -173,6 +265,8 @@ interface FooterProps {
     showInventorySearchButton?: boolean;
     onInventorySearchClick?: () => void;
     isSearchOpen?: boolean;
+    showCreateEventButton?: boolean;
+    onCreateEventClick?: () => void;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -203,7 +297,9 @@ const Footer: React.FC<FooterProps> = ({
     showModalSteps = true,
     showInventorySearchButton = false,
     onInventorySearchClick,
-    isSearchOpen = false
+    isSearchOpen = false,
+    showCreateEventButton = false,
+    onCreateEventClick
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -306,27 +402,27 @@ const Footer: React.FC<FooterProps> = ({
 
                         {/* --- Центральная часть --- */}
                         <div className={styles.centerSide}>
-                            {/* <<< ИЗМЕНЕНИЕ: Кнопка Назад ПЕРЕМЕЩЕНА СЮДА >>> */} 
+                            {/* <<< Кнопка Назад >>> */}
                             {(selectedCategory || selectedItem) && (
                                 <motion.button
                                     className={styles.backButton}
                                     onClick={onBack}
-                                   whileHover={{ scale: 1.05 }}
-                                   whileTap={{ scale: 0.95 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
                                 >
-                                   <span className={styles.backArrow}>←</span>
-                                   <div className={`${styles.textContainer} ${isTextOverflow ? styles.textOverflow : ''}`}>
-                                       <div 
-                                           ref={textRef}
-                                           className={isTextOverflow ? styles.scrollingText : ''}
-                                       >
-                                           {selectedItem ? selectedCategory : 'Категории'}
-                                       </div>
-                                   </div>
+                                    <span className={styles.backArrow}>←</span>
+                                    <div className={`${styles.textContainer} ${isTextOverflow ? styles.textOverflow : ''}`}>
+                                        <div 
+                                            ref={textRef}
+                                            className={isTextOverflow ? styles.scrollingText : ''}
+                                        >
+                                            {selectedItem ? selectedCategory : 'Категории'}
+                                        </div>
+                                    </div>
                                 </motion.button>
                             )}
                             
-                            {/* Кнопка Смены/Резерв (остается здесь, если была) */} 
+                            {/* <<< Кнопка Смены/Резерв >>> */}
                             {isShiftDialogOpen && (
                                 <motion.button
                                     className={styles.shiftModeButton} 
@@ -340,6 +436,34 @@ const Footer: React.FC<FooterProps> = ({
                                     {shiftDialogMode === 'shifts' ? 'Резерв' : 'Смены'}
                                 </motion.button>
                             )}
+
+                            {/* <<< ПЕРЕМЕЩАЕМ КНОПКУ "СОЗДАТЬ СОБЫТИЕ" СЮДА >>> */} 
+                            {showCreateEventButton && (
+                                <motion.div
+                                    // Убираем wrapper класс, если он не нужен для центрирования
+                                    // className={styles.createButtonWrapper} 
+                                    initial={{ scale: 0, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0, opacity: 0 }}
+                                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.97 }}
+                                    style={{ margin: '0 auto' }} // Добавляем стиль для центрирования
+                                >
+                                    {/* Используем СПЕЦИАЛЬНЫЙ стилизованный компонент для СОБЫТИЙ */}
+                                    <StyledCreateEventButton 
+                                        className={styles.createButton} // Можно оставить общие классы или убрать
+                                        startIcon={<AddIcon />}
+                                        onClick={onCreateEventClick}
+                                        variant="contained"
+                                        disableElevation
+                                        disableRipple // <<< ОСТАВЛЯЕМ RIPPLE ОТКЛЮЧЕННЫМ
+                                    >
+                                        Создать
+                                    </StyledCreateEventButton>
+                                </motion.div>
+                            )}
+                            {/* <<< КОНЕЦ ПЕРЕМЕЩЕННОЙ КНОПКИ >>> */} 
                         </div>
 
                         {/* --- Правая часть --- */}
@@ -384,7 +508,7 @@ const Footer: React.FC<FooterProps> = ({
                                 {/* --- КОНЕЦ НОВОЙ Кнопки Поиска --- */}
                             </div>
                             
-                            {/* Кнопка Создать/Акт (если нужно) */} 
+                            {/* Кнопка Создать/Обновить (ОБЩАЯ) */} 
                             {showCreateButton && (
                                 <motion.div
                                     className={styles.createButtonWrapper}
@@ -395,22 +519,26 @@ const Footer: React.FC<FooterProps> = ({
                                     whileHover={{ scale: isCreateButtonActive ? 1.03 : 1 }}
                                     whileTap={{ scale: isCreateButtonActive ? 0.97 : 1 }}
                                 >
-                                    <Button
+                                    {/* Используем ОБЩИЙ стилизованный компонент */}
+                                    <StyledGenericCreateButton 
                                         className={`${styles.createButton} ${isCreateButtonActive ? styles.createButtonActive : styles.createButtonDisabled} ${createButtonText === 'Обновить' ? 'updateButton' : ''}`}
                                         startIcon={createButtonText === 'Обновить' ? <RefreshIcon /> : <AddIcon />}
                                         disabled={!isCreateButtonActive}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (isCreateButtonActive) {
+                                                // Логика ripple эффекта остается здесь или переносится в styled
                                                 const rect = e.currentTarget.getBoundingClientRect();
                                                 const x = e.clientX - rect.left;
                                                 const y = e.clientY - rect.top;
                                                 
                                                 const ripple = document.createElement('span');
-                                                ripple.classList.add('ripple-effect');
+                                                ripple.classList.add('ripple-effect'); // Убедимся, что класс есть
                                                 ripple.style.left = `${x}px`;
                                                 ripple.style.top = `${y}px`;
-                                                e.currentTarget.appendChild(ripple);
+                                                // Находим именно кнопку, а не div
+                                                const buttonElement = e.currentTarget as HTMLButtonElement;
+                                                buttonElement.appendChild(ripple);
                                                 
                                                 setTimeout(() => {
                                                     ripple.remove();
@@ -418,20 +546,14 @@ const Footer: React.FC<FooterProps> = ({
                                             }
                                             if (onCreateClick) onCreateClick(e);
                                         }}
-                                        variant="contained"
-                                        disableElevation
-                                        sx={{
-                                            textTransform: 'none', 
-                                            fontWeight: 600,
-                                            borderRadius: (theme) => theme.shape.borderRadius * 2,
-                                            position: 'relative',
-                                            overflow: 'hidden'
-                                        }}
+                                        variant="contained" 
+                                        disableElevation 
                                     >
                                         {createButtonText}
-                                    </Button>
+                                    </StyledGenericCreateButton>
                                 </motion.div>
                             )}
+                            {/* Кнопка Сформировать акт */} 
                             {showGenerateDocButton && hasWriteOffItems && (
                                 <motion.div
                                     className={styles.generateDocButtonWrapper}
@@ -439,32 +561,23 @@ const Footer: React.FC<FooterProps> = ({
                                     animate={{ scale: 1, opacity: 1 }}
                                     exit={{ scale: 0, opacity: 0 }}
                                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                                    whileHover={{ scale: hasWriteOffItems ? 1.03 : 1 }}
-                                    whileTap={{ scale: hasWriteOffItems ? 0.97 : 1 }}
+                                    whileHover={{ scale: hasWriteOffItems && !isGeneratingDocument ? 1.03 : 1 }} // Условие для hover
+                                    whileTap={{ scale: hasWriteOffItems && !isGeneratingDocument ? 0.97 : 1 }}   // Условие для tap
                                 >
-                                    <Button
-                                        className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`}
+                                    {/* Используем стилизованный компонент для акта */}
+                                    <StyledGenerateDocButton
+                                        className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`} // Добавляем классы для доп. стилей если нужно
                                         startIcon={isGeneratingDocument ? 
                                             <CircularProgress size={18} className={styles.generatingSpinner} /> : 
                                             <DescriptionIcon />}
                                         disabled={!hasWriteOffItems || isGeneratingDocument}
                                         onClick={onGenerateDocClick}
-                                        variant="contained"
-                                        disableElevation
-                                        sx={{
-                                            textTransform: 'none', 
-                                            fontWeight: 600,
-                                            borderRadius: (theme) => theme.shape.borderRadius * 1.5,
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            backgroundColor: 'var(--success-color)',
-                                            '&:hover': {
-                                                backgroundColor: 'var(--success-color)'
-                                            }
-                                        }}
+                                        variant="contained" // variant можно оставить или убрать, если стили покрывают все
+                                        disableElevation // disableElevation можно оставить или убрать
+                                        // Убираем sx проп, так как стили теперь в StyledGenerateDocButton
                                     >
                                         {isGeneratingDocument ? 'Создание...' : 'Сформировать акт'}
-                                    </Button>
+                                    </StyledGenerateDocButton>
                                 </motion.div>
                             )}
                         </div>

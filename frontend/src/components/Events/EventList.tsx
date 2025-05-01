@@ -250,6 +250,7 @@ const EventList = () => {
         const isCenteringGrid = events.length === 1 && events[0].id === creatingEventId && !isCreatingInCenter;
 
         return (
+            // @ts-ignore // Known issue with framer-motion types
             <AnimatePresence>
                 <EventsGrid $isCentering={isCenteringGrid} layout>
                     {eventsForGrid.map((event) => (
@@ -271,6 +272,7 @@ const EventList = () => {
 
     return (
         <EventListContainer>
+            {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence>
                 {isCreatingInCenter && eventBeingCreated && (
                     <Overlay 
@@ -282,6 +284,7 @@ const EventList = () => {
                 )}
             </AnimatePresence>
 
+            {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence>
                 {isCreatingInCenter && eventBeingCreated && (
                     <CenteredItemContainer

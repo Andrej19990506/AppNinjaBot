@@ -778,6 +778,7 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                             </>
                         )}
                     </motion.div>
+                    {/* @ts-ignore // Known issue with framer-motion types */}
                     <AnimatePresence>
                         {isConfirming && (
                             <ConfirmContainer 

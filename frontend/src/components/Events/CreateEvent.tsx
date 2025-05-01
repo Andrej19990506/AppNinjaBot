@@ -87,6 +87,7 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onClose }) => {
 
     return (
         <div>
+            {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence mode="sync">
                  <div className="stepContent" style={{ minHeight: '30vh' }}> {/* Можно уменьшить высоту */} 
                      {renderContent()}
@@ -107,6 +108,7 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onClose }) => {
             </div>
 
             {/* Экран успеха */} 
+            {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence mode="sync">
                 {showSuccess && 
                     <div style={{ /* стили */ }}>

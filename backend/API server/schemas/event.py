@@ -47,9 +47,13 @@ class NotificationCreate(NotificationBase):
 
 class NotificationRead(NotificationBase):
     id: uuid.UUID
+    event_id: int
     repeat: Optional[RepeatSettingsRead] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # <<< ДОБАВЛЕНО: Схема для обновления уведомления >>>
 class NotificationUpdate(NotificationBase):

@@ -1,13 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 import logging
-import uuid # <<< Добавляем импорт uuid
+import uuid
+import os
+import httpx
 
 # --- АБСОЛЮТНЫЕ ИМПОРТЫ (Новая попытка) ---
 import schemas          # Из /app/schemas/event.py
 from db.session import get_db_session # Используем 'db' и 'get_db_session'
 import crud # <<< ДОБАВЛЕНО: Импорт CRUD операций
+# --- Импортируем нашу утилиту --- 
+from utils.scheduler_client import notify_scheduler
 
 # Удаляем заглушки
 # class EventRead: ...
@@ -113,30 +117,41 @@ async def delete_event(
 async def create_notification_for_event(
     event_id: int,
     notification_in: schemas.NotificationCreate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db_session)
 ):
     """
     Создает новое уведомление для события с указанным `event_id`.
+    После успешного создания отправляет задачу в Шедулер.
     """
     logger.info(f"Запрос на добавление уведомления к событию {event_id}")
-    # Проверяем, существует ли само событие
     event = await crud.event.get_event(db=db, event_id=event_id)
     if not event:
         logger.warning(f"Событие с ID {event_id} не найдено для добавления уведомления")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Событие не найдено")
-    
-    # TODO: Добавить логику, если нужно ограничить кол-во уведомлений (например, только одно)
-    # if event.notifications:
-    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Уведомление для этого события уже существует")
         
     try:
+        # --- Создаем уведомление в БД --- 
         db_notification = await crud.event.create_event_notification(
             db=db, notification_in=notification_in, event_id=event_id
         )
+        await db.commit()
+        await db.refresh(db_notification)
         logger.info(f"Уведомление создано с ID: {db_notification.id} для события {event_id}")
+        
+        # --- Преобразуем SQLAlchemy в Pydantic и добавляем event_time --- 
+        try:
+            notification_pydantic = schemas.NotificationRead.from_orm(db_notification)
+            logger.info(f"Добавление фоновой задачи для отправки уведомления {db_notification.id} в Шедулер")
+            # --- ИЗМЕНЕНИЕ: Передаем Pydantic объект и дату события --- 
+            background_tasks.add_task(notify_scheduler, notification_pydantic, event.date)
+        except Exception as pydantic_error:
+            logger.error(f"Ошибка подготовки данных для Шедулера (уведомление {db_notification.id}): {pydantic_error}", exc_info=True)
+
         return db_notification
     except Exception as e:
-        logger.exception(f"Ошибка при создании уведомления для события {event_id}:")
+        await db.rollback()
+        logger.exception(f"Ошибка при создании уведомления {notification_id} или отправке в Шедулер для события {event_id}:", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="Внутренняя ошибка сервера при создании уведомления"
@@ -150,15 +165,18 @@ async def create_notification_for_event(
 )
 async def update_notification_for_event(
     event_id: int,
-    notification_id: uuid.UUID, # <<< Принимаем UUID из пути
-    notification_in: schemas.NotificationUpdate, # <<< Принимаем данные для обновления
+    notification_id: uuid.UUID,
+    notification_in: schemas.NotificationUpdate,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db_session)
 ):
     """
     Обновляет существующее уведомление по его ID и ID события.
+    После успешного обновления отправляет задачу в Шедулер.
     """
     logger.info(f"Запрос на обновление уведомления {notification_id} для события {event_id}")
     try:
+        # --- Обновляем уведомление в БД --- 
         updated_notification = await crud.event.update_event_notification(
             db=db, 
             event_id=event_id, 
@@ -171,12 +189,42 @@ async def update_notification_for_event(
                 status_code=status.HTTP_404_NOT_FOUND, 
                 detail="Уведомление не найдено или не принадлежит этому событию"
             )
+        await db.commit()
+        await db.refresh(updated_notification)
         logger.info(f"Уведомление {notification_id} успешно обновлено")
+
+        # --- ВАЖНО: Загружаем событие, чтобы получить его время --- 
+        # Мы можем либо модифицировать crud.update_event_notification, чтобы он возвращал 
+        # обновленное уведомление С предзагруженным событием (через joinedload), 
+        # либо запросить событие здесь отдельно. Запросим отдельно для простоты.
+        event = await crud.event.get_event(db=db, event_id=event_id)
+        if not event:
+             # Если событие вдруг удалили между проверкой и этим моментом
+             logger.error(f"Событие {event_id} не найдено после обновления уведомления {notification_id}. Невозможно отправить event_time.")
+             # Можно либо падать, либо отправлять без event_time, либо не отправлять вообще
+             # Пока что просто залогируем и продолжим
+             pass
+             
+        await db.commit()
+        await db.refresh(updated_notification)
+        logger.info(f"Уведомление {notification_id} успешно обновлено")
+
+        # --- Преобразуем SQLAlchemy в Pydantic и добавляем event_time --- 
+        try:
+            notification_pydantic = schemas.NotificationRead.from_orm(updated_notification)
+            logger.info(f"Добавление фоновой задачи для отправки обновления уведомления {updated_notification.id} в Шедулер")
+            # --- ИЗМЕНЕНИЕ: Передаем Pydantic объект и дату события --- 
+            background_tasks.add_task(notify_scheduler, notification_pydantic, event.date)
+        except Exception as pydantic_error:
+            logger.error(f"Ошибка подготовки данных для Шедулера (уведомление {updated_notification.id}): {pydantic_error}", exc_info=True)
+
         return updated_notification
     except HTTPException:
-        raise # Пробрасываем HTTP исключения (например, 404)
+        await db.rollback()
+        raise
     except Exception as e:
-        logger.exception(f"Ошибка при обновлении уведомления {notification_id} для события {event_id}:")
+        await db.rollback()
+        logger.exception(f"Ошибка при обновлении уведомления {notification_id} или отправке в Шедулер для события {event_id}:", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
             detail="Внутренняя ошибка сервера при обновлении уведомления"

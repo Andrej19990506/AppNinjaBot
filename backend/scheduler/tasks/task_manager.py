@@ -31,6 +31,7 @@ from typing import Optional, Dict, Any, List
 from services.database_service import DatabaseService
 import asyncio # Добавляем asyncio сюда, если его еще нет
 import json # <-- Добавляем импорт json
+from tasks.event_notification.notification_task import EventNotificationTask # <<< Добавляем импорт
 
 # УБИРАЕМ импорт fastapi_app отсюда
 # try:
@@ -128,12 +129,30 @@ class TaskManager:
         # Оставляем словарь с путями к функциям-оберткам
         self.task_executors = {
             'courier_shift_access': 'tasks.courier_shifts.shift_access_task:execute_job',
-            'registration_open_event': 'tasks.websocket_events.registration_open_event_task:execute_job'
+            'registration_open_event': 'tasks.websocket_events.registration_open_event_task:execute_job',
+            'event_notification': 'tasks.event_notification.notification_task:send_notification'
         }
 
         # !!! ДОБАВЛЯЕМ СЛУШАТЕЛЯ СОБЫТИЙ !!!
         self.scheduler.add_listener(self._job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
         logger.info("Слушатель событий APScheduler добавлен.")
+
+        # --- Инициализируем экземпляры классов задач --- 
+        # Чтобы иметь к ним доступ для вызова методов schedule
+        self.task_classes = { # Словарь для хранения классов
+            ShiftAccessTask.TASK_TYPE: ShiftAccessTask,
+            EventNotificationTask.TASK_TYPE: EventNotificationTask,
+            # Добавь другие типы задач здесь
+        }
+        self.task_instances = {} # Словарь для хранения экземпляров
+        for task_type, task_class in self.task_classes.items():
+            try:
+                # Передаем this TaskManager в конструктор BaseTask
+                self.task_instances[task_type] = task_class(scheduler_instance, self, settings)
+                logger.info(f"Экземпляр задачи '{task_type}' ({task_class.__name__}) создан и сохранен.")
+            except Exception as init_err:
+                 logger.error(f"Ошибка инициализации экземпляра задачи {task_type}: {init_err}")
+        # ------------------------------------------------
 
     async def save_task(self, task_id, chat_id, task_type, next_run_time, data=None):
         """Сохраняет задачу в БД и добавляет/обновляет в APScheduler."""
@@ -472,43 +491,65 @@ class TaskManager:
 
         if event.exception:
             logger.error(f"Слушатель: Задача {job_id} завершилась с ошибкой: {event.exception}")
-            # Можно добавить отправку NOTIFY об ошибке, если нужно
-            # ...
+            # TODO: Возможно, нужно обновить статус задачи в БД на 'error'
+            # TODO: Рассмотреть, нужно ли ПЫТАТЬСЯ перепланировать задачу после ошибки?
+            #       Зависит от типа ошибки и логики задачи.
+            #       Пока что после ошибки перепланирование НЕ происходит.
         else:
             # Задача успешно выполнена
             logger.info(f"Слушатель: Задача {job_id} успешно выполнена.")
+            # APScheduler сам обновит next_run_time для повторяющихся задач.
+            # Наша задача - обновить это время в НАШЕЙ БД для корректного перезапуска
+            # и выполнить доп. действия (например, NOTIFY).
 
             task_type = None
             chat_id = None
+            # notification_id_from_job = None # Больше не нужно извлекать ID здесь для перепланирования
 
             try:
-                # Шаг 1: Попытка получить данные из объекта Job
+                # --- Получаем Job и его актуальное next_run_time --- 
                 job = self.scheduler.get_job(job_id)
+                actual_next_run_time = None
+                if job:
+                    actual_next_run_time = job.next_run_time # Это может быть None для одноразовых задач
+                    if actual_next_run_time:
+                        logger.info(f"Слушатель: Следующее время запуска для {job_id} по данным APScheduler: {actual_next_run_time}")
+                    else:
+                         logger.info(f"Слушатель: Задача {job_id} больше не имеет следующего времени запуска (одноразовая или завершена). Обновление БД не требуется.")
+                else:
+                    logger.warning(f"Слушатель: Не удалось получить объект Job для {job_id} после выполнения. Не могу обновить next_run_time в БД.")
+                # -------------------------------------------------
+                
+                # --- Обновляем время в нашей БД, если оно есть --- 
+                if actual_next_run_time and self.db_service:
+                    # Запускаем обновление в фоне, чтобы не блокировать слушатель
+                    asyncio.create_task(
+                        self.db_service.update_task_next_run_time(job_id, actual_next_run_time)
+                    )
+                # --------------------------------------------------
+
+                # --- Получаем task_type и ID для ДОПОЛНИТЕЛЬНОЙ обработки (например, NOTIFY) --- 
                 if job and job.kwargs:
                     task_type = job.kwargs.get('task_type')
-                    chat_id = job.kwargs.get('chat_id')
-                    logger.debug(f"Слушатель: Получены task_type='{task_type}', chat_id='{chat_id}' из job.kwargs для {job_id}")
-                else:
-                    # Шаг 2: Если Job не найден (заменен), парсим ID
-                    logger.warning(f"Слушатель: Job {job_id} не найден, попытка парсинга ID...")
+                    if task_type != 'event_notification':
+                        chat_id = job.kwargs.get('chat_id') 
+                    logger.debug(f"Слушатель: Получены данные из job.kwargs для {job_id}")
+                elif not task_type: # Парсим ID, если из kwargs не получили
+                    logger.info(f"Слушатель: Попытка парсинга ID '{job_id}' для получения task_type...")
                     parts = job_id.split('_')
-                    # Формат: courier_shift_access_chatid_timestamp
                     if len(parts) >= 3:
-                        timestamp_part = parts[-1]
-                        chat_id_part = parts[-2]
-                        task_type_parts = parts[:-2] # Все части до chat_id и timestamp
-                        task_type_parsed = '_'.join(task_type_parts) # Собираем task_type обратно
-                        try:
-                            int(chat_id_part) # Проверка, что chat_id - число
-                            task_type = task_type_parsed
-                            chat_id = chat_id_part
-                            logger.info(f"Слушатель: Получены task_type='{task_type}', chat_id='{chat_id}' из парсинга ID {job_id}")
-                        except ValueError:
-                            logger.error(f"Слушатель: Не удалось извлечь числовой chat_id ('{chat_id_part}') при парсинге {job_id}")
+                        task_type = '_'.join(parts[:-2])
+                        logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID")
+                        # Можно извлечь chat_id/notification_id, если нужно для NOTIFY
+                        if task_type == 'courier_shift_access' and not chat_id:
+                             try: int(parts[-2]); chat_id = parts[-2] 
+                             except ValueError: pass
                     else:
-                        logger.error(f"Слушатель: Не удалось распарсить {job_id} на task_type, chat_id и timestamp.")
+                        logger.error(f"Слушатель: Не удалось распарсить {job_id}. Доп. обработка невозможна.")
+                        task_type = None
+                # --- Конец получения task_type и ID --- 
 
-                # Шаг 3: Отправка NOTIFY...
+                # --- Дополнительная обработка (NOTIFY) --- 
                 if task_type == 'courier_shift_access' and chat_id is not None:
                     websocket_channel = getattr(self.settings, 'WEBSOCKET_CHANNEL', None)
                     if self.db_service and websocket_channel:
@@ -522,35 +563,36 @@ class TaskManager:
                         asyncio.create_task(
                             self.db_service.notify_channel(websocket_channel, notify_payload)
                         )
-                    else:
-                        # Логирование отсутствия зависимостей
-                        if not self.db_service:
-                            logger.warning("Слушатель: db_service не доступен, не могу отправить NOTIFY.")
-                        if not websocket_channel:
-                            logger.warning("Слушатель: WEBSOCKET_CHANNEL не задан в настройках, не могу отправить NOTIFY.")
                 elif task_type:
-                    logger.debug(f"Слушатель: Задача {job_id} имеет тип '{task_type}', NOTIFY для shift_access_sent не требуется.")
-                else:
-                    # Если task_type is None, значит, была ошибка получения/парсинга, лог об этом уже был выше.
-                    pass
+                     logger.debug(f"Слушатель: Для задачи типа '{task_type}' дополнительная обработка после успеха не требуется.")
+                # --- Конец дополнительной обработки --- 
 
             except Exception as listener_err:
                 logger.error(f"Слушатель: Ошибка при обработке успешного выполнения задачи {job_id}: {listener_err}")
                 logger.error(traceback.format_exc())
+        
+    # --- Метод для планирования уведомлений --- 
+    async def schedule_event_notification(self, notification_data: Dict[str, Any]):
+        """Запускает планирование для задачи уведомления о событии."""
+        task_type = EventNotificationTask.TASK_TYPE
+        if task_type in self.task_instances:
+            # <<< ИСПРАВЛЕНИЕ: Используем notification_id для лога >>>
+            logger.info(f"Вызов schedule() для {task_type}, notification_id={notification_data.get('notification_id')}")
+            return await self.task_instances[task_type].schedule(notification_data)
+        else:
+            logger.error(f"Экземпляр задачи {task_type} не найден для планирования.")
+            return False
 
-        # --- Перепланирование задачи --- 
-        logger.info(f"Слушатель: Запуск перепланирования для типа '{task_type}', chat_id '{chat_id}'...")
-        try:
-            # Используем ЛОКАЛЬНЫЕ методы schedule_...
-            if task_type == 'courier_shift_access':
-                asyncio.create_task(self.schedule_shift_access(chat_id))
-            elif task_type == 'registration_open_event':
-                asyncio.create_task(self.schedule_registration_open_event(chat_id))
-            else:
-                logger.warning(f"Слушатель: Неизвестный тип задачи '{task_type}' для перепланирования.")
-                
-            logger.info(f"Слушатель: Задача перепланирования для '{task_type}' / '{chat_id}' создана.")
-        except Exception as reschedule_exc:
-            logger.error(f"Слушатель: Критическая ошибка при создании задачи перепланирования для {job_id}: {reschedule_exc}")
-            logger.error(traceback.format_exc())
-        # ------------------------------- 
+    async def schedule_shift_access(self, chat_id: str):
+        """Запускает планирование для задачи доступа к сменам."""
+        task_type = ShiftAccessTask.TASK_TYPE
+        if task_type in self.task_instances:
+            logger.info(f"Вызов schedule() для {task_type}, chat_id={chat_id}")
+            return await self.task_instances[task_type].schedule(chat_id)
+        else:
+            logger.error(f"Экземпляр задачи {task_type} не найден для планирования.")
+            return False
+            
+    # ... (остальные методы TaskManager) ...
+
+    # ... (остальные методы TaskManager) ...

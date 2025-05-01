@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from 'framer-motion';
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns/addMinutes';
@@ -17,24 +17,25 @@ import ToggleOnIcon from '@mui/icons-material/ToggleOn';
 import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import EditIcon from '@mui/icons-material/Edit';
 import RepeatIcon from '@mui/icons-material/Repeat';
-import { EventRead, EventNotification, RepeatSettings } from '../../types/event';
+import { EventRead, EventNotification, RepeatSettings, EventCreate } from '../../types/event';
 import TextField from '@mui/material/TextField';
 import Box from '@mui/material/Box';
 import { useAppSelector } from '../../store/hooks';
 import { selectUser } from '../../store/slices/userSlice';
+import CircularProgress from '@mui/material/CircularProgress';
 
-// Определяем типы пропсов, используя импортированные типы
+// Определяем типы пропсов
 interface EventItemProps {
-    event: EventRead;
-    onDelete: (id: number) => void | Promise<void>; 
-    layoutId?: string; 
-    layout?: boolean;  
+    event: EventRead & { id: number | string };
+    onDeleteClick?: (id: number | string) => void;
+    layoutId?: string;
+    layout?: boolean;
     isCreating?: boolean;
-    onSaveCreating?: (id: number, data: { description: string; date: string }) => void | Promise<void>;
-    onCancelCreating?: (id: number) => void;
-    isJustSaved?: boolean; 
-    onAddNotificationClick?: (eventId: number, notificationId?: string) => void; 
-    isSaving?: boolean;
+    onSaveCreating?: (data: EventCreate) => void | Promise<void>;
+    onCancelCreating?: () => void;
+    isJustSaved?: boolean;
+    onAddNotificationClick?: (eventId: number, notificationId?: string) => void;
+    isSaveLoading?: boolean;
 }
 
 // --- Обновляем Styled Component для EventItem --- 
@@ -49,7 +50,6 @@ const StyledEventItem = styled(motion.div)`
     /* --- Стили, специфичные для EventItem --- */
     position: relative; // Для позиционирования внутренних элементов (как deleteBackground)
     cursor: grab; // Намек на возможность перетаскивания
-
     &:active {
         cursor: grabbing;
     }
@@ -386,7 +386,18 @@ const ChatTag = styled.span`
     white-space: nowrap;
 `;
 
-const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout, isCreating, onSaveCreating, onCancelCreating, isJustSaved, onAddNotificationClick }) => {
+const EventItem: React.FC<EventItemProps> = ({ 
+    event, 
+    onDeleteClick,
+    layoutId, 
+    layout, 
+    isCreating, 
+    onSaveCreating, 
+    onCancelCreating, 
+    isJustSaved, 
+    onAddNotificationClick, 
+    isSaveLoading
+}) => {
     const [isConfirming, setIsConfirming] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
@@ -394,25 +405,24 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
     const opacity = useTransform(x, [0, 100], [0, 1]);
     const backgroundGradient = useTransform(
         x, 
-        [0, 100, 150], // Сдвигаем пороги
+        [0, 100, 150], 
         [
             `linear-gradient(to left, rgba(var(--error-rgb, 239, 68, 68), 0), rgba(var(--error-rgb, 239, 68, 68), 0) 0%)`,
             `linear-gradient(to left, rgba(var(--error-rgb, 239, 68, 68), 0.7), rgba(var(--error-rgb, 239, 68, 68), 0) 80%)`,
             `linear-gradient(to left, rgba(var(--error-rgb, 239, 68, 68), 0.85), rgba(var(--error-rgb, 239, 68, 68), 0.1) 70%)`
         ]
     );
-    const iconScale = useTransform(x, [0, 60, 100], [0.4, 1, 1.1]); // Иконка появляется раньше
-    const iconOpacity = useTransform(x, [0, 50], [0, 1]); // Плавное появление иконки
+    const iconScale = useTransform(x, [0, 60, 100], [0.4, 1, 1.1]);
+    const iconOpacity = useTransform(x, [0, 50], [0, 1]);
 
-    // Функция для вибрации
     const vibrate = (pattern: VibratePattern) => {
         if (navigator.vibrate) {
             navigator.vibrate(pattern);
         }
     };
 
-    // Типизируем event и info
     const handleDragEnd = (e: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        if (isCreating) return; // Нельзя свайпать в режиме создания
         if (info.offset.x > 100) {
             setIsConfirming(true);
             vibrate(30);
@@ -423,13 +433,15 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
     };
 
     const handleConfirmDelete = async () => {
+        if (!onDeleteClick) return;
         vibrate(30);
         setIsDeleting(true);
         try {
             setIsVisible(false);
-            await new Promise(resolve => setTimeout(resolve, 600));
-            await onDelete(event.id); // Теперь event.id точно number
+            await new Promise(resolve => setTimeout(resolve, 300));
+            await onDeleteClick(event.id);
         } catch (error) {
+            console.error("Ошибка при удалении события:", error);
             setIsDeleting(false);
             setIsConfirming(false);
             setIsVisible(true);
@@ -444,28 +456,23 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
     };
 
     useEffect(() => {
-        const unsubscribe = x.onChange((latest: number) => { // Добавляем тип
+        const unsubscribe = x.onChange((latest: number) => {
             // Убрали вибрацию при движении
         });
         return () => unsubscribe();
     }, [x]);
 
     const isActive = event.scheduling_status?.active;
-    // <<< Считаем количество уведомлений >>>
     const notificationCount = event.notifications?.length || 0;
     const loading = false;
     const chatNames: { [key: string | number]: string | undefined } = {}; 
 
-    // <<< Логика isEventIncomplete теперь основана на notificationCount >>>
     const isEventIncomplete = notificationCount === 0;
 
-    // --- Локальное состояние для режима создания ---
     const [inputValue, setInputValue] = useState(event.description || '');
     const [inputDate, setInputDate] = useState<Date | null>(event.date ? new Date(event.date) : new Date());
-    const [isSaving, setIsSaving] = useState(false);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
-    // Фокус и синхронизация при переходе в режим создания
     useEffect(() => {
         if (isCreating) {
             inputRef.current?.focus();
@@ -474,21 +481,23 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         }
     }, [isCreating, event.description, event.date]);
 
-    // --- Обновленные хендлеры для режима создания ---
     const handleSave = () => {
         if (!onSaveCreating || !inputDate) return;
         const valueToSave = inputValue.trim();
-        const dataToSave = {
+        if (!valueToSave) {
+            handleCancel();
+            return;
+        }
+        const dataToSave: EventCreate = {
             description: valueToSave,
             date: inputDate.toISOString() 
         };
-        setIsSaving(true); 
-        onSaveCreating(event.id as number, dataToSave); 
+        onSaveCreating(dataToSave);
     };
 
     const handleCancel = () => {
         if (!onCancelCreating) return;
-        onCancelCreating(event.id as number);
+        onCancelCreating();
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -501,10 +510,9 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         }
     };
 
-    const isSaveButtonDisabled = !inputValue?.trim() || !inputDate || isSaving;
+    const isSaveButtonDisabled = !inputValue?.trim() || !inputDate || isSaveLoading;
 
-    // <<< Функция для расчета времени срабатывания уведомления >>>
-    const getNotificationTriggerTime = (eventDateStr: string, timeBefore: number): Date | null => {
+    const getNotificationTriggerTime = (eventDateStr: string | Date, timeBefore: number): Date | null => {
         try {
             const eventDate = new Date(eventDateStr);
             return addMinutes(eventDate, -timeBefore); 
@@ -514,10 +522,8 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         }
     };
 
-    // <<< Получаем чаты пользователя >>>
     const user = useAppSelector(selectUser);
     const userChats = useMemo(() => {
-        // Создаем Map для быстрого поиска имени по ID
         const chatMap = new Map<number, string>();
         user?.groups?.forEach(g => {
             if (g.chat_id && g.title) {
@@ -527,7 +533,6 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         return chatMap;
     }, [user]);
 
-    // <<< Обновляем функцию форматирования повтора, если нужно >>>
     const formatRepeatType = (type: RepeatSettings['type']): string => {
         switch (type) {
             case 'daily': return 'Ежедневно';
@@ -549,7 +554,6 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         return `(${day} число)`;
     };
 
-    // <<< ПРАВИЛЬНАЯ ВЕРСИЯ formatRepeatDetails >>>
     const formatRepeatDetails = (repeat: RepeatSettings): string => {
         const typeStr = formatRepeatType(repeat.type);
         let detailsStr = '';
@@ -561,15 +565,22 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
         return `${typeStr} ${detailsStr}`.trim();
     };
 
+    const notification = event.notifications?.[0];
+    const eventIdForNotificationCallback = typeof event.id === 'number' ? event.id : undefined;
+
     return (
-        <>
+        // @ts-ignore // Known issue with framer-motion types
+        <AnimatePresence>
             {isVisible && (
                 <StyledEventItem 
                     layout={layout}
-                    animate={{
-                        y: isJustSaved ? -30 : 0,
-                        scale: isJustSaved ? 1.05 : 1,
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ 
+                        opacity: 1, 
+                        y: isJustSaved ? -15 : 0,
+                        scale: isJustSaved ? 1.03 : 1, 
                     }}
+                    exit={{ opacity: 0, height: 0, marginTop: 0, marginBottom: 0, paddingTop: 0, paddingBottom: 0, transition: { duration: 0.2 } }}
                     transition={{ duration: 0.3, ease: "easeOut" }}
                 >
                     {!isCreating && (
@@ -581,20 +592,23 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                     )}
                     <motion.div 
                         className="content"
-                        layout
+                        layout={!isCreating ? true : undefined} 
                         drag={isCreating ? undefined : "x"}
                         dragConstraints={{ left: 0, right: 0 }}
                         dragElastic={0.5}
-                        onDragEnd={isCreating ? undefined : handleDragEnd}
+                        onDragEnd={handleDragEnd}
                         style={{ x }}
-                        whileDrag={{ scale: 0.99, cursor: 'grabbing' }}
                     >
                         {isCreating ? (
                             <motion.div
-                                variants={creatorContentVariants}
-                                initial="hidden"
-                                animate="visible"
-                                style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '24px',
+                                    width: '100%' 
+                                }}
                             >
                                 <TextField
                                     inputRef={inputRef}
@@ -607,20 +621,18 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                                     value={inputValue}
                                     onChange={(e) => setInputValue(e.target.value)}
                                     fullWidth
-                                    disabled={isSaving}
-                                    InputProps={{
-                                        onKeyDown: handleKeyDown 
-                                    }}
+                                    disabled={isSaveLoading}
+                                    InputProps={{ onKeyDown: handleKeyDown }}
                                 />
                                 <TextField
                                     label="Дата и время события"
                                     type="datetime-local"
                                     size="small"
-                                    value={inputDate ? inputDate.toISOString().substring(0, 16) : ''}
+                                    value={inputDate ? format(inputDate, "yyyy-MM-dd'T'HH:mm") : ''}
                                     onChange={(e) => setInputDate(e.target.value ? new Date(e.target.value) : null)}
                                     required
                                     fullWidth
-                                    disabled={isSaving}
+                                    disabled={isSaveLoading}
                                     InputLabelProps={{ shrink: true }}
                                 />
                                 <CreatorActions style={{ alignSelf: 'flex-end' }}>
@@ -632,12 +644,13 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                                         whileTap={{ scale: !isSaveButtonDisabled ? 0.9 : 1 }}
                                         title={isSaveButtonDisabled ? "" : "Сохранить (Enter)"}
                                     >
-                                        {isSaving ? <div style={{ width: '22px', height: '22px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div> : <CheckIcon />}
-                                         <style>{`
-                                            @keyframes spin {
-                                                to { transform: rotate(360deg); }
-                                            }
-                                        `}</style>
+                                        {isSaveLoading ? (
+                                            <motion.div 
+                                                style={{ width: '22px', height: '22px', border: '2px solid currentColor', borderTopColor: 'transparent', borderRadius: '50%'}}
+                                                animate={{ rotate: 360 }}
+                                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                            />
+                                        ) : <CheckIcon />}
                                     </CreatorButton>
                                     <CreatorButton
                                         className="cancel"
@@ -645,7 +658,7 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                                         whileHover={{ scale: 1.1 }}
                                         whileTap={{ scale: 0.9 }}
                                         title="Отменить (Escape)"
-                                        disabled={isSaving}
+                                        disabled={isSaveLoading}
                                     >
                                         <CloseIcon />
                                     </CreatorButton>
@@ -653,163 +666,126 @@ const EventItem: React.FC<EventItemProps> = ({ event, onDelete, layoutId, layout
                             </motion.div>
                         ) : (
                             <>
-                                <div className="content">
-                                    <EventInfoContainer>
-                                        <EventDescription>{event.description || "Без описания"}</EventDescription>
-                                        
-                                        <EventDetailsRow>
-                                            <EventAvailableIcon />
-                                            <span>
-                                                {event.date ? format(new Date(event.date), 'dd MMM yyyy HH:mm', { locale: ru }) : 'Дата не задана'}
-                                            </span>
-                                        </EventDetailsRow>
-                                        <EventDetailsRow>
-                                            {isActive ? <ToggleOnIcon className="status-active" /> : <ToggleOffIcon />}
-                                            <span className={isActive ? 'status-active' : ''}>
-                                                {isActive ? 'Активно' : 'Не активно'}
-                                            </span>
-                                        </EventDetailsRow>
-                                    </EventInfoContainer>
+                                <EventInfoContainer>
+                                    <EventDescription>{event.description || "Без описания"}</EventDescription>
+                                    <EventDetailsRow>
+                                        <EventAvailableIcon />
+                                        <span>
+                                            {event.date ? format(new Date(event.date), 'dd MMM yyyy HH:mm', { locale: ru }) : 'Дата не задана'}
+                                        </span>
+                                    </EventDetailsRow>
+                                </EventInfoContainer>
 
-                                    <div className="actions">
-                                        {isEventIncomplete ? (
-                                            <AddNotificationPrompt>
-                                                <motion.div
-                                                    className="addAlertIconWrapper"
-                                                    animate={{
-                                                        scale: [1, 1.1, 1],
-                                                        rotate: [0, -5, 5, -5, 0]
-                                                    }}
-                                                    transition={{
-                                                        scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
-                                                        rotate: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
-                                                    }}
-                                                >
-                                                    <AddAlertIcon className="addAlertIcon" />
-                                                </motion.div>
-                                                <PromptText>
-                                                    Добавить уведомление?
-                                                </PromptText>
-                                                <AddNotificationButton 
-                                                    onClick={() => onAddNotificationClick && onAddNotificationClick(event.id, undefined)}
-                                                    whileHover={{ scale: 1.05 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                >
-                                                    + Добавить 
-                                                </AddNotificationButton>
-                                            </AddNotificationPrompt>
-                                        ) : (
-                                            <NotificationDetailsContainer>
-                                                <NotificationIconWrapper>
-                                                    <NotificationsActiveIcon />
-                                                </NotificationIconWrapper>
-                                                <NotificationInfo>
-                                                    {/* <<< ВОЗВРАЩАЕМ IIFE ДЛЯ РЕНДЕРА ДЕТАЛЕЙ >>> */}
-                                                    {(() => { 
-                                                        const firstNotification: EventNotification | undefined = event.notifications?.[0];
-                                                        if (!firstNotification) return null;
-                                                        const triggerTime = getNotificationTriggerTime(event.date, firstNotification.time);
-                                                        return (
-                                                            <>
-                                                                <NotificationDetailLine title={firstNotification.message}>
-                                                                    <MessageIcon /> 
-                                                                    <span style={{ 
-                                                                        whiteSpace: 'nowrap', 
-                                                                        overflow: 'hidden', 
-                                                                        textOverflow: 'ellipsis',
-                                                                        maxWidth: '200px' // Ограничим ширину текста сообщения
-                                                                    }}>
-                                                                        {firstNotification.message}
-                                                                    </span>
-                                                                </NotificationDetailLine>
-                                                                <NotificationDetailLine>
-                                                                    <AccessTimeIcon />
-                                                                    {triggerTime 
-                                                                        ? format(triggerTime, 'dd MMM HH:mm', { locale: ru })
-                                                                        : 'Неверная дата события'}
-                                                                    (за {firstNotification.time} мин)
-                                                                </NotificationDetailLine>
-                                                                {/* <<< ДОБАВЛЯЕМ ЛОГ ПЕРЕД ПРОВЕРКОЙ REPEAT >>> */}
-                                                                {console.log('[EventItem] Данные для повтора:', firstNotification.repeat)}
-                                                                {/* Используем formatRepeatDetails, если repeat существует */}
-                                                                {firstNotification.repeat && (
-                                                                    <NotificationDetailLine>
-                                                                        <RepeatIcon />
-                                                                        {formatRepeatDetails(firstNotification.repeat)}
-                                                                    </NotificationDetailLine>
-                                                                )}
-                                                            </>
-                                                        );
-                                                    })()}
-                                                    {/* <<< ВОЗВРАЩАЕМ IIFE ДЛЯ РЕНДЕРА ТЕГОВ ЧАТОВ >>> */}
+                                <div className="actions">
+                                    {!notification ? (
+                                        <AddNotificationPrompt>
+                                            <motion.div
+                                                animate={{
+                                                    scale: [1, 1.1, 1],
+                                                    rotate: [0, -5, 5, -5, 0]
+                                                }}
+                                                transition={{
+                                                    scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
+                                                    rotate: { duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.5 }
+                                                }}
+                                            >
+                                                <AddAlertIcon className="addAlertIcon" />
+                                            </motion.div>
+                                            <PromptText>Добавить уведомление?</PromptText>
+                                            <AddNotificationButton 
+                                                onClick={() => eventIdForNotificationCallback && onAddNotificationClick && onAddNotificationClick(eventIdForNotificationCallback, undefined)}
+                                                disabled={!eventIdForNotificationCallback}
+                                                whileHover={{ scale: 1.05 }}
+                                                whileTap={{ scale: 0.98 }}
+                                            >
+                                                + Добавить 
+                                            </AddNotificationButton>
+                                        </AddNotificationPrompt>
+                                    ) : (
+                                        <NotificationDetailsContainer>
+                                            <NotificationIconWrapper><NotificationsActiveIcon /></NotificationIconWrapper>
+                                            <NotificationInfo>
+                                                <NotificationDetailLine title={notification.message}>
+                                                    <MessageIcon /> 
+                                                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '200px' }}>
+                                                        {notification.message}
+                                                    </span>
+                                                </NotificationDetailLine>
+                                                <NotificationDetailLine>
+                                                    <AccessTimeIcon />
                                                     {(() => {
-                                                        const firstNotification = event.notifications?.[0];
-                                                        if (firstNotification && firstNotification.chat_ids && firstNotification.chat_ids.length > 0) {
-                                                            return (
-                                                                <ChatTagsContainer>
-                                                                    {firstNotification.chat_ids.map(chatId => (
-                                                                        <ChatTag key={chatId}>
-                                                                            {userChats.get(chatId) || `ID: ${chatId}`}
-                                                                        </ChatTag>
-                                                                    ))}
-                                                                </ChatTagsContainer>
-                                                            );
-                                                        }
-                                                        return null;
+                                                        const triggerTime = getNotificationTriggerTime(event.date, notification.time);
+                                                        return triggerTime 
+                                                               ? `${format(triggerTime, 'dd MMM HH:mm', { locale: ru })} (за ${notification.time} мин)`
+                                                               : 'Неверная дата события';
                                                     })()}
-                                                </NotificationInfo>
-                                                <EditNotificationButton
-                                                    onClick={() => {
-                                                        const notification = event.notifications?.[0];
-                                                        if (onAddNotificationClick && notification) {
-                                                            onAddNotificationClick(event.id, notification.id);
-                                                        }
-                                                    }}
-                                                    whileHover={{ scale: 1.1 }} 
-                                                    whileTap={{ scale: 0.9 }}
-                                                    title="Редактировать уведомление"
-                                                >
-                                                    <EditIcon />
-                                                </EditNotificationButton>
-                                            </NotificationDetailsContainer>
-                                        )}
-                                    </div>
+                                                </NotificationDetailLine>
+                                                {notification.repeat && notification.repeat.type !== 'none' && (
+                                                    <NotificationDetailLine>
+                                                        <RepeatIcon />
+                                                        {formatRepeatDetails(notification.repeat)}
+                                                    </NotificationDetailLine>
+                                                )}
+                                                {notification.chat_ids && notification.chat_ids.length > 0 && (
+                                                    <ChatTagsContainer>
+                                                        {notification.chat_ids.map(chatId => (
+                                                            <ChatTag key={chatId}>
+                                                                {userChats.get(chatId) || `ID: ${chatId}`}
+                                                            </ChatTag>
+                                                        ))}
+                                                    </ChatTagsContainer>
+                                                )}
+                                            </NotificationInfo>
+                                            <EditNotificationButton
+                                                onClick={() => eventIdForNotificationCallback && notification && onAddNotificationClick && onAddNotificationClick(eventIdForNotificationCallback, notification.id)}
+                                                disabled={!eventIdForNotificationCallback}
+                                                whileHover={{ scale: 1.1 }} 
+                                                whileTap={{ scale: 0.9 }}
+                                                title="Редактировать уведомление"
+                                            >
+                                                <EditIcon />
+                                            </EditNotificationButton>
+                                        </NotificationDetailsContainer>
+                                    )}
                                 </div>
                             </>
                         )}
                     </motion.div>
-                    {/* @ts-ignore // Known issue with framer-motion types */}
-                    <AnimatePresence>
-                        {isConfirming && (
-                            <ConfirmContainer 
-                                key="confirm-delete"
-                                initial={{ opacity: 0, scale: 0.9 }} 
-                                animate={{ opacity: 1, scale: 1 }} 
-                                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
-                                transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                            >
-                                {isDeleting ? (
-                                    <CheckCircle>
-                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                    </CheckCircle>
-                                ) : (
-                                    <>
-                                        <ConfirmText>Удалить событие?</ConfirmText>
-                                        <ConfirmButtonWrapper>
-                                            <ConfirmButton className="delete" onClick={handleConfirmDelete}>Удалить</ConfirmButton>
-                                            <ConfirmButton className="cancel" onClick={handleCancelDelete}>Отмена</ConfirmButton>
-                                        </ConfirmButtonWrapper>
-                                    </>
-                                )}
-                            </ConfirmContainer>
-                        )}
-                    </AnimatePresence>
+                    {!isCreating && (
+                        // @ts-ignore // Known issue with framer-motion types
+                        <AnimatePresence>
+                            {isConfirming && (
+                                <ConfirmContainer 
+                                    key="confirm-delete"
+                                    initial={{ opacity: 0, scale: 0.9 }} 
+                                    animate={{ opacity: 1, scale: 1 }} 
+                                    exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                >
+                                    {isDeleting ? (
+                                        <CheckCircle>
+                                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </CheckCircle>
+                                    ) : (
+                                        <>
+                                            <ConfirmText>Удалить событие?</ConfirmText>
+                                            <ConfirmButtonWrapper>
+                                                <ConfirmButton className="delete" onClick={handleConfirmDelete}>Удалить</ConfirmButton>
+                                                <ConfirmButton className="cancel" onClick={handleCancelDelete}>Отмена</ConfirmButton>
+                                            </ConfirmButtonWrapper>
+                                        </>
+                                    )}
+                                </ConfirmContainer>
+                            )}
+                        </AnimatePresence>
+                    )}
                 </StyledEventItem>
             )}
-        </>
+        </AnimatePresence>
     );
 };
 
-export default EventItem;
+EventItem.displayName = 'EventItem';
+export default memo(EventItem);

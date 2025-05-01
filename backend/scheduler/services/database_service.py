@@ -1,6 +1,7 @@
 import os
 import logging
 import json
+import uuid
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime, timezone
 import traceback
@@ -11,6 +12,35 @@ logger = logging.getLogger(__name__)
 # Функция-помощник для преобразования asyncpg.Record в dict
 def _record_to_dict(record: asyncpg.Record) -> Optional[Dict]:
     return dict(record) if record else None
+
+# --- Функция-помощник для сериализации данных с UUID и datetime --- 
+def _prepare_data_for_json(data: Any) -> Any:
+    """
+    Рекурсивно преобразует UUID и datetime в строки в данных 
+    перед JSON-сериализацией.
+    """
+    if isinstance(data, dict):
+        sanitized_data = {}
+        for key, value in data.items():
+            sanitized_data[key] = _prepare_data_for_json(value) # Рекурсивный вызов
+        return sanitized_data
+    elif isinstance(data, list):
+        return [_prepare_data_for_json(item) for item in data] # Рекурсивный вызов для списков
+    elif isinstance(data, uuid.UUID):
+        return str(data)
+    elif isinstance(data, datetime):
+        # Преобразуем datetime в строку ISO 8601 (UTC)
+        # Убедимся, что время aware перед конвертацией в UTC
+        if data.tzinfo is None or data.tzinfo.utcoffset(data) is None:
+            # Если naive, предполагаем локальное время и конвертируем в UTC (или просто isoformat?)
+            # Безопаснее просто использовать isoformat, он добавит смещение если оно есть
+             return data.isoformat()
+        else:
+            # Если aware, конвертируем в UTC и форматируем
+            return data.astimezone(timezone.utc).isoformat()
+    else:
+        # Возвращаем другие типы как есть
+        return data
 
 class DatabaseService:
     """Сервис для работы с базой данных PostgreSQL для шедулера, использующий asyncpg"""
@@ -68,8 +98,11 @@ class DatabaseService:
             else:
                 next_run_time = next_run_time.astimezone(timezone.utc)
             
-            # Данные задачи в JSON
+            # Данные задачи (словарь)
             data = task_data.get('data', {})
+            # Подготовка данных перед сериализацией
+            data_to_save = _prepare_data_for_json(data)
+            data_json = json.dumps(data_to_save)
             
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
@@ -88,7 +121,7 @@ class DatabaseService:
                                 data = $5, updated_at = CURRENT_TIMESTAMP 
                             WHERE task_id = $1
                             """,
-                            task_id, chat_id, task_type, next_run_time, json.dumps(data)
+                            task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Обновлена задача с ID {task_id} в PostgreSQL")
                     else:
@@ -101,7 +134,7 @@ class DatabaseService:
                             VALUES ($1, $2, $3, $4, $5, 
                                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                             """,
-                            task_id, chat_id, task_type, next_run_time, json.dumps(data)
+                            task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Добавлена новая задача с ID {task_id} в PostgreSQL (без status)")
                     
@@ -110,7 +143,11 @@ class DatabaseService:
             logger.error(f"Ошибка сохранения задачи: отсутствует обязательное поле {e} в task_data")
             return False
         except Exception as e:
-            logger.error(f"Ошибка при сохранении задачи {task_data.get('task_id', 'N/A')}: {str(e)}")
+            # Добавим лог конкретной ошибки JSON
+            if isinstance(e, TypeError) and "is not JSON serializable" in str(e):
+                 logger.error(f"Ошибка JSON сериализации при сохранении задачи {task_data.get('task_id', 'N/A')}: {e}")
+            else:
+                 logger.error(f"Ошибка при сохранении задачи {task_data.get('task_id', 'N/A')}: {str(e)}")
             logger.error(traceback.format_exc())
             return False
 
@@ -270,3 +307,86 @@ class DatabaseService:
             logger.error(f"❌ Неизвестная ошибка при отправке NOTIFY в канал '{channel}': {e}")
             logger.error(traceback.format_exc())
             return False
+
+    async def get_task_by_id(self, task_id: str) -> Optional[Dict[str, Any]]:
+        """Получает данные задачи по ее ID из таблицы scheduler_tasks."""
+        if not self.pool:
+            logger.error("Пул соединений не инициализирован.")
+            return None
+        conn = None
+        try:
+            async with self.pool.acquire() as conn:
+                query = "SELECT * FROM scheduler_tasks WHERE task_id = $1"
+                row = await conn.fetchrow(query, task_id)
+                if row:
+                    logger.info(f"Задача {task_id} найдена в БД.")
+                    # Преобразуем запись в словарь
+                    task_data = dict(row)
+                    # Преобразуем JSONB 'data' обратно в dict, если не None
+                    if task_data.get('data') and isinstance(task_data['data'], str):
+                        try:
+                            task_data['data'] = json.loads(task_data['data'])
+                        except json.JSONDecodeError:
+                            logger.error(f"Ошибка декодирования JSON для data задачи {task_id}")
+                            task_data['data'] = {} # Возвращаем пустой dict
+                    elif task_data.get('data') is None:
+                         task_data['data'] = {} # Если data была NULL
+                    return task_data
+                else:
+                    logger.warning(f"Задача {task_id} не найдена в БД.")
+                    return None
+        except asyncpg.PostgresError as db_err:
+            logger.error(f"Ошибка БД при получении задачи {task_id}: {db_err}")
+            return None
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при получении задачи {task_id}: {e}", exc_info=True)
+            return None
+        finally:
+            # Соединение возвращается в пул автоматически через async with
+            pass 
+
+    async def update_task_next_run_time(self, task_id: str, next_run_time: datetime) -> bool:
+        """Обновляет только next_run_time для существующей задачи в БД."""
+        if not self.pool:
+            logger.error("Пул соединений не инициализирован для update_task_next_run_time.")
+            return False
+        
+        if not next_run_time:
+            logger.warning(f"Попытка обновить next_run_time на None для задачи {task_id}. Пропуск.")
+            return False # Не обновляем на None
+            
+        # Убедимся, что время aware и в UTC
+        if next_run_time.tzinfo is None or next_run_time.tzinfo.utcoffset(next_run_time) is None:
+            logger.warning(f"next_run_time для обновления задачи {task_id} не имеет таймзоны, предполагаем UTC.")
+            next_run_time_utc = next_run_time.replace(tzinfo=timezone.utc)
+        else:
+            next_run_time_utc = next_run_time.astimezone(timezone.utc)
+
+        try:
+            async with self.pool.acquire() as conn:
+                result = await conn.execute(
+                    """
+                    UPDATE scheduler_tasks 
+                    SET next_run_time = $2, updated_at = CURRENT_TIMESTAMP 
+                    WHERE task_id = $1
+                    """,
+                    task_id, next_run_time_utc
+                )
+                # Проверяем, была ли обновлена строка
+                updated_count_str = result.split()[1] 
+                if updated_count_str == '0':
+                    logger.warning(f"Задача {task_id} не найдена для обновления next_run_time (UPDATE вернул 0).")
+                    return False
+                else:
+                    logger.info(f"Успешно обновлен next_run_time для задачи {task_id} на {next_run_time_utc}")
+                    return True
+        except asyncpg.PostgresError as db_err:
+            logger.error(f"Ошибка БД при обновлении next_run_time для задачи {task_id}: {db_err}")
+            return False
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при обновлении next_run_time для задачи {task_id}: {e}", exc_info=True)
+            return False
+
+    async def notify_channel(self, channel: str, payload: Dict[str, Any]) -> bool:
+        # ... (код notify_channel) ...
+        return False # Placeholder

@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Optional
 import time
 import telegram
+from telegram.error import BadRequest
 
 # Импортируем типы Telegram и Application
 from telegram import Update, InputFile
@@ -81,18 +82,43 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
         # Отправляем сообщение
         try:
             await bot_app.bot.send_message(
-                chat_id=processed_chat_id, # Теперь используем корректный ID
+                chat_id=processed_chat_id, 
                 text=payload.text,
                 parse_mode=payload.parse_mode
             )
-            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id_str}") # Логируем исходный строковый ID для ясности
+            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id_str}")
             return {"success": True, "message": "Сообщение успешно отправлено"}
-        except Exception as e:
-            logger.error(f"❌ Ошибка при вызове bot.send_message для чата {chat_id_str}: {e}") # Логируем исходный строковый ID
+        
+        except BadRequest as e:
             error_message = str(e)
-            if hasattr(e, 'message'):
-                error_message = e.message
-            raise HTTPException(status_code=500, detail=f"Failed to send message: {error_message}")
+            logger.warning(f"⚠️ Ошибка BadRequest при первой попытке отправки сообщения в чат {chat_id_str} ({processed_chat_id}): {error_message}")
+
+            if "chat not found" in error_message.lower() and chat_id_str.startswith("-100"):
+                try:
+                    alternative_chat_id_str = f"-{chat_id_str[4:]}"
+                    alternative_chat_id = int(alternative_chat_id_str)
+                    logger.info(f"Попытка отправить сообщение в чат {alternative_chat_id_str} (альтернативный ID)")
+                    
+                    await bot_app.bot.send_message(
+                        chat_id=alternative_chat_id,
+                        text=payload.text,
+                        parse_mode=payload.parse_mode
+                    )
+                    logger.info(f"✅ Сообщение успешно отправлено в чат {alternative_chat_id_str} при второй попытке.")
+                    return {"success": True, "message": "Сообщение успешно отправлено (со второй попытки)"}
+                
+                except Exception as retry_exc:
+                    logger.error(f"❌ Ошибка Telegram при ВТОРОЙ попытке отправки сообщения в чат {alternative_chat_id_str}: {retry_exc}")
+                    raise HTTPException(status_code=500, detail=f"Failed to send message after retry: {retry_exc}")
+            else:
+                logger.error(f"❌ Ошибка BadRequest (не chat not found или ID без -100) при отправке сообщения в чат {chat_id_str}: {error_message}")
+                raise HTTPException(status_code=500, detail=f"Failed to send message: {error_message}")
+        
+        except Exception as e:
+            logger.error(f"❌ Непредвиденная ошибка при вызове bot.send_message для чата {chat_id_str}: {e}", exc_info=True)
+            error_detail = str(e)
+            if hasattr(e, 'message'): error_detail = e.message
+            raise HTTPException(status_code=500, detail=f"Failed to send message: {error_detail}")
             
     except HTTPException as http_exc:
         raise http_exc
@@ -475,8 +501,8 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
 
             return {"success": True, "message": "Excel report sent successfully"}
 
-        except telegram.error.TelegramError as tg_err:
-            logger.error(f"❌ Ошибка Telegram при отправке Excel {resolved_path.name} в чат {payload.chat_id}: {tg_err}")
+        except BadRequest as tg_err:
+            logger.error(f"❌ Ошибка BadRequest при отправке Excel {resolved_path.name} в чат {payload.chat_id}: {tg_err}")
             # Попытка отправить с альтернативным ID (если это группа)
             if str(processed_chat_id).startswith('-100'):
                  alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
@@ -501,8 +527,8 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
                      # Если и вторая попытка не удалась, выбрасываем ошибку
                      raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send Excel report (alt ID): {alt_send_err}")
             else:
-                 # Если это не группа или другая ошибка Telegram
-                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Telegram error sending Excel report: {tg_err}")
+                 # Если это не группа или другая ошибка BadRequest
+                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"BadRequest error sending Excel report: {tg_err}")
         except Exception as send_err: # Ошибки чтения файла или другие
             logger.error(f"❌ Ошибка при обработке Excel файла {resolved_path.name} или отправке в чат {payload.chat_id}: {send_err}", exc_info=True)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send Excel report: {send_err}")

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks'; 
 import { selectUser } from '../../store/slices/userSlice'; 
-import { selectAllEvents, addNotification, createNotificationThunk, updateNotificationThunk } from '../../store/slices/eventsSlice'; 
+import { selectAllEvents, createNotificationThunk, updateNotificationThunk } from '../../store/slices/eventsSlice'; 
 import { EventNotification, EventRead, NotificationCreate, RepeatSettings } from '../../types/event';
 
 // MUI Компоненты 
@@ -16,6 +16,7 @@ import OutlinedInput from '@mui/material/OutlinedInput';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
+import { styled } from '@mui/material/styles';
 
 interface CreateNotificationFormProps {
     eventId: number;
@@ -33,6 +34,27 @@ const weekdaysOptions = [
     { value: 0, label: 'Вс' },
 ];
 
+// --- Стилизуем TextField для плавного перехода высоты --- 
+const ExpandingTextField = styled(TextField)(({ theme }) => ({
+    transition: theme.transitions.create(['height', 'min-height'], {
+        duration: theme.transitions.duration.short,
+        easing: theme.transitions.easing.easeInOut,
+    }),
+    // Убедимся, что textarea внутри тоже может плавно менять размер
+    '& .MuiInputBase-root': {
+        transition: theme.transitions.create(['height', 'min-height'], {
+            duration: theme.transitions.duration.short,
+            easing: theme.transitions.easing.easeInOut,
+        }),
+    },
+    '& .MuiInputBase-inputMultiline': {
+        transition: theme.transitions.create(['height', 'min-height'], {
+            duration: theme.transitions.duration.short,
+            easing: theme.transitions.easing.easeInOut,
+        }),
+    }
+}));
+
 const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId, notificationId, onClose, onStateChange }) => {
     const dispatch = useAppDispatch(); 
     const event = useAppSelector(selectAllEvents).find((e: EventRead) => e.id === eventId);
@@ -44,6 +66,7 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
     const [selectedMonthDay, setSelectedMonthDay] = useState<number | ''>(1);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [descriptionRows, setDescriptionRows] = useState(3);
     const user = useAppSelector(selectUser);
     const availableChats = useMemo(() => {
         return user?.groups
@@ -130,6 +153,15 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
         );
     };
 
+    // --- Обработчики фокуса для поля описания --- 
+    const handleDescriptionFocus = () => {
+        setDescriptionRows(10); // --- ИЗМЕНЕНИЕ: Увеличиваем количество строк до 10 --- 
+    };
+
+    const handleDescriptionBlur = () => {
+        setDescriptionRows(3); // Возвращаем исходное количество строк при потере фокуса
+    };
+
     const isFormValid = useCallback(() => {
         const timeNum = typeof timeBefore === 'string' ? parseInt(timeBefore, 10) : timeBefore;
         let isValid = (
@@ -210,12 +242,14 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
     return (
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <h2>{(event.notifications && event.notifications.length > 0) ? 'Редактировать' : 'Новое'} уведомление</h2>
-            <TextField
+            <ExpandingTextField
                 label="Описание уведомления"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 multiline
-                rows={3}
+                rows={descriptionRows}
+                onFocus={handleDescriptionFocus}
+                onBlur={handleDescriptionBlur}
                 required
                 fullWidth
                 disabled={isLoading}

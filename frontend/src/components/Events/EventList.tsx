@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { 
     fetchEvents, 
     selectAllEvents, 
     selectEventsLoading, 
     selectEventsError, 
-    addEvent, 
-    removeEvent, 
     deleteEventThunk, 
     createEventThunk, 
     selectEventCreateLoading,
-    selectEventCreateError 
 } from '../../store/slices/eventsSlice';
-import { EventRead, EventCreate } from '../../types/event';
+import { EventRead, EventCreate, EventNotification } from '../../types/event';
 import EventItem from './EventItem';
 import EmptyEventList from './EmptyEventList';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import Footer from '../Inventory/Footer';
 import { AnimatePresence, motion } from 'framer-motion';
 import SlidingDrawer from '../common/SlidingDrawer/SlidingDrawer';
 import CreateNotificationForm from './CreateNotificationForm';
+import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../../utils/logger';
 
 // <<< ДОБАВЛЕНО: Тип для состояния формы >>>
 interface FormState {
@@ -56,6 +55,7 @@ const EventsGrid = styled(motion.div)<{ $isCentering?: boolean }>`
     min-height: 0;
     align-content: ${props => props.$isCentering ? 'center' : 'start'};
     padding-bottom: 75px;
+    margin-top: 80px;
 `;
 
 // Стили для заглушек загрузки/ошибки (пример)
@@ -70,16 +70,6 @@ const PlaceholderWrapper = styled.div`
 `;
 
 // Стили для Оверлея
-const fadeIn = keyframes`
-  from { opacity: 0; }
-  to { opacity: 1; }
-`;
-
-const fadeOut = keyframes`
-  from { opacity: 1; }
-  to { opacity: 0; }
-`;
-
 const Overlay = styled(motion.div)`
     position: fixed;
     inset: 0;
@@ -100,22 +90,20 @@ const CenteredItemContainer = styled(motion.div)`
     box-shadow: var(--shadow-lg);
 `;
 
-const EventList = () => {
+const EventList: React.FC = () => {
     const dispatch = useAppDispatch();
-    const events = useAppSelector(selectAllEvents);
+    const realEvents = useAppSelector(selectAllEvents);
     const loadingStatus = useAppSelector(selectEventsLoading);
     const error = useAppSelector(selectEventsError);
-    const isCreateLoading = useAppSelector(selectEventCreateLoading) === 'pending';
-    const createError = useAppSelector(selectEventCreateError);
+    const isCreateThunkLoading = useAppSelector(selectEventCreateLoading) === 'pending';
     
-    const [creatingEventId, setCreatingEventId] = useState<number | null>(null);
+    const [creatingEventId, setCreatingEventId] = useState<string | null>(null);
+    const [tempEventData, setTempEventData] = useState<Partial<EventRead>>({});
     const [justSavedId, setJustSavedId] = useState<number | null>(null);
     const [isCreatingInCenter, setIsCreatingInCenter] = useState(false);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [eventIdToEditNotification, setEventIdToEditNotification] = useState<number | null>(null);
-    // <<< ДОБАВЛЕНО: ID уведомления для редактирования >>>
     const [notificationIdToEdit, setNotificationIdToEdit] = useState<string | null>(null);
-    // <<< ДОБАВЛЕНО: Состояние для данных из формы >>>
     const [formState, setFormState] = useState<FormState>({ 
         submit: null, 
         isValid: false, 
@@ -128,184 +116,217 @@ const EventList = () => {
         }
     }, [loadingStatus, dispatch]);
 
-    const eventBeingCreated = events.find(e => e.id === creatingEventId);
-
-    const handleDelete = (id: number) => {
-        dispatch(deleteEventThunk(id))
-            .unwrap()
-            .then(() => {
-                console.log(`Событие ${id} успешно удалено (через thunk)`);
-                if (id === creatingEventId) {
-                    setCreatingEventId(null);
-                    setJustSavedId(null);
-                    setIsCreatingInCenter(false);
-                }
-            })
-            .catch((err) => {
-                console.error(`Ошибка при удалении события ${id}:`, err);
-            });
-    };
-
-    const handleStartCreate = () => {
-        const tempId = Date.now();
-        const newEventPlaceholder: EventRead = {
-            id: tempId, 
-            description: '',
-            date: new Date().toISOString(),
-            notifications: [], 
-            scheduling_status: { active: false }, 
-        };
-        dispatch(addEvent(newEventPlaceholder));
-        setCreatingEventId(tempId);
-        if (events.length > 0) {
-            setIsCreatingInCenter(true);
-        } else {
-            setIsCreatingInCenter(false); 
-        }
-    };
-    
-    const handleSaveCreating = async (id: number, data: { description: string; date: string }) => {
+    const handleCancelCreatingEvent = useCallback(() => { 
         const tempId = creatingEventId;
-        if (!tempId || tempId !== id) {
-            console.error("Ошибка: Попытка сохранить событие с неверным ID.");
+        if (tempId) {
+             logger.log(`[EventList] Отмена создания временного события ${tempId}`);
+             setCreatingEventId(null);
+             setIsCreatingInCenter(false);
+             setTempEventData({});
+         }
+    }, [creatingEventId]);
+
+    const handleDeleteEvent = useCallback(async (eventId: number | string) => { 
+        if (typeof eventId === 'string') {
+            logger.log(`[EventList] Запрос на удаление временного события ${eventId} через handleDeleteEvent - вызываем отмену`);
+            handleCancelCreatingEvent();
             return;
         }
+        logger.log(`[EventList] Запрос на удаление реального события ${eventId}`);
+        try {
+            await dispatch(deleteEventThunk(eventId)).unwrap(); 
+            logger.log(`[EventList] Событие ${eventId} успешно удалено (thunk завершен)`);
+        } catch (err) { 
+            logger.error(`[EventList] Ошибка при удалении события ${eventId}:`, err);
+        }
+    }, [dispatch, handleCancelCreatingEvent]);
+
+    const handleCreateEventFromFooter = useCallback(() => {
+        logger.log('[EventList] Создание события из футера...');
+        const newEventId = uuidv4(); 
+        setCreatingEventId(newEventId);
+        setTempEventData({ 
+            description: '', 
+            date: new Date().toISOString(),
+            notifications: [],
+        }); 
+        setIsCreatingInCenter(true);
+    }, []);
+
+    const handleAddOrEditNotificationClick = useCallback((eventId: number, notificationId?: string) => {
+        logger.log(`[EventList] Клик на добавление/редактирование уведомления для события ${eventId}, уведомление ${notificationId || 'новое'}`);
+        setEventIdToEditNotification(eventId);
+        setNotificationIdToEdit(notificationId || null); 
+        setIsDrawerOpen(true);
+    }, []);
+
+    const handleSaveCreatingEvent = useCallback(async (eventData: EventCreate) => { 
+        const tempId = creatingEventId;
+        if (!tempId) return;
+
+        logger.log(`[EventList] Сохранение создаваемого события (tempId: ${tempId})`, eventData);
         
-        const { description, date } = data;
-        if (!description.trim()) {
-            handleCancelCreating(tempId);
-            return;
-        }
-
-        const eventData: EventCreate = { description: description.trim(), date };
-
         try {
             const createdEvent = await dispatch(createEventThunk(eventData)).unwrap();
-            console.log('Событие успешно создано на бэке:', createdEvent);
-
-            dispatch(removeEvent(tempId));
-
+            logger.log('[EventList] Событие успешно создано на бэке:', createdEvent);
+            
             setCreatingEventId(null);
             setIsCreatingInCenter(false);
-            setJustSavedId(createdEvent.id);
-            setTimeout(() => {
-                setJustSavedId(null);
-            }, 500);
+            setTempEventData({});
+            
+            setJustSavedId(createdEvent.id); 
+            setTimeout(() => setJustSavedId(null), 500);
 
         } catch (err) {
-            console.error('Ошибка при создании события:', err);
+            logger.error(`[EventList] Ошибка при создании события (tempId: ${tempId}):`, err);
         }
-    };
+    }, [dispatch, creatingEventId]);
 
-    const handleCancelCreating = (id: number) => {
-        if (creatingEventId === id) {
-            dispatch(removeEvent(id));
+    const handleNotificationFormStateChange = useCallback((newState: FormState) => {
+        setFormState(newState); 
+    }, []);
+
+    const handleModalSave = useCallback(() => {
+        if (formState.submit) {
+            logger.log('[EventList] Вызов submit из формы уведомления через футер');
+            formState.submit(); 
         }
-        setCreatingEventId(null);
-        setIsCreatingInCenter(false);
-        setJustSavedId(null);
-    };
+    }, [formState.submit]);
 
-    // <<< ИЗМЕНЕНО: Принимаем notificationId опционально >>>
-    const handleAddNotificationClick = (eventId: number, notificationId?: string) => {
-        setEventIdToEditNotification(eventId);
-        setNotificationIdToEdit(notificationId || null); // Сохраняем ID уведомления или null
-        setIsDrawerOpen(true);
-    };
-
-    // <<< ДОБАВЛЕНО: Функция закрытия шторки (для ясности) >>>
-    const handleCloseDrawer = () => {
+    const handleModalCancel = useCallback(() => {
+        logger.log('[EventList] Закрытие шторки уведомления');
         setIsDrawerOpen(false);
         setEventIdToEditNotification(null);
-        setNotificationIdToEdit(null); // Сбрасываем ID уведомления
-        // Сбрасываем состояние формы при закрытии
-        setFormState({ submit: null, isValid: false, isLoading: false }); 
-    };
+        setNotificationIdToEdit(null); 
+        setFormState({ isValid: false, isLoading: false, submit: null }); 
+    }, []);
 
-    // <<< ДОБАВЛЕНО: Обработчик изменения состояния формы >>>
-    const handleFormStateChange = (newState: FormState) => {
-        setFormState(newState);
-    };
+    const temporaryEventItem: (EventRead & { id: string }) | null = useMemo(() => {
+        if (!creatingEventId) return null;
+        return {
+            description: tempEventData.description || '',
+            date: tempEventData.date || new Date().toISOString(),
+            notifications: tempEventData.notifications || [],
+            scheduling_status: { active: false },
+            last_check: null,
+            id: creatingEventId, 
+            title: 'Временное событие',
+            event_time: null,
+            is_private: false,
+            is_active: true,
+            status: 'draft',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            repeat: { type: 'none', weekdays: null, month_day: null },
+            chat_ids: [],
+        } as unknown as EventRead & { id: string };
+    }, [creatingEventId, tempEventData]);
+
+    const allItemsToRender = useMemo(() => {
+        const baseList = isCreatingInCenter ? realEvents : [...realEvents];
+        if (temporaryEventItem && !isCreatingInCenter) {
+            return [temporaryEventItem, ...baseList];
+        }
+        return baseList;
+    }, [realEvents, temporaryEventItem, isCreatingInCenter]);
 
     const renderContent = () => {
-        if ((loadingStatus === 'pending' || loadingStatus === 'idle') && events.length === 0 && !creatingEventId) {
+        if ((loadingStatus === 'pending' || loadingStatus === 'idle') && realEvents.length === 0 && !temporaryEventItem) {
             return <PlaceholderWrapper>Загрузка событий...</PlaceholderWrapper>;
         }
-        if (loadingStatus === 'failed' && events.length === 0 && !creatingEventId) {
+        if (loadingStatus === 'failed' && realEvents.length === 0 && !temporaryEventItem) {
              return <PlaceholderWrapper>Ошибка загрузки: {error || 'Неизвестная ошибка'}</PlaceholderWrapper>;
         }
         
-        if (events.length === 0 && !creatingEventId && !isCreatingInCenter) {
+        if (realEvents.length === 0 && !temporaryEventItem) {
             return (
                 <EmptyStateWrapper>
-                    <EmptyEventList onIconClick={handleStartCreate} />
+                    <EmptyEventList onIconClick={handleCreateEventFromFooter} />
                 </EmptyStateWrapper>
             );
         }
 
-        const eventsForGrid = events.filter(e => 
-            !isCreatingInCenter || e.id !== creatingEventId
-        );
-
-        const isCenteringGrid = events.length === 1 && events[0].id === creatingEventId && !isCreatingInCenter;
+        const isCenteringGrid = allItemsToRender.length === 1 && typeof allItemsToRender[0].id === 'string' && !isCreatingInCenter;
 
         return (
             // @ts-ignore // Known issue with framer-motion types
             <AnimatePresence>
-                <EventsGrid $isCentering={isCenteringGrid} layout>
-                    {eventsForGrid.map((event) => (
-                        <EventItem 
-                            key={event.id}
-                            event={event}
-                            onDelete={() => handleDelete(event.id)}
-                            isCreating={creatingEventId === event.id}
-                            onSaveCreating={handleSaveCreating}
-                            onCancelCreating={handleCancelCreating}
-                            isJustSaved={justSavedId === event.id}
-                            onAddNotificationClick={() => handleAddNotificationClick(event.id, event.notifications[0]?.id)}
-                        />
-                    ))}
+                <EventsGrid $isCentering={isCenteringGrid} layout={!isCreatingInCenter}>
+                    {allItemsToRender.map((item) => {
+                        const isTemp = typeof item.id === 'string';
+                        const isJustSavedItem = !isTemp && justSavedId !== null && item.id === justSavedId;
+
+                        return (
+                            <EventItem 
+                                key={item.id}
+                                event={item as EventRead & { id: number | string }}
+                                onDeleteClick={handleDeleteEvent}
+                                onSaveCreating={isTemp ? handleSaveCreatingEvent : undefined}
+                                onCancelCreating={isTemp ? handleCancelCreatingEvent : undefined}
+                                onAddNotificationClick={isTemp ? undefined : handleAddOrEditNotificationClick}
+                                isCreating={isTemp}
+                                isJustSaved={isJustSavedItem}
+                                isSaveLoading={isTemp && isCreateThunkLoading}
+                            />
+                        );
+                    })}
                 </EventsGrid>
             </AnimatePresence>
         );
     };
 
+    const footerProps = useMemo(() => ({
+        onBack: () => {}, 
+        showCreateEventButton: !creatingEventId && !isCreatingInCenter && !isDrawerOpen && realEvents.length > 0,
+        onCreateEventClick: handleCreateEventFromFooter, 
+        showModalActions: isDrawerOpen,
+        onModalSave: handleModalSave, 
+        onModalCancel: handleModalCancel, 
+        isModalSaveDisabled: !formState.isValid || formState.isLoading,
+        isLoadingModalSave: formState.isLoading, 
+        showModalSteps: false, 
+    }), [
+        creatingEventId, isCreatingInCenter, isDrawerOpen, handleCreateEventFromFooter, 
+        handleModalSave, handleModalCancel, formState.isValid, formState.isLoading, 
+        realEvents.length
+    ]);
+
     return (
         <EventListContainer>
+            {/* Оверлей */}
             {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence>
-                {isCreatingInCenter && eventBeingCreated && (
+                {isCreatingInCenter && temporaryEventItem && (
                     <Overlay 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        onClick={() => handleCancelCreating(eventBeingCreated.id)}
+                        onClick={handleCancelCreatingEvent} // Клик по оверлею = отмена
                     />
                 )}
             </AnimatePresence>
 
+            {/* Центральная карточка */}
             {/* @ts-ignore // Known issue with framer-motion types */}
             <AnimatePresence>
-                {isCreatingInCenter && eventBeingCreated && (
+                {isCreatingInCenter && temporaryEventItem && (
                     <CenteredItemContainer
-                        layoutId={`event-card-${eventBeingCreated.id}`}
-                        initial={{ y: "-50%", x: "-50%", scale: 0.8, opacity: 0.8 }}
-                        animate={{ y: "-50%", x: "-50%", scale: 1, opacity: 1 }}
-                        exit={{ 
-                            y: "-50%", x: "-50%",
-                            scale: 0.8, opacity: 0, 
-                            transition: { duration: 0.2 }
-                        }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        initial={{ x: "-100vw", y: "-50%", opacity: 0 }} 
+                        animate={{ x: "-50%", y: "-50%", opacity: 1 }}
+                        exit={{ x: "-100vw", y: "-50%", opacity: 0, transition: { duration: 0.2 } }} 
+                        transition={{ type: "spring", stiffness: 200, damping: 25 }} 
                     >
                          <EventItem 
-                            event={eventBeingCreated}
-                            onDelete={() => handleDelete(eventBeingCreated.id)}
-                            isCreating={true}
-                            onSaveCreating={handleSaveCreating}
-                            onCancelCreating={() => handleCancelCreating(eventBeingCreated.id)}
+                            key={temporaryEventItem.id} 
+                            event={temporaryEventItem as EventRead & { id: number | string }} 
+                            onDeleteClick={handleDeleteEvent} 
+                            onSaveCreating={handleSaveCreatingEvent}
+                            onCancelCreating={handleCancelCreatingEvent} 
+                            onAddNotificationClick={undefined} 
+                            isCreating={true} 
                             isJustSaved={false}
-                            onAddNotificationClick={() => {}}
+                            isSaveLoading={isCreateThunkLoading} 
+                            layout={false} 
                         />
                     </CenteredItemContainer>
                 )}
@@ -313,28 +334,17 @@ const EventList = () => {
             
             {renderContent()}
 
-            {/* Футер */} 
-            <Footer 
-                onBack={() => {}}
-                showCreateEventButton={!creatingEventId && !isCreatingInCenter && events.length > 0}
-                onCreateEventClick={handleStartCreate}
-                showModalActions={isDrawerOpen}
-                onModalSave={formState.submit || undefined}
-                isModalSaveDisabled={!formState.isValid || formState.isLoading}
-                onModalCancel={handleCloseDrawer}
-                showModalSteps={false}
-            />
+            <Footer {...footerProps} />
 
-            {/* Шторка для создания/редактирования уведомлений */}
             {isDrawerOpen && (
-                 <SlidingDrawer onClose={handleCloseDrawer}>
+                 <SlidingDrawer onClose={handleModalCancel}>
                      {eventIdToEditNotification !== null && (
                         <CreateNotificationForm 
                             key={`${eventIdToEditNotification}-${notificationIdToEdit || 'new'}`}
                             eventId={eventIdToEditNotification}
                             notificationId={notificationIdToEdit}
-                            onClose={handleCloseDrawer} 
-                            onStateChange={handleFormStateChange}
+                            onClose={handleModalCancel} 
+                            onStateChange={handleNotificationFormStateChange}
                         />
                     )}
                 </SlidingDrawer>

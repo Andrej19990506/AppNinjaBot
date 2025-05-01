@@ -1,0 +1,66 @@
+# backend/API server/utils/scheduler_client.py
+import os
+import httpx
+import logging
+from typing import Dict, Any, Optional
+import json
+from datetime import datetime
+
+# Импортируем Pydantic схему, чтобы указать тип
+from schemas.event import NotificationRead
+
+logger = logging.getLogger(__name__)
+
+# --- Функция для отправки уведомления Шедулеру ---
+async def notify_scheduler(notification_pydantic: NotificationRead, event_date: Optional[datetime]):
+    """
+    Отправляет данные уведомления в Шедулер для планирования.
+    Принимает Pydantic модель уведомления и дату события.
+    Вызывается как фоновая задача из API эндпоинтов.
+    """
+    try:
+        scheduler_url = os.getenv("SCHEDULER_API_URL", "http://scheduler:8002")
+        endpoint_url = f"{scheduler_url}/scheduler/notifications/schedule"
+
+        # --- ИЗМЕНЕНИЕ: Создаем payload здесь с помощью model_dump --- 
+        try:
+            # Используем mode='json' для правильной сериализации datetime внутри модели
+            payload = notification_pydantic.model_dump(mode='json')
+            
+            # --- ИСПРАВЛЕНИЕ: Переименовываем ключи для соответствия ожиданиям schedule() --- 
+            # 1. notification_id
+            if 'id' in payload:
+                payload['notification_id'] = payload.pop('id') 
+            
+            # 2. event_date (уже строка ISO)
+            if event_date:
+                payload['event_date'] = event_date.isoformat()
+            else:
+                payload['event_date'] = None
+            # Удаляем старый ключ event_time, если он был в Pydantic модели (а его не было)
+            # payload.pop('event_time', None) 
+                
+            # 3. time_before
+            if 'time' in payload:
+                 payload['time_before'] = payload.pop('time')
+            # ----------------------------------------------------------------------------
+
+        except Exception as dump_error:
+            logger.error(f"Ошибка при создании payload для Шедулера (уведомление {getattr(notification_pydantic, 'id', 'N/A')}): {dump_error}", exc_info=True)
+            return # Прерываем выполнение, если не можем создать payload
+
+        logger.info(f"[notify_scheduler] Подготовка к отправке данных уведомления {payload.get('notification_id')} в Шедулер: {endpoint_url}")
+        logger.debug(f"[notify_scheduler] Payload для отправки: {payload}")
+
+        async with httpx.AsyncClient() as client:
+            logger.info(f"[notify_scheduler] Отправка POST запроса на {endpoint_url}")
+            response = await client.post(endpoint_url, json=payload, timeout=15.0)
+            response.raise_for_status()
+            logger.info(f"[notify_scheduler] Успешный ответ от Шедулера ({response.status_code}): {response.text}")
+
+    except httpx.RequestError as exc:
+        logger.error(f"[notify_scheduler] Ошибка при вызове API Шедулера (RequestError) для уведомления {payload.get('notification_id', 'N/A')}: {exc}")
+    except httpx.HTTPStatusError as exc:
+        logger.error(f"[notify_scheduler] Ошибка от API Шедулера (HTTPStatusError {exc.response.status_code}) для уведомления {payload.get('notification_id', 'N/A')}: {exc.response.text}")
+    except Exception as exc:
+        logger.exception(f"[notify_scheduler] Неизвестная ошибка при отправке уведомления {payload.get('notification_id', 'N/A')} в Шедулер") 

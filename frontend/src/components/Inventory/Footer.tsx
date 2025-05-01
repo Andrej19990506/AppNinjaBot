@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Footer.module.css';
 import { motion } from 'framer-motion';
@@ -437,11 +437,10 @@ const Footer: React.FC<FooterProps> = ({
                                 </motion.button>
                             )}
 
-                            {/* <<< ПЕРЕМЕЩАЕМ КНОПКУ "СОЗДАТЬ СОБЫТИЕ" СЮДА >>> */} 
+                            {/* <<< ПЕРЕМЕЩАЕМ КНОПКУ "СОЗДАТЬ СОБЫТИЕ" СЮДА >>> */}
                             {showCreateEventButton && (
                                 <motion.div
                                     // Убираем wrapper класс, если он не нужен для центрирования
-                                    // className={styles.createButtonWrapper} 
                                     initial={{ scale: 0, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     exit={{ scale: 0, opacity: 0 }}
@@ -463,7 +462,7 @@ const Footer: React.FC<FooterProps> = ({
                                     </StyledCreateEventButton>
                                 </motion.div>
                             )}
-                            {/* <<< КОНЕЦ ПЕРЕМЕЩЕННОЙ КНОПКИ >>> */} 
+                            {/* <<< КОНЕЦ ПЕРЕМЕЩЕННОЙ КНОПКИ >>> */}
                         </div>
 
                         {/* --- Правая часть --- */}
@@ -590,4 +589,5 @@ const Footer: React.FC<FooterProps> = ({
 
 Footer.displayName = 'Footer';
 
-export default Footer; 
+// Оборачиваем экспорт в React.memo
+export default memo(Footer); 

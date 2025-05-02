@@ -55,26 +55,37 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     const [openTooltip, setOpenTooltip] = useState<{ date: string | null, message: string }>({ date: null, message: '' });
     const days = getDaysInMonth(month);
 
-    const handleTooltipClose = (event?: React.SyntheticEvent | Event) => {
-        logger.debug(`[MonthSection] handleTooltipClose called. Current state:`, openTooltip);
+    // <<< Функция, которая реально закрывает тултип >>>
+    const doCloseTooltip = () => {
+        logger.debug(`[MonthSection] doCloseTooltip executing.`);
+        setOpenTooltip({ date: null, message: '' });
+    };
+
+    // <<< Обертка для onClose, фильтрующая touchend >>>
+    const handleCloseWrapper = (event?: React.SyntheticEvent | Event) => {
+        logger.debug(`[MonthSection] handleCloseWrapper called. Current state:`, openTooltip);
         if (event) {
-            logger.debug(`[MonthSection] handleTooltipClose triggered by event:`, {
+            logger.debug(`[MonthSection] handleCloseWrapper event:`, {
                 type: event.type,
                 target: event.target,
                 currentTarget: event.currentTarget,
             });
+            // <<< Если событие - touchend, ничего не делаем >>>
             if (event.type === 'touchend') {
-                logger.debug(`[MonthSection] Ignoring touchend event in handleTooltipClose.`);
-                return;
+                logger.debug(`[MonthSection] Ignoring touchend event in handleCloseWrapper.`);
+                return; 
             }
         }
-        setOpenTooltip({ date: null, message: '' });
+        // <<< Вызываем реальное закрытие только для других событий >>>
+        doCloseTooltip(); 
     };
 
+    // <<< Функция открытия тултипа >>>
     const handleIconClick = (dateStr: string, message: string, event: React.MouseEvent) => {
-        logger.debug(`[MonthSection] handleIconClick called for date: ${dateStr}`);
+        logger.debug(`[MonthSection] handleIconClick START for date: ${dateStr}`); 
         event.nativeEvent.stopImmediatePropagation(); 
         setTimeout(() => {
+            logger.debug(`[MonthSection] handleIconClick setTimeout: setting state for ${dateStr}`); 
             setOpenTooltip({ date: dateStr, message });
         }, 0);
     };
@@ -133,7 +144,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                         <Tooltip
                                             title={tooltipMessage}
                                             open={openTooltip.date === dateStr}
-                                            onClose={handleTooltipClose}
+                                            onClose={handleCloseWrapper}
                                             arrow
                                             placement="top"
                                             onClick={(e) => handleIconClick(dateStr, tooltipMessage, e)}
@@ -168,7 +179,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                         <Tooltip
                                             title={tooltipMessage}
                                             open={openTooltip.date === dateStr}
-                                            onClose={handleTooltipClose}
+                                            onClose={handleCloseWrapper}
                                             arrow
                                             placement="top"
                                             onClick={(e) => handleIconClick(dateStr, tooltipMessage, e)}
@@ -203,7 +214,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                         <Tooltip
                                             title={tooltipMessage}
                                             open={openTooltip.date === dateStr}
-                                            onClose={handleTooltipClose}
+                                            onClose={handleCloseWrapper}
                                             arrow
                                             placement="top"
                                             onClick={(e) => handleIconClick(dateStr, tooltipMessage, e)}
@@ -257,7 +268,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             usersById={usersById}
                             statusIcon={statusIconElement}
                             openTooltip={openTooltip}
-                            handleTooltipClose={handleTooltipClose}
+                            handleTooltipClose={doCloseTooltip}
                         />
                     );
                 })}

@@ -10,7 +10,7 @@ import pytz
 from models.scheduler_task import SchedulerTaskDB
 # Убираем импорт timezone из datetime, т.к. используем pytz
 # from datetime import datetime, timezone 
-from datetime import datetime, timezone # <-- Возвращаем импорт timezone
+from datetime import datetime, timezone, timedelta, time # <-- Добавляем timedelta, time
 from .courier_shifts.shift_access_task import ShiftAccessTask
 from .websocket_events.registration_open_event_task import RegistrationOpenEventTask
 # Исправляем импорт на абсолютный
@@ -19,6 +19,8 @@ from core.config import scheduler_settings as default_settings # Новый аб
 
 # Импортируем события и объект события
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, JobExecutionEvent
+from apscheduler.triggers.date import DateTrigger # <<< Импортируем DateTrigger
+from apscheduler.triggers.cron import CronTrigger # <<< Импортируем CronTrigger
 
 # Удаляем импорт shared.db_utils
 # from scheduler.shared.db_utils import init_db, db_connection
@@ -263,7 +265,7 @@ class TaskManager:
                 for task_info in active_db_tasks:
                     try:
                         task_id = task_info.get('task_id')
-                        chat_id = task_info.get('chat_id')
+                        chat_id = task_info.get('chat_id') # Может быть None для event_notification
                         task_type = task_info.get('task_type')
                         next_run_str = task_info.get('next_run_time')
                         data = task_info.get('data', {})
@@ -274,11 +276,9 @@ class TaskManager:
                             continue
                             
                         # Преобразуем время из ISO строки обратно в datetime aware
-                        # Убедимся, что строка содержит таймзону
                         try:
-                            # Используем fromisoformat, который должен работать с выводом .isoformat()
                             next_run_time_aware = datetime.fromisoformat(next_run_str)
-                            # На всякий случай приведем к таймзоне планировщика
+                            # Приведем к таймзоне планировщика, чтобы все расчеты были в ней
                             next_run_time_aware = next_run_time_aware.astimezone(self.timezone) 
                         except ValueError:
                              logger.error(f"Ошибка парсинга времени '{next_run_str}' для задачи {task_id}")
@@ -286,15 +286,129 @@ class TaskManager:
                              continue
                         
                         logger.info(f"Восстановление задачи {task_id} (тип: {task_type}, время: {next_run_time_aware})...")
-                        # Вызываем save_task, который добавит/обновит задачу в APScheduler
-                        save_success = await self.save_task(
-                            task_id, chat_id, task_type, next_run_time_aware, data
-                        )
-                        if save_success:
-                            restored_count += 1
-                        else:
-                            failed_count += 1
-                            logger.error(f"Не удалось восстановить задачу {task_id} при вызове save_task.")
+
+                        # <<< НАЧАЛО ИЗМЕНЕННОЙ ЛОГИКИ ВОССТАНОВЛЕНИЯ >>>
+                        if task_type == EventNotificationTask.TASK_TYPE:
+                            logger.debug(f"Обработка восстановления для {task_type} (ID: {task_id})")
+                            # 1. Извлекаем данные из 'data'
+                            message = data.get('message')
+                            chat_ids = data.get('chat_ids')
+                            repeat_settings = data.get('repeat', {})
+                            # Достаем time_before и event_date_str ТОЛЬКО для расчета времени cron'а
+                            time_before_str = data.get('time_before') 
+                            event_date_str = data.get('event_date') 
+
+                            if not all([message, chat_ids, time_before_str is not None, event_date_str]):
+                                logger.error(f"Недостаточно данных в поле 'data' для восстановления {task_id}: {data}")
+                                failed_count += 1
+                                continue
+
+                            # 2. Определяем триггер
+                            trigger = None
+                            repeat_type = repeat_settings.get('type', 'none')
+                            
+                            # Рассчитаем время HH:MM для cron из event_date и time_before
+                            cron_trigger_time = None
+                            try:
+                                event_date_for_time = datetime.fromisoformat(event_date_str)
+                                # Приведем к таймзоне шедулера для корректного вычитания
+                                if event_date_for_time.tzinfo is None:
+                                     event_date_for_time = self.timezone.localize(event_date_for_time)
+                                else:
+                                     event_date_for_time = event_date_for_time.astimezone(self.timezone)
+                                cron_trigger_time = event_date_for_time - timedelta(minutes=int(time_before_str))
+                            except Exception as time_calc_err:
+                                logger.error(f"Ошибка расчета времени для cron триггера задачи {task_id}: {time_calc_err}")
+                                failed_count += 1
+                                continue # Пропускаем задачу, если не можем рассчитать время
+
+                            if repeat_type == 'none':
+                                # Если одноразовая, используем next_run_time_aware из БД
+                                now_aware = datetime.now(self.timezone)
+                                if next_run_time_aware >= now_aware:
+                                    trigger = DateTrigger(run_date=next_run_time_aware, timezone=self.timezone)
+                                else:
+                                    logger.warning(f"Одноразовая задача {task_id} уже в прошлом ({next_run_time_aware}), пропускаем восстановление.")
+                                    # Возможно, стоит удалить из БД тут же? Но пока пропускаем.
+                                    failed_count += 1
+                                    continue
+                            elif cron_trigger_time: # Для повторяющихся - создаем CronTrigger
+                                cron_args = {
+                                    'hour': cron_trigger_time.hour, 
+                                    'minute': cron_trigger_time.minute,
+                                    'timezone': self.timezone, 
+                                    # Важно: start_date должен быть в прошлом или сейчас, 
+                                    # чтобы cron сработал как можно скорее, если next_run_time в прошлом
+                                    # Используем next_run_time_aware из БД как ориентир, но не позже "сейчас"
+                                    'start_date': min(next_run_time_aware, datetime.now(self.timezone)) 
+                                }
+                                if repeat_type == 'daily':
+                                    trigger = CronTrigger(**cron_args)
+                                elif repeat_type == 'weekly':
+                                    weekdays = repeat_settings.get('weekdays')
+                                    if weekdays is not None and isinstance(weekdays, list):
+                                        aps_weekdays = [(d - 1 + 7) % 7 for d in weekdays]
+                                        cron_args['day_of_week'] = ",".join(map(str, aps_weekdays))
+                                        trigger = CronTrigger(**cron_args)
+                                    else: logger.error(f"Некорректные weekdays для {task_id}: {weekdays}"); failed_count += 1; continue
+                                elif repeat_type == 'monthly':
+                                    month_day = repeat_settings.get('month_day')
+                                    if month_day is not None:
+                                        cron_args['day'] = str(month_day)
+                                        trigger = CronTrigger(**cron_args)
+                                    else: logger.error(f"Некорректный month_day для {task_id}: {month_day}"); failed_count += 1; continue
+                                else: logger.error(f"Неизвестный тип повтора для {task_id}: {repeat_type}"); failed_count += 1; continue
+                            
+                            if trigger is None:
+                                logger.error(f"Не удалось создать триггер для {task_id}")
+                                failed_count += 1
+                                continue
+
+                            # 3. Собираем полные kwargs
+                            executor_path = self.task_executors.get(task_type)
+                            if not executor_path: logger.error(f"Путь к исполнителю {task_type} не найден для {task_id}"); failed_count += 1; continue
+                            
+                            job_kwargs_for_executor = {
+                                'message': message,
+                                'chat_ids': chat_ids,
+                                'job_id': task_id, # Передаем ID для логирования внутри задачи
+                                'settings': self.settings # Передаем настройки
+                                # 'db_service' и 'task_manager' не нужны для send_notification
+                            }
+
+                            # 4. Вызываем add_job напрямую
+                            try:
+                                self.scheduler.add_job(
+                                    executor_path,
+                                    trigger=trigger,
+                                    kwargs=job_kwargs_for_executor,
+                                    id=str(task_id),
+                                    name=f'{task_type} для всех', # Имя можно сделать информативнее, если нужно
+                                    replace_existing=True,
+                                    misfire_grace_time=3600 
+                                )
+                                # Логируем время следующего запуска из APScheduler
+                                job = self.scheduler.get_job(task_id)
+                                next_run_aps = job.next_run_time if job else None
+                                logger.info(f" -> Задача {task_id} (event_notification) добавлена/обновлена в APScheduler на {next_run_aps}")
+                                restored_count += 1
+                            except Exception as add_job_err:
+                                logger.error(f"Ошибка APScheduler при восстановлении {task_id}: {add_job_err}")
+                                logger.error(traceback.format_exc())
+                                failed_count += 1
+                        
+                        else: 
+                            # <<< СТАРАЯ ЛОГИКА для других типов задач >>>
+                            # Вызываем save_task, который подходит для courier_shift_access
+                            save_success = await self.save_task(
+                                task_id, chat_id, task_type, next_run_time_aware, data
+                            )
+                            if save_success:
+                                restored_count += 1
+                            else:
+                                failed_count += 1
+                                logger.error(f"Не удалось восстановить задачу {task_id} при вызове save_task.")
+                        # <<< КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ ВОССТАНОВЛЕНИЯ >>>
                             
                     except Exception as task_restore_err:
                         logger.error(f"Ошибка при обработке задачи {task_info.get('task_id', 'N/A')} из БД: {task_restore_err}")

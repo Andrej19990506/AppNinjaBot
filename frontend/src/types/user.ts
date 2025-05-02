@@ -22,6 +22,7 @@ export interface User {
     groups?: any[];
     isAdmin: boolean;
     adminRights: AdminRights | null;
+    isSeniorCourier?: boolean;
 }
 
 export interface UserState {

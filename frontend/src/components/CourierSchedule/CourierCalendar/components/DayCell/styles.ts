@@ -150,28 +150,4 @@ export const ReserveIcon = styled.div`
         content: '!';
         display: inline-block;
     }
-`;
-
-export const LockIcon = styled.div`
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    top: 58%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 2;
-    background-color: #FF3B30;
-    border-radius: 3px;
-    pointer-events: none;
-    touch-action: none;
-    
-    &::before {
-        content: '🔒';
-        font-size: 10px;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: white;
-    }
 `; 

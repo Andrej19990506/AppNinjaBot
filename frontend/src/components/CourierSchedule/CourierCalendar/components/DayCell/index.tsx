@@ -13,7 +13,6 @@ import {
     OccupiedSlotIndicator,
     ReserveSlotIndicator,
     ReserveIcon,
-    LockIcon
 } from './styles';
 
 interface DayCellProps {
@@ -30,6 +29,9 @@ interface DayCellProps {
     userIsInReserve: (date: Date) => boolean;
     slotConfig: WeeklySlotConfig | null;
     usersById: { [key: string]: User };
+    statusIcon?: React.ReactElement | null;
+    openTooltip: { date: string | null, message: string };
+    handleTooltipClose: () => void;
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -38,18 +40,38 @@ const DayCell: React.FC<DayCellProps> = ({
     isSelected,
     hasShifts,
     isAvailable,
-    onClick,
+    onClick: onOriginalClick,
     currentUserId,
     getDayShifts,
     getNightShifts,
     hasUserShift,
     userIsInReserve,
     slotConfig,
-    usersById
+    usersById,
+    statusIcon,
+    openTooltip,
+    handleTooltipClose
 }) => {
     if (!date) {
         return <DayCellContainer as="div" />;
     }
+
+    const handleCellClick = (event: React.MouseEvent) => {
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const targetElement = event.target as HTMLElement;
+        const clickedOnTooltipOrIcon = targetElement.closest('.MuiTooltip-popper') || targetElement.closest('[style*="background-color"]');
+        
+        if (clickedOnTooltipOrIcon) {
+            return;
+        }
+
+        if (openTooltip.date === dateStr) {
+            handleTooltipClose();
+            onOriginalClick();
+        } else {
+            onOriginalClick();
+        }
+    };
 
     const renderContent = () => {
         const dayIndex = date.getDay();
@@ -106,19 +128,10 @@ const DayCell: React.FC<DayCellProps> = ({
                             $isAvailable={false} 
                             style={{ 
                                 color: '#FF3B30', 
-                                opacity: 0.9,
-                                fontSize: '0.85rem',
-                                position: 'absolute',
-                                top: '24%',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                                fontWeight: '600',
-                                textShadow: '0 0 3px rgba(255, 255, 255, 0.9)'
                             }}
                         >
                             {format(date, 'd')}
                         </DayNumber>
-                        <LockIcon />
                     </OccupiedSlotIndicator>
                 );
             }
@@ -134,7 +147,7 @@ const DayCell: React.FC<DayCellProps> = ({
 
     return (
         <DayCellContainer
-            onClick={onClick}
+            onClick={handleCellClick}
             $isToday={isToday}
             $isSelected={isSelected}
             $hasShifts={hasShifts}
@@ -143,6 +156,7 @@ const DayCell: React.FC<DayCellProps> = ({
             role="button"
         >
             {renderContent()}
+            {statusIcon}
         </DayCellContainer>
     );
 };

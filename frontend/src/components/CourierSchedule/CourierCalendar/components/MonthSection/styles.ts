@@ -57,6 +57,20 @@ export const WeekDay = styled.div`
     font-weight: 500;
 `;
 
+export const DateCellStatusIconContainer = styled.div`
+    position: absolute;
+    top: -4px;
+    left: -4px;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    border-radius: 50%;
+    z-index: 2;
+`;
+
 export const DaysGrid = styled.div`
     display: grid;
     grid-template-columns: repeat(7, 1fr);

@@ -10,6 +10,8 @@ import { motion } from 'framer-motion';
 import type { ShiftSlot } from '../../../types/shifts';
 import { logger } from '../../../utils/logger';
 import { deleteShiftAsSenior } from '../../../services/courierApi';
+import { useAppDispatch } from '../../../store/hooks';
+import { removeShiftLocally } from '../../../store/slices/shiftsSlice';
 
 export interface ShiftSlotProps {
     shiftType: 'day' | 'night';
@@ -368,12 +370,14 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     isActiveTooltip,
     onRequestTooltip,
     onLongPressEmptySlot,
+    $isPanelDragActive,
 }): React.ReactElement | null => {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingSelf, setIsDeletingSelf] = useState(false);
     const confirmationTimerRef = useRef<NodeJS.Timeout | null>(null);
     const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [longPressTriggered, setLongPressTriggered] = useState(false);
+    const dispatch = useAppDispatch();
 
     const usersById = useSelector(selectUsersById);
     const courierUserId = useMemo(() => {
@@ -387,6 +391,10 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         courierUserId ? usersById[courierUserId] : null,
         [usersById, courierUserId]
     );
+
+    useEffect(() => {
+        logger.debug(`[ShiftSlot ${shiftType}-${slotIndex}] Render/Prop Update. Courier Prop:`, courier ? { id: courier.id, userId: courier.userId, name: courier.firstName } : null);
+    }, [courier, shiftType, slotIndex]);
 
     const isOccupied = Boolean(courier);
     const isCurrentUser = isOccupied && courier?.userId === currentUserId;
@@ -474,10 +482,13 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         
         setIsDeletingSelf(true);
         resetState(); 
-        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] Deleting own shift ${courier.id} by user ${currentUserId}`);
+        const shiftDbId = courier.id;
+        logger.log(`[ShiftSlotComponent ${shiftType}-${slotIndex}] Deleting own shift ${shiftDbId} by user ${currentUserId}`);
 
         try {
-            await deleteShiftAsSenior(courier.id, String(currentUserId)); 
+            await deleteShiftAsSenior(shiftDbId, String(currentUserId)); 
+            dispatch(removeShiftLocally(shiftDbId));
+            logger.info(`[ShiftSlotComponent ${shiftType}-${slotIndex}] Dispatched removeShiftLocally for ${shiftDbId} after self-delete API call.`);
             if (showSuccessMessage) {
                 showSuccessMessage('Ваша смена успешно удалена.');
             }
@@ -489,7 +500,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         } finally {
             setIsDeletingSelf(false);
         }
-    }, [courier, currentUserId, resetState, showSuccessMessage, showErrorMessage, shiftType, slotIndex, isDeletingSelf]);
+    }, [courier, currentUserId, resetState, showSuccessMessage, showErrorMessage, shiftType, slotIndex, isDeletingSelf, dispatch]);
 
     const handleAvatarClick = (e: React.MouseEvent | React.TouchEvent) => {
         e.stopPropagation(); 

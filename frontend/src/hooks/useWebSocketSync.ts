@@ -101,36 +101,49 @@ export const useWebSocketSync = () => {
         // Переименовываем обработчик для ясности
         const handleShiftsUpdated = (data: ShiftsUpdatedWsPayload | any) => { // Используем any временно для type guard
             // Логируем ПОЛУЧЕННЫЕ данные
-            logger.debug('[WS] Получено событие: shifts_updated', data);
+            // <<< ЛОГ 1: САМ ФАКТ ПОЛУЧЕНИЯ СОБЫТИЯ >>>
+            logger.info('[WS RECEIVED] Event: shifts_updated', data);
+            // <<< ЛОГ 2: ПРОВЕРЯЕМ chatId ИЗ REDUX В МОМЕНТ ОБРАБОТКИ >>>
+            const currentChatIdFromState = chatId; // Получаем актуальное значение из замыкания useEffect
+            logger.debug(`[WS Check] Comparing event chat_id (${data.chat_id}) with current state chatId (${currentChatIdFromState})`);
 
             // Проверяем источник события
             if (data.source === 'shift_deletion') {
-                // Это удаление смены
-                logger.info(`[useWebSocketSync] Событие shifts_updated (source=shift_deletion) для нашего чата ${chatId}. Диспатчим shiftCancelledWs.`);
-                // Проверяем, что chat_id совпадает (если он есть в данных)
-                if (!data.chat_id || String(data.chat_id) === chatId) {
-                    // Диспатчим action для удаления смены по ID
+                // Это удаление
+                // <<< ЛОГ 3: ВЕТКА УДАЛЕНИЯ >>>
+                logger.info(`[WS Check] Source is 'shift_deletion'.`);
+
+                if (!data.chat_id || String(data.chat_id) === currentChatIdFromState) { // <-- Сравнение ID чата
+                    // <<< ЛОГ 4: CHAT ID СОВПАЛ >>>
+                    logger.info(`[WS Check] Chat ID MATCH. Proceeding with dispatch for shift_id: ${data.shift_id}`);
+
                     if (data.shift_id) {
-                         dispatch(shiftCancelledWs({ shift_id: data.shift_id }));
+                         dispatch(shiftCancelledWs({ shift_id: data.shift_id })); // <-- Вот ОН! Диспатч для удаления
+                         // <<< ЛОГ 5: ДИСПАТЧ ВЫЗВАН >>>
+                         logger.info(`[WS Dispatch] Dispatched shiftCancelledWs for ${data.shift_id}`);
                     } else {
-                         logger.error('[useWebSocketSync] Ошибка: shift_id отсутствует в payload события shift_deletion!', data);
+                         logger.error('[WS Error] shift_id missing in shift_deletion payload!', data);
                     }
                 } else {
-                     logger.log(`[useWebSocketSync] Событие shift_deletion для другого чата (${data.chat_id}), игнорируем.`);
+                     logger.warn(`[WS Check] Chat ID MISMATCH. Event chat_id=${data.chat_id}, State chatId=${currentChatIdFromState}. Ignoring.`);
                 }
             } else {
                 // Это создание или обновление смены
-                logger.info(`[useWebSocketSync] Событие shifts_updated (source=${data.source || 'unknown'}) для нашего чата ${chatId}. Диспатчим shiftBookedWs.`);
-                // Проверяем, что chat_id совпадает
-                 if (String(data.chat_id) === chatId) {
-                     // Проверяем наличие shift_data
+                // <<< ЛОГ 6: ВЕТКА СОЗДАНИЯ/ОБНОВЛЕНИЯ >>>
+                logger.info(`[WS Check] Source is NOT 'shift_deletion' (it's '${data.source || 'unknown'}'). Checking chat ID for shiftBookedWs.`);
+
+                 if (String(data.chat_id) === currentChatIdFromState) {
+                     // <<< ЛОГ 7: CHAT ID СОВПАЛ (для booked) >>>
+                     logger.info(`[WS Check] Chat ID MATCH. Proceeding with dispatch for shift_data...`);
                      if (data.shift_data) {
                         dispatch(shiftBookedWs(data as ShiftsUpdatedWsPayload)); // Используем исходный action
+                         // <<< ЛОГ 8: ДИСПАТЧ ВЫЗВАН (для booked) >>>
+                         logger.info(`[WS Dispatch] Dispatched shiftBookedWs.`);
                      } else {
-                          logger.error('[useWebSocketSync] Ошибка: shift_data отсутствует в payload события shift creation/update!', data);
+                          logger.error('[WS Error] shift_data missing in shift creation/update payload!', data);
                      }
                  } else {
-                     logger.log(`[useWebSocketSync] Событие shift creation/update для другого чата (${data.chat_id}), игнорируем.`);
+                     logger.warn(`[WS Check] Chat ID MISMATCH for shift creation/update. Event chat_id=${data.chat_id}, State chatId=${currentChatIdFromState}. Ignoring.`);
                  }
             }
         };

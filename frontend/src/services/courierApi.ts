@@ -185,7 +185,6 @@ export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
     // Используем правильные поля user_telegram_id и group_telegram_id из data
     console.log('[courierApi] 📡 Бронирование смены:', data);
     try {
-        // URL уже исправлен на /api/v1/shifts
         const response = await axiosInstance.post<ApiShift>('/api/v1/shifts', data);
         console.log('[courierApi] ✅ Смена забронирована:', response.data);
         return response.data;
@@ -243,6 +242,7 @@ export const deleteShiftAsSenior = async (shiftId: string, requesterTelegramId: 
         });
         logger.log(`[courierApi] deleteShiftAsSenior: Shift ${shiftId} deleted successfully`, response.status);
         // 204 No Content не имеет тела ответа
+        return;
     } catch (error: any) {
         const errorMessage = error.response?.data?.detail || error.message || 'Unknown error';
         logger.error(`[courierApi] ❌ Error deleting shift ${shiftId} as senior ${requesterTelegramId}:`, errorMessage, error.response?.status, error.response?.data);

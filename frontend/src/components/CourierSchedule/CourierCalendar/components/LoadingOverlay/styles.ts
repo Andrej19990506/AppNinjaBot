@@ -1,4 +1,4 @@
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 import { Z_INDICES } from '../../constants';
 
 const spin = keyframes`
@@ -51,19 +51,36 @@ const fadeScale = keyframes`
     }
 `;
 
-export const LoadingContainer = styled.div`
-    position: fixed;
+const fadeOut = keyframes`
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+`;
+
+export const LoadingOverlayContainer = styled.div<{ isHiding?: boolean }>`
+    position: absolute;
     top: 0;
     left: 0;
     right: 0;
     bottom: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: var(--card-background);
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.7) 100%);
     z-index: ${Z_INDICES.LOADING_OVERLAY};
-    animation: ${fadeIn} 0.3s ease;
-    padding: 20px;
+    opacity: 1;
+    transition: opacity 0.5s ease;
+
+    ${({ isHiding }) => 
+      isHiding &&
+      css`
+        animation: ${fadeOut} 0.5s ease forwards;
+        pointer-events: none;
+      `}
 `;
 
 export const LoadingCard = styled.div`
@@ -210,8 +227,10 @@ export const LoadingTitle = styled.h3`
 export const LoadingText = styled.div`
     color: var(--text-secondary);
     font-size: 1.1rem;
-    margin: 0;
+    margin-top: 15px;
     line-height: 1.5;
+    text-align: center;
+    max-width: 80%;
 `;
 
 export const ProgressBar = styled.div`
@@ -248,13 +267,11 @@ export const ProgressBar = styled.div`
     }
 `;
 
-/* Оставляем старый Spinner для обратной совместимости */
-export const Spinner = styled.div`
-    width: 48px;
-    height: 48px;
-    border: 4px solid var(--primary-color);
-    border-top-color: transparent;
+export const LoadingSpinner = styled.div`
+    width: 45px;
+    height: 45px;
+    border: 4px solid rgba(var(--primary-rgb), 0.3);
+    border-top-color: var(--primary-color);
     border-radius: 50%;
-    animation: ${spin} 1s linear infinite;
-    box-shadow: 0 2px 10px rgba(var(--primary-rgb), 0.2);
+    animation: ${spin} 0.8s linear infinite;
 `; 

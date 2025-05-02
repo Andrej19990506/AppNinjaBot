@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch } from '../../../../../store/store';
 import { 
@@ -277,6 +277,7 @@ interface ISlotSettingsProps {
     chatId?: number;
     dayIndex: number;
     onDayChangeRequest: (newDayIndex: number) => void;
+    onDirtyChange: (isDirty: boolean) => void;
 }
 
 // Используем React.ForwardRefRenderFunction для явного типизирования
@@ -286,7 +287,8 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     onClose, 
     chatId, 
     dayIndex,
-    onDayChangeRequest
+    onDayChangeRequest,
+    onDirtyChange
 }, ref) => {
     const dispatch = useDispatch<AppDispatch>();
 
@@ -306,10 +308,35 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     
     // Состояния для UI
     const [isLoading, setIsLoading] = useState(false);
-    const [isDirty, setIsDirty] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
     const dayOfWeekNames = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+
+    // Вычисляем isDirty напрямую во время рендера
+    const initialDay = initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots;
+    const initialNight = initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
+    const calculatedIsDirty = isOpen && (daySlots !== initialDay || nightSlots !== initialNight);
+
+    // Логируем вычисленное значение
+    console.log('[SlotSettings Render Check]', {
+        daySlots,
+        initialDay,
+        nightSlots,
+        initialNight,
+        calculatedIsDirty,
+        initialDayConfigLoaded: initialDayConfig
+    });
+
+    // Сохраняем предыдущее значение isDirty, чтобы вызывать колбэк только при изменении
+    const prevCalculatedIsDirtyRef = useRef<boolean>();
+    useEffect(() => {
+        // Вызываем колбэк, только если значение isDirty изменилось
+        if (prevCalculatedIsDirtyRef.current !== calculatedIsDirty) {
+            console.log(`[SlotSettings] Dirty state changed: ${prevCalculatedIsDirtyRef.current} -> ${calculatedIsDirty}. Calling onDirtyChange.`);
+            onDirtyChange(calculatedIsDirty);
+            prevCalculatedIsDirtyRef.current = calculatedIsDirty; // Обновляем предыдущее значение
+        }
+    }, [calculatedIsDirty, onDirtyChange]); // Зависим от вычисленного значения и колбэка
 
     useEffect(() => {
         if (isOpen) {
@@ -317,26 +344,14 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             // Используем импортированные дефолты как fallback
             setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
             setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
-            setIsDirty(false);
             setIsLoading(false);
         }
         // Если окно закрывается, сбрасываем isDirty (на всякий случай)
         // Хотя onClose должен вызываться при нажатии OK на экране успеха
-        else {
-            setIsDirty(false); 
-        }
+        // else {
+            // setIsDirty(false); // <<< УБИРАЕМ
+        // }
     }, [isOpen, dayIndex, initialDayConfig]);
-
-    useEffect(() => {
-        if (!isOpen) {
-            setIsDirty(false);
-            return;
-        }
-        const initialDay = initialDayConfig?.maxDaySlots ?? 0;
-        const initialNight = initialDayConfig?.maxNightSlots ?? 0;
-        const dirty = daySlots !== initialDay || nightSlots !== initialNight;
-        setIsDirty(dirty);
-    }, [isOpen, daySlots, nightSlots, initialDayConfig]);
 
     // --- Обработчик изменения дня в селекте --- 
     const handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -348,14 +363,42 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     // --- ------------------------------------ ---
 
     // Функции изменения слотов с явным указанием типа для prev
-    const handleDecreaseDaySlots = () => setDaySlots((prev: number) => Math.max(prev - 1, 0));
-    const handleIncreaseDaySlots = () => setDaySlots((prev: number) => Math.min(prev + 1, 20)); 
-    const handleDecreaseNightSlots = () => setNightSlots((prev: number) => Math.max(prev - 1, 0));
-    const handleIncreaseNightSlots = () => setNightSlots((prev: number) => Math.min(prev + 1, 20));
+    const handleDecreaseDaySlots = () => {
+        console.log('[SlotSettings] handleDecreaseDaySlots called');
+        setDaySlots((prev: number) => {
+            const nextVal = Math.max(prev - 1, 0);
+            console.log('[SlotSettings] setDaySlots (decrease)', { prev, nextVal });
+            return nextVal;
+        });
+    };
+    const handleIncreaseDaySlots = () => {
+        console.log('[SlotSettings] handleIncreaseDaySlots called');
+        setDaySlots((prev: number) => {
+            const nextVal = Math.min(prev + 1, 20); 
+            console.log('[SlotSettings] setDaySlots (increase)', { prev, nextVal });
+            return nextVal;
+        });
+    }; 
+    const handleDecreaseNightSlots = () => {
+        console.log('[SlotSettings] handleDecreaseNightSlots called');
+        setNightSlots((prev: number) => {
+            const nextVal = Math.max(prev - 1, 0);
+            console.log('[SlotSettings] setNightSlots (decrease)', { prev, nextVal });
+            return nextVal;
+        });
+    };
+    const handleIncreaseNightSlots = () => {
+        console.log('[SlotSettings] handleIncreaseNightSlots called');
+        setNightSlots((prev: number) => {
+            const nextVal = Math.min(prev + 1, 20);
+            console.log('[SlotSettings] setNightSlots (increase)', { prev, nextVal });
+            return nextVal;
+        });
+    };
 
     // Функция сохранения (вызывается через ref)
     const handleSave = useCallback(async (): Promise<void> => {
-        if (!isDirty || !chatId || dayIndex === null) {
+        if (!calculatedIsDirty || !chatId || dayIndex === null) {
             logger.warn('[SlotSettings] Save triggered but not dirty, no chatId, or no dayIndex');
             return;
         }
@@ -389,7 +432,6 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                  maxDaySlots: configData.maxDaySlots, 
                  maxNightSlots: configData.maxNightSlots
             }));
-            setIsDirty(false); 
             setShowSuccess(true); // Показываем экран успеха
             setIsLoading(false); 
             
@@ -404,14 +446,13 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             // Больше не возвращаем false
             // return false; 
         }
-    }, [isDirty, chatId, dayIndex, daySlots, nightSlots, fullSlotConfig, dispatch]); 
+    }, [calculatedIsDirty, chatId, dayIndex, daySlots, nightSlots, fullSlotConfig, dispatch]); 
     
     // Функция сброса (вызывается через ref)
     const handleReset = useCallback(() => {
         logger.log("[SlotSettings] Resetting changes.");
-        setDaySlots(initialDayConfig?.maxDaySlots ?? 0);
-        setNightSlots(initialDayConfig?.maxNightSlots ?? 0);
-        setIsDirty(false);
+        setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
+        setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
         setIsLoading(false);
         setShowSuccess(false);
     }, [initialDayConfig]);
@@ -421,12 +462,12 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     useImperativeHandle(ref, () => ({
         triggerSave: handleSave,
         triggerReset: handleReset,
-        isDirty,
+        isDirty: calculatedIsDirty,
         isValid: () => {
             // Тут можно добавить валидацию, если нужно
             return true;
         }
-    }), [handleSave, handleReset, isDirty]);
+    }), [handleSave, handleReset, calculatedIsDirty]);
 
     // Рендер экрана успеха
     if (showSuccess) {

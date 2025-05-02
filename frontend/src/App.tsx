@@ -48,7 +48,7 @@ const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style=
 const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
 
 
-const MIN_LOADING_TIME = 3000; // Минимальное время отображения в миллисекундах (УВЕЛИЧЕНО)
+const MIN_LOADING_TIME = 1500; // Минимальное время отображения в миллисекундах (УВЕЛИЧЕНО)
 
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();

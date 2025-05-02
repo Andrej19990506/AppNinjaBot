@@ -21,7 +21,7 @@ import { TimesheetResponse } from '../../types/timesheet';
 // <<< Импортируем НОВУЮ API функцию и УДАЛЯЕМ старую >>>
 import { getTimesheetData, requestTimesheetViaBot } from '../../services/courierApi';
 // <<< Добавляем импорт типа конфига слотов из Redux >>>
-import { WeeklySlotConfig } from '../../store/slices/shiftsSlice';
+// import { WeeklySlotConfig } from '../../store/slices/shiftsSlice'; // <<< УБИРАЕМ НЕИСПОЛЬЗУЕМЫЙ ИМПОРТ
 // <<< Импортируем тип SelectedPeriod >>>
 import type { SelectedPeriod } from '../CourierProfile/TimesheetPreview';
 
@@ -54,12 +54,13 @@ const CourierSchedule: React.FC = () => {
     const dispatch = useAppDispatch();
     const user = useAppSelector((state) => state.user.user);
     const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
-    const [showCalendar, setShowCalendar] = useState(false);
+    const [showCalendar, setShowCalendar] = useState(true);
     const [showShiftAccessSettings, setShowShiftAccessSettings] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
     const [showSlotSettings, setShowSlotSettings] = useState(false);
     const [selectedDayIndexForSlots, setSelectedDayIndexForSlots] = useState<number | null>(null);
-    const [isModalDirty, setIsModalDirty] = useState(false);
+    const [isSlotSettingsDirty, setIsSlotSettingsDirty] = useState(false);
+    const [isShiftAccessDirty, setIsShiftAccessDirty] = useState(false);
     const [currentModalStep, setCurrentModalStep] = useState(1);
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
     const slotSettingsRef = useRef<SlotSettingsRef>(null);
@@ -108,29 +109,6 @@ const CourierSchedule: React.FC = () => {
         }
     }, [dispatch, courierChatId]);
 
-    // <<< ВРЕМЕННО КОММЕНТИРУЕМ useEffect для открытия профиля >>>
-    // useEffect(() => {
-    //     if (!user) return;
-    //     const profileNotFilled = !user.first_name?.trim() || !user.last_name?.trim();
-    //     let shouldOpenForSeniority = false;
-    //     if (!profileNotFilled && currentCourierGroup) {
-    //         const isAdminOrCreator = 
-    //             currentCourierGroup.role === 'administrator' || 
-    //             currentCourierGroup.role === 'creator' ||
-    //             currentCourierGroup.role === 'admin';
-    //         const isSeniorStatusNull = currentCourierGroup.is_senior_courier === null;
-    //         shouldOpenForSeniority = isAdminOrCreator && isSeniorStatusNull;
-    //     }
-    //     if (profileNotFilled || shouldOpenForSeniority) {
-    //         console.log(`[CourierSchedule] Opening profile dialog. Reason: ${profileNotFilled ? 'Profile not filled' : 'Admin/Creator needs to set senior status'}`);
-    //         setIsProfileDialogOpen(true);
-    //     } else {
-    //         if (isProfileDialogOpen) {
-    //              console.log('[CourierSchedule] Closing profile dialog as conditions are met.');
-    //              setIsProfileDialogOpen(false); 
-    //         }
-    //     }
-    // }, [user, currentCourierGroup, isProfileDialogOpen]);
 
     // <<< ВОЗВРАЩАЕМ useEffect, который ставит overflow: hidden на body >>>
     useEffect(() => {
@@ -146,25 +124,10 @@ const CourierSchedule: React.FC = () => {
     const handleProfileSave = async (data: { 
         firstName: string; 
         lastName: string; 
-        // Убираем isSeniorCourier и seniorPassword, так как они обрабатываются внутри диалога
-        // isSeniorCourier?: boolean; 
-        // seniorPassword?: string;
+
     }) => {
-        // Эта функция больше не нужна в CourierSchedule, 
-        // так как вся логика сохранения теперь внутри CourierProfileDialog.
-        // Мы можем ее либо полностью удалить, либо оставить пустой заглушкой,
-        // если она где-то используется (например, как пропс).
-        // Пока оставим пустой для безопасности.
+ 
         console.warn("[CourierSchedule] handleProfileSave вызвана, но логика сохранения перенесена в CourierProfileDialog.");
-        // if (!user?.id) return;
-        // try {
-        //     // ... старый код вызова updateCourierProfile ...
-        //     // dispatch(updateUser(...)) // <-- Убираем этот dispatch
-        //     // dispatch(addNotification(...))
-        //     // return result;
-        // } catch (error) {
-        //     // ... старая обработка ошибок ...
-        // }
         return Promise.resolve(); // Возвращаем пустой промис
     };
 
@@ -226,13 +189,13 @@ const CourierSchedule: React.FC = () => {
 
     const handleCloseShiftAccessSettings = useCallback(() => {
         setShowShiftAccessSettings(false);
-        setIsModalDirty(false);
+        setIsShiftAccessDirty(false);
     }, []);
 
     const handleCloseSlotSettings = useCallback(() => {
         setShowSlotSettings(false);
         setSelectedDayIndexForSlots(null);
-        setIsModalDirty(false);
+        setIsSlotSettingsDirty(false);
     }, []);
 
     const closeSettingsPanel = useCallback(() => {
@@ -243,7 +206,7 @@ const CourierSchedule: React.FC = () => {
         closeSettingsPanel();
         if (showSlotSettings) handleCloseSlotSettings();
         setCurrentModalStep(1);
-        setIsModalDirty(false);
+        setIsShiftAccessDirty(false);
         setShowShiftAccessSettings(true);
     }, [closeSettingsPanel, showSlotSettings, handleCloseSlotSettings]);
 
@@ -251,13 +214,13 @@ const CourierSchedule: React.FC = () => {
         console.log(`[CourierSchedule] Request to change slot settings day to: ${newDayIndex}`);
         if (selectedDayIndexForSlots !== newDayIndex) {
             setSelectedDayIndexForSlots(newDayIndex);
-            setIsModalDirty(false); 
+            setIsSlotSettingsDirty(false);
         }
     }, [selectedDayIndexForSlots]);
 
     const handleShiftAccessDirtyChange = useCallback((dirty: boolean) => {
         if (activeModalType === 'shiftAccess') {
-            setIsModalDirty(dirty);
+            setIsShiftAccessDirty(dirty);
         }
     }, [activeModalType]);
 
@@ -288,10 +251,10 @@ const CourierSchedule: React.FC = () => {
 
     const handleModalCancel = () => {
         if (activeModalType === 'shiftAccess') {
-            if (isModalDirty) { 
+            if (isShiftAccessDirty) {
                 shiftAccessModalRef.current?.triggerReset();
             }
-            handleCloseShiftAccessSettings(); 
+            handleCloseShiftAccessSettings();
         } else if (activeModalType === 'slotSettings') {
             slotSettingsRef.current?.triggerReset(); 
             handleCloseSlotSettings(); 
@@ -329,11 +292,11 @@ const CourierSchedule: React.FC = () => {
     const getIsModalSaveDisabled = () => {
         let dirty = false;
         if (activeModalType === 'shiftAccess') {
-            dirty = isModalDirty;
+            dirty = isShiftAccessDirty;
             const isLast = currentModalStep === MODAL_TOTAL_STEPS;
             return !isLast || !dirty;
         } else if (activeModalType === 'slotSettings') {
-            dirty = slotSettingsRef.current?.isDirty ?? false;
+            dirty = isSlotSettingsDirty;
             return !dirty;
         }
         return true;
@@ -349,7 +312,7 @@ const CourierSchedule: React.FC = () => {
         closeSettingsPanel();
         if (showShiftAccessSettings) handleCloseShiftAccessSettings();
         setSelectedDayIndexForSlots(defaultDayIndex);
-        setIsModalDirty(false);
+        setIsSlotSettingsDirty(false);
         setShowSlotSettings(true);
     }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);
 
@@ -407,8 +370,8 @@ const CourierSchedule: React.FC = () => {
         } finally {
             setIsTimesheetLoading(false);
         }
-    // <<< ДОБАВЛЯЕМ ЗАВИСИМОСТЬ getTimesheetData (хотя она стабильна) >>>
-    }, [getTimesheetData]); 
+    // <<< УБИРАЕМ getTimesheetData ИЗ ЗАВИСИМОСТЕЙ >>>
+    }, []); 
 
     // <<< ДОБАВЛЯЕМ ОБРАБОТЧИК СМЕНЫ ПЕРИОДА >>>
     const handleTimesheetPeriodChange = useCallback((newPeriod: SelectedPeriod) => {
@@ -421,7 +384,7 @@ const CourierSchedule: React.FC = () => {
             console.error('[CourierSchedule] Cannot fetch timesheet data: courierChatIdString is missing.');
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
         }
-    // <<< Обновляем зависимости, fetchTimesheetData теперь стабильна благодаря useCallback >>>
+    // <<< Добавляем fetchTimesheetData в зависимости >>>
     }, [courierChatIdString, fetchTimesheetData, dispatch]); 
 
     // <<< Обработчик для кнопки "Показать табель" >>>
@@ -488,24 +451,11 @@ const CourierSchedule: React.FC = () => {
         } finally {
              setIsTimesheetLoading(originalLoadingState);
         }
-    // <<< ИСПРАВЛЯЕМ ЗАВИСИМОСТИ useCallback >>>
-    // Добавляем: user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading, requestTimesheetViaBot
-    }, [user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading, requestTimesheetViaBot]); 
+    // <<< УБИРАЕМ requestTimesheetViaBot ИЗ ЗАВИСИМОСТЕЙ >>>
+    }, [user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading]); 
 
     return (
         <Container>
-            <Header>
-                <Title>Запись на смену</Title>
-                <Subtitle>Выберите удобную дату для работы</Subtitle>
-            </Header>
-
-            {user && (
-                <CourierProfile 
-                    onRegisterClick={() => setShowCalendar(true)} 
-                    isSeniorCourier={currentCourierGroup?.is_senior_courier ?? false}
-                />
-            )}
-
             {isProfileDialogOpen && user && (
                 <CourierProfileDialog 
                     isOpen={isProfileDialogOpen} 
@@ -567,6 +517,7 @@ const CourierSchedule: React.FC = () => {
                     chatId={courierChatId}
                     dayIndex={selectedDayIndexForSlots}
                     onDayChangeRequest={handleSlotSettingsDayChange}
+                    onDirtyChange={setIsSlotSettingsDirty}
                 />
             )}
 

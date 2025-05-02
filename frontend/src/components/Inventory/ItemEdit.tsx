@@ -318,6 +318,9 @@ const ItemEdit: React.FC<ItemEditProps> = ({
 
         try {
             setIsLoading(true);
+            // <<< УДАЛЯЕМ ЗАДЕРЖКУ >>>
+            // await new Promise(resolve => setTimeout(resolve, 4000)); 
+
             const currentQuantity = item[type]?.quantity ?? 0;
             const newQuantity = operation === 'add' ? currentQuantity + value : Math.max(0, currentQuantity - value);
 
@@ -463,8 +466,9 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                             <button 
                                 className={styles.okButton}
                                 onClick={handleSubmit}
+                                disabled={isLoading}
                             >
-                                OK
+                                {isLoading ? <div className={styles.spinner}></div> : 'OK'}
                             </button>
                         </div>
                     ) : (

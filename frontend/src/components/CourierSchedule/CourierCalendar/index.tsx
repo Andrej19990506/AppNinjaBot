@@ -32,7 +32,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     onOpenProfile
 }) => {
     // Принудительное отображение загрузочного экрана
-    const [forceLoading, setForceLoading] = useState(true);
+    const [forceLoading, setForceLoading] = useState(false);
     
     const dispatch = useAppDispatch();
     const slotConfig = useSelector((state: RootState) => selectSlotConfig(state));
@@ -78,23 +78,6 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     useAvailabilityCheck(chatId || '', () => {});
 
-    // Устанавливаем принудительную задержку
-    useEffect(() => {
-        logger.info('[CourierCalendar] Начало принудительной задержки загрузки (4 секунды)');
-        
-        // Задержка в 4 секунды для отображения загрузочного экрана
-        const timer = setTimeout(() => {
-            setForceLoading(false);
-            logger.info('[CourierCalendar] Принудительная задержка загрузки завершена');
-        }, 4000);
-        
-        // Очистка таймера при размонтировании
-        return () => {
-            clearTimeout(timer);
-            logger.info('[CourierCalendar] Таймер задержки очищен');
-        };
-    }, []); // Пустой массив зависимостей - выполняется один раз при монтировании
-    
     useEffect(() => {
         if (chatId) {
             logger.log(`🔍 Загрузка настроек доступа для chatId ${chatId} при монтировании календаря`);
@@ -130,6 +113,19 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         };
     }, [selectedDateForDialog, getDayShifts, getNightShifts]);
 
+    // <<< ДОБАВЛЯЕМ ЛОГ ДЛЯ selectedDateShifts >>>
+    useEffect(() => {
+        if (selectedDateForDialog) {
+            logger.debug(`[CourierCalendar] selectedDateShifts updated/checked:`, {
+                date: format(selectedDateForDialog, 'yyyy-MM-dd'),
+                dayCount: selectedDateShifts.dayShifts.length,
+                nightCount: selectedDateShifts.nightShifts.length,
+                dayIds: selectedDateShifts.dayShifts.map(s => s.id),
+                nightIds: selectedDateShifts.nightShifts.map(s => s.id)
+            });
+        }
+    }, [selectedDateShifts, selectedDateForDialog]); // Зависим от selectedDateShifts и selectedDateForDialog
+
     const handleDialogShiftSelect = useCallback(async (
         shiftType: 'day' | 'night', 
         slotIndex: number
@@ -156,17 +152,19 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         try {
             // Вызываем новую функцию API
             await deleteShiftAsSenior(shiftId, requesterId);
-            
+            logger.info(`[CourierCalendar] API call deleteShiftAsSenior for ${shiftId} successful.`);
+
             // Если API вызов успешен, удаляем локально
-            dispatch(removeShiftLocally(shiftId)); 
-            logger.info(`[CourierCalendar] Successfully deleted shift ${shiftId} via API and removed locally.`);
+            // logger.info(`[CourierCalendar] ====> About to dispatch removeShiftLocally for ${shiftId}`);
+            // dispatch(removeShiftLocally(shiftId));
+            // logger.info(`[CourierCalendar] Successfully deleted shift ${shiftId} via API and dispatched removeShiftLocally.`);
             return Promise.resolve(); // Успех
         } catch (error: any) {
             logger.error(`[CourierCalendar] Error deleting shift ${shiftId} via API:`, error);
             // Возвращаем ошибку, чтобы ShiftSelectionDialog мог её обработать (показать уведомление)
             return Promise.reject(error); 
         }
-    }, [dispatch]); // Зависимость от requesterId здесь не нужна, т.к. он приходит аргументом
+    }, []); // Зависимость от requesterId здесь не нужна, т.к. он приходит аргументом
 
     // NEW Handler for Moving to Reserve (passed to ShiftSelectionDialog)
     const handleMoveToReserve = useCallback(async (shiftId: string, courierId: string): Promise<any> => {
@@ -195,52 +193,46 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         dispatch(addNotification({ type, message, title, isToast: true }));
     }, [dispatch]);
 
-    // Если forceLoading=true, всегда показываем экран загрузки
-    if (forceLoading) {
-        return <LoadingOverlay />;
-    }
-
-    // Стандартная проверка на загрузку и ошибки
-    const combinedIsLoading = isShiftsLoading || isReservesLoading;
-    if (combinedIsLoading && !shifts.length) {
-        return <LoadingOverlay />;
-    }
+    // <<< Объединяем все условия загрузки >>>
+    const combinedIsLoading = forceLoading || (isShiftsLoading || isReservesLoading);
 
     const combinedError = shiftsError || reservesError;
-    if (combinedError) {
-        return <div>Ошибка: {combinedError}</div>;
-    }
 
+    // <<< Теперь рендерим ОСНОВНУЮ СТРУКТУРУ ВСЕГДА >>>
     return (
         <>
             <CalendarContainer 
                 ref={calendarRef} 
                 className={isIOSDevice ? 'ios-scroll-container' : ''}
+                style={{ filter: combinedIsLoading ? 'blur(12px)' : 'none', pointerEvents: combinedIsLoading ? 'none' : 'auto' }}
             >
-                  
-                <MonthsContainer>
-                    {monthsToDisplay.map((month) => (
-                        <MonthContainer key={format(month, 'yyyy-MM')}>
-                            <MonthSection
-                                month={month}
-                                onDayClick={handleDayClick}
-                                getDayShifts={getDayShifts}
-                                getNightShifts={getNightShifts}
-                                userIsInReserve={isCurrentUserInReserveForDate}
-                                hasUserShift={hasUserShift}
-                                currentUserId={currentUserId}
-                                accessSettings={accessSettings || null}
-                                slotConfig={slotConfig}
-                                isDateAvailable={(date: Date) => accessSettings ? isDateAvailable(date, currentUserId, accessSettings) : false}
-                                selectedDate={selectedDateForDialog}
-                                currentUserAvatar={currentUserAvatar}
-                                usersById={usersById}
-                            />
-                        </MonthContainer>
-                    ))}
-                </MonthsContainer>
+                {/* <<< УБИРАЕМ УСЛОВНЫЙ РЕНДЕРИНГ >>> */}
+                {/* {!combinedIsLoading && ( */} 
+                    <MonthsContainer>
+                        {monthsToDisplay.map((month) => (
+                            <MonthContainer key={format(month, 'yyyy-MM')}>
+                                <MonthSection
+                                    month={month}
+                                    onDayClick={handleDayClick}
+                                    getDayShifts={getDayShifts}
+                                    getNightShifts={getNightShifts}
+                                    userIsInReserve={isCurrentUserInReserveForDate}
+                                    hasUserShift={hasUserShift}
+                                    currentUserId={currentUserId}
+                                    accessSettings={accessSettings || null}
+                                    slotConfig={slotConfig}
+                                    isDateAvailable={(date: Date) => accessSettings ? isDateAvailable(date, currentUserId, accessSettings) : false}
+                                    selectedDate={selectedDateForDialog}
+                                    currentUserAvatar={currentUserAvatar}
+                                    usersById={usersById}
+                                />
+                            </MonthContainer>
+                        ))}
+                    </MonthsContainer>
+                {/* )} */} 
             </CalendarContainer>
 
+            {/* Рендерим диалог выбора смены */}            
             {selectedDateForDialog && (
                 <ShiftSelectionDialog
                     isOpen={!!selectedDateForDialog}
@@ -267,6 +259,27 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     onOpenProfile={onOpenProfile}
                 />
             )}
+
+            {/* <<< РЕНДЕРИМ ОВЕРЛЕЙ, ЕСЛИ НЕТ ОШИБКИ, И ПЕРЕДАЕМ ВИДИМОСТЬ ЧЕРЕЗ ПРОПС >>> */}
+            {!combinedError && <LoadingOverlay isVisible={combinedIsLoading} />}
+
+            {/* <<< УСЛОВНО РЕНДЕРИМ ОШИБКУ ПОВЕРХ (можно стилизовать лучше) >>> */}
+            {combinedError && (
+                <div style={{ 
+                    position: 'absolute', 
+                    top: 0, left: 0, right: 0, bottom: 0, 
+                    background: 'rgba(255, 0, 0, 0.7)', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '20px', 
+                    zIndex: 101, 
+                    textAlign: 'center'
+                }}>
+                    Ошибка загрузки данных: {combinedError}
+                </div>
+             )}
         </>
     );
 };

@@ -62,8 +62,8 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 room_name = None
                 if event_type == 'inventory_updated' or event_type == 'inventory_reset':
                     room_name = f"inventory_{chat_id}" # Комната для инвентаря
-                elif event_type in ['reserve_added', 'reserve_removed', 'shifts_updated', 'shift_cancelled', 'bulk_reserve_removed', 'reserve_transferred_to_shift', 'shift_access_sent']: # Добавьте другие типы событий курьеров, если нужно
-                    room_name = f"couriers_{chat_id}" # Комната для курьеров
+                elif event_type in ['reserve_added', 'reserve_removed', 'shifts_updated', 'shift_cancelled', 'bulk_reserve_removed', 'reserve_transferred_to_shift', 'shift_access_sent']: 
+                    room_name = str(chat_id) # <<< ОТПРАВЛЯЕМ В КОМНАТУ С ID ЧАТА >>>
                 else:
                     logger.warning(f"Неизвестный тип события '{event_type}' для отправки в комнату.")
                     return # Не отправляем, если не знаем куда

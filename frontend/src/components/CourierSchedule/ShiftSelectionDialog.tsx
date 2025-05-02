@@ -40,7 +40,8 @@ import {
     setShiftDialogOpen, 
     setShiftDialogMode, // <<< Добавляем setShiftDialogMode
     selectIsShiftDialogOpen, 
-    selectShiftDialogMode 
+    selectShiftDialogMode,
+    removeShiftLocally
 } from '../../store/slices/shiftsSlice';
 
 // <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ ShiftType >>>
@@ -898,6 +899,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         try {
             await onDeleteShift(shiftDbId, requesterId); // Вызываем API
             
+            // <<< ДОБАВЛЯЕМ ДИСПАТЧ ЗДЕСЬ >>>
+            dispatch(removeShiftLocally(shiftDbId));
+            logger.info(`[ShiftSelectionDialog] Dispatched removeShiftLocally for ${shiftDbId} after successful API call.`);
+
             logger.info(`[DndContext] Delete request successful for ${shiftDbId}. Showing confirmation.`);
             if (showNotification) {
                 showNotification(NotificationTypes.SUCCESS, `Курьер ${courier.name || ''} удален со смены.`);
@@ -944,7 +949,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setActiveDragId,      
         setActiveDragData,     
         requesterId,
-        setIsDraggingGlobally
+        setIsDraggingGlobally,
+        dispatch
     ]);
 
     // <<< Обработчик отмены УДАЛЕНИЯ >>>

@@ -99,10 +99,10 @@ export const useInventoryWebSocketSync = () => {
 
         logger.log(`[useInventoryWebSocketSync] Подписка на 'inventory_updated' и 'inventory_reset' для selectedChatId: ${selectedInventoryChatId}`);
         
-        const unsubscribeInventoryUpdate = socketService.subscribe('inventory_update', handleInventoryUpdated);
+        const unsubscribeInventoryUpdate = socketService.subscribe('inventory_updated', handleInventoryUpdated);
 
         return () => {
-            logger.log(`[useInventoryWebSocketSync] Cleanup. Отписка от 'inventory_update' для selectedChatId: ${selectedInventoryChatId}.`);
+            logger.log(`[useInventoryWebSocketSync] Cleanup. Отписка от 'inventory_updated' для selectedChatId: ${selectedInventoryChatId}.`);
             unsubscribeInventoryUpdate();
         };
     }, [dispatch, selectedInventoryChatId]);

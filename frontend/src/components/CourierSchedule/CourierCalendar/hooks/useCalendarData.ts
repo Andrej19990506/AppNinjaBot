@@ -41,34 +41,34 @@ export const useCalendarData = (currentUserId: string) => {
         loadCalendarData();
     }, [loadCalendarData]);
 
-    const getShiftsForDate = useCallback((date: Date) => {
+    const getShiftsForDate = (date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.filter(shift => shift.date === dateStr);
-    }, [shifts]);
+    };
 
-    const getDayShifts = useCallback((date: Date) => {
+    const getDayShifts = (date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.filter(shift => 
             shift.date === dateStr && 
             shift.shiftType === 'day'
         );
-    }, [shifts]);
+    };
 
-    const getNightShifts = useCallback((date: Date) => {
+    const getNightShifts = (date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.filter(shift => 
             shift.date === dateStr && 
             shift.shiftType === 'night'
         );
-    }, [shifts]);
+    };
 
-    const hasUserShift = useCallback((date: Date) => {
+    const hasUserShift = (date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.some(shift => 
             shift.date === dateStr && 
             String(shift.userId) === String(currentUserId)
         );
-    }, [shifts, currentUserId]);
+    };
 
     useEffect(() => {
         loadCalendarData();

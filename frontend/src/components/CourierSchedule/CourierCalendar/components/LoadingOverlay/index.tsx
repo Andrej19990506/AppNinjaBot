@@ -1,16 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  LoadingContainer, 
-  LoadingText,
-  LoadingCard,
-  IconWrapper,
-  Circle,
-  CircleInner,
-  CircleCore,
-  CalendarIconWrapper,
-  CalendarIcon,
-  LoadingTitle,
-  ProgressBar
+  LoadingOverlayContainer, 
+  LoadingSpinner,
+  LoadingText
 } from './styles';
 
 interface LoadingOverlayProps {
@@ -18,29 +10,31 @@ interface LoadingOverlayProps {
 }
 
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ isVisible = true }) => {
-  if (!isVisible) return null;
+  const [isHiding, setIsHiding] = useState(false);
+  const [shouldRender, setShouldRender] = useState(isVisible);
+
+  useEffect(() => {
+    if (isVisible) {
+      setShouldRender(true);
+      setIsHiding(false);
+    } else {
+      setIsHiding(true);
+    }
+  }, [isVisible]);
+
+  const handleAnimationEnd = () => {
+    if (isHiding) {
+      setShouldRender(false);
+    }
+  };
+
+  if (!shouldRender) return null;
   
   return (
-    <LoadingContainer>
-      <LoadingCard>
-        <IconWrapper>
-          <Circle />
-          <CircleInner />
-          <CircleCore />
-          <CalendarIconWrapper>
-            <CalendarIcon />
-          </CalendarIconWrapper>
-        </IconWrapper>
-        
-        <LoadingTitle>Загрузка календаря</LoadingTitle>
-        
-        <LoadingText>
-          Собираем актуальную информацию о доступных сменах и резервах...
-        </LoadingText>
-        
-        <ProgressBar />
-      </LoadingCard>
-    </LoadingContainer>
+    <LoadingOverlayContainer isHiding={isHiding} onAnimationEnd={handleAnimationEnd}>
+      <LoadingSpinner />
+      <LoadingText>Загружаем актуальные данные смен и резервов...</LoadingText>
+    </LoadingOverlayContainer>
   );
 };
 

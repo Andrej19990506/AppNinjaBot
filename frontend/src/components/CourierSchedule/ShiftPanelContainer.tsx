@@ -4,6 +4,7 @@ import ShiftSlotComponent from './components/ShiftSlot';
 import { ShiftSlot } from '../../types/shifts';
 import { useShiftUIState } from './hooks/useShiftUIState';
 import { AnimatePresence, motion } from 'framer-motion';
+import { logger } from '../../utils/logger';
 
 const SlotsGrid = styled.div`
     position: relative;
@@ -100,10 +101,12 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     const renderSlots = () => {
         const slots = [];
         const currentShifts = shifts;
+        logger.debug(`[ShiftPanelContainer ${shiftType}] Rendering slots. Received shifts array:`, currentShifts.map(s => ({ id: s.id, userId: s.userId, index: s.slotIndex })) );
 
         for (let i = 0; i < maxSlots; i++) {
             const slotData = currentShifts.find(shift => shift.slotIndex === i);
-            
+            logger.debug(`[ShiftPanelContainer ${shiftType}] Finding data for slot index ${i}. Found:`, slotData ? { id: slotData.id, userId: slotData.userId } : null);
+
             const isDisabled = !slotData && userHasShift;
             
             const key = slotData ? slotData.id : `${shiftType}-empty-${i}`;

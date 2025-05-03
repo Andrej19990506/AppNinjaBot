@@ -121,7 +121,6 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                     const dateStr = format(date, 'yyyy-MM-dd');
                     
                     const isSenior = isCurrentUserSenior;
-                    logger.debug(`[MonthSection] Date: ${dateStr}, isSenior check result: ${isSenior}`);
 
                     if (isAvailable && isSenior && slotConfig) {
                         const dayIndex = date.getDay();
@@ -174,7 +173,6 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                             </DateCellStatusIconContainer>
                                         </Tooltip>
                                     );
-                                    logger.debug(`[MonthSection] Date: ${dateStr} -> Status: Green (CheckIcon)`);
                                 } else if (completionPercentage > 50) {
                                     tooltipMessage = 'Смена укомплектована более чем на 50%';
                                     statusIconElement = (
@@ -209,7 +207,6 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                             </DateCellStatusIconContainer>
                                         </Tooltip>
                                     );
-                                    logger.debug(`[MonthSection] Date: ${dateStr} -> Status: Orange (PriorityHighIcon)`);
                                 } else {
                                     tooltipMessage = 'Смена укомплектована на 50% или менее';
                                     statusIconElement = (
@@ -244,7 +241,6 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                                             </DateCellStatusIconContainer>
                                         </Tooltip>
                                     );
-                                    logger.debug(`[MonthSection] Date: ${dateStr} -> Status: Red (CloseIcon)`);
                                 }
                             } else {
                                 logger.debug(`[MonthSection] Date: ${dateStr}, totalSlots is 0, no status icon.`);

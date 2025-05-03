@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import TuneIcon from '@mui/icons-material/Tune';
+import ArticleIcon from '@mui/icons-material/Article';
+import CloseIcon from '@mui/icons-material/Close';
 
 // Анимация выезда панели
 const slideInRight = keyframes`
@@ -31,7 +35,7 @@ const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
     width: 40%;
     max-width: 450px; /* Добавим максимальную ширину для больших экранов */
     min-width: 300px; /* И минимальную */
-    background: var(--card-background);
+    background: radial-gradient(circle at top right, var(--orange-dark) 0%, var(--orange-primary) 100%);
     box-shadow: -5px 0px 15px rgba(0, 0, 0, 0.15);
     z-index: 1100; /* Выше других элементов */
     border-left: 1px solid var(--border-color);
@@ -39,7 +43,7 @@ const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
     /* animation: ${props => props.$isOpen ? slideInRight : slideOutRight} 0.3s ease-out forwards; */
     /* Используем transition и transform */
     transform: translateX(${props => props.$isOpen ? '0' : '100%'});
-    transition: transform 0.3s ease-out;
+    transition: transform 0.2s ease-out;
     display: flex;
     flex-direction: column; /* Чтобы контент растягивался */
     padding-bottom: env(safe-area-inset-bottom, 0);
@@ -63,8 +67,8 @@ const PanelHeader = styled.div`
     align-items: center;
     justify-content: space-between;
     padding: 20px 24px;
-    border-bottom: 1px solid var(--border-color);
-    background: var(--card-background); /* Фон для липкости */
+    border-bottom: 1px solid var(--border-color-on-primary, rgba(255, 255, 255, 0.2));
+    background: transparent;
     position: sticky;
     top: 0;
     z-index: 1;
@@ -72,28 +76,21 @@ const PanelHeader = styled.div`
 
 const PanelTitle = styled.h3`
     margin: 0;
-    color: var(--text-color);
+    color: var(--text-color-on-primary);
     font-size: 1.2rem; /* Немного увеличим */
     font-weight: 600;
     display: flex;
     align-items: center;
-    
-    &::before {
-        content: '⚙️';
-        margin-right: 10px; /* Немного увеличим отступ */
-        font-size: 22px;
-    }
 `;
 
 const CloseButton = styled.button`
     background: none;
     border: none;
-    color: var(--text-secondary);
+    color: var(--text-color-on-primary);
     cursor: pointer;
     padding: 8px; /* Увеличим область клика */
     border-radius: 50%;
     transition: background-color var(--transition-fast), color var(--transition-fast);
-    font-size: 18px; /* Увеличим иконку */
     line-height: 1;
     display: flex;
     align-items: center;
@@ -102,8 +99,7 @@ const CloseButton = styled.button`
     height: 36px;
 
     &:hover {
-        background: var(--hover-overlay);
-        color: var(--error-color);
+        background: rgba(255, 255, 255, 0.15);
     }
 `;
 
@@ -127,25 +123,22 @@ const SettingsOption = styled.div`
     border-radius: var(--radius-md);
     cursor: pointer; // Всегда pointer
     transition: background-color var(--transition-normal), transform var(--transition-fast);
-    background: var(--background-secondary);
     margin-bottom: 12px;
-    border: 1px solid var(--border-color);
-    // Убираем opacity
+    border-bottom: 1px solid var(--border-color-on-primary, rgba(255, 255, 255, 0.1));
 
     &:last-child {
         margin-bottom: 0;
+        border-bottom: none;
     }
 
     &:hover {
-        // Убираем проверку $disabled
-        background: var(--primary-transparent);
-        border-color: var(--primary-light);
+        background: rgba(255, 255, 255, 0.1);
         transform: translateX(3px);
     }
 `;
 
 const OptionLabel = styled.span`
-    color: var(--text-color);
+    color: var(--text-color-on-primary);
     font-size: 1rem; /* Увеличим шрифт */
     font-weight: 500;
 `;
@@ -156,7 +149,7 @@ const OptionIcon = styled.span`
     align-items: center;
     justify-content: center;
     margin-left: 16px; /* Добавим отступ слева */
-    color: var(--primary-color);
+    color: var(--text-color-on-primary);
 `;
 
 interface SettingsPanelProps { 
@@ -207,21 +200,21 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <SidePanelContainer $isOpen={isOpen}>
             <PanelHeader>
                 <PanelTitle>Настройки</PanelTitle>
-                <CloseButton onClick={onClose}>✕</CloseButton>
+                <CloseButton onClick={onClose}><CloseIcon fontSize="inherit" /></CloseButton>
             </PanelHeader>
 
             <PanelContent>
                 <SettingsOption onClick={handleShiftAccessClick}>
                     <OptionLabel>Доступ к записи смен</OptionLabel>
-                    <OptionIcon>📅</OptionIcon>
+                    <OptionIcon><EventNoteIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
                 <SettingsOption onClick={handleSlotSettingsClick}> 
                     <OptionLabel>Настройка слотов</OptionLabel>
-                    <OptionIcon>📊</OptionIcon> 
+                    <OptionIcon><TuneIcon fontSize="inherit" /></OptionIcon> 
                 </SettingsOption>
                 <SettingsOption onClick={handleTimesheetClick}>
                     <OptionLabel>Табель</OptionLabel>
-                    <OptionIcon>📄</OptionIcon>
+                    <OptionIcon><ArticleIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
             </PanelContent>
         </SidePanelContainer>

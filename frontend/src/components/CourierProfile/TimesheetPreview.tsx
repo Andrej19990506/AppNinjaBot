@@ -53,6 +53,7 @@ const Header = styled.div`
     justify-content: space-between; 
     // <<< Выравнивание по верху, чтобы кнопка не скакала >>>
     align-items: flex-start; 
+    margin-top: 80px;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border-color);
@@ -141,16 +142,23 @@ const Table = styled.table`
     }
 
     th {
-        background-color: var(--background-secondary); 
+        // <<< Заменяем фон на радиальный градиент >>>
+        background: radial-gradient(circle at top right, var(--orange-dark) 0%, var(--orange-primary) 100%);
+        // <<< Делаем текст белым >>>
+        color: var(--text-color-on-primary);
         font-weight: 600;
         position: sticky; 
         top: 0; 
         z-index: 1;
         vertical-align: middle; // Вертикальное выравнивание по центру для заголовков
+        // <<< Возможно, стоит изменить цвет границ для шапки? Пока оставим >>>
+        border: 1px solid var(--border-color); 
     }
 
     td {
         background-color: var(--card-background-lighter);
+        // <<< Добавляем transition для плавности >>>
+        transition: background 0.2s ease-in-out, color 0.2s ease-in-out;
     }
 
     tr:nth-child(even) td {
@@ -170,6 +178,12 @@ const Table = styled.table`
         th, td {
             padding: 0.5rem 0.75rem; // Уменьшаем отступы
         }
+    }
+
+    /* <<< Стили для выделенной строки >>> */
+    tr.selected-row td {
+        background: radial-gradient(circle at top right, var(--orange-dark) 0%, var(--orange-primary) 100%);
+        color: var(--text-color-on-primary);
     }
 `;
 
@@ -404,6 +418,9 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
     // <<< Используем useState для availableMonths, инициализируем пустым >>>
     const [availableMonths, setAvailableMonths] = useState<AvailablePeriod[]>([]);
 
+    // <<< Убедимся, что состояние number | null >>>
+    const [selectedCourierId, setSelectedCourierId] = useState<number | null>(null);
+
     // <<< ДОБАВЛЯЕМ useEffect ДЛЯ ЗАГРУЗКИ ПЕРИОДОВ ПРИ МОНТИРОВАНИИ >>>
     useEffect(() => {
         if (isOpen && chatId) { // Загружаем только если открыто и есть chatId
@@ -489,6 +506,11 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
         }
     };
 
+    // <<< Убедимся, что обработчик принимает number >>>
+    const handleRowClick = (userId: number) => {
+        setSelectedCourierId(prevId => (prevId === userId ? null : userId));
+    };
+
     const renderContent = () => {
         if (isLoading) {
             return <p>Загрузка данных табеля...</p>; 
@@ -526,8 +548,15 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                         </thead>
                         <tbody>
                             {rows.map((courierRow: CourierTimesheetData) => (
-                                <tr key={courierRow.user_id}>
-                                    <td>{courierRow.courier_name}</td>
+                                <tr 
+                                    key={courierRow.user_id} 
+                                    // <<< Сравниваем number | null с number >>>
+                                    className={selectedCourierId === courierRow.user_id ? 'selected-row' : ''}
+                                >
+                                    {/* <<< Передаем number в обработчик >>> */}
+                                    <td onClick={() => handleRowClick(courierRow.user_id)} style={{ cursor: 'pointer' }}>
+                                        {courierRow.courier_name}
+                                    </td>
                                     {columns.map(dateCol => (
                                         <td key={`${courierRow.user_id}-${dateCol}`}>
                                             {courierRow.dates[dateCol] || ''} 
@@ -538,26 +567,6 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                         </tbody>
                     </Table>
                 </TableWrapper>
-                
-                {/* Отображаем настройки слотов для ВСЕХ дней недели */} 
-                <SlotSettingsContainer>
-                    {weekdaysRu.map((dayName, dayIndex) => {
-                        // <<< Получаем настройки или используем дефолтные >>>
-                        // Конвертируем наш индекс (0=Пн..6=Вс) в индекс slotConfig (0=Вс..6=Сб)
-                        const slotConfigIndex = (dayIndex + 1) % 7;
-                        const configForDay: SlotConfigForDay | undefined = slotConfig ? slotConfig[slotConfigIndex] : undefined;
-                        const daySlots = configForDay?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots;
-                        const nightSlots = configForDay?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
-                        
-                        return (
-                            <SlotDaySetting key={dayIndex}>
-                                {dayName}: 
-                                День:<span>{daySlots}</span>, 
-                                Ночь:<span>{nightSlots}</span>
-                            </SlotDaySetting>
-                        );
-                    })}
-                </SlotSettingsContainer>
             </>
         );
     };

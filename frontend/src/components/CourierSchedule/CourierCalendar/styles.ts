@@ -129,6 +129,7 @@ export const SlotSettingsContainer = styled.div<{ $isOpen: boolean }>`
     background-color: var(--card-background);
     border-top-left-radius: 16px;
     border-top-right-radius: 16px;
+    border-top: 3px solid var(--orange-primary);
     box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
     padding: 24px 16px;
     transform: translateY(${props => props.$isOpen ? '0' : '100%'});

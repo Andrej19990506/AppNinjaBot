@@ -471,6 +471,7 @@ const CourierSchedule: React.FC = () => {
                     currentUserId={String(user.id)}
                     currentUserAvatar={user.photo_url || undefined}
                     currentUserName={`${user.first_name || ''} ${user.last_name || ''}`}
+                    isCurrentUserSenior={currentCourierGroup?.is_senior_courier ?? false}
                     onClose={() => setShowCalendar(false)} 
                     onShiftSelect={handleShiftSelect}
                     onOpenSlotSettings={(dayIndex: number) => {

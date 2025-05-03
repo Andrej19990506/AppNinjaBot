@@ -35,6 +35,7 @@ interface MonthSectionProps {
     slotConfig: WeeklySlotConfig | null;
     isDateAvailable: (date: Date) => boolean;
     usersById: { [key: string]: User };
+    isCurrentUserSenior: boolean;
 }
 
 const MonthSection: React.FC<MonthSectionProps> = ({
@@ -50,7 +51,8 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     accessSettings,
     slotConfig,
     isDateAvailable,
-    usersById
+    usersById,
+    isCurrentUserSenior
 }) => {
     const [openTooltip, setOpenTooltip] = useState<{ date: string | null, message: string }>({ date: null, message: '' });
     const days = getDaysInMonth(month);
@@ -118,9 +120,9 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                     const isAvailable = isDateAvailable(date);
                     const dateStr = format(date, 'yyyy-MM-dd');
                     
-                    const currentUserData = usersById[currentUserId];
-                    const isSenior = currentUserData?.isSeniorCourier;
-                    
+                    const isSenior = isCurrentUserSenior;
+                    logger.debug(`[MonthSection] Date: ${dateStr}, isSenior check result: ${isSenior}`);
+
                     if (isAvailable && isSenior && slotConfig) {
                         const dayIndex = date.getDay();
                         const dayConfig = slotConfig[dayIndex] || defaultSingleDaySlotConfig;

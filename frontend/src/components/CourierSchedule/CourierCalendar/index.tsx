@@ -24,6 +24,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     currentUserId,
     currentUserAvatar,
     currentUserName,
+    isCurrentUserSenior,
     onClose,
     chatId,
     onShiftSelect,
@@ -225,6 +226,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                                     selectedDate={selectedDateForDialog}
                                     currentUserAvatar={currentUserAvatar}
                                     usersById={usersById}
+                                    isCurrentUserSenior={isCurrentUserSenior}
                                 />
                             </MonthContainer>
                         ))}

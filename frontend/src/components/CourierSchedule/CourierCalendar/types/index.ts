@@ -53,6 +53,7 @@ export interface CalendarProps {
     currentUserId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
+    isCurrentUserSenior: boolean;
     onClose: () => void;
     chatId?: string;
     accessSettings?: AccessSettings;

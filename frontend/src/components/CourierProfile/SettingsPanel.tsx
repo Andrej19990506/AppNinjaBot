@@ -27,7 +27,7 @@ const slideOutRight = keyframes`
 
 // Стилизуем контейнер как боковую панель
 const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
-    padding-top: 50px;    
+    padding-top: 60px;    
     position: fixed;
     top: 0;
     right: 0;
@@ -88,18 +88,25 @@ const CloseButton = styled.button`
     border: none;
     color: var(--text-color-on-primary);
     cursor: pointer;
-    padding: 8px; /* Увеличим область клика */
+    padding: 0;
     border-radius: 50%;
-    transition: background-color var(--transition-fast), color var(--transition-fast);
+    transition: background-color var(--transition-fast), transform var(--transition-fast);
     line-height: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px; /* Увеличим кнопку */
-    height: 36px;
+    width: 56px;
+    height: 56px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    background: rgba(255, 255, 255, 0.1);
 
     &:hover {
-        background: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+    }
+    
+    & svg {
+        font-size: 32px;
     }
 `;
 
@@ -107,6 +114,7 @@ const PanelContent = styled.div`
     padding: 24px;
     flex-grow: 1; 
     overflow-y: auto; 
+    padding-bottom: 80px;
 `;
 
 // Убираем стили для выбора дня
@@ -150,6 +158,15 @@ const OptionIcon = styled.span`
     justify-content: center;
     margin-left: 16px; /* Добавим отступ слева */
     color: var(--text-color-on-primary);
+`;
+
+// <<< Новый контейнер для футера с кнопкой >>>
+const PanelFooter = styled.div`
+    padding: 16px 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
 `;
 
 interface SettingsPanelProps { 
@@ -200,7 +217,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         <SidePanelContainer $isOpen={isOpen}>
             <PanelHeader>
                 <PanelTitle>Настройки</PanelTitle>
-                <CloseButton onClick={onClose}><CloseIcon fontSize="inherit" /></CloseButton>
             </PanelHeader>
 
             <PanelContent>
@@ -217,6 +233,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <OptionIcon><ArticleIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
             </PanelContent>
+
+            <PanelFooter>
+                <CloseButton onClick={onClose} aria-label="Закрыть панель">
+                    <CloseIcon fontSize="inherit" />
+                </CloseButton>
+            </PanelFooter>
         </SidePanelContainer>
     );
 };

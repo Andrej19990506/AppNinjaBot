@@ -584,7 +584,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
             isHandlerDefined: !!onLongPressEmptySlot
         });
 
-        if (!courier && !isDisabledForStyles && isSenior && onLongPressEmptySlot) {
+        if (!courier && isSenior && onLongPressEmptySlot) {
             setLongPressTriggered(false);
             longPressTimeoutRef.current = setTimeout(() => {
                 logger.debug(`[ShiftSlotComponent] Long press detected on empty slot: ${shiftType} ${slotIndex}`);

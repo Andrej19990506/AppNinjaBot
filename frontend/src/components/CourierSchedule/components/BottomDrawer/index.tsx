@@ -70,7 +70,7 @@ const DrawerContainer = styled.div<{ $isOpen: boolean; $isClosing: boolean }>`
   overflow-y: auto;
   visibility: ${props => props.$isOpen || props.$isClosing ? 'visible' : 'hidden'};
   animation: ${props => props.$isClosing ? slideDown : slideUp} 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  border-top: 1px solid var(--border-color);
+  border-top: 3px solid var(--orange-primary);
   will-change: transform;
 
   /* Стилизация скроллбара */

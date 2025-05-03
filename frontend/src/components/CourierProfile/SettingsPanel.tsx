@@ -97,8 +97,8 @@ const CloseButton = styled.button`
     justify-content: center;
     width: 56px;
     height: 56px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
     background: rgba(255, 255, 255, 0.1);
+    margin-bottom: 5px;
 
     &:hover {
         background: rgba(255, 255, 255, 0.2);

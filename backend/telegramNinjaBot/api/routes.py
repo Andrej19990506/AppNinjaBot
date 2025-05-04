@@ -622,39 +622,42 @@ async def handle_confirmation_callback(update: Update, context: ContextTypes.DEF
             # Опционально: Убираем кнопки из исходного сообщения
             try:
                 await query.edit_message_reply_markup(reply_markup=None)
-                # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
                 logger.info(f"Убраны кнопки из сообщения для уведомления {notification_id_str}")
             except Exception as edit_err:
-                # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
                 logger.warning(f"Не удалось убрать кнопки из сообщения для уведомления {notification_id_str}: {edit_err}")
 
             # <<< ИЗМЕНЕНИЕ: Отправляем запрос на отмену напоминания в шедулер >>>
             chat_id_full = query.message.chat_id
-            # Получаем URL шедулера из конфига
+            # --- ДОБАВЛЕНИЕ: Преобразование ID к короткому формату --- 
+            chat_id_short_str = str(chat_id_full)
+            if chat_id_short_str.startswith('-100'):
+                chat_id_short_str = '-' + chat_id_short_str[4:]
+            logger.debug(f"Преобразование chat_id {chat_id_full} -> {chat_id_short_str} для запроса отмены.")
+            # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+            
             config = Config()
             scheduler_api_url = getattr(config, 'SCHEDULER_API_URL', None)
             if scheduler_api_url:
                 base_scheduler_url = str(scheduler_api_url).rstrip('/')
-                # <<< ИЗМЕНЕНИЕ: Используем оригинальный chat_id_full >>>
-                cancel_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{chat_id_full}"
-                # <<< Используем chat_id_full в логе (было и так) >>>
-                logger.info(f"Отправка запроса на отмену напоминания для notification_id={notification_id_str}, chat_id={chat_id_full}: DELETE {cancel_endpoint}")
+                # <<< ИЗМЕНЕНИЕ: Используем КОРОТКИЙ ID в URL >>>
+                cancel_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{chat_id_short_str}"
+                # <<< Используем КОРОТКИЙ ID в логе >>>
+                logger.info(f"Отправка запроса на отмену напоминания для notification_id={notification_id_str}, chat_id={chat_id_short_str}: DELETE {cancel_endpoint}")
 
-                # --- ВОССТАНАВЛИВАЕМ СТРУКТУРУ ASYNC TRY/EXCEPT ---
-                client = None # Инициализируем client перед try
+                client = None
                 try:
                     client = httpx.AsyncClient() # Создаем клиента внутри try
                     response = await client.delete(cancel_endpoint, timeout=5.0)
                     if response.status_code == 200:
-                        logger.info(f"Запрос на отмену напоминания для {notification_id_str} в чате {chat_id_full} успешно отправлен.")
+                        logger.info(f"Запрос на отмену напоминания для {notification_id_str} в чате {chat_id_short_str} успешно отправлен.")
                     elif response.status_code == 404:
-                        logger.warning(f"Задача-напоминание {notification_id_str} для чата {chat_id_full} не найдена в шедулере (404).")
+                        logger.warning(f"Задача-напоминание {notification_id_str} для чата {chat_id_short_str} не найдена в шедулере (404).")
                     else:
-                        logger.error(f"Ошибка от API шедулера при отмене напоминания {notification_id_str} в чате {chat_id_full}: {response.status_code} - {response.text}")
+                        logger.error(f"Ошибка от API шедулера при отмене напоминания {notification_id_str} в чате {chat_id_short_str}: {response.status_code} - {response.text}")
                 except httpx.RequestError as req_err:
-                    logger.error(f"Ошибка сети при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_full}: {req_err}")
+                    logger.error(f"Ошибка сети при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_short_str}: {req_err}")
                 except Exception as req_err: # Ловим общие ошибки тоже
-                    logger.error(f"Ошибка при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_full}: {req_err}", exc_info=True)
+                    logger.error(f"Ошибка при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_short_str}: {req_err}", exc_info=True)
                 finally:
                      if client:
                          await client.aclose() # Закрываем клиент в finally

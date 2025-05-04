@@ -22,6 +22,13 @@ scheduler_logger = logging.getLogger("Scheduler")
 scheduler_logger.setLevel(logging.INFO)
 # ----------------------------- 
 
+# --- ДОБАВЛЕНИЕ DEBUG ЛОГИРОВАНИЯ ДЛЯ APSCHEDULER ---
+apscheduler_logger = logging.getLogger("apscheduler")
+apscheduler_logger.setLevel(logging.DEBUG)
+# Добавим лог для подтверждения настройки
+logger.info("✅ Логгер 'apscheduler' настроен на уровень DEBUG (использует корневой обработчик).") 
+# -----------------------------------------------------
+
 # Определяем окружение и логируем его
 env = os.getenv('ENVIRONMENT', 'development')
 if env == 'development':

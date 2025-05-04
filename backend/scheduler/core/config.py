@@ -31,6 +31,13 @@ class SchedulerSettings(BaseSettings):
     # --- Настройки планировщика ---
     TIMEZONE: str = Field("Asia/Krasnoyarsk", validation_alias='TIMEZONE')
 
+    # <<< ДОБАВЛЕНИЕ: Настройки Redis/Dragonfly >>>
+    REDIS_HOST: str = Field("cache", validation_alias='REDIS_HOST') # Используем имя сервиса из docker-compose
+    REDIS_PORT: int = Field(6379, validation_alias='REDIS_PORT')
+    REDIS_DB_SCHEDULER: int = Field(0, validation_alias='REDIS_DB_SCHEDULER') # БД для задач APScheduler
+    REDIS_PASSWORD: Optional[str] = Field(None, validation_alias='REDIS_PASSWORD') # Если есть пароль
+    # <<< КОНЕЦ ДОБАВЛЕНИЯ >>>
+
     # Настройки API Телеграм Бота (куда отправлять уведомления)
     BOT_API_URL: AnyUrl = Field(..., validation_alias='BOT_API_URL')
 

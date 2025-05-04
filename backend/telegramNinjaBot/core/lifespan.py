@@ -26,6 +26,7 @@ from telegramNinjaBot.services.database_service import DatabaseService
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
 from telegramNinjaBot.handlers.message_handlers import MessageHandler as BotMessageHandler
 from telegramNinjaBot.handlers.common_handlers import handle_start, handle_webapp_data
+from telegramNinjaBot.api.routes import handle_confirmation_callback
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,10 @@ async def lifespan(app: FastAPI):
         bot_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, message_handler.handle_private_message))
         bot_app.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUP, handle_webapp_data))
         bot_app.add_handler(MessageHandler(filters.StatusUpdate.WEB_APP_DATA, handle_webapp_data))
+        # Добавляем обработчик для кнопки подтверждения
+        confirmation_handler = CallbackQueryHandler(handle_confirmation_callback, pattern=r"^confirm(?:_eos)?:")
+        bot_app.add_handler(confirmation_handler)
+        logger.info("✅ Обработчик для кнопок подтверждения добавлен.")
         logger.info("✅ Обработчики Telegram зарегистрированы")
 
         # 8. Инициализация, запуск Application и настройка вебхука/лонг-поллинга

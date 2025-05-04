@@ -41,6 +41,7 @@ class NotificationBase(BaseModel):
     time: int = Field(..., ge=0, description="Время уведомления в минутах до события")
     repeat: RepeatSettingsBase = Field(default_factory=RepeatSettingsBase)
     chat_ids: List[int] = []
+    requires_confirmation: bool = Field(False, description="Требуется ли подтверждение в чате?")
 
 class NotificationCreate(NotificationBase):
     repeat: RepeatSettingsCreate = Field(default_factory=RepeatSettingsCreate)
@@ -51,6 +52,7 @@ class NotificationRead(NotificationBase):
     repeat: Optional[RepeatSettingsRead] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    requires_confirmation: bool
     
     class Config:
         from_attributes = True
@@ -63,6 +65,7 @@ class NotificationUpdate(NotificationBase):
     # repeat и chat_ids тоже могут быть опциональными
     repeat: Optional[RepeatSettingsCreate] = None # Используем Create, так как можем передать настройки
     chat_ids: Optional[List[int]] = None
+    requires_confirmation: Optional[bool] = None # None означает "не изменять"
 
 # --- Модели для Статуса Планирования ---
 class SchedulingStatus(BaseModel):

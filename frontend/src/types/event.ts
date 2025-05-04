@@ -13,6 +13,7 @@ export interface EventNotificationBase {
   time: number; // Минуты до события
   repeat?: RepeatSettings; // Настройки повтора для этого уведомления
   chat_ids?: number[];     // Список ID чатов для этого уведомления
+  requires_confirmation?: boolean; // Требуется ли подтверждение от пользователя
 }
 
 // Тип данных, отправляемых на API для создания уведомления
@@ -27,6 +28,7 @@ export interface NotificationUpdate {
   time?: number; 
   repeat?: RepeatSettings; // Повторение тоже можно обновлять
   chat_ids?: number[];     // И чаты
+  requires_confirmation?: boolean;
 }
 
 // Тип данных уведомления, получаемых от API

@@ -68,6 +68,7 @@ async def create_event_notification(
         time = notification_in.time,
         chat_ids = notification_in.chat_ids,
         event_id=event_id,
+        requires_confirmation = notification_in.requires_confirmation
     )
     # Обработка repeat_config и repeat_type
     if notification_in.repeat.type == 'none':

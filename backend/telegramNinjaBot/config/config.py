@@ -37,6 +37,7 @@ if not BOT_TOKEN:
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
 API_URL = os.getenv('API_URL', 'http://server:8000')
 USE_DATABASE = os.getenv('USE_DATABASE', 'false').lower() == 'true'
+SCHEDULER_API_URL = os.getenv('SCHEDULER_API_URL') # URL для API шедулера
 print(f"Использование базы данных: {USE_DATABASE}")
 
 # Пути к файлам данных
@@ -88,6 +89,8 @@ class Config:
     # Добавляем настройки пула БД
     DB_POOL_MIN_SIZE: int = DB_POOL_MIN_SIZE
     DB_POOL_MAX_SIZE: int = DB_POOL_MAX_SIZE
+    # <<< НОВОЕ ПОЛЕ >>>
+    SCHEDULER_API_URL: Union[str, None] = SCHEDULER_API_URL
 
 # Создаем экземпляр конфига для использования в других модулях
 # (если импорт Config как класса неудобен)

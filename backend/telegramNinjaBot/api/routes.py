@@ -5,15 +5,20 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 import time
 import telegram
 from telegram.error import BadRequest
+import random
 
 # Импортируем типы Telegram и Application
 from telegram import Update, InputFile
 from telegram.ext import Application
 from telegram.constants import ParseMode
+from telegram.ext import ContextTypes, CallbackQueryHandler
+
+# Импортируем httpx и get_async_http_client
+import httpx
 
 # Импортируем модель Pydantic
 from .models import SendMessagePayload
@@ -82,9 +87,10 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
         # Отправляем сообщение
         try:
             await bot_app.bot.send_message(
-                chat_id=processed_chat_id, 
+                chat_id=processed_chat_id,
                 text=payload.text,
-                parse_mode=payload.parse_mode
+                parse_mode=payload.parse_mode,
+                reply_markup=payload.reply_markup if payload.reply_markup else None
             )
             logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id_str}")
             return {"success": True, "message": "Сообщение успешно отправлено"}
@@ -102,7 +108,8 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
                     await bot_app.bot.send_message(
                         chat_id=alternative_chat_id,
                         text=payload.text,
-                        parse_mode=payload.parse_mode
+                        parse_mode=payload.parse_mode,
+                        reply_markup=payload.reply_markup if payload.reply_markup else None
                     )
                     logger.info(f"✅ Сообщение успешно отправлено в чат {alternative_chat_id_str} при второй попытке.")
                     return {"success": True, "message": "Сообщение успешно отправлено (со второй попытки)"}
@@ -550,3 +557,125 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
             # (Эту логику сложно точно реализовать здесь, лучше полагаться на удаление после успешной отправки)
             pass # Пока не удаляем здесь, чтобы избежать случайного удаления
             # logger.warning(f"Файл {resolved_path} не был удален из-за ошибки.") 
+
+# --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ПОДТВЕРЖДЕНИЯ --- 
+async def handle_confirmation_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обрабатывает нажатие на кнопку подтверждения."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    # Отвечаем на колбэк, чтобы убрать "часики" на кнопке
+    await query.answer()
+
+    # <<< ИЗМЕНЕНИЕ: Проверяем префикс и парсим ID >>>
+    notification_id_str = None
+    confirmation_type = 'default' # По умолчанию
+    # <<< ДОБАВЛЯЕМ СПИСОК СЛОВ >>>
+    positive_words = [
+        "Отлично", "Потрясающе", "Замечательно", "Супер",
+        "Прекрасно", "Великолепно", "Изумительно", "Так держать",
+        "Класс", "Здорово", "Чудесно", "Блестяще",
+        "Одобрено", "Принято", 
+        "Хорошо",  "Зафиксировано",
+    ]
+
+    if query.data.startswith("confirm_eos:"):
+        confirmation_type = 'end_of_shift'
+        notification_id_str = query.data.removeprefix("confirm_eos:")
+    elif query.data.startswith("confirm:"):
+        confirmation_type = 'default'
+        notification_id_str = query.data.removeprefix("confirm:")
+    else:
+        logger.warning(f"Получен неизвестный callback_data: {query.data}")
+        return # Выходим, если префикс неизвестен
+
+    # Простая проверка, что ID извлекся
+    if not notification_id_str:
+        logger.error(f"Не удалось извлечь notification_id из callback_data: {query.data}")
+        return
+    # --- Конец проверки префикса ---
+
+    user = query.from_user
+    username = f"@{user.username}" if user.username else user.full_name
+
+    logger.info(f"✅ Подтверждение ({confirmation_type}) получено для уведомления {notification_id_str} от пользователя {username} (ID: {user.id})")
+
+    # <<< ИЗМЕНЕНИЕ: Формируем сообщение в зависимости от типа >>>
+    if confirmation_type == 'end_of_shift':
+        # <<< ИЗМЕНЕНИЕ: Добавляем рандомное слово ПЕРЕД ЭМОДЗИ и пожелание В КОНЦЕ >>>
+        random_word = random.choice(positive_words)
+        confirmation_message = f"{random_word} 👍 Сотрудник {username} подтверждает, что провел визуальный осмотр для обеспечения техники пожарной безопасности. Приятного отдыха! 🌙"
+    else: # Для 'default' и других возможных типов в будущем
+        confirmation_message = f"✅ Уведомление подтверждено пользователем {username}."
+    # <<< Конец формирования сообщения >>>
+
+    try:
+        # Отправляем подтверждение в тот же чат
+        if query.message:
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=confirmation_message,
+                # Можно добавить reply_to_message_id, чтобы связать с исходным сообщением
+                # reply_to_message_id=query.message.message_id
+            )
+            # Опционально: Убираем кнопки из исходного сообщения
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+                # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
+                logger.info(f"Убраны кнопки из сообщения для уведомления {notification_id_str}")
+            except Exception as edit_err:
+                # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
+                logger.warning(f"Не удалось убрать кнопки из сообщения для уведомления {notification_id_str}: {edit_err}")
+
+            # <<< ИЗМЕНЕНИЕ: Отправляем запрос на отмену напоминания в шедулер >>>
+            chat_id_full = query.message.chat_id
+            # Получаем URL шедулера из конфига
+            config = Config()
+            scheduler_api_url = getattr(config, 'SCHEDULER_API_URL', None)
+            if scheduler_api_url:
+                base_scheduler_url = str(scheduler_api_url).rstrip('/')
+                # <<< ИЗМЕНЕНИЕ: Используем оригинальный chat_id_full >>>
+                cancel_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{chat_id_full}"
+                # <<< Используем chat_id_full в логе (было и так) >>>
+                logger.info(f"Отправка запроса на отмену напоминания для notification_id={notification_id_str}, chat_id={chat_id_full}: DELETE {cancel_endpoint}")
+
+                # --- ВОССТАНАВЛИВАЕМ СТРУКТУРУ ASYNC TRY/EXCEPT ---
+                client = None # Инициализируем client перед try
+                try:
+                    client = httpx.AsyncClient() # Создаем клиента внутри try
+                    response = await client.delete(cancel_endpoint, timeout=5.0)
+                    if response.status_code == 200:
+                        logger.info(f"Запрос на отмену напоминания для {notification_id_str} в чате {chat_id_full} успешно отправлен.")
+                    elif response.status_code == 404:
+                        logger.warning(f"Задача-напоминание {notification_id_str} для чата {chat_id_full} не найдена в шедулере (404).")
+                    else:
+                        logger.error(f"Ошибка от API шедулера при отмене напоминания {notification_id_str} в чате {chat_id_full}: {response.status_code} - {response.text}")
+                except httpx.RequestError as req_err:
+                    logger.error(f"Ошибка сети при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_full}: {req_err}")
+                except Exception as req_err: # Ловим общие ошибки тоже
+                    logger.error(f"Ошибка при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_full}: {req_err}", exc_info=True)
+                finally:
+                     if client:
+                         await client.aclose() # Закрываем клиент в finally
+            else:
+                logger.error("SCHEDULER_API_URL не найден в конфигурации. Невозможно отменить напоминание.")
+        else:
+             # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
+             logger.warning(f"Не удалось отправить сообщение подтверждения для уведомления {notification_id_str}, query.message отсутствует.")
+    except Exception as send_err:
+        # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
+        logger.error(f"Ошибка при отправке сообщения подтверждения для уведомления {notification_id_str}: {send_err}", exc_info=True)
+
+# --- ВАЖНО: Регистрация обработчика --- 
+# Этот обработчик нужно зарегистрировать в вашем основном файле бота,
+# там, где создается экземпляр `Application`. Примерно так:
+#
+# from telegramNinjaBot.api.routes import handle_confirmation_callback # Убедитесь, что путь импорта верный
+# ...
+# application = Application.builder().token(...).build()
+# ...
+# confirmation_handler = CallbackQueryHandler(handle_confirmation_callback, pattern=r"^confirm:")
+# application.add_handler(confirmation_handler)
+# ...
+

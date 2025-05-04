@@ -10,6 +10,7 @@ services:
       - ENVIRONMENT=production
       - PYTHONPATH=/app
       - BOT_PORT=8003
+      - SCHEDULER_API_URL=http://scheduler:8002
     volumes:
       - shared-data:/app/shared
     env_file:

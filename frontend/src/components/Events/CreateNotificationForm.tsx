@@ -17,6 +17,7 @@ import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import { styled } from '@mui/material/styles';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 interface CreateNotificationFormProps {
     eventId: number;
@@ -64,6 +65,7 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
     const [selectedChatIds, setSelectedChatIds] = useState<number[]>([]); 
     const [selectedWeekdays, setSelectedWeekdays] = useState<number[]>([]);
     const [selectedMonthDay, setSelectedMonthDay] = useState<number | ''>(1);
+    const [requiresConfirmation, setRequiresConfirmation] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [descriptionRows, setDescriptionRows] = useState(3);
@@ -71,46 +73,34 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
     const availableChats = useMemo(() => {
         return user?.groups
             ?.filter(g => g.group_type === 'chef')
-            ?.map(g => ({ id: g.chat_id, name: g.title })) 
-            || []; 
+            ?.map(g => ({ id: g.chat_id, name: g.title }))
+            || [];
     }, [user]);
 
     useEffect(() => {
-        let initialData: Partial<EventNotification> = {};
         let notificationToEdit: EventNotification | undefined = undefined;
 
         if (event && notificationId) {
             notificationToEdit = event.notifications.find(n => n.id === notificationId);
-        } else if (event && event.notifications && event.notifications.length > 0) {
-            // Оставляем fallback на первое уведомление, если ID не передан, но уведомления есть
-            // Это может быть полезно, если логика открытия редактирования не передает ID
-            // Но лучше всегда передавать ID для ясности.
-            // notificationToEdit = event.notifications[0]; 
         }
 
-        if (notificationToEdit) {
-            initialData = {
-                message: notificationToEdit.message || '',
-                time: notificationToEdit.time ?? 15,
-                repeat: notificationToEdit.repeat || { type: 'none' },
-                chat_ids: notificationToEdit.chat_ids || [],
-            };
-        } else {
-            // Значения по умолчанию для нового уведомления
-            initialData = {
-                message: '',
-                time: 15,
-                repeat: { type: 'none' },
-                chat_ids: [],
-            };
-        }
+        // --- Определяем значения по умолчанию ---
+        const defaultMessage = '';
+        const defaultTime = 15;
+        const defaultRepeatType: RepeatType = 'none';
+        const defaultChatIds: number[] = [];
+        const defaultWeekdays: number[] = [];
+        const defaultMonthDay = 1;
+        const defaultRequiresConfirmation = false;
 
-        setDescription(initialData.message || '');
-        setTimeBefore(initialData.time ?? 15);
-        setRepeat(initialData.repeat?.type || 'none');
-        setSelectedChatIds(initialData.chat_ids || []);
-        setSelectedWeekdays(initialData.repeat?.weekdays || []);
-        setSelectedMonthDay(initialData.repeat?.month_day ?? 1);
+        // --- Устанавливаем state на основе notificationToEdit или значений по умолчанию ---
+        setDescription(notificationToEdit?.message || defaultMessage);
+        setTimeBefore(notificationToEdit?.time ?? defaultTime);
+        setRepeat(notificationToEdit?.repeat?.type || defaultRepeatType);
+        setSelectedChatIds(notificationToEdit?.chat_ids || defaultChatIds);
+        setSelectedWeekdays(notificationToEdit?.repeat?.weekdays || defaultWeekdays);
+        setSelectedMonthDay(notificationToEdit?.repeat?.month_day ?? defaultMonthDay);
+        setRequiresConfirmation(notificationToEdit?.requires_confirmation || defaultRequiresConfirmation);
 
     }, [eventId, event, notificationId]);
 
@@ -202,7 +192,8 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
                 message: description.trim(),
                 time: timeNum,
                 repeat: repeatSettings, 
-                chat_ids: selectedChatIds
+                chat_ids: selectedChatIds,
+                requires_confirmation: requiresConfirmation
             };
 
             if (notificationId) {
@@ -223,7 +214,7 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
         } finally {
             setIsLoading(false);
         }
-    }, [dispatch, eventId, notificationId, description, timeBefore, repeat, selectedChatIds, selectedWeekdays, selectedMonthDay, isFormValid, onClose]);
+    }, [dispatch, eventId, notificationId, description, timeBefore, repeat, selectedChatIds, selectedWeekdays, selectedMonthDay, isFormValid, onClose, requiresConfirmation]);
 
     useEffect(() => {
         if (onStateChange) {
@@ -359,6 +350,17 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
                 </Select>
                 {error && selectedChatIds.length === 0 && <p style={{ color: 'red', fontSize: '0.8em', margin: '3px 14px 0' }}>Выберите хотя бы один чат</p>}
             </FormControl>
+            <FormControlLabel
+                control={
+                    <Checkbox
+                        checked={requiresConfirmation}
+                        onChange={(e) => setRequiresConfirmation(e.target.checked)}
+                        disabled={isLoading}
+                    />
+                }
+                label="Требуется подтверждение ?"
+                sx={{ alignSelf: 'flex-start' }}
+            />
             {error && <p style={{ color: 'red' }}>{error}</p>}
         </Box>
     );

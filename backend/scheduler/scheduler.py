@@ -28,20 +28,40 @@ class InventoryScheduler:
         # Используем TIMEZONE из настроек
         self.timezone = pytz.timezone(self.settings.TIMEZONE)
         
-        # Создаем экземпляр APScheduler с настройками БД из нашего конфига
-        # APScheduler может сам использовать URL базы данных
+        # <<< НАЧАЛО ИЗМЕНЕНИЯ: Используем RedisJobStore >>>
+        # Убедимся, что redis установлен (проверка может быть и здесь)
+        try:
+            import redis
+        except ImportError:
+            logger.critical("Библиотека redis не установлена! pip install redis")
+            raise
+
+        # Создаем экземпляр APScheduler с RedisJobStore
         jobstores = {
-            'default': {'type': 'sqlalchemy', 'url': self.settings.DATABASE_URL}
+            'default': { 'type': 'redis',
+                         'host': self.settings.REDIS_HOST,
+                         'port': self.settings.REDIS_PORT,
+                         'db': self.settings.REDIS_DB_SCHEDULER,
+                         'password': self.settings.REDIS_PASSWORD
+                       }
         }
+        # <<< КОНЕЦ ИЗМЕНЕНИЯ >>>
+
         job_defaults = {
             'coalesce': False,
             'max_instances': 3
         }
         self.scheduler = AsyncIOScheduler(
-            jobstores=jobstores,
+            jobstores=jobstores, # Используем новую конфигурацию с Redis
             job_defaults=job_defaults,
             timezone=self.timezone,
         )
+        # <<< ДОБАВЛЕНИЕ: Лог об успешной инициализации с RedisJobStore >>>
+        redis_host = self.settings.REDIS_HOST
+        redis_port = self.settings.REDIS_PORT
+        redis_db = self.settings.REDIS_DB_SCHEDULER
+        logger.info(f"💾 APScheduler настроен с RedisJobStore (DragonflyDB) -> {redis_host}:{redis_port}, DB: {redis_db}")
+        # <<< КОНЕЦ ДОБАВЛЕНИЯ >>>
         
         self._is_running = False
         

@@ -7,11 +7,13 @@ from apscheduler.triggers.cron import CronTrigger
 import httpx
 from shared.http_client import get_async_http_client
 import asyncio # <<< Добавляем asyncio для sleep
+import json
 
 # Импортируем базовый класс и зависимости
 from ..base_task import BaseTask
 from core.config import SchedulerSettings # Используем SchedulerSettings для типизации
 from services.database_service import DatabaseService # Используем DatabaseService для типизации
+from tasks.event_reminder.reminder_task import EventReminderTask
 
 # Осторожно с циклическими импортами!
 if TYPE_CHECKING:
@@ -31,9 +33,11 @@ async def send_notification(**kwargs):
     message = kwargs.get('message')
     chat_ids = kwargs.get('chat_ids')
     settings = kwargs.get('settings') # <<< Получаем настройки
+    notification_id = kwargs.get('notification_id')
+    confirmation_type = kwargs.get('confirmation_type', 'default') # По умолчанию 'default'
 
-    if not all([job_id, message, chat_ids, settings]):
-        logger.error(f"[send_notification:{job_id}] Недостаточно данных или настроек в kwargs для выполнения.")
+    if not all([job_id, message, chat_ids, settings, notification_id]):
+        logger.error(f"[send_notification:{job_id}] Недостаточно данных, настроек или notification_id в kwargs для выполнения.")
         return
 
     logger.info(f"[send_notification:{job_id}] Запуск execute для уведомления.")
@@ -152,11 +156,35 @@ class EventNotificationTask(BaseTask):
                 logger.error(f"({self.TASK_TYPE}:{job_id}) Путь к исполнителю не найден в task_manager.")
                 return False
 
+            # <<< ИЗМЕНЕНИЕ: Добавляем requires_confirmation и notification_id >>>
+            requires_confirmation = notification_data.get('requires_confirmation', False)
+            notification_id = notification_data.get('notification_id') # Нужен для callback_data
+            # <<< ИЗМЕНЕНИЕ: Определяем тип подтверждения для восстановления >>>
+            confirmation_type = 'default'
+            if requires_confirmation and message:
+                # --- ДОБАВЛЯЕМ ЛОГИРОВАНИЕ --- 
+                logger.info(f"({self.TASK_TYPE}:{job_id}) Проверка confirmation_type. Message: '{message[:100]}...'") # Логируем начало сообщения
+                contains_shift_ends = "смена завершается" in message.lower()
+                contains_fire_safety = "пожарная безопасность" in message.lower()
+                logger.info(f"({self.TASK_TYPE}:{job_id}) Содержит 'смена завершается': {contains_shift_ends}, Содержит 'пожарная безопасность': {contains_fire_safety}")
+                # --- КОНЕЦ ЛОГИРОВАНИЯ ---
+                if contains_shift_ends and contains_fire_safety:
+                    confirmation_type = 'end_of_shift'
+            # --- ДОБАВЛЯЕМ ЛОГИРОВАНИЕ РЕЗУЛЬТАТА --- 
+            logger.info(f"({self.TASK_TYPE}:{job_id}) Установлен confirmation_type: '{confirmation_type}'")
+            # --- КОНЕЦ ЛОГИРОВАНИЯ ---
+
             job_kwargs_for_executor = {
                 'message': message,
                 'chat_ids': chat_ids,
                 'job_id': job_id,
-                'settings': self.settings
+                'settings': self.settings,
+                'requires_confirmation': requires_confirmation,
+                'notification_id': notification_id,
+                # <<< ИЗМЕНЕНИЕ: Передаем тип подтверждения >>>
+                'confirmation_type': confirmation_type,
+                # <<< ИЗМЕНЕНИЕ: Передаем TaskManager для доступа к другим задачам >>>
+                'task_manager': self.task_manager
             }
 
             # --- Добавление/Обновление задачи в APScheduler ---
@@ -191,7 +219,11 @@ class EventNotificationTask(BaseTask):
                     'chat_id': None,
                     'task_type': self.TASK_TYPE,
                     'next_run_time': actual_next_run_time_utc,
-                    'data': notification_data,
+                    # <<< ИЗМЕНЕНИЕ: СОХРАНЯЕМ ВСЕ ПОЛУЧЕННЫЕ notification_data + confirmation_type >>>
+                    'data': {
+                        **notification_data, # Копируем все исходные данные
+                        'confirmation_type': confirmation_type # Добавляем или перезаписываем тип
+                    },
                 }
                 try:
                     save_db_success = await self.task_manager.db_service.save_task(db_save_data)
@@ -216,8 +248,16 @@ class EventNotificationTask(BaseTask):
         job_id = kwargs.get('job_id')
         message = kwargs.get('message')
         chat_ids = kwargs.get('chat_ids')
+        # <<< ИЗМЕНЕНИЕ: Получаем requires_confirmation >>>
+        requires_confirmation = kwargs.get('requires_confirmation', False)
+        # <<< ИЗМЕНЕНИЕ: Получаем notification_id >>>
+        notification_id = kwargs.get('notification_id')
+        # <<< ИЗМЕНЕНИЕ: Получаем confirmation_type >>>
+        confirmation_type = kwargs.get('confirmation_type', 'default')
+        # <<< ИЗМЕНЕНИЕ: Получаем task_manager >>>
+        task_manager = kwargs.get('task_manager')
 
-        logger.info(f"({self.TASK_TYPE}:{job_id}) Начало выполнения execute.")
+        logger.info(f"({self.TASK_TYPE}:{job_id}) Начало выполнения execute. Confirmation required: {requires_confirmation}, Type: {confirmation_type}")
 
         if not message or not chat_ids:
             logger.error(f"({self.TASK_TYPE}:{job_id}) Отсутствует сообщение или список чатов в kwargs. Отправка невозможна.")
@@ -253,15 +293,75 @@ class EventNotificationTask(BaseTask):
                         "text": message,
                         "parse_mode": "HTML" # Или другой режим
                     }
-                    
+
+                    # <<< ИЗМЕНЕНИЕ: Добавляем кнопку, если нужно >>>
+                    if requires_confirmation:
+                        # <<< ИЗМЕНЕНИЕ: Используем confirmation_type для префикса >>>
+                        prefix = "confirm_eos:" if confirmation_type == 'end_of_shift' else "confirm:"
+                        if not notification_id:
+                            logger.error(f"({self.TASK_TYPE}:{job_id}) Не найден notification_id для создания callback_data.")
+                        else:
+                            callback_data = f"{prefix}{notification_id}"
+                            payload["reply_markup"] = {
+                                "inline_keyboard": [
+                                    [
+                                        {
+                                            "text": "Подтвердить ✅",
+                                            "callback_data": callback_data
+                                        }
+                                    ]
+                                ]
+                            }
+                            logger.info(f"({self.TASK_TYPE}:{job_id}) Добавлена кнопка подтверждения с callback_data: {callback_data}")
+                    # <<< Конец добавления кнопки >>>
+
                     logger.info(f"({self.TASK_TYPE}:{job_id}) Отправка в чат {chat_id_str}...")
-                    logger.debug(f"({self.TASK_TYPE}:{job_id}) Payload: {payload}")
-                    
+                    logger.debug(f"({self.TASK_TYPE}:{job_id}) Payload: {json.dumps(payload, ensure_ascii=False)}") # Логируем JSON
+
                     response = await client.post(send_endpoint, json=payload, timeout=10.0) # Таймаут на каждый запрос
                     
                     if response.status_code == 200:
                         logger.info(f"({self.TASK_TYPE}:{job_id}) -> Успешно отправлено в чат {chat_id_str}.")
                         sent_count += 1
+
+                        # <<< ИЗМЕНЕНИЕ: Планируем напоминание, если нужно >>>
+                        if requires_confirmation:
+                            if task_manager:
+                                # reminder_run_time = datetime.now(self.timezone) + timedelta(minutes=1) # Используем 1 минуту для теста
+                                reminder_run_time = datetime.now(self.timezone) + timedelta(minutes=30) # <<< ИЗМЕНЕНИЕ: Устанавливаем 30 минут >>>
+
+                                # --- ДОБАВЛЕНИЕ: Преобразование chat_id к короткому формату ПЕРЕД планированием ---
+                                chat_id_long = chat_id # Сохраняем оригинальный ID (может быть int или str)
+                                chat_id_short_str = str(chat_id_long)
+                                if chat_id_short_str.startswith('-100'):
+                                    chat_id_short_str = '-' + chat_id_short_str[4:]
+                                logger.debug(f"Используем короткий chat_id {chat_id_short_str} для планирования напоминания (исходный: {chat_id_long})")
+                                # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+                                
+                                # --- ИСПОЛЬЗУЕМ КОРОТКИЙ ID для ID задачи и данных ---
+                                reminder_job_id = f"reminder:{notification_id}:{chat_id_short_str}" # Используем короткий ID
+                                reminder_data = {
+                                    'job_id': reminder_job_id,
+                                    'chat_id': chat_id_short_str, # Передаем короткий строковый ID
+                                    'notification_id': notification_id,
+                                    'confirmation_type': confirmation_type,
+                                    'run_time': reminder_run_time
+                                }
+                                # --- КОНЕЦ ИЗМЕНЕНИЯ ID ---
+                                
+                                # Получаем экземпляр задачи напоминания
+                                reminder_task_instance = task_manager.task_instances.get(EventReminderTask.TASK_TYPE)
+                                if reminder_task_instance:
+                                    # <<< ИЗМЕНЕНИЕ: Логируем с коротким ID >>>
+                                    logger.info(f"({self.TASK_TYPE}:{job_id}) Планирование задачи-напоминания {reminder_job_id} для чата {chat_id_short_str} на {reminder_run_time}")
+                                    # Запускаем планирование напоминания (не ждем завершения)
+                                    asyncio.create_task(reminder_task_instance.schedule(reminder_data))
+                                else:
+                                    logger.error(f"({self.TASK_TYPE}:{job_id}) Не найден экземпляр EventReminderTask в task_manager для планирования напоминания.")
+                            else:
+                                logger.error(f"({self.TASK_TYPE}:{job_id}) TaskManager не передан в kwargs, не могу запланировать напоминание.")
+                        # <<< Конец планирования напоминания >>>
+
                     else:
                         logger.error(f"({self.TASK_TYPE}:{job_id}) -> Ошибка от Бота для чата {chat_id_str}: {response.status_code}, {response.text}")
                         error_count += 1

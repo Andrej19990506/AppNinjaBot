@@ -29,6 +29,8 @@ class NotificationSchedulePayload(BaseModel):
     time_before: Optional[int] = None # <<< Ожидаем time_before
     created_at: Optional[datetime] = None # Эти можно оставить или убрать
     updated_at: Optional[datetime] = None # Эти можно оставить или убрать
+    # <<< НОВОЕ ПОЛЕ >>>
+    requires_confirmation: bool = Field(False, description="Требуется ли подтверждение в чате?")
 
     # Config здесь не нужен, так как мы не создаем из ORM
     # class Config:
@@ -111,4 +113,64 @@ async def schedule_notification(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal scheduler error during scheduling: {e}"
+        ) 
+
+# --- НОВЫЙ ЭНДПОИНТ для удаления напоминания --- 
+@router.delete(
+    "/reminders/{notification_id}/{chat_id}",
+    summary="Cancel Reminder Task",
+    status_code=status.HTTP_200_OK
+)
+async def cancel_reminder(
+    notification_id: UUID4,
+    chat_id: int,
+    request: Request
+):
+    """
+    Принимает запрос от бота на отмену задачи-напоминания после подтверждения.
+    """
+    # <<< ИЗМЕНЕНИЕ: Добавляем лог с информацией о запросе >>>
+    client_host = request.client.host if request.client else "unknown"
+    logger.info(f"[Cancel Reminder] Запрос на отмену напоминания от клиента: {client_host}")
+    # <<< Конец добавления лога >>>
+
+    # <<< ИЗМЕНЕНИЕ: Используем оригинальный chat_id (int) при формировании ID >>>
+    reminder_job_id = f"reminder:{notification_id}:{chat_id}"
+    # <<< ИЗМЕНЕНИЕ: Добавляем repr(chat_id) в лог >>>
+    logger.info(f"[Cancel Reminder] Received request for notification ID: {notification_id}, Chat ID: {repr(chat_id)}. Target job ID: {reminder_job_id}")
+
+    # --- Получаем TaskManager --- 
+    try:
+        scheduler_instance = request.app.state.scheduler_instance
+        if not scheduler_instance:
+            logger.error("[Cancel Reminder] scheduler_instance не найден")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Scheduler not initialized")
+        task_manager = scheduler_instance.task_manager
+        if not task_manager:
+            logger.error("[Cancel Reminder] task_manager не найден")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="TaskManager not available")
+    except AttributeError:
+        logger.error("[Cancel Reminder] Ошибка доступа к scheduler_instance или task_manager")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Scheduler state not found")
+
+    # --- Вызываем метод отмены в TaskManager --- 
+    try:
+        # <<< ПРЕДПОЛАГАЕМ, что будет такой метод в TaskManager >>>
+        success = await task_manager.cancel_reminder_task(reminder_job_id)
+
+        if success:
+            logger.info(f"[Cancel Reminder] Task {reminder_job_id} successfully cancelled.")
+            return {"status": "success", "message": "Reminder task cancelled"}
+        else:
+            # TaskManager мог вернуть False, если задача не найдена или ошибка
+            logger.warning(f"[Cancel Reminder] TaskManager.cancel_reminder_task вернул False для {reminder_job_id}. Возможно, задача уже удалена или не существовала.")
+            # Возвращаем успех, т.к. желаемое состояние (отсутствие задачи) достигнуто
+            # или возвращаем 404? Пока вернем успех.
+            return {"status": "success", "message": "Reminder task likely already cancelled or did not exist"}
+
+    except Exception as e:
+        logger.exception(f"[Cancel Reminder] Ошибка при вызове task_manager.cancel_reminder_task для {reminder_job_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal scheduler error during cancellation: {e}"
         ) 

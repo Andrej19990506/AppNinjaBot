@@ -16,11 +16,14 @@ from .websocket_events.registration_open_event_task import RegistrationOpenEvent
 # Исправляем импорт на абсолютный
 # from ..core.config import scheduler_settings as default_settings # Старый относительный импорт
 from core.config import scheduler_settings as default_settings # Новый абсолютный импорт
+# <<< ИЗМЕНЕНИЕ: Импортируем EventReminderTask >>>
+from tasks.event_reminder.reminder_task import EventReminderTask
 
 # Импортируем события и объект события
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR, JobExecutionEvent
 from apscheduler.triggers.date import DateTrigger # <<< Импортируем DateTrigger
 from apscheduler.triggers.cron import CronTrigger # <<< Импортируем CronTrigger
+from apscheduler.jobstores.base import JobLookupError
 
 # Удаляем импорт shared.db_utils
 # from scheduler.shared.db_utils import init_db, db_connection
@@ -132,7 +135,9 @@ class TaskManager:
         self.task_executors = {
             'courier_shift_access': 'tasks.courier_shifts.shift_access_task:execute_job',
             'registration_open_event': 'tasks.websocket_events.registration_open_event_task:execute_job',
-            'event_notification': 'tasks.event_notification.notification_task:send_notification'
+            'event_notification': 'tasks.event_notification.notification_task:send_notification',
+            # <<< ИЗМЕНЕНИЕ: Добавляем путь к исполнителю напоминаний >>>
+            'event_reminder': 'tasks.event_reminder.reminder_task:send_reminder'
         }
 
         # !!! ДОБАВЛЯЕМ СЛУШАТЕЛЯ СОБЫТИЙ !!!
@@ -144,6 +149,8 @@ class TaskManager:
         self.task_classes = { # Словарь для хранения классов
             ShiftAccessTask.TASK_TYPE: ShiftAccessTask,
             EventNotificationTask.TASK_TYPE: EventNotificationTask,
+            # <<< ИЗМЕНЕНИЕ: Добавляем класс задачи напоминания >>>
+            EventReminderTask.TASK_TYPE: EventReminderTask
             # Добавь другие типы задач здесь
         }
         self.task_instances = {} # Словарь для хранения экземпляров
@@ -158,18 +165,23 @@ class TaskManager:
 
     async def save_task(self, task_id, chat_id, task_type, next_run_time, data=None):
         """Сохраняет задачу в БД и добавляет/обновляет в APScheduler."""
-        task_data = {
+        # <<< ИЗМЕНЕНИЕ: Преобразуем chat_id в строку перед передачей в db_service >>>
+        # Также обрабатываем случай, когда chat_id может быть None (для event_notification)
+        chat_id_for_db = str(chat_id) if chat_id is not None else None
+        db_task_data = {
             'task_id': task_id,
-            'chat_id': chat_id,
+            'chat_id': chat_id_for_db, # Используем преобразованное значение
             'task_type': task_type,
-            'next_run_time': next_run_time,
+            'next_run_time': next_run_time, # next_run_time уже должен быть datetime
             'data': data or {}
         }
+        # <<< КОНЕЦ ИЗМЕНЕНИЯ >>>
 
         if self.db_service:
             # Пытаемся сохранить в БД. Обрабатываем возможную ошибку с event loop.
             try:
-                success = await self.db_service.save_task(task_data)
+                # <<< ИЗМЕНЕНИЕ: Передаем db_task_data >>>
+                success = await self.db_service.save_task(db_task_data)
                 if not success:
                     logger.error(f"Ошибка при сохранении задачи {task_id} в БД (db_service вернул False)")
             except RuntimeError as e:
@@ -195,38 +207,44 @@ class TaskManager:
             return False
         # ----------------------------------------------------
         
-        job_args = [] # Args теперь пустые
-        
-        # --- В kwargs передаем ТОЛЬКО то, что нужно слушателю --- 
+        job_args = []
+
+        # --- Формируем kwargs для передачи в функцию-исполнитель --- 
         job_kwargs = {
             'task_type': task_type,
-            'chat_id': str(chat_id) if chat_id else None
+            'chat_id': str(chat_id) if chat_id is not None else None, # Передаем как строку
+            # Добавляем стандартные зависимости, которые могут понадобиться исполнителю
+            'settings': self.settings,      
+            'task_manager': self,           
+            'db_service': self.db_service, # db_service тоже может быть нужен
+            'scheduler_instance': self.scheduler, # Добавляем scheduler_instance
+            'job_id': task_id                 # Добавляем ID самой задачи
         }
-        # -------------------------------------------------------
+        
+        # --- Дополнительные kwargs для конкретных типов задач --- 
+        if task_type == EventReminderTask.TASK_TYPE and data:
+            job_kwargs['notification_id'] = data.get('notification_id')
+            job_kwargs['confirmation_type'] = data.get('confirmation_type', 'default')
+            logger.debug(f"Добавлены notification_id и confirmation_type в kwargs для {task_id}")
+        # Добавьте здесь elif для других типов задач, если им нужны доп. данные из data в kwargs
+        # --------------------------------------------------------
 
         try:
-            # --- Передаем зависимости (db_service, settings) через Job Defaults или напрямую --- 
-            # Вариант 1: Если db_service и settings одинаковы для всех задач,
-            # их можно добавить в job_defaults планировщика при его создании.
-            # Вариант 2: Передать их явно в add_job, если они могут отличаться.
-            # APScheduler сам передаст их в нашу статическую функцию execute_job.
-            # Выбираем Вариант 2 для явности:
+            # --- Передаем kwargs в add_job --- 
             self.scheduler.add_job(
-                executor_path,          # <--- Путь к функции как строка
-                'date',
+                executor_path,          
+                'date', # Напоминания всегда 'date' при первом планировании/перепланировании
                 run_date=next_run_time, 
-                args=job_args,          # <--- Пусто
-                kwargs={                # <--- Передаем зависимости + данные для слушателя
-                    **job_kwargs,       # task_type, chat_id
-                    'db_service': self.db_service, 
-                    'settings': self.settings,
-                    'task_manager': self
-                },
-                id=str(task_id),
+                args=job_args,          
+                kwargs=job_kwargs, # Передаем собранные kwargs
+                id=str(task_id), # ID самой задачи для APScheduler
                 name=f'{task_type} для {chat_id if chat_id else "всех"}',
                 replace_existing=True,
-                misfire_grace_time=3600 
+                # !!! ВАЖНО: Устанавливаем правильный misfire_grace_time для напоминаний !!!
+                # Ранее в EventReminderTask.schedule было 60 секунд
+                misfire_grace_time=60 if task_type == EventReminderTask.TASK_TYPE else 3600 
             )
+            logger.debug(f"[TaskManager.save_task] Attempting to add/replace job with ID: {repr(str(task_id))}")
             run_time_local = next_run_time.astimezone(self.timezone)
             logger.info(f" -> Задача {task_id} добавлена/обновлена в APScheduler на {run_time_local}")
             return True
@@ -295,11 +313,16 @@ class TaskManager:
                             chat_ids = data.get('chat_ids')
                             repeat_settings = data.get('repeat', {})
                             # Достаем time_before и event_date_str ТОЛЬКО для расчета времени cron'а
-                            time_before_str = data.get('time_before') 
-                            event_date_str = data.get('event_date') 
+                            time_before_str = data.get('time_before')
+                            event_date_str = data.get('event_date')
+                            # <<< ИЗМЕНЕНИЕ: Извлекаем requires_confirmation и notification_id >>>
+                            requires_confirmation = data.get('requires_confirmation', False)
+                            notification_id = data.get('notification_id') # Нужен для callback_data
+                            # !!! ИЗВЛЕКАЕМ confirmation_type ИЗ data !!!
+                            confirmation_type_from_db = data.get('confirmation_type', 'default') # 'default' на всякий случай
 
-                            if not all([message, chat_ids, time_before_str is not None, event_date_str]):
-                                logger.error(f"Недостаточно данных в поле 'data' для восстановления {task_id}: {data}")
+                            if not all([message, chat_ids, time_before_str is not None, event_date_str, notification_id]): # Добавляем notification_id в проверку
+                                logger.error(f"Недостаточно данных в поле 'data' для восстановления {task_id} (notification_id отсутствует?): {data}")
                                 failed_count += 1
                                 continue
 
@@ -372,8 +395,14 @@ class TaskManager:
                                 'message': message,
                                 'chat_ids': chat_ids,
                                 'job_id': task_id, # Передаем ID для логирования внутри задачи
-                                'settings': self.settings # Передаем настройки
-                                # 'db_service' и 'task_manager' не нужны для send_notification
+                                'settings': self.settings, # Передаем настройки
+                                # <<< ИЗМЕНЕНИЕ: Добавляем извлеченные поля >>>
+                                'requires_confirmation': requires_confirmation,
+                                'notification_id': notification_id,
+                                # <<< ИЗМЕНЕНИЕ: Передаем TaskManager при восстановлении >>>
+                                'task_manager': self,
+                                # !!! ДОБАВЛЯЕМ confirmation_type В kwargs !!!
+                                'confirmation_type': confirmation_type_from_db
                             }
 
                             # 4. Вызываем add_job напрямую
@@ -593,8 +622,8 @@ class TaskManager:
             aps_deleted = True
         except Exception as e: # JobLookupError и другие
             logger.warning(f"Ошибка или задача {task_id} не найдена в APScheduler для удаления: {e}")
-            aps_deleted = False
-            
+            aps_deleted = False 
+
         # Возвращаем True, если удалось удалить из НАШЕЙ БД
         # Успех удаления из APScheduler - бонус, но не главный критерий
         return db_deleted 
@@ -650,17 +679,31 @@ class TaskManager:
                     logger.debug(f"Слушатель: Получены данные из job.kwargs для {job_id}")
                 elif not task_type: # Парсим ID, если из kwargs не получили
                     logger.info(f"Слушатель: Попытка парсинга ID '{job_id}' для получения task_type...")
-                    parts = job_id.split('_')
-                    if len(parts) >= 3:
-                        task_type = '_'.join(parts[:-2])
-                        logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID")
-                        # Можно извлечь chat_id/notification_id, если нужно для NOTIFY
-                        if task_type == 'courier_shift_access' and not chat_id:
-                             try: int(parts[-2]); chat_id = parts[-2] 
-                             except ValueError: pass
+                    # <<< ИЗМЕНЕНИЕ: Добавляем обработку ID напоминания >>>
+                    if job_id.startswith("reminder:"):
+                        task_type = 'event_reminder'
+                        # ID напоминания имеет формат reminder:nid:cid
+                        # Можем извлечь nid и cid, если нужно для доп. обработки
+                        parts = job_id.split(':')
+                        if len(parts) == 3:
+                            # notification_id = parts[1]
+                            # chat_id = parts[2] # chat_id уже должен быть в kwargs для напоминаний
+                            pass # Пока ничего не делаем с извлеченными ID
+                        logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID напоминания")
                     else:
-                        logger.error(f"Слушатель: Не удалось распарсить {job_id}. Доп. обработка невозможна.")
-                        task_type = None
+                        # Старая логика для ID с подчеркиваниями
+                        parts = job_id.split('_')
+                        if len(parts) >= 3:
+                            task_type = ''.join(parts[:-2])
+                            logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID")
+                            # Можно извлечь chat_id/notification_id, если нужно для NOTIFY
+                            if task_type == 'courier_shift_access' and not chat_id:
+                                 try: int(parts[-2]); chat_id = parts[-2]
+                                 except ValueError: pass
+                        else:
+                            logger.error(f"Слушатель: Не удалось распарсить {job_id}. Доп. обработка невозможна.")
+                            task_type = None
+                    # <<< Конец обработки ID напоминания >>>
                 # --- Конец получения task_type и ID --- 
 
                 # --- Дополнительная обработка (NOTIFY) --- 
@@ -707,6 +750,51 @@ class TaskManager:
             logger.error(f"Экземпляр задачи {task_type} не найден для планирования.")
             return False
             
+    # --- НОВЫЙ МЕТОД для отмены напоминания --- 
+    async def cancel_reminder_task(self, reminder_job_id: str) -> bool:
+        """Пытается отменить (удалить) задачу-напоминание из APScheduler и из БД."""
+        logger.info(f"[TaskManager] Вызван метод cancel_reminder_task для ID: {reminder_job_id}")
+        logger.info(f"Попытка отмены задачи-напоминания с ID: {reminder_job_id}")
+
+        aps_removed_or_not_found = False
+        db_deleted = False
+
+        # Шаг 1: Попытка удаления из APScheduler
+        try:
+            logger.debug(f"[TaskManager.cancel_reminder_task] Attempting to remove job with ID: {repr(reminder_job_id)}")
+            self.scheduler.remove_job(reminder_job_id)
+            logger.info(f"Задача-напоминание {reminder_job_id} успешно удалена из APScheduler.")
+            aps_removed_or_not_found = True
+        except JobLookupError:
+            logger.warning(f"Задача-напоминание {reminder_job_id} не найдена в APScheduler. Возможно, уже была удалена.")
+            aps_removed_or_not_found = True # Считаем "не найдено" тоже успехом для этого шага
+        except Exception as e:
+            logger.error(f"Ошибка при удалении задачи-напоминания {reminder_job_id} из APScheduler: {e}", exc_info=True)
+            # Не считаем успехом, если была другая ошибка
+            aps_removed_or_not_found = False
+
+        # Шаг 2: Попытка удаления из БД (независимо от успеха в APScheduler)
+        if self.db_service:
+            logger.info(f"Удаление записи о задаче {reminder_job_id} из БД scheduler_tasks...")
+            try:
+                db_deleted = await self.db_service.delete_task(reminder_job_id)
+                if db_deleted:
+                    logger.info(f"Запись о задаче {reminder_job_id} успешно удалена из БД.")
+                else:
+                    # db_service.delete_task сам логирует, если не найдено
+                    logger.warning(f"Не удалось удалить запись о задаче {reminder_job_id} из БД (возможно, ее там и не было).")
+            except Exception as db_err:
+                logger.error(f"Ошибка при удалении записи о задаче {reminder_job_id} из БД: {db_err}", exc_info=True)
+                db_deleted = False
+        else:
+            logger.warning("db_service не инициализирован, пропуск удаления из БД.")
+
+        # Возвращаем True, если задача была удалена из APScheduler ИЛИ не найдена там,
+        # И (если db_service есть) удалось удалить ее из БД ИЛИ ее там не было.
+        # Основной критерий - удалось ли убрать задачу отовсюду, где она могла быть.
+        return aps_removed_or_not_found and db_deleted
+    # --- Конец нового метода --- 
+
     # ... (остальные методы TaskManager) ...
 
     # ... (остальные методы TaskManager) ...

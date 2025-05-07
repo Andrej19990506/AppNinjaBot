@@ -147,7 +147,7 @@ export function getNextDayOfWeek(date: Date, dayOfWeek: number): Date {
 /**
  * Находит последний прошедший день регистрации
  */
-function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number): Date {
+function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
     const currentDay = now.getDay();
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const targetTime = targetHour * 60 + targetMinute;
@@ -162,7 +162,7 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
             daysToSubtract = 0;
         } else {
             // Если время еще не наступило, берем прошлую неделю
-            daysToSubtract = 7;
+            daysToSubtract = periodLength;
         }
     } else if (currentDay > targetDay) {
         // Если день недели после дня регистрации
@@ -173,11 +173,23 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
     }
     
     // Создаем дату последнего дня регистрации
-    const lastRegistrationDay = new Date(now);
-    lastRegistrationDay.setDate(now.getDate() - daysToSubtract);
-    lastRegistrationDay.setHours(targetHour, targetMinute, 0, 0);
-    
-    return lastRegistrationDay;
+    const calculatedDate = new Date(now);
+    calculatedDate.setDate(now.getDate() - daysToSubtract);
+    calculatedDate.setHours(targetHour, targetMinute, 0, 0);
+
+    return calculatedDate;
+}
+
+/**
+ * Находит предпоследний прошедший день регистрации (всегда -7 дней)
+ */
+function getPenultimateRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
+    // Находим сначала последний
+    const lastRegDay = getLastRegistrationDay(now, targetDay, targetHour, targetMinute, periodLength);
+    // Отнимаем 7 дней, чтобы получить предыдущий
+    const penultimateRegDay = new Date(lastRegDay);
+    penultimateRegDay.setDate(penultimateRegDay.getDate() - periodLength);
+    return penultimateRegDay;
 }
 
 /**
@@ -216,13 +228,48 @@ function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number
     return nextRegistrationDay;
 }
 
+// <<< НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ >>>
+/**
+ * Рассчитывает даты для ОДНОГО окна доступности.
+ * @param baseRegistrationDate Базовая дата регистрации (уже прошедшая).
+ * @param settings Настройки доступа.
+ * @param now Текущая дата (для логов, если нужны).
+ * @returns Массив строк дат YYYY-MM-DD.
+ */
+function calculateSingleWindowDates(
+    baseRegistrationDate: Date,
+    settings: AccessSettings,
+    now?: Date // опционально для более детальных логов внутри, если понадобится
+): string[] {
+    const offsetType = settings.offsetType || 'days';
+    const offsetAmount = settings.offsetAmount ?? 4;
+    const periodLength = settings.periodLength ?? 7;
+
+    const calculateStart = (baseRegDate: Date): Date => {
+        if (offsetType === 'weeks') {
+            return addWeeks(baseRegDate, offsetAmount);
+        }
+        return addDays(baseRegDate, offsetAmount);
+    };
+
+    const windowStartDate = calculateStart(baseRegistrationDate);
+    // debugLog(`  [calculateSingleWindow] База: ${baseRegistrationDate.toISOString()}, Старт окна: ${windowStartDate.toISOString()}`);
+
+    const datesInWindow: string[] = [];
+    for (let i = 0; i < periodLength; i++) {
+        const date = addDays(windowStartDate, i);
+        datesInWindow.push(format(date, 'yyyy-MM-dd'));
+    }
+    return datesInWindow;
+}
+// <<< КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ >>>
+
 /**
  * Рассчитывает доступные даты на основе настроек доступа
- * @param accessSettings Настройки доступа из Redux
- * @returns Массив доступных дат в формате YYYY-MM-DD
+ * (Возврат к версии V4: Объединение двух последних НЕДЕЛЬНЫХ циклов + фильтр)
  */
 export function calculateAvailableDates(accessSettings?: AccessSettings | null): string[] {
-    debugLog('📅 Расчет доступных дат...');
+    debugLog('📅 Расчет доступных дат (V-Финал: Два окна, логика слияния)...');
     const settings = accessSettings !== undefined ? accessSettings : store.getState().shifts.accessSettings;
     
     if (!settings) {
@@ -230,7 +277,6 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
         return [];
     }
     
-    // Проверяем активность правила
     if (!settings.isAlwaysActive) {
         const currentDate = new Date();
         const startDate = settings.activeStartDate ? new Date(settings.activeStartDate) : null;
@@ -244,60 +290,93 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
     }
     
     const now = new Date();
-    debugLog(`⏰ Текущее время: ${now.toISOString()}`);
+    const todayDateStr = format(now, 'yyyy-MM-dd');
+    debugLog(`⏰ Текущее время: ${now.toISOString()} (Today: ${todayDateStr})`);
     
-    // Получаем настройки времени регистрации
-    const registrationDay = settings.registrationStartDay ?? 4; // Четверг по умолчанию
+    const registrationDay = settings.registrationStartDay ?? 4;
     const registrationHour = settings.registrationStartHour ?? 12;
     const registrationMinute = settings.registrationStartMinute ?? 0;
-    
-    // Находим последний прошедший день регистрации
-    const lastRegistrationDay = getLastRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
-    
-    // Находим следующий день регистрации
-    const nextRegistrationDay = getNextRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
-    
-    debugLog(`📅 Последний день регистрации: ${lastRegistrationDay.toISOString()}`);
-    debugLog(`📅 Следующий день регистрации: ${nextRegistrationDay.toISOString()}`);
-    
-    // Применяем смещение к последнему дню регистрации
-    const offsetType = settings.offsetType || 'days';
-    const offsetAmount = settings.offsetAmount ?? 4;
-    const periodLength = settings.periodLength ?? 7;
-    
-    let accessStartDate: Date;
-    if (offsetType === 'weeks') {
-        accessStartDate = addWeeks(lastRegistrationDay, offsetAmount);
+    const periodLength = settings.periodLength ?? 7; // Важно, используется в getLast/getPenultimate
+    const offsetAmount = settings.offsetAmount ?? 4; // для лога
+    const offsetType = settings.offsetType || 'days'; // для лога
+
+    // --- 1. Определяем базовые даты для ДВУХ циклов --- 
+    // currentCycleBaseDate - это последний прошедший/текущий момент регистрации (День Х)
+    const currentCycleBaseDate = getLastRegistrationDay(now, registrationDay, registrationHour, registrationMinute, periodLength);
+    // previousCycleBaseDate - это предпоследний прошедший момент регистрации
+    const previousCycleBaseDate = getPenultimateRegistrationDay(now, registrationDay, registrationHour, registrationMinute, periodLength);
+
+    debugLog(`  База ТЕКУЩЕГО цикла (currentCycleBaseDate): ${currentCycleBaseDate.toISOString()}`);
+    debugLog(`  База ПРЕДЫДУЩЕГО цикла (previousCycleBaseDate): ${previousCycleBaseDate.toISOString()}`);
+
+    // --- 2. Рассчитываем полные окна для этих двух циклов --- 
+    const currentCycleWindowDates_Full = calculateSingleWindowDates(currentCycleBaseDate, settings, now);
+    const previousCycleWindowDates_Full = calculateSingleWindowDates(previousCycleBaseDate, settings, now);
+
+    debugLog(`  Окно ТЕКУЩЕГО цикла (до фильтров): [${currentCycleWindowDates_Full.join(', ')}]`);
+    debugLog(`  Окно ПРЕДЫДУЩЕГО цикла (до фильтров): [${previousCycleWindowDates_Full.join(', ')}]`);
+
+    // --- 3. Логика выбора и объединения --- 
+    const combinedDatesSet = new Set<string>();
+
+    if (now.getTime() >= currentCycleBaseDate.getTime()) {
+        // День Х (currentCycleBaseDate) НАСТУПИЛ или прошел
+        debugLog('  * День Х НАСТУПИЛ/ПРОШЕЛ. Берем текущее окно + хвост предыдущего.');
+
+        // Добавляем все даты из окна текущего цикла (они все актуальны)
+        currentCycleWindowDates_Full.forEach(dateStr => combinedDatesSet.add(dateStr));
+        
+        // Из окна предыдущего цикла берем только те, что >= today
+        previousCycleWindowDates_Full.forEach(dateStr => {
+            if (dateStr >= todayDateStr) {
+                combinedDatesSet.add(dateStr);
+            }
+        });
     } else {
-        accessStartDate = addDays(lastRegistrationDay, offsetAmount);
-    }
-    
-    debugLog(`📅 Начало периода доступа: ${accessStartDate.toISOString()}`);
-    
-    // Формируем список доступных дат
-    const availableDates: string[] = [];
-    for (let i = 0; i < periodLength; i++) {
-        const date = addDays(accessStartDate, i);
-        availableDates.push(format(date, 'yyyy-MM-dd'));
-    }
-    
-    // Добавляем специальные даты
-    if (settings.enabledDates && Array.isArray(settings.enabledDates)) {
-        settings.enabledDates.forEach(dateStr => {
-            if (!availableDates.includes(dateStr)) {
-                availableDates.push(dateStr);
+        // День Х (currentCycleBaseDate) ЕЩЕ НЕ НАСТУПИЛ
+        debugLog('  * День Х ЕЩЕ НЕ НАСТУПИЛ. Берем только хвост предыдущего окна.');
+        
+        // Из окна предыдущего цикла берем только те, что >= today
+        previousCycleWindowDates_Full.forEach(dateStr => {
+            if (dateStr >= todayDateStr) {
+                combinedDatesSet.add(dateStr);
             }
         });
     }
     
-    // Добавляем текущий день если разрешено
-    if (settings.allowSameDay) {
-        const today = format(now, 'yyyy-MM-dd');
-        if (!availableDates.includes(today)) {
-            availableDates.push(today);
-        }
+    // --- 4. Добавляем специальные даты и текущий день (если нужно) --- 
+    if (settings.enabledDates && Array.isArray(settings.enabledDates)) {
+        settings.enabledDates.forEach(dateStr => {
+            if (dateStr >= todayDateStr) { // Также фильтруем по сегодня, чтобы не показывать прошедшие спец.даты
+                combinedDatesSet.add(dateStr);
+            }
+        });
+        // debugLog(`📌 Добавлены актуальные специальные даты.`);
     }
+    if (settings.allowSameDay) {
+         combinedDatesSet.add(todayDateStr); // todayDateStr уже отфильтрован по сути
+         // debugLog('🌞 Добавлен текущий день (allowSameDay=true).');
+    }
+
+    // --- 5. Формируем итоговый список --- 
+    const finalAvailableDates = Array.from(combinedDatesSet);
+    finalAvailableDates.sort();
     
-    debugLog(`✅ Рассчитаны доступные даты: ${availableDates.join(', ')}`);
-    return availableDates;
-} 
+    // --- Итоговый лог --- 
+    console.log(
+        `%c*** ИТОГОВЫЙ РАСЧЕТ (V-Финал) ***` +
+        `\n  Current 'now': ${now.toISOString()} (Today: ${todayDateStr})` +
+        `\n  Settings: Day=${registrationDay}, Time=${String(registrationHour).padStart(2, '0')}:${String(registrationMinute).padStart(2, '0')}, Offset=${offsetAmount} ${offsetType}, Period=${periodLength}d` +
+        `\n  Prev. Cycle Base: ${previousCycleBaseDate.toISOString()}` +
+        `\n    -> Prev. Window (full): [${previousCycleWindowDates_Full.join(', ')}]` +
+        `\n  Curr. Cycle Base: ${currentCycleBaseDate.toISOString()}` +
+        `\n    -> Curr. Window (full): [${currentCycleWindowDates_Full.join(', ')}]` +
+        `\n  Condition: ${now.getTime() >= currentCycleBaseDate.getTime() ? 'День Х НАСТУПИЛ' : 'День Х НЕ НАСТУПИЛ'}` +
+        `\n  FINAL Available Dates (>=${todayDateStr}):\n  [${finalAvailableDates.join(', ')}]`,
+        'color: darkcyan; font-weight: bold;'
+    );
+
+    return finalAvailableDates;
+}
+
+const formatDateToYYYYMMDD = (date: Date): string => format(date, 'yyyy-MM-dd'); 

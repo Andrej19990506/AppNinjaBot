@@ -119,33 +119,28 @@ class ShiftAccessTask(BaseTask):
             chat_id_str = str(chat_id)
             logger.info(f"=== ({self.TASK_TYPE}) Планирование уведомления в телеграм для чата {chat_id_str} (async) ===")
 
-            # Получаем настройки из API (асинхронно)
             access_settings = await self._get_access_settings_from_api(chat_id_str, self.settings)
             if not access_settings:
-                # Логика удаления старой задачи и возврата False остается
                 logger.error(f"({self.TASK_TYPE}) ❌ Настройки доступа не найдены в API для {chat_id_str}. Планирование отменено (async).")
                 task_id = self.generate_task_id(self.TASK_TYPE, chat_id_str)
                 try: self.scheduler.remove_job(task_id)
                 except Exception: pass
                 return False
 
-            # Используем ключи camelCase из API
             registration_day = access_settings.get("registrationStartDay")
             registration_hour = access_settings.get("registrationStartHour")
             registration_minute = access_settings.get("registrationStartMinute")
-            is_always_active = access_settings.get("isAlwaysActive", True) 
+            period_length = access_settings.get("periodLength", 7) # Дефолт 7 на всякий случай
 
             if registration_day is None or registration_hour is None or registration_minute is None:
                  logger.error(f"({self.TASK_TYPE}) ❌ Неполные настройки времени регистрации для {chat_id_str}: {access_settings}")
                  return False
 
-            # Преобразуем день недели из формата JavaScript (0=Вс) в Python (0=Пн)
             python_weekday = (int(registration_day) - 1 + 7) % 7
-
-            # Получаем текущее время в нужном часовом поясе
             now = datetime.now(ZoneInfo(self.settings.TIMEZONE))
+            
             next_registration = self._calculate_next_registration_time(
-                now, python_weekday, int(registration_hour), int(registration_minute), self.settings
+                now, python_weekday, int(registration_hour), int(registration_minute), period_length, self.settings
             )
             
             if not next_registration:
@@ -155,19 +150,13 @@ class ShiftAccessTask(BaseTask):
             logger.info(f"({self.TASK_TYPE}) 📅 Следующее телеграм-уведомление запланировано на: {next_registration}")
             
             task_id = self.generate_task_id(self.TASK_TYPE, chat_id_str)
-
-            # Сохраняем/обновляем задачу через TaskManager. Он сам добавит ее в APScheduler.
-            task_data = {
-                'comment': f'Telegram notification for {chat_id_str}'
-            }
-            # Добавляем проверку результата save_task
+            task_data = {'comment': f'Telegram notification for {chat_id_str}'}
             save_result = await self.task_manager.save_task(task_id, chat_id_str, self.TASK_TYPE, next_registration, task_data)
             
             if not save_result:
                  logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при сохранении/планировании задачи {task_id} через TaskManager")
                  return False
                  
-            # Просто возвращаем True, если save_task отработал
             logger.info(f"({self.TASK_TYPE}) ✅ Задача {task_id} успешно передана в TaskManager для сохранения и планирования на {next_registration} (async)")
             return True
 
@@ -176,44 +165,70 @@ class ShiftAccessTask(BaseTask):
             logger.error(traceback.format_exc())
             return False
 
-    def _calculate_next_registration_time(self, now: datetime, weekday: int, hour: int, minute: int, settings: scheduler_settings) -> Optional[datetime]:
-        """Рассчитывает следующее время запуска регистрации, учитывая текущее время и настройки."""
+    def _calculate_next_registration_time(self, now: datetime, target_weekday: int, hour: int, minute: int, period_length: int, settings: scheduler_settings) -> Optional[datetime]:
+        """Рассчитывает следующее время запуска, УЧИТЫВАЯ periodLength."""
         try:
             if not settings.TIMEZONE:
                 logger.error(f"({self.TASK_TYPE}) ❌ Отсутствует настройка TIMEZONE.")
                 return None
-            
-            # Создаем объект часового пояса
             try:
                 tz = ZoneInfo(settings.TIMEZONE)
             except Exception as tz_err:
                 logger.error(f"({self.TASK_TYPE}) ❌ Неверный формат TIMEZONE '{settings.TIMEZONE}': {tz_err}")
                 return None
 
-            # `now` уже должно быть timezone-aware из метода schedule
             if now.tzinfo is None:
                  logger.warning(f"({self.TASK_TYPE}) ⚠️ Переданное 'now' не содержит информации о часовом поясе. Используем текущее время с tz.")
                  now = datetime.now(tz)
-            
-            # Расчет следующего дня недели
-            days_ahead = (weekday - now.weekday() + 7) % 7
-            
-            # Рассчитываем следующую дату и время как НАИВНОЕ
-            # Берем дату из `now`, чтобы избежать проблем с переходом через полночь при расчете days_ahead
-            current_date_naive = now.astimezone(tz).date() # Берем дату в нужном поясе
-            next_run_date = current_date_naive + timedelta(days=days_ahead)
-            next_run_dt_naive = datetime.combine(next_run_date, time(hour=hour, minute=minute, second=0, microsecond=0))
+            else:
+                now = now.astimezone(tz)
 
-            # Делаем рассчитанное время timezone-aware
-            next_run_dt_aware = next_run_dt_naive.replace(tzinfo=tz)
+            # 1. Рассчитываем БЛИЖАЙШЕЕ время регистрации (как в старой логике)
+            days_ahead = (target_weekday - now.weekday() + 7) % 7
+            next_potential_date = (now + timedelta(days=days_ahead)).date()
+            immediate_next_dt_naive = datetime.combine(next_potential_date, time(hour=hour, minute=minute))
+            immediate_next_dt_aware = immediate_next_dt_naive.replace(tzinfo=tz)
+
+            # 2. Проверяем, не наступило ли оно уже СЕГОДНЯ
+            # Если сегодня нужный день, и время еще не наступило
+            if days_ahead == 0 and now < immediate_next_dt_aware:
+                logger.info(f"({self.TASK_TYPE}) Расчет: Ближайшее время ({immediate_next_dt_aware}) еще не наступило сегодня. Планируем на него.")
+                return immediate_next_dt_aware
+            # Если сегодня нужный день, но время уже прошло ИЛИ наступило
+            elif days_ahead == 0 and now >= immediate_next_dt_aware:
+                 # Переходим к расчету на следующий цикл (через period_length)
+                 logger.info(f"({self.TASK_TYPE}) Расчет: Ближайшее время ({immediate_next_dt_aware}) уже прошло сегодня. Рассчитываем следующий цикл.")
+                 pass # Продолжаем выполнение функции
+            # Если нужный день не сегодня (days_ahead > 0)
+            else:
+                logger.info(f"({self.TASK_TYPE}) Расчет: Ближайшее время ({immediate_next_dt_aware}) будет через {days_ahead} дней. Планируем на него.")
+                return immediate_next_dt_aware
             
-            # Сравниваем с текущим временем (оба aware)
-            if days_ahead == 0 and now >= next_run_dt_aware:
-                # Если сегодня, но время уже прошло, планируем на следующую неделю
-                next_run_dt_aware += timedelta(days=7)
-                logger.info(f"({self.TASK_TYPE}) Время регистрации сегодня ({next_run_dt_aware.strftime('%H:%M')}) уже прошло или наступило. Планируем на след. неделю.")
-                
+            # 3. Если мы здесь, значит время регистрации СЕГОДНЯ уже прошло.
+            #    Рассчитываем следующий запуск через period_length.
+            
+            # 3.1 Находим дату ПОСЛЕДНЕГО прошедшего дня регистрации (target_weekday)
+            #    (так как время сегодня уже прошло, последним точно был сегодняшний день)
+            last_target_date = now.date()
+            last_target_dt_naive = datetime.combine(last_target_date, time(hour=hour, minute=minute))
+            last_target_dt_aware = last_target_dt_naive.replace(tzinfo=tz)
+            # Эта дата используется как база для отсчета period_length
+
+            # 3.2 Добавляем period_length к дате последнего запуска
+            base_date_for_next = last_target_dt_aware + timedelta(days=max(1, period_length) -1)
+            
+            # 3.3 Находим СЛЕДУЮЩИЙ день регистрации ПОСЛЕ base_date_for_next
+            days_until_next_target_day = (target_weekday - base_date_for_next.weekday() + 7) % 7
+            if days_until_next_target_day == 0:
+                 days_until_next_target_day = 7 
+                 
+            next_run_date = (base_date_for_next + timedelta(days=days_until_next_target_day)).date()
+            next_run_dt_naive = datetime.combine(next_run_date, time(hour=hour, minute=minute))
+            next_run_dt_aware = next_run_dt_naive.replace(tzinfo=tz)
+
+            logger.info(f"({self.TASK_TYPE}) Расчет след. цикла: Последний зап.={last_target_dt_aware}, Period={period_length}, База+Period={base_date_for_next}, След.зап.={next_run_dt_aware}")
             return next_run_dt_aware
+            
         except Exception as e:
              logger.error(f"({self.TASK_TYPE}) ❌ Ошибка в _calculate_next_registration_time: {e}")
              logger.error(traceback.format_exc())

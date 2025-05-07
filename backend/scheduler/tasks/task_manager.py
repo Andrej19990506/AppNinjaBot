@@ -217,12 +217,11 @@ class TaskManager:
             'settings': self.settings,      
             'task_manager': self,           
             'db_service': self.db_service, # db_service тоже может быть нужен
-            'scheduler_instance': self.scheduler, # Добавляем scheduler_instance
-            'job_id': task_id                 # Добавляем ID самой задачи
         }
         
         # --- Дополнительные kwargs для конкретных типов задач --- 
         if task_type == EventReminderTask.TASK_TYPE and data:
+            job_kwargs['job_id'] = task_id 
             job_kwargs['notification_id'] = data.get('notification_id')
             job_kwargs['confirmation_type'] = data.get('confirmation_type', 'default')
             logger.debug(f"Добавлены notification_id и confirmation_type в kwargs для {task_id}")

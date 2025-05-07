@@ -15,6 +15,14 @@ declare module 'date-fns/addDays' {
     export default function addDays(date: Date | number, amount: number): Date;
 }
 
+declare module 'date-fns/addWeeks' {
+    export default function addWeeks(date: Date | number, amount: number): Date;
+}
+
+declare module 'date-fns/getDay' {
+    export default function getDay(date: Date | number): number;
+}
+
 declare module 'date-fns/format' {
     export default function format(date: Date | number, format: string, options?: { locale?: any }): string;
 }

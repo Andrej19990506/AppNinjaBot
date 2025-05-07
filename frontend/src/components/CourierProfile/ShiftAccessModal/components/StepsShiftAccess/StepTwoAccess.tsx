@@ -2,6 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useStepAccessSettings } from '../../../ShiftAccessModal/hooks';
+import { format } from 'date-fns';
+import addDays from 'date-fns/addDays';
+import addWeeks from 'date-fns/addWeeks';
+import getDay from 'date-fns/getDay';
+import { ru } from 'date-fns/locale';
 
 // Стили для контейнера
 const Container = styled.div`
@@ -199,7 +204,7 @@ const ExampleTitle = styled.h5`
 const ExampleText = styled.p`
     font-size: 14px;
     color: var(--text-secondary);
-    margin: 0;
+    line-height: 1.6;
 `;
 
 // Анимации для элементов формы
@@ -228,100 +233,169 @@ const CalendarIcon = () => (
 
 // Компонент иконки информации
 const InfoIcon = () => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="10"></circle>
         <line x1="12" y1="16" x2="12" y2="12"></line>
         <line x1="12" y1="8" x2="12.01" y2="8"></line>
     </svg>
 );
 
-// Типы смещения
+// Типы смещения и длины периода
 enum OffsetType {
     NONE = 'none',
     DAYS = 'days',
     WEEKS = 'weeks'
 }
 
+// <<< НОВОЕ: Enum для выбора длины периода >>>
+enum PeriodLengthType {
+    ONE_WEEK = '7', // Значения будут строками, т.к. value у radio - строка
+    TWO_WEEKS = '14'
+}
+
+// Функция для получения даты ПОСЛЕДНЕГО дня недели (изменена для работы с Date) 
+const getLastDayOfWeek = (date: Date, targetDayOfWeek: number): Date => {
+    const currentDay = getDay(date); 
+    let daysToSubtract = currentDay - targetDayOfWeek;
+    if (daysToSubtract < 0) {
+        daysToSubtract += 7; 
+    }
+    const resultDate = new Date(date); // Клонируем дату
+    resultDate.setDate(resultDate.getDate() - daysToSubtract);
+    return resultDate;
+};
+
+// <<< НОВАЯ функция: найти следующий день регистрации НА или ПОСЛЕ указанной даты >>>
+const getNextRegistrationDayOnOrAfter = (baseDate: Date, targetDayOfWeek: number, hour: number, minute: number): Date => {
+    const baseDay = getDay(baseDate);
+    let daysToAdd = (targetDayOfWeek - baseDay + 7) % 7;
+    
+    const nextRegDate = new Date(baseDate); // Клонируем
+    nextRegDate.setDate(nextRegDate.getDate() + daysToAdd);
+    nextRegDate.setHours(hour, minute, 0, 0); // Устанавливаем время
+    
+    // Если мы получили дату раньше baseDate (например, из-за времени),
+    // значит нужно взять следующую неделю
+    if (nextRegDate.getTime() < baseDate.getTime()) {
+         nextRegDate.setDate(nextRegDate.getDate() + 7);
+    }
+    
+    return nextRegDate;
+};
+
 const StepTwo: React.FC = () => {
     const { settings, updateSettings } = useStepAccessSettings();
     
-    // --- Добавляем проверку на null при инициализации useState --- 
-    const [offsetType, setOffsetType] = useState<OffsetType>(
-        (settings?.offsetType as OffsetType) ?? OffsetType.WEEKS
-    );
-    const [offsetAmount, setOffsetAmount] = useState<number>(
-        settings?.offsetAmount ?? 1
-    );
-    // --- ---------------------------------------------------- --- 
-    
+    const initialOffsetType = (settings?.offsetType as OffsetType) ?? OffsetType.DAYS;
+    const [offsetType, setOffsetType] = useState<OffsetType>(initialOffsetType);
+    const [offsetAmount, setOffsetAmount] = useState<number>(settings?.offsetAmount ?? 4);
+
+    // <<< ИЗМЕНЕНО: Локальное состояние для periodLengthType и его инициализация >>>
+    const initialPeriodLength = settings?.periodLength ?? 7;
+    const initialPeriodLengthType = initialPeriodLength === 14 ? PeriodLengthType.TWO_WEEKS : PeriodLengthType.ONE_WEEK;
+    const [periodLengthType, setPeriodLengthType] = useState<PeriodLengthType>(initialPeriodLengthType);
+
     useEffect(() => {
-        // --- Добавляем проверку на null в useEffect --- 
         if (settings) {
-            setOffsetType((settings.offsetType as OffsetType) ?? OffsetType.WEEKS);
-            setOffsetAmount(settings.offsetAmount ?? 1);
+            setOffsetType((settings.offsetType as OffsetType) ?? OffsetType.DAYS);
+            setOffsetAmount(settings.offsetAmount ?? 4);
+            // <<< ИЗМЕНЕНО: Обновляем periodLengthType из settings.periodLength >>>
+            const currentPeriodLength = settings.periodLength ?? 7;
+            setPeriodLengthType(currentPeriodLength === 14 ? PeriodLengthType.TWO_WEEKS : PeriodLengthType.ONE_WEEK);
         } else {
-             // Если настроек нет, сбрасываем на дефолтные значения
-             setOffsetType(OffsetType.WEEKS);
-             setOffsetAmount(1);
+            setOffsetType(OffsetType.DAYS);
+            setOffsetAmount(4);
+            setPeriodLengthType(PeriodLengthType.ONE_WEEK); // По умолчанию одна неделя
         }
-        // --- -------------------------------------- --- 
     }, [settings]);
-    
-    // Обработчик изменения типа смещения
+
     const handleOffsetTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        const type = e.target.value as OffsetType;
-        setOffsetType(type);
-        // Обновляем настройки в Redux
-        updateSettings({ 
-            offsetType: type,
-            // Если выбрано "Нет", устанавливаем offsetAmount в 0
-            ...(type === OffsetType.NONE ? { offsetAmount: 0 } : {})
-        });
+        const newType = e.target.value as OffsetType;
+        setOffsetType(newType);
+        const defaultAmount = newType === OffsetType.WEEKS ? 1 : 4;
+        setOffsetAmount(defaultAmount);
+        updateSettings({ offsetType: newType, offsetAmount: defaultAmount });
     }, [updateSettings]);
-    
-    // Обработчик изменения величины смещения
+
     const handleOffsetAmountChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-        const amount = parseInt(e.target.value, 10);
-        setOffsetAmount(amount);
-        // Обновляем настройки в Redux
-        updateSettings({ offsetAmount: amount });
+        const newAmount = parseInt(e.target.value, 10);
+        setOffsetAmount(newAmount);
+        updateSettings({ offsetAmount: newAmount });
     }, [updateSettings]);
     
-    // Формирование текста примера на основе выбранных значений
-    const getExampleText = useCallback(() => {
-        const today = new Date();
-        
-        if (offsetType === OffsetType.NONE) {
-            return 'Регистрация будет открыта на текущую неделю.';
-        }
-        
-        let futureDate = new Date(today);
-        let unitText = '';
-        
-        if (offsetType === OffsetType.DAYS) {
-            futureDate.setDate(today.getDate() + offsetAmount);
-            unitText = offsetAmount === 1 ? 'день' : offsetAmount < 5 ? 'дня' : 'дней';
-        } else if (offsetType === OffsetType.WEEKS) {
-            futureDate.setDate(today.getDate() + offsetAmount * 7);
-            unitText = offsetAmount === 1 ? 'неделю' : 'недели';
-        }
-        
-        // Форматирование даты
-        const options: Intl.DateTimeFormatOptions = { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric',
-            weekday: 'long'
-        };
-        const formattedDate = futureDate.toLocaleDateString('ru-RU', options);
-        
-        return `Если сегодня ${today.toLocaleDateString('ru-RU', options)}, то регистрация будет открыта на период, начинающийся через ${offsetAmount} ${unitText} - ${formattedDate}.`;
-    }, [offsetType, offsetAmount]);
+    // <<< ИЗМЕНЕНО: Обработчик изменения длины периода через радио-кнопки >>>
+    const handlePeriodLengthTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const newType = e.target.value as PeriodLengthType;
+        setPeriodLengthType(newType);
+        const newLength = parseInt(newType, 10); // Преобразуем '7' или '14' в число
+        updateSettings({ periodLength: newLength });
+    }, [updateSettings]);
+
+    const getOffsetAmountOptions = () => {
+        const limit = offsetType === OffsetType.WEEKS ? 4 : 14;
+        return Array.from({ length: limit }, (_, i) => i + 1);
+    };
     
+    // Опции для длины периода больше не нужны в виде селектора
+    // const getPeriodLengthOptions = () => {
+    //     return Array.from({ length: 14 }, (_, i) => i + 1); 
+    // };
+
+    const getOffsetUnitLabel = () => {
+        switch (offsetType) {
+            case OffsetType.DAYS: return offsetAmount === 1 ? 'день' : (offsetAmount >= 2 && offsetAmount <= 4) ? 'дня' : 'дней';
+            case OffsetType.WEEKS: return offsetAmount === 1 ? 'неделя' : (offsetAmount >= 2 && offsetAmount <= 4) ? 'недели' : 'недель';
+            default: return '';
+        }
+    };
+
+    // Эта функция больше не нужна, текст будет в лейблах
+    // const getPeriodLengthUnitLabel = () => { ... };
+
+    const getExampleText = () => {
+        const registrationDay = settings?.registrationStartDay ?? 4;
+        const registrationHour = settings?.registrationStartHour ?? 12;
+        const registrationMinute = settings?.registrationStartMinute ?? 0;
+        const daysOfWeek = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
+        const regDayName = daysOfWeek[registrationDay] ?? 'четверг'; 
+
+        // <<< ИСПОЛЬЗУЕМ periodLengthType для получения числового значения >>>
+        const currentPeriodLengthValue = parseInt(periodLengthType, 10);
+
+        const now = new Date();
+        let lastRegistrationDateTime = getLastDayOfWeek(now, registrationDay);
+        lastRegistrationDateTime.setHours(registrationHour, registrationMinute, 0, 0);
+        if (getDay(now) === registrationDay && now.getTime() < lastRegistrationDateTime.getTime()) {
+            lastRegistrationDateTime.setDate(lastRegistrationDateTime.getDate() - 7);
+        }
+
+        const baseDateForNextCycle = addDays(lastRegistrationDateTime, max(1, currentPeriodLengthValue) - 1);
+        const predictedNextRegDay = getNextRegistrationDayOnOrAfter(
+            baseDateForNextCycle,
+            registrationDay, 
+            registrationHour, 
+            registrationMinute
+        );
+
+        let predictedAccessStartDate: Date;
+        if (offsetType === OffsetType.WEEKS) {
+            predictedAccessStartDate = addWeeks(predictedNextRegDay, offsetAmount);
+        } else {
+            const effectiveOffset = offsetType === OffsetType.NONE ? 0 : offsetAmount;
+            predictedAccessStartDate = addDays(predictedNextRegDay, effectiveOffset);
+        }
+        
+        const formattedStartDate = format(predictedAccessStartDate, 'EEEE, d MMMM', { locale: ru });
+        
+        // <<< АДАПТИРОВАННЫЙ ТЕКСТ ПОДСКАЗКИ >>>
+        const periodText = periodLengthType === PeriodLengthType.ONE_WEEK ? "на неделю (7 дней)" : "на 2 недели (14 дней)";
+        return `Если регистрация открывается в ${regDayName}, и доступ открывается ${periodText}, то с вашим смещением (${offsetAmount} ${getOffsetUnitLabel()}) следующий доступ начнется примерно с ${formattedStartDate}.`;
+    };
+
     return (
         <Container>
             <FormContainer>
-                {/* Секция выбора типа смещения */}
+                {/* Секция типа смещения (без изменений) */}
                 <FormSection 
                     variants={formSectionVariants}
                     initial="hidden"
@@ -330,110 +404,115 @@ const StepTwo: React.FC = () => {
                 >
                     <SectionTitle>
                         <CalendarIcon />
-                        Период смены для регистрации
+                        Смещение начала записи
                     </SectionTitle>
-                    
                     <OffsetTypeSelector>
                         <RadioGroup>
                             <RadioOption>
                                 <input 
                                     type="radio" 
                                     name="offsetType" 
-                                    value={OffsetType.NONE} 
-                                    checked={offsetType === OffsetType.NONE}
-                                    onChange={handleOffsetTypeChange}
-                                />
-                                <span className="radio-custom"></span>
-                                <span className="radio-label">Текущий период</span>
-                            </RadioOption>
-                            
-                            <RadioOption>
-                                <input 
-                                    type="radio" 
-                                    name="offsetType" 
-                                    value={OffsetType.DAYS}
+                                    value={OffsetType.DAYS} 
                                     checked={offsetType === OffsetType.DAYS}
                                     onChange={handleOffsetTypeChange}
                                 />
                                 <span className="radio-custom"></span>
-                                <span className="radio-label">В днях вперёд</span>
+                                <span className="radio-label">Сместить на N дней</span>
                             </RadioOption>
-                            
                             <RadioOption>
                                 <input 
                                     type="radio" 
                                     name="offsetType" 
-                                    value={OffsetType.WEEKS}
+                                    value={OffsetType.WEEKS} 
                                     checked={offsetType === OffsetType.WEEKS}
                                     onChange={handleOffsetTypeChange}
                                 />
                                 <span className="radio-custom"></span>
-                                <span className="radio-label">В неделях вперёд</span>
+                                <span className="radio-label">Сместить на N недель</span>
                             </RadioOption>
                         </RadioGroup>
                     </OffsetTypeSelector>
+                    <AmountSelector>
+                        <AmountLabel htmlFor="offsetAmountSelect">Сместить на:</AmountLabel>
+                        <AmountSelect 
+                            id="offsetAmountSelect"
+                            value={offsetAmount} 
+                            onChange={handleOffsetAmountChange}
+                            whileTap={{ scale: 0.95 }}
+                        >
+                            {getOffsetAmountOptions().map(num => (
+                                <option key={num} value={num}>{num}</option>
+                            ))}
+                        </AmountSelect>
+                        <AmountUnit>{getOffsetUnitLabel()}</AmountUnit>
+                    </AmountSelector>
+                    <Description>
+                        Укажите, через сколько дней или недель после дня открытия регистрации начнется период, на который можно записываться.
+                    </Description>
+                </FormSection>
+
+                {/* <<< ИЗМЕНЕНА СЕКЦИЯ: Длина периода доступа (радио-кнопки) >>> */}
+                <FormSection
+                    variants={formSectionVariants}
+                    initial="hidden"
+                    animate="visible"
+                    custom={1}
+                >
+                    <SectionTitle>
+                        <CalendarIcon />
+                        Длительность периода записи
+                    </SectionTitle>
                     
-                    {offsetType !== OffsetType.NONE && (
-                        <AmountSelector>
-                            <AmountLabel>
-                                {offsetType === OffsetType.DAYS ? 'Количество дней:' : 'Количество недель:'}
-                            </AmountLabel>
-                            
-                            <AmountSelect 
-                                value={offsetAmount}
-                                onChange={handleOffsetAmountChange}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                {Array.from({ length: offsetType === OffsetType.DAYS ? 14 : 6 }, (_, i) => i + 1).map(num => (
-                                    <option key={num} value={num}>
-                                        {num}
-                                    </option>
-                                ))}
-                            </AmountSelect>
-                            
-                            <AmountUnit>
-                                {offsetType === OffsetType.DAYS 
-                                    ? offsetAmount === 1 
-                                        ? 'день' 
-                                        : offsetAmount < 5 
-                                            ? 'дня' 
-                                            : 'дней'
-                                    : offsetAmount === 1 
-                                        ? 'неделя' 
-                                        : offsetAmount < 5 
-                                            ? 'недели' 
-                                            : 'недель'
-                                }
-                            </AmountUnit>
-                        </AmountSelector>
-                    )}
+                    <RadioGroup> {/* Используем тот же RadioGroup для стилизации */}
+                        <RadioOption>
+                            <input 
+                                type="radio" 
+                                name="periodLengthType" 
+                                value={PeriodLengthType.ONE_WEEK} 
+                                checked={periodLengthType === PeriodLengthType.ONE_WEEK}
+                                onChange={handlePeriodLengthTypeChange}
+                            />
+                            <span className="radio-custom"></span>
+                            <span className="radio-label">На неделю (7 дней)</span>
+                        </RadioOption>
+                        <RadioOption>
+                            <input 
+                                type="radio" 
+                                name="periodLengthType" 
+                                value={PeriodLengthType.TWO_WEEKS} 
+                                checked={periodLengthType === PeriodLengthType.TWO_WEEKS}
+                                onChange={handlePeriodLengthTypeChange}
+                            />
+                            <span className="radio-custom"></span>
+                            <span className="radio-label">На 2 недели (14 дней)</span>
+                        </RadioOption>
+                    </RadioGroup>
                     
                     <Description>
-                        {offsetType === OffsetType.NONE 
-                            ? 'Курьеры смогут записываться на текущий период (текущую неделю)'
-                            : `Курьеры смогут записываться на период, который начинается через указанное количество ${offsetType === OffsetType.DAYS ? 'дней' : 'недель'}`
-                        }
+                        Выберите, на какой срок будет открыт доступ для записи в смены.
                     </Description>
-                    
-                    {/* Визуальный пример */}
-                    <VisualExample
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 }}
-                    >
-                        <ExampleTitle>
-                            <InfoIcon />
-                            Пример
-                        </ExampleTitle>
-                        <ExampleText>
-                            {getExampleText()}
-                        </ExampleText>
-                    </VisualExample>
                 </FormSection>
+
+                {/* Визуальный пример (без изменений, но getExampleText адаптирован) */}
+                <VisualExample
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                >
+                    <ExampleTitle>
+                        <InfoIcon />
+                        Как это работает (пример)
+                    </ExampleTitle>
+                    <ExampleText>
+                        {getExampleText()} 
+                    </ExampleText>
+                </VisualExample>
             </FormContainer>
         </Container>
     );
-};
+}
+
+// <<< НОВОЕ: Добавляем Math.max для совместимости >>>
+const max = (a: number, b: number) => Math.max(a, b);
 
 export default StepTwo; 

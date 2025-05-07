@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # --- Статическая функция-обертка для APScheduler --- 
 async def send_reminder(**kwargs):
     """Статическая обертка для EventReminderTask, вызываемая APScheduler."""
+    logger.info(f"[send_reminder wrapper] Получены kwargs: {kwargs}")
     job_id = kwargs.get('job_id') # ID задачи-напоминания (reminder:nid:cid)
     chat_id = kwargs.get('chat_id')
     notification_id = kwargs.get('notification_id') # ID исходного уведомления
@@ -158,7 +159,7 @@ class EventReminderTask(BaseTask):
         # 4. Перепланируем себя на следующие 1 минуту, ТОЛЬКО если отправка была успешной
         if send_success:
             try:
-                next_run_time = datetime.now(self.timezone) + timedelta(minutes=1)
+                next_run_time = datetime.now(self.timezone) + timedelta(minutes=30)
 
                 # <<< НАЧАЛО ИЗМЕНЕНИЯ: Используем task_manager.save_task >>>
                 # Собираем данные для сохранения/перепланирования

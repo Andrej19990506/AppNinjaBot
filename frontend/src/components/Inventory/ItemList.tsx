@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import styles from './ItemList.module.css';
 import { InventoryItem } from '../../types/inventoryTypes';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -43,21 +43,41 @@ const ItemList: React.FC<ItemListProps> = ({
     onSearchResultSelect
 }) => {
     const listRef = useRef<HTMLDivElement>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_selectedItemId, setSelectedItemId] = useState<string | null>(null);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [isLoading, _setIsLoading] = useState(false);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [_error, _setError] = useState<string | null>(null);
     const { selectedChat } = useAppSelector(state => state.inventory);
     const dispatch = useAppDispatch();
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const socket = null; // Заглушка для socket
     const [deleteItem, setDeleteItem] = useState<{ id: string; name: string } | null>(null);
     const [showAddForm, setShowAddForm] = useState(false);
     const [newItemName, setNewItemName] = useState('');
     const [newItemHasSemifinshed, setNewItemHasSemifinshed] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    
+    // Эффект для обработки вертикального скролла и преобразования его в горизонтальный
+    useEffect(() => {
+        const grid = listRef.current;
+        if (!grid) return;
+        
+        const handleWheel = (e: WheelEvent) => {
+            // Предотвращаем стандартное поведение скролла
+            e.preventDefault();
+            
+            // Определяем скорость и направление скролла
+            const scrollAmount = e.deltaY || e.deltaX;
+            
+            // Прокручиваем горизонтально
+            grid.scrollLeft += scrollAmount;
+        };
+        
+        // Добавляем обработчик события
+        grid.addEventListener('wheel', handleWheel, { passive: false });
+        
+        // Очищаем обработчик при размонтировании
+        return () => {
+            grid.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
     
     // Определяем статус товара (заполнен/пуст/нет в наличии)
     const getItemStatus = (item: InventoryItem) => {
@@ -226,15 +246,122 @@ const ItemList: React.FC<ItemListProps> = ({
         setDeleteItem(null);
     };
     
-    // Обработчик свайпа
-    const handleDragEnd = (info: PanInfo, itemId: string) => {
-        if (info.offset.x < -100) { // Если свайп влево больше 100px
-            handleDeleteStart(itemId, itemId);
+    // Анимации для карточек
+    const itemVariants = {
+        hidden: { 
+            opacity: 0,
+            y: 20,
+            scale: 0.95
+        },
+        show: { 
+            opacity: 1,
+            y: 0,
+            scale: 1,
+            transition: {
+                type: "spring",
+                stiffness: 300,
+                damping: 25
+            }
+        },
+        exit: {
+            opacity: 0,
+            scale: 0.9,
+            transition: {
+                duration: 0.2
+            }
         }
     };
     
     return (
         <div className={`${styles.container} ${searchQuery ? styles.searchModeActive : ''}`}>
+            {isLoading ? (
+                <div className={styles.searchingState}>
+                    <CircularProgress size={24} className={styles.searchingSpinner} />
+                    <p>Загрузка товаров...</p>
+                </div>
+            ) : Object.keys(items).length === 0 ? (
+                <div className={styles.emptyState}>
+                    <p>В этой категории нет товаров</p>
+                </div>
+            ) : (
+                <motion.div 
+                    ref={listRef}
+                    className={styles.list}
+                    initial="hidden"
+                    animate="show"
+                    variants={{
+                        show: {
+                            transition: {
+                                staggerChildren: 0.05,
+                                delayChildren: 0.1
+                            }
+                        }
+                    }}
+                >
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {/* @ts-ignore */}
+                    <AnimatePresence mode="sync">
+                        {itemsArray.map(({ id: itemId, ...item }) => {
+                            const status = getItemStatus(item);
+                            const isSearchResult = currentCategoryResults.some(
+                                result => result.itemId === itemId
+                            );
+                            
+                            return (
+                                <motion.div
+                                    key={itemId}
+                                    className={`${styles.itemCard} ${styles[status]} ${isSearchResult ? styles.searchResult : ''}`}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleItemClick(itemId);
+                                    }}
+                                    variants={itemVariants}
+                                    whileHover={{ 
+                                        scale: 1.02,
+                                        y: -5,
+                                        transition: { duration: 0.2 }
+                                    }}
+                                    whileTap={{ scale: 0.98 }}
+                                    onDoubleClick={() => handleDeleteStart(itemId, itemId)}
+                                    layout
+                                >
+                                    <h3 className={styles.itemTitle}>
+                                        {isSearchResult ? 
+                                            highlightMatch(itemId, searchQuery) : itemId
+                                        }
+                                    </h3>
+                                    
+                                    {status === 'filled' && (
+                                        <motion.div 
+                                            className={styles.filledBadge}
+                                            initial={{ scale: 0, rotate: -180 }}
+                                            animate={{ scale: 1, rotate: 0 }}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 500,
+                                                damping: 30
+                                            }}
+                                        />
+                                    )}
+                                    
+                                    {status === 'outOfStock' && (
+                                        <motion.div 
+                                            className={styles.outOfStockBadge}
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                                        >
+                                            Нет в наличии
+                                        </motion.div>
+                                    )}
+                                </motion.div>
+                            );
+                        })}
+                    </AnimatePresence>
+                </motion.div>
+            )}
+            
+            {/* Кнопка/форма добавления товара (перемещена вниз) */}
             {showAddForm ? (
                 <div className={styles.addItemForm}>
                     <input
@@ -278,91 +405,6 @@ const ItemList: React.FC<ItemListProps> = ({
                     <AddIcon style={{ marginRight: '8px' }} />
                     Добавить новый товар
                 </button>
-            )}
-            
-            {isLoading ? (
-                <div className={styles.searchingState}>
-                    <CircularProgress size={24} className={styles.searchingSpinner} />
-                    <p>Загрузка товаров...</p>
-                </div>
-            ) : Object.keys(items).length === 0 ? (
-                <div className={styles.emptyState}>
-                    <p>В этой категории нет товаров</p>
-                </div>
-            ) : (
-                <div ref={listRef} className={styles.list}>
-                    <AnimatePresenceWrapper>
-                        {itemsArray.map(({ id: itemId, ...item }) => {
-                            const status = getItemStatus(item);
-                            const isSearchResult = currentCategoryResults.some(
-                                result => result.itemId === itemId
-                            );
-                            
-                            return (
-                                <motion.div
-                                    key={itemId}
-                                    className={`${styles.itemCard} ${styles[status]} ${isSearchResult ? styles.searchResult : ''}`}
-                                    drag="x"
-                                    dragConstraints={{ left: 0, right: 0 }}
-                                    onDragEnd={(_, info) => handleDragEnd(info, itemId)}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleItemClick(itemId);
-                                    }}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    transition={{
-                                        type: "spring",
-                                        stiffness: 500,
-                                        damping: 30,
-                                        mass: 1
-                                    }}
-                                    layout
-                                >
-                                    <h3 className={styles.itemTitle}>
-                                        {isSearchResult ? 
-                                            highlightMatch(itemId, searchQuery) : itemId
-                                        }
-                                    </h3>
-                                    
-                                    {status === 'filled' && (
-                                        <motion.div 
-                                            className={styles.filledBadge}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        />
-                                    )}
-                                    
-                                    {status === 'outOfStock' && (
-                                        <motion.div 
-                                            className={styles.outOfStockBadge}
-                                            initial={{ scale: 0 }}
-                                            animate={{ scale: 1 }}
-                                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                                        >
-                                            Нет в наличии
-                                        </motion.div>
-                                    )}
-                                    
-                                    <div className={styles.deleteIndicator}>
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                            <path 
-                                                d="M19 7l-7 7-7-7" 
-                                                strokeWidth="2" 
-                                                strokeLinecap="round" 
-                                                strokeLinejoin="round"
-                                            />
-                                        </svg>
-                                    </div>
-                                </motion.div>
-                            );
-                        })}
-                    </AnimatePresenceWrapper>
-                </div>
             )}
             
             <DeleteConfirmationModal

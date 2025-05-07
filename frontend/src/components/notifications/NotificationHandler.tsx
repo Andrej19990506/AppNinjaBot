@@ -15,11 +15,7 @@ const NotificationHandler: React.FC = () => {
     dispatch(removeNotification(id));
   };
 
-  // УБИРАЕМ ФИЛЬТРАЦИЮ - ПЕРЕДАЕМ ВСЕ УВЕДОМЛЕНИЯ
-  // const systemNotifications = notifications.filter(
-  //   (n): n is Notification & { id: string } => 
-  //     typeof n.id === 'string' && !n.isToast 
-  // );
+
 
   return (
     <SystemNotification 

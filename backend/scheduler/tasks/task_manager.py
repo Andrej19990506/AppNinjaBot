@@ -217,6 +217,7 @@ class TaskManager:
             'settings': self.settings,      
             'task_manager': self,           
             'db_service': self.db_service, # db_service тоже может быть нужен
+            'scheduler_instance': self.scheduler # <--- ДОБАВЛЕНО
         }
         
         # --- Дополнительные kwargs для конкретных типов задач --- 
@@ -227,6 +228,10 @@ class TaskManager:
             logger.debug(f"Добавлены notification_id и confirmation_type в kwargs для {task_id}")
         # Добавьте здесь elif для других типов задач, если им нужны доп. данные из data в kwargs
         # --------------------------------------------------------
+
+        if task_type == EventReminderTask.TASK_TYPE: # Логируем только для напоминаний
+            logger.info(f"[TaskManager.save_task] Для НАПОМИНАНИЯ {task_id}, ПЕРЕД add_job, executor_path: {executor_path}")
+            logger.info(f"[TaskManager.save_task] Для НАПОМИНАНИЯ {task_id}, ПЕРЕД add_job, job_kwargs: {job_kwargs}")
 
         try:
             # --- Передаем kwargs в add_job --- 

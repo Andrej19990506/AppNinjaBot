@@ -327,8 +327,9 @@ class EventNotificationTask(BaseTask):
                         # <<< ИЗМЕНЕНИЕ: Планируем напоминание, если нужно >>>
                         if requires_confirmation:
                             if task_manager:
-                                # reminder_run_time = datetime.now(self.timezone) + timedelta(minutes=1) # Используем 1 минуту для теста
-                                reminder_run_time = datetime.now(self.timezone) + timedelta(minutes=30) # <<< ИЗМЕНЕНИЕ: Устанавливаем 30 минут >>>
+                                # Время для первого напоминания - через 30 минут после этого уведомления
+                                first_reminder_time = datetime.now(self.timezone) + timedelta(minutes=30) # ВОЗВРАЩЕНО НА 30 МИНУТ
+                                # first_reminder_time = datetime.now(self.timezone) + timedelta(minutes=1) # Для теста
 
                                 # --- ДОБАВЛЕНИЕ: Преобразование chat_id к короткому формату ПЕРЕД планированием ---
                                 chat_id_long = chat_id # Сохраняем оригинальный ID (может быть int или str)
@@ -345,7 +346,7 @@ class EventNotificationTask(BaseTask):
                                     'chat_id': chat_id_short_str, # Передаем короткий строковый ID
                                     'notification_id': notification_id,
                                     'confirmation_type': confirmation_type,
-                                    'run_time': reminder_run_time
+                                    'run_time': first_reminder_time
                                 }
                                 # --- КОНЕЦ ИЗМЕНЕНИЯ ID ---
                                 
@@ -353,7 +354,7 @@ class EventNotificationTask(BaseTask):
                                 reminder_task_instance = task_manager.task_instances.get(EventReminderTask.TASK_TYPE)
                                 if reminder_task_instance:
                                     # <<< ИЗМЕНЕНИЕ: Логируем с коротким ID >>>
-                                    logger.info(f"({self.TASK_TYPE}:{job_id}) Планирование задачи-напоминания {reminder_job_id} для чата {chat_id_short_str} на {reminder_run_time}")
+                                    logger.info(f"({self.TASK_TYPE}:{job_id}) Планирование задачи-напоминания {reminder_job_id} для чата {chat_id_short_str} на {first_reminder_time}")
                                     # Запускаем планирование напоминания (не ждем завершения)
                                     asyncio.create_task(reminder_task_instance.schedule(reminder_data))
                                 else:

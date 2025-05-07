@@ -1,6 +1,6 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect } from 'react';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import styles from './CategoryGrid.module.css';
 import { Inventory } from '../../types/inventoryTypes';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
@@ -13,12 +13,39 @@ interface CategoryGridProps {
 }
 
 const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inventory, selectedCategory }) => {
-    console.log('CategoryGrid render:', {
-        categories,
-        inventory,
-        selectedCategory
-    });
-
+    const gridRef = useRef<HTMLDivElement>(null);
+    const controls = useAnimation();
+    
+    // Эффект для анимации при монтировании
+    useEffect(() => {
+        controls.start("show");
+    }, [controls]);
+    
+    // Эффект для обработки вертикального скролла и преобразования его в горизонтальный
+    useEffect(() => {
+        const grid = gridRef.current;
+        if (!grid) return;
+        
+        const handleWheel = (e: WheelEvent) => {
+            // Предотвращаем стандартное поведение скролла
+            e.preventDefault();
+            
+            // Определяем скорость и направление скролла
+            const scrollAmount = e.deltaY || e.deltaX;
+            
+            // Прокручиваем горизонтально
+            grid.scrollLeft += scrollAmount;
+        };
+        
+        // Добавляем обработчик события
+        grid.addEventListener('wheel', handleWheel, { passive: false });
+        
+        // Очищаем обработчик при размонтировании
+        return () => {
+            grid.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
+    
     // Проверяем заполненность категории
     const isCategoryFilled = useCallback((category: string) => {
         const items = inventory[category] || {};
@@ -79,8 +106,8 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         show: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.1,
-                delayChildren: 0.2
+                staggerChildren: 0.05,
+                delayChildren: 0.1
             }
         }
     };
@@ -109,10 +136,15 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
             className={styles.container}
             variants={containerVariants}
             initial="hidden"
-            animate="show"
+            animate={controls}
         >
-            <motion.div className={styles.grid}>
-                <AnimatePresenceWrapper mode="sync">
+            <motion.div 
+                className={styles.grid}
+                ref={gridRef}
+            >
+                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {/* @ts-ignore */}
+                <AnimatePresence mode="sync">
                     {sortedCategories.map((category, index) => {
                         const isFilled = isCategoryFilled(category);
                         return (
@@ -123,6 +155,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                 variants={itemVariants}
                                 whileHover={{ 
                                     scale: 1.02,
+                                    y: -5,
                                     transition: { duration: 0.2 }
                                 }}
                                 whileTap={{ scale: 0.98 }}
@@ -138,7 +171,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                             type: "spring",
                                             stiffness: 500,
                                             damping: 30,
-                                            delay: 0.2 + index * 0.1
+                                            delay: 0.1 + index * 0.05
                                         }}
                                     >
                                         <svg viewBox="0 0 24 24" fill="none">
@@ -151,7 +184,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                                 animate={{ pathLength: 1 }}
                                                 transition={{ 
                                                     duration: 0.5,
-                                                    delay: 0.3 + index * 0.1
+                                                    delay: 0.2 + index * 0.05
                                                 }}
                                             />
                                         </svg>
@@ -160,7 +193,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                             </motion.div>
                         );
                     })}
-                </AnimatePresenceWrapper>
+                </AnimatePresence>
             </motion.div>
         </motion.div>
     );

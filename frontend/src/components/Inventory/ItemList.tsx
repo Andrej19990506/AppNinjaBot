@@ -4,13 +4,19 @@ import { InventoryItem } from '../../types/inventoryTypes';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { removeInventoryItem, addInventoryItem } from '../../store/slices/inventorySlice';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform, animate } from 'framer-motion';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
+
+// Закомментируем импорты Swiper пока не будем его использовать
+// import { Swiper, SwiperSlide } from 'swiper/react';
+// import { FreeMode, Mousewheel } from 'swiper/modules';
+// import 'swiper/css';
+// import 'swiper/css/free-mode';
 
 // Интерфейс для результатов поиска
 interface SearchResult {
@@ -53,6 +59,16 @@ const ItemList: React.FC<ItemListProps> = ({
     const [newItemName, setNewItemName] = useState('');
     const [newItemHasSemifinshed, setNewItemHasSemifinshed] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
+    // Для отслеживания долгого нажатия
+    const longPressRef = useRef<{timerId: NodeJS.Timeout | null; itemId: string | null; animationControls: any}>({
+        timerId: null,
+        itemId: null,
+        animationControls: null
+    });
+    // Состояние для отслеживания текущего нажимаемого элемента
+    const [pressingItemId, setPressingItemId] = useState<string | null>(null);
+    // Значение для анимации прогресса
+    const pressProgress = useMotionValue(0);
     
     // Эффект для обработки вертикального скролла и преобразования его в горизонтальный
     useEffect(() => {
@@ -76,6 +92,66 @@ const ItemList: React.FC<ItemListProps> = ({
         // Очищаем обработчик при размонтировании
         return () => {
             grid.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
+    
+    // Добавляем обработчик для сенсорных жестов для скролла на мобильных
+    useEffect(() => {
+        const listElement = listRef.current;
+        if (!listElement) return;
+        
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastY = 0;
+        let isScrolling = false;
+        
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            lastY = touchStartY;
+            isScrolling = false;
+        };
+        
+        const handleTouchMove = (e: TouchEvent) => {
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            
+            // Вычисляем дельты
+            const deltaX = Math.abs(touchStartX - currentX);
+            const deltaY = Math.abs(touchStartY - currentY);
+            
+            // Определяем направление свайпа
+            const direction = currentY > lastY ? 'down' : 'up';
+            
+            // Мгновенное изменение по Y (для определения скорости)
+            const instantDeltaY = lastY - currentY;
+            lastY = currentY;
+            
+            // Начинаем горизонтальный скролл если:
+            // 1. Вертикальное движение больше определенного порога ИЛИ
+            // 2. Мы уже находимся в режиме скроллинга
+            if ((deltaY > 10 && deltaY > deltaX * 0.8) || isScrolling) {
+                isScrolling = true;
+                
+                // Преобразуем вертикальный свайп в горизонтальный скролл
+                // Коэффициент преобразования должен быть достаточно высоким
+                const scrollFactor = direction === 'up' ? 1.5 : 1.5;
+                const scrollAmount = instantDeltaY * scrollFactor;
+                
+                // Применяем скролл немедленно
+                listElement.scrollLeft += scrollAmount;
+                
+                // Предотвращаем стандартный скролл страницы
+                e.preventDefault();
+            }
+        };
+        
+        listElement.addEventListener('touchstart', handleTouchStart as EventListener, { passive: false });
+        listElement.addEventListener('touchmove', handleTouchMove as EventListener, { passive: false });
+        
+        return () => {
+            listElement.removeEventListener('touchstart', handleTouchStart as EventListener);
+            listElement.removeEventListener('touchmove', handleTouchMove as EventListener);
         };
     }, []);
     
@@ -169,6 +245,62 @@ const ItemList: React.FC<ItemListProps> = ({
             console.log(`Выбран товар: ${itemId}`);
         }, 10);
     };
+    
+    // Обработчики долгого нажатия для удаления
+    const handleLongPressStart = (itemId: string) => {
+        // Очищаем предыдущий таймер, если есть
+        if (longPressRef.current.timerId) {
+            clearTimeout(longPressRef.current.timerId);
+            if (longPressRef.current.animationControls) {
+                longPressRef.current.animationControls.stop();
+            }
+        }
+        
+        setPressingItemId(itemId);
+        pressProgress.set(0);
+        
+        // Запускаем анимацию прогресса
+        const animation = animate(pressProgress, 1, {
+            duration: 0.8, // 800ms - то же время, что и для долгого нажатия
+            ease: "linear"
+        });
+        
+        longPressRef.current.animationControls = animation;
+        
+        // Устанавливаем новый таймер
+        longPressRef.current.itemId = itemId;
+        longPressRef.current.timerId = setTimeout(() => {
+            handleDeleteStart(itemId, itemId);
+            // Сбрасываем состояние долгого нажатия
+            setPressingItemId(null);
+            longPressRef.current = { timerId: null, itemId: null, animationControls: null };
+        }, 800); // Задержка в 800мс для долгого нажатия
+    };
+    
+    const handleLongPressEnd = () => {
+        // Если пользователь отпустил жест до истечения таймера, отменяем действие
+        if (longPressRef.current.timerId) {
+            clearTimeout(longPressRef.current.timerId);
+            if (longPressRef.current.animationControls) {
+                longPressRef.current.animationControls.stop();
+            }
+            setPressingItemId(null);
+            pressProgress.set(0);
+            longPressRef.current = { timerId: null, itemId: null, animationControls: null };
+        }
+    };
+    
+    // Очистка таймера при размонтировании компонента
+    useEffect(() => {
+        return () => {
+            if (longPressRef.current.timerId) {
+                clearTimeout(longPressRef.current.timerId);
+            }
+            if (longPressRef.current.animationControls) {
+                longPressRef.current.animationControls.stop();
+            }
+        };
+    }, []);
     
     // Показать форму добавления товара
     const handleShowAddForm = () => {
@@ -306,15 +438,20 @@ const ItemList: React.FC<ItemListProps> = ({
                             const isSearchResult = currentCategoryResults.some(
                                 result => result.itemId === itemId
                             );
+                            const isPressing = pressingItemId === itemId;
                             
                             return (
                                 <motion.div
                                     key={itemId}
-                                    className={`${styles.itemCard} ${styles[status]} ${isSearchResult ? styles.searchResult : ''}`}
+                                    className={`${styles.itemCard} ${styles[status]} ${isSearchResult ? styles.searchResult : ''} ${isPressing ? styles.pressing : ''}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleItemClick(itemId);
                                     }}
+                                    onPointerDown={() => handleLongPressStart(itemId)} 
+                                    onPointerUp={handleLongPressEnd}
+                                    onPointerLeave={handleLongPressEnd}
+                                    onPointerCancel={handleLongPressEnd}
                                     variants={itemVariants}
                                     whileHover={{ 
                                         scale: 1.02,
@@ -322,7 +459,6 @@ const ItemList: React.FC<ItemListProps> = ({
                                         transition: { duration: 0.2 }
                                     }}
                                     whileTap={{ scale: 0.98 }}
-                                    onDoubleClick={() => handleDeleteStart(itemId, itemId)}
                                     layout
                                 >
                                     <h3 className={styles.itemTitle}>
@@ -353,6 +489,16 @@ const ItemList: React.FC<ItemListProps> = ({
                                         >
                                             Нет в наличии
                                         </motion.div>
+                                    )}
+                                    
+                                    {/* Прогресс долгого нажатия */}
+                                    {isPressing && (
+                                        <motion.div 
+                                            className={styles.pressProgress}
+                                            initial={{ scaleX: 0 }}
+                                            animate={{ scaleX: 1 }}
+                                            transition={{ duration: 0.8, ease: "linear" }}
+                                        />
                                     )}
                                 </motion.div>
                             );

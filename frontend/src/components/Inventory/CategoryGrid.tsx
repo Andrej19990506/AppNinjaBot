@@ -5,6 +5,12 @@ import styles from './CategoryGrid.module.css';
 import { Inventory } from '../../types/inventoryTypes';
 import AnimatePresenceWrapper from '../common/AnimatePresenceWrapper';
 
+// Закомментируем импорты Swiper пока не будем его использовать
+// import { Swiper, SwiperSlide } from 'swiper/react';
+// import { FreeMode, Mousewheel } from 'swiper/modules';
+// import 'swiper/css';
+// import 'swiper/css/free-mode';
+
 interface CategoryGridProps {
     categories: string[];
     onSelect: (category: string) => void;
@@ -21,28 +27,81 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         controls.start("show");
     }, [controls]);
     
-    // Эффект для обработки вертикального скролла и преобразования его в горизонтальный
+    // Обработчик колесика мыши для горизонтального скролла
     useEffect(() => {
         const grid = gridRef.current;
         if (!grid) return;
         
         const handleWheel = (e: WheelEvent) => {
-            // Предотвращаем стандартное поведение скролла
             e.preventDefault();
-            
-            // Определяем скорость и направление скролла
             const scrollAmount = e.deltaY || e.deltaX;
-            
-            // Прокручиваем горизонтально
             grid.scrollLeft += scrollAmount;
         };
         
-        // Добавляем обработчик события
         grid.addEventListener('wheel', handleWheel, { passive: false });
         
-        // Очищаем обработчик при размонтировании
         return () => {
             grid.removeEventListener('wheel', handleWheel);
+        };
+    }, []);
+    
+    // Добавляем обработчик для сенсорных жестов
+    useEffect(() => {
+        const grid = gridRef.current;
+        if (!grid) return;
+        
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let lastY = 0;
+        let isScrolling = false;
+        
+        const handleTouchStart = (e: TouchEvent) => {
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+            lastY = touchStartY;
+            isScrolling = false;
+        };
+        
+        const handleTouchMove = (e: TouchEvent) => {
+            const currentX = e.touches[0].clientX;
+            const currentY = e.touches[0].clientY;
+            
+            // Вычисляем дельты
+            const deltaX = Math.abs(touchStartX - currentX);
+            const deltaY = Math.abs(touchStartY - currentY);
+            
+            // Определяем направление свайпа
+            const direction = currentY > lastY ? 'down' : 'up';
+            
+            // Мгновенное изменение по Y (для определения скорости)
+            const instantDeltaY = lastY - currentY;
+            lastY = currentY;
+            
+            // Начинаем горизонтальный скролл если:
+            // 1. Вертикальное движение больше определенного порога ИЛИ
+            // 2. Мы уже находимся в режиме скроллинга
+            if ((deltaY > 10 && deltaY > deltaX * 0.8) || isScrolling) {
+                isScrolling = true;
+                
+                // Преобразуем вертикальный свайп в горизонтальный скролл
+                // Коэффициент преобразования должен быть достаточно высоким
+                const scrollFactor = direction === 'up' ? 1.5 : 1.5;
+                const scrollAmount = instantDeltaY * scrollFactor;
+                
+                // Применяем скролл немедленно
+                grid.scrollLeft += scrollAmount;
+                
+                // Предотвращаем стандартный скролл страницы
+                e.preventDefault();
+            }
+        };
+        
+        grid.addEventListener('touchstart', handleTouchStart as EventListener, { passive: false });
+        grid.addEventListener('touchmove', handleTouchMove as EventListener, { passive: false });
+        
+        return () => {
+            grid.removeEventListener('touchstart', handleTouchStart as EventListener);
+            grid.removeEventListener('touchmove', handleTouchMove as EventListener);
         };
     }, []);
     
@@ -142,8 +201,8 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                 className={styles.grid}
                 ref={gridRef}
             >
-                      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    {/* @ts-ignore */}
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {/* @ts-ignore */}
                 <AnimatePresence mode="sync">
                     {sortedCategories.map((category, index) => {
                         const isFilled = isCategoryFilled(category);

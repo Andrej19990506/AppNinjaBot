@@ -17,6 +17,10 @@
     max-width: 100vw;
     padding: 12px;
     justify-content: space-between;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
 }
 
 .container::before {
@@ -96,9 +100,9 @@
     grid-gap: 12px;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
-    will-change: transform;
+    will-change: transform, scroll-position;
     transform: translateZ(0);
     backface-visibility: hidden;
     perspective: 1000px;
@@ -110,6 +114,66 @@
     position: relative;
     z-index: 200;
     flex: 1;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+}
+
+/* Стили для Swiper */
+.swiperContainer {
+    width: 100%;
+    height: 100%;
+    padding: 5px 5px 12px 5px;
+    overflow: visible !important;
+}
+
+.swiperSlide {
+    width: auto !important;
+    height: 100%;
+    min-width: 180px;
+    max-width: 220px;
+}
+
+@media (max-width: 991px) {
+    .swiperSlide {
+        min-width: 160px;
+        max-width: 200px;
+    }
+    
+    .list {
+        grid-auto-columns: minmax(160px, 200px);
+        grid-template-rows: repeat(4, minmax(90px, 1fr));
+        grid-gap: 10px;
+    }
+}
+
+/* Стили для элементов внутри Swiper */
+.itemCard {
+    position: relative;
+    background: rgba(var(--card-rgb), 0.95);
+    border: 1px solid rgba(var(--border-rgb), 0.25);
+    border-radius: var(--radius-lg);
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 100px;
+    height: 100%;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    will-change: transform;
+    contain: layout style paint;
+    overflow: hidden;
+}
+
+/* Добавляем поддержку плавной прокрутки для Safari */
+@supports (-webkit-overflow-scrolling: touch) {
+    .list {
+        -webkit-overflow-scrolling: touch;
+        transition: none;
+    }
 }
 
 /* Стилизация скроллбара */
@@ -372,10 +436,18 @@
 
 /* Mobile styles */
 @media (max-width: 991px) {
+    .container {
+        touch-action: manipulation;
+        -webkit-overflow-scrolling: touch;
+    }
+    
     .list {
         grid-auto-columns: minmax(160px, 200px);
         grid-template-rows: repeat(4, minmax(90px, 1fr));
         grid-gap: 10px;
+        overscroll-behavior: auto;
+        touch-action: pan-x;
+        scroll-snap-type: none;
     }
     
     .itemCard {
@@ -502,27 +574,6 @@
     }
 }
 
-.itemCard {
-    position: relative;
-    background: rgba(var(--card-rgb), 0.95);
-    border: 1px solid rgba(var(--border-rgb), 0.25);
-    border-radius: var(--radius-lg);
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 100px;
-    height: 100%;
-    width: 100%;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    will-change: transform;
-    contain: layout style paint;
-    overflow: hidden;
-}
-
 .itemCard::before {
     content: '';
     position: absolute;
@@ -554,22 +605,73 @@
 }
 
 .itemCard.filled {
-    border-color: rgba(var(--success-rgb), 0.4);
-    background: rgba(var(--success-rgb), 0.05);
+    border-color: rgba(var(--primary-rgb), 0.6);
+    background: linear-gradient(180deg, rgba(var(--primary-rgb), 0.3) 0%, rgba(var(--primary-rgb), 1.2) 100%, rgba(var(--primary-rgb), 1.25) 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);
 }
 
 .itemCard.filled::before {
-    background: linear-gradient(135deg, rgba(var(--success-rgb), 0.25), transparent);
-    opacity: 0.2;
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        135deg, 
+        rgba(var(--primary-rgb), 0.5), 
+        transparent 65%
+    );
+    opacity: 0.3;
+    transition: all 0.5s ease;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.itemCard.filled::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+        circle at 70% 30%,
+        rgba(var(--primary-rgb), 0.6) 0%,
+        transparent 60%
+    );
+    opacity: 0.1;
+    z-index: 0;
+    pointer-events: none;
+    transition: all 0.5s ease;
+    animation: glowOrange 3s infinite ease-in-out;
 }
 
 .itemCard.filled:hover {
-    background: rgba(var(--success-rgb), 0.08);
-    box-shadow: 0 8px 24px rgba(var(--success-rgb), 0.15);
+    background: linear-gradient(180deg, rgba(var(--primary-rgb), 0.3) 0%, rgba(var(--primary-rgb), 1.2) 100%, rgba(var(--primary-rgb), 1.25) 100%);
+    box-shadow: 
+        0 8px 24px rgba(var(--primary-rgb), 0.25),
+        0 0 15px rgba(var(--primary-rgb), 0.2),
+        inset 0 0 6px rgba(var(--primary-rgb), 0.15);
+    transform: translateY(-5px);
 }
 
 .itemCard.filled:hover::before {
     opacity: 0.3;
+    background: linear-gradient(
+        135deg, 
+        rgba(var(--primary-rgb), 0.4), 
+        transparent 70%
+    );
+}
+
+.itemCard.filled:hover::after {
+    opacity: 0.15;
+    transform: scale(1.1);
+}
+
+.itemCard.filled .itemTitle {
+    color: var(--orange-primary);
+    text-shadow: 0 1px 3px rgba(var(--primary-rgb), 0.1);
+    font-weight: 600;
 }
 
 .itemCard.outOfStock {
@@ -597,7 +699,7 @@
     align-items: center;
     justify-content: center;
     color: white;
-    transition: transform 0.2s ease;
+    transition: all 0.3s ease;
     z-index: 1;
     margin-top: 12px;
     box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.2);
@@ -747,4 +849,110 @@
 .searchingSpinner {
     margin-bottom: 10px;
     color: var(--primary-color);
+}
+
+@keyframes pulseOrange {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.3);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
+    }
+}
+
+@keyframes glowOrange {
+    0% {
+        opacity: 0.1;
+    }
+    50% {
+        opacity: 0.2;
+    }
+    100% {
+        opacity: 0.1;
+    }
+}
+
+/* Специальные медиа-запросы для мобильных сенсорных устройств */
+@media (pointer: coarse) {
+    .list {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+        
+        scroll-snap-type: none;
+        -webkit-overflow-scrolling: touch;
+        will-change: scroll-position, transform;
+    }
+}
+
+/* Переопределяем стили для устройств без поддержки hover */
+@media (hover: none) {
+    .itemCard {
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+/* Стили для долгого нажатия */
+.pressing {
+    position: relative;
+    overflow: hidden;
+}
+
+.pressing::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(var(--error-rgb), 0.15);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.pressProgress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: var(--error-color);
+    transform-origin: left;
+    z-index: 10;
+}
+
+/* Пульсация при долгом нажатии */
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--error-rgb), 0.5);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(var(--error-rgb), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--error-rgb), 0);
+    }
+}
+
+.pressing {
+    animation: pulse 0.8s infinite;
+    border-color: var(--error-color) !important;
+}
+
+/* При нажатии затемняем текст товара */
+.pressing .itemTitle {
+    color: var(--error-color);
+}
+
+/* Дополнительные эффекты для мобильных устройств */
+@media (max-width: 767px) {
+    .pressProgress {
+        height: 4px;
+    }
+    
+    .pressing {
+        transform: scale(0.98) !important;
+    }
 }

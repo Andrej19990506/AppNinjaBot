@@ -6,6 +6,11 @@
     contain: content;
     display: flex;
     flex-direction: column;
+    touch-action: manipulation;
+    -webkit-overflow-scrolling: touch;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    -webkit-tap-highlight-color: transparent;
 }
 
 .grid {
@@ -16,7 +21,7 @@
     grid-gap: 16px;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
     will-change: transform;
     transform: translateZ(0);
@@ -27,6 +32,63 @@
     height: calc(100% - 20px);
     max-height: 70vh;
     contain: layout style paint;
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+}
+
+/* Стили для Swiper */
+.swiperContainer {
+    width: 100%;
+    height: 100%;
+    padding-bottom: 16px;
+    overflow: visible !important;
+}
+
+.swiperSlide {
+    width: auto !important;
+    height: 100%;
+    min-width: 260px;
+}
+
+@media (max-width: 768px) {
+    .swiperSlide {
+        min-width: 200px;
+    }
+    
+    .grid {
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 12px;
+        grid-gap: 12px;
+        grid-auto-columns: 200px;
+        grid-template-rows: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}
+
+/* Стили для элементов внутри Swiper */
+.item {
+    position: relative;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    padding: 24px;
+    background: rgba(var(--card-rgb), 0.9);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--border-rgb), 0.25);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    contain: layout style paint;
+    overflow: hidden;
 }
 
 /* Добавляем отступ для последнего элемента */
@@ -55,15 +117,25 @@
     background: rgba(0, 0, 0, 0.25);
 }
 
+/* Добавляем поддержку плавной прокрутки для Safari */
+@supports (-webkit-overflow-scrolling: touch) {
+    .grid {
+        -webkit-overflow-scrolling: touch;
+        transition: none; /* Safari уже обеспечивает свои анимации */
+    }
+}
+
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
     .grid {
         -webkit-overflow-scrolling: touch;
-        scroll-snap-type: x proximity;
         padding-bottom: 12px;
         grid-gap: 12px;
         grid-auto-columns: 200px;
         grid-template-rows: repeat(auto-fill, minmax(100px, 1fr));
+        touch-action: pan-x;
+        overscroll-behavior: auto;
+        scroll-snap-type: none;
     }
 
     .item {
@@ -74,32 +146,6 @@
 }
 
 /* Оптимизация анимаций */
-.item {
-    position: relative;
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
-    padding: 24px;
-    background: rgba(var(--card-rgb), 0.9);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(var(--border-rgb), 0.25);
-    border-radius: var(--radius-lg);
-    cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    contain: layout style paint;
-    overflow: hidden;
-}
-
 .item::before {
     content: '';
     position: absolute;
@@ -388,5 +434,34 @@
         height: 20px;
         padding: 4px;
         margin-top: 8px;
+    }
+}
+
+/* Специальные медиа-запросы для мобильных сенсорных устройств */
+@media (pointer: coarse) {
+    .grid {
+        /* Разрешаем все жесты прокрутки */
+        touch-action: manipulation;
+        /* Обеспечиваем полное взаимодействие с контейнером */
+        -webkit-user-select: none;
+        user-select: none;
+        /* Принудительное ускорение от GPU */
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+        
+        /* Улучшения плавности */
+        scroll-snap-type: none;
+        /* Доп. оптимизации для iOS */
+        -webkit-overflow-scrolling: touch;
+        /* Следим только за необходимыми свойствами */
+        will-change: scroll-position, transform;
+    }
+    
+    /* Оптимизируем хватание и свайп */
+    .container {
+        touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
     }
 }

@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------
 
 # --- Статическая функция-обертка для APScheduler --- 
-async def execute_job(chat_id: str, db_service: DatabaseService, settings: SchedulerSettings, task_manager: 'TaskManager', task_type: str = None):
+async def execute_job(chat_id: str, db_service: DatabaseService, settings: SchedulerSettings, task_manager: 'TaskManager', task_type: str = None, scheduler_instance = None):
     """Статическая обертка, вызываемая APScheduler.
        Выполняет основную логику задачи и запускает перепланирование.
     """

@@ -928,7 +928,7 @@
     0% {
         box-shadow: 0 0 0 0 rgba(var(--error-rgb), 0.5);
     }
-    70% {
+    50% {
         box-shadow: 0 0 0 10px rgba(var(--error-rgb), 0);
     }
     100% {
@@ -937,13 +937,14 @@
 }
 
 .pressing {
-    animation: pulse 0.8s infinite;
+    animation: pulse 0.5s infinite;
     border-color: var(--error-color) !important;
 }
 
 /* При нажатии затемняем текст товара */
 .pressing .itemTitle {
     color: var(--error-color);
+    transition: color 0.3s ease;
 }
 
 /* Дополнительные эффекты для мобильных устройств */

@@ -60,15 +60,23 @@ const ItemList: React.FC<ItemListProps> = ({
     const [newItemHasSemifinshed, setNewItemHasSemifinshed] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     // Для отслеживания долгого нажатия
-    const longPressRef = useRef<{timerId: NodeJS.Timeout | null; itemId: string | null; animationControls: any}>({
+    const longPressRef = useRef<{
+        timerId: NodeJS.Timeout | null; 
+        itemId: string | null; 
+        animationControls: any;
+        startPosition: {x: number; y: number} | null;
+    }>({
         timerId: null,
         itemId: null,
-        animationControls: null
+        animationControls: null,
+        startPosition: null
     });
     // Состояние для отслеживания текущего нажимаемого элемента
     const [pressingItemId, setPressingItemId] = useState<string | null>(null);
     // Значение для анимации прогресса
     const pressProgress = useMotionValue(0);
+    // Порог движения для отмены долгого нажатия (в пикселях)
+    const MOVEMENT_THRESHOLD = 10;
     
     // Эффект для обработки вертикального скролла и преобразования его в горизонтальный
     useEffect(() => {
@@ -247,7 +255,13 @@ const ItemList: React.FC<ItemListProps> = ({
     };
     
     // Обработчики долгого нажатия для удаления
-    const handleLongPressStart = (itemId: string) => {
+    const handleLongPressStart = (itemId: string, event: React.PointerEvent) => {
+        // Сохраняем начальную позицию касания
+        longPressRef.current.startPosition = {
+            x: event.clientX,
+            y: event.clientY
+        };
+        
         // Очищаем предыдущий таймер, если есть
         if (longPressRef.current.timerId) {
             clearTimeout(longPressRef.current.timerId);
@@ -261,7 +275,7 @@ const ItemList: React.FC<ItemListProps> = ({
         
         // Запускаем анимацию прогресса
         const animation = animate(pressProgress, 1, {
-            duration: 0.8, // 800ms - то же время, что и для долгого нажатия
+            duration: 1, // Уменьшаем до 1 секунды
             ease: "linear"
         });
         
@@ -273,8 +287,29 @@ const ItemList: React.FC<ItemListProps> = ({
             handleDeleteStart(itemId, itemId);
             // Сбрасываем состояние долгого нажатия
             setPressingItemId(null);
-            longPressRef.current = { timerId: null, itemId: null, animationControls: null };
-        }, 800); // Задержка в 800мс для долгого нажатия
+            longPressRef.current = { 
+                timerId: null, 
+                itemId: null, 
+                animationControls: null,
+                startPosition: null
+            };
+        }, 1000); // Уменьшаем до 1000мс (1 секунда)
+    };
+    
+    const handlePointerMove = (event: React.PointerEvent) => {
+        // Если нет активного таймера или начальной позиции, ничего не делаем
+        if (!longPressRef.current.timerId || !longPressRef.current.startPosition) {
+            return;
+        }
+        
+        // Вычисляем перемещение
+        const deltaX = Math.abs(event.clientX - longPressRef.current.startPosition.x);
+        const deltaY = Math.abs(event.clientY - longPressRef.current.startPosition.y);
+        
+        // Если перемещение больше порога, отменяем долгое нажатие
+        if (deltaX > MOVEMENT_THRESHOLD || deltaY > MOVEMENT_THRESHOLD) {
+            handleLongPressEnd();
+        }
     };
     
     const handleLongPressEnd = () => {
@@ -286,7 +321,12 @@ const ItemList: React.FC<ItemListProps> = ({
             }
             setPressingItemId(null);
             pressProgress.set(0);
-            longPressRef.current = { timerId: null, itemId: null, animationControls: null };
+            longPressRef.current = { 
+                timerId: null, 
+                itemId: null, 
+                animationControls: null,
+                startPosition: null 
+            };
         }
     };
     
@@ -448,7 +488,8 @@ const ItemList: React.FC<ItemListProps> = ({
                                         e.stopPropagation();
                                         handleItemClick(itemId);
                                     }}
-                                    onPointerDown={() => handleLongPressStart(itemId)} 
+                                    onPointerDown={(e) => handleLongPressStart(itemId, e)}
+                                    onPointerMove={handlePointerMove} 
                                     onPointerUp={handleLongPressEnd}
                                     onPointerLeave={handleLongPressEnd}
                                     onPointerCancel={handleLongPressEnd}
@@ -497,7 +538,7 @@ const ItemList: React.FC<ItemListProps> = ({
                                             className={styles.pressProgress}
                                             initial={{ scaleX: 0 }}
                                             animate={{ scaleX: 1 }}
-                                            transition={{ duration: 0.8, ease: "linear" }}
+                                            transition={{ duration: 1, ease: "linear" }}
                                         />
                                     )}
                                 </motion.div>

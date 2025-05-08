@@ -1,6 +1,6 @@
 // @ts-nocheck
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { NotificationTypes } from '../../store/slices/notificationSlice';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -31,54 +31,17 @@ interface SystemNotificationProps {
     onClose: (id: string) => void;
 }
 
-// <<< Отдельный компонент для одного уведомления с таймером >>>
-const NotificationMessage: React.FC<{ 
-    notification: NotificationItem;
-    onClose: (id: string) => void;
-    getIcon: (type: NotificationTypes) => JSX.Element;
-}> = ({ notification, onClose, getIcon }) => {
-    
-    useEffect(() => {
-        // Убеждаемся, что id есть (хотя он должен быть на этом этапе)
-        if (!notification.id) return;
-        
-        // Определяем длительность: из пропса или 7 секунд по умолчанию
-        const duration = notification.duration || notification.autoHideDuration || 7000;
-        
-        // Устанавливаем таймер
-        const timer = setTimeout(() => {
-            onClose(notification.id!); // Вызываем onClose с id
-        }, duration);
-        
-        // Очищаем таймер при размонтировании или изменении notification/onClose
-        return () => clearTimeout(timer);
-        
-    }, [notification, onClose]); // Перезапускаем эффект, если уведомление или функция onClose изменились
-
-    // Возвращаем JSX для одного уведомления
-    return (
-        <motion.div
-            key={notification.id}
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, x: 100 }}
-            className={`${styles.notification} ${styles[notification.type]}`}
-        >
-            <div className={styles.iconContainer}>
-                {getIcon(notification.type)}
-            </div>
-            <div className={styles.content}>
-                {notification.title && (
-                    <div className={styles.title}>{notification.title}</div>
-                )}
-                <div className={styles.message}>{notification.message}</div>
-            </div>
-        </motion.div>
-    );
-};
-
-// <<< Основной компонент SystemNotification теперь использует NotificationMessage >>>
+// <<< Основной компонент SystemNotification >>>
 const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, onClose }) => {
+    // Храним ID обработанных уведомлений, чтобы избежать их повторного появления
+    const processedNotificationsRef = useRef(new Set());
+    
+    // Для хранения активного уведомления в локальном состоянии
+    const [currentNotification, setCurrentNotification] = useState(null);
+    
+    // Запоминаем последнее колличество уведомлений для отслеживания изменений
+    const prevNotificationsLengthRef = useRef(0);
+    
     const getIcon = (type: NotificationTypes) => {
         switch (type) {
             case NotificationTypes.SUCCESS:
@@ -92,18 +55,129 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
         }
     };
 
+    // Обновляем активное уведомление, когда список уведомлений изменяется
+    useEffect(() => {
+        console.log("[SystemNotification] Проверка уведомлений:", 
+            { 
+                count: notifications.length, 
+                prevCount: prevNotificationsLengthRef.current,
+                notifications: notifications.map(n => ({ id: n.id, message: n.message }))
+            }
+        );
+        
+        // Если длина списка уведомлений изменилась
+        if (notifications.length !== prevNotificationsLengthRef.current) {
+            console.log("[SystemNotification] Изменение количества уведомлений");
+            
+            // Если есть новые уведомления
+            if (notifications.length > 0) {
+                // Получаем последнее уведомление
+                const latestNotification = notifications[notifications.length - 1];
+                
+                // Проверяем, был ли ID этого уведомления уже обработан
+                if (latestNotification && latestNotification.id && 
+                    !processedNotificationsRef.current.has(latestNotification.id)) {
+                    
+                    console.log("[SystemNotification] Установка нового уведомления:", latestNotification.id);
+                    
+                    // Добавляем ID в список обработанных
+                    processedNotificationsRef.current.add(latestNotification.id);
+                    
+                    // Устанавливаем новое активное уведомление
+                    setCurrentNotification(latestNotification);
+                }
+            } else {
+                // Если уведомлений нет, сбрасываем активное
+                console.log("[SystemNotification] Сброс активного уведомления (нет уведомлений)");
+                setCurrentNotification(null);
+            }
+            
+            // Обновляем сохраненную длину списка
+            prevNotificationsLengthRef.current = notifications.length;
+        }
+    }, [notifications]);
+
+    // Обработчик свайпа
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo, id: string) => {
+        if (info.offset.x > 100) { // Если свайп вправо более 100px
+            console.log("[SystemNotification] Свайп для удаления:", id);
+            handleNotificationClose(id);
+        }
+    };
+
+    // Установка автоматического закрытия для активного уведомления
+    useEffect(() => {
+        if (!currentNotification || !currentNotification.id) return;
+        
+        const duration = currentNotification.duration || currentNotification.autoHideDuration || 7000;
+        console.log("[SystemNotification] Установка таймера для:", currentNotification.id, "Длительность:", duration);
+        
+        const timer = setTimeout(() => {
+            console.log("[SystemNotification] Автоматическое закрытие:", currentNotification.id);
+            handleNotificationClose(currentNotification.id);
+        }, duration);
+        
+        return () => {
+            console.log("[SystemNotification] Очистка таймера для:", currentNotification.id);
+            clearTimeout(timer);
+        };
+    }, [currentNotification, onClose]);
+
+    // Когда уведомление удаляется
+    const handleNotificationClose = (id: string) => {
+        console.log("[SystemNotification] Обработка закрытия уведомления:", id);
+        
+        // Если закрываемое уведомление является текущим активным
+        if (currentNotification && currentNotification.id === id) {
+            // Немедленно очищаем текущее уведомление, не дожидаясь обновления из props
+            setCurrentNotification(null);
+        }
+        
+        // Вызываем родительский onClose
+        onClose(id);
+    };
+
+    console.log("[SystemNotification] Рендер:", 
+        { 
+            currentNotification: currentNotification ? 
+                { id: currentNotification.id, message: currentNotification.message } : null,
+            processedCount: processedNotificationsRef.current.size
+        }
+    );
+
     return (
         <div className={styles.notificationContainer}>
-            <AnimatePresence>
-                {notifications.map((notification) => (
-                    // Используем новый компонент с таймером
-                    <NotificationMessage 
-                        key={notification.id} // Ключ теперь на обертке
-                        notification={notification}
-                        onClose={onClose}
-                        getIcon={getIcon}
-                    />
-                ))}
+            <AnimatePresence mode="popLayout">
+                {currentNotification && (
+                    <motion.div
+                        key={`notification-${currentNotification.id}`}
+                        layout
+                        initial={{ opacity: 0, x: -50, height: 'auto' }}
+                        animate={{ opacity: 1, x: 0, height: 'auto' }}
+                        exit={{ opacity: 0, x: 200, height: 0, marginBottom: 0 }}
+                        className={`${styles.notification} ${styles[currentNotification.type]}`}
+                        drag="x"
+                        dragConstraints={{ left: 0, right: 300 }}
+                        dragElastic={0.7}
+                        onDragEnd={(event, info) => handleDragEnd(event, info, currentNotification.id)}
+                        transition={{
+                            layout: { type: "spring", bounce: 0.2, duration: 0.3 }
+                        }}
+                    >
+                        <div className={styles.iconContainer}>
+                            {getIcon(currentNotification.type)}
+                        </div>
+                        <div className={styles.content}>
+                            {currentNotification.title && (
+                                <div className={styles.title}>{currentNotification.title}</div>
+                            )}
+                            <div className={styles.message}>{currentNotification.message}</div>
+                        </div>
+                        <div className={styles.swipeHint}>
+                            <span>Свайп вправо</span>
+                        </div>
+                    </motion.div>
+                )}
             </AnimatePresence>
         </div>
     );
@@ -117,6 +191,8 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
     duration = 5000,
     onClose
 }) => {
+    const [isDragging, setIsDragging] = useState(false);
+    
     const getIconByType = (notificationType: string) => {
         switch (notificationType) {
             case 'success':
@@ -138,17 +214,37 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
                 ? NotificationTypes.WARNING 
                 : NotificationTypes.INFO;
 
+    // Обработчик свайпа
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        if (info.offset.x > 100) { // Если свайп вправо более 100px
+            if (onClose) {
+                onClose();
+            }
+        }
+    };
+
     return (
         <div className={styles.notificationContainer}>
-            {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
-            {/* @ts-ignore */}
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout">
                 <motion.div
                     key="single-notification"
-                    initial={{ opacity: 0, y: 50 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, x: 100 }}
-                    className={`${styles.notification} ${styles[notificationType]}`}
+                    layout
+                    initial={{ opacity: 0, x: -50, height: 'auto' }}
+                    animate={{ opacity: 1, x: 0, height: 'auto' }}
+                    exit={{ opacity: 0, x: 200, height: 0 }}
+                    className={`${styles.notification} ${styles[notificationType]} ${isDragging ? styles.dragging : ''}`}
+                    drag="x"
+                    dragConstraints={{ left: 0, right: 300 }}
+                    dragElastic={0.7}
+                    onDragStart={() => setIsDragging(true)}
+                    onDragEnd={(event, info) => {
+                        setIsDragging(false);
+                        handleDragEnd(event, info);
+                    }}
+                    whileDrag={{ scale: 0.98 }}
+                    transition={{
+                        layout: { type: "spring", bounce: 0.2, duration: 0.3 }
+                    }}
                 >
                     <div className={styles.iconContainer}>
                         {getIconByType(type)}
@@ -158,6 +254,9 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
                             <div className={styles.title}>{title}</div>
                         )}
                         <div className={styles.message}>{message}</div>
+                    </div>
+                    <div className={styles.swipeHint}>
+                        <span>Свайп вправо</span>
                     </div>
                 </motion.div>
             </AnimatePresence>

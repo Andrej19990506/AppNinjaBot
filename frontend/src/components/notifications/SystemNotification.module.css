@@ -7,7 +7,16 @@
     flex-direction: column;
     gap: 10px;
     max-width: 400px;
-    
+    min-height: 80px;
+    pointer-events: none;
+}
+
+.notificationContainer > * {
+    pointer-events: auto;
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 100%;
 }
 
 .notification {
@@ -22,6 +31,21 @@
     max-width: 400px;
     border-left-width: 5px;
     border-left-style: solid;
+    cursor: grab;
+    position: relative;
+    overflow: hidden;
+    will-change: transform;
+    transform: translateZ(0);
+    transition: box-shadow 0.3s ease;
+}
+
+.notification:active {
+    cursor: grabbing;
+}
+
+.notification.dragging {
+    cursor: grabbing;
+    box-shadow: var(--shadow-xl);
 }
 
 .iconContainer {
@@ -48,8 +72,44 @@
     color: var(--text-secondary);
 }
 
+/* Стили для подсказки свайпа */
+.swipeHint {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transform: translateX(10px);
+    transition: all 0.3s ease;
+}
 
+.notification:hover .swipeHint {
+    opacity: 0.7;
+    transform: translateX(0);
+}
 
+.dragging .swipeHint {
+    opacity: 0;
+}
+
+/* Добавляем свечение при перетаскивании */
+.notification::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.notification.dragging::after {
+    opacity: 1;
+}
 
 /* Notification types */
 .success {
@@ -86,6 +146,10 @@
 
 /* Медиа-запросы */
 @media (max-width: 768px) {
+    .notificationContainer {
+        right: 10px;
+    }
+    
     .notification {
         min-width: auto;
         width: calc(100% - 32px);
@@ -100,9 +164,18 @@
     .message {
         font-size: 0.95rem;
     }
+    
+    .swipeHint {
+        opacity: 0.5;
+        transform: translateX(0);
+    }
 }
 
 @media (max-width: 480px) {
+    .notificationContainer {
+        right: 5px;
+    }
+    
     .notification {
         padding: 12px 16px;
         width: calc(100% - 24px);

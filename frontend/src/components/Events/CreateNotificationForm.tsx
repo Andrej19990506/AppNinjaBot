@@ -358,7 +358,7 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ eventId
                         disabled={isLoading}
                     />
                 }
-                label="Требуется подтверждение ?"
+                label="Требуется подтверждение от пользователей"
                 sx={{ alignSelf: 'flex-start' }}
             />
             {error && <p style={{ color: 'red' }}>{error}</p>}

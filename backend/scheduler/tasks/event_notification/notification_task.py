@@ -333,17 +333,15 @@ class EventNotificationTask(BaseTask):
 
                                 # --- ДОБАВЛЕНИЕ: Преобразование chat_id к короткому формату ПЕРЕД планированием ---
                                 chat_id_long = chat_id # Сохраняем оригинальный ID (может быть int или str)
-                                chat_id_short_str = str(chat_id_long)
-                                if chat_id_short_str.startswith('-100'):
-                                    chat_id_short_str = '-' + chat_id_short_str[4:]
-                                logger.debug(f"Используем короткий chat_id {chat_id_short_str} для планирования напоминания (исходный: {chat_id_long})")
+                                chat_id_str = str(chat_id_long)
+                                logger.debug(f"Используем оригинальный chat_id {chat_id_str} для планирования напоминания")
                                 # --- КОНЕЦ ДОБАВЛЕНИЯ ---
                                 
-                                # --- ИСПОЛЬЗУЕМ КОРОТКИЙ ID для ID задачи и данных ---
-                                reminder_job_id = f"reminder:{notification_id}:{chat_id_short_str}" # Используем короткий ID
+                                # --- ИСПОЛЬЗУЕМ ОРИГИНАЛЬНЫЙ ID для ID задачи и данных ---
+                                reminder_job_id = f"reminder:{notification_id}:{chat_id_str}" # Используем оригинальный ID
                                 reminder_data = {
                                     'job_id': reminder_job_id,
-                                    'chat_id': chat_id_short_str, # Передаем короткий строковый ID
+                                    'chat_id': chat_id_str, # Передаем оригинальный строковый ID
                                     'notification_id': notification_id,
                                     'confirmation_type': confirmation_type,
                                     'run_time': first_reminder_time
@@ -353,8 +351,8 @@ class EventNotificationTask(BaseTask):
                                 # Получаем экземпляр задачи напоминания
                                 reminder_task_instance = task_manager.task_instances.get(EventReminderTask.TASK_TYPE)
                                 if reminder_task_instance:
-                                    # <<< ИЗМЕНЕНИЕ: Логируем с коротким ID >>>
-                                    logger.info(f"({self.TASK_TYPE}:{job_id}) Планирование задачи-напоминания {reminder_job_id} для чата {chat_id_short_str} на {first_reminder_time}")
+                                    # <<< ИЗМЕНЕНИЕ: Логируем с оригинальным ID >>>
+                                    logger.info(f"({self.TASK_TYPE}:{job_id}) Планирование задачи-напоминания {reminder_job_id} для чата {chat_id_str} на {first_reminder_time}")
                                     # Запускаем планирование напоминания (не ждем завершения)
                                     asyncio.create_task(reminder_task_instance.schedule(reminder_data))
                                 else:

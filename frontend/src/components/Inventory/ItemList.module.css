@@ -150,9 +150,9 @@
 .itemCard {
     position: relative;
     background: rgba(var(--card-rgb), 0.95);
-    border: 1px solid rgba(var(--border-rgb), 0.25);
+    border: 1px solid rgba(var(--border-rgb), 0.4);
     border-radius: var(--radius-lg);
-    padding: 12px;
+    padding: 14px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     display: flex;
@@ -162,10 +162,16 @@
     min-height: 100px;
     height: 100%;
     width: 100%;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
     will-change: transform;
     contain: layout style paint;
     overflow: hidden;
+    /* Добавляем градиент для лучшего визуального восприятия */
+    background: linear-gradient(
+        135deg,
+        rgba(var(--card-rgb), 0.95) 0%,
+        rgba(var(--card-rgb), 0.85) 100%
+    );
 }
 
 /* Добавляем поддержку плавной прокрутки для Safari */
@@ -237,13 +243,13 @@
 
 .itemTitle {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-color);
     transition: all 0.3s ease;
     position: relative;
     z-index: 1;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     text-align: center;
     width: 100%;
     letter-spacing: 0.3px;
@@ -252,7 +258,7 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
-    line-height: 1.2;
+    line-height: 1.3;
 }
 
 .status {
@@ -579,8 +585,8 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.2), transparent);
-    opacity: 0.15;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.3), transparent);
+    opacity: 0.2;
     transition: opacity 0.3s ease;
     z-index: 0;
     pointer-events: none;
@@ -588,12 +594,12 @@
 
 .itemCard:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    border-color: rgba(var(--primary-rgb), 0.4);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+    border-color: rgba(var(--primary-rgb), 0.5);
 }
 
 .itemCard:hover::before {
-    opacity: 0.25;
+    opacity: 0.35;
 }
 
 .itemCard:active {
@@ -606,10 +612,10 @@
 
 .itemCard.filled {
     border-color: rgba(var(--primary-rgb), 0.6);
-    background: linear-gradient(180deg, rgba(var(--primary-rgb), 0.3) 0%, rgba(var(--primary-rgb), 1.2) 100%, rgba(var(--primary-rgb), 1.25) 100%);
+    background: linear-gradient(180deg, rgba(var(--primary-rgb), 0.3) 0%, rgba(var(--primary-rgb), 0.15) 100%);
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);
+    box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.2);
 }
 
 .itemCard.filled::before {
@@ -793,8 +799,13 @@
     align-items: center;
     justify-content: center;
     height: calc(100% - 80px);
-    color: var(--text-secondary);
+    color: var(--text-color);
     font-style: italic;
+    background: rgba(var(--card-rgb), 0.7);
+    border-radius: var(--radius);
+    padding: 20px;
+    font-weight: 500;
+    box-shadow: inset 0 0 0 1px rgba(var(--border-rgb), 0.2);
 }
 
 /* Стили для выделения результатов поиска */

@@ -113,6 +113,19 @@ class EventReminderTask(BaseTask):
         # --- ИЗМЕНЕНИЕ: Логируем начало выполнения ---
         logger.info(f"({self.TASK_TYPE}:{job_id}) Начало выполнения execute для чата {chat_id}.")
 
+        # --- НОВЫЙ КОД: Проверка и преобразование формата ID чата ---
+        if chat_id and isinstance(chat_id, str):
+            # Преобразуем короткий формат ID в полный формат для Telegram
+            chat_id_str = str(chat_id)
+            # Если ID начинается с одного "-" и не с "-100", добавляем префикс
+            if chat_id_str.startswith('-') and not chat_id_str.startswith('-100'):
+                original_chat_id = chat_id_str
+                # Извлекаем числовую часть после "-" и добавляем "-100" в начало
+                numeric_part = chat_id_str[1:]  # Убираем "-"
+                chat_id = f"-100{numeric_part}"
+                logger.info(f"({self.TASK_TYPE}:{job_id}) Преобразован формат ID чата: {original_chat_id} -> {chat_id}")
+        # --- КОНЕЦ НОВОГО КОДА ---
+
         # Формируем текст напоминания
         # --- ИЗМЕНЕНИЕ: Возвращаем условие if/else --- 
         reminder_text = "" # Инициализируем пустой строкой

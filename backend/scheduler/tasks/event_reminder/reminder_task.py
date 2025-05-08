@@ -113,17 +113,29 @@ class EventReminderTask(BaseTask):
         # --- ИЗМЕНЕНИЕ: Логируем начало выполнения ---
         logger.info(f"({self.TASK_TYPE}:{job_id}) Начало выполнения execute для чата {chat_id}.")
 
-        # --- НОВЫЙ КОД: Проверка и преобразование формата ID чата ---
+        # --- НОВЫЙ КОД: Подготовка вариантов ID чата ---
+        chat_id_variants = []
         if chat_id and isinstance(chat_id, str):
-            # Преобразуем короткий формат ID в полный формат для Telegram
-            chat_id_str = str(chat_id)
-            # Если ID начинается с одного "-" и не с "-100", добавляем префикс
-            if chat_id_str.startswith('-') and not chat_id_str.startswith('-100'):
-                original_chat_id = chat_id_str
-                # Извлекаем числовую часть после "-" и добавляем "-100" в начало
-                numeric_part = chat_id_str[1:]  # Убираем "-"
-                chat_id = f"-100{numeric_part}"
-                logger.info(f"({self.TASK_TYPE}:{job_id}) Преобразован формат ID чата: {original_chat_id} -> {chat_id}")
+            # Оригинальный ID всегда первый в списке
+            chat_id_original = str(chat_id)
+            chat_id_variants.append(chat_id_original)
+            
+            # Если ID начинается с одного "-" и не с "-100", добавляем вариант с префиксом
+            if chat_id_original.startswith('-') and not chat_id_original.startswith('-100'):
+                numeric_part = chat_id_original[1:]  # Убираем "-"
+                chat_id_with_prefix = f"-100{numeric_part}"
+                chat_id_variants.append(chat_id_with_prefix)
+                logger.info(f"({self.TASK_TYPE}:{job_id}) Добавлен альтернативный вариант ID чата с префиксом: {chat_id_with_prefix}")
+            
+            # Если ID начинается с "-100", добавляем вариант без префикса
+            elif chat_id_original.startswith('-100'):
+                numeric_part = chat_id_original[4:]  # Убираем "-100"
+                chat_id_short = f"-{numeric_part}"
+                chat_id_variants.append(chat_id_short)
+                logger.info(f"({self.TASK_TYPE}:{job_id}) Добавлен альтернативный вариант ID чата без префикса: {chat_id_short}")
+        else:
+            # Если chat_id не строка, просто используем его как есть
+            chat_id_variants.append(chat_id)
         # --- КОНЕЦ НОВОГО КОДА ---
 
         # Формируем текст напоминания
@@ -144,54 +156,66 @@ class EventReminderTask(BaseTask):
         base_bot_url = str(bot_api_url).rstrip('/')
         send_endpoint = f"{base_bot_url}/send_message"
 
-        payload = {
-            "chat_id": str(chat_id),
-            "text": reminder_text,
-            "parse_mode": "HTML",
-            # Кнопку к напоминанию не добавляем, чтобы не загромождать
-        }
-
+        # --- ИЗМЕНЯЕМ ЛОГИКУ ОТПРАВКИ: Пробуем разные варианты ID ---
         client = None
         send_success = False
+        success_chat_id = None  # ID чата, на который успешно отправлено сообщение
+        
         try:
             client = await get_async_http_client()
-            logger.info(f"({self.TASK_TYPE}:{job_id}) Отправка напоминания в чат {chat_id}...")
-            logger.debug(f"({self.TASK_TYPE}:{job_id}) Payload: {json.dumps(payload, ensure_ascii=False)}")
-            response = await client.post(send_endpoint, json=payload, timeout=10.0)
-            if response.status_code == 200:
-                logger.info(f"({self.TASK_TYPE}:{job_id}) -> Напоминание успешно отправлено в чат {chat_id}.")
-                send_success = True
-            else:
-                logger.error(f"({self.TASK_TYPE}:{job_id}) -> Ошибка от Бота для чата {chat_id}: {response.status_code}, {response.text}")
+            
+            # Перебираем варианты ID чата
+            for variant_chat_id in chat_id_variants:
+                if send_success:
+                    break  # Если уже отправили успешно, не пробуем другие варианты
+                
+                payload = {
+                    "chat_id": str(variant_chat_id),
+                    "text": reminder_text,
+                    "parse_mode": "HTML",
+                    # Кнопку к напоминанию не добавляем, чтобы не загромождать
+                }
+                
+                try:
+                    logger.info(f"({self.TASK_TYPE}:{job_id}) Отправка напоминания в чат {variant_chat_id}...")
+                    logger.debug(f"({self.TASK_TYPE}:{job_id}) Payload: {json.dumps(payload, ensure_ascii=False)}")
+                    response = await client.post(send_endpoint, json=payload, timeout=10.0)
+                    
+                    if response.status_code == 200:
+                        logger.info(f"({self.TASK_TYPE}:{job_id}) -> Напоминание успешно отправлено в чат {variant_chat_id}.")
+                        send_success = True
+                        success_chat_id = variant_chat_id  # Запоминаем успешный ID
+                    else:
+                        logger.warning(f"({self.TASK_TYPE}:{job_id}) -> Не удалось отправить на ID {variant_chat_id}: {response.status_code}, {response.text}")
+                except Exception as variant_err:
+                    logger.warning(f"({self.TASK_TYPE}:{job_id}) -> Ошибка при отправке на ID {variant_chat_id}: {variant_err}")
+            
+            # Если все варианты провалились, логируем ошибку
+            if not send_success:
+                logger.error(f"({self.TASK_TYPE}:{job_id}) -> Не удалось отправить напоминание ни на один из вариантов ID чата.")
         except Exception as send_err:
-            logger.error(f"({self.TASK_TYPE}:{job_id}) -> Ошибка при отправке напоминания в чат {chat_id}: {send_err}", exc_info=True)
+            logger.error(f"({self.TASK_TYPE}:{job_id}) -> Ошибка при отправке напоминания: {send_err}", exc_info=True)
         finally:
             if client:
                 await client.aclose()
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ЛОГИКИ ОТПРАВКИ ---
 
-        # 4. Перепланируем себя на следующие 1 минуту, ТОЛЬКО если отправка была успешной
+        # 4. Перепланируем себя на следующие 30 минут, ТОЛЬКО если отправка была успешной
         if send_success:
             try:
                 next_run_time = datetime.now(self.timezone) + timedelta(minutes=30)
 
-                # <<< НАЧАЛО ИЗМЕНЕНИЯ: Используем task_manager.save_task >>>
-                # Собираем данные для сохранения/перепланирования
-                # ID задачи (job_id) и chat_id уже есть из kwargs
+                # <<< ИЗМЕНЕНИЕ: Используем успешный ID чата для перепланирования >>>
                 task_type = self.TASK_TYPE
-                # Данные, специфичные для напоминания (извлекаем из kwargs)
                 reminder_data_for_save = {
-                    'notification_id': notification_id, # ID исходного уведомления
-                    'confirmation_type': confirmation_type # Тип подтверждения
-                    # Можно добавить и другие поля из kwargs, если они нужны
-                    # при следующем выполнении и не передаются через job_id/chat_id
+                    'notification_id': notification_id,
+                    'confirmation_type': confirmation_type
                 }
 
-                # Вызываем метод TaskManager для сохранения/перепланирования
-                # Он обновит и APScheduler, и нашу БД
                 logger.info(f"({self.TASK_TYPE}:{job_id}) Попытка перепланирования через TaskManager на {next_run_time}...")
                 success = await self.task_manager.save_task(
                     task_id=job_id,
-                    chat_id=chat_id,
+                    chat_id=success_chat_id,  # Используем успешный ID
                     task_type=task_type,
                     next_run_time=next_run_time,
                     data=reminder_data_for_save

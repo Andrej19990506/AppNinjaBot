@@ -628,42 +628,72 @@ async def handle_confirmation_callback(update: Update, context: ContextTypes.DEF
 
             # <<< ИЗМЕНЕНИЕ: Отправляем запрос на отмену напоминания в шедулер >>>
             chat_id_full = query.message.chat_id
-            # --- УДАЛЯЕМ преобразование ID к короткому формату --- 
-            # chat_id_short_str = str(chat_id_full)
-            # if chat_id_short_str.startswith('-100'):
-            #     chat_id_short_str = '-' + chat_id_short_str[4:]
-            # logger.debug(f"Преобразование chat_id {chat_id_full} -> {chat_id_short_str} для запроса отмены.")
-            # --- ВМЕСТО ЭТОГО используем полный ID чата ---
-            chat_id_str = str(chat_id_full)
-            logger.debug(f"Используем оригинальный chat_id {chat_id_str} для запроса отмены напоминания.")
-            # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+            
+            # --- НОВЫЙ КОД: Подготовка обоих вариантов ID чата ---
+            original_chat_id = str(chat_id_full) # Оригинальный ID
+            alternative_chat_id = None  # Альтернативный ID
+            
+            # Создаем альтернативную версию ID в зависимости от формата
+            if original_chat_id.startswith('-100'):
+                # Если ID с префиксом "-100", создаем версию без префикса
+                alternative_chat_id = '-' + original_chat_id[4:]
+                logger.debug(f"Создан альтернативный ID без префикса: {alternative_chat_id}")
+            elif original_chat_id.startswith('-'):
+                # Если ID без префикса "-100", добавляем префикс
+                alternative_chat_id = '-100' + original_chat_id[1:]
+                logger.debug(f"Создан альтернативный ID с префиксом: {alternative_chat_id}")
+                
+            logger.debug(f"Подготовлены ID для отмены напоминания: оригинальный={original_chat_id}, альтернативный={alternative_chat_id}")
+            # --- КОНЕЦ НОВОГО КОДА ---
             
             config = Config()
             scheduler_api_url = getattr(config, 'SCHEDULER_API_URL', None)
             if scheduler_api_url:
                 base_scheduler_url = str(scheduler_api_url).rstrip('/')
-                # <<< ИЗМЕНЕНИЕ: Используем ПОЛНЫЙ ID в URL >>>
-                cancel_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{chat_id_str}"
-                # <<< Используем ПОЛНЫЙ ID в логе >>>
-                logger.info(f"Отправка запроса на отмену напоминания для notification_id={notification_id_str}, chat_id={chat_id_str}: DELETE {cancel_endpoint}")
-
+                
+                # --- НОВЫЙ КОД: Пробуем оба варианта ID чата ---
+                cancel_success = False
                 client = None
+                
                 try:
-                    client = httpx.AsyncClient() # Создаем клиента внутри try
-                    response = await client.delete(cancel_endpoint, timeout=5.0)
-                    if response.status_code == 200:
-                        logger.info(f"Запрос на отмену напоминания для {notification_id_str} в чате {chat_id_str} успешно отправлен.")
-                    elif response.status_code == 404:
-                        logger.warning(f"Задача-напоминание {notification_id_str} для чата {chat_id_str} не найдена в шедулере (404).")
-                    else:
-                        logger.error(f"Ошибка от API шедулера при отмене напоминания {notification_id_str} в чате {chat_id_str}: {response.status_code} - {response.text}")
+                    client = httpx.AsyncClient()
+                    
+                    # Сначала пробуем с оригинальным ID
+                    original_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{original_chat_id}"
+                    logger.info(f"Отправка запроса на отмену напоминания для notification_id={notification_id_str} с оригинальным ID {original_chat_id}")
+                    
+                    orig_response = await client.delete(original_endpoint, timeout=5.0)
+                    if orig_response.status_code == 200:
+                        logger.info(f"✅ Напоминание успешно отменено с оригинальным ID чата {original_chat_id}")
+                        cancel_success = True
+                    elif orig_response.status_code == 404 and alternative_chat_id:
+                        # Если не найдено, пробуем с альтернативным ID
+                        logger.warning(f"Напоминание не найдено с оригинальным ID. Пробуем с альтернативным ID: {alternative_chat_id}")
+                        
+                        alt_endpoint = f"{base_scheduler_url}/scheduler/notifications/reminders/{notification_id_str}/{alternative_chat_id}"
+                        alt_response = await client.delete(alt_endpoint, timeout=5.0)
+                        
+                        if alt_response.status_code == 200:
+                            logger.info(f"✅ Напоминание успешно отменено с альтернативным ID чата {alternative_chat_id}")
+                            cancel_success = True
+                        else:
+                            logger.warning(f"❌ Напоминание не найдено и с альтернативным ID: {alt_response.status_code}, {alt_response.text}")
+                    elif orig_response.status_code != 200:
+                        logger.error(f"❌ Ошибка от API шедулера: {orig_response.status_code}, {orig_response.text}")
                 except httpx.RequestError as req_err:
-                    logger.error(f"Ошибка сети при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_str}: {req_err}")
-                except Exception as req_err: # Ловим общие ошибки тоже
-                    logger.error(f"Ошибка при отправке запроса на отмену напоминания {notification_id_str} в чате {chat_id_str}: {req_err}", exc_info=True)
+                    logger.error(f"❌ Ошибка сети при отправке запроса на отмену напоминания: {req_err}")
+                except Exception as req_err:
+                    logger.error(f"❌ Ошибка при отправке запроса на отмену напоминания: {req_err}", exc_info=True)
                 finally:
-                     if client:
-                         await client.aclose() # Закрываем клиент в finally
+                    if client:
+                        await client.aclose()
+                
+                if cancel_success:
+                    logger.info(f"✅ Задача-напоминание для {notification_id_str} успешно отменена")
+                else:
+                    logger.warning(f"⚠️ Не удалось найти и отменить задачу напоминания для {notification_id_str}")
+                # --- КОНЕЦ НОВОГО КОДА ---
+                
             else:
                 logger.error("SCHEDULER_API_URL не найден в конфигурации. Невозможно отменить напоминание.")
         else:

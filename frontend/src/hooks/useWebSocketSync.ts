@@ -129,22 +129,35 @@ export const useWebSocketSync = () => {
                 }
             } else {
                 // Это создание или обновление смены
-                // <<< ЛОГ 6: ВЕТКА СОЗДАНИЯ/ОБНОВЛЕНИЯ >>>
-                logger.info(`[WS Check] Source is NOT 'shift_deletion' (it's '${data.source || 'unknown'}'). Checking chat ID for shiftBookedWs.`);
+                // <<< ДОБАВЛЯЕМ СПЕЦИАЛЬНЫЙ ЛОГ ДЛЯ shift_slot_update >>>
+                if (data.source === 'shift_slot_update') {
+                    logger.info(`[WS Check] Source is 'shift_slot_update'. This is a move operation between day/night slots.`);
+                    
+                    // Дополнительная информация для диагностики
+                    if (data.shift_data) {
+                        logger.info(`[WS Check] shift_data details - shift_type: ${data.shift_data.shift_type}, slot_index: ${data.shift_data.slot_index}, id: ${data.shift_data.id}`);
+                    } else {
+                        logger.error('[WS Error] Missing shift_data in shift_slot_update payload!', data);
+                    }
+                } else {
+                    // <<< ЛОГ 6: ВЕТКА СОЗДАНИЯ/ОБНОВЛЕНИЯ >>>
+                    logger.info(`[WS Check] Source is NOT 'shift_deletion' (it's '${data.source || 'unknown'}'). Checking chat ID for shiftBookedWs.`);
+                }
 
-                 if (String(data.chat_id) === currentChatIdFromState) {
-                     // <<< ЛОГ 7: CHAT ID СОВПАЛ (для booked) >>>
-                     logger.info(`[WS Check] Chat ID MATCH. Proceeding with dispatch for shift_data...`);
-                     if (data.shift_data) {
-                        dispatch(shiftBookedWs(data as ShiftsUpdatedWsPayload)); // Используем исходный action
-                         // <<< ЛОГ 8: ДИСПАТЧ ВЫЗВАН (для booked) >>>
-                         logger.info(`[WS Dispatch] Dispatched shiftBookedWs.`);
-                     } else {
-                          logger.error('[WS Error] shift_data missing in shift creation/update payload!', data);
-                     }
-                 } else {
-                     logger.warn(`[WS Check] Chat ID MISMATCH for shift creation/update. Event chat_id=${data.chat_id}, State chatId=${currentChatIdFromState}. Ignoring.`);
-                 }
+                if (String(data.chat_id) === currentChatIdFromState) {
+                    // <<< ЛОГ 7: CHAT ID СОВПАЛ (для booked) >>>
+                    logger.info(`[WS Check] Chat ID MATCH. Proceeding with dispatch for shift_data...`);
+                    if (data.shift_data) {
+                        // Используем исходный action
+                        dispatch(shiftBookedWs(data as ShiftsUpdatedWsPayload)); 
+                        // <<< ЛОГ 8: ДИСПАТЧ ВЫЗВАН (для booked) >>>
+                        logger.info(`[WS Dispatch] Dispatched shiftBookedWs with shift_data.id=${data.shift_data.id}.`);
+                    } else {
+                        logger.error('[WS Error] shift_data missing in shift creation/update payload!', data);
+                    }
+                } else {
+                    logger.warn(`[WS Check] Chat ID MISMATCH for shift creation/update. Event chat_id=${data.chat_id}, State chatId=${currentChatIdFromState}. Ignoring.`);
+                }
             }
         };
 

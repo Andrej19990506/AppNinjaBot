@@ -41,11 +41,25 @@ import {
     setShiftDialogMode, // <<< Добавляем setShiftDialogMode
     selectIsShiftDialogOpen, 
     selectShiftDialogMode,
-    removeShiftLocally
+    removeShiftLocally,
+    fetchShifts
 } from '../../store/slices/shiftsSlice';
+// Импортируем компоненты для свайпа
+import { motion, AnimatePresence, useAnimation } from 'framer-motion';
+
+// Глобальный объект для прямого доступа к функциям открытия профиля
+export const ShiftDialogGlobalHandler = {
+    openProfile: null as ((courier: CourierShift) => void) | null
+};
 
 // <<< ДОБАВЛЯЕМ ЛОКАЛЬНОЕ ОПРЕДЕЛЕНИЕ ShiftType >>>
 type ShiftType = CourierShift['shiftType'];
+
+// Определяем тип для источника данных подтверждения
+type ConfirmationDataSource = 
+    | { type: 'assignment', data: CourierInfo }
+    | { type: 'delete', data: ConfirmedCourierInfo }
+    | null;
 
 const rotateAnimation = keyframes`
   from {
@@ -327,6 +341,88 @@ interface ShiftToReserveData {
     courier: ConfirmedCourierInfo;
 }
 
+// Добавляем интерфейс для свайпа
+interface SwipeInfo {
+    startX: number;
+    startY: number;
+    isSwiping: boolean;
+    direction: 'left' | 'right' | null;
+}
+
+// Функция для получения следующей/предыдущей даты
+const getAdjacentDate = (currentDate: Date, direction: 'prev' | 'next'): Date => {
+    const newDate = new Date(currentDate);
+    const daysToAdd = direction === 'prev' ? -1 : 1;
+    newDate.setDate(newDate.getDate() + daysToAdd);
+    return newDate;
+};
+
+// Стилизуем контейнер для содержимого с анимацией свайпа
+const SwipeableContent = styled(motion.div)`
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+`;
+
+// Контейнер для анимации появления/исчезновения слотов
+const SlotsFadeContainer = styled(motion.div)`
+    width: 100%;
+`;
+
+// Индикатор свайпа
+const SwipeIndicator = styled.div<{ direction: 'left' | 'right' | null }>`
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    ${props => props.direction === 'left' ? 'right: 16px;' : 'left: 16px;'}
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    opacity: 0;
+    animation: fadeInPulse 0.3s ease-out forwards;
+    
+    &::after {
+        content: "${props => props.direction === 'left' ? '→' : '←'}";
+        font-size: 20px;
+        color: var(--primary-color);
+    }
+    
+    @keyframes fadeInPulse {
+        0% { opacity: 0; transform: translateY(-50%) scale(0.8); }
+        50% { opacity: 0.9; transform: translateY(-50%) scale(1.1); }
+        100% { opacity: 0.8; transform: translateY(-50%) scale(1); }
+    }
+`;
+
+// Индикатор даты
+const DateIndicator = styled.div`
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-60px);
+    background-color: var(--primary-color);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    font-size: 16px;
+    font-weight: 500;
+    z-index: 100;
+    animation: slideDown 0.4s ease-out forwards;
+    
+    @keyframes slideDown {
+        0% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
+        100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+    }
+`;
+
 interface ShiftSelectionDialogProps {
     isOpen: boolean;
     onClose: () => void;
@@ -351,6 +447,10 @@ interface ShiftSelectionDialogProps {
     onShiftDeletedLocally?: (shiftId: string) => void;
     showNotification?: (type: NotificationTypes, message: string, title?: string) => void;
     onOpenProfile?: (courier: CourierShift) => void;
+    // Добавляем новые пропсы для навигации между датами
+    onDateChange?: (newDate: Date) => void;
+    disablePrevDate?: boolean;
+    disableNextDate?: boolean;
 }
 
 interface PendingShiftAction {
@@ -428,7 +528,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     onMoveToReserve,
     onShiftDeletedLocally,
     showNotification,
-    onOpenProfile
+    onOpenProfile,
+    // Добавляем новые пропсы для навигации между датами
+    onDateChange,
+    disablePrevDate = false,
+    disableNextDate = false
 }) => {
     const dispatch = useAppDispatch();
     // <<< ИЗМЕНЕНИЕ: Получаем режим из Redux, удаляем локальное состояние >>>
@@ -456,6 +560,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [processingShiftId, setProcessingShiftId] = useState<string | null>(null);
     const [tempCourierData, setTempCourierData] = useState<ConfirmedCourierInfo | null>(null);
 
+    // Состояние для отключения свайпа
+    const [isSwipeEnabled, setIsSwipeEnabled] = useState(true);
+    
     // <<< Состояния для подтверждения УДАЛЕНИЯ (переименовано) >>>
     const [isDeleteAwaitingConfirmation, setIsDeleteAwaitingConfirmation] = useState(false);
     const [shiftToDeleteData, setShiftToDeleteData] = useState<ShiftToDeleteData | null>(null);
@@ -619,6 +726,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsConfirmingReserve(false);
         setConfirmedReserveCourier(null);
         
+        // Деактивируем возможность свайпа при начале перетаскивания
+        setIsSwipeEnabled(false);
+        
         if (active.data.current) {
             setActiveDragData(active.data.current);
             logger.debug('[ShiftSelectionDialog] Active Drag Data:', active.data.current);
@@ -744,6 +854,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 logger.info(`[DndContext] Valid drop onto different type slot by senior. Initiating move...`);
                 setIsProcessingMove(true); // Начинаем индикацию загрузки
                 setProcessingShiftId(shiftDbId); // Подсвечиваем изменяемую смену
+                
+                // Устанавливаем слот и тип для отображения лоадера
+                setLoadingType(targetShiftType);
+                setLoadingSlot(targetSlotIndex);
 
                 try {
                     // Вызываем новую функцию API
@@ -754,6 +868,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                         targetSlotIndex
                     );
                     logger.info(`[DndContext] Shift slot updated successfully via API.`, updatedShift);
+                    
+                    // Напрямую запрашиваем обновление смен из Redux
+                    dispatch(fetchShifts());
+                    logger.info('[DndContext] Directly dispatched fetchShifts to update UI immediately');
+                    
                     if (showNotification) {
                         const courierName = `${draggedData.courier?.firstName || ''} ${draggedData.courier?.lastName || ''}`.trim() || 'Курьер';
                         showNotification(
@@ -774,8 +893,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 } finally {
                     setIsProcessingMove(false); // Завершаем индикацию загрузки
                     setProcessingShiftId(null); // Убираем подсветку
+                    // Сбрасываем индикацию лоадера
+                    setLoadingType(null);
+                    setLoadingSlot(null);
                     // Сбрасываем состояние перетаскивания в любом случае
-                    setActiveDragId(null); 
+                    setActiveDragId(null);
                     setActiveDragData(null);
                     // <<< ДОБАВЛЯЕМ СБРОС СОСТОЯНИЯ ЗОН ЗДЕСЬ >>>
                     setIsOverDeleteZoneManually(false);
@@ -840,6 +962,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
         // Финальный сброс isDraggingGlobally теперь не нужен, т.к. он сбрасывается в обработчиках подтверждения/отмены
 
+        // После завершения drag-and-drop снова активируем свайп
+        setIsSwipeEnabled(true);
     }, [
         // <<< ОБНОВЛЯЕМ ЗАВИСИМОСТИ >>>
         isProcessingDelete, 
@@ -956,6 +1080,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     // <<< Обработчик отмены УДАЛЕНИЯ >>>
     const handleCancelDelete = useCallback(() => {
         setIsDraggingGlobally(false); // <<< Сбрасываем флаг перетаскивания
+        // Включаем свайп снова
+        setIsSwipeEnabled(true);
         logger.info('[ShiftSelectionDialog] Cancelling delete confirmation.');
         setIsDeleteAwaitingConfirmation(false);
         setShiftToDeleteData(null);
@@ -1046,6 +1172,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     // <<< Обработчик отмены РЕЗЕРВА >>>
     const handleCancelReserve = useCallback(() => {
         setIsDraggingGlobally(false); // <<< Сбрасываем флаг перетаскивания
+        // Включаем свайп снова
+        setIsSwipeEnabled(true);
         logger.info('[ShiftSelectionDialog] Cancel reserve action triggered.');
         setIsReserveAwaitingConfirmation(false);
         setShiftToReserveData(null);
@@ -1062,6 +1190,12 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setActiveDragData,
         setIsDraggingGlobally
     ]);
+
+    // Определяем тип для источника данных подтверждения
+    type ConfirmationDataSource = 
+        | { type: 'assignment', data: CourierInfo }
+        | { type: 'delete', data: ConfirmedCourierInfo }
+        | null;
 
     // <<< HELPER: Возвращает источник данных для подтверждения >>>
     const getConfirmationDataSource = (): ConfirmationDataSource => {
@@ -1105,9 +1239,40 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     // Добавляем обработчик для открытия профиля
     const handleOpenCourierProfile = useCallback((courier: CourierShift) => {
+        logger.info(`[ShiftSelectionDialog] Opening profile for courier: ${courier.firstName} ${courier.lastName}, ID: ${courier.userId}`);
+        
+        // Закрываем все диалоги и панели
+        if (isConfirmationOpen) {
+            setIsConfirmationOpen(false);
+            setPendingAction(null);
+        }
+        
+        if (isCouriersPanelOpen) {
+            setIsCouriersPanelOpen(false);
+            setPanelTargetShiftType(null);
+            setPanelTargetSlotIndex(null);
+        }
+        
+        // Останавливаем drag-n-drop
+        setIsDraggingGlobally(false);
+        setActiveDragId(null);
+        setActiveDragData(null);
+        
+        // Устанавливаем данные курьера и показываем профиль
         setSelectedCourier(courier);
         setShowCourierProfile(true);
-    }, []);
+    }, [
+        isConfirmationOpen, 
+        setIsConfirmationOpen, 
+        setPendingAction, 
+        isCouriersPanelOpen, 
+        setIsCouriersPanelOpen,
+        setPanelTargetShiftType,
+        setPanelTargetSlotIndex,
+        setIsDraggingGlobally,
+        setActiveDragId,
+        setActiveDragData
+    ]);
     
     // Добавляем обработчик для закрытия профиля и возврата к списку смен
     const handleCloseProfile = useCallback(() => {
@@ -1184,8 +1349,12 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setPanelTargetShiftType(shiftType);
         setPanelTargetSlotIndex(slotIndex);
         setIsCouriersPanelOpen(true);
-        // Добавляем isCouriersPanelOpen в зависимости useCallback
-    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpen]); // <<< ДОБАВИЛИ isCouriersPanelOpen В ЗАВИСИМОСТИ
+        
+        // Явно отключаем свайп при открытии панели курьеров
+        setIsSwipeEnabled(false);
+        logger.debug('[ShiftSelectionDialog] Couriers panel opening, disabling swipe directly');
+        
+    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpen, setIsSwipeEnabled]); // Добавляем setIsSwipeEnabled в зависимости
 
     // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ЗАКРЫТИЯ ПАНЕЛИ >>>
     const handleCloseCouriersPanel = useCallback(() => {
@@ -1193,7 +1362,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsCouriersPanelOpen(false);
         setPanelTargetShiftType(null); // Сбрасываем цель при закрытии
         setPanelTargetSlotIndex(null); // Сбрасываем цель при закрытии
-    }, [setIsCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex]); // Убедимся, что все зависимости здесь тоже есть
+
+        // Явно включаем свайп при закрытии панели курьеров, если не идет перетаскивание
+        if (!isDraggingGlobally) {
+            setIsSwipeEnabled(true);
+            logger.debug('[ShiftSelectionDialog] Couriers panel closing, enabling swipe directly');
+        }
+    }, [setIsCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, isDraggingGlobally, setIsSwipeEnabled]); // Добавляем зависимости
 
     // <<< НОВЫЙ ОБРАБОТЧИК: Подтверждение назначения курьера >>>
     const handleConfirmAssignment = useCallback(async () => {
@@ -1208,10 +1383,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         const { courier, shiftType, slotIndex } = assignmentToConfirmData;
         logger.info(`[ShiftSelectionDialog] Confirming assignment for courier ${courier.user_id} to ${shiftType} slot ${slotIndex}`);
 
-        // Показываем индикацию загрузки (можно использовать существующие флаги или добавить новые)
-        // setLoadingType(shiftType);
-        // setLoadingSlot(slotIndex);
-        // setInternalIsBookingLoading(true); // Используем общий флаг?
+        // Показываем индикацию загрузки
+        setLoadingType(shiftType);
+        setLoadingSlot(slotIndex);
+        setInternalIsBookingLoading(true);
 
         try {
             await dispatch(assignCourierToShiftThunk({
@@ -1230,8 +1405,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     `Курьер ${courier.first_name || ''} ${courier.last_name || ''} назначен на ${shiftType === 'day' ? 'дневной' : 'ночной'} слот ${slotIndex + 1}.`
                 );
             }
-            // UI обновится через Redux
-
+            // Напрямую запрашиваем обновление смен из Redux
+            dispatch(fetchShifts());
+            logger.info('[ShiftSelectionDialog] Directly dispatched fetchShifts to update UI immediately');
+            
         } catch (error: any) {
             logger.error(`[ShiftSelectionDialog] Error during courier assignment Thunk:`, error);
             if (showNotification) {
@@ -1246,26 +1423,241 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             setIsAwaitingAssignmentConfirmation(false);
             setAssignmentToConfirmData(null);
             setIsDraggingGlobally(false);
-            // Сбрасываем индикацию загрузки, если использовали
-            // setLoadingType(null);
-            // setLoadingSlot(null);
-            // setInternalIsBookingLoading(false);
+            // Сбрасываем индикацию загрузки
+            setLoadingType(null);
+            setLoadingSlot(null);
+            setInternalIsBookingLoading(false);
+            // Включаем свайп снова
+            setIsSwipeEnabled(true);
         }
     }, [assignmentToConfirmData, chatId, date, currentUserId, dispatch, showNotification]);
 
     // <<< НОВЫЙ ОБРАБОТЧИК: Отмена назначения курьера >>>
     const handleCancelAssignment = useCallback(() => {
+        // Включаем свайп снова
+        setIsSwipeEnabled(true);
         logger.info('[ShiftSelectionDialog] Cancelling assignment confirmation.');
         setIsAwaitingAssignmentConfirmation(false);
         setAssignmentToConfirmData(null);
         setIsDraggingGlobally(false); // Сбрасываем и флаг перетаскивания
     }, []);
 
-    // <<< DEFINE TYPE: Определяем тип для источника данных подтверждения >>>
-    type ConfirmationDataSource = 
-        | { type: 'assignment', data: CourierInfo }
-        | { type: 'delete', data: ConfirmedCourierInfo }
-        | null; // Добавляем null
+    // Добавляем состояния для свайпа
+    const [swipeInfo, setSwipeInfo] = useState<SwipeInfo>({
+        startX: 0,
+        startY: 0,
+        isSwiping: false,
+        direction: null
+    });
+    const [isChangingDate, setIsChangingDate] = useState(false);
+    const [targetDate, setTargetDate] = useState<Date | null>(null);
+    
+    // Добавляем контроллер анимации
+    const contentAnimControls = useAnimation();
+
+    // Обработчики свайпа
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        // Блокируем свайп, если он отключен или идет смена даты
+        if (!onDateChange || isChangingDate || !isSwipeEnabled) return;
+        
+        const touch = e.touches[0];
+        setSwipeInfo({
+            startX: touch.clientX,
+            startY: touch.clientY,
+            isSwiping: true,
+            direction: null
+        });
+    }, [onDateChange, isChangingDate, isSwipeEnabled]);
+
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        // Блокируем свайп, если он отключен, не начат или идет смена даты
+        if (!swipeInfo.isSwiping || !onDateChange || isChangingDate || !isSwipeEnabled) return;
+        
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - swipeInfo.startX;
+        const deltaY = touch.clientY - swipeInfo.startY;
+        
+        // Проверяем, что свайп больше горизонтальный, чем вертикальный
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 30) {
+            // Определяем направление свайпа
+            const direction = deltaX > 0 ? 'right' : 'left';
+            
+            // Проверяем, не блокировано ли движение в этом направлении
+            if ((direction === 'left' && !disableNextDate) || (direction === 'right' && !disablePrevDate)) {
+                setSwipeInfo(prev => ({
+                    ...prev,
+                    direction
+                }));
+                
+                // Применяем анимацию смещения контента
+                const offset = Math.min(Math.abs(deltaX), 100) * (direction === 'left' ? -1 : 1);
+                contentAnimControls.set({ x: offset });
+            }
+        }
+    }, [swipeInfo, onDateChange, isChangingDate, disablePrevDate, disableNextDate, contentAnimControls, isSwipeEnabled]);
+
+    // Добавляем состояние для анимации слотов
+    // const slotsAnimControls = useAnimation();
+
+    // Добавляем функцию для сброса всех активных состояний при свайпе
+    const resetAllActiveStates = useCallback(() => {
+        // Сбрасываем состояние панели курьеров
+        if (isCouriersPanelOpen) {
+            setIsCouriersPanelOpen(false);
+            setPanelTargetShiftType(null);
+            setPanelTargetSlotIndex(null);
+        }
+        
+        // Сбрасываем диалоги подтверждения
+        if (isConfirmationOpen) {
+            setIsConfirmationOpen(false);
+            setPendingAction(null);
+        }
+        
+        // Сбрасываем состояние подтверждения удаления
+        if (isDeleteAwaitingConfirmation) {
+            setIsDeleteAwaitingConfirmation(false);
+            setShiftToDeleteData(null);
+        }
+        
+        // Сбрасываем состояние подтверждения резерва
+        if (isReserveAwaitingConfirmation) {
+            setIsReserveAwaitingConfirmation(false);
+            setShiftToReserveData(null);
+        }
+        
+        // Сбрасываем состояние подтверждения назначения
+        if (isAwaitingAssignmentConfirmation) {
+            setIsAwaitingAssignmentConfirmation(false);
+            setAssignmentToConfirmData(null);
+        }
+        
+        // Логируем сброс состояний
+        logger.info('[ShiftSelectionDialog] Reset all active states due to date swipe');
+    }, [
+        isCouriersPanelOpen, 
+        setIsCouriersPanelOpen,
+        setPanelTargetShiftType,
+        setPanelTargetSlotIndex,
+        isConfirmationOpen,
+        setIsConfirmationOpen,
+        setPendingAction,
+        isDeleteAwaitingConfirmation,
+        setIsDeleteAwaitingConfirmation,
+        setShiftToDeleteData,
+        isReserveAwaitingConfirmation,
+        setIsReserveAwaitingConfirmation,
+        setShiftToReserveData,
+        isAwaitingAssignmentConfirmation,
+        setIsAwaitingAssignmentConfirmation,
+        setAssignmentToConfirmData
+    ]);
+
+    // Обновляем обработчик свайпа с улучшенной анимацией
+    const handleTouchEnd = useCallback(async () => {
+        // Блокируем свайп, если он отключен или идет смена даты
+        if (!swipeInfo.isSwiping || !onDateChange || isChangingDate || !isSwipeEnabled) {
+            // Сбрасываем состояние свайпа
+            setSwipeInfo({
+                startX: 0,
+                startY: 0,
+                isSwiping: false,
+                direction: null
+            });
+            contentAnimControls.start({ x: 0 });
+            return;
+        }
+        
+        const { direction } = swipeInfo;
+        
+        // Если был определен достаточный свайп с направлением
+        if (direction) {
+            // Определяем новую дату в зависимости от направления
+            const newDate = direction === 'left' 
+                ? getAdjacentDate(date, 'next')  // Свайп влево → следующая дата
+                : getAdjacentDate(date, 'prev'); // Свайп вправо → предыдущая дата
+            
+            // Сбрасываем все активные диалоги и панели
+            resetAllActiveStates();
+            
+            // Запускаем анимацию ухода текущего контента
+            setIsChangingDate(true);
+            setTargetDate(newDate);
+            
+            // Анимируем исчезновение текущего содержимого в сторону свайпа
+            await contentAnimControls.start({ 
+                x: direction === 'left' ? -window.innerWidth : window.innerWidth,
+                transition: { 
+                    duration: 0.25,
+                    ease: "easeInOut"
+                }
+            });
+            
+            // Вызываем колбэк изменения даты
+            onDateChange(newDate);
+            
+            // Устанавливаем начальную позицию для нового контента
+            contentAnimControls.set({ 
+                x: direction === 'left' ? window.innerWidth : -window.innerWidth
+            });
+            
+            // Запускаем анимацию появления нового контента
+            await contentAnimControls.start({ 
+                x: 0,
+                transition: { 
+                    duration: 0.25,
+                    ease: "easeInOut"
+                }
+            });
+            
+            // Сбрасываем состояния после завершения анимации
+            setIsChangingDate(false);
+            setTargetDate(null);
+        } else {
+            // Если не было достаточного свайпа, возвращаем контент в исходное положение
+            contentAnimControls.start({ 
+                x: 0,
+                transition: { 
+                    duration: 0.2,
+                    ease: "easeOut"
+                }
+            });
+        }
+        
+        // Сбрасываем информацию о свайпе
+        setSwipeInfo({
+            startX: 0,
+            startY: 0,
+            isSwiping: false,
+            direction: null
+        });
+    }, [swipeInfo, onDateChange, isChangingDate, date, contentAnimControls, resetAllActiveStates, isSwipeEnabled]);
+
+    // Упрощаем эффект, убираем анимацию слотов при монтировании
+    useEffect(() => {
+        // Ничего не делаем при монтировании, убираем анимацию появления
+    }, [isOpen]);
+
+    // Добавляем эффект для отслеживания глобального состояния перетаскивания
+    useEffect(() => {
+        // Когда перетаскивание заканчивается, включаем свайп снова
+        if (!isDraggingGlobally) {
+            setIsSwipeEnabled(true);
+            logger.debug('[ShiftSelectionDialog] Drag stopped, enabling swipe again');
+        }
+    }, [isDraggingGlobally]);
+
+    // Добавляем эффект для отключения свайпа при открытой панели курьеров
+    useEffect(() => {
+        if (isCouriersPanelOpen) {
+            setIsSwipeEnabled(false);
+            logger.debug('[ShiftSelectionDialog] Couriers panel opened, disabling swipe');
+        } else if (!isDraggingGlobally) {
+            // Включаем свайп только если не идет перетаскивание
+            setIsSwipeEnabled(true);
+            logger.debug('[ShiftSelectionDialog] Couriers panel closed, enabling swipe again');
+        }
+    }, [isCouriersPanelOpen, isDraggingGlobally]);
 
     return (
         <DndContext 
@@ -1348,147 +1740,169 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     </ProfileHeaderContainer>
                 ) : undefined}
             >
-                {/* Рендерим зоны только если не показываем профиль */}
-                {!showCourierProfile && showZonesContainer ? ( 
-                    <FlexContainer> 
-                        {renderDeleteZone && ( 
-                            <DeleteDropZone 
-                                isOver={isOverDeleteZone}
-                                isProcessing={isProcessingDelete}
-                                isConfirming={isConfirmingDelete}
-                                courierData={confirmedDeletedCourier} // Для галочки успеха
-                                confirmationDataSource={deleteConfirmationDataSource} // Передаем общие данные
-                                isAwaitingConfirmation={isAwaitingDeleteOrAssign} // Передаем флаг ожидания
-                                onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
-                                onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
-                                confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
-                            />
-                        )}
-                        {renderReserveZone && ( 
-                            <ReserveDropZone 
-                                isOver={isOverReserveZone}
-                                isProcessing={isProcessingReserve} 
-                                isConfirming={isConfirmingReserve} 
-                                confirmedCourierData={confirmedReserveCourier} // Для галочки успеха
-                                courierAwaitingActionData={reserveAwaitingOrProcessingData} // Передаем данные для ожидания/обработки
-                                isAwaitingConfirmation={isReserveAwaitingConfirmation} // Передаем флаг ожидания
-                                onConfirm={handleConfirmReserve}
-                                onCancel={handleCancelReserve}
-                            />
-                        )}
-                    </FlexContainer>
-                ) : !showCourierProfile && (
-                    null 
+                {/* Индикатор свайпа показывается только при активном свайпе */}
+                {swipeInfo.direction && !showCourierProfile && (
+                    <SwipeIndicator direction={swipeInfo.direction} />
                 )}
-
-                {!showCourierProfile && reserveError && <Alert severity="error" sx={{ mb: 2 }}>{reserveError}</Alert>} 
                 
-                {/* Показываем профиль курьера или панели смен/резерва */}
-                {showCourierProfile && selectedCourier ? (
-                    <div style={{ padding: '10px 0' }}>
-                        <CourierProfile 
-                            isSeniorCourier={(selectedCourier as any)?.isSeniorCourier ?? false}
-                            targetUserId={selectedCourier.userId}
-                            hideOwnStatus={true}
-                        />
-                        
-                        {/* <<< ПЕРЕМЕЩАЕМ БЛОК "В РАЗРАБОТКЕ" СЮДА >>> */}
-                        <DevelopmentNotice>
-                            <AnimatedGearIcon>⚙️</AnimatedGearIcon>
-                            <DevelopmentText>Функционал в разработке</DevelopmentText>
-                        </DevelopmentNotice>
-
-                        <button 
-                            style={{ 
-                                marginTop: '20px',
-                                padding: '12px 20px',
-                                backgroundColor: 'var(--primary-color)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 'var(--radius)',
-                                cursor: 'pointer',
-                                fontSize: '14px',
-                                fontWeight: '500',
-                                width: '100%',
-                                transition: 'all 0.2s ease'
-                            }}
-                            onClick={handleCloseProfile}
-                        >
-                            Вернуться к списку смен
-                        </button>
-                    </div>
-                ) : (
-                    shiftDialogMode === 'shifts' ? (
-                        isConfirmationOpen && pendingAction ? (
-                            <ShiftConfirmationDialog
-                                isOpen={isConfirmationOpen}
-                                onCancel={handleCloseConfirmation}
-                                onConfirm={handleConfirmAction}
-                                date={date}
-                                pendingShift={pendingAction}
-                                userName={currentUserName}
-                                userAvatar={currentUserAvatar}
-                            />
-                        ) : (
-                            <ShiftPanel
-                                date={date}
-                                dayShifts={dayShifts}
-                                nightShifts={nightShifts}
-                                maxDaySlots={currentMaxDay}
-                                maxNightSlots={currentMaxNight}
-                                currentUserId={currentUserId}
-                                currentUserName={currentUserName}
-                                onSlotSelect={handleSlotSelectWrapper}
-                                onSwitchToReserve={() => dispatch(setShiftDialogMode('reserves'))}
-                                showSuccessMessage={showSuccessMessage}
-                                showErrorMessage={(message) => {
-                                    if (showNotification) {
-                                        showNotification(NotificationTypes.ERROR, message);
-                                    } else {
-                                        logger.error("[ShiftSelectionDialog] showNotification is undefined, cannot display error:", message);
-                                    }
-                                }}
-                                isLoading={internalIsBookingLoading}
-                                loadingSlot={loadingSlot}
-                                loadingType={loadingType}
-                                chatId={chatId}
-                                isSenior={isCurrentUserSenior}
-                                draggingShiftType={draggingShiftType}
-                                isDraggingGlobal={isDraggingGlobally}
-                                processingShiftId={processingShiftId}
-                                isProcessingMove={isProcessingMove}
-                                onOpenProfile={handleOpenCourierProfile}
-                                // <<< ДОБАВЛЯЕМ НЕДОСТАЮЩИЕ ПРОПСЫ >>>
-                                onLongPressEmptySlot={handleLongPressEmptySlot}
-                                isCouriersPanelOpen={isCouriersPanelOpen}
-                                panelTargetShiftType={panelTargetShiftType}
-                                panelTargetSlotIndex={panelTargetSlotIndex}
-                                onCloseCouriersPanel={handleCloseCouriersPanel}
-                                // <<< Передаем активный ID для панели >>>
-                                activeDragId={activeDragId} 
-                            />
-                        )
-                    ) : (
-                        <ReservePanel
-                            date={date}
-                            currentUserId={currentUserId}
-                            currentUserAvatar={currentUserAvatar}
-                            currentUserName={currentUserName}
-                            dayShifts={dayShifts}
-                            nightShifts={nightShifts}
-                            onSwitchToShifts={() => dispatch(setShiftDialogMode('shifts'))}
-                            getDisplayReservesForDate={getDisplayReservesForDate}
-                            isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
-                            addCurrentUserToReserve={addCurrentUserToReserve}
-                            cancelReserveById={cancelReserveById}
-                            isLoading={isReserveLoading}
-                            error={reserveError}
-                            showSuccessMessage={showSuccessMessage}
-                            chatId={chatId}
-                            isCurrentUserSenior={isCurrentUserSenior}
-                        />
-                    )
+                {/* Индикатор новой даты во время смены */}
+                {isChangingDate && targetDate && !showCourierProfile && (
+                    <DateIndicator>
+                        {format(targetDate, 'd MMMM', { locale: ru })}
+                    </DateIndicator>
                 )}
+                
+                {/* Оборачиваем основной контент в SwipeableContent для анимации */}
+                <SwipeableContent
+                    animate={contentAnimControls}
+                    onTouchStart={!showCourierProfile ? handleTouchStart : undefined}
+                    onTouchMove={!showCourierProfile ? handleTouchMove : undefined}
+                    onTouchEnd={!showCourierProfile ? handleTouchEnd : undefined}
+                >
+                    {/* Рендерим зоны только если не показываем профиль */}
+                    {!showCourierProfile && showZonesContainer ? ( 
+                        <FlexContainer> 
+                            {renderDeleteZone && ( 
+                                <DeleteDropZone 
+                                    isOver={isOverDeleteZone}
+                                    isProcessing={isProcessingDelete}
+                                    isConfirming={isConfirmingDelete}
+                                    courierData={confirmedDeletedCourier} // Для галочки успеха
+                                    confirmationDataSource={deleteConfirmationDataSource} // Передаем общие данные
+                                    isAwaitingConfirmation={isAwaitingDeleteOrAssign} // Передаем флаг ожидания
+                                    onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
+                                    onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
+                                    confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
+                                />
+                            )}
+                            {renderReserveZone && ( 
+                                <ReserveDropZone 
+                                    isOver={isOverReserveZone}
+                                    isProcessing={isProcessingReserve} 
+                                    isConfirming={isConfirmingReserve} 
+                                    confirmedCourierData={confirmedReserveCourier} // Для галочки успеха
+                                    courierAwaitingActionData={reserveAwaitingOrProcessingData} // Передаем данные для ожидания/обработки
+                                    isAwaitingConfirmation={isReserveAwaitingConfirmation} // Передаем флаг ожидания
+                                    onConfirm={handleConfirmReserve}
+                                    onCancel={handleCancelReserve}
+                                />
+                            )}
+                        </FlexContainer>
+                    ) : !showCourierProfile && (
+                        null 
+                    )}
+
+                    {!showCourierProfile && reserveError && <Alert severity="error" sx={{ mb: 2 }}>{reserveError}</Alert>} 
+                    
+                    {/* Показываем профиль курьера или панели смен/резерва */}
+                    {showCourierProfile && selectedCourier ? (
+                        <div style={{ padding: '10px 0' }}>
+                            <CourierProfile 
+                                isSeniorCourier={(selectedCourier as any)?.isSeniorCourier ?? false}
+                                targetUserId={selectedCourier.userId}
+                                hideOwnStatus={true}
+                            />
+                            
+                            {/* <<< ПЕРЕМЕЩАЕМ БЛОК "В РАЗРАБОТКЕ" СЮДА >>> */}
+                            <DevelopmentNotice>
+                                <AnimatedGearIcon>⚙️</AnimatedGearIcon>
+                                <DevelopmentText>Функционал в разработке</DevelopmentText>
+                            </DevelopmentNotice>
+
+                            <button 
+                                style={{ 
+                                    marginTop: '20px',
+                                    padding: '12px 20px',
+                                    backgroundColor: 'var(--primary-color)',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 'var(--radius)',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    width: '100%',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onClick={handleCloseProfile}
+                            >
+                                Вернуться к списку смен
+                            </button>
+                        </div>
+                    ) : (
+                        <div style={{ width: '100%' }}>
+                            {shiftDialogMode === 'shifts' ? (
+                                isConfirmationOpen && pendingAction ? (
+                                    <ShiftConfirmationDialog
+                                        isOpen={isConfirmationOpen}
+                                        onCancel={handleCloseConfirmation}
+                                        onConfirm={handleConfirmAction}
+                                        date={date}
+                                        pendingShift={pendingAction}
+                                        userName={currentUserName}
+                                        userAvatar={currentUserAvatar}
+                                    />
+                                ) : (
+                                    <ShiftPanel
+                                        date={date}
+                                        dayShifts={dayShifts}
+                                        nightShifts={nightShifts}
+                                        maxDaySlots={currentMaxDay}
+                                        maxNightSlots={currentMaxNight}
+                                        currentUserId={currentUserId}
+                                        currentUserName={currentUserName}
+                                        onSlotSelect={handleSlotSelectWrapper}
+                                        onSwitchToReserve={() => dispatch(setShiftDialogMode('reserves'))}
+                                        showSuccessMessage={showSuccessMessage}
+                                        showErrorMessage={(message) => {
+                                            if (showNotification) {
+                                                showNotification(NotificationTypes.ERROR, message);
+                                            } else {
+                                                logger.error("[ShiftSelectionDialog] showNotification is undefined, cannot display error:", message);
+                                            }
+                                        }}
+                                        isLoading={internalIsBookingLoading}
+                                        loadingSlot={loadingSlot}
+                                        loadingType={loadingType}
+                                        chatId={chatId}
+                                        isSenior={isCurrentUserSenior}
+                                        draggingShiftType={draggingShiftType}
+                                        isDraggingGlobal={isDraggingGlobally}
+                                        processingShiftId={processingShiftId}
+                                        isProcessingMove={isProcessingMove}
+                                        onOpenProfile={handleOpenCourierProfile}
+                                        // <<< ДОБАВЛЯЕМ НЕДОСТАЮЩИЕ ПРОПСЫ >>>
+                                        onLongPressEmptySlot={handleLongPressEmptySlot}
+                                        isCouriersPanelOpen={isCouriersPanelOpen}
+                                        panelTargetShiftType={panelTargetShiftType}
+                                        panelTargetSlotIndex={panelTargetSlotIndex}
+                                        onCloseCouriersPanel={handleCloseCouriersPanel}
+                                        // <<< Передаем активный ID для панели >>>
+                                        activeDragId={activeDragId} 
+                                    />
+                                )
+                            ) : (
+                                <ReservePanel
+                                    date={date}
+                                    currentUserId={currentUserId}
+                                    currentUserAvatar={currentUserAvatar}
+                                    currentUserName={currentUserName}
+                                    dayShifts={dayShifts}
+                                    nightShifts={nightShifts}
+                                    onSwitchToShifts={() => dispatch(setShiftDialogMode('shifts'))}
+                                    getDisplayReservesForDate={getDisplayReservesForDate}
+                                    isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}
+                                    addCurrentUserToReserve={addCurrentUserToReserve}
+                                    cancelReserveById={cancelReserveById}
+                                    isLoading={isReserveLoading}
+                                    error={reserveError}
+                                    showSuccessMessage={showSuccessMessage}
+                                    chatId={chatId}
+                                    isCurrentUserSenior={isCurrentUserSenior}
+                                />
+                            )}
+                        </div>
+                    )}
+                </SwipeableContent>
             </BottomDrawer>
 
             <DragOverlay 

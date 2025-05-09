@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useAppSelector } from '../../../../../store/hooks';
 import { selectAccessSettings } from '../../../../../store/slices/shiftsSlice';
+import { Button } from '../../../../../components/common/Button';
 
 // <<< Локальное определение getDayName >>>
 const getDayName = (dayOfWeek: number): string => {
@@ -52,7 +53,6 @@ const Container = styled(motion.div)`
     pointer-events: auto;
     background: var(--card-background);
     border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
 `;
 
 const IconWrapper = styled(motion.div)`
@@ -151,13 +151,6 @@ const ButtonContainer = styled.div`
     position: relative;
     z-index: 1003;
     pointer-events: auto;
-`;
-
-const ConfirmButton = styled.button`
-    pointer-events: auto;
-    cursor: pointer;
-    position: relative;
-    z-index: 1003;
 `;
 
 const containerVariants = {
@@ -272,9 +265,13 @@ const SuccessNotification = memo(({ message, onConfirm }: SuccessNotificationPro
             </ResultsContainer>
             
             <ButtonContainer>
-                <ConfirmButton onClick={onConfirm}>
+                <Button 
+                    variant="primary" 
+                    size="medium" 
+                    onClick={onConfirm}
+                >
                     OK
-                </ConfirmButton>
+                </Button>
             </ButtonContainer>
         </Container>
     );

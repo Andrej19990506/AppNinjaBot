@@ -130,7 +130,11 @@ const SlotTooltip = styled.div`
     pointer-events: none;
     opacity: 0;
     transition: opacity 0.2s;
-    z-index: 1000;
+    z-index: 9999; /* Увеличенный z-index */
+    max-width: none;
+    overflow: visible;
+    /* Гарантирует, что тултип никогда не будет обрезан контейнером */
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.2));
 
     &::after {
         content: '';

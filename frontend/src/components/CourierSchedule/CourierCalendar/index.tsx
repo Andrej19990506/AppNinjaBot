@@ -106,6 +106,46 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         setSelectedDateForDialog(null);
     }, []);
 
+    // Добавляем обработчик изменения даты при свайпе
+    const handleDateChange = useCallback((newDate: Date) => {
+        logger.info(`[CourierCalendar] Date changed via swipe to: ${format(newDate, 'yyyy-MM-dd')}`);
+        
+        // Проверяем, доступна ли новая дата
+        const isNewDateAllowed = accessSettings ? isDateAvailable(newDate, currentUserId, accessSettings) : false;
+        
+        if (isNewDateAllowed) {
+            // Обновляем выбранную дату
+            setSelectedDateForDialog(newDate);
+        } else {
+            // Если дата недоступна, показываем уведомление
+            logger.info(`[CourierCalendar] Attempted to swipe to unavailable date: ${format(newDate, 'yyyy-MM-dd')}`);
+            dispatch(addNotification({ 
+                type: NotificationTypes.WARNING, 
+                message: 'Запись на эту дату недоступна', 
+                isToast: true 
+            }));
+        }
+    }, [accessSettings, currentUserId, dispatch]);
+    
+    // Функции для проверки доступности предыдущей и следующей даты
+    const isPrevDateAvailable = useMemo(() => {
+        if (!selectedDateForDialog || !accessSettings) return false;
+        
+        const prevDate = new Date(selectedDateForDialog);
+        prevDate.setDate(prevDate.getDate() - 1);
+        
+        return isDateAvailable(prevDate, currentUserId, accessSettings);
+    }, [selectedDateForDialog, accessSettings, currentUserId]);
+    
+    const isNextDateAvailable = useMemo(() => {
+        if (!selectedDateForDialog || !accessSettings) return false;
+        
+        const nextDate = new Date(selectedDateForDialog);
+        nextDate.setDate(nextDate.getDate() + 1);
+        
+        return isDateAvailable(nextDate, currentUserId, accessSettings);
+    }, [selectedDateForDialog, accessSettings, currentUserId]);
+
     const selectedDateShifts = useMemo(() => {
         if (!selectedDateForDialog) return { dayShifts: [], nightShifts: [] };
         return {
@@ -259,6 +299,9 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     onMoveToReserve={handleMoveToReserve}
                     showNotification={handleShowNotification}
                     onOpenProfile={onOpenProfile}
+                    onDateChange={handleDateChange}
+                    disablePrevDate={!isPrevDateAvailable}
+                    disableNextDate={!isNextDateAvailable}
                 />
             )}
 

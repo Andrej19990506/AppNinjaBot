@@ -411,15 +411,19 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
     const currentYear = new Date().getFullYear();
     const [selectedPeriod, setSelectedPeriod] = useState<SelectedPeriod>({ 
         type: 'week' // <<< УСТАНАВЛИВАЕМ НАЧАЛЬНОЕ ЗНАЧЕНИЕ 'week' >>>
-        // year: currentYear, // Убираем год/месяц из начального состояния
-        // month: currentMonth // Убираем год/месяц из начального состояния
     });
+    
+    // Добавляем состояние для отслеживания, был ли уже выполнен начальный запрос данных
+    const [initialDataLoaded, setInitialDataLoaded] = useState(false);
     
     // <<< Используем useState для availableMonths, инициализируем пустым >>>
     const [availableMonths, setAvailableMonths] = useState<AvailablePeriod[]>([]);
 
     // <<< Убедимся, что состояние number | null >>>
     const [selectedCourierId, setSelectedCourierId] = useState<number | null>(null);
+
+    // Добавим состояние для отслеживания текущего режима отображения дропдауна
+    const [dropdownView, setDropdownView] = useState<'default' | 'months'>('default');
 
     // <<< ДОБАВЛЯЕМ useEffect ДЛЯ ЗАГРУЗКИ ПЕРИОДОВ ПРИ МОНТИРОВАНИИ >>>
     useEffect(() => {
@@ -439,17 +443,39 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
         }
     }, [isOpen, chatId, currentYear, currentMonth]); // Зависим от isOpen и chatId
 
-    // <<< ДОБАВЛЯЕМ useEffect ДЛЯ ВЫЗОВА onPeriodChange ПРИ ОТКРЫТИИ >>>
+    // Загружаем данные за неделю при первом открытии 
     useEffect(() => {
-        if (isOpen) {
-            // При открытии окна сообщаем родителю, что нужно загрузить неделю
-            console.log('[TimesheetPreview] Triggering initial period change to week on open');
-            onPeriodChange({ type: 'week' }); 
+        if (isOpen && !initialDataLoaded) {
+            console.log('[TimesheetPreview] Initial data loading for week period');
+            // Устанавливаем тип period как 'week' и сообщаем родительскому компоненту
+            setSelectedPeriod({ type: 'week' });
+            // Принудительно запрашиваем данные за неделю
+            onPeriodChange({ type: 'week' });
+            setInitialDataLoaded(true);
         }
-        // Этот эффект должен сработать только один раз при изменении isOpen в true
-        // Мы не хотим вызывать onPeriodChange каждый раз при ре-рендере, когда isOpen=true
-        // Поэтому зависимость только от isOpen, но логика внутри if
-    }, [isOpen, onPeriodChange]); // Добавляем onPeriodChange в зависимости
+        
+        // Сбрасываем флаг initialDataLoaded при закрытии модального окна
+        if (!isOpen) {
+            setInitialDataLoaded(false);
+        }
+    }, [isOpen, initialDataLoaded, onPeriodChange]);
+
+    // Обновляем UI, если данные изменились
+    useEffect(() => {
+        // Если нет загрузки и нет ошибки, но данные не соответствуют выбранному периоду
+        if (!isLoading && !error && data) {
+            // Здесь можно добавить логику для проверки, соответствуют ли данные периоду
+            console.log('[TimesheetPreview] Data received from server:', {
+                periodsCount: data.columns?.length || 0,
+                hasData: data.rows?.length > 0, 
+                selectedPeriodType: selectedPeriod.type
+            });
+            
+            // Удаляем некорректную проверку, так как она выдает ложные предупреждения
+            // Данные могут приходить в разных форматах, и количество колонок не является
+            // надежным индикатором типа периода (недельный/месячный)
+        }
+    }, [data, isLoading, error, selectedPeriod]);
 
     // <<< useEffect для закрытия по клику вне (без изменений) >>>
     useEffect(() => {
@@ -460,8 +486,9 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                 !periodDropdownRef.current.contains(event.target as Node) &&
                 isPeriodDropdownOpen // Проверяем, было ли оно открыто
             ) {
-                // console.log('[TimesheetPreview] Click outside period dropdown');
+                // Закрываем дропдаун и сбрасываем вид к дефолтному
                 setIsPeriodDropdownOpen(false);
+                setDropdownView('default');
             }
             // Закрываем меню отправки
             if (
@@ -523,6 +550,38 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
             return <p>Данные табеля отсутствуют.</p>;
         }
 
+        // Обновляем индикатор периода, чтобы показывать конкретный месяц или диапазон дат
+        let periodText = '';
+        if (selectedPeriod.type === 'week') {
+            // Берем даты из фактических данных, а не вычисляем их
+            if (data.columns && data.columns.length > 0) {
+                // Сортируем даты, чтобы найти первую и последнюю
+                const sortedDates = [...data.columns].sort();
+                const firstDate = new Date(sortedDates[0] + 'T00:00:00Z');
+                const lastDate = new Date(sortedDates[sortedDates.length - 1] + 'T00:00:00Z');
+                
+                // Форматируем даты в виде "ДД.ММ - ДД.ММ"
+                const formatDate = (date: Date) => {
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    return `${day}.${month}`;
+                };
+                
+                periodText = `Данные за текущую неделю: ${formatDate(firstDate)} - ${formatDate(lastDate)}`;
+            } else {
+                periodText = 'Данные за текущую неделю';
+            }
+        } else if (selectedPeriod.type === 'month' && selectedPeriod.year !== undefined && selectedPeriod.month !== undefined) {
+            // Форматируем месяц и год
+            const date = new Date(selectedPeriod.year, selectedPeriod.month);
+            const monthYear = date.toLocaleString('ru-RU', { month: 'long', year: 'numeric' });
+            periodText = `Данные за месяц: ${monthYear}`;
+        } else {
+            periodText = 'Данные за период';
+        }
+
+        const periodIndicator = <small style={{ color: 'var(--text-secondary)' }}>{periodText}</small>;
+
         const { columns, rows } = data;
 
         const formatDateHeader = (dateStr: string): string => {
@@ -535,6 +594,7 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
         return (
             <>
                 <TableWrapper>
+                    {periodIndicator}
                     <Table>
                         <thead>
                             <tr>
@@ -580,31 +640,46 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
 
     // <<< ОБНОВЛЕННЫЙ ОБРАБОТЧИК СМЕНЫ ПЕРИОДА >>>
     const handlePeriodMenuClick = (key: string) => {
+        // Если выбрали "Выбрать месяц", просто меняем вид дропдауна на список месяцев
+        if (key === 'switch-to-month') {
+            console.log('[TimesheetPreview] Show months dropdown view');
+            setDropdownView('months');
+            return; // Прерываем выполнение, не закрывая дропдаун
+        }
+        
         let newPeriod: SelectedPeriod | null = null;
 
-        if (key === 'switch-to-week') {
+        if (key === 'switch-to-week' || key === 'current-week') {
             newPeriod = { type: 'week' };
-        } else if (key === 'switch-to-month') {
-            // <<< Выбираем первый доступный месяц из ДИНАМИЧЕСКОГО списка >>>
-            const firstAvailableMonth = availableMonths[0] || { year: currentYear, month: currentMonth };
-            newPeriod = { type: 'month', year: firstAvailableMonth.year, month: firstAvailableMonth.month };
+            console.log('[TimesheetPreview] Switching to WEEK view');
         } else if (key.startsWith('month-')) {
             const [, yearStr, monthStr] = key.split('-');
             const year = parseInt(yearStr, 10);
             const month = parseInt(monthStr, 10);
             if (!isNaN(year) && !isNaN(month)) {
                 newPeriod = { type: 'month', year, month };
+                console.log('[TimesheetPreview] Switching to specific MONTH', newPeriod);
             }
         }
 
-        if (newPeriod && (newPeriod.type !== selectedPeriod.type || newPeriod.year !== selectedPeriod.year || newPeriod.month !== selectedPeriod.month)) {
-             console.log('[TimesheetPreview] Period changed to:', newPeriod);
-             setSelectedPeriod(newPeriod);
-             setIsPeriodDropdownOpen(false); 
-             onPeriodChange(newPeriod); 
+        if (newPeriod) {
+            // Сначала обновляем локальное состояние
+            console.log('[TimesheetPreview] Period changed to:', newPeriod);
+            setSelectedPeriod(newPeriod);
+            setIsPeriodDropdownOpen(false); 
+            setDropdownView('default'); // Сбрасываем вид дропдауна
+            
+            // Затем уведомляем родительский компонент для загрузки данных
+            onPeriodChange(newPeriod);
         } else {
-             setIsPeriodDropdownOpen(false);
+            setIsPeriodDropdownOpen(false);
+            setDropdownView('default'); // Сбрасываем вид дропдауна
         }
+    };
+    
+    // При нажатии "Назад" в режиме выбора месяца
+    const handleBackToMainMenu = () => {
+        setDropdownView('default');
     };
     
     // --- Форматирование и генерация меню --- 
@@ -615,10 +690,20 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const periodMenuItems = useMemo(() => {
-        const items: (MenuItem | MenuDivider)[] = [];
-        
-        if (selectedPeriod.type === 'month') {
-            // <<< Используем ДИНАМИЧЕСКИЙ список availableMonths >>>
+        // Если показываем список месяцев
+        if (dropdownView === 'months') {
+            const items: (MenuItem | MenuDivider)[] = [];
+            
+            // Добавляем кнопку "Назад"
+            items.push({
+                label: '← Назад',
+                key: 'back-to-main',
+                type: 'item'
+            });
+            
+            items.push({ type: 'divider', key: 'divider-back' });
+            
+            // Добавляем список месяцев
             availableMonths.forEach(m => {
                 items.push({
                     label: formatMonthYear(m.year, m.month),
@@ -627,43 +712,72 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                 });
             });
             
-            if (availableMonths.length > 0) {
-                 items.push({ type: 'divider', key: 'divider-month' });
-            }
-            
-            items.push({
-                 label: 'Выбрать неделю',
-                 key: 'switch-to-week',
-                 type: 'item'
-            });
-            
-        } else { // type === 'week'
-             items.push({
-                 label: 'Выбрать месяц',
-                 key: 'switch-to-month',
-                 type: 'item'
-            });
-             items.push({ type: 'divider', key: 'divider-week' });
-             items.push({
-                 label: 'Текущая неделя',
-                 key: 'current-week', 
-                 type: 'item'
-             });
+            return items;
         }
         
-        // <<< ВОЗВРАЩАЕМ СФОРМИРОВАННЫЙ МАССИВ ЭЛЕМЕНТОВ >>>
+        // Стандартное меню (default)
+        const items: (MenuItem | MenuDivider)[] = [];
+        
+        if (selectedPeriod.type === 'month') {
+            items.push({
+                label: 'Выбрать другой месяц',
+                key: 'switch-to-month',
+                type: 'item'
+            });
+            
+            items.push({ type: 'divider', key: 'divider-month' });
+            
+            items.push({
+                label: 'Текущая неделя',
+                key: 'switch-to-week',
+                type: 'item'
+            });
+        } else { // type === 'week'
+            items.push({
+                label: 'Выбрать месяц',
+                key: 'switch-to-month',
+                type: 'item'
+            });
+            
+            items.push({ type: 'divider', key: 'divider-week' });
+            
+            items.push({
+                label: 'Текущая неделя',
+                key: 'current-week', 
+                type: 'item'
+            });
+        }
+        
         return items;
-    }, [selectedPeriod.type, availableMonths]);
+    }, [selectedPeriod.type, availableMonths, dropdownView]); // Добавляем dropdownView как зависимость
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const periodButtonLabel = useMemo(() => {
         if (selectedPeriod.type === 'month' && selectedPeriod.year !== undefined && selectedPeriod.month !== undefined) {
             return formatMonthYear(selectedPeriod.year, selectedPeriod.month);
         } else if (selectedPeriod.type === 'week') {
-            return 'Текущая неделя'; // TODO: Уточнить
+            // Получаем диапазон дат из фактических данных, если они есть
+            if (data?.columns && data.columns.length > 0) {
+                // Сортируем даты, чтобы найти первую и последнюю
+                const sortedDates = [...data.columns].sort();
+                const firstDate = new Date(sortedDates[0] + 'T00:00:00Z');
+                const lastDate = new Date(sortedDates[sortedDates.length - 1] + 'T00:00:00Z');
+                
+                // Форматируем даты в виде "ДД.ММ - ДД.ММ"
+                const formatDate = (date: Date) => {
+                    const day = date.getDate().toString().padStart(2, '0');
+                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                    return `${day}.${month}`;
+                };
+                
+                return `Неделя: ${formatDate(firstDate)} - ${formatDate(lastDate)}`;
+            }
+            
+            // Если данных нет, покажем просто "Текущая неделя"
+            return 'Текущая неделя';
         }
         return 'Выбрать период'; // Fallback
-    }, [selectedPeriod]);
+    }, [selectedPeriod, data?.columns]); // Добавляем data?.columns в зависимости
 
     // <<< ВОССТАНАВЛИВАЕМ ОПРЕДЕЛЕНИЕ sendMenuItems >>>
     const sendMenuItems = [
@@ -674,6 +788,7 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
 
     // <<< ЛОГИРУЕМ СОСТОЯНИЕ ПЕРЕД РЕНДЕРОМ >>>
     console.log('[TimesheetPreview] State before render:', {
+        selectedPeriod,
         isLoading,
         error,
         dataExists: !!data,
@@ -702,7 +817,13 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                 
                 {/* Кастомный дропдаун выбора периода */}
                 <DropdownWrapper ref={periodDropdownRef}> 
-                    <PeriodButton onClick={() => setIsPeriodDropdownOpen(!isPeriodDropdownOpen)}>
+                    <PeriodButton onClick={() => {
+                        // При открытии дропдауна всегда показываем стандартный вид
+                        if (!isPeriodDropdownOpen) {
+                            setDropdownView('default');
+                        }
+                        setIsPeriodDropdownOpen(!isPeriodDropdownOpen);
+                    }}>
                         {/* TODO: Иконка календаря */} {periodButtonLabel} <ArrowIconPlaceholder $isOpen={isPeriodDropdownOpen} />
                     </PeriodButton>
                     {isPeriodDropdownOpen && (
@@ -713,7 +834,15 @@ const TimesheetPreview: React.FC<TimesheetPreviewProps> = (props) => {
                                 <div key={item.key} style={{ height: '1px', backgroundColor: 'var(--border-color)', margin: '4px 0' }} /> :
                                 <DropdownMenuItem 
                                     key={item.key} 
-                                    onClick={() => handlePeriodMenuClick(item.key)} 
+                                    onClick={() => {
+                                        // Особая обработка для кнопки "Назад"
+                                        if (item.key === 'back-to-main') {
+                                            handleBackToMainMenu();
+                                            return;
+                                        }
+                                        
+                                        handlePeriodMenuClick(item.key);
+                                    }} 
                                     $isSelected={(
                                         selectedPeriod.type === 'month' && 
                                         item.key === `month-${selectedPeriod.year}-${selectedPeriod.month}`

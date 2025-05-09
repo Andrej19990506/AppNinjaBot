@@ -45,7 +45,8 @@ const findCourierChatId = (state: RootState | null): string | undefined => {
         logger.error('[Store:findCourierChatId] Попытка вызова до инициализации state!');
         return undefined;
     }
-    return state.user.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
+    // Убедимся, что user и groups существуют
+    return state.user?.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
 };
 
 const joinRoom = (roomId: string) => {
@@ -75,18 +76,23 @@ const joinRoom = (roomId: string) => {
         last_name: user.last_name
     });
     joinedRoomId = roomId;
-    pendingJoinRoomId = null;
+    pendingJoinRoomId = null; // Сбрасываем ожидание после успешной попытки входа
 };
 
 const leaveRoom = () => {
     if (joinedRoomId) {
         const leavingRoomId = joinedRoomId;
+        // Сбрасываем joinedRoomId сразу, чтобы избежать гонок состояний
         joinedRoomId = null;
-        pendingJoinRoomId = null;
+        // pendingJoinRoomId здесь не должен сбрасываться, он управляется логикой переподключения
         logger.log(`[Store:RoomLogic] 🚪 Выход из комнаты: ${leavingRoomId}`);
         if (socketService.isInitialized() && socketService.isConnected()) {
             socketService.leaveRoom(leavingRoomId);
+        } else {
+            logger.warn(`[Store:RoomLogic] Сокет не подключен, выход из комнаты ${leavingRoomId} только на клиенте.`);
         }
+    } else {
+        logger.log('[Store:RoomLogic] Попытка выхода, но не в комнате.');
     }
 };
 
@@ -211,22 +217,33 @@ const handleSocketDisconnect = (reason: string): void => {
     // 2. Логика комнаты курьеров при дисконнекте
     if (joinedRoomId) {
         logger.log(`[Store:handleSocketDisconnect] Мы были в комнате ${joinedRoomId}.`);
-        const currentJoinedRoomId = joinedRoomId;
-        joinedRoomId = null;
+        const previousJoinedRoomId = joinedRoomId; // Сохраняем ID комнаты, из которой вышли (или считаем, что вышли)
+        joinedRoomId = null; // Считаем, что вышли из комнаты на клиенте
+        
+        // Определяем, нужно ли ставить эту комнату в ожидание для переподключения
+        // Это делается на основе currentPathname, который должен быть актуальным
+        let targetRoomForCurrentRoute: string | null = null;
         if (currentPathname) {
-            const state = store?.getState();
-            const chatId = findCourierChatId(state);
-            if (chatId === currentJoinedRoomId) {
-                 logger.log(`[Store:handleSocketDisconnect] ...но мы все еще на курьерском роуте (${currentPathname}). Ставим комнату ${chatId} в ожидание.`);
-                 pendingJoinRoomId = chatId;
+            const state = store?.getState(); // Получаем актуальный стейт
+            if (currentPathname === COURIER_ROUTE) {
+                targetRoomForCurrentRoute = findCourierChatId(state) ?? null;
             } else {
-                 logger.warn(`[Store:handleSocketDisconnect] ...но текущий chatId (${chatId}) не совпадает с тем, из которого вышли (${currentJoinedRoomId}). Ожидание не ставим.`);
-                 pendingJoinRoomId = null;
+                const inventoryMatch = currentPathname.match(/^\/inventory\/([^/]+)$/);
+                if (inventoryMatch && inventoryMatch[1]) {
+                    targetRoomForCurrentRoute = `inventory_${inventoryMatch[1]}`;
+                }
             }
+        }
+
+        if (targetRoomForCurrentRoute === previousJoinedRoomId) {
+             logger.log(`[Store:handleSocketDisconnect] ...и мы все еще на роуте (${currentPathname}), соответствующем этой комнате. Ставим комнату ${previousJoinedRoomId} в ожидание.`);
+             pendingJoinRoomId = previousJoinedRoomId;
         } else {
-             pendingJoinRoomId = null;
+             logger.warn(`[Store:handleSocketDisconnect] ...но текущий роут (${currentPathname}) не соответствует комнате ${previousJoinedRoomId} (или targetRoomForCurrentRoute is ${targetRoomForCurrentRoute}). Ожидание не ставим.`);
+             pendingJoinRoomId = null; // Очищаем, если роут изменился или комната неактуальна
         }
     } else {
+         logger.log('[Store:handleSocketDisconnect] Не были в комнате, очищаем pendingJoinRoomId.');
          pendingJoinRoomId = null;
     }
 };
@@ -308,16 +325,44 @@ listenerMiddleware.startListening({
     effect: (action, listenerApi) => {
         logger.log("[Store:SocketConnect] Listener triggered");
         
-        // Подписываемся на основные события сокета (не доменные)
-        // setupSubscriptions здесь, чтобы гарантировать подписку после *каждого* успешного коннекта
         setupSubscriptions(listenerApi.dispatch as AppDispatch, listenerApi.getState as () => RootState);
         
-        // Проверяем, есть ли комната в ожидании
         if (pendingJoinRoomId) {
             logger.log(`[Store:SocketConnect] Found pending room: ${pendingJoinRoomId}. Joining...`);
-            joinRoom(pendingJoinRoomId); // pendingJoinRoomId будет сброшен внутри joinRoom
+            joinRoom(pendingJoinRoomId);
+        } else if (currentPathname) { // Если нет pending room, но есть currentPathname
+            logger.log(`[Store:SocketConnect] No pending room. Checking current path: ${currentPathname} for potential room join.`);
+            const state = listenerApi.getState() as RootState;
+            
+            let determinedRoomName: string | null = null;
+            if (currentPathname === COURIER_ROUTE) {
+                const courierChatId = findCourierChatId(state);
+                if (courierChatId) {
+                    determinedRoomName = courierChatId;
+                } else {
+                     logger.log(`[Store:SocketConnect] User or courier group chat ID not found for currentPathname: ${currentPathname} after connect.`);
+                }
+            } else {
+                const inventoryMatch = currentPathname.match(/^\/inventory\/([^/]+)$/);
+                if (inventoryMatch && inventoryMatch[1]) {
+                    determinedRoomName = `inventory_${inventoryMatch[1]}`;
+                }
+            }
+
+            if (determinedRoomName && determinedRoomName !== joinedRoomId) {
+                logger.log(`[Store:SocketConnect] Current path suggests room ${determinedRoomName}. Current joined: ${joinedRoomId}. Attempting join.`);
+                if (joinedRoomId) { // Это условие может сработать, если joinedRoomId не был сброшен корректно
+                   logger.warn(`[Store:SocketConnect] Was already in room ${joinedRoomId} unexpectedly. Leaving before joining ${determinedRoomName}.`);
+                   leaveRoom();
+                }
+                joinRoom(determinedRoomName);
+            } else if (determinedRoomName && determinedRoomName === joinedRoomId) {
+                logger.log(`[Store:SocketConnect] Already in suggested room ${determinedRoomName}. No action needed.`);
+            } else {
+                logger.log(`[Store:SocketConnect] Current path ${currentPathname} does not map to a new room, user data not ready, or no change needed. No room join initiated.`);
+            }
         } else {
-            logger.log("[Store:SocketConnect] No pending room to join.");
+            logger.log("[Store:SocketConnect] No pending room and no current pathname. No room action.");
         }
     }
 });
@@ -327,40 +372,38 @@ listenerMiddleware.startListening({
     actionCreator: socketDisconnected,
     effect: (action, listenerApi) => {
         logger.warn("[Store:SocketDisconnect] Listener triggered");
-        // Отписываемся от событий домена при разрыве соединения
         unsubscribeDomainEvents();
-        // Основные подписки (типа pong) не отменяем здесь, они должны управляться в setup/teardown
-        // или при полном логауте
 
         const state = listenerApi.getState() as RootState;
 
         if (joinedRoomId) {
             logger.log(`[Store:SocketDisconnect] Was in room: ${joinedRoomId}. Checking if still on target route...`);
-            const currentJoinedRoomId = joinedRoomId; // Сохраняем ID комнаты, в которой были
-            joinedRoomId = null; // Считаем, что вышли из комнаты
+            const previousJoinedRoomId = joinedRoomId; 
+            joinedRoomId = null; 
 
-            // Проверяем, нужно ли снова войти в эту комнату при переподключении
             let targetRoomForCurrentRoute: string | null = null;
-            if (currentPathname === COURIER_ROUTE) {
-                targetRoomForCurrentRoute = findCourierChatId(state) ?? null;
-            } else {
-                const inventoryMatch = currentPathname?.match(/^\/inventory\/([^/]+)$/);
-                if (inventoryMatch && inventoryMatch[1]) {
-                    targetRoomForCurrentRoute = inventoryMatch[1];
+            if (currentPathname) {
+                 if (currentPathname === COURIER_ROUTE) {
+                    targetRoomForCurrentRoute = findCourierChatId(state) ?? null;
+                } else {
+                    const inventoryMatch = currentPathname.match(/^\/inventory\/([^/]+)$/);
+                    if (inventoryMatch && inventoryMatch[1]) {
+                        targetRoomForCurrentRoute = `inventory_${inventoryMatch[1]}`;
+                    }
                 }
             }
-            logger.log(`[Store:SocketDisconnect] Current route: ${currentPathname}, Target room for this route: ${targetRoomForCurrentRoute}`);
+            logger.log(`[Store:SocketDisconnect] Current route: ${currentPathname}, Target room for this route: ${targetRoomForCurrentRoute}, Prev joined: ${previousJoinedRoomId}`);
 
-            if (targetRoomForCurrentRoute === currentJoinedRoomId) {
-                logger.log(`[Store:SocketDisconnect] Still on the route for room ${currentJoinedRoomId}. Setting as pending.`);
-                pendingJoinRoomId = currentJoinedRoomId; // Ставим в ожидание
+            if (targetRoomForCurrentRoute && targetRoomForCurrentRoute === previousJoinedRoomId) {
+                logger.log(`[Store:SocketDisconnect] Still on the route for room ${previousJoinedRoomId}. Setting as pending.`);
+                pendingJoinRoomId = previousJoinedRoomId; 
             } else {
-                logger.log(`[Store:SocketDisconnect] Not on the route for room ${currentJoinedRoomId} anymore (or target is null). Clearing pending.`);
-                pendingJoinRoomId = null; // Сбрасываем ожидание
+                logger.log(`[Store:SocketDisconnect] Not on the route for room ${previousJoinedRoomId} anymore (or target is ${targetRoomForCurrentRoute}). Clearing pending.`);
+                pendingJoinRoomId = null; 
             }
         } else {
             logger.log("[Store:SocketDisconnect] Was not in any room. Clearing pending.");
-            pendingJoinRoomId = null; // На всякий случай сбрасываем ожидание
+            pendingJoinRoomId = null; 
         }
     }
 });
@@ -377,60 +420,49 @@ listenerMiddleware.startListening({
 
         logger.log(`[Store:RouteChange] Listener triggered. Path: ${newPath}, Prev: ${previousPath}, Socket: ${isConnected}, CurrentRoom: ${joinedRoomId}`);
 
-        let targetRoomId: string | null = null;
-
-        // Определяем целевую комнату
+        let newTargetRoomName: string | null = null;
         if (newPath === COURIER_ROUTE) {
-            targetRoomId = findCourierChatId(state) ?? null;
-            logger.log(`[Store:RouteChange] Target is Courier Route. Found Chat ID: ${targetRoomId}`);
-        } else {
-            const inventoryMatch = newPath.match(/^\/inventory\/([^/]+)$/); // Ищем /inventory/:chatId
-            if (inventoryMatch && inventoryMatch[1]) {
-                targetRoomId = inventoryMatch[1]; // chatId из пути
-                 // Добавим проверку, что это действительно чат повара?
-                 // const group = state.inventory.items.find(item => item.chat_id === targetRoomId);
-                 // if (group?.group_type !== 'chef') { targetRoomId = null; }
-                logger.log(`[Store:RouteChange] Target is Chef Inventory Route. Found Chat ID: ${targetRoomId}`);
+            const courierChatId = findCourierChatId(state);
+            if (courierChatId) {
+                newTargetRoomName = courierChatId;
             } else {
-                logger.log(`[Store:RouteChange] Target is not a special room route.`);
+                logger.log(`[Store:RouteChange] Courier chat ID not (yet) available for ${newPath}`);
+            }
+        } else {
+            const inventoryMatch = newPath.match(/^\/inventory\/([^/]+)$/);
+            if (inventoryMatch && inventoryMatch[1]) {
+                newTargetRoomName = `inventory_${inventoryMatch[1]}`;
+            } else {
+                // logger.log(`[Store:RouteChange] Path ${newPath} is not a special room route.`);
             }
         }
+        logger.log(`[Store:RouteChange] Path: ${newPath}, Determined new target room name: ${newTargetRoomName}`);
 
-        // Логика входа/выхода
-        if (targetRoomId !== joinedRoomId) {
-            logger.log(`[Store:RouteChange] Room change needed. Current: ${joinedRoomId}, Target: ${targetRoomId}`);
-            // 1. Если были в комнате, выходим
+        if (newTargetRoomName !== joinedRoomId) {
+            logger.log(`[Store:RouteChange] Room change needed. Current: ${joinedRoomId}, New Target: ${newTargetRoomName}`);
             if (joinedRoomId) {
                 logger.log(`[Store:RouteChange] Leaving current room: ${joinedRoomId}`);
-                leaveRoom(); // leaveRoom сама сбрасывает joinedRoomId и pendingJoinRoomId
+                leaveRoom(); 
             }
 
-            // 2. Если новая комната есть, входим или ставим в ожидание
-            if (targetRoomId) {
-                // <<< ИСПРАВЛЕНИЕ: Формируем ПРАВИЛЬНОЕ имя комнаты >>>
-                let roomNameToJoin: string;
-                if (newPath === COURIER_ROUTE) {
-                    // Для курьеров targetRoomId - это и есть ID чата (имя комнаты)
-                    roomNameToJoin = targetRoomId;
-                } else {
-                    // Для инвентаря добавляем префикс
-                    roomNameToJoin = `inventory_${targetRoomId}`;
-                }
-                // <<< КОНЕЦ ИСПРАВЛЕНИЯ >>>
-
+            if (newTargetRoomName) { // Только если есть валидное имя новой комнаты
                 if (isConnected) {
-                    // Используем roomNameToJoin
-                    logger.log(`[Store:RouteChange] Joining new room: ${roomNameToJoin}`); 
-                    joinRoom(roomNameToJoin); 
+                    logger.log(`[Store:RouteChange] Joining new room: ${newTargetRoomName}`); 
+                    joinRoom(newTargetRoomName); 
                 } else {
-                    // Используем roomNameToJoin
-                    logger.log(`[Store:RouteChange] Socket not connected. Setting pending room: ${roomNameToJoin}`); 
-                    pendingJoinRoomId = roomNameToJoin; 
+                    logger.log(`[Store:RouteChange] Socket not connected. Setting pending room: ${newTargetRoomName}`); 
+                    pendingJoinRoomId = newTargetRoomName; 
+                }
+            } else {
+                logger.log(`[Store:RouteChange] No valid new target room, or already left previous room. No further join/pending action.`);
+                // Если мы уходим с маршрута комнаты на маршрут без комнаты, и был pendingJoinRoomId, его нужно очистить
+                if (pendingJoinRoomId) { // Не важно, какой был pending, если новая цель - не комната, очищаем
+                    logger.log(`[Store:RouteChange] Clearing pendingJoinRoomId as new target is not a room or room name is unavailable.`);
+                    pendingJoinRoomId = null;
                 }
             }
-             // Если targetRoomId = null, мы уже вышли на шаге 1, делать больше нечего.
         } else {
-            logger.log(`[Store:RouteChange] No room change needed. Staying in room: ${joinedRoomId}`);
+            logger.log(`[Store:RouteChange] No room change needed. Staying in room: ${joinedRoomId} (or new target is also ${newTargetRoomName}, possibly null).`);
         }
     }
 });

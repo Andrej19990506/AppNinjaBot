@@ -16,7 +16,7 @@ type ShiftType = CourierShift['shiftType']; // <<< ДОБАВЛЯЕМ ЛОКАЛ
 const COURIERS_PANEL_HEIGHT = 110; // px
 
 // --- Восстанавливаем Styled Components (или импортируем из styles.ts) ---
-const ShiftSection = styled.div`
+const ShiftSection = styled(motion.div)`
     margin-bottom: 37px;
     &:last-child {
         margin-bottom: 0;
@@ -80,6 +80,21 @@ const ReserveLinkButton = styled.button`
 const ShiftContentWrapper = styled(motion.div)`
   transition: padding-bottom 0.3s ease-out;
 `;
+
+// Анимации для слотов и секций
+const fadeInVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: (custom: number) => ({
+        opacity: 1,
+        y: 0,
+        transition: { 
+            delay: custom * 0.03,
+            duration: 0.2,
+            ease: "easeOut"
+        }
+    }),
+    exit: { opacity: 0, y: 20, transition: { duration: 0.15 } }
+};
 
 interface ShiftPanelProps {
     date: Date | null;
@@ -172,7 +187,14 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                 animate={{ paddingBottom: bottomPadding }}
                 transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
             >
-                <ShiftSection key="day-shift-section">
+                <ShiftSection 
+                    key="day-shift-section"
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    variants={fadeInVariants}
+                    custom={0}
+                >
                     <ShiftTitle>
                         <ShiftIcon>☀️</ShiftIcon> Дневная смена
                     </ShiftTitle>
@@ -193,17 +215,28 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                             showErrorMessage={showErrorMessage}
                             draggingShiftType={draggingShiftType}
                             isDraggingGlobal={isDraggingGlobal}
-                            onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
-                                ...shiftSlot,
-                                date: format(date || new Date(), 'yyyy-MM-dd'),
-                                shiftType: 'day'
-                            } as CourierShift) : undefined}
+                            onOpenProfile={onOpenProfile ? (shiftSlot) => {
+                                console.log('[ShiftPanel] Opening day profile with data:', shiftSlot);
+                                // Добавляем необходимые поля для CourierShift
+                                onOpenProfile({
+                                    ...shiftSlot,
+                                    date: format(date || new Date(), 'yyyy-MM-dd'),
+                                    shiftType: 'day'
+                                } as CourierShift)
+                            } : undefined}
                             onLongPressEmptySlot={onLongPressEmptySlot}
                         />
                     </LayoutGroup>
                 </ShiftSection>
 
-                <ShiftSection key="night-shift-section">
+                <ShiftSection 
+                    key="night-shift-section"
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    variants={fadeInVariants}
+                    custom={1} // Чуть более длинная задержка для второй секции
+                >
                     <ShiftTitle>
                         <ShiftIcon>🌙</ShiftIcon> Вечерняя смена
                     </ShiftTitle>
@@ -224,21 +257,32 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                             showErrorMessage={showErrorMessage}
                             draggingShiftType={draggingShiftType}
                             isDraggingGlobal={isDraggingGlobal}
-                            onOpenProfile={onOpenProfile ? (shiftSlot) => onOpenProfile({
-                                ...shiftSlot,
-                                date: format(date || new Date(), 'yyyy-MM-dd'),
-                                shiftType: 'night'
-                            } as CourierShift) : undefined}
+                            onOpenProfile={onOpenProfile ? (shiftSlot) => {
+                                console.log('[ShiftPanel] Opening night profile with data:', shiftSlot);
+                                // Добавляем необходимые поля для CourierShift
+                                onOpenProfile({
+                                    ...shiftSlot,
+                                    date: format(date || new Date(), 'yyyy-MM-dd'),
+                                    shiftType: 'night'
+                                } as CourierShift)
+                            } : undefined}
                             onLongPressEmptySlot={onLongPressEmptySlot}
                         />
                     </LayoutGroup>
                 </ShiftSection>
 
                 {isFullyBooked && !userHasShift && (
-                    <NoSlotsMessage key="no-slots-message">
-                        Все смены уже заняты.<br/>
-                        Вы можете <ReserveLinkButton onClick={onSwitchToReserve}>записаться в резерв</ReserveLinkButton>.
-                    </NoSlotsMessage>
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        transition={{ delay: 0.05, duration: 0.2 }}
+                    >
+                        <NoSlotsMessage key="no-slots-message">
+                            Все смены уже заняты.<br/>
+                            Вы можете <ReserveLinkButton onClick={onSwitchToReserve}>записаться в резерв</ReserveLinkButton>.
+                        </NoSlotsMessage>
+                    </motion.div>
                 )}
                 
             </ShiftContentWrapper> 

@@ -352,46 +352,6 @@ const StepTwo: React.FC = () => {
     // Эта функция больше не нужна, текст будет в лейблах
     // const getPeriodLengthUnitLabel = () => { ... };
 
-    const getExampleText = () => {
-        const registrationDay = settings?.registrationStartDay ?? 4;
-        const registrationHour = settings?.registrationStartHour ?? 12;
-        const registrationMinute = settings?.registrationStartMinute ?? 0;
-        const daysOfWeek = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
-        const regDayName = daysOfWeek[registrationDay] ?? 'четверг'; 
-
-        // <<< ИСПОЛЬЗУЕМ periodLengthType для получения числового значения >>>
-        const currentPeriodLengthValue = parseInt(periodLengthType, 10);
-
-        const now = new Date();
-        let lastRegistrationDateTime = getLastDayOfWeek(now, registrationDay);
-        lastRegistrationDateTime.setHours(registrationHour, registrationMinute, 0, 0);
-        if (getDay(now) === registrationDay && now.getTime() < lastRegistrationDateTime.getTime()) {
-            lastRegistrationDateTime.setDate(lastRegistrationDateTime.getDate() - 7);
-        }
-
-        const baseDateForNextCycle = addDays(lastRegistrationDateTime, max(1, currentPeriodLengthValue) - 1);
-        const predictedNextRegDay = getNextRegistrationDayOnOrAfter(
-            baseDateForNextCycle,
-            registrationDay, 
-            registrationHour, 
-            registrationMinute
-        );
-
-        let predictedAccessStartDate: Date;
-        if (offsetType === OffsetType.WEEKS) {
-            predictedAccessStartDate = addWeeks(predictedNextRegDay, offsetAmount);
-        } else {
-            const effectiveOffset = offsetType === OffsetType.NONE ? 0 : offsetAmount;
-            predictedAccessStartDate = addDays(predictedNextRegDay, effectiveOffset);
-        }
-        
-        const formattedStartDate = format(predictedAccessStartDate, 'EEEE, d MMMM', { locale: ru });
-        
-        // <<< АДАПТИРОВАННЫЙ ТЕКСТ ПОДСКАЗКИ >>>
-        const periodText = periodLengthType === PeriodLengthType.ONE_WEEK ? "на неделю (7 дней)" : "на 2 недели (14 дней)";
-        return `Если регистрация открывается в ${regDayName}, и доступ открывается ${periodText}, то с вашим смещением (${offsetAmount} ${getOffsetUnitLabel()}) следующий доступ начнется примерно с ${formattedStartDate}.`;
-    };
-
     return (
         <Container>
             <FormContainer>
@@ -492,21 +452,6 @@ const StepTwo: React.FC = () => {
                         Выберите, на какой срок будет открыт доступ для записи в смены.
                     </Description>
                 </FormSection>
-
-                {/* Визуальный пример (без изменений, но getExampleText адаптирован) */}
-                <VisualExample
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
-                >
-                    <ExampleTitle>
-                        <InfoIcon />
-                        Как это работает (пример)
-                    </ExampleTitle>
-                    <ExampleText>
-                        {getExampleText()} 
-                    </ExampleText>
-                </VisualExample>
             </FormContainer>
         </Container>
     );

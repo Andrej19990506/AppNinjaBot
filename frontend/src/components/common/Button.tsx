@@ -36,46 +36,46 @@ const StyledButton = styled.button<ButtonProps>`
         switch (props.variant) {
             case 'secondary':
                 return `
-                    background-color: #E0E0E0;
-                    color: #333333;
+                    background-color: var(--button-secondary-bg, #E0E0E0);
+                    color: var(--button-secondary-text, #333333);
                     &:hover {
-                        background-color: #D0D0D0;
+                        background-color: var(--button-secondary-hover-bg, #D0D0D0);
                     }
                     &:active {
-                        background-color: #C0C0C0;
+                        background-color: var(--gray-400, #C0C0C0);
                     }
                 `;
             case 'danger':
                 return `
-                    background-color: #FF4444;
+                    background-color: var(--danger-color, #FF4444);
                     color: white;
                     &:hover {
-                        background-color: #FF3333;
+                        background-color: var(--danger-dark, #FF3333);
                     }
                     &:active {
-                        background-color: #FF2222;
+                        background-color: var(--error-color, #FF2222);
                     }
                 `;
             default:
                 return `
-                    background-color: #4CAF50;
-                    color: white;
+                    background-color: var(--primary-color, #FF5F1F);
+                    color: var(--text-color-on-primary, white);
                     &:hover {
-                        background-color: #45a049;
+                        background-color: var(--primary-dark, #E64500);
                     }
                     &:active {
-                        background-color: #3d8b40;
+                        background-color: var(--orange-dark, #E64500);
                     }
                 `;
         }
     }}
 
     &:disabled {
-        background-color: #CCCCCC;
-        color: #666666;
+        background-color: var(--disabled-bg-color, #CCCCCC);
+        color: var(--disabled-text-color, #666666);
         cursor: not-allowed;
         &:hover {
-            background-color: #CCCCCC;
+            background-color: var(--disabled-bg-color, #CCCCCC);
         }
     }
 `;

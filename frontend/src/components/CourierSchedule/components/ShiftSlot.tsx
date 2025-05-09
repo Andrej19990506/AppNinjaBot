@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import styled, { css } from 'styled-components';
 import { useSelector } from 'react-redux';
 import { selectUsersById } from '../../../store/slices/userSlice';
@@ -6,12 +7,24 @@ import defaultAvatar from '../../../assets/images/Ninja.jpg';
 // @ts-ignore
 import { useDraggable, useDroppable, DraggableAttributes, DraggableSyntheticListeners, useDndContext } from '@dnd-kit/core';
 import { motion } from 'framer-motion';
+import 'styled-components';
+import { createGlobalStyle } from 'styled-components';
 
 import type { ShiftSlot } from '../../../types/shifts';
 import { logger } from '../../../utils/logger';
 import { deleteShiftAsSenior } from '../../../services/courierApi';
 import { useAppDispatch } from '../../../store/hooks';
 import { removeShiftLocally } from '../../../store/slices/shiftsSlice';
+
+const GlobalTooltipFix = createGlobalStyle`
+  .shift-selection-dialog .MuiBottomDrawer-content,
+  .shift-selection-dialog .MuiBottomDrawer-body,
+  .shift-panel-container,
+  .shift-grid-container,
+  .slot-button {
+    overflow: visible !important;
+  }
+`;
 
 export interface ShiftSlotProps {
     shiftType: 'day' | 'night';
@@ -317,38 +330,119 @@ const DeleteConfirmationIcon = styled.div`
     z-index: 5; opacity: 1; transition: opacity 0.3s ease;
 `;
 
-const SlotTooltip = styled.div`
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.2s;
-    z-index: 1000;
 
-    &::after {
-        content: '';
-        position: absolute;
-        top: 100%; left: 50%;
-        transform: translateX(-50%);
-        border: 6px solid transparent;
-        border-top-color: rgba(0, 0, 0, 0.8);
-    }
-`;
 
 // <<< Контейнер для Tooltip >>>
 const TooltipWrapper = styled.div`
     position: relative; /* Для позиционирования тултипа */
     width: 100%;
     height: 100%;
+    overflow: visible;
 `;
+
+// Компонент тултипа, который будет рендериться через портал
+const TooltipPortal: React.FC<{
+    isVisible?: boolean;
+    anchorElement: HTMLElement | null;
+    tooltipContent: React.ReactNode;
+    courier: ShiftSlot;
+    onOpenProfile?: (courier: ShiftSlot) => void;
+    onRequestTooltip?: (type: 'day' | 'night', index: number) => void;
+    shiftType: 'day' | 'night';
+    slotIndex: number;
+}> = ({ 
+    isVisible, 
+    anchorElement, 
+    tooltipContent, 
+    courier, 
+    onOpenProfile,
+    onRequestTooltip,
+    shiftType,
+    slotIndex
+}) => {
+    // Если тултип не должен быть виден, не рендерим ничего
+    if (!isVisible || !anchorElement) return null;
+    
+    const openProfileDirectly = () => {
+        // Закрываем тултип
+        if (onRequestTooltip) {
+            onRequestTooltip(shiftType, slotIndex);
+        }
+        
+        if (onOpenProfile) {
+            // ВАЖНОЕ ИЗМЕНЕНИЕ: Передаем объект courier напрямую.
+            // Предполагается, что 'courier' уже содержит все необходимые и корректные данные (включая date и shiftType самой смены).
+            onOpenProfile(courier);
+            return;
+        } else {
+            logger.warn('[TooltipPortal] onOpenProfile handler is not available!');
+        }
+    };
+    
+    // Вычисляем позицию относительно элемента-якоря
+    const anchorRect = anchorElement.getBoundingClientRect();
+    
+    // Портал в body
+    return ReactDOM.createPortal(
+        <div 
+            style={{
+                position: 'fixed',
+                left: `${anchorRect.left + anchorRect.width / 2}px`,
+                top: `${anchorRect.top - 10}px`,
+                transform: 'translate(-50%, -100%)',
+                background: 'rgba(0, 0, 0, 0.8)',
+                color: 'white',
+                padding: '10px 15px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                minWidth: '120px',
+                textAlign: 'center',
+                zIndex: 99999, // Убедимся, что zIndex достаточно высокий
+                boxShadow: '0 2px 10px rgba(0,0,0,0.2)'
+            }}
+            data-tooltip-portal="true"
+            onClick={(e) => {
+                e.stopPropagation(); 
+            }}
+        >
+            <div>{tooltipContent}</div>
+            {courier.isSeniorCourier && <div style={{ color: '#FFD700' }}>Старший курьер ★</div>}
+            
+            <button 
+                style={{ 
+                    marginTop: '10px',
+                    width: '100%',
+                    padding: '8px 12px', 
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'var(--text-color-on-primary)',
+                    border: 'none', 
+                    borderRadius: 'var(--radius-sm, 4px)',
+                    cursor: 'pointer', 
+                    fontSize: '13px', 
+                    fontWeight: '500',
+                    transition: 'background-color 0.2s ease'
+                }} 
+                onMouseDownCapture={(e) => {
+                    e.stopPropagation(); 
+                    openProfileDirectly();
+                }}
+            >
+                Открыть профиль
+            </button>
+            
+            <div style={{
+                position: 'absolute',
+                left: '50%',
+                top: '100%',
+                transform: 'translateX(-50%)',
+                borderWidth: '6px',
+                borderStyle: 'solid',
+                borderColor: 'rgba(0, 0, 0, 0.8) transparent transparent transparent'
+            }}></div>
+        </div>,
+        document.body
+    );
+};
 
 const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     shiftType,
@@ -630,126 +724,103 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         }
     }, [active, shiftType, slotIndex, isPanelDragActive, isSlotDragActive, isPotentialDropTarget, isAvailableEmpty, isOver, propIsDisabled, isDisabledForStyles]);
 
+    // Добавляем реф для доступа к DOM-элементу аватара
+    const avatarRef = useRef<HTMLDivElement>(null);
+
     return (
-        <SlotButton
-            ref={setCombinedNodeRef}
-            data-testid={`slot-${shiftType}-${slotIndex}`}
-            data-type={shiftType}
-            data-index={slotIndex}
-            data-occupied={isOccupied}
-            className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
-            onClick={!isOccupied ? handleEmptySlotClick : undefined}
-            onMouseDown={!courier ? handlePointerDown : undefined}
-            onMouseUp={!courier ? handlePointerUpOrLeave : undefined}
-            onMouseLeave={!courier ? handlePointerUpOrLeave : undefined}
-            onTouchStart={!courier ? handlePointerDown : undefined}
-            onTouchEnd={!courier ? handlePointerUpOrLeave : undefined}
-            onTouchCancel={!courier ? handlePointerUpOrLeave : undefined}
-            style={{ touchAction: !courier && isSenior ? 'none' : 'auto', ...style }}
-            $isOccupied={isOccupied}
-            $isDisabled={isDisabledForStyles}
-            $isDropTarget={isOver && !isInvalidDropTarget}
-            $isAvailableEmpty={isAvailableEmpty}
-            $isPotentialDropTarget={isPotentialDropTarget}
-            $isPanelDragActive={isPanelDragActive}
-            aria-label={(isOccupied && courier) ? tooltipText : `Свободный слот ${slotIndex + 1}`}
-            disabled={isClickDisabled}
-            title={isDisabledForStyles ? "Слот недоступен" : (courier ? tooltipText : "Свободный слот")}
-            {...(canDrag ? attributes : {})}
-        >
-            {isLoading ? (
-                <LoadingOverlay>
-                    <LoadingSpinner />
-                </LoadingOverlay>
-            ) : isError ? (
-                <ErrorOverlay />
-            ) : courier ? (
-                <motion.div 
-                    key={courier.id}
-                    layout
-                    style={{ width: '100%', height: '100%' }}
-                    transition={{ duration: 0.5, ease: "easeInOut" }}
-                >
-                    <TooltipWrapper 
-                        {...(canDrag ? listeners : {})}
-                        style={style}
-                        onClick={handleAvatarClick}
+        <>
+            <GlobalTooltipFix />
+            <SlotButton
+                ref={setCombinedNodeRef}
+                data-testid={`slot-${shiftType}-${slotIndex}`}
+                data-type={shiftType}
+                data-index={slotIndex}
+                data-occupied={isOccupied}
+                className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
+                onClick={!isOccupied ? handleEmptySlotClick : undefined}
+                onMouseDown={!courier ? handlePointerDown : undefined}
+                onMouseUp={!courier ? handlePointerUpOrLeave : undefined}
+                onMouseLeave={!courier ? handlePointerUpOrLeave : undefined}
+                onTouchStart={!courier ? handlePointerDown : undefined}
+                onTouchEnd={!courier ? handlePointerUpOrLeave : undefined}
+                onTouchCancel={!courier ? handlePointerUpOrLeave : undefined}
+                style={{ touchAction: !courier && isSenior ? 'none' : 'auto', ...style }}
+                $isOccupied={isOccupied}
+                $isDisabled={isDisabledForStyles}
+                $isDropTarget={isOver && !isInvalidDropTarget}
+                $isAvailableEmpty={isAvailableEmpty}
+                $isPotentialDropTarget={isPotentialDropTarget}
+                $isPanelDragActive={isPanelDragActive}
+                aria-label={(isOccupied && courier) ? tooltipText : `Свободный слот ${slotIndex + 1}`}
+                disabled={isClickDisabled}
+                title={isDisabledForStyles ? "Слот недоступен" : (courier ? tooltipText : "Свободный слот")}
+                {...(canDrag ? attributes : {})}
+            >
+                {isLoading ? (
+                    <LoadingOverlay>
+                        <LoadingSpinner />
+                    </LoadingOverlay>
+                ) : isError ? (
+                    <ErrorOverlay />
+                ) : courier ? (
+                    <motion.div 
+                        key={courier.id}
+                        layout
+                        style={{ width: '100%', height: '100%' }}
+                        transition={{ duration: 0.5, ease: "easeInOut" }}
                     >
-                        <CourierAvatarContainer
-                            $isDisabled={(!canDrag && !isCurrentUser) ?? false}
-                            $canDrag={canDrag}
-                            $isDragging={isDragging} 
-                            title={tooltipText}
+                        <TooltipWrapper 
+                            ref={avatarRef}
+                            {...(canDrag ? listeners : {})}
+                            style={style}
+                            onClick={handleAvatarClick}
                         >
-                            <CourierAvatarImage 
-                                src={courierInfoFromRedux?.photo_url ?? courier.photoUrl ?? defaultAvatar}
-                                alt={tooltipText.split('\n')[0]}
-                                className={isCurrentUser ? 'current-user' : ''}
-                                onError={(e) => {
-                                    const img = e.target as HTMLImageElement;
-                                    img.src = defaultAvatar;
-                                }}
+                            <CourierAvatarContainer
+                                $isDisabled={(!canDrag && !isCurrentUser) ?? false}
+                                $canDrag={canDrag}
+                                $isDragging={isDragging} 
+                                title={tooltipText}
+                            >
+                                <CourierAvatarImage 
+                                    src={courierInfoFromRedux?.photo_url ?? courier.photoUrl ?? defaultAvatar}
+                                    alt={tooltipText.split('\n')[0]}
+                                    className={isCurrentUser ? 'current-user' : ''}
+                                    onError={(e) => {
+                                        const img = e.target as HTMLImageElement;
+                                        img.src = defaultAvatar;
+                                    }}
+                                />
+                                {showSeniorBadge && !isDeletingSelf && (
+                                    <SeniorBadge />
+                                )}
+                                {isConfirmingDelete && !isDeletingSelf && (
+                                    <DeleteConfirmationIcon title="Нажмите для удаления смены">
+                                        ×
+                                    </DeleteConfirmationIcon>
+                                )}
+                                {isDeletingSelf && (
+                                    <LoadingOverlay><LoadingSpinner /></LoadingOverlay>
+                                )}
+                            </CourierAvatarContainer>
+                            
+                            {/* Заменяем обычный тултип на портальный */}
+                            <TooltipPortal 
+                                isVisible={!!isActiveTooltip}
+                                anchorElement={avatarRef.current}
+                                tooltipContent={tooltipText.split('\n')[0]}
+                                courier={courier}
+                                onOpenProfile={onOpenProfile}
+                                onRequestTooltip={onRequestTooltip}
+                                shiftType={shiftType}
+                                slotIndex={slotIndex}
                             />
-                            {showSeniorBadge && !isDeletingSelf && (
-                                <SeniorBadge />
-                            )}
-                            {isConfirmingDelete && !isDeletingSelf && (
-                                <DeleteConfirmationIcon title="Нажмите для удаления смены">
-                                    ×
-                                </DeleteConfirmationIcon>
-                            )}
-                            {isDeletingSelf && (
-                                <LoadingOverlay><LoadingSpinner /></LoadingOverlay>
-                            )}
-                        </CourierAvatarContainer>
-                        {isActiveTooltip && (
-                            <SlotTooltip style={{ opacity: 1, pointerEvents: 'auto' }}>
-                                <div>
-                                    <div>{tooltipText.split('\n')[0]}</div>
-                                    {courier.isSeniorCourier && <div style={{ color: '#FFD700' }}>Старший курьер ★</div>}
-                                    <button 
-                                        style={{ 
-                                            marginTop: '5px', 
-                                            padding: '5px 10px', 
-                                            backgroundColor: 'var(--primary-color)', 
-                                            color: 'white', 
-                                            border: 'none', 
-                                            borderRadius: 'var(--radius-sm)', 
-                                            cursor: 'pointer', 
-                                            transition: 'var(--transition-normal)', 
-                                            boxShadow: 'var(--shadow-sm)', 
-                                            fontSize: '12px', 
-                                            fontWeight: '500' 
-                                        }} 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            console.log(`Открыть профиль курьера ${courier.userId}`);
-                                            if (onOpenProfile && courier) {
-                                                onOpenProfile(courier);
-                                            }
-                                        }} 
-                                        onMouseEnter={(e) => {
-                                            const target = e.target as HTMLElement;
-                                            target.style.backgroundColor = 'var(--primary-light)';
-                                            target.style.transform = 'var(--hover-transform)';
-                                        }} 
-                                        onMouseLeave={(e) => {
-                                            const target = e.target as HTMLElement;
-                                            target.style.backgroundColor = 'var(--primary-color)';
-                                            target.style.transform = 'none';
-                                        }}
-                                    >
-                                        Открыть профиль
-                                    </button>
-                                </div>
-                            </SlotTooltip>
-                        )}
-                    </TooltipWrapper>
-                </motion.div>
-            ) : (
-                <PlusIcon $isDisabled={isDisabledForStyles}>+</PlusIcon>
-            )}
-        </SlotButton>
+                        </TooltipWrapper>
+                    </motion.div>
+                ) : (
+                    <PlusIcon $isDisabled={isDisabledForStyles}>+</PlusIcon>
+                )}
+            </SlotButton>
+        </>
     );
 });
 

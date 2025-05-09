@@ -77,7 +77,8 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
         currentStep,
         goToNextStep,
         goToPrevStep,
-        swipeDirection
+        swipeDirection,
+        resetStep
     } = useStepNavigation({
         totalSteps: 3,
         onStepChange: (step: FormStep) => onStepChange(step + 1),
@@ -104,9 +105,11 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
         const success = await saveSettings();
         if (success) {
             setModalState(ModalState.SUCCESS);
+            resetStep();
+            onStepChange(FormStep.STEP_ONE + 1);
         }
         return success;
-    }, [saveSettings]);
+    }, [saveSettings, resetStep, onStepChange]);
     
     const handleResetAttempt = useCallback(() => {
         resetSettings();
@@ -127,8 +130,10 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
 
     const handleModalClose = useCallback(() => {
         setModalState(ModalState.FORM);
+        resetStep();
+        onStepChange(FormStep.STEP_ONE + 1);
         onClose();
-    }, [onClose]);
+    }, [onClose, resetStep, onStepChange]);
     
     const handleSuccessConfirm = useCallback(() => {
         handleModalClose();

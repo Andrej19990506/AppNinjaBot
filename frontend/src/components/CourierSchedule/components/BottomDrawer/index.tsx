@@ -230,6 +230,18 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
       const footerElement = document.getElementById('app-footer');
       const isClickInsideFooter = footerElement && footerElement.contains(targetElement);
       
+      // Проверяем клик на элементах тултипа или профиля
+      const tooltipElement = document.querySelector('[data-tooltip-portal="true"]');
+      const profileButtonElement = document.querySelector('[data-profile-button="true"]');
+      const isClickInsideTooltip = tooltipElement && tooltipElement.contains(targetElement);
+      const isClickOnProfileButton = profileButtonElement && profileButtonElement.contains(targetElement);
+      
+      // Не закрываем, если клик внутри тултипа или на кнопке профиля
+      if (isClickInsideTooltip || isClickOnProfileButton) {
+        console.log('[BottomDrawer] Click intercepted inside tooltip or profile button, preventing close');
+        return;
+      }
+      
       if (
         drawerRef.current && 
         !drawerRef.current.contains(targetElement) && 
@@ -261,6 +273,35 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     };
   }, [isOpen]);
 
+  // Блокируем закрытие при клике на оверлей, если включен специальный атрибут
+  const handleOverlayClick = (e: React.MouseEvent) => {
+    // Проверяем, был ли клик на кнопку профиля
+    const target = e.target as HTMLElement;
+    const isProfileButton = target.id === 'open-profile-button' || 
+                           target.getAttribute('data-profile-button') === 'true' ||
+                           target.closest('[data-profile-button="true"]');
+    
+    if (isProfileButton) {
+      console.log('[BottomDrawer] Profile button click detected, preventing drawer close');
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    
+    // Ищем открытые тултипы или профильные элементы
+    const tooltipElement = document.querySelector('[data-tooltip-portal="true"]');
+    const profileBtn = document.querySelector('[data-profile-button="true"]');
+    
+    if (tooltipElement || profileBtn) {
+      console.log('[BottomDrawer] Overlay click blocked due to active tooltip/profile elements');
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    
+    handleClose();
+  };
+
   // Обработка нажатия клавиши Escape
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -282,7 +323,7 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
       <Overlay 
         $isOpen={isOpen} 
         $isClosing={isClosing} 
-        onClick={handleClose}
+        onClick={handleOverlayClick}
       />
       <DrawerContainer 
         ref={drawerRef} 

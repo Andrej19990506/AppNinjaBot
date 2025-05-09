@@ -539,7 +539,42 @@ const shiftsSlice = createSlice({
                 return; 
             }
 
-            // --- Логика обновления стейта (остается прежней, но теперь с правильными данными) --- 
+            // --- Проверяем, является ли это перемещением между типами смен ---
+            const isSlotUpdate = action.payload.source === 'shift_slot_update';
+            if (isSlotUpdate) {
+                logger.info(`[shiftsSlice] Обработка перемещения смены между типами (shift_slot_update) для ID: ${normalizedShift.id}`);
+                
+                // Сначала найдем и удалим смену с тем же ID (но другим типом или слотом)
+                const existingShiftIndex = state.shifts.findIndex(shift => shift.id === normalizedShift.id);
+                
+                if (existingShiftIndex !== -1) {
+                    const existingShift = state.shifts[existingShiftIndex];
+                    logger.info(`[shiftsSlice] Найдена существующая смена ID ${normalizedShift.id} с типом=${existingShift.shiftType}, слотом=${existingShift.slotIndex}. Удаляем её перед обновлением.`);
+                    
+                    // Удаляем существующую смену
+                    state.shifts.splice(existingShiftIndex, 1);
+                }
+                
+                // Удаляем любую другую смену, которая может быть в целевом слоте
+                const sameSlotIndex = state.shifts.findIndex(shift => 
+                    shift.date === shiftDate && 
+                    shift.shiftType === normalizedShift.shiftType && 
+                    shift.slotIndex === normalizedShift.slotIndex
+                );
+                
+                if (sameSlotIndex !== -1) {
+                    logger.info(`[shiftsSlice] Найдена смена в целевом слоте [${normalizedShift.shiftType}, ${normalizedShift.slotIndex}]. Удаляем её.`);
+                    state.shifts.splice(sameSlotIndex, 1);
+                }
+                
+                // Добавляем обновленную смену
+                state.shifts.push(normalizedShift);
+                logger.info(`[shiftsSlice] Добавлена обновленная смена ID ${normalizedShift.id} с типом=${normalizedShift.shiftType}, слотом=${normalizedShift.slotIndex}`);
+                
+                return; // Выходим из редюсера, т.к. уже обработали перемещение
+            }
+
+            // --- Логика обновления стейта для обычного создания/обновления смены --- 
              if (!allowMultiple) {
                 // Удаляем ВСЕ смены ЭТОГО пользователя на ЭТУ дату
                 state.shifts = state.shifts.filter(shift => 

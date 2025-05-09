@@ -18,6 +18,36 @@ const SlotsGrid = styled.div`
     max-height: 100%;
 `;
 
+// Вариации для плавной анимации слотов
+const slotVariants = {
+    initial: (custom: number) => ({ 
+        opacity: 0, 
+        scale: 0.6,
+        y: 15 
+    }),
+    animate: (custom: number) => ({ 
+        opacity: 1, 
+        scale: 1,
+        y: 0,
+        transition: { 
+            delay: 0.02 * custom, // Уменьшаем задержку с 0.05 до 0.02
+            duration: 0.15, // Сокращаем длительность с 0.25 до 0.15
+            type: 'spring',
+            stiffness: 300, // Увеличиваем жесткость с 260 до 300
+            damping: 25 // Увеличиваем демпфирование с 20 до 25
+        } 
+    }),
+    exit: { 
+        opacity: 0, 
+        scale: 0.5, 
+        y: 15,
+        transition: { 
+            duration: 0.15, // Сокращаем с 0.2 до 0.15
+            ease: 'easeOut'
+        } 
+    }
+};
+
 interface ShiftPanelContainerProps {
     shiftType: 'day' | 'night';
     shifts: ShiftSlot[];
@@ -93,11 +123,6 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
         isSenior: isSenior ?? false
     });
 
-    // Animation variants
-    const slotVariants = {
-        exit: { opacity: 0, scale: 0.5, transition: { duration: 0.2 } }
-    };
-
     const renderSlots = () => {
         const slots = [];
         const currentShifts = shifts;
@@ -117,6 +142,9 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                 <motion.div
                     key={key}
                     layout
+                    custom={i} // Передаем индекс как custom prop для задержки
+                    initial="initial"
+                    animate="animate"
                     exit="exit"
                     variants={slotVariants}
                 >
@@ -141,7 +169,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         showErrorMessage={showErrorMessage}
                         draggingShiftType={draggingShiftType ?? null}
                         isDraggingGlobal={isDraggingGlobal ?? false}
-                        onOpenProfile={onOpenProfile}
+                        onOpenProfile={handleOpenProfile}
                         isActiveTooltip={isActiveTooltipForThisSlot}
                         onRequestTooltip={handleRequestTooltip}
                         onLongPressEmptySlot={onLongPressEmptySlot}
@@ -151,6 +179,17 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
         }
         return slots;
     };
+
+    // Добавляем обертку для onOpenProfile с логированием
+    const handleOpenProfile = useCallback((courier: ShiftSlot) => {
+        console.log('[ShiftPanelContainer] handleOpenProfile called with courier:', courier);
+        if (onOpenProfile) {
+            console.log('[ShiftPanelContainer] Calling original onOpenProfile');
+            onOpenProfile(courier);
+        } else {
+            console.error('[ShiftPanelContainer] onOpenProfile is not provided');
+        }
+    }, [onOpenProfile]);
 
     return (
         <>

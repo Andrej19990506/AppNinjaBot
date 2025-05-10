@@ -1,0 +1,365 @@
+.container {
+  background-color: var(--card-background);
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  margin-bottom: 10px;
+  border-left: 3px solid transparent;
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+  animation: fadeInUp 0.35s ease forwards, pulseHighlight 1.5s ease-out 0.3s;
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  left: -3px;
+  top: 0;
+  height: 100%;
+  width: 3px;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.container::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--primary-transparent), transparent 80%);
+  opacity: 0;
+  transition: opacity var(--transition-normal), transform var(--transition-normal);
+  transform: translateX(-100%);
+  z-index: -1;
+}
+
+.container:hover {
+  box-shadow: var(--shadow-md);
+  transform: var(--hover-transform);
+  border-color: var(--primary-color);
+}
+
+.container:hover::before {
+  opacity: 1;
+}
+
+.container:hover::after {
+  opacity: 0.4;
+  transform: translateX(0);
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  position: relative;
+}
+
+.titleContainer {
+  flex-grow: 1;
+  margin-right: 12px;
+}
+
+.title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-bottom: 0;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast);
+}
+
+.container:hover .title {
+  color: var(--primary-color);
+}
+
+.infoRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.infoItem {
+  display: flex;
+  align-items: center;
+  margin-right: 12px;
+}
+
+.infoIcon {
+  margin-right: 4px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.container:hover .infoIcon {
+  opacity: 1;
+  color: var(--primary-color);
+}
+
+.contentContainer {
+  flex-grow: 1;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.reasonContainer {
+  margin-bottom: 8px;
+  position: relative;
+  padding-left: 22px;
+}
+
+.container:hover .reasonContainer svg {
+  color: var(--primary-color) !important;
+  opacity: 1 !important;
+  transform: rotate(-5deg) !important;
+}
+
+.reasonLabel {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  display: block;
+}
+
+.reason {
+  font-size: 0.825rem;
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+.description {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 12px;
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.container:hover .description svg {
+  color: var(--primary-color) !important;
+  opacity: 1 !important;
+}
+
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-color);
+  font-size: 0.75rem;
+}
+
+.date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+}
+
+.container:hover .date svg {
+  color: var(--primary-color) !important;
+  opacity: 1 !important;
+}
+
+.actionsContainer {
+  display: flex;
+  align-items: center;
+}
+
+.actionButtons {
+  display: flex;
+  opacity: 0;
+  transform: translateX(10px);
+  transition: all var(--transition-normal);
+}
+
+.container:hover .actionButtons {
+  opacity: 1;
+  transform: translateX(0);
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.actionButton {
+  width: 24px !important;
+  height: 24px !important;
+  padding: 4px !important;
+  margin-left: 4px !important;
+  color: var(--text-secondary) !important;
+  background-color: transparent !important;
+  transition: all var(--transition-fast) !important;
+  transform: scale(1) !important;
+}
+
+.actionButton:hover {
+  transform: scale(1.2) !important;
+}
+
+.editButton:hover {
+  color: var(--primary-color) !important;
+  background-color: var(--primary-transparent) !important;
+}
+
+.cloneButton:hover {
+  color: var(--success-color) !important;
+  background-color: var(--success-background) !important;
+}
+
+.deleteButton:hover {
+  color: var(--error-color) !important;
+  background-color: var(--error-background) !important;
+}
+
+.statusChip {
+  height: 20px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-weight: 500;
+  background-color: var(--primary-transparent);
+  color: var(--primary-color);
+  transition: all var(--transition-normal);
+}
+
+.container:hover .statusChip {
+  background-color: var(--primary-light);
+  color: white;
+}
+
+.quantityBadge {
+  min-width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.quantityBadge::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  transform: rotate(25deg) translateY(100%);
+  transition: transform 0.7s;
+}
+
+.container:hover .quantityBadge {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 8px rgba(var(--primary-rgb), 0.3);
+}
+
+.container:hover .quantityBadge::before {
+  transform: rotate(25deg) translateY(-100%);
+}
+
+.removingContainer {
+  background-color: var(--error-background);
+  opacity: 0.7;
+  border-color: var(--error-color);
+  transform: translateX(-5%);
+  pointer-events: none;
+  animation: slideOutLeft 0.4s ease forwards;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-5%);
+    opacity: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@keyframes pulseHighlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.2);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(var(--primary-rgb), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
+  }
+}
+
+[data-theme="dark"] .container {
+  box-shadow: var(--shadow);
+}
+
+[data-theme="dark"] .container:hover {
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] .container::after {
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), transparent 80%);
+} 

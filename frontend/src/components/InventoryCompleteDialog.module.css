@@ -1,0 +1,240 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.dialog {
+    background: var(--background-color);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 500px;
+    padding: 24px;
+    box-shadow: var(--shadow-lg);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    position: relative;
+}
+
+.header h2 {
+    margin: 0;
+    color: var(--text-color);
+    font-size: 1.5rem;
+    flex: 1;
+}
+
+.successIcon {
+    color: var(--success-color);
+    font-size: 32px;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    right: -12px;
+    top: -12px;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.content p {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.excelPreview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    background: var(--card-background);
+    border-radius: var(--radius);
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    transition: all 0.2s ease;
+}
+
+.excelPreview:hover {
+    border-color: var(--primary-color);
+    background: var(--background-color);
+}
+
+.excelIcon {
+    color: var(--primary-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.downloadButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.downloadButton:hover {
+    background: var(--primary-dark);
+}
+
+.downloadButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.previewOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+}
+
+.previewContainer {
+    background: var(--background-color);
+    border-radius: var(--radius-lg);
+    width: 95%;
+    max-width: 1200px;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.previewHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.previewHeader h3 {
+    margin: 0;
+    color: var(--text-color);
+}
+
+.previewHeader button {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.previewContent {
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+}
+
+.excelTable {
+    width: 100%;
+    height: 100%;
+    font-size: 14px;
+}
+
+.completedContent {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    align-items: center;
+    text-align: center;
+}
+
+.successMessage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.successMessage h3 {
+    margin: 0;
+    color: var(--text-color);
+}
+
+.nextInventoryInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nextDate {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.startNewButton {
+    padding: 12px 24px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-top: 16px;
+}
+
+@media (max-width: 768px) {
+    .dialog {
+        width: 95%;
+        padding: 20px;
+    }
+
+    .header h2 {
+        font-size: 1.2rem;
+    }
+
+    .previewContainer {
+        width: 98%;
+        height: 95vh;
+    }
+} 

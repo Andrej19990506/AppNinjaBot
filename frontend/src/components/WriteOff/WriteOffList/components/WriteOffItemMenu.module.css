@@ -1,0 +1,19 @@
+.menuItem {
+  min-width: 180px;
+}
+
+.menuIcon {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+.editIcon {
+  color: #1976d2;
+}
+
+.cloneIcon {
+  color: #4caf50;
+}
+
+.deleteIcon {
+  color: #f44336;
+} 

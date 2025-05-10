@@ -1,0 +1,648 @@
+.container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    box-sizing: border-box;
+    gap: 24px;
+}
+
+.title {
+    text-align: center;
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.skeletonWrapper,
+.contentWrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--background-color);
+}
+
+.contentWrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.title {
+    position: relative;
+    text-align: center;
+    margin: 80px 0 48px;
+    font-size: clamp(1.8rem, 5vw, 2.5rem);
+    font-weight: 800;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, 
+        var(--text-color) 0%, 
+        var(--primary-color) 50%,
+        var(--success-color) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 20px rgba(var(--primary-rgb), 0.3);
+    padding: 0 32px;
+    animation: titleAppear 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes titleAppear {
+    from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.title::before,
+.title::after {
+    content: '';
+    position: absolute;
+    bottom: -16px;
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+.title::before {
+    left: 50%;
+    transform: translateX(-100%) skewX(-45deg);
+    background: linear-gradient(90deg, var(--primary-color), transparent);
+    animation: lineSlideLeft 1s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+}
+
+.title::after {
+    right: 50%;
+    transform: translateX(100%) skewX(45deg);
+    background: linear-gradient(90deg, transparent, var(--primary-color));
+    animation: lineSlideRight 1s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both;
+}
+
+@keyframes lineSlideLeft {
+    from {
+        transform: translateX(-200%) skewX(-45deg);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-100%) skewX(-45deg);
+        opacity: 1;
+    }
+}
+
+@keyframes lineSlideRight {
+    from {
+        transform: translateX(200%) skewX(45deg);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(100%) skewX(45deg);
+        opacity: 1;
+    }
+}
+
+.chatList {
+    position: relative;
+    flex: 1;
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+    perspective: 2000px;
+}
+
+.chatItem {
+    position: absolute;
+    width: 100%;
+    max-width: 600px;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--card-rgb), 0.8),
+        rgba(var(--card-rgb), 0.95)
+    );
+    border-radius: 24px;
+    padding: 24px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+}
+
+.chatItem::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 250px;
+    height: 250px;
+    background: radial-gradient(
+        circle at top right,
+        rgba(var(--primary-rgb), 0.2),
+        transparent 70%
+    );
+    pointer-events: none;
+    opacity: 1;
+    animation: pulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+    0% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.05);
+    }
+    100% {
+        opacity: 0.4;
+        transform: scale(1);
+    }
+}
+
+.chatItem::before {
+    display: none;
+}
+
+.chatItem:hover::before {
+    display: none;
+}
+
+.chatHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
+}
+
+.chatTitle {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: color 0.3s ease;
+}
+
+.statusBadge {
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.statusBadge.completed {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success-color);
+}
+
+.statusBadge.in-progress {
+    background: rgba(var(--orange-rgb), 0.1);
+    color: var(--orange-primary);
+}
+
+.statusBadge.not-started {
+    background: rgba(var(--error-rgb), 0.1);
+    color: var(--error-color);
+}
+
+.progressSection {
+    background: rgba(var(--background-rgb), 0.05);
+    border-radius: 16px;
+    padding: 20px;
+    margin: 20px 0;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+    transition: all 0.3s ease;
+}
+
+.chatItem:hover .progressSection {
+    background: rgba(var(--background-rgb), 0.1);
+    transform: translateY(-2px);
+}
+
+.progressInfo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.progressStatus {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.progressText {
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: var(--primary-transparent);
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.progress {
+    height: 8px !important;
+    border-radius: 4px;
+    background: rgba(var(--background-rgb), 0.1) !important;
+    overflow: hidden;
+}
+
+.progressBar {
+    transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.chatItem.completed .progressBar {
+    background: linear-gradient(
+        90deg,
+        var(--success-color),
+        color-mix(in srgb, var(--success-color) 70%, white)
+    ) !important;
+    box-shadow: 0 0 20px rgba(var(--success-rgb), 0.3);
+}
+
+.chatItem.in-progress .progressBar {
+    background: linear-gradient(
+        90deg,
+        var(--orange-primary),
+        color-mix(in srgb, var(--orange-primary) 70%, white)
+    ) !important;
+    box-shadow: 0 0 20px rgba(var(--orange-rgb), 0.3);
+}
+
+.chatItem.not-started .progressBar {
+    background: linear-gradient(
+        90deg,
+        var(--error-color),
+        color-mix(in srgb, var(--error-color) 70%, white)
+    ) !important;
+    box-shadow: 0 0 20px rgba(var(--error-rgb), 0.3);
+}
+
+.chatFooter {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(var(--border-rgb), 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.lastInventory {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    padding: 8px 16px;
+    background: rgba(var(--background-rgb), 0.05);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.chatItem:hover .lastInventory {
+    background: rgba(var(--background-rgb), 0.1);
+}
+
+.resetButton {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(var(--background-rgb), 0.1);
+}
+
+.resetButton:hover {
+    background: rgba(var(--background-rgb), 0.2);
+    color: var(--primary-color);
+}
+
+.chatSelectorContainer {
+    position: fixed;
+    bottom: max(50px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 1000;
+}
+
+.chatSelectorButton {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 0.9),
+        rgba(var(--primary-rgb), 0.7)
+    );
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: white;
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.1),
+        0 2px 4px rgba(var(--primary-rgb), 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1001;
+    position: relative;
+}
+
+.chatSelectorButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 8px 24px rgba(var(--primary-rgb), 0.2),
+        0 4px 8px rgba(var(--primary-rgb), 0.15);
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 1),
+        rgba(var(--primary-rgb), 0.8)
+    );
+}
+
+.chatSelectorIcon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+}
+
+.chatSelectorIcon svg {
+    width: 100%;
+    height: 100%;
+    stroke-width: 2.5;
+}
+
+.chatDropdown {
+    position: absolute;
+    bottom: calc(100% + 16px);
+    transform: translateX(-50%);
+    width: 300px;
+    background: rgba(var(--card-rgb), 0.95);
+    border-radius: 16px;
+    padding: 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+    box-shadow: 
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+    z-index: 1000;
+}
+
+.chatOption {
+    width: 100%;
+    padding: 12px 16px;
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    color: var(--text-color);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    margin-bottom: 4px;
+}
+
+.chatOption:last-child {
+    margin-bottom: 0;
+}
+
+.chatOption:hover {
+    background: rgba(var(--primary-rgb), 0.1);
+    transform: translateX(4px);
+}
+
+.chatOption.active {
+    background: rgba(var(--primary-rgb), 0.15);
+    color: var(--primary-color);
+}
+
+.chatOption .chatTitle {
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.chatProgress {
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.chatProgress.completed {
+    background: rgba(var(--success-rgb), 0.1);
+    color: var(--success-color);
+}
+
+.chatProgress.in-progress {
+    background: rgba(var(--orange-rgb), 0.1);
+    color: var(--orange-primary);
+}
+
+.chatProgress.not-started {
+    background: rgba(var(--error-rgb), 0.1);
+    color: var(--error-color);
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 16px;
+    }
+
+    .title {
+        font-size: 1.5rem;
+        margin: 16px 0 32px;
+    }
+
+    .chatItem {
+        padding: 16px;
+    }
+
+    .chatTitle {
+        font-size: 1.1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .statusBadge {
+        font-size: 0.8rem;
+        padding: 4px 8px;
+    }
+
+    .progressSection {
+        padding: 16px;
+        margin: 16px 0;
+    }
+
+    .progressText {
+        font-size: 1rem;
+        padding: 6px 12px;
+    }
+
+    .lastInventory {
+        font-size: 0.8rem;
+        padding: 6px 12px;
+    }
+
+
+    .chatSelectorButton {
+        width: 48px;
+        height: 48px;
+    }
+
+    .chatSelectorIcon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .chatDropdown {
+        width: 280px;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .chatOption {
+        padding: 10px 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 12px;
+    }
+
+    .title {
+        font-size: 1.2rem;
+        margin: 80px 0 24px;
+    }
+
+    .chatItem {
+        padding: 12px;
+    }
+
+    .progressSection {
+        padding: 12px;
+        margin: 12px 0;
+    }
+
+    .chatSelectorButton {
+        width: 44px;
+        height: 44px;
+    }
+
+    .chatSelectorIcon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .chatDropdown {
+        width: calc(100vw - 32px);
+        margin-bottom: 12px;
+        max-height: 50vh;
+    }
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.rotating {
+    animation: rotate 1s linear infinite;
+}
+
+.buttonsContainer {
+    position: fixed;
+    bottom: 24px;
+    display: flex;
+    gap: 16px;
+    z-index: 1000;
+}
+
+.homeButton {
+    background: linear-gradient(135deg, 
+        rgba(var(--success-rgb), 0.9),
+        rgba(var(--success-rgb), 0.7)
+    );
+}
+
+.homeButton:hover {
+    background: linear-gradient(135deg, 
+        rgba(var(--success-rgb), 1),
+        rgba(var(--success-rgb), 0.8)
+    );
+    box-shadow: 
+        0 8px 24px rgba(var(--success-rgb), 0.2),
+        0 4px 8px rgba(var(--success-rgb), 0.15);
+}
+
+@media (max-width: 768px) {
+    .buttonsContainer {
+        bottom: 16px;
+        gap: 12px;
+    }
+
+    .chatSelectorButton,
+    .homeButton {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-width: 480px) {
+    .buttonsContainer {
+        bottom: 12px;
+        gap: 8px;
+    }
+
+    .chatSelectorButton,
+    .homeButton {
+        width: 44px;
+        height: 44px;
+    }
+} 

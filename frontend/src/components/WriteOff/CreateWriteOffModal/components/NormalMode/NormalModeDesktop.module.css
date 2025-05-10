@@ -1,0 +1,1303 @@
+@import '../../../../../styles/base/variables.css';
+
+/* 
+ * Стили для десктопной версии модального окна списания
+ * Улучшенная версия с анимациями и современными эффектами
+ */
+
+/* Базовый контейнер */
+.container {
+  max-width: 900px;
+  padding: 10px 25px 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: visible !important; /* Разрешаем выходить за пределы контейнера */
+  color: var(--text-color);
+  position: relative;
+  z-index: 1;
+  box-shadow: var(--shadow-lg);
+  
+}
+
+/* Стилизация скроллбара для WebKit (Chrome, Safari, etc.) */
+.container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.container::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--primary-rgb), 0.3);
+  border-radius: 20px;
+  transition: background-color 0.3s;
+}
+
+.container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary-color);
+}
+
+/* Основной контейнер с колонками */
+.layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 25px;
+  position: relative;
+  width: 100%;
+  overflow: visible;
+  z-index: 1;
+}
+
+/* Добавляем декоративный элемент для фона */
+.layout::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(var(--primary-rgb), 0.1) 0%, rgba(var(--primary-rgb), 0) 70%);
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0.6;
+  z-index: -1;
+  animation: pulse 8s infinite ease-in-out;
+}
+
+.leftColumn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  animation: slideInLeft 0.5s ease-out forwards;
+}
+
+.rightColumn {
+  flex: 1;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  overflow: visible;
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+/* Общие стили для секций */
+.section {
+  padding: 15px;
+  background-color: var(--card-background, #ffffff);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  position: relative;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  overflow: visible;
+  will-change: transform, box-shadow, border-color;
+  margin-bottom: 15px;
+  min-height: 100px; /* минимальная высота для всех секций */
+  transform: translateZ(0); /* hardware acceleration */
+}
+
+.section:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: translateY(-2px);
+}
+
+.section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at top right,
+    rgba(var(--primary-rgb), 0.08) 0%,
+    transparent 75%
+  );
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.8s ease;
+  z-index: 0;
+  transform: scale(0.8);
+}
+
+.section:hover::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.section::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    var(--primary-color) 0%, 
+    rgba(var(--primary-rgb), 0.6) 50%, 
+    transparent 100%
+  );
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.4s ease-out;
+}
+
+.section:hover::after {
+  transform: scaleX(1);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.sectionTitle h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+  position: relative;
+  display: inline-block;
+  transition: color 0.3s, transform 0.3s;
+}
+
+.section:hover .sectionTitle h4 {
+  color: var(--primary-color);
+  transform: translateX(2px);
+}
+
+.sectionTitle::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 30px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-color) 0%, rgba(var(--primary-rgb), 0.3) 100%);
+  border-radius: 1px;
+  transition: width 0.4s ease, opacity 0.4s;
+}
+
+.section:hover .sectionTitle::after {
+  width: 60px;
+}
+
+/* Стили для ввода названия списания */
+.nameInput {
+  width: 100%;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.nameInput :global(.MuiOutlinedInput-root) {
+  background-color: var(--card-background);
+  border-radius: var(--radius);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+  position: relative;
+  overflow: hidden;
+}
+
+.nameInput :global(.MuiOutlinedInput-root)::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(var(--primary-rgb), 0.03) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.nameInput :global(.MuiOutlinedInput-root:hover)::before {
+  opacity: 1;
+}
+
+.nameInput :global(.MuiOutlinedInput-root:hover) {
+  border-color: rgba(var(--primary-rgb), 0.4);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.1);
+  transform: translateY(-1px);
+}
+
+.nameInput :global(.MuiOutlinedInput-root.Mui-focused) {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.15);
+  transform: translateY(-1px);
+}
+
+.nameInput :global(.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline) {
+  border-color: var(--primary-color);
+  border-width: 2px;
+}
+
+.nameInput :global(.MuiInputBase-input) {
+  padding: 14px 16px;
+  font-size: 15px;
+  transition: background-color 0.3s, color 0.3s;
+  color: var(--light-text, #efefef);  /* Светлый цвет текста для темной темы */
+  font-weight: 500;
+}
+
+.nameInput :global(.MuiInputBase-input::placeholder) {
+  color: rgba(255, 255, 255, 0.5);  /* Светлый цвет для плейсхолдера */
+  opacity: 0.6;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.nameInput :global(.MuiInputBase-input:focus::placeholder) {
+  opacity: 0.4;
+  transform: translateX(4px);
+}
+
+/* Стиль для автозаполнения полей */
+.nameInput :global(input:-webkit-autofill),
+.nameInput :global(input:-webkit-autofill:hover),
+.nameInput :global(input:-webkit-autofill:focus),
+.nameInput :global(input:-webkit-autofill:active) {
+  -webkit-box-shadow: 0 0 0 30px var(--card-background) inset !important;
+  -webkit-text-fill-color: var(--light-text, #efefef) !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Стили для секции количества */
+.quantitySection {
+  width: 100%;
+  border-radius: var(--radius);
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  padding: 18px;
+  margin-bottom: 20px;
+  position: relative;
+  transition: all var(--transition-normal);
+  overflow: hidden;
+}
+
+.quantitySection:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: translateY(-2px);
+}
+
+.quantitySection::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at bottom right,
+    rgba(var(--primary-rgb), 0.08) 0%,
+    transparent 70%
+  );
+  opacity: 0;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  transform: scale(0.8);
+}
+
+.quantitySection:hover::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.quantitySection .sectionTitle {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.quantitySection .sectionTitle h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+  transition: color 0.3s, transform 0.3s;
+}
+
+.quantitySection:hover .sectionTitle h4 {
+  color: var(--primary-color);
+  transform: translateX(2px);
+}
+
+/* Стили для контейнера управления количеством */
+.quantityControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 15px;
+  position: relative;
+  z-index: 1;
+}
+
+.quantityValueContainer {
+  display: flex;
+  align-items: center;
+  background: var(--card-background);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
+  box-shadow: var(--shadow-sm);
+}
+
+.quantityValueContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(var(--primary-rgb), 0.08) 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.quantityValueContainer:hover {
+  background-color: var(--primary-transparent);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: var(--hover-transform);
+  box-shadow: var(--shadow-md);
+}
+
+.quantityValueContainer:hover::before {
+  opacity: 1;
+}
+
+.quantityValue {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.quantityNumber {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.quantityUnit {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+
+/* Стили для кнопок увеличения/уменьшения количества */
+.quantityActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantityActions :global(.MuiIconButton-root) {
+  background-color: var(--primary-transparent);
+  color: var(--primary-color);
+  border-radius: 50%;
+  padding: 8px;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.quantityActions :global(.MuiIconButton-root)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(var(--primary-rgb), 0.15);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.quantityActions :global(.MuiIconButton-root):hover {
+  background: var(--gradient-primary);
+  color: white;
+  transform: var(--hover-transform);
+  box-shadow: var(--shadow-md);
+}
+
+.quantityActions :global(.MuiIconButton-root):hover::before {
+  width: 120%;
+  height: 120%;
+}
+
+.quantityActions :global(.MuiIconButton-root):active {
+  transform: var(--active-transform);
+}
+
+.quantityActions :global(.MuiIconButton-root) :global(.MuiSvgIcon-root) {
+  font-size: 18px;
+  color: var(--primary-color);
+}
+
+.quantityActions :global(.MuiIconButton-root):hover :global(.MuiSvgIcon-root) {
+  color: white;
+}
+
+/* Стиль для неактивной кнопки */
+.quantityActions :global(.MuiIconButton-root.Mui-disabled) {
+  background-color: var(--card-background);
+  color: var(--border-color);
+  box-shadow: none;
+  transform: none;
+  opacity: var(--disabled-opacity);
+}
+
+/* Определяем основные анимации */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.5;
+  }
+}
+
+/* Стили для переключателя единиц измерения */
+.unitToggleContainer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.unitToggleGroup {
+  display: flex;
+  background-color: var(--card-background);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.unitToggleGroup:hover {
+  border-color: rgba(var(--primary-rgb), 0.3);
+  box-shadow: var(--shadow-md);
+}
+
+.unitToggleButton {
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  user-select: none;
+  border: none !important;
+  background-color: transparent !important;
+  text-transform: none !important;
+  min-width: 40px;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+.unitToggleButton:hover {
+  color: var(--text-color);
+  background-color: var(--hover-overlay) !important;
+}
+
+.unitToggleButtonActive {
+  background: var(--gradient-primary) !important;
+  color: white !important;
+  box-shadow: var(--shadow-sm);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* Стили для кнопок управления вводом количества */
+.cancelQuantityButton,
+.confirmQuantityButton {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  min-width: 40px;
+  height: 36px;
+  box-shadow: var(--shadow-sm);
+  border: none;
+}
+
+/* Кнопка отмены ввода (крестик) */
+.cancelQuantityButton {
+  background-color: var(--card-background);
+  color: var(--text-secondary);
+  margin-right: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.cancelQuantityButton:hover {
+  background-color: var(--hover-overlay);
+  transform: var(--hover-transform);
+  box-shadow: var(--shadow-md);
+  color: var(--text-color);
+}
+
+/* Кнопка подтверждения ввода (галочка) */
+.confirmQuantityButton {
+  background: var(--gradient-primary);
+  color: white;
+}
+
+.confirmQuantityButton:hover {
+  transform: var(--hover-transform);
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.05);
+}
+
+/* Активное состояние для обеих кнопок */
+.cancelQuantityButton:active,
+.confirmQuantityButton:active {
+  transform: var(--active-transform);
+  opacity: 0.9;
+}
+
+/* Стиль для иконок в кнопках */
+.cancelQuantityButton :global(.MuiSvgIcon-root),
+.confirmQuantityButton :global(.MuiSvgIcon-root) {
+  font-size: 18px;
+}
+
+/* Кнопки действий */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+/* Кнопка Отмена */
+.cancelButton {
+  border-radius: var(--radius-sm) !important;
+  text-transform: none !important;
+  padding: 6px 12px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  border: 1px solid rgba(var(--neutral-rgb), 0.3) !important;
+  background-color: transparent !important;
+  color: var(--text-secondary) !important;
+  transition: all 0.2s ease !important;
+}
+
+.cancelButton:hover {
+  background-color: rgba(var(--neutral-rgb), 0.05) !important;
+  border-color: rgba(var(--neutral-rgb), 0.4) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.cancelButton:active {
+  transform: translateY(0);
+}
+
+/* Кнопка Создать списание */
+.submitButton {
+  border-radius: var(--radius-sm) !important;
+  text-transform: none !important;
+  padding: 6px 15px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  background-color: var(--primary-color) !important;
+  color: white !important;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm) !important;
+  transition: all 0.2s ease !important;
+}
+
+.submitButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  transition: left 0.7s ease;
+}
+
+.submitButton:hover {
+  background-color: var(--primary-dark) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+}
+
+.submitButton:hover::before {
+  left: 100%;
+}
+
+.submitButton:active {
+  transform: translateY(0);
+}
+
+.submitButton:disabled {
+  background-color: rgba(var(--neutral-rgb), 0.3) !important;
+  color: var(--text-secondary) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* Стиль для отображения спиннера во время отправки */
+.loadingSpinner {
+  color: white !important;
+}
+
+/* Полностью переработанная версия текстовой области для описания */
+.descriptionTextarea {
+  width: 100%;
+  height: 120px !important;
+  resize: none;
+  padding: 14px 16px;
+  font-family: inherit;
+  background-color: var(--card-background, #ffffff);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-color);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+  box-sizing: border-box;
+  transform: none !important;
+  outline: none;
+  margin-top: 10px;
+  
+  /* Hardware acceleration */
+  backface-visibility: hidden;
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+.descriptionTextarea:hover {
+  border-color: rgba(var(--primary-rgb), 0.3);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.08);
+}
+
+.descriptionTextarea:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+}
+
+.descriptionTextarea::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* Контейнер для описания */
+.descriptionContainer {
+  position: relative;
+  margin-top: 15px;
+}
+
+/* Стили для формы причины списания */
+.reasonSection {
+  overflow: visible;
+  z-index: 50;
+}
+
+.reasonSection::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: linear-gradient(90deg, var(--primary-color), transparent);
+  transition: width 0.4s ease;
+}
+
+.reasonSection:hover::after {
+  width: 100%;
+}
+
+.reasonPlaceholder {
+  padding: 12px 16px;
+  border: 1px dashed rgba(var(--primary-rgb), 0.3);
+  border-radius: var(--radius);
+  background-color: rgba(var(--primary-rgb), 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  margin-top: 10px;
+}
+
+.reasonPlaceholder:hover {
+  background-color: rgba(var(--primary-rgb), 0.06);
+  border-color: rgba(var(--primary-rgb), 0.5);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.1);
+}
+
+.reasonPlaceholder h5 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
+}
+
+.reasonPlaceholder:hover h5 {
+  color: var(--primary-color);
+}
+
+.reasonSelected {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.12));
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.08);
+}
+
+.reasonSelected::before {
+  display: none;
+}
+
+.reasonSelected:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.12);
+}
+
+.reasonSelected h5 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.reasonSelected p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Стили для футера с кнопками */
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -5px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+  position: relative;
+}
+
+.footer::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: 0;
+  width: 50px;
+  height: 1px;
+  background: var(--primary-color);
+}
+
+.cancelButton {
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-size: 15px;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+}
+
+.cancelButton::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: width 0.4s ease, height 0.4s ease;
+}
+
+.cancelButton:hover {
+  border-color: rgba(var(--primary-rgb), 0.3);
+  color: var(--text-color);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.cancelButton:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.cancelButton:active {
+  transform: translateY(0);
+}
+
+.submitButton {
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  background: var(--gradient-primary);
+  border: none;
+  color: white;
+  font-weight: 500;
+  font-size: 15px;
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+  min-width: 150px;
+}
+
+.submitButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: skewX(-25deg);
+  transition: all 0.75s;
+}
+
+.submitButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(var(--primary-rgb), 0.4);
+}
+
+.submitButton:hover::before {
+  left: 100%;
+}
+
+.submitButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+}
+
+.submitButton:disabled {
+  background: linear-gradient(90deg, var(--gray-400), var(--gray-500));
+  cursor: not-allowed;
+  opacity: 0.7;
+  box-shadow: none;
+  transform: none;
+}
+
+.submitButton:disabled::before {
+  display: none;
+}
+
+/* Индикатор загрузки */
+.loadingSpinner {
+  margin-right: 10px;
+  animation: rotate 1.5s linear infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Анимация для ввода количества */
+.quantityInputContainer {
+  width: 100%;
+  max-width: 180px;
+  background-color: var(--card-background);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+  animation: fadeIn 0.3s ease-out;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.quantityInputContainer:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(var(--primary-rgb), 0.3);
+  transform: var(--hover-transform);
+}
+
+.quantityInputContainer :global(.MuiOutlinedInput-root) {
+  height: 40px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-normal);
+  background-color: var(--card-background);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.quantityInputContainer :global(.MuiOutlinedInput-root.Mui-focused) {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.15);
+}
+
+.quantityInputContainer :global(.MuiOutlinedInput-root:hover) {
+  border-color: var(--primary-color);
+  background-color: var(--primary-transparent);
+}
+
+.quantityInputContainer :global(.MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline) {
+  border-color: var(--primary-color);
+  border-width: 2px;
+}
+
+.quantityInputContainer :global(.MuiInputBase-input) {
+  text-align: center;
+  font-weight: 500;
+  font-size: 16px;
+  color: var(--text-color);
+}
+
+/* Переключатель единиц измерения */
+.unitToggleContainer {
+  display: flex;
+  align-items: center;
+  margin-top: 15px;
+}
+
+.unitToggleGroup {
+  display: flex;
+  border-radius: var(--radius-sm);
+  background-color: rgba(var(--primary-rgb), 0.06);
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  padding: 2px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+}
+
+.unitToggleGroup:hover {
+  box-shadow: var(--shadow-md);
+  border-color: rgba(var(--primary-rgb), 0.2);
+}
+
+.unitToggleButton {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  border: none;
+  background-color: transparent;
+  color: var(--text-secondary);
+}
+
+.unitToggleButton:hover {
+  color: var(--primary-color);
+}
+
+.unitToggleButtonActive {
+  background-color: white;
+  color: var(--primary-color);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Медиа-запросы для адаптивности */
+@media (max-width: 900px) {
+  .container {
+    padding: 15px;
+  }
+  
+  .layout {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .layout {
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+/* Удаляем стили для подсказки */
+
+.reasonSelector {
+  position: relative;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reasonSelectorActive {
+  border-color: var(--primary-color);
+}
+
+/* Стили для селектора причин */
+.reasonSelector {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-normal);
+  z-index: 9990;
+}
+
+.reasonSelectorActive {
+  margin-bottom: 10px;
+  z-index: 9990;
+}
+
+/* Выпадающий список причин */
+.reasonsList {
+  position: absolute;
+  width: 100%;
+  background-color: var(--card-background, #ffffff);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+  z-index: 9999;
+  max-height: 250px;
+  min-height: 50px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 2px solid rgba(var(--primary-rgb), 0.3);
+  top: 100%;
+  left: 0;
+  margin-top: 5px;
+  padding: 5px 0;
+  color: #000;
+}
+
+/* Стилизация скроллбара для списка причин */
+.reasonsList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reasonsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.reasonsList::-webkit-scrollbar-thumb {
+  background-color: rgba(var(--primary-rgb), 0.3);
+  border-radius: 20px;
+}
+
+.reasonsList::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary-color);
+}
+
+/* Элемент списка причин */
+.reasonItem {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(var(--primary-rgb), 0.15);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  background-color: var(--card-background, #ffffff);
+  position: relative;
+  margin: 0;
+  color: var(--text-color, #333);
+  opacity: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.reasonItem:hover {
+  background-color: rgba(var(--primary-rgb), 0.08);
+  transform: translateX(5px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.reasonItem:last-child {
+  border-bottom: none;
+}
+
+.reasonItem::before {
+  display: none;
+}
+
+.reasonItem:hover::before {
+  display: none;
+}
+
+.reasonItemSelected {
+  background-color: rgba(var(--primary-rgb), 0.12);
+  border-left: 4px solid var(--primary-color);
+}
+
+.reasonItemSelected h5 {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.reasonItemContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.reasonItem h5 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-color, #333);
+  opacity: 1;
+}
+
+.reasonItem p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary, #666);
+  opacity: 0.9;
+}
+
+.reasonItem:hover h5 {
+  color: var(--primary-color);
+}
+
+/* Иконка стрелки */
+.arrowIcon {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  color: var(--text-secondary);
+  transition: all var(--transition-normal);
+  opacity: 0.7;
+}
+
+.reasonSelector:hover .arrowIcon {
+  opacity: 1;
+  color: var(--primary-color);
+  transform: translateY(2px);
+}
+
+/* Иконка для выбранного элемента */
+.checkIcon {
+  color: var(--primary-color);
+  margin-left: 10px;
+  opacity: 1;
+  font-size: 20px;
+  transition: all 0.2s ease;
+}
+
+.reasonItem:hover .checkIcon {
+  transform: scale(1.1);
+}
+
+/* Более специфичные правила, которые будут иметь больший приоритет над глобальными селекторами */
+.container button,
+.container .MuiButton-root,
+.submitButton,
+.cancelButton,
+.container .submitButton,
+.container .cancelButton,
+.footer button,
+.footer .MuiButton-root {
+    display: flex !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin: initial !important;
+    padding: initial !important;
+}
+
+/* Переопределяем стили для конкретных кнопок, чтобы вернуть им нужные отступы */
+.submitButton {
+    padding: 8px 24px !important;
+    margin: 0 0 0 16px !important;
+}
+
+.cancelButton {
+    padding: 8px 16px !important;
+    margin: 0 !important;
+}

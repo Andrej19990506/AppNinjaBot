@@ -1,0 +1,43 @@
+{
+  "chat_id": "-1004754142211",
+  "chat_title": "Курьеры Взлетка",
+  "members": [
+    {
+      "user_id": 6843570748,
+      "username": null,
+      "first_name": "123",
+      "last_name": "123",
+      "status": "administrator",
+      "joined_date": "2025-03-27T23:58:46.137788",
+      "is_bot": false,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_99.jpg",
+      "senior_courier": true
+    }
+  ],
+  "admins": [
+    {
+      "user_id": 6843570748,
+      "username": null,
+      "first_name": "",
+      "last_name": "",
+      "status": "creator",
+      "is_bot": false,
+      "can_manage_chat": true,
+      "can_delete_messages": true,
+      "can_manage_voice_chats": true,
+      "can_restrict_members": true,
+      "can_promote_members": true,
+      "can_change_info": true,
+      "can_invite_users": true,
+      "can_pin_messages": true,
+      "photo_url": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_99.jpg"
+    }
+  ],
+  "last_updated": "2025-03-27T23:58:46.246916",
+  "group_type": "courier",
+  "metadata": {
+    "total_members": 1,
+    "total_admins": 1,
+    "created_at": "2025-03-27T23:58:46.246925"
+  }
+}

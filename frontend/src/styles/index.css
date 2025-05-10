@@ -7,13 +7,23 @@
     transition-duration: var(--transition-normal);
     transition-timing-function: ease-in-out;
     -webkit-tap-highlight-color: transparent; /* Убирает подсветку при тапе на iOS */
-    user-select: none; /* Запрещает выделение текста */
+    -webkit-touch-callout: none !important; /* Предотвращает появление контекстного меню на iOS */
+    user-select: none !important; /* Базовое предотвращение выделения текста */
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    touch-action: manipulation; /* Оптимизируем touch события */
 }
 
 /* Разрешаем выделение текста только в полях ввода */
 input, 
 textarea {
-    user-select: text;
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+    touch-action: auto; /* Возвращаем стандартное поведение для полей ввода */
 }
 
 body {
@@ -22,11 +32,262 @@ body {
     background: var(--background-color);
     color: var(--text-color);
     transition: background-color var(--transition-normal), color var(--transition-normal);
+    touch-action: manipulation; /* Оптимизируем touch события */
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
 }
 
 #root {
     min-height: 100vh;
     min-height: 100dvh;
     transition: background-color var(--transition-normal);
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+/* Специальные правила для изображений */
+img {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Специальные правила для контейнеров аватаров */
+[class*="CourierAvatarContainer"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+    touch-action: none !important;
+}
+
+/* Специальные правила для изображений аватаров */
+[class*="CourierAvatarImage"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+    pointer-events: none !important;
+}
+
+/* Разрешаем события только для старших курьеров */
+[class*="CourierAvatarContainer"][data-senior="true"] {
+    pointer-events: auto !important;
+}
+
+/* Предотвращаем выделение для всех элементов Telegram */
+[data-telegram-disable-selection="true"],
+[data-telegram-disable-copy="true"],
+[data-telegram-disable-link="true"],
+[data-telegram-disable-preview="true"],
+[class*="tgme_"],
+[class*="tgme"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
+/* Предотвращаем выделение для всех изображений */
+img[draggable="false"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
+/* Глобальные правила для предотвращения контекстного меню */
+:root, 
+body, 
+#root, 
+[class*="tgme"], 
+[class*="tgme_"],
+[class*="SlotButton"],
+[class*="CourierAvatar"],
+[class*="ShiftPanel"] {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -khtml-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    touch-action: manipulation !important;
+}
+
+/* Предотвращаем контекстное меню для футера Telegram */
+[class*="tgme_footer"], [class*="tgme_footer_"] {
+    pointer-events: none !important;
+    touch-action: none !important;
+}
+
+/* Предотвращаем контекстное меню для всех кнопок и интерактивных элементов */
+button,
+[role="button"],
+a,
+.clickable,
+.interactive {
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+    touch-action: manipulation !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Предотвращаем контекстное меню для всех изображений в Telegram */
+[class*="tgme"] img,
+[class*="tgme_"] img,
+[data-telegram] img {
+    pointer-events: none !important;
+    touch-action: none !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    -o-user-select: none !important;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+}
+
+/* Специальные стили для iOS устройств */
+.ios-device {
+  /* Отключение нативных жестов */
+  -webkit-overflow-scrolling: auto;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Переопределение стилей для календаря на iOS */
+.ios-device .DayCellContainer {
+  transform: translateZ(0); /* Включаем аппаратное ускорение */
+  will-change: transform; /* Оптимизация для анимаций */
+}
+
+/* Фикс для touch событий на iOS */
+.ios-device * {
+  cursor: pointer !important; /* Обеспечиваем tap feedback на iOS */
+}
+
+/* Предотвращаем двойной тап на iOS */
+.ios-device [role="button"],
+.ios-device button,
+.ios-device a,
+.ios-device input,
+.ios-device select,
+.ios-device .clickable {
+  touch-action: manipulation;
+}
+
+/* Добавляем явную обратную связь при нажатии */
+@media (hover: none) {
+  /* Только для устройств без поддержки hover */
+  .ios-device [role="button"]:active,
+  .ios-device button:active,
+  .ios-device a:active,
+  .ios-device .clickable:active {
+    opacity: 0.8;
+    transform: scale(0.97);
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+}
+
+/* Исправление проблем с фиксированным позиционированием на iOS */
+.ios-device .fixed-element {
+  position: fixed;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Специфические фиксы для зума на доступных датах календаря */
+[class*="EmptySlotIndicator"],
+[class*="OccupiedSlotIndicator"],
+[class*="ReserveSlotIndicator"] {
+  pointer-events: none !important;
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+[class*="DayNumber"] {
+  pointer-events: none !important;
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Специальный фикс для iOS Safari - полностью блокируем скейлинг */
+@supports (-webkit-touch-callout: none) {
+  /* Только для iOS устройств */
+  html {
+    height: 100%;
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    touch-action: manipulation;
+  }
+  
+  body {
+    height: 100%;
+    overflow: auto;
+    position: relative;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+    touch-action: manipulation;
+  }
+  
+  /* Предотвращаем событие зума для SVG элементов */
+  svg {
+    pointer-events: none !important;
+    touch-action: none !important;
+  }
+  
+  /* Специальный фикс для внутренних элементов индикаторов дат */
+  [class*="SlotIndicator"]::before,
+  [class*="SlotIndicator"]::after {
+    pointer-events: none !important;
+    touch-action: none !important;
+    -webkit-user-drag: none !important;
+    user-drag: none !important;
+  }
 }
 

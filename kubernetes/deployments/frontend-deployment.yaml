@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: appninjabot-frontend:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 3000
+        env:
+        - name: CHOKIDAR_USEPOLLING
+          value: "true"
+        - name: WATCHPACK_POLLING
+          value: "true"
+        - name: REACT_APP_API_URL
+          value: "http://server-service:8000/api"
+        - name: REACT_APP_WS_URL
+          value: "ws://server-service:8000/ws"
+        - name: NODE_ENV
+          value: "development"
+        - name: REACT_APP_ENV
+          value: "development"
+        - name: REACT_APP_DEBUG
+          value: "true"
+        - name: PORT
+          value: "3000" 

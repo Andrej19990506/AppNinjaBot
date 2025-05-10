@@ -1,0 +1,11 @@
+# Остановить контейнер фронтенда
+docker stop appninjabot-frontend-1
+
+# Удалить контейнер
+docker rm appninjabot-frontend-1
+
+# Пересобрать фронтенд без кэша
+docker-compose build --no-cache frontend
+
+# Запустить фронтенд
+docker-compose up -d frontend

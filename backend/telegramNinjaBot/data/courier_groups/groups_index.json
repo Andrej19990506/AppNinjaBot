@@ -1,0 +1,22 @@
+{
+  "-1004610354973": {
+    "chat_title": "Курьеры Словцова",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004610354973.json",
+    "last_updated": "2025-03-21T15:16:37.602384"
+  },
+  "-1004689895448": {
+    "chat_title": "Курьеры Баумана",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004689895448.json",
+    "last_updated": "2025-03-21T15:25:13.492188"
+  },
+  "-1004721237800": {
+    "chat_title": "Курьеры Баумана",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004721237800.json",
+    "last_updated": "2025-03-28T20:16:56.971310"
+  },
+  "-1004754142211": {
+    "chat_title": "Курьеры Взлетка",
+    "file_path": "telegramNinjaBot/data/courier_groups/group_-1004754142211.json",
+    "last_updated": "2025-03-27T23:58:46.257073"
+  }
+}

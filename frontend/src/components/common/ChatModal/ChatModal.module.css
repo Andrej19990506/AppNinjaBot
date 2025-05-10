@@ -1,0 +1,217 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgb(0 0 0 / 50%);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.dialog {
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    border: 1px solid var(--border-color);
+}
+
+.header {
+    margin-bottom: 24px;
+    text-align: center;
+}
+
+.header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: var(--text-color);
+    font-weight: 600;
+}
+
+.fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.noAccessMessage {
+    background-color: var(--error-background);
+    border: 1px solid var(--error-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    color: var(--error-color);
+}
+
+.lockIcon {
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+    fill: var(--error-color);
+}
+
+.adminHint {
+    margin-bottom: 16px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.adminList {
+    margin-bottom: 24px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 8px;
+}
+
+.adminList::-webkit-scrollbar {
+    width: 6px;
+}
+
+.adminList::-webkit-scrollbar-track {
+    background: var(--gray-100);
+    border-radius: 3px;
+}
+
+.adminList::-webkit-scrollbar-thumb {
+    background: var(--gray-400);
+    border-radius: 3px;
+}
+
+.adminList::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+}
+
+.mainMenuButton,
+.actionButton {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.mainMenuButton {
+    background-color: var(--gray-100);
+    color: var(--text-color);
+}
+
+.mainMenuButton:hover {
+    background-color: var(--gray-200);
+    transform: var(--hover-transform);
+}
+
+.actionButton {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.actionButton:hover {
+    background-color: var(--primary-dark);
+    transform: var(--hover-transform);
+}
+
+.actionButton.loading {
+    background-color: var(--gray-400);
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.8;
+    position: relative;
+}
+
+.actionButton.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.welcomeContainer {
+    text-align: center;
+    margin-bottom: 24px;
+}
+
+.adminPhotoContainer {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 3px solid var(--primary-color);
+    padding: 2px;
+}
+
+.adminPhotoContainer img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.welcomeMessage h3 {
+    margin: 0 0 8px;
+    color: var(--text-color);
+    font-size: 1.25rem;
+}
+
+.welcomeMessage p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+    .dialog {
+        width: 95%;
+        padding: 16px;
+    }
+
+    .header h2 {
+        font-size: 1.25rem;
+    }
+
+    .adminPhotoContainer {
+        width: 80px;
+        height: 80px;
+    }
+} 

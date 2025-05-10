@@ -1,10 +1,6 @@
 {
-    "8044750997": {
-        "photo_url": "AgACAgIAAxUAAWebSvrAhhzLRfM_qrnB6jjL21H4AALQ5DEbCLUAAUr7EpXrpY-M9QEAAwIAA2MAAzYE",
-        "last_update": "2025-02-01T00:02:00.862673"
-    },
-    "1682142222": {
-        "photo_url": "AgACAgIAAxUAAWebSvp65UbnQeyv_-r5F4Cjz2YDAAI_3DEbec2QSzNnxQ_zdN0jAQADAgADYwADNgQ",
-        "last_update": "2025-02-01T00:02:01.316018"
-    }
+  "1682142222": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_95.jpg",
+  "8044750997": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_96.jpg",
+  "6843570748": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_99.jpg",
+  "784135710": "https://api.telegram.org/file/bot8044750997:AAGsanhJ6VvfEjoJe-zVBqGOgw7bi0TbqKQ/photos/file_100.jpg"
 }

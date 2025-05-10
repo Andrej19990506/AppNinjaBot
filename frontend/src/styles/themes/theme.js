@@ -28,5 +28,15 @@ export const theme = createTheme({
         },
       },
     },
+    MuiLinearProgress: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'var(--primary-light)',
+          '& .MuiLinearProgress-bar': {
+            backgroundColor: 'var(--primary-color)',
+          },
+        },
+      },
+    },
   },
 }); 

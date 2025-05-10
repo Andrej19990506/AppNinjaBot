@@ -1,0 +1,66 @@
+.dateSelector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px 0;
+  padding: 8px 0;
+  user-select: none;
+}
+
+.navigationButton {
+  background: none;
+  border: none;
+  color: var(--primary-color, #2196f3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  transition: all 0.2s ease;
+  border-radius: 50%;
+}
+
+.navigationButton:hover {
+  background-color: rgba(33, 150, 243, 0.08);
+}
+
+.navigationButton.disabled {
+  color: var(--disabled-color, #bdbdbd);
+  cursor: not-allowed;
+}
+
+.dateDisplayContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 150px;
+  justify-content: center;
+}
+
+.dateDisplay {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color, #333);
+  text-align: center;
+}
+
+.calendarButton {
+  min-width: unset !important;
+  padding: 4px !important;
+  color: var(--primary-color, #2196f3) !important;
+}
+
+.calendarButton:hover {
+  background-color: rgba(33, 150, 243, 0.08) !important;
+}
+
+@media (max-width: 600px) {
+  .dateSelector {
+    gap: 8px;
+  }
+  
+  .dateDisplay {
+    font-size: 0.9rem;
+  }
+} 

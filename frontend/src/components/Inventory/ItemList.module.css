@@ -1,0 +1,810 @@
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: rgba(var(--card-rgb), 0.97);
+    overflow: hidden;
+    position: relative;
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(var(--border-rgb), 0.08);
+    box-shadow: 
+        0 10px 30px rgba(0, 0, 0, 0.05),
+        0 1px 2px rgba(0, 0, 0, 0.1),
+        0 0 1px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    will-change: transform, opacity;
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100vw;
+    padding: 16px;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        to bottom right,
+        rgba(var(--primary-rgb), 0.03),
+        rgba(var(--orange-primary-rgb), 0.03)
+    );
+    z-index: 0;
+    pointer-events: none;
+}
+
+.container:hover {
+    box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.07),
+        0 3px 10px rgba(0, 0, 0, 0.05);
+}
+
+
+.addItemForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.addItemInput {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--input-background);
+    color: var(--text-color);
+    font-size: 1rem;
+    width: 100%;
+}
+
+.addItemInput:focus {
+    outline: none;
+    border-color: var(--orange-primary);
+}
+
+.addItemButtons {
+    display: flex;
+    gap: 8px;
+}
+
+.okButton {
+    padding: 8px 16px;
+    background: var(--orange-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.cancelButton {
+    padding: 8px 16px;
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    flex: 1;
+}
+
+.list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+    padding-right: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(var(--primary-rgb), 0.2) rgba(var(--background-rgb), 0.05);
+    position: relative;
+    width: 100%;
+    box-sizing: border-box;
+    max-height: 60vh;
+    z-index: 200;
+    padding-bottom: 50px;
+    contain: content;
+}
+
+.list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.list::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+}
+
+.list::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+    transition: background 0.2s ease;
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+
+.list::after {
+    content: '';
+    display: block;
+    height: 90px;
+    width: 100%;
+}
+
+.itemContainer {
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.item {
+    padding: 16px;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.item:hover {
+    border-color: var(--orange-primary);
+    background: rgba(var(--orange-primary-rgb), 0.05);
+}
+
+.item.filled {
+    border-color: var(--success-color);
+    background: rgba(var(--success-color-rgb), 0.05);
+}
+
+.item.selected {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+}
+
+.itemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.itemTitle {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+.status {
+    font-size: 0.875rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--border-color);
+    color: var(--text-secondary);
+}
+
+.status.filled {
+    background: rgba(var(--success-color-rgb), 0.1);
+    color: var(--success-color);
+}
+
+.itemDetails {
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    border-bottom-left-radius: var(--radius);
+    border-bottom-right-radius: var(--radius);
+    overflow: hidden;
+}
+
+.card {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card:last-child {
+    border-bottom: none;
+}
+
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.card h4 {
+    margin: 0 0 16px;
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.inputGroup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.inputGroup label {
+    min-width: 100px;
+    color: var(--text-secondary);
+}
+
+.inputGroup input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--input-background);
+    color: var(--text-color);
+    font-size: 0.9rem;
+}
+
+.inputGroup input:focus {
+    outline: none;
+    border-color: var(--orange-primary);
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+.checkbox label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.addButton {
+    width: calc(100% - 32px);
+    margin: 16px;
+    padding: 14px;
+    background: rgba(var(--orange-primary-rgb), 0.07);
+    color: var(--orange-primary);
+    border: 2px dashed rgba(var(--orange-primary-rgb), 0.5);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+}
+
+.addButton::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(45deg, 
+        rgba(var(--orange-primary-rgb), 0.2), 
+        rgba(var(--orange-primary-rgb), 0.0)
+    );
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.addButton:hover:not(:disabled) {
+    background: rgba(var(--orange-primary-rgb), 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(var(--orange-primary-rgb), 0.15);
+    border-color: var(--orange-primary);
+}
+
+.addButton:hover::before {
+    opacity: 1;
+}
+
+.addButton:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.addButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.removeButton {
+    padding: 6px 12px;
+    background: rgba(var(--error-color-rgb), 0.1);
+    color: var(--error-color);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.removeButton:hover:not(:disabled) {
+    background: rgba(var(--error-color-rgb), 0.2);
+}
+
+.removeButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.error {
+    margin: 16px;
+    padding: 12px;
+    background: rgba(var(--error-color-rgb), 0.1);
+    color: var(--error-color);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+}
+
+.placeholder {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+    .container {
+        border-radius: var(--radius-md);
+        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+        padding: 0;
+    }
+    
+    .header {
+        padding: 18px 20px;
+    }
+    
+    .header h2 {
+        font-size: 1.4rem;
+    }
+    
+    .header h2::before {
+        height: 20px;
+    }
+    
+    .addButton {
+        padding: 12px;
+    }
+    
+    .list {
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: y proximity;
+        padding-right: 0;
+        gap: 12px;
+    }
+    
+    .list::after {
+        height: 100px;
+    }
+    
+    .itemCard {
+        scroll-snap-align: start;
+        padding: 16px;
+        min-height: 60px;
+        gap: 12px;
+        border-radius: var(--radius-md);
+    }
+    
+    .itemTitle {
+        font-size: 16px;
+        font-weight: 600;
+        color: var(--text-color);
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        border-radius: var(--radius);
+        overflow-x: hidden;
+    }
+    
+    .header {
+        padding: 16px;
+        gap: 14px;
+    }
+    
+    .header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .header h2::before {
+        height: 18px;
+        width: 3px;
+    }
+    
+    .addButton {
+        margin: 12px;
+        width: calc(100% - 24px);
+        padding: 10px;
+    }
+    
+    .list {
+        padding: 12px;
+        max-height: 75vh;
+    }
+    
+    .list::after {
+        height: 120px;
+    }
+    
+    .itemCard {
+        padding: 14px;
+        border-radius: var(--radius);
+        min-height: 56px;
+        gap: 8px;
+        background-color: rgba(var(--primary-rgb), 0.1);
+    }
+    
+    .itemTitle {
+        font-size: 15px;
+    }
+}
+
+.itemCard {
+    position: relative;
+    background: rgba(var(--card-rgb), 0.98);
+    border: 1px solid rgba(var(--border-rgb), 0.1);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 68px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    width: 100%;
+    box-sizing: border-box;
+    max-width: 100%;
+    backdrop-filter: blur(7px);
+    will-change: transform;
+    contain: layout style paint;
+    --mouse-x: 50%;
+    --mouse-y: 50%;
+    --opacity: 0;
+    z-index: 100;
+    pointer-events: auto;
+}
+
+.itemCard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: var(--opacity);
+    border-radius: inherit;
+    background: radial-gradient(
+        800px circle at var(--mouse-x) var(--mouse-y),
+        rgba(var(--orange-primary-rgb), 0.15),
+        transparent 40%
+    );
+    z-index: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.itemCard:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.08),
+        0 3px 6px rgba(0, 0, 0, 0.04);
+    border-color: rgba(var(--orange-primary-rgb), 0.3);
+}
+
+.itemCard:hover::before {
+    opacity: 1;
+}
+
+.itemCard:active {
+    transform: translateY(0) scale(0.98);
+    transition: all 0.1s ease;
+}
+
+.itemCard::after {
+    content: "Свайп для удаления";
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%) translateX(100%);
+    color: var(--error-color);
+    font-size: 0.8rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.itemCard[data-dragging="true"]::after {
+    opacity: 1;
+}
+
+/* Эффект для скроллинга */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeOutDown {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+}
+
+.list::-webkit-scrollbar-thumb {
+    transition: background 0.3s ease;
+}
+
+.list:hover::-webkit-scrollbar-thumb {
+    background: rgba(var(--primary-rgb), 0.4); 
+}
+
+/* Улучшение интерактивности карточки */
+.itemTitle {
+    position: relative;
+    z-index: 1;
+}
+
+.itemCard .deleteIndicator svg {
+    transition: transform 0.3s ease;
+}
+
+.itemCard[data-dragging="true"] .deleteIndicator svg {
+    transform: rotate(90deg);
+}
+
+.itemCard .filledBadge, 
+.itemCard .outOfStockBadge {
+    position: relative;
+    z-index: 2;
+}
+
+.deleteIndicator {
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    color: var(--error-color);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.itemCard[data-dragging="true"] .deleteIndicator {
+    opacity: 1;
+}
+
+.filledBadge {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    background: var(--success-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: transform 0.2s ease;
+    z-index: 1;
+}
+
+.filledBadge::before {
+    content: '✓';
+    font-size: 16px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.outOfStockBadge {
+    position: absolute;
+    right: 8px;
+    transform: translateY(-50%);
+    padding: 4px 8px;
+    background-color: var(--error-color);
+    color: white;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+}
+
+.itemTitle {
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.itemCard:hover .itemTitle {
+    color: var(--orange-primary);
+}
+
+.filled {
+    border: 2px solid var(--success-color);
+}
+
+.outOfStock {
+    border: 2px solid var(--error-color);
+}
+
+.quantities {
+    font-size: 14px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quantities span {
+    display: inline-flex;
+    align-items: center;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 16px;
+}
+
+/* Стили для выделения результатов поиска */
+.highlight {
+  background-color: var(--highlight-color);
+  color: var(--text-color);
+  border-radius: 2px;
+  padding: 0 2px;
+  font-weight: 500;
+}
+
+.searchResult {
+  position: relative;
+  border: 1px solid var(--primary-color);
+  box-shadow: 0 0 8px var(--primary-transparent);
+}
+
+.searchResult:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px var(--primary-transparent);
+}
+
+.categoryLabel {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  background-color: var(--primary-color);
+  color: white;
+  opacity: 0.8;
+}
+
+.noResultsMessage {
+  padding: 20px;
+  text-align: center;
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+.searchingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  min-height: 200px;
+}
+
+.searchingSpinner {
+  margin-bottom: 10px;
+  color: var(--primary-color);
+}
+
+/* Стили для режима поиска */
+.searchModeActive .itemCard:not(.searchResult) {
+  opacity: 0.6;
+  transform: scale(0.95);
+  pointer-events: none;
+}
+
+/* Изменения для кнопки добавления товара */
+.addItemButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  margin: 0 0 20px 0;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.25);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.addItemButton:before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.2)
+  );
+  transform: translateX(-100%);
+  transition: transform 0.7s ease;
+}
+
+.addItemButton:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(var(--primary-rgb), 0.35);
+}
+
+.addItemButton:hover:before {
+  transform: translateX(100%);
+}
+
+.addItemButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.2);
+}
+
+.disabledButton {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabledButton:hover {
+  background-color: var(--primary-color);
+  transform: none;
+}

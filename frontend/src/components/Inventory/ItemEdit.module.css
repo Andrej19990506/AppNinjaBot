@@ -1,0 +1,637 @@
+.container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--background-color);
+    border-radius: 24px 24px 0 0;
+    box-shadow: var(--shadow);
+    padding: 24px;
+    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 80px);
+    z-index: 15;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    height: auto;
+    max-height: 50vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translateZ(0);
+    will-change: transform;
+}
+
+/* Стили для iOS чтобы предотвратить скролл body при открытой клавиатуре */
+@supports (-webkit-touch-callout: none) {
+    .container {
+        height: -webkit-fill-available;
+    }
+}
+
+.item {
+    padding: 16px;
+    margin-bottom: 12px;
+    background: var(--card-background);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    position: relative;
+    z-index: 5;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+}
+
+.item.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.item.exit {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+}
+
+.item:hover {
+    transform: var(--hover-transform);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+    background: var(--background-color);
+}
+
+.label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.label::before {
+    content: '';
+    width: 4px;
+    height: 16px;
+    background: var(--primary-color);
+    border-radius: 2px;
+    transition: var(--transition-normal);
+}
+
+.item:hover .label::before {
+    height: 24px;
+    background: var(--success-color);
+}
+
+.content {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.value {
+    position: relative;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-color);
+    min-width: 48px;
+    text-align: center;
+    padding: 10px 16px;
+    background: var(--background-color);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-normal);
+}
+
+.indicator {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--success-color);
+    border: 2px solid var(--background-color);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+}
+
+.indicator svg {
+    width: 10px;
+    height: 10px;
+    color: white;
+}
+
+.hasValue .indicator {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.item:hover .value {
+    border-color: var(--success-color);
+    box-shadow: var(--shadow);
+    color: var(--success-color);
+}
+
+.item:hover .indicator {
+    transform: scale(1.1);
+}
+
+.buttons {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+    align-items: center;
+}
+
+.button {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-color);
+    font-size: 22px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+
+.button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, var(--primary-color), transparent);
+    opacity: 0;
+    transition: var(--transition-normal);
+}
+
+.button:hover {
+    transform: var(--hover-transform);
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
+    color: var(--primary-color);
+}
+
+.button:hover::before {
+    opacity: 0.1;
+}
+
+.button:active {
+    transform: var(--active-transform);
+}
+
+.inputGroup {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+    position: sticky;
+    bottom: 0;
+    background: var(--background-color);
+    padding: 8px;
+    z-index: 100;
+    border-top: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.input {
+    width: 140px;
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-color);
+    font-size: 16px;
+    font-weight: 500;
+    text-align: center;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-transparent);
+    outline: none;
+}
+
+.input::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.okButton {
+    height: 40px;
+    padding: 0 20px;
+    border-radius: var(--radius);
+    border: none;
+    background: var(--primary-color);
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-md);
+}
+
+.okButton:hover {
+    transform: var(--hover-transform);
+    box-shadow: var(--shadow-lg);
+    background: var(--primary-dark);
+}
+
+.okButton:active {
+    transform: var(--active-transform);
+}
+
+.outOfStockButton {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    white-space: nowrap;
+}
+
+.outOfStockButton:hover {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.outOfStockButton.active {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.value.outOfStock {
+    color: var(--error-color);
+    border-color: var(--error-color);
+    background: rgba(var(--error-rgb), 0.1);
+    display: none;
+}
+
+.value.outOfStock::before {
+    content: 'Нет в наличии';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.value.outOfStock .quantity {
+    opacity: 0;
+}
+
+@media (max-width: 768px) {
+    .container {
+        max-height: 45vh;
+        padding: 16px;
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 70px);
+        z-index: 10;
+        margin-bottom: 0;
+    }
+
+    .container:focus-within {
+        bottom: 0;
+        height: auto;
+        max-height: 100vh;
+    }
+
+    .item {
+        padding: 12px;
+        margin-bottom: 10px;
+        border-width: 1px;
+    }
+
+    .value {
+        font-size: 18px;
+        padding: 8px 14px;
+    }
+
+    .button {
+        min-width: 48px;
+        min-height: 48px;
+    }
+
+    .inputGroup {
+        padding: 12px;
+        background: var(--background-color);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        position: sticky;
+        bottom: 0;
+        z-index: 101;
+        margin-top: auto;
+    }
+
+    .outOfStockButton {
+        height: 42px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .button {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        font-size: 20px;
+        background: rgba(var(--primary-rgb), 0.05);
+    }
+
+    .outOfStockButton {
+        background: rgba(var(--error-rgb), 0.1);
+        color: var(--error-color);
+        font-weight: 600;
+    }
+
+    .value.hasValue {
+        border-color: var(--success-color);
+        background: rgba(var(--success-rgb), 0.05);
+    }
+
+    .item:last-child {
+        margin-bottom: 0;
+    }
+}
+
+@media (max-width: 480px) {
+    .container {
+        max-height: 40vh;
+        padding: 14px;
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 60px);
+    }
+
+    .item {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .value {
+        font-size: 16px;
+        padding: 6px 12px;
+        min-width: 40px;
+    }
+
+    .button {
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+        border-radius: 10px;
+    }
+
+    .input {
+        width: 100px;
+        height: 38px;
+        font-size: 15px;
+        padding: 0 12px;
+    }
+
+    .okButton {
+        height: 38px;
+        padding: 0 16px;
+        font-size: 15px;
+    }
+
+    .outOfStockButton {
+        height: 38px;
+        padding: 0 14px;
+        font-size: 14px;
+    }
+}
+
+.addSemifinishedButton {
+    width: 100%;
+    padding: 16px;
+    margin-top: 16px;
+    margin-bottom: 16px;
+    background: var(--background-color);
+    border: 2px dashed var(--orange-primary);
+    border-radius: var(--radius);
+    color: var(--orange-primary);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out, background-color 0.2s ease, color 0.2s ease, border 0.2s ease;
+}
+
+.addSemifinishedButton.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.addSemifinishedButton:hover {
+    background: var(--orange-primary);
+    color: white;
+    border-style: solid;
+}
+
+.addSemifinishedButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.addSemifinishedButton.exit {
+    opacity: 0;
+    transform: translateY(20px);
+}
+
+.plusIcon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.plusIcon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.deleteButton {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 1;
+    z-index: 2;
+}
+
+.deleteButton:hover {
+    background: var(--error-color);
+    border-color: var(--error-color);
+    color: white;
+}
+
+.deleteButton svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Стили для устройств с поддержкой hover (десктопы) */
+@media (hover: hover) and (min-width: 769px) {
+    .deleteButton {
+        opacity: 0;
+    }
+
+    .item:hover .deleteButton {
+        opacity: 1;
+    }
+}
+
+/* Стили для мобильных устройств */
+@media (max-width: 768px) {
+    .deleteButton {
+        opacity: 1 !important;
+        width: 28px;
+        height: 28px;
+        pointer-events: auto !important;
+        visibility: visible !important;
+    }
+
+    .item .deleteButton {
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        visibility: visible !important;
+    }
+
+    .deleteButton svg {
+        width: 14px;
+        height: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .deleteButton {
+        width: 24px;
+        height: 24px;
+    }
+
+    .deleteButton svg {
+        width: 12px;
+        height: 12px;
+    }
+}
+
+/* Добавляем новый стиль для отображения статуса "нет в наличии" */
+.outOfStockStatus {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    padding: 4px 8px;
+    background: var(--success-color);
+    color: var(--text-color);
+    border-radius: var(--radius);
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* Скрываем кнопки +/- при статусе "нет в наличии" */
+.outOfStock .button {
+    display: none;
+}
+
+/* Стилизуем кнопку "Нет в наличии"/"Восстановить" */
+.outOfStockButton {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    white-space: nowrap;
+}
+
+.outOfStockButton:hover {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.outOfStockButton.active {
+    background: var(--error-color);
+    color: white;
+    border-color: var(--error-color);
+}
+
+.testButton {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.testButton:hover {
+    background: var(--primary-color-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="dark"] .testButton {
+    background: var(--primary-color-dark);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .testButton:hover {
+    background: var(--primary-color-dark-hover);
+}

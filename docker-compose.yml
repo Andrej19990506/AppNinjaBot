@@ -1,4 +1,4 @@
-version: '3'
+version: '3.8'
 
 services:
   bot:
@@ -6,17 +6,25 @@ services:
       context: ./backend/telegramNinjaBot
       target: development
     volumes:
-      - ./backend/telegramNinjaBot:/app
+      - ./backend/telegramNinjaBot:/app/telegramNinjaBot
       - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
-      - /app/__pycache__
-      - /app/handlers/__pycache__
-      - /app/services/__pycache__
+      - /app/telegramNinjaBot/__pycache__
+      - /app/telegramNinjaBot/handlers/__pycache__
+      - /app/telegramNinjaBot/services/__pycache__
+      - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env
-    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=https://reform-hand-simple-invisible.trycloudflare.com
+    restart: "no"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: none
     networks:
       - ninja_network
-    command: python -u bot.py
+    command: python -u -m telegramNinjaBot.bot
 
   server:
     build: 
@@ -26,10 +34,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app
-      - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
-      - /app/__pycache__
-      - /app/*/__pycache__
-      - ./data:/app/data
+      - ./backend/data/inventory:/app/data/inventory
+      - shared-data:/app/shared
     env_file:
       - ./backend/.env
       - ./backend/telegramNinjaBot/.env
@@ -40,45 +46,91 @@ services:
     command: python app.py
     environment:
       - PYTHONUNBUFFERED=1
+      - API_BASE_URL=https://reform-hand-simple-invisible.trycloudflare.com
+      - SOCKET_URL=wss://reform-hand-simple-invisible.trycloudflare.com/ws
+      - PYTHONPYCACHEPREFIX=/tmp/pycache
+      - PYTHONPATH=/app
+
+  scheduler:
+    build:
+      context: ./backend
+      target: development
+    volumes:
+      - ./backend/scheduler:/app/scheduler
+      - ./backend/data:/app/data
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - shared-data:/app/shared
+    depends_on:
+      - server
+    networks:
+      - ninja_network
+    command: python scheduler/app.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_URL=http://server:8000/api
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      target: development
+      target: ${NODE_ENV:-development}
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:${PORT:-3000}"
     volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_API_URL=https://surf-britain-roland-ip.trycloudflare.com/api
+      - REACT_APP_API_URL=https://reform-hand-simple-invisible.trycloudflare.com/api
+      - REACT_APP_WS_URL=wss://reform-hand-simple-invisible.trycloudflare.com
+      - NODE_ENV=${NODE_ENV:-development}
+      - REACT_APP_ENV=${NODE_ENV:-development}
+      - REACT_APP_DEBUG=true
+      - PORT=${PORT:-3000}
+    env_file:
+      - ./frontend/.env.docker
     depends_on:
       - server
     networks:
       - ninja_network
-    command: npm start
+    command: ./node_modules/.bin/craco start
 
   tunnel-frontend:
     image: cloudflare/cloudflared
-    command: tunnel --url http://frontend:3000
+    command: tunnel --url http://frontend:${PORT:-3000} --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20000
     networks:
       - ninja_network
     depends_on:
       - frontend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
   tunnel-api:
     image: cloudflare/cloudflared
-    command: tunnel --url http://server:8000
+    command: tunnel --url http://server:8000 --no-autoupdate --protocol http2 --heartbeat-interval 10s --retries 10 --grace-period 30s --metrics 0.0.0.0:20001 --http2-origin --no-tls-verify
     networks:
       - ninja_network
     depends_on:
       - server
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
 
 volumes:
   bot-data:
+  shared-data:
+  server-cache:
 
 networks:
   ninja_network:

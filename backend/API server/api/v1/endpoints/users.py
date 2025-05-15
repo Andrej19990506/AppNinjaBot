@@ -98,8 +98,8 @@ async def get_user_profile(
 ):
     """
     Fetches the profile data for a given user_id (Telegram ID).
+    It also attempts to refresh the data from the Telegram bot before returning.
     """
-    # --- НАЧАЛО РЕАЛЬНОЙ ЛОГИКИ (замените или дополните) ---
     # 1. Найти пользователя (Member) по user_id (Telegram ID)
     member_query = select(Member).where(Member.user_id == user_id)
     member_result = await db.execute(member_query)
@@ -107,19 +107,136 @@ async def get_user_profile(
 
     # 2. Если пользователь не найден, вернуть 404
     if not member:
-        # Возвращаем более информативную ошибку 404
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Слышь! Профиль для пользователя с ID {user_id} в базе не обнаружен!",
         )
 
-    # 3. Вернуть найденного пользователя.
-    #    Pydantic автоматически преобразует объект Member в UserProfileResponse,
-    #    если поля совпадают (или настроен orm_mode=True в схеме).
-    #    Убедитесь, что ваша модель Member содержит поля: id, user_id, first_name,
-    #    last_name, username, photo_url, is_senior_courier
+    # --- НАЧАЛО: Логика обновления от бота (адаптировано из refresh_user_profile_from_telegram) ---
+    try:
+        # 2.1 Отправляем запрос боту для получения актуальных данных из Telegram
+        # Используем тот же URL и параметры, что и в refresh_user_profile_from_telegram
+        # BOT_API_URL определен в начале файла, но refresh_user_profile_from_telegram использует http://bot:8003
+        # Будем использовать http://bot:8003 для консистентности с refresh_user_profile_from_telegram
+        bot_refresh_url = "http://bot:8003/refresh_user" 
+        command = f'curl -X POST -H "Content-Type: application/json" -d \'{{"user_id": {user_id}}}\'' \
+                  f' {bot_refresh_url} -f -s -S --connect-timeout 15 --max-time 30'
+        logger.info(f"[CURL GetProfileRefresh] Executing: {command}")
+        
+        proc = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, stderr = await proc.communicate()
+
+        logger.info(f"[CURL GetProfileRefresh] Exit code: {proc.returncode}")
+        stdout_decoded = stdout.decode().strip() if stdout else ""
+        stderr_decoded = stderr.decode().strip() if stderr else ""
+        
+        if stdout_decoded:
+            logger.info(f"[CURL GetProfileRefresh] STDOUT: {stdout_decoded}")
+        if stderr_decoded:
+            logger.error(f"[CURL GetProfileRefresh] STDERR: {stderr_decoded}")
+
+        if proc.returncode != 0:
+            error_detail = stderr_decoded or f"Curl command failed with exit code {proc.returncode}"
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE if proc.returncode in [7, 28] else status.HTTP_502_BAD_GATEWAY
+            raise HTTPException(
+                status_code=status_code,
+                detail=f"Failed to fetch from bot for profile refresh: {error_detail}"
+            )
+
+        try:
+            telegram_data = json.loads(stdout_decoded)
+        except json.JSONDecodeError:
+             raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Bot responded with invalid JSON for profile refresh: {stdout_decoded}"
+            )
+
+        # 2.2 Обновляем данные пользователя в нашей БД
+        # Используем ту же логику обновления, что и в refresh_user_profile_from_telegram
+        updated_locally = False
+        if "first_name" in telegram_data and not member.first_name:
+            member.first_name = telegram_data["first_name"]
+            logger.info(f"Updating empty first_name for user {user_id} from Telegram data in get_user_profile.")
+            updated_locally = True
+        
+        if "last_name" in telegram_data and not member.last_name:
+            member.last_name = telegram_data["last_name"]
+            logger.info(f"Updating empty last_name for user {user_id} from Telegram data in get_user_profile.")
+            updated_locally = True
+
+        if "username" in telegram_data and member.username != telegram_data["username"]:
+            member.username = telegram_data["username"]
+            logger.info(f"Updating username for user {user_id} from Telegram data in get_user_profile.")
+            updated_locally = True
+        
+        if "photo_url" in telegram_data and member.photo_url != telegram_data["photo_url"]:
+            # Убедимся, что photo_url от бота не пустой, прежде чем обновлять
+            if telegram_data["photo_url"]: 
+                member.photo_url = telegram_data["photo_url"]
+                logger.info(f"Updating photo_url for user {user_id} from Telegram data in get_user_profile.")
+                updated_locally = True
+            else:
+                logger.info(f"Photo_url from bot for user {user_id} is empty, not updating local photo_url.")
+
+
+        if updated_locally:
+            await db.commit()
+            await db.refresh(member)
+            logger.info(f"Local profile for user {user_id} updated after bot refresh in get_user_profile.")
+
+            # 2.3 Отправка NOTIFY после успешного обновления (аналогично refresh_user_profile_from_telegram)
+            try:
+                pydantic_profile = UserProfileResponse.model_validate(member)
+                profile_data_dict = pydantic_profile.model_dump(mode='json')
+                
+                notify_payload_dict = {
+                    "type": "profile_updated",
+                    "user_id": member.user_id,
+                    "data": profile_data_dict
+                }
+                notify_payload_json = json.dumps(notify_payload_dict)
+
+                if len(notify_payload_json.encode('utf-8')) < 7900:
+                    escaped_payload = notify_payload_json.replace("'", "''")
+                    sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+                    await db.execute(sql_command)
+                    logger.info(f"[GetProfileRefresh] Sent GLOBAL NOTIFY for updated profile user_id {member.user_id}")
+                else:
+                    logger.warning(f"[GetProfileRefresh] NOTIFY payload for user_id {member.user_id} is too large. Skipping.")
+            except Exception as notify_err:
+                logger.error(f"[GetProfileRefresh] Failed to send GLOBAL NOTIFY for user_id {member.user_id}: {notify_err}", exc_info=True)
+        else:
+            logger.info(f"No local profile changes for user {user_id} after bot refresh in get_user_profile.")
+
+    except HTTPException as e:
+        # Если ошибка произошла при коммуникации с ботом или парсинге его ответа
+        logger.error(f"HTTPException during bot refresh in get_user_profile for user {user_id}: {e.detail}", exc_info=True)
+        # Перевыбрасываем ошибку, чтобы фронтенд знал о проблеме с обновлением
+        # Можно выбрать другую стратегию: например, вернуть `member` как есть, но с логом об ошибке обновления
+        raise e 
+    except asyncio.TimeoutError:
+         logger.error(f"Curl command communication timed out during bot refresh in get_user_profile for user {user_id}", exc_info=True)
+         raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Bot communication timed out during profile refresh."
+        )
+    except Exception as e:
+        # Другие неожиданные ошибки при попытке обновить от бота
+        logger.error(f"Unexpected error during bot refresh in get_user_profile for user {user_id}: {e}", exc_info=True)
+        # Чтобы не сломать основной функционал получения профиля, можно залогировать и вернуть member как есть,
+        # Либо можно также выбросить ошибку. Для консистентности с refresh_user_profile_from_telegram, лучше выбросить.
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error refreshing profile from bot: {str(e)}"
+        )
+    # --- КОНЕЦ: Логика обновления от бота ---
+
+    # 3. Вернуть найденного (и возможно обновленного) пользователя.
     return member
-    # --- КОНЕЦ РЕАЛЬНОЙ ЛОГИКИ --- 
 
 # --- ОБНОВЛЕННЫЙ ЭНДПОИНТ ДЛЯ ОБНОВЛЕНИЯ ПРОФИЛЯ --- 
 @router.put(
@@ -290,7 +407,7 @@ async def refresh_user_profile_from_telegram(
             notify_payload_dict = {
                 "type": "profile_updated",
                 "user_id": member.user_id, 
-                # "chat_id": target_chat_id, # <<< УБИРАЕМ chat_id >>>
+                # "chat_id": target_chat_id, <<< УБИРАЕМ chat_id >>>
                 "data": profile_data_dict
             }
             notify_payload_json = json.dumps(notify_payload_dict)

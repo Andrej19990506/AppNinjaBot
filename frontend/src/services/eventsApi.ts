@@ -14,6 +14,32 @@ export const getEvents = async (): Promise<EventRead[]> => {
         // Делаем GET-запрос на /api/v1/events/
         const response = await axiosInstance.get<EventRead[]>('/api/v1/events/');
         logger.log(`${logPrefix} ✅ Список событий получен: ${response.data?.length ?? 0} шт.`);
+        
+        // Добавляем логирование для отслеживания структуры данных
+        if (response.data && Array.isArray(response.data)) {
+            response.data.forEach((event, index) => {
+                if (event.event_type === 'АТО' && event.retailiqa_detailed_violations) {
+                    console.log(`[eventsApi:debug] Событие АТО #${event.id}: получено ${event.retailiqa_detailed_violations.length} нарушений`);
+                    
+                    // Глубокая проверка данных нарушений и фотографий 
+                    let violationsWithPhotos = 0;
+                    let totalPhotos = 0;
+                    
+                    event.retailiqa_detailed_violations.forEach((violation, vIndex) => {
+                        console.log(`[eventsApi:debug] Violation object #${vIndex + 1} KEYS:`, Object.keys(violation));
+                        console.log(`[eventsApi:debug] Violation object #${vIndex + 1} FULL:`, JSON.stringify(violation));
+                        if (violation.photos && Array.isArray(violation.photos) && violation.photos.length > 0) {
+                            violationsWithPhotos++;
+                            totalPhotos += violation.photos.length;
+                            console.log(`[eventsApi:debug] -- Нарушение #${vIndex+1}: ${violation.photos.length} фото`);
+                        }
+                    });
+                    
+                    console.log(`[eventsApi:debug] -- ИТОГО в событии #${event.id}: ${violationsWithPhotos} нарушений с фотографиями, всего ${totalPhotos} фотографий`);
+                }
+            });
+        }
+        
         // Возвращаем массив событий или пустой массив, если данных нет
         return response.data || [];
     } catch (error: any) {

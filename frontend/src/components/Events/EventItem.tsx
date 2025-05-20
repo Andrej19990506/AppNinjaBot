@@ -29,13 +29,6 @@ import Select, { SelectChangeEvent } from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Typography from '@mui/material/Typography';
-import { createNotificationThunk } from '../../store/slices/eventsSlice';
-import { showToastNotification } from '../../store/slices/notificationSlice';
-import { NotificationTypes } from '../../store/slices/notificationSlice';
-// Добавляем импорт Redux-действий для модального окна ATO
 import { openAtoModal, setAtoCreateMode } from '../../store/slices/atoModalSlice';
 
 // Определяем типы пропсов
@@ -1015,30 +1008,65 @@ const EventItem: React.FC<EventItemProps> = ({
 
     // Форматируем комментарии для более удобного отображения
     const formattedComments = useMemo(() => {
-        // Если есть детализированные нарушения, используем их
+        // Проверяем, что event существует
+        if (!event) return [];
+        
+        // Подробное логирование оригинальных данных
+        console.log('EVENT DATA (retailiqa_detailed_violations):', JSON.stringify(event.retailiqa_detailed_violations, null, 2));
+        
+        // Если есть детализированные нарушения с привязанными фотографиями
         if (event.retailiqa_detailed_violations && Array.isArray(event.retailiqa_detailed_violations)) {
-            return event.retailiqa_detailed_violations.map((violation: any) => ({
-                title: violation.title,
-                text: violation.text,
-                penaltyPoints: violation.penalty
-            }));
+            // Логируем количество нарушений
+            console.log(`EventItem.tsx: Всего ${event.retailiqa_detailed_violations.length} нарушений`);
+            
+            // Считаем нарушения с фотографиями
+            let violationsWithPhotos = 0;
+            let totalPhotos = 0;
+            
+            event.retailiqa_detailed_violations.forEach((violation, idx) => {
+                if (violation.photos && Array.isArray(violation.photos) && violation.photos.length > 0) {
+                    violationsWithPhotos++;
+                    totalPhotos += violation.photos.length;
+                    console.log(`EventItem.tsx: Нарушение #${idx+1} (${violation.title}) имеет ${violation.photos.length} фото:`, violation.photos);
+                }
+            });
+            
+            console.log(`EventItem.tsx: ИТОГО ${violationsWithPhotos} нарушений с фотографиями, всего ${totalPhotos} фотографий`);
+            
+            // Преобразуем детализированные нарушения в формат AtoComment
+            const formattedViolations = event.retailiqa_detailed_violations.map((violation) => {
+                // Определяем тип нарушения на основе штрафных баллов
+                const commentType = violation.penalty > 0 ? 'нарушение' : 'замечание';
+                
+                // Проверяем наличие фотографий в нарушении и их валидность
+                let photos: string[] = [];
+                if (violation.photos && Array.isArray(violation.photos)) {
+                    photos = violation.photos.filter(url => 
+                        typeof url === 'string' && url.trim() !== '' && url.startsWith('http')
+                    );
+                }
+                
+                // Логируем данные для отладки
+                if (photos.length > 0) {
+                    console.log(`EventItem.formattedComments: Добавлено ${photos.length} фотографий к "${violation.title}"`);
+                }
+                
+                return {
+                    id: `${violation.title}-${Date.now()}-${Math.random()}`.replace(/\s+/g, '-'),
+                    title: violation.title,
+                    text: violation.text || '',
+                    type: violation.type || commentType,
+                    penaltyPoints: violation.penalty || 0,
+                    photos: photos
+                };
+            });
+            
+            return formattedViolations;
         }
         
-        // Для обратной совместимости используем старый формат
-        if (!event.retailiqa_comments || !Array.isArray(event.retailiqa_comments)) {
-            return [];
-        }
-        
-        return event.retailiqa_comments.map((comment: string) => {
-            const parts = comment.split(': ');
-            if (parts.length >= 2) {
-                const title = parts[0];
-                const text = parts.slice(1).join(': ');
-                return { title, text };
-            }
-            return { title: 'Комментарий', text: comment };
-        });
-    }, [event.retailiqa_comments, event.retailiqa_detailed_violations]);
+        // Если нет детализированных нарушений, возвращаем пустой массив
+        return [];
+    }, [event]);
     
     const totalComments = Array.isArray(event.retailiqa_comments) ? event.retailiqa_comments.length : 0;
     
@@ -1062,6 +1090,45 @@ const EventItem: React.FC<EventItemProps> = ({
         
         // Открываем модальное окно через Redux
         if (event.retailiqa_comments && event.retailiqa_comments.length > 0) {
+            // Удаляем логирование общего массива фотографий
+            console.log('EventItem.tsx - formattedComments:', formattedComments);
+            
+            // Добавляем детальное логирование для проверки фотографий в нарушениях
+            if (event.retailiqa_detailed_violations && Array.isArray(event.retailiqa_detailed_violations)) {
+                console.log('EventItem.tsx - Детальный анализ нарушений и их фотографий:');
+                event.retailiqa_detailed_violations.forEach((violation: any, index) => {
+                    console.log(`Нарушение #${index}: ${violation.title}`);
+                    console.log(`  - Фотографии:`, violation.photos || 'отсутствуют');
+                    
+                    // Проверяем, есть ли фотографии у нарушения
+                    if (!violation.photos || !Array.isArray(violation.photos) || violation.photos.length === 0) {
+                        console.log(`  - ВНИМАНИЕ: У нарушения отсутствуют фотографии или массив некорректен`);
+                    }
+                });
+                
+                // Проверяем, корректно ли перенесены фотографии в formattedComments
+                formattedComments.forEach((comment: any, index) => {
+                    console.log(`Проверка formattedComment #${index}: ${comment.title}`);
+                    console.log(`  - Фотографии в formattedComment:`, comment.photos || 'отсутствуют');
+                    
+                    // Находим соответствующее нарушение в retailiqa_detailed_violations
+                    if (event.retailiqa_detailed_violations && Array.isArray(event.retailiqa_detailed_violations)) {
+                        const originalViolation = event.retailiqa_detailed_violations.find(
+                            (v: any) => v.title === comment.title
+                        );
+                        
+                        if (originalViolation) {
+                            const originalPhotos = originalViolation.photos || [];
+                            const formattedPhotos = comment.photos || [];
+                            
+                            if (originalPhotos.length !== formattedPhotos.length) {
+                                console.log(`  - ОШИБКА: Количество фотографий не совпадает! Оригинал: ${originalPhotos.length}, Отформатировано: ${formattedPhotos.length}`);
+                            }
+                        }
+                    }
+                });
+            }
+            
             dispatch(openAtoModal({
                 comments: formattedComments,
                 penaltyPoints: event.retailiqa_penalty_points,
@@ -1141,9 +1208,6 @@ const EventItem: React.FC<EventItemProps> = ({
         }
     };
     
-    // Функции для работы с комментариями и создания уведомлений перенесены в AtoCommentsModal
-
-    // Удалено переключение состояния комментариев, теперь в AtoCommentsModal
 
     return (
         // @ts-ignore // Known issue with framer-motion types

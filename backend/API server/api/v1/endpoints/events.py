@@ -68,6 +68,66 @@ async def read_events(
     try:
         db_events = await crud.event.get_events(db=db, skip=skip, limit=limit)
         logger.info(f"Найдено {len(db_events)} событий")
+        
+        # Добавляем подробное логирование для проверки наличия фотографий в АТО событиях
+        for event in db_events:
+            if hasattr(event, 'event_type') and event.event_type == 'АТО' and hasattr(event, 'retailiqa_detailed_violations'):
+                event_info = f"[ОТЛАДКА АТО] Событие ID {event.id}: "
+                
+                # Проверяем, есть ли retailiqa_detailed_violations и это список
+                if not event.retailiqa_detailed_violations:
+                    logger.warning(f"{event_info} retailiqa_detailed_violations отсутствует или пустой")
+                    continue
+                    
+                if not isinstance(event.retailiqa_detailed_violations, list):
+                    logger.warning(f"{event_info} retailiqa_detailed_violations не является списком: {type(event.retailiqa_detailed_violations)}")
+                    continue
+                
+                logger.info(f"{event_info} имеет {len(event.retailiqa_detailed_violations)} детализированных нарушений")
+                
+                # Подсчет количества фотографий и логирование для каждого нарушения
+                violations_with_photos = 0
+                total_photos = 0
+                
+                for i, violation in enumerate(event.retailiqa_detailed_violations):
+                    violation_info = f"{event_info} Нарушение #{i+1}"
+                    
+                    # Проверяем наличие поля photos
+                    if 'photos' not in violation:
+                        logger.warning(f"{violation_info} не имеет поля photos")
+                        violation['photos'] = []
+                    elif not isinstance(violation['photos'], list):
+                        logger.warning(f"{violation_info} поле photos не является списком: {type(violation['photos'])}")
+                        violation['photos'] = []
+                    else:
+                        photos_count = len(violation['photos'])
+                        if photos_count > 0:
+                            violations_with_photos += 1
+                            total_photos += photos_count
+                            logger.info(f"{violation_info} имеет {photos_count} фото: {violation['photos']}")
+                    
+                    # Проверка наличия поля type и его установка
+                    if 'type' not in violation:
+                        logger.warning(f"{violation_info} не имеет поля type")
+                        violation['type'] = 'нарушение' if violation.get('penalty', 0) > 0 else 'замечание'
+                
+                logger.info(f"{event_info} ИТОГО: {violations_with_photos} нарушений с фотографиями, всего {total_photos} фотографий")
+        
+        # Проверка наличия поля photos в detailed_violations
+        for event in db_events:
+            if hasattr(event, 'retailiqa_detailed_violations') and event.retailiqa_detailed_violations:
+                # Проверяем, что это список
+                if isinstance(event.retailiqa_detailed_violations, list):
+                    # Проверяем каждое нарушение
+                    for violation in event.retailiqa_detailed_violations:
+                        # Добавляем поле photos, если его нет
+                        if 'photos' not in violation:
+                            violation['photos'] = []
+                        # Проверяем, что поле type установлено
+                        if 'type' not in violation:
+                            # Устанавливаем тип на основе penalty
+                            violation['type'] = 'нарушение' if violation.get('penalty', 0) > 0 else 'замечание'
+                            
         return db_events
     except Exception as e:
         logger.exception("Ошибка при получении списка событий:")

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, useTransform, PanInfo, useAnimation, useDragControls } from 'framer-motion';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import CommentIcon from '@mui/icons-material/Comment';
@@ -8,20 +8,33 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import Typography from '@mui/material/Typography';
 import Checkbox from '@mui/material/Checkbox';
-import DragHandleIcon from '@mui/icons-material/DragHandle';
 import FilterListIcon from '@mui/icons-material/FilterList';
 import TuneIcon from '@mui/icons-material/Tune';
 import Badge from '@mui/material/Badge';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import Stack from '@mui/material/Stack';
+// Импортируем наш новый компонент PhotoGallery
+import PhotoGallery from '../PhotoGallery/PhotoGallery';
+import PhotoThumbnail from '../PhotoGallery/PhotoThumbnail';
 // Импортируем хуки и действия Redux
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { 
+  openAtoModal, 
   closeAtoModal, 
   setAtoCreateMode, 
   selectAtoModalOpen, 
-  selectAtoCreateMode,
-  selectAtoComments,
-  selectAtoPenaltyPoints,
+  selectAtoCreateMode, 
+  selectAtoComments, 
+  selectAtoPenaltyPoints, 
   selectAtoObjectName,
+  selectAtoScorePercentage,
+  selectAtoMaxPoints,
+  selectAtoEarnedPoints,
+  selectAtoAllPhotos, // Селектор для всех фотографий
   selectSelectedComments,
   selectSelectedCommentTexts,
   toggleCommentSelection,
@@ -29,9 +42,7 @@ import {
   selectAllComments,
   selectAllCommentTexts,
   resetSelection,
-  selectAtoScorePercentage,
-  selectAtoMaxPoints,
-  selectAtoEarnedPoints
+  selectIsAtoSelectionValid,
 } from '../../store/slices/atoModalSlice';
 
 // Типы для комментариев АТО из Redux
@@ -39,6 +50,7 @@ interface AtoComment {
   title: string;
   text: string;
   penaltyPoints?: number; // Добавляем поле для штрафных баллов
+  photos?: string[]; // Добавляем поле для фотографий
 }
 
 // Типы для пропсов компонента
@@ -94,7 +106,7 @@ const ModalContainer = styled(motion.div)`
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  position: relative;
+  position: relative; /* Это важно оставить для позиционирования ModalHeader/DragHandle */
   will-change: transform;
   transform-origin: bottom center;
 `;
@@ -107,8 +119,10 @@ const ModalHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  border-radius: 16px 16px 0 0; /* Добавляем скругление к шапке */
+  position: relative; /* Для абсолютного позиционирования DragHandle */
+  border-radius: 16px 16px 0 0;
+  cursor: grab; /* Шапка инициирует перетаскивание */
+  touch-action: none; /* Для корректной работы drag на мобильных */
   
   h2 {
     margin: 0;
@@ -129,12 +143,13 @@ const DragHandle = styled(motion.div)`
   height: 5px;
   background-color: rgba(255, 255, 255, 0.3);
   border-radius: 3px;
-  cursor: grab;
   position: absolute;
-  top: 8px;
   left: 50%;
+  top: 8px;
+  cursor: grab;
   transform: translateX(-50%);
-  z-index: 3;
+  z-index: 10; /* Чтобы ручка была видна над DraggableHeaderArea, если она перекрывает */
+  pointer-events: none; /* Ручка не должна мешать событиям для DraggableHeaderArea */
   
   &:hover {
     background-color: rgba(255, 255, 255, 0.5);
@@ -148,8 +163,8 @@ const DragHandle = styled(motion.div)`
 
 const ModalContent = styled.div`
   padding: 20px 24px;
-  padding-bottom: 0px; /* Уменьшаем отступ снизу */
-  overflow-y: hidden; /* Скрываем общий скролл */
+  padding-bottom: 0px; 
+  overflow-y: auto; /* !!! ModalContent становится главным скролл-контейнером !!! */
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -537,16 +552,17 @@ const AnimatedContentContainer = styled(motion.div)`
   flex-direction: column;
   flex: 1;
   width: 100%;
-  overflow: hidden;
+  overflow: visible; /* !!! AnimatedContentContainer больше не скроллится сам по себе !!! */
 `;
 
 const CommentsContainer = styled(motion.div)`
-  overflow: auto;
-  padding-right: 10px;
-  flex: 1;
+  /* overflow: auto; */ /* !!! Убираем внутренний скролл CommentsContainer !!! */
+  padding-right: 10px; // Оставляем для отступа, если нужно
+  flex: 1; // Может потребоваться调整, если высота должна быть по контенту
   margin-bottom: 0;
-  padding-bottom: 60px;
+  padding-bottom: 60px; 
   transform-origin: top center;
+  /* height: auto; или min-height для корректного расчета общего скролла ModalContent */
 `;
 
 // Добавляем стили для компонентов фильтрации
@@ -627,14 +643,23 @@ const FilterActionButton = styled(motion.button)`
 `;
 
 // Основной компонент
-const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({ 
-  onCreateNotification
-}) => {
+const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({   onCreateNotification}): React.ReactElement => {
   // Получаем данные из Redux
   const dispatch = useAppDispatch();
   const isOpen = useAppSelector(selectAtoModalOpen);
   const isCreateNotificationMode = useAppSelector(selectAtoCreateMode);
   const comments = useAppSelector(selectAtoComments);
+  console.log('[AtoCommentsModal] Comments from Redux:', comments);
+  
+  // Добавляем детальное логирование фотографий для каждого комментария
+  if (comments && comments.length > 0) {
+    comments.forEach((comment, index) => {
+      if (comment.photos && comment.photos.length > 0) {
+        console.log(`[AtoCommentsModal] Comment #${index} (${comment.title}) has ${comment.photos.length} photos:`, comment.photos);
+      }
+    });
+  }
+  
   const penaltyPoints = useAppSelector(selectAtoPenaltyPoints);
   const objectName = useAppSelector(selectAtoObjectName);
   const selectedComments = useAppSelector(selectSelectedComments);
@@ -644,15 +669,30 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
   const maxPoints = useAppSelector(selectAtoMaxPoints);
   const earnedPoints = useAppSelector(selectAtoEarnedPoints);
   
+  // Получаем общий массив фотографий
+  const allPhotos = useAppSelector(selectAtoAllPhotos);
+  
   const [expandedComments, setExpandedComments] = useState<string[]>([]);
-  const y = useMotionValue(0);
-  const containerRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
-  const overlayOpacity = useTransform(y, [0, 300], [0, 0.5]);
+  const containerRef = useRef(null);
   const scrollY = useMotionValue(0);
-  const commentsListRef = useRef<HTMLDivElement>(null);
+  const modalContentRef = useRef<HTMLDivElement>(null);
+
+  // Используем animationControls и dragControls как в CreateNotificationForm
+  const animationControls = useAnimation();
+  const dragControls = useDragControls();
+
+  // Эффект для сброса состояния скролла при закрытии модального окна
+  useEffect(() => {
+    if (!isOpen) {
+      scrollY.set(0); 
+      if (modalContentRef.current) { // Используем modalContentRef
+        modalContentRef.current.scrollTop = 0; 
+      }
+    }
+  }, [isOpen, scrollY]); // modalContentRef не нужно добавлять, т.к. он стабилен
+
   const firstAnimThreshold = 80;
-  const secondAnimThreshold = 100;
   const scoreBlockX = useTransform(scrollY, [0, firstAnimThreshold], [0, 400]);
   const scoreBlockOpacity = useTransform(scrollY, [0, firstAnimThreshold * 0.8], [1, 0]);
   const scoreBlockHeight = useTransform(
@@ -660,17 +700,17 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
     [0, firstAnimThreshold * 0.5, firstAnimThreshold], 
     ["auto", "auto", "0px"]
   );
-  const baseCommentsHeight = 589;
-  const expandedCommentsHeight = 809;
-  const commentsMaxHeight = useTransform(
-    scrollY, 
-    [0, secondAnimThreshold, 150], 
-    [`${baseCommentsHeight}px`, `${baseCommentsHeight}px`, `${expandedCommentsHeight}px`]
-  );
   const commentsMarginTop = useTransform(
     scrollY, 
-    [0, secondAnimThreshold, 150], 
-    ["0px", "0px", "-20px"]
+    // Диапазон входных значений scrollY:
+    // P1=0: начало
+    // P2=firstAnimThreshold (80): диаграмма по высоте исчезла. Opacity исчезла раньше (на 64).
+    // P3=firstAnimThreshold + 10 (90): список НАЧИНАЕТ подниматься.
+    // P4=firstAnimThreshold + 10 + 50 (140): список ЗАКОНЧИЛ подниматься.
+    [0, firstAnimThreshold, firstAnimThreshold + 10, firstAnimThreshold + 10 + 50], 
+    // Соответствующие выходные значения для marginTop:
+    // До P3 (90) marginTop остается "0px". С P3 до P4 он интерполируется к "-20px".
+    ["0px", "0px", "0px", "-20px"] 
   );
   const scoreBottomMargin = useTransform(
     scoreBlockOpacity,
@@ -808,40 +848,43 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
     return message;
   };
   
+  // Функция обновления scrollY, теперь слушает скролл на modalContentRef
   const updateScrollValue = () => {
-    if (commentsListRef.current) {
-      scrollY.set(commentsListRef.current.scrollTop);
+    if (modalContentRef.current) {
+      scrollY.set(modalContentRef.current.scrollTop);
     }
   };
   
+  // useEffect для подписки на скролл ModalContent
   useEffect(() => {
-    const listElement = commentsListRef.current;
-    if (listElement) {
-      listElement.addEventListener('scroll', updateScrollValue);
+    const contentElement = modalContentRef.current;
+    if (contentElement && isOpen) { // Добавляем проверку isOpen, чтобы не слушать, если модалка закрыта
+      contentElement.addEventListener('scroll', updateScrollValue);
       return () => {
-        listElement.removeEventListener('scroll', updateScrollValue);
+        contentElement.removeEventListener('scroll', updateScrollValue);
       };
     }
-  }, [isOpen]); // Пересоздаем эффект при изменении состояния isOpen
+  }, [isOpen]); // Зависимость от isOpen, чтобы переподписаться при открытии/закрытии
   
-  // Обработчик начала перетаскивания
-  const handleDragStart = () => {
+  // Обработчик начала перетаскивания (теперь на ModalContainer)
+  const handleModalDragStart = () => {
     setIsDragging(true);
   };
   
-  // Обработчик завершения перетаскивания  
-  const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { y: number } }) => {
+  // Новый обработчик завершения перетаскивания для ModalContainer
+  const handleModalDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 150; // Порог для закрытия модального окна
-    // setIsDragging(false); // УДАЛЕНО ИЗ НАЧАЛА ФУНКЦИИ
-
-    // Если перетащили вниз больше порогового значения, закрываем
-    if (info.offset.y > threshold) {
-      dispatch(closeAtoModal()); // Закрываем модальное окно
+    const velocityThreshold = 50; // Порог скорости
+    setIsDragging(false);
+    
+    if (info.offset.y > threshold && Math.abs(info.velocity.y) > velocityThreshold) {
+      dispatch(closeAtoModal()); // Запускает "exit" анимацию ModalContainer
     } else {
-      // Иначе возвращаем на место
-      y.set(0);
+      // Анимируем обратно на место (в состояние "visible")
+      animationControls.start("visible"); 
+      // Или можно так, для большей кастомизации если нужно:
+      // animationControls.start({ y: 0, transition: { type: "spring", damping: 25, stiffness: 300, mass: 0.8 } });
     }
-    setIsDragging(false); // ДОБАВЛЕНО В КОНЕЦ ФУНКЦИИ
   };
   
   // Переключение режима создания уведомления
@@ -951,28 +994,81 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
   // Экспортируем функции через Redux вместо window
   // Функция для очистки текста комментария от метаданных и ответов
   const cleanCommentText = (text: string): string => {
+    if (!text || text.trim() === '') {
+      return '';
+    }
+    
     // Разбиваем текст на строки
     const lines = text.split('\n');
-    let cleanedLines: string[] = [];
+    const cleanedLines: string[] = [];
     
     // Обрабатываем каждую строку
     lines.forEach(line => {
-      // Проверяем, содержит ли строка метаданные в формате [Имя Дата Время]
-      const metadataRegex = /\[.*?\s\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\]\s/;
+      // Проверяем, содержит ли строка метаданные в формате [Имя DD.MM.YYYY HH:MM]
+      // Регулярное выражение с группами захвата для имени, даты и времени
+      const metadataRegex = /\[(.*?)\s(\d{2}\.\d{2}\.(\d{4}))\s(\d{2}:\d{2})\]\s/;
       
-      // Удаляем метаданные
-      const cleanLine = line.replace(metadataRegex, '');
+      // Извлекаем дату и время, удаляем только имя автора
+      const match = line.match(metadataRegex);
+      let cleanLine;
       
-      // Если строка не является ответом (обычно начинается с имени автора)
-      if (!metadataRegex.test(line) || cleanedLines.length === 0) {
-        cleanedLines.push(cleanLine);
+      if (match) {
+        // match[2] - это дата в формате DD.MM.YYYY
+        // match[4] - это время в формате HH:MM
+        cleanLine = `[${match[2]} ${match[4]}] ${line.substring(match[0].length)}`;
+      } else {
+        cleanLine = line;
       }
+      
+      // Добавляем все очищенные строки
+      cleanedLines.push(cleanLine);
     });
     
     return cleanedLines.join('\n');
   };
   
-  // Добавляем состояние для фильтров
+  // Обновляем функцию formatCommentText, убирая фильтрацию по году
+  const formatCommentText = (text: string): React.ReactNode => {
+    if (!text || text.trim() === '') {
+      return <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>;
+    }
+
+    const cleanedText = cleanCommentText(text);
+    const lines = cleanedText.split('\n');
+    
+    // Если после фильтрации нет строк (этот блок больше не нужен, так как нет фильтрации)
+    // if (lines.length === 0) { 
+    //   return (
+    //     <div>
+    //       <i>Все комментарии относятся к прошлым годам. </i>
+    //       <button onClick={() => setShowHistoricalComments(true)}>Показать</button>
+    //     </div>
+    //   );
+    // }
+    
+    if (lines.length === 1) {
+      return <span>{lines[0]}</span>;
+    }
+    
+    return (
+      <div>
+        {lines.map((line, index) => {
+          const isNewComment = /^\[\d{2}\.\d{2}\.\d{4}\s\d{2}:\d{2}\]/.test(line);
+          return (
+            <div key={index} style={{ 
+              marginBottom: isNewComment && index !== 0 ? '8px' : '0px',
+              marginTop: isNewComment && index !== 0 ? '8px' : '0px',
+              paddingTop: isNewComment && index !== 0 ? '8px' : '0px',
+              borderTop: isNewComment && index !== 0 ? '1px dashed var(--border-color)' : 'none'
+            }}>
+              {line}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     penaltyOnly: false,
@@ -980,13 +1076,10 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
     commentWithPenaltyOnly: false,
     commentWithoutPenaltyOnly: false
   });
-  // УДАЛЯЕМ СОСТОЯНИЕ ДЛЯ ФОРМАТА УВЕДОМЛЕНИЯ
-  // const [notificationFormat, setNotificationFormat] = useState<'table' | 'text'>('table');
   
-  // Функция для подсчета активных фильтров
   const activeFiltersCount = Object.values(filters).filter(Boolean).length;
   
-  // Функция сброса фильтров
+  // Обновляем функцию сброса фильтров
   const resetFilters = () => {
     setFilters({
       penaltyOnly: false,
@@ -994,6 +1087,7 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
       commentWithPenaltyOnly: false,
       commentWithoutPenaltyOnly: false
     });
+    // setShowHistoricalComments(false); // Удаляем сброс этого состояния
   };
   
   // Обновляем функцию фильтрации комментариев с учетом фильтров
@@ -1166,6 +1260,43 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
     updateFiltersAndSelection(newFilters);
   };
 
+  // Функция для получения фотографий комментария или использования общих фотографий
+  const getCommentPhotos = (comment: AtoComment): string[] => {
+    // Если у комментария есть собственные фотографии, возвращаем их
+    if (comment.photos && comment.photos.length > 0) {
+      return comment.photos;
+    }
+    
+    // Если у комментария нет фотографий, возвращаем пустой массив
+    // Изменяем логику - НЕ используем общий массив фотографий для всех комментариев
+    return [];
+  };
+
+  // Добавляем состояние для управления галереей
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
+  const [galleryInitialIndex, setGalleryInitialIndex] = useState(0);
+  
+  // Функция для открытия галереи
+  const openGallery = (photos: string[], initialIndex: number = 0) => {
+    setGalleryPhotos(photos);
+    setGalleryInitialIndex(initialIndex);
+    setGalleryOpen(true);
+  };
+  
+  // Функция для закрытия галереи
+  const closeGallery = () => {
+    setGalleryOpen(false);
+  };
+
+  // Эффект для начальной анимации появления модального окна
+  useEffect(() => {
+    if (isOpen) {
+      animationControls.start("visible");
+    }
+    // Зависимость от isOpen и animationControls
+  }, [isOpen, animationControls]);
+
   return (
     <>
       {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
@@ -1189,29 +1320,28 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => {
-                dispatch(closeAtoModal());
-              }}
-            />
-            
-            {/* Динамический оверлей для эффекта при перетаскивании */}
-            <motion.div
-              style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                backdropFilter: 'blur(2px)',
-                zIndex: 1000,
-                opacity: overlayOpacity,
-                pointerEvents: 'none'
+                // Закрывать по клику на оверлей только если не идет перетаскивание
+                // и если модальное окно не было только что открыто (предотвращение двойного клика)
+                if (!isDragging && isOpen) { 
+                  dispatch(closeAtoModal());
+                }
               }}
             />
             
             {/* Контейнер модального окна с фиксированным позиционированием */}
             <ModalContainer
               ref={containerRef}
+              variants={modalVariants}      // Определения анимаций hidden/visible/exit
+              initial="hidden"            // Начальное состояние
+              animate={animationControls}   // Управляем анимацией через контроллер
+              exit="exit"                // Анимация при закрытии
+              drag="y"                    // Включаем перетаскивание по оси Y
+              dragListener={false}        // Отключаем стандартный слушатель, чтобы управлять через ModalHeader
+              dragControls={dragControls}   // Передаем контроллер перетаскивания
+              dragConstraints={{ top: 0, bottom: 300 }} // Ограничиваем область перетаскивания
+              dragElastic={{ top: 0, bottom: 0.5 }}    // "Резиновость" при выходе за пределы
+              onDragStart={handleModalDragStart} // Обработчик начала перетаскивания
+              onDragEnd={handleModalDragEnd}     // Обработчик конца перетаскивания
               style={{ 
                 position: 'fixed',
                 bottom: 0,
@@ -1219,48 +1349,26 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                 right: 0,
                 margin: '0 auto',
                 zIndex: 1001,
-                y,
+                // 'y' больше не управляется напрямую через style, а через variants и drag
                 boxShadow: isDragging 
                   ? '0 10px 25px rgba(0, 0, 0, 0.25)' 
-                  : 'var(--shadow-lg)'
+                  : 'var(--shadow-lg)',
+                touchAction: 'none' // Для корректной работы drag="y" на сенсорных устройствах
               }}
-              initial={{ y: '100%' }}
-              animate={{ 
-                y: 0,
-                transition: { 
-                  type: "spring", 
-                  damping: 25, 
-                  stiffness: 300,
-                  mass: 0.8
-                }
-              }}
-              exit={{ 
-                y: '100%',
-                transition: { 
-                  duration: 0.3,
-                  ease: "easeInOut" 
-                }
-              }}
-              drag="y"
-              dragConstraints={{ top: 0 }}
-              dragElastic={0.2}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
             >
-              <ModalHeader>
-                <DragHandle 
-                  initial={{ opacity: 0.7, x: "-50%" }}
-                  animate={{ opacity: 1, x: "-50%" }}
-                  whileHover={{ opacity: 1, x: "-50%", scale: 1.1 }}
-                  whileTap={{ opacity: 1, x: "-50%", scale: 0.95 }}
-                />
+              <ModalHeader
+                onPointerDown={(e) => {
+                  dragControls.start(e, { snapToCursor: false });
+                }}
+              >
+                <DragHandle /> 
                 <h2>
                   Замечания АТО
                   {objectName && <span>({objectName})</span>}
                 </h2>
               </ModalHeader>
               
-              <ModalContent>
+              <ModalContent ref={modalContentRef}>
                 {isCreateNotificationMode ? (
                   <CommentSelectionContainer>
                     <SelectionSummary>
@@ -1504,22 +1612,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {comment.penaltyPoints !== undefined && comment.penaltyPoints > 0 && (
-                                              <div style={{ 
-                                                marginTop: '8px',
-                                                color: 'var(--error-color)',
-                                                fontWeight: 'bold'
-                                              }}>
-                                                Штраф: -{comment.penaltyPoints} баллов
-                                              </div>
-                                            )}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       ) : (
                                         <CommentContent>
@@ -1527,22 +1642,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {comment.penaltyPoints !== undefined && comment.penaltyPoints > 0 && (
-                                              <div style={{ 
-                                                marginTop: '8px',
-                                                color: 'var(--error-color)',
-                                                fontWeight: 'bold'
-                                              }}>
-                                                Штраф: -{comment.penaltyPoints} баллов
-                                              </div>
-                                            )}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       )}
                                     </CommentContentWrapper>
@@ -1651,14 +1773,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {/* Штрафы здесь не отображаем, т.к. это заметки */}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       ) : (
                                         <CommentContent>
@@ -1666,14 +1803,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {/* Штрафы здесь не отображаем, т.к. это заметки */}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       )}
                                     </CommentContentWrapper>
@@ -1687,10 +1839,7 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                     </div>
                   </CommentSelectionContainer>
                 ) : comments.length > 0 ? (
-                  <AnimatedContentContainer>
-                    {/* Удаляем блок с фильтрами в режиме просмотра */}
-                    
-                    {/* Восстанавливаем оригинальную логику скрытия диаграммы */}
+                  <AnimatedContentContainer> {/* Этот контейнер больше не скроллится */}
                     {scorePercentage !== undefined && (
                       <ScoreSummaryContainer
                         initial={{ opacity: 0, y: 20 }}
@@ -1779,13 +1928,10 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                         </ScoreDetails>
                       </ScoreSummaryContainer>
                     )}
-
-                    {/* Затем увеличиваем высоту списка пунктов */}
                     <CommentsContainer
-                      ref={commentsListRef}
                       style={{ 
-                        maxHeight: commentsMaxHeight,
-                        marginTop: commentsMarginTop
+                        marginTop: commentsMarginTop,
+                        // overflowY: 'auto' УДАЛЕН, теперь нет внутреннего скролла
                       }}
                     >
                       {/* Отображаем нарушения со штрафами */}
@@ -1887,22 +2033,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {comment.penaltyPoints !== undefined && comment.penaltyPoints > 0 && (
-                                              <div style={{ 
-                                                marginTop: '8px',
-                                                color: 'var(--error-color)',
-                                                fontWeight: 'bold'
-                                              }}>
-                                                Штраф: -{comment.penaltyPoints} баллов
-                                              </div>
-                                            )}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       ) : (
                                         <CommentContent>
@@ -1910,22 +2063,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {comment.penaltyPoints !== undefined && comment.penaltyPoints > 0 && (
-                                              <div style={{ 
-                                                marginTop: '8px',
-                                                color: 'var(--error-color)',
-                                                fontWeight: 'bold'
-                                              }}>
-                                                Штраф: -{comment.penaltyPoints} баллов
-                                              </div>
-                                            )}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       )}
                                     </CommentContentWrapper>
@@ -2034,14 +2194,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {/* Штрафы здесь не отображаем, т.к. это заметки */}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       ) : (
                                         <CommentContent>
@@ -2049,14 +2224,29 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
                                             variant="body2" 
                                             style={{ 
                                               color: 'var(--text-secondary)',
-                                              fontSize: '0.9rem'
+                                              fontSize: '0.9rem',
+                                              whiteSpace: 'pre-wrap' // Для сохранения переносов строк из formatCommentText
                                             }}
                                           >
-                                            {comment.text && cleanCommentText(comment.text).length > 0 
-                                              ? cleanCommentText(comment.text)
-                                              : <i>Комментарий отсутствует. При добавлении комментария в системе RetailiQA, он появится здесь автоматически при следующем обновлении.</i>}
-                                            {/* Штрафы здесь не отображаем, т.к. это заметки */}
+                                            {formatCommentText(comment.text || "")}
                                           </Typography>
+                                          {/* Блок отображения фотографий */}
+                                          {/* Логи: Photos for: {comment.title}, {getCommentPhotos(comment)} */}
+                                          {getCommentPhotos(comment).length > 0 && (
+                                            <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                              {getCommentPhotos(comment).map((photoUrl, pIndex) => (
+                                                <PhotoThumbnail
+                                                  key={pIndex}
+                                                  src={photoUrl}
+                                                  alt={`Фото ${pIndex + 1} для заметки ${comment.title}`}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openGallery(getCommentPhotos(comment), pIndex);
+                                                  }}
+                                                />
+                                              ))}
+                                            </div>
+                                          )}
                                         </CommentContent>
                                       )}
                                     </CommentContentWrapper>
@@ -2087,6 +2277,14 @@ const AtoCommentsModal: React.FC<AtoCommentsModalProps> = ({
           </>
         )}
       </AnimatePresence>
+      
+      {/* Добавляем компонент галереи */}
+      <PhotoGallery 
+        photos={galleryPhotos}
+        initialIndex={galleryInitialIndex}
+        isOpen={galleryOpen}
+        onClose={closeGallery}
+      />
     </>
   );
 };

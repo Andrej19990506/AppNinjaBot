@@ -6,6 +6,7 @@ from datetime import datetime # Добавлен datetime
 from pydantic import ValidationError # <--- ДОБАВЛЕНО
 from sqlalchemy import select
 import schemas # Добавляем прямой импорт модуля schemas
+import re # Добавляем импорт re
 
 from schemas.retailiqa_schema import (
     RetailiQAReportApiResponse,
@@ -704,13 +705,61 @@ class RetailiQAService:
 
             for item_detail in items_to_detail: # Итерация по items_to_detail
                 violation_type = "нарушение" if item_detail.task_sum is not None and item_detail.task_sum > 0 else "замечание"
+                
+                # >>> Начало блока фильтрации комментариев
+                if item_detail.task_comments and latest_insp_date: # latest_insp_date должно быть datetime объектом
+                    original_comments_text = item_detail.task_comments
+                    # Regex для извлечения: [Полное имя DD.MM.YYYY HH:MM] Текст комментария
+                    # Группы: 1=Имя, 2=Дата DD.MM.YYYY, 3=Время HH:MM, 4=Текст комментария
+                    # (?=\\n\\[|$) - позитивный просмотр вперед для корректного разделения многострочных комментариев
+                    comment_pattern = re.compile(r"\[(.*?) (\d{2}\.\d{2}\.\d{4}) \d{2}:\d{2}\]\s*(.*?)(?=\\n\[|$)", re.DOTALL)
+                    
+                    filtered_comment_parts = []
+                    for match in comment_pattern.finditer(original_comments_text):
+                        author_and_time_info = match.group(1).strip() # Все до даты
+                        comment_date_str = match.group(2)
+                        comment_content = match.group(3).strip()
+                        
+                        try:
+                            # Парсим дату комментария
+                            day, month, year = map(int, comment_date_str.split('.'))
+                            parsed_comment_date = datetime(year, month, day)
+                            
+                            # Сравниваем месяц и год с датой последней инспекции
+                            if parsed_comment_date.year == latest_insp_date.year and \
+                               parsed_comment_date.month == latest_insp_date.month:
+                                # Собираем комментарий обратно в исходном формате, если он актуален
+                                full_comment_line = match.group(0).strip() # Вся совпавшая строка
+                                filtered_comment_parts.append(full_comment_line)
+                        except ValueError:
+                            logger.warning(f"Не удалось распарсить дату '{comment_date_str}' в комментарии: {match.group(0)}. Комментарий будет оставлен как есть.")
+                            # Если не удалось распарсить, оставляем как есть, чтобы не потерять
+                            filtered_comment_parts.append(match.group(0).strip())
+
+                    if filtered_comment_parts:
+                        item_detail.task_comments = "\\n".join(filtered_comment_parts)
+                    elif original_comments_text and not filtered_comment_parts : # Если были комменты, но все отфильтровались
+                        item_detail.task_comments = "" # Очищаем, если все комментарии неактуальны
+                        logger.debug(f"Все комментарии для пункта '{item_detail.insp_scope}' были отфильтрованы как неактуальные.")
+                    # Если изначально не было комментариев или regex ничего не нашел, item_detail.task_comments остается без изменений
+
+                # <<< Конец блока фильтрации комментариев
+                
                 comment_text = item_detail.task_comments.strip() if item_detail.task_comments and item_detail.task_comments.strip() else "Штрафной пункт без комментария"
                 
+                # Парсим фотографии для конкретного пункта нарушения
+                item_photos_list = []
+                if item_detail.task_photos:
+                    # Разделяем по запятой или точке с запятой, удаляем пробелы
+                    raw_urls = re.split(r'[,;]', item_detail.task_photos)
+                    item_photos_list = [url.strip() for url in raw_urls if url.strip()]
+
                 violation_item_for_list = { # Переименовал, чтобы не конфликтовать с item из outer scope
                     "title": item_detail.insp_scope or "Без названия пункта",
                     "text": comment_text,
                     "penalty": item_detail.task_sum if item_detail.task_sum is not None else 0.0,
-                    "type": violation_type
+                    "type": violation_type,
+                    "photos": item_photos_list # Добавляем список фотографий пункта
                 }
                 detailed_violations_list.append(violation_item_for_list)
 
@@ -817,7 +866,8 @@ class RetailiQAService:
                                 "title": viol["title"],
                                 "text": viol["text"],
                                 "penalty": viol["penalty"],
-                                "type": viol.get("type", "нарушение" if viol["penalty"] > 0 else "замечание")
+                                "type": viol.get("type", "нарушение" if viol["penalty"] > 0 else "замечание"),
+                                "photos": viol.get("photos", [])  # Добавляем поле photos для сохранения ссылок на фотографии
                             } for viol in serializable_data["retailiqa_detailed_violations"]
                         ]
                     
@@ -898,7 +948,8 @@ class RetailiQAService:
                                 "title": viol["title"],
                                 "text": viol["text"],
                                 "penalty": viol["penalty"],
-                                "type": viol.get("type", "нарушение" if viol["penalty"] > 0 else "замечание")
+                                "type": viol.get("type", "нарушение" if viol["penalty"] > 0 else "замечание"),
+                                "photos": viol.get("photos", [])  # Добавляем поле photos для сохранения ссылок на фотографии
                             } for viol in serializable_data["retailiqa_detailed_violations"]
                         ]
                     

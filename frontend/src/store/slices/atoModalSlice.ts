@@ -6,6 +6,7 @@ export interface AtoComment {
   title: string;
   text: string;
   penaltyPoints?: number; // Добавляем штрафные баллы для комментария
+  photos?: string[]; // <-- ДОБАВЛЯЕМ ЭТО ПОЛЕ
 }
 
 // Тип для состояния модального окна
@@ -20,6 +21,7 @@ interface AtoModalState {
   scorePercentage?: number; // Добавляем поле для процента выполнения
   maxPoints?: number; // Максимально возможные баллы
   earnedPoints?: number; // Набранные баллы
+  allPhotos?: string[]; // Добавляем поле для хранения всех фотографий события
 }
 
 // Начальное состояние
@@ -33,7 +35,8 @@ const initialState: AtoModalState = {
   objectName: undefined,
   scorePercentage: undefined,
   maxPoints: undefined,
-  earnedPoints: undefined
+  earnedPoints: undefined,
+  allPhotos: [], // Инициализируем пустым массивом
 };
 
 // Создаем slice
@@ -48,6 +51,7 @@ const atoModalSlice = createSlice({
       scorePercentage?: number; // Добавляем в параметры
       maxPoints?: number;
       earnedPoints?: number;
+      allPhotos?: string[]; // Добавляем в параметры action
     }>) => {
       state.isOpen = true;
       state.isCreateMode = false;
@@ -57,6 +61,7 @@ const atoModalSlice = createSlice({
       state.scorePercentage = action.payload.scorePercentage; // Устанавливаем процент
       state.maxPoints = action.payload.maxPoints; // Устанавливаем макс. баллы
       state.earnedPoints = action.payload.earnedPoints; // Устанавливаем набранные баллы
+      state.allPhotos = action.payload.allPhotos || []; // Сохраняем в state
     },
     closeAtoModal: (state) => {
       state.isOpen = false;
@@ -111,16 +116,17 @@ export const {
 } = atoModalSlice.actions;
 
 // Селекторы
-export const selectAtoModalOpen = (state: RootState) => state.atoModal.isOpen;
-export const selectAtoCreateMode = (state: RootState) => state.atoModal.isCreateMode;
-export const selectAtoComments = (state: RootState) => state.atoModal.comments;
-export const selectAtoPenaltyPoints = (state: RootState) => state.atoModal.penaltyPoints;
-export const selectAtoObjectName = (state: RootState) => state.atoModal.objectName;
+export const selectAtoModalOpen = (state: RootState): boolean => state.atoModal.isOpen;
+export const selectAtoCreateMode = (state: RootState): boolean => state.atoModal.isCreateMode;
+export const selectAtoComments = (state: RootState): AtoComment[] => state.atoModal.comments;
+export const selectAtoPenaltyPoints = (state: RootState): number | undefined => state.atoModal.penaltyPoints;
+export const selectAtoObjectName = (state: RootState): string | undefined => state.atoModal.objectName;
 export const selectSelectedComments = (state: RootState) => state.atoModal.selectedComments;
 export const selectSelectedCommentTexts = (state: RootState) => state.atoModal.selectedCommentTexts;
-export const selectAtoScorePercentage = (state: RootState) => state.atoModal.scorePercentage;
-export const selectAtoMaxPoints = (state: RootState) => state.atoModal.maxPoints;
-export const selectAtoEarnedPoints = (state: RootState) => state.atoModal.earnedPoints;
+export const selectAtoScorePercentage = (state: RootState): number | undefined => state.atoModal.scorePercentage;
+export const selectAtoMaxPoints = (state: RootState): number | undefined => state.atoModal.maxPoints;
+export const selectAtoEarnedPoints = (state: RootState): number | undefined => state.atoModal.earnedPoints;
+export const selectAtoAllPhotos = (state: RootState): string[] | undefined => state.atoModal.allPhotos;
 export const selectIsAtoSelectionValid = (state: RootState) => 
   state.atoModal.selectedComments.length > 0 || state.atoModal.selectedCommentTexts.length > 0;
 

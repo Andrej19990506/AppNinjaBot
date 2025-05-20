@@ -9,24 +9,28 @@ class DetailedViolation(BaseModel):
     title: str = Field(..., description="Название пункта нарушения (insp_scope)")
     text: Optional[str] = Field(None, description="Текст комментария к нарушению (task_comments)")
     penalty: float = Field(..., description="Штрафные баллы за данный пункт (task_sum)")
+    photos: Optional[List[str]] = Field(None, description="Список URL фотографий для данного нарушения")
+    type: Optional[str] = Field(None, description="Тип пункта: 'нарушение' или 'замечание'")
     
     class Config:
         from_attributes = True
-        json_encoders = {
-            datetime: lambda v: v.isoformat()
-        }
     
-    def dict(self):
+    def dict(self, **kwargs):
         """Метод для конвертации объекта в словарь для сериализации"""
-        return {
-            "title": self.title,
-            "text": self.text,
-            "penalty": self.penalty
-        }
+        data = {}
+        if hasattr(super(), 'model_dump'):
+            data = super().model_dump(**kwargs)
+        else:
+            data = super().dict(**kwargs)
         
-    def model_dump(self):
+        data['photos'] = data.get('photos') or []
+        if data.get('type') is None:
+            data['type'] = 'нарушение' if data.get('penalty', 0) > 0 else 'замечание'
+        return data
+        
+    def model_dump(self, **kwargs):
         """Метод для конвертации объекта в словарь для сериализации"""
-        return self.dict()
+        return self.dict(**kwargs)
 
 # --- Модели для Настроек Повтора ---
 class RepeatSettingsBase(BaseModel):

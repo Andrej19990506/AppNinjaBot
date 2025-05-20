@@ -2,6 +2,7 @@
 import uuid
 from typing import List, Optional, Any
 from datetime import datetime
+import logging
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +41,9 @@ async def create_event(db: AsyncSession, *, event_in: schemas.EventCreate) -> mo
 
 async def get_events(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[models.Event]:
     """Получает список событий с их уведомлениями."""
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[get_events] Выполняем запрос событий из БД (skip={skip}, limit={limit})")
     query = (
         select(models.Event)
         .options(selectinload(models.Event.notifications))
@@ -49,6 +53,64 @@ async def get_events(db: AsyncSession, skip: int = 0, limit: int = 100) -> List[
     )
     result = await db.execute(query)
     events = result.scalars().all()
+    logger.info(f"[get_events] Получено {len(events)} событий из БД")
+    
+    # Обязательно проверяем и конвертируем поле retailiqa_detailed_violations для правильной сериализации
+    for event in events:
+        if hasattr(event, 'event_type') and event.event_type == 'АТО':
+            event_info = f"[БАЗА ДАННЫХ] Событие ID {event.id}"
+            
+            # Проверяем retailiqa_detailed_violations
+            if not hasattr(event, 'retailiqa_detailed_violations') or event.retailiqa_detailed_violations is None:
+                logger.warning(f"{event_info}: поле retailiqa_detailed_violations отсутствует или равно None")
+                continue
+                
+            if not isinstance(event.retailiqa_detailed_violations, list):
+                logger.warning(f"{event_info}: поле retailiqa_detailed_violations не является списком, тип: {type(event.retailiqa_detailed_violations)}")
+                # Если это не список, но есть данные в JSON, пытаемся преобразовать
+                try:
+                    if event.retailiqa_detailed_violations:
+                        logger.info(f"{event_info}: пытаемся преобразовать retailiqa_detailed_violations в список")
+                        # Не преобразуем автоматически, просто логируем для диагностики
+                except Exception as e:
+                    logger.error(f"{event_info}: ошибка при анализе retailiqa_detailed_violations: {str(e)}")
+                continue
+                
+            if event.retailiqa_detailed_violations and isinstance(event.retailiqa_detailed_violations, list):
+                violations_count = len(event.retailiqa_detailed_violations)
+                logger.info(f"{event_info}: содержит {violations_count} элементов в retailiqa_detailed_violations")
+                
+                photos_by_violation = []
+                # Проверяем наличие поля photos в каждом violation
+                for i, violation in enumerate(event.retailiqa_detailed_violations):
+                    violation_info = f"{event_info}: Violation #{i+1}"
+                    
+                    if not isinstance(violation, dict):
+                        logger.warning(f"{violation_info} не является словарем, тип: {type(violation)}")
+                        continue
+                        
+                    # Проверяем и подготавливаем поле photos
+                    if 'photos' not in violation:
+                        logger.warning(f"{violation_info} не имеет поля photos, добавляем пустой массив")
+                        violation['photos'] = []
+                    elif not isinstance(violation['photos'], list):
+                        logger.warning(f"{violation_info} поле photos не является списком, тип: {type(violation['photos'])}")
+                        violation['photos'] = []
+                    else:
+                        photos_count = len(violation['photos'])
+                        if photos_count > 0:
+                            photos_by_violation.append(f"violation#{i+1}: {photos_count} photos")
+                            for p, photo_url in enumerate(violation['photos']):
+                                if not isinstance(photo_url, str):
+                                    logger.warning(f"{violation_info} photo #{p+1} не является строкой, тип: {type(photo_url)}")
+                                elif not photo_url.startswith('http'):
+                                    logger.warning(f"{violation_info} photo #{p+1} не является URL: {photo_url}")
+                
+                if photos_by_violation:
+                    logger.info(f"{event_info}: детализация фотографий по нарушениям: {', '.join(photos_by_violation)}")
+                else:
+                    logger.warning(f"{event_info}: ни одно нарушение не содержит фотографий")
+    
     return events
 
 async def get_event(db: AsyncSession, event_id: int) -> Optional[models.Event]:

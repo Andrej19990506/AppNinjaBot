@@ -76,7 +76,7 @@ const SlidingDrawer = ({ children, onClose }) => {
                 animate="visible"
                 exit="exit"
                 drag="y" // Разрешаем перетаскивание по оси Y
-                dragConstraints={{ top: 0, bottom: 0 }} // Ограничения перетаскивания
+                dragConstraints={{ top: 0, bottom: 500 }} /* ИЗМЕНЕНО: Позволяем тащить вниз на 500px */
                 dragElastic={0.2} // Эластичность перетаскивания
                 onDragStart={() => setIsDragging(true)}
                 onDragEnd={handleDragEnd}

@@ -3,9 +3,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { selectUser } from '../../store/slices/userSlice'; 
 import { selectAllEvents, createNotificationThunk, updateNotificationThunk } from '../../store/slices/eventsSlice'; 
 import { EventNotification, EventRead, NotificationCreate, RepeatSettings } from '../../types/event';
-import { format } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls, useAnimation, type PanInfo } from 'framer-motion';
 import styled from 'styled-components';
 
 // MUI Компоненты 
@@ -17,7 +15,6 @@ import InputLabel from '@mui/material/InputLabel';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import OutlinedInput from '@mui/material/OutlinedInput';
-import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import { styled as muiStyled } from '@mui/material/styles';
@@ -76,6 +73,7 @@ const FormContainer = styled(motion.div)`
   padding: 0;
   box-sizing: border-box;
   z-index: 1001;
+  cursor: grab; /* Добавляем курсор для перетаскивания */
   
   /* Исправление для мобильных устройств */
   @media (max-width: 768px) {
@@ -96,6 +94,7 @@ const FormHeader = styled.div`
   width: 100%;
   box-sizing: border-box;
   border-radius: 16px 16px 0 0; /* Добавляем скругление к самой шапке */
+  touch-action: none; /* Важно для корректной работы drag на мобильных */
   
   h2 {
     margin: 0;
@@ -299,26 +298,17 @@ const slideVariants = {
   }
 };
 
-// Обновленный компонент ручки перетаскивания с анимацией
-const DragHandleBar = styled(motion.div)`
+// DragHandleBar становится простым визуальным элементом
+const DragHandleBar = styled.div`
   width: 50px;
   height: 5px;
   background-color: rgba(255, 255, 255, 0.3);
   border-radius: 3px;
-  cursor: grab;
   position: absolute;
   top: 8px;
   left: 50%;
-  z-index: 3;
-  
-  &:hover {
-    background-color: rgba(255, 255, 255, 0.5);
-  }
-  
-  &:active {
-    cursor: grabbing;
-    background-color: rgba(255, 255, 255, 0.7);
-  }
+  transform: translateX(-50%);
+  /* z-index и pointer-events не нужны, если он просто визуальный и не перекрывает ничего важного */
 `;
 
 const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({ 
@@ -345,6 +335,10 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({
     const [timeMode, setTimeMode] = useState<'relative' | 'absolute' | 'now'>('relative');
     const [absoluteDateTime, setAbsoluteDateTime] = useState<string>('');
     
+    const formRef = useRef<HTMLDivElement>(null);
+    const dragControls = useDragControls();
+    const animationControls = useAnimation();
+
     const user = useAppSelector(selectUser);
     const availableChats = useMemo(() => {
         return user?.groups
@@ -353,12 +347,6 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({
             || [];
     }, [user]);
 
-    // Для управления перетаскиванием
-    const y = useMotionValue(0);
-    const overlayOpacity = useTransform(y, [0, 300], [1, 0.5]);
-    const formRef = useRef(null);
-    const [isDragging, setIsDragging] = useState(false);
-    
     useEffect(() => {
         let notificationToEdit: EventNotification | undefined = undefined;
 
@@ -567,24 +555,26 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({
         }
     }, [isLoading, isFormValid, handleSubmit, onStateChange]);
 
-    // Обработчик начала перетаскивания
-    const handleDragStart = () => {
-        setIsDragging(true);
-    };
-    
     // Обработчик завершения перетаскивания
-    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { y: number } }) => {
-        const threshold = 150; // Порог для закрытия (в пикселях)
-        
-        // Если перетащили вниз больше порогового значения, закрываем форму
-        if (info.offset.y > threshold) {
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        const { offset, velocity } = info;
+        const swipeThreshold = 100;
+        const velocityThreshold = 200;
+
+        if (offset.y > swipeThreshold || velocity.y > velocityThreshold) {
             onClose();
         } else {
-            // Иначе возвращаем на место
-            y.set(0);
+            animationControls.start({ 
+                y: 0, 
+                transition: { type: 'spring', damping: 25, stiffness: 300 }
+            });
         }
-        setIsDragging(false);
     };
+
+    // Эффект для начальной анимации появления
+    useEffect(() => {
+        animationControls.start("visible");
+    }, [animationControls]);
 
     if (!event) {
         return <Box sx={{ p: 2 }}>Событие не найдено.</Box>;
@@ -594,24 +584,6 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({
 
     return (
         <>
-            {/* Обновленный оверлей с фиксированной начальной непрозрачностью */}
-            <motion.div
-                style={{ 
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    backdropFilter: 'blur(2px)',
-                    zIndex: 1000
-                }}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-            />
-            {/* Добавляем второй оверлей, который реагирует только на перетаскивание */}
             <motion.div
                 style={{ 
                     position: 'fixed',
@@ -622,35 +594,36 @@ const CreateNotificationForm: React.FC<CreateNotificationFormProps> = ({
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
                     backdropFilter: 'blur(2px)',
                     zIndex: 1000,
-                    opacity: overlayOpacity,
-                    pointerEvents: 'none' // Предотвращает клики на этом оверлее
+                    pointerEvents: 'none' 
                 }}
-            />
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose} 
+            /> 
             <FormContainer
-                ref={formRef}
-                variants={containerVariants}
+                ref={formRef} 
+                variants={containerVariants} 
                 initial="hidden"
-                animate="visible"
+                animate={animationControls}
                 exit="exit"
                 drag="y"
-                dragConstraints={{ top: 0 }}
-                dragElastic={0.2}
-                onDragStart={handleDragStart}
+                dragConstraints={{ top: 0, bottom: 300 }}
+                dragElastic={{ top: 0, bottom: 0.5 }}
                 onDragEnd={handleDragEnd}
-                style={{ 
-                    y, 
-                    boxShadow: isDragging 
-                        ? '0 10px 25px rgba(0, 0, 0, 0.25)' 
-                        : 'var(--shadow-lg)'
-                }}
+                dragControls={dragControls}
+                dragListener={false}
+                style={{ touchAction: 'none' }}
             >
-                <FormHeader>
-                    <DragHandleBar 
-                        initial={{ opacity: 0.7, x: "-50%", y: 0 }}
-                        animate={{ opacity: 1, x: "-50%", y: 0 }}
-                        whileHover={{ opacity: 1, x: "-50%", y: 0, scale: 1.1 }}
-                        whileTap={{ opacity: 1, x: "-50%", y: 0, scale: 0.95 }}
-                    />
+                <FormHeader 
+                    id="form-header-drag-handle" 
+                    onPointerDown={(e) => {
+                        // @ts-ignore // Тип события e может потребовать уточнения для start
+                        dragControls.start(e, { snapToCursor: false });
+                    }}
+                    style={{ cursor: 'grab' }} 
+                >
+                    <DragHandleBar />
                     <h2>{(event.notifications && event.notifications.length > 0) ? 'Редактировать уведомление' : 'Новое уведомление'}</h2>
                 </FormHeader>
             

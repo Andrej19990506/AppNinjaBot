@@ -633,6 +633,24 @@ class TaskManager:
         # Успех удаления из APScheduler - бонус, но не главный критерий
         return db_deleted 
 
+    async def cancel_reminder_task(self, reminder_job_id: str) -> bool:
+        """Отменяет (удаляет) задачу-напоминание.
+
+        Args:
+            reminder_job_id: ID задачи-напоминания, которую нужно отменить.
+
+        Returns:
+            True, если задача была успешно удалена из БД, иначе False.
+        """
+        logger.info(f"Попытка отмены задачи-напоминания: {reminder_job_id}")
+        # Просто вызываем существующий метод delete_task, который удаляет из БД и APScheduler
+        success = await self.delete_task(reminder_job_id)
+        if success:
+            logger.info(f"Задача-напоминание {reminder_job_id} успешно отменена (удалена).")
+        else:
+            logger.warning(f"Не удалось отменить (удалить) задачу-напоминание {reminder_job_id}. Возможно, она уже была удалена или не существовала.")
+        return success
+
     def _job_listener(self, event: JobExecutionEvent):
         """Слушает события выполнения задач, отправляет NOTIFY и обрабатывает."""
         job_id = event.job_id

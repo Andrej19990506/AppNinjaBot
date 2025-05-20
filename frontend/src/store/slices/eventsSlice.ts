@@ -5,7 +5,8 @@ import {
     createEvent as apiCreateEvent,
     deleteEvent as apiDeleteEvent,
     createNotification as apiCreateNotification,
-    updateNotification as apiUpdateNotification
+    updateNotification as apiUpdateNotification,
+    processRetailiQAReportsForGroup as apiProcessRetailiQAReports
 } from '../../services/eventsApi'; 
 import { EventRead, EventCreate, NotificationCreate, EventNotification, NotificationUpdate } from '../../types/event'; 
 import { RootState } from '../store';
@@ -23,6 +24,8 @@ interface EventsState {
   notificationError: { [eventId: number]: string | null }; // eventId: number
   notificationUpdateLoading: { [notificationId: string]: 'pending' | 'succeeded' | 'failed' }; // notificationId: string (UUID)
   notificationUpdateError: { [notificationId: string]: string | null }; // notificationId: string (UUID)
+  processRetailiQALoading: 'idle' | 'pending' | 'succeeded' | 'failed';
+  processRetailiQAError: string | null;
 }
 
 // Начальное состояние
@@ -38,6 +41,8 @@ const initialState: EventsState = {
   notificationError: {},
   notificationUpdateLoading: {},
   notificationUpdateError: {},
+  processRetailiQALoading: 'idle',
+  processRetailiQAError: null,
 };
 
 // Thunk для загрузки событий (без изменений)
@@ -59,15 +64,16 @@ export const fetchEvents = createAsyncThunk<
 
 // Thunk для создания события (без изменений, возвращает EventRead с id: number)
 export const createEventThunk = createAsyncThunk<
-  EventRead,            
-  EventCreate,          
+  EventRead | EventRead[], // МОЖЕТ ВЕРНУТЬ ОДНО ИЛИ МАССИВ СОБЫТИЙ            
+  EventCreate & { event_type?: string, chat_ids?: number[], group_telegram_id?: number, date_from?: string, date_to?: string, max_pages?: number }, // РАСШИРЕННЫЙ ТИП ВХОДНЫХ ДАННЫХ          
   { rejectValue: string }
 >(
   'events/createEvent',
   async (eventData, { rejectWithValue }) => {
     try {
-      const createdEvent = await apiCreateEvent(eventData);
-      return createdEvent; // Ожидаем, что ID здесь number
+      // apiCreateEvent теперь может вернуть EventRead или EventRead[]
+      const createdEventOrEvents = await apiCreateEvent(eventData);
+      return createdEventOrEvents; 
     } catch (error: any) {
       return rejectWithValue(error.message || 'Failed to create event');
     }
@@ -125,6 +131,28 @@ export const updateNotificationThunk = createAsyncThunk<
   }
 );
 
+// Thunk для запуска обработки отчетов RetailiQA
+export const processRetailiQAReportsThunk = createAsyncThunk<
+  EventRead[], // Ожидаем массив событий в случае успеха
+  { groupTelegramId: number; dateFrom?: string; dateTo?: string; maxPages?: number }, // Аргументы thunk'а
+  { rejectValue: string }
+>(
+  'events/processRetailiQAReports',
+  async ({ groupTelegramId, dateFrom, dateTo, maxPages }, { dispatch, rejectWithValue }) => {
+    try {
+      const processedEvents = await apiProcessRetailiQAReports(groupTelegramId, dateFrom, dateTo, maxPages);
+      // После успешной обработки, можно либо смержить события, либо перезапросить все
+      // Для простоты пока можно просто вернуть их, а в редьюсере добавить к существующим или заменить.
+      // Если мы хотим гарантированно свежие данные и обработку обновлений:
+      // dispatch(fetchEvents()); // Перезапросить все события
+      // return processedEvents; // Или вернуть только обработанные, если так удобнее в UI
+      return processedEvents; // Возвращаем обработанные события для мержа в стейт
+    } catch (error: any) {
+      return rejectWithValue(error.message || 'Failed to process RetailiQA reports');
+    }
+  }
+);
+
 // Создаем срез
 const eventsSlice = createSlice({
   name: 'events', 
@@ -158,6 +186,22 @@ const eventsSlice = createSlice({
         }
       }
     },
+    // Редьюсер для мержа событий после обработки RetailiQA
+    mergeProcessedEvents: (state, action: PayloadAction<EventRead[]>) => {
+      const newEvents = action.payload;
+      newEvents.forEach(newEvent => {
+        const existingEventIndex = state.items.findIndex(item => item.id === newEvent.id);
+        if (existingEventIndex !== -1) {
+          // Если событие уже есть, обновляем его
+          state.items[existingEventIndex] = newEvent;
+        } else {
+          // Если события нет, добавляем его в начало списка
+          state.items.unshift(newEvent);
+        }
+      });
+      // Можно отсортировать state.items по дате, если это необходимо
+      state.items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    },
     // Редьюсер для обновления полей самого события (если понадобится thunk для updateEvent)
     // updateEventFields: (state, action: PayloadAction<{ id: number; changes: Partial<EventRead> }>) => {
     //   const { id, changes } = action.payload;
@@ -187,10 +231,16 @@ const eventsSlice = createSlice({
         state.createLoading = 'pending';
         state.createError = null;
       })
-      .addCase(createEventThunk.fulfilled, (state, action) => {
+      .addCase(createEventThunk.fulfilled, (state, action: PayloadAction<EventRead | EventRead[]>) => {
         state.createLoading = 'succeeded';
-        // Используем редьюсер addEvent для добавления СОХРАНЕННОГО события
-        eventsSlice.caseReducers.addEvent(state, action);
+        // Проверяем, что пришло в action.payload
+        if (Array.isArray(action.payload)) {
+          // Если это массив (ответ от processRetailiQAReports), используем mergeProcessedEvents
+          eventsSlice.caseReducers.mergeProcessedEvents(state, action as PayloadAction<EventRead[]>);
+        } else {
+          // Если это один объект (ответ от обычного создания), используем addEvent
+          eventsSlice.caseReducers.addEvent(state, action as PayloadAction<EventRead>);
+        }
       })
       .addCase(createEventThunk.rejected, (state, action) => {
         state.createLoading = 'failed';
@@ -252,6 +302,20 @@ const eventsSlice = createSlice({
         const { notificationId } = action.meta.arg;
         state.notificationUpdateLoading[notificationId] = 'failed';
         state.notificationUpdateError[notificationId] = action.payload ?? 'Unknown error occurred';
+      })
+      // --- Process RetailiQA Reports --- 
+      .addCase(processRetailiQAReportsThunk.pending, (state) => {
+        state.processRetailiQALoading = 'pending';
+        state.processRetailiQAError = null;
+      })
+      .addCase(processRetailiQAReportsThunk.fulfilled, (state, action: PayloadAction<EventRead[]>) => {
+        state.processRetailiQALoading = 'succeeded';
+        // Используем новый редьюсер для мержа событий
+        eventsSlice.caseReducers.mergeProcessedEvents(state, action);
+      })
+      .addCase(processRetailiQAReportsThunk.rejected, (state, action) => {
+        state.processRetailiQALoading = 'failed';
+        state.processRetailiQAError = action.payload ?? 'Unknown error occurred';
       });
   },
 });
@@ -274,5 +338,8 @@ export const selectNotificationCreateLoading = (state: RootState, eventId: numbe
 export const selectNotificationCreateError = (state: RootState, eventId: number): string | null => state.events.notificationError[eventId] ?? null;
 export const selectNotificationUpdateLoading = (state: RootState, notificationId: string): boolean => state.events.notificationUpdateLoading[notificationId] === 'pending';
 export const selectNotificationUpdateError = (state: RootState, notificationId: string): string | null => state.events.notificationUpdateError[notificationId] ?? null; 
+// --- Новые селекторы ---
+export const selectProcessRetailiQALoading = (state: RootState): 'idle' | 'pending' | 'succeeded' | 'failed' => state.events.processRetailiQALoading;
+export const selectProcessRetailiQAError = (state: RootState): string | null => state.events.processRetailiQAError;
 
 export default eventsSlice.reducer; 

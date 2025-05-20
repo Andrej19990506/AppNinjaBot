@@ -3,26 +3,40 @@ import { motion, useMotionValue, useTransform, AnimatePresence, PanInfo } from '
 import { format } from 'date-fns';
 import { addMinutes } from 'date-fns/addMinutes';
 import { ru } from 'date-fns/locale';
-import styled from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import AddAlertIcon from '@mui/icons-material/AddAlert';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import MessageIcon from '@mui/icons-material/Message';
 import EventAvailableIcon from '@mui/icons-material/EventAvailable';
-import ToggleOnIcon from '@mui/icons-material/ToggleOn';
-import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import EditIcon from '@mui/icons-material/Edit';
 import RepeatIcon from '@mui/icons-material/Repeat';
-import { EventRead, EventNotification, RepeatSettings, EventCreate } from '../../types/event';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CommentIcon from '@mui/icons-material/Comment';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+// Импорты Dialog для модалок удалены, т.к. теперь используем AtoCommentsModal
+import Button from '@mui/material/Button';
+import { EventRead, RepeatSettings, EventCreate, NotificationCreate } from '../../types/event';
+import type { EventNotification } from '../../types/event';
 import TextField from '@mui/material/TextField';
-import Box from '@mui/material/Box';
-import { useAppSelector } from '../../store/hooks';
+import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { selectUser } from '../../store/slices/userSlice';
-import CircularProgress from '@mui/material/CircularProgress';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Typography from '@mui/material/Typography';
+import { createNotificationThunk } from '../../store/slices/eventsSlice';
+import { showToastNotification } from '../../store/slices/notificationSlice';
+import { NotificationTypes } from '../../store/slices/notificationSlice';
+// Добавляем импорт Redux-действий для модального окна ATO
+import { openAtoModal, setAtoCreateMode } from '../../store/slices/atoModalSlice';
 
 // Определяем типы пропсов
 interface EventItemProps {
@@ -34,9 +48,191 @@ interface EventItemProps {
     onSaveCreating?: (data: EventCreate) => void | Promise<void>;
     onCancelCreating?: () => void;
     isJustSaved?: boolean;
-    onAddNotificationClick?: (eventId: number, notificationId?: string) => void;
+    onAddNotificationClick?: (eventId: number, notificationId?: string, initialData?: Partial<ExtendedNotificationCreate>) => void;
     isSaveLoading?: boolean;
+    onAtoModalOpen?: (isOpen: boolean, isCreateMode: boolean) => void;
 }
+
+// Расширяем тип для уведомлений с дополнительными полями
+interface ExtendedEventNotification extends EventNotification {
+    // Добавляем новые поля для управления временем уведомления
+    use_absolute_time?: boolean;  // Если true, используем absolute_time вместо time (минут до события)
+    absolute_time?: string;       // ISO строка с абсолютным временем для уведомления
+    send_now?: boolean;           // Если true, отправляем уведомление немедленно
+}
+
+// Расширяем тип для создания уведомлений
+interface ExtendedNotificationCreate extends NotificationCreate {
+    use_absolute_time?: boolean;
+    absolute_time?: string;
+    send_now?: boolean;
+}
+
+// Анимации для новых компонентов
+const pulseAnimation = keyframes`
+  0% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0); }
+`;
+
+const breatheAnimation = keyframes`
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+`;
+
+const shineAnimation = keyframes`
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+`;
+
+// Стили для комментариев перенесены в компонент AtoCommentsModal
+
+// Стилизованная кнопка для создания уведомления
+const EnhancedNotificationButton = styled(Button)`
+  && {
+    margin-top: 16px !important;
+    margin-bottom: 16px !important;
+    padding: 10px 16px !important;
+    border-radius: var(--radius) !important;
+    background: var(--gradient-primary) !important;
+    box-shadow: var(--shadow-sm) !important;
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal) !important;
+    position: relative;
+    overflow: hidden;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        rgba(255, 255, 255, 0) 100%
+      );
+      animation: ${shineAnimation} 3s infinite linear;
+    }
+    
+    &:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: var(--shadow-md) !important;
+    }
+    
+    &:active {
+      transform: translateY(0) !important;
+    }
+  }
+`;
+
+const ActionButtonsContainer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  gap: 16px;
+`;
+
+const ActionButton = styled(Button)`
+  && {
+    padding: 10px 16px !important;
+    border-radius: var(--radius) !important;
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal) !important;
+    
+    &:hover {
+      transform: translateY(-2px) !important;
+      box-shadow: var(--shadow-sm) !important;
+    }
+    
+    &:active {
+      transform: translateY(0) !important;
+    }
+  }
+`;
+
+const SelectionSummary = styled.div`
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: var(--card-background);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--primary-color);
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+`;
+
+const SummaryTitle = styled.div`
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-color);
+`;
+
+const SummaryDetail = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  
+  svg {
+    color: var(--primary-color);
+  }
+`;
+
+// Стили для диалогов удалены, т.к. теперь используем AtoCommentsModal
+
+// Анимационные варианты для компонентов
+const commentCardVariants = {
+  hidden: { 
+    opacity: 0, 
+    y: 20,
+    scale: 0.95
+  },
+  visible: (i: number) => ({ 
+    opacity: 1, 
+    y: 0,
+    scale: 1,
+    transition: { 
+      delay: i * 0.05,
+      duration: 0.3,
+      ease: "easeOut"
+    }
+  }),
+  exit: { 
+    opacity: 0, 
+    scale: 0.95,
+    transition: { duration: 0.2 }
+  }
+};
+
+const commentContentVariants = {
+  collapsed: { 
+    height: 0, 
+    opacity: 0,
+    transition: {
+      height: { duration: 0.3 },
+      opacity: { duration: 0.2 }
+    }
+  },
+  expanded: { 
+    height: "auto", 
+    opacity: 1,
+    transition: {
+      height: { duration: 0.3 },
+      opacity: { duration: 0.3, delay: 0.1 }
+    }
+  }
+};
 
 // --- Обновляем Styled Component для EventItem --- 
 const StyledEventItem = styled(motion.div)`
@@ -386,6 +582,167 @@ const ChatTag = styled.span`
     white-space: nowrap;
 `;
 
+// НОВЫЙ STYLED COMPONENT ДЛЯ ТЕГА
+const StyledAtoTag = styled.span<{$isActive: boolean}>`
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color var(--transition-normal), color var(--transition-normal), border-color var(--transition-normal);
+    border: 1px solid transparent;
+    user-select: none;
+
+    ${(props: { $isActive: boolean }) => 
+        props.$isActive 
+        ? css`
+            background-color: var(--primary-color);
+            color: var(--text-color-on-primary, #fff);
+            border-color: var(--primary-dark);
+        ` 
+        : css`
+            background-color: var(--gray-200);
+            color: var(--text-secondary);
+            border-color: var(--gray-300);
+
+            [data-theme="dark"] & {
+                background-color: var(--gray-700);
+                color: var(--text-secondary);
+                border-color: var(--gray-600);
+            }
+        `
+    }
+
+    &:hover {
+        ${(props: { $isActive: boolean }) => 
+            props.$isActive 
+            ? css`
+                background-color: var(--primary-dark);
+            ` 
+            : css`
+                background-color: var(--gray-300);
+                border-color: var(--gray-400);
+                [data-theme="dark"] & {
+                    background-color: var(--gray-600);
+                    border-color: var(--gray-500);
+                }
+            `
+        }
+    }
+`;
+
+// Обновляем стили для иконки АТО и счетчика замечаний
+const AtoIconContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: 12px;
+`;
+
+const AtoIcon = styled(motion.div)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    color: white;
+    position: relative;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    animation: ${pulseAnimation} 2s infinite;
+    
+    &::after {
+        content: "Показать";
+        position: absolute;
+        bottom: -20px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 8px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        color: var(--text-secondary);
+    }
+    
+    &:hover {
+        transform: translateY(-2px) scale(1.1);
+        box-shadow: var(--shadow-md);
+        
+        &::after {
+            opacity: 1;
+        }
+    }
+    
+    &:active {
+        transform: translateY(0) scale(0.95);
+    }
+`;
+
+const CommentCount = styled.div`
+    background-color: var(--orange-dark);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    border-radius: 10px;
+    padding: 2px 6px;
+    min-width: 18px;
+    text-align: center;
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    border: 2px solid var(--card-background);
+    box-shadow: var(--shadow-sm);
+`;
+
+// Обновляем стили для бейджа процента выполнения АТО
+const AtoScoreBadge = styled(motion.div)<{ $percentage?: number }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 28px;
+    min-width: 60px;
+    border-radius: 14px;
+    padding: 0 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    background-color: ${props => {
+        const percentage = props.$percentage || 0;
+        if (percentage >= 90) return 'var(--orange-primary)';  // Оранжевый для высокого процента
+        if (percentage >= 70) return 'var(--orange-light)';    // Светло-оранжевый для среднего
+        return 'var(--orange-dark)';                          // Темно-оранжевый для низкого
+    }};
+    box-shadow: var(--shadow-sm);
+    user-select: none;
+    
+    // Градиентная обводка для бейджа
+    position: relative;
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -1px;
+        border-radius: inherit;
+        padding: 1px;
+        background: linear-gradient(
+            45deg,
+            transparent,
+            rgba(255, 255, 255, 0.5),
+            transparent
+        );
+        -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+        mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+        -webkit-mask-composite: xor;
+        mask-composite: exclude;
+        pointer-events: none;
+    }
+`;
+
+// Стили для компонентов работы с комментариями удалены, т.к. теперь используем AtoCommentsModal
+
+// Прежние компоненты диалога удалены, теперь используем AtoCommentsModal
+
 const EventItem: React.FC<EventItemProps> = ({ 
     event, 
     onDeleteClick,
@@ -396,11 +753,19 @@ const EventItem: React.FC<EventItemProps> = ({
     onCancelCreating, 
     isJustSaved, 
     onAddNotificationClick, 
-    isSaveLoading
+    isSaveLoading,
+    onAtoModalOpen
 }) => {
     const [isConfirming, setIsConfirming] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
+    const [isAtoCategory, setIsAtoCategory] = useState(false);
+    const [selectedAtoChatId, setSelectedAtoChatId] = useState<number | ''>('');
+
+    const user = useAppSelector(selectUser);
+    const dispatch = useAppDispatch();
+
+    // Эти состояния нужны для других функций
     const x = useMotionValue(0);
     const opacity = useTransform(x, [0, 100], [0, 1]);
     const backgroundGradient = useTransform(
@@ -473,25 +838,106 @@ const EventItem: React.FC<EventItemProps> = ({
     const [inputDate, setInputDate] = useState<Date | null>(event.date ? new Date(event.date) : new Date());
     const inputRef = React.useRef<HTMLInputElement>(null);
 
+    const atoPrefix = "[АТО] ";
+
+    // Получаем доступные чаты пользователя (для выбора чата АТО)
+    const availableChats = useMemo(() => {
+        return user?.groups
+            ?.filter(g => g.group_type === 'chef' && g.chat_id)
+            ?.map(g => ({ id: g.chat_id as number, name: g.title || `Чат ${g.chat_id}` }))
+            || [];
+    }, [user]);
+
+    // Эффект для обновления описания при изменении isAtoCategory
+    useEffect(() => {
+        if (isCreating) { // Применяем только в режиме создания
+            setInputValue(currentDescription => {
+                const hasPrefix = currentDescription.startsWith(atoPrefix);
+                if (isAtoCategory && !hasPrefix) {
+                    return atoPrefix + currentDescription;
+                } else if (!isAtoCategory && hasPrefix) {
+                    return currentDescription.substring(atoPrefix.length);
+                }
+                return currentDescription;
+            });
+        }
+    }, [isAtoCategory, isCreating]);
+
+    // Сбрасываем isAtoCategory и inputValue при смене event или выходе из isCreating
     useEffect(() => {
         if (isCreating) {
             inputRef.current?.focus();
-            setInputValue(event.description || '');
+            const initialDescription = event.description || '';
+            setInputValue(initialDescription);
             setInputDate(event.date ? new Date(event.date) : new Date());
+            const initialIsAto = event.event_type === 'ato' || initialDescription.startsWith(atoPrefix);
+            setIsAtoCategory(initialIsAto);
+            
+            if (initialIsAto && event.chat_ids && event.chat_ids.length > 0 && typeof event.chat_ids[0] === 'number') {
+                setSelectedAtoChatId(event.chat_ids[0]);
+            } else {
+                setSelectedAtoChatId('');
+            }
+        } else {
+            setIsAtoCategory(event.event_type === 'ato');
+            setInputValue(event.description || '');
+            setSelectedAtoChatId( (event.event_type === 'ato' && event.chat_ids && event.chat_ids.length > 0 && typeof event.chat_ids[0] === 'number') ? event.chat_ids[0] : ''); 
         }
-    }, [isCreating, event.description, event.date]);
+    }, [isCreating, event.description, event.date, event.event_type, event.chat_ids, atoPrefix]);
 
     const handleSave = () => {
         if (!onSaveCreating || !inputDate) return;
-        const valueToSave = inputValue.trim();
-        if (!valueToSave) {
-            handleCancel();
+        let valueToSave = inputValue.trim();
+        
+        const hasPrefix = valueToSave.startsWith(atoPrefix);
+        if (isAtoCategory && !hasPrefix) {
+            valueToSave = atoPrefix + valueToSave;
+        } else if (!isAtoCategory && hasPrefix) {
+            valueToSave = valueToSave.substring(atoPrefix.length);
+        }
+
+        if (!valueToSave || (isAtoCategory && valueToSave === atoPrefix.trim())) { 
+            console.warn("Описание не может быть пустым");
             return;
         }
+
+        // Для АТО событий находим group_telegram_id по выбранному chat_id
+        let groupTelegramId: number | undefined;
+        if (isAtoCategory && selectedAtoChatId !== '') {
+            // Отладка: выводим выбранный chat_id и группы пользователя
+            console.log("Выбранный chat_id:", selectedAtoChatId);
+            console.log("Группы пользователя:", user?.groups);
+            
+            // Ищем группу с выбранным chat_id в группах пользователя
+            const selectedGroup = user?.groups?.find(g => g.chat_id === Number(selectedAtoChatId));
+            console.log("Найденная группа:", selectedGroup);
+            
+            if (selectedGroup?.group_id) {
+                // group_id и есть telegram_id группы
+                groupTelegramId = selectedGroup.group_id;
+                console.log("Найден group_telegram_id:", groupTelegramId);
+            } else {
+                // Если не нашли по chat_id, то попробуем получить из selectedAtoChatId напрямую
+                // Т.к. в некоторых случаях chat_id может совпадать с group_id
+                groupTelegramId = Number(selectedAtoChatId);
+                console.log("Использую selectedAtoChatId как group_telegram_id:", groupTelegramId);
+            }
+        }
+
         const dataToSave: EventCreate = {
             description: valueToSave,
-            date: inputDate.toISOString() 
+            date: inputDate.toISOString(),
+            event_type: isAtoCategory ? 'ato' : 'manual',
+            ...(isAtoCategory && selectedAtoChatId !== '' && { 
+                chat_ids: [Number(selectedAtoChatId)],
+                // Добавляем group_telegram_id для АТО событий
+                group_telegram_id: groupTelegramId // Убираем проверку, чтобы всегда добавлять, даже если undefined
+            })
         };
+        
+        // Отладка: выводим итоговые данные для сохранения
+        console.log("Данные для сохранения события:", dataToSave);
+        
         onSaveCreating(dataToSave);
     };
 
@@ -510,7 +956,7 @@ const EventItem: React.FC<EventItemProps> = ({
         }
     };
 
-    const isSaveButtonDisabled = !inputValue?.trim() || !inputDate || isSaveLoading;
+    const isSaveButtonDisabled = !inputValue?.trim() || !inputDate || isSaveLoading || (isAtoCategory && selectedAtoChatId === '');
 
     const getNotificationTriggerTime = (eventDateStr: string | Date, timeBefore: number): Date | null => {
         try {
@@ -522,7 +968,6 @@ const EventItem: React.FC<EventItemProps> = ({
         }
     };
 
-    const user = useAppSelector(selectUser);
     const userChats = useMemo(() => {
         const chatMap = new Map<number, string>();
         user?.groups?.forEach(g => {
@@ -567,6 +1012,138 @@ const EventItem: React.FC<EventItemProps> = ({
 
     const notification = event.notifications?.[0];
     const eventIdForNotificationCallback = typeof event.id === 'number' ? event.id : undefined;
+
+    // Форматируем комментарии для более удобного отображения
+    const formattedComments = useMemo(() => {
+        // Если есть детализированные нарушения, используем их
+        if (event.retailiqa_detailed_violations && Array.isArray(event.retailiqa_detailed_violations)) {
+            return event.retailiqa_detailed_violations.map((violation: any) => ({
+                title: violation.title,
+                text: violation.text,
+                penaltyPoints: violation.penalty
+            }));
+        }
+        
+        // Для обратной совместимости используем старый формат
+        if (!event.retailiqa_comments || !Array.isArray(event.retailiqa_comments)) {
+            return [];
+        }
+        
+        return event.retailiqa_comments.map((comment: string) => {
+            const parts = comment.split(': ');
+            if (parts.length >= 2) {
+                const title = parts[0];
+                const text = parts.slice(1).join(': ');
+                return { title, text };
+            }
+            return { title: 'Комментарий', text: comment };
+        });
+    }, [event.retailiqa_comments, event.retailiqa_detailed_violations]);
+    
+    const totalComments = Array.isArray(event.retailiqa_comments) ? event.retailiqa_comments.length : 0;
+    
+    // Вычисляем процент выполнения проверки
+    const scorePercentage = useMemo(() => {
+        // Если есть прямое указание процента в данных события
+        if (event.retailiqa_score_percentage !== undefined) {
+            return event.retailiqa_score_percentage;
+        }
+        
+        // Если есть максимальные и заработанные баллы, вычисляем процент
+        if (event.retailiqa_max_points && event.retailiqa_earned_points) {
+            return (event.retailiqa_earned_points / event.retailiqa_max_points) * 100;
+        }
+        
+        return undefined;
+    }, [event.retailiqa_score_percentage, event.retailiqa_max_points, event.retailiqa_earned_points]);
+    
+    const handleOpenAtoModal = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        
+        // Открываем модальное окно через Redux
+        if (event.retailiqa_comments && event.retailiqa_comments.length > 0) {
+            dispatch(openAtoModal({
+                comments: formattedComments,
+                penaltyPoints: event.retailiqa_penalty_points,
+                objectName: event.retailiqa_insp_obj_name,
+                scorePercentage: scorePercentage,
+                maxPoints: event.retailiqa_max_points,
+                earnedPoints: event.retailiqa_earned_points
+            }));
+        }
+        
+        // Для обратной совместимости сохраняем вызов колбэка
+        if (onAtoModalOpen) onAtoModalOpen(true, false);
+    };
+    
+    const handleCloseAtoModal = () => {
+        if (onAtoModalOpen) onAtoModalOpen(false, false);
+    };
+    
+    const handleToggleAtoCreateMode = () => {
+        dispatch(setAtoCreateMode(true));
+        if (onAtoModalOpen) onAtoModalOpen(true, true);
+    };
+
+    const handleCreateAtoNotification = (data: {
+        selectedComments: string[];
+        selectedCommentTexts: string[];
+        formattedMessage: string;
+    }) => {
+        // Получаем chat_ids из события
+        const chatIds: number[] = [];
+        if (event && event.event_type === 'ato' && event.chat_ids && event.chat_ids.length > 0) {
+            event.chat_ids.forEach(id => {
+                if (typeof id === 'number') {
+                    chatIds.push(id);
+                }
+            });
+        }
+        
+        // Проверяем, есть ли eventId для создания уведомления
+        if (!eventIdForNotificationCallback) {
+            console.error("ID события не найден, невозможно создать уведомление");
+            return;
+        }
+
+        // Открываем форму с предзаполненными данными
+        const notificationData: Partial<ExtendedNotificationCreate> = {
+            message: data.formattedMessage,
+            chat_ids: chatIds,
+            requires_confirmation: true,
+            // Для немедленной отправки установим time=0 и send_now=true
+            time: 0,
+            repeat: { type: 'none' },
+            send_now: true
+        };
+        
+        // Открываем форму создания уведомления
+        if (onAddNotificationClick) {
+            onAddNotificationClick(eventIdForNotificationCallback, undefined, notificationData);
+        }
+    };
+
+    // Форматируем информацию о времени уведомления для отображения
+    const formatNotificationTime = (notif: EventNotification, eventDate: string | Date): string => {
+        // Приводим к расширенному типу
+        const notification = notif as ExtendedEventNotification;
+        
+        if (notification.send_now) {
+            return 'Отправлено сразу';
+        } else if (notification.use_absolute_time && notification.absolute_time) {
+            const absTime = new Date(notification.absolute_time);
+            return `${format(absTime, 'dd MMM HH:mm', { locale: ru })} (абсолютное время)`;
+        } else {
+            const triggerTime = getNotificationTriggerTime(eventDate, notification.time);
+            return triggerTime 
+                ? `${format(triggerTime, 'dd MMM HH:mm', { locale: ru })} (за ${notification.time} мин)`
+                : 'Неверная дата события';
+        }
+    };
+    
+    // Функции для работы с комментариями и создания уведомлений перенесены в AtoCommentsModal
+
+    // Удалено переключение состояния комментариев, теперь в AtoCommentsModal
 
     return (
         // @ts-ignore // Known issue with framer-motion types
@@ -635,6 +1212,39 @@ const EventItem: React.FC<EventItemProps> = ({
                                     disabled={isSaveLoading}
                                     InputLabelProps={{ shrink: true }}
                                 />
+                                <div style={{ marginTop: '15px', marginBottom: '10px', alignSelf: 'flex-start' }}>
+                                    <StyledAtoTag 
+                                        $isActive={isAtoCategory} 
+                                        onClick={() => !isSaveLoading && setIsAtoCategory(!isAtoCategory)}
+                                        title={isAtoCategory ? "Выключить категорию АТО" : "Включить категорию АТО"}
+                                    >
+                                        АТО
+                                    </StyledAtoTag>
+                                </div>
+                                {isAtoCategory && (
+                                    <FormControl fullWidth required disabled={isSaveLoading} size="small">
+                                        <InputLabel id="ato-chat-select-label">Чат для АТО</InputLabel>
+                                        <Select
+                                            labelId="ato-chat-select-label"
+                                            value={selectedAtoChatId}
+                                            label="Чат для АТО"
+                                            onChange={(e: SelectChangeEvent<string | number>) => setSelectedAtoChatId(e.target.value as (number | ''))}
+                                        >
+                                            <MenuItem value="">
+                                                <em>Не выбран</em>
+                                            </MenuItem>
+                                            {availableChats.map((chat) => (
+                                                <MenuItem key={chat.id} value={chat.id}>
+                                                    {chat.name}
+                                                </MenuItem>
+                                            ))}
+                                            {availableChats.length === 0 && (
+                                                <MenuItem disabled>Нет доступных чатов "chef"</MenuItem>
+                                            )}
+                                        </Select>
+                                        {isSaveButtonDisabled && selectedAtoChatId === '' && isAtoCategory && <p style={{ color: 'red', fontSize: '0.8em', margin: '3px 14px 0' }}>Выберите чат для АТО</p>}
+                                    </FormControl>
+                                )}
                                 <CreatorActions style={{ alignSelf: 'flex-end' }}>
                                     <CreatorButton
                                         className="save"
@@ -674,10 +1284,50 @@ const EventItem: React.FC<EventItemProps> = ({
                                             {event.date ? format(new Date(event.date), 'dd MMM yyyy HH:mm', { locale: ru }) : 'Дата не задана'}
                                         </span>
                                     </EventDetailsRow>
+                                    {(event.event_type === 'ato' || event.event_type === 'АТО') && (
+                                        <EventDetailsRow style={{ marginTop: '8px', flexWrap: 'wrap' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <StyledAtoTag $isActive={true} style={{ cursor: 'default' }}>АТО</StyledAtoTag>
+                                                
+                                                {event.chat_ids && event.chat_ids.length > 0 && typeof event.chat_ids[0] === 'number' && availableChats.length > 0 && (
+                                                    <span style={{ marginLeft: '8px', fontSize: '0.8rem' }}>
+                                                        ({availableChats.find(c => c.id === event.chat_ids![0])?.name || `ID: ${event.chat_ids![0]}`})
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            {Array.isArray(event.retailiqa_comments) && event.retailiqa_comments.length > 0 && (
+                                                <AtoIconContainer>
+                                                    {/* Бейдж с процентом выполнения - не открывает модальное окно */}
+                                                    {scorePercentage !== undefined && (
+                                                        <AtoScoreBadge 
+                                                            $percentage={scorePercentage}
+                                                            whileHover={{ y: -2, boxShadow: "var(--shadow-md)" }}
+                                                            whileTap={{ y: 0, boxShadow: "var(--shadow-sm)" }}
+                                                        >
+                                                            {scorePercentage !== null ? Math.round(scorePercentage) : '0'}%
+                                                        </AtoScoreBadge>
+                                                    )}
+                                                    
+                                                    {/* Иконка и счетчик комментариев - открывает модальное окно */}
+                                                    <AtoIcon
+                                                        onClick={handleOpenAtoModal}
+                                                        whileHover={{ scale: 1.05 }}
+                                                        whileTap={{ scale: 0.95 }}
+                                                    >
+                                                        <ErrorOutlineIcon style={{ fontSize: '18px' }} />
+                                                        <CommentCount>{event.retailiqa_comments.length}</CommentCount>
+                                                    </AtoIcon>
+                                                </AtoIconContainer>
+                                            )}
+                                        </EventDetailsRow>
+                                    )}
                                 </EventInfoContainer>
 
                                 <div className="actions">
                                     {!notification ? (
+                                        // Показываем кнопку "Добавить уведомление" только для НЕ-АТО событий
+                                        event.event_type !== 'ato' && event.event_type !== 'АТО' ? (
                                         <AddNotificationPrompt>
                                             <motion.div
                                                 animate={{
@@ -701,6 +1351,7 @@ const EventItem: React.FC<EventItemProps> = ({
                                                 + Добавить 
                                             </AddNotificationButton>
                                         </AddNotificationPrompt>
+                                        ) : null // Для АТО событий не показываем промпт
                                     ) : (
                                         <NotificationDetailsContainer>
                                             <NotificationIconWrapper><NotificationsActiveIcon /></NotificationIconWrapper>
@@ -713,12 +1364,7 @@ const EventItem: React.FC<EventItemProps> = ({
                                                 </NotificationDetailLine>
                                                 <NotificationDetailLine>
                                                     <AccessTimeIcon />
-                                                    {(() => {
-                                                        const triggerTime = getNotificationTriggerTime(event.date, notification.time);
-                                                        return triggerTime 
-                                                               ? `${format(triggerTime, 'dd MMM HH:mm', { locale: ru })} (за ${notification.time} мин)`
-                                                               : 'Неверная дата события';
-                                                    })()}
+                                                    {formatNotificationTime(notification, event.date)}
                                                 </NotificationDetailLine>
                                                 {notification.repeat && notification.repeat.type !== 'none' && (
                                                     <NotificationDetailLine>
@@ -751,9 +1397,12 @@ const EventItem: React.FC<EventItemProps> = ({
                             </>
                         )}
                     </motion.div>
+                    
                     {!isCreating && (
-                        // @ts-ignore // Known issue with framer-motion types
-                        <AnimatePresence>
+                        <div>
+                          {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
+                          {/* @ts-ignore */}
+                          <AnimatePresence>
                             {isConfirming && (
                                 <ConfirmContainer 
                                     key="confirm-delete"
@@ -779,7 +1428,8 @@ const EventItem: React.FC<EventItemProps> = ({
                                     )}
                                 </ConfirmContainer>
                             )}
-                        </AnimatePresence>
+                          </AnimatePresence>
+                        </div>
                     )}
                 </StyledEventItem>
             )}

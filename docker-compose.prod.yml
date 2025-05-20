@@ -48,6 +48,9 @@ services:
       - HOST=0.0.0.0
       - ENVIRONMENT=production
       - JWT_SECRET_KEY=your_super_secret_key_here
+      - RETAILIQA_API_BASE_URL=https://ninjapizza.retailiqa.ru/api/v2/
+      - RETAILIQA_TOKEN=7e20cab58a5d4b06b6a55424f0127731
+      - RETAILIQA_API_TIMEOUT=15
     restart: unless-stopped
     depends_on:
       bot:

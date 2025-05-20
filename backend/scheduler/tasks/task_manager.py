@@ -4,6 +4,7 @@ import traceback
 # Удаляем импорт os, если он больше не нужен
 # Импортируем pytz для работы с временными зонами по имени
 import pytz 
+import httpx  # Заменяем aiohttp на httpx
 
 # Меняем импорт на новую модель и добавляем функцию создания таблицы
 # from models.scheduler_task import SchedulerTask
@@ -651,7 +652,7 @@ class TaskManager:
 
             task_type = None
             chat_id = None
-            # notification_id_from_job = None # Больше не нужно извлекать ID здесь для перепланирования
+            is_one_time_job = False
 
             try:
                 # --- Получаем Job и его актуальное next_run_time --- 
@@ -662,13 +663,22 @@ class TaskManager:
                     if actual_next_run_time:
                         logger.info(f"Слушатель: Следующее время запуска для {job_id} по данным APScheduler: {actual_next_run_time}")
                     else:
-                         logger.info(f"Слушатель: Задача {job_id} больше не имеет следующего времени запуска (одноразовая или завершена). Обновление БД не требуется.")
+                         logger.info(f"Слушатель: Задача {job_id} больше не имеет следующего времени запуска (одноразовая или завершена). Пометка для удаления из БД.")
+                         is_one_time_job = True
                 else:
-                    logger.warning(f"Слушатель: Не удалось получить объект Job для {job_id} после выполнения. Не могу обновить next_run_time в БД.")
+                    logger.warning(f"Слушатель: Не удалось получить объект Job для {job_id} после выполнения. Предполагаем, что это одноразовая задача.")
+                    is_one_time_job = True
                 # -------------------------------------------------
                 
-                # --- Обновляем время в нашей БД, если оно есть --- 
-                if actual_next_run_time and self.db_service:
+                # --- Обработка в зависимости от типа задачи ---
+                # Если это одноразовая задача, удаляем её из БД
+                if is_one_time_job:
+                    if self.db_service:
+                        logger.info(f"Слушатель: Удаление одноразовой задачи {job_id} из БД после выполнения...")
+                        asyncio.create_task(self.db_service.delete_task(job_id))
+                # Если это повторяющаяся задача, обновляем время в БД
+                elif actual_next_run_time and self.db_service:
+                    logger.info(f"Слушатель: Обновление next_run_time для повторяющейся задачи {job_id} в БД...")
                     # Запускаем обновление в фоне, чтобы не блокировать слушатель
                     asyncio.create_task(
                         self.db_service.update_task_next_run_time(job_id, actual_next_run_time)
@@ -724,6 +734,17 @@ class TaskManager:
                         asyncio.create_task(
                             self.db_service.notify_channel(websocket_channel, notify_payload)
                         )
+                elif task_type == 'event_notification' and is_one_time_job:
+                    # Для одноразовых уведомлений event_notification, извлекаем notification_id
+                    # и отправляем запрос в API для обновления статуса уведомления
+                    notification_id = None
+                    if job and job.kwargs:
+                        notification_id = job.kwargs.get('notification_id')
+                    
+                    if notification_id:
+                        logger.info(f"Слушатель: Отметка уведомления {notification_id} как выполненного...")
+                        # Реализуем вызов API для обновления статуса уведомления в отдельной задаче
+                        asyncio.create_task(self._mark_notification_completed(notification_id))
                 elif task_type:
                      logger.debug(f"Слушатель: Для задачи типа '{task_type}' дополнительная обработка после успеха не требуется.")
                 # --- Конец дополнительной обработки --- 
@@ -731,73 +752,38 @@ class TaskManager:
             except Exception as listener_err:
                 logger.error(f"Слушатель: Ошибка при обработке успешного выполнения задачи {job_id}: {listener_err}")
                 logger.error(traceback.format_exc())
-        
-    # --- Метод для планирования уведомлений --- 
-    async def schedule_event_notification(self, notification_data: Dict[str, Any]):
-        """Запускает планирование для задачи уведомления о событии."""
-        task_type = EventNotificationTask.TASK_TYPE
-        if task_type in self.task_instances:
-            # <<< ИСПРАВЛЕНИЕ: Используем notification_id для лога >>>
-            logger.info(f"Вызов schedule() для {task_type}, notification_id={notification_data.get('notification_id')}")
-            return await self.task_instances[task_type].schedule(notification_data)
-        else:
-            logger.error(f"Экземпляр задачи {task_type} не найден для планирования.")
-            return False
 
-    async def schedule_shift_access(self, chat_id: str):
-        """Запускает планирование для задачи доступа к сменам."""
-        task_type = ShiftAccessTask.TASK_TYPE
-        if task_type in self.task_instances:
-            logger.info(f"Вызов schedule() для {task_type}, chat_id={chat_id}")
-            return await self.task_instances[task_type].schedule(chat_id)
-        else:
-            logger.error(f"Экземпляр задачи {task_type} не найден для планирования.")
-            return False
-            
-    # --- НОВЫЙ МЕТОД для отмены напоминания --- 
-    async def cancel_reminder_task(self, reminder_job_id: str) -> bool:
-        """Пытается отменить (удалить) задачу-напоминание из APScheduler и из БД."""
-        logger.info(f"[TaskManager] Вызван метод cancel_reminder_task для ID: {reminder_job_id}")
-        logger.info(f"Попытка отмены задачи-напоминания с ID: {reminder_job_id}")
-
-        aps_removed_or_not_found = False
-        db_deleted = False
-
-        # Шаг 1: Попытка удаления из APScheduler
+    async def _mark_notification_completed(self, notification_id):
+        """Отправляет запрос к API сервера для обновления статуса уведомления."""
         try:
-            logger.debug(f"[TaskManager.cancel_reminder_task] Attempting to remove job with ID: {repr(reminder_job_id)}")
-            self.scheduler.remove_job(reminder_job_id)
-            logger.info(f"Задача-напоминание {reminder_job_id} успешно удалена из APScheduler.")
-            aps_removed_or_not_found = True
-        except JobLookupError:
-            logger.warning(f"Задача-напоминание {reminder_job_id} не найдена в APScheduler. Возможно, уже была удалена.")
-            aps_removed_or_not_found = True # Считаем "не найдено" тоже успехом для этого шага
-        except Exception as e:
-            logger.error(f"Ошибка при удалении задачи-напоминания {reminder_job_id} из APScheduler: {e}", exc_info=True)
-            # Не считаем успехом, если была другая ошибка
-            aps_removed_or_not_found = False
-
-        # Шаг 2: Попытка удаления из БД (независимо от успеха в APScheduler)
-        if self.db_service:
-            logger.info(f"Удаление записи о задаче {reminder_job_id} из БД scheduler_tasks...")
-            try:
-                db_deleted = await self.db_service.delete_task(reminder_job_id)
-                if db_deleted:
-                    logger.info(f"Запись о задаче {reminder_job_id} успешно удалена из БД.")
+            # Получаем URL API сервера из настроек
+            api_url = getattr(self.settings, 'API_SERVER_URL', None)
+            
+            if not api_url:
+                logger.error(f"URL API сервера (API_SERVER_URL) не задан в настройках. Не удалось обновить статус уведомления {notification_id}.")
+                return
+                
+            # Формируем URL для обновления статуса уведомления
+            update_url = f"{api_url.rstrip('/')}/api/v1/notifications/{notification_id}/status"
+            
+            logger.info(f"Отправка запроса на обновление статуса уведомления {notification_id} по URL: {update_url}")
+            
+            # Готовим данные для запроса
+            payload = {
+                "status": "completed",
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            }
+            
+            # Отправляем запрос используя httpx вместо aiohttp
+            async with httpx.AsyncClient() as client:
+                response = await client.patch(update_url, json=payload)
+                if response.status_code == 200:
+                    logger.info(f"Статус уведомления {notification_id} успешно обновлен на 'completed'")
                 else:
-                    # db_service.delete_task сам логирует, если не найдено
-                    logger.warning(f"Не удалось удалить запись о задаче {reminder_job_id} из БД (возможно, ее там и не было).")
-            except Exception as db_err:
-                logger.error(f"Ошибка при удалении записи о задаче {reminder_job_id} из БД: {db_err}", exc_info=True)
-                db_deleted = False
-        else:
-            logger.warning("db_service не инициализирован, пропуск удаления из БД.")
-
-        # Возвращаем True, если задача была удалена из APScheduler ИЛИ не найдена там,
-        # И (если db_service есть) удалось удалить ее из БД ИЛИ ее там не было.
-        # Основной критерий - удалось ли убрать задачу отовсюду, где она могла быть.
-        return aps_removed_or_not_found and db_deleted
-    # --- Конец нового метода --- 
+                    logger.error(f"Ошибка при обновлении статуса уведомления {notification_id}: {response.status_code}, {response.text}")
+        except Exception as e:
+            logger.error(f"Исключение при обновлении статуса уведомления {notification_id}: {e}")
+            logger.error(traceback.format_exc())
 
     # ... (остальные методы TaskManager) ...
 

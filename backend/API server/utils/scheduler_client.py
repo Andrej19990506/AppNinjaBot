@@ -27,6 +27,9 @@ async def notify_scheduler(notification_pydantic: NotificationRead, event_date: 
             # Используем mode='json' для правильной сериализации datetime внутри модели
             payload = notification_pydantic.model_dump(mode='json')
             
+            # Улучшенное логирование исходных данных для отладки проблемы send_now
+            logger.info(f"[notify_scheduler] Исходные данные notification_pydantic: send_now={notification_pydantic.send_now}, use_absolute_time={notification_pydantic.use_absolute_time}")
+            
             # --- ИСПРАВЛЕНИЕ: Переименовываем ключи для соответствия ожиданиям schedule() --- 
             # 1. notification_id
             if 'id' in payload:
@@ -43,6 +46,30 @@ async def notify_scheduler(notification_pydantic: NotificationRead, event_date: 
             # 3. time_before
             if 'time' in payload:
                  payload['time_before'] = payload.pop('time')
+            
+            # 4. Проверяем и передаем новые параметры времени
+            # Уже есть в payload с теми же именами:
+            # - use_absolute_time 
+            # - absolute_time (уже сериализован как ISO строка)
+            # - send_now
+            
+            # Явно проверяем, что send_now существует и правильно преобразуем в bool
+            if 'send_now' in payload:
+                payload['send_now'] = bool(payload['send_now'])
+                # Логируем для отладки
+                logger.info(f"[notify_scheduler] Установлен параметр send_now={payload['send_now']} в payload")
+            else:
+                # Если поле отсутствует, добавляем его явно из исходной модели
+                payload['send_now'] = bool(notification_pydantic.send_now)
+                logger.info(f"[notify_scheduler] Добавлен параметр send_now={payload['send_now']} в payload из модели")
+            
+            # Логируем режим времени для дебага
+            if payload.get('send_now'):
+                logger.info(f"[notify_scheduler] Уведомление {payload.get('notification_id')} будет отправлено немедленно")
+            elif payload.get('use_absolute_time'):
+                logger.info(f"[notify_scheduler] Уведомление {payload.get('notification_id')} будет отправлено в абсолютное время: {payload.get('absolute_time')}")
+            else:
+                logger.info(f"[notify_scheduler] Уведомление {payload.get('notification_id')} будет отправлено относительно времени события: за {payload.get('time_before')} мин до {payload.get('event_date')}")
             # ----------------------------------------------------------------------------
 
         except Exception as dump_error:
@@ -50,7 +77,9 @@ async def notify_scheduler(notification_pydantic: NotificationRead, event_date: 
             return # Прерываем выполнение, если не можем создать payload
 
         logger.info(f"[notify_scheduler] Подготовка к отправке данных уведомления {payload.get('notification_id')} в Шедулер: {endpoint_url}")
-        logger.debug(f"[notify_scheduler] Payload для отправки: {payload}")
+        
+        # Подробно логируем весь payload перед отправкой
+        logger.info(f"[notify_scheduler] Полный payload для отправки в шедулер: {json.dumps(payload, default=str)}")
 
         async with httpx.AsyncClient() as client:
             logger.info(f"[notify_scheduler] Отправка POST запроса на {endpoint_url}")

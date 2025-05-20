@@ -42,22 +42,55 @@ export const getEvents = async (): Promise<EventRead[]> => {
  * @param {EventCreate} eventData - Данные для создания события.
  * @returns {Promise<EventRead>} Созданное событие.
  */
-export const createEvent = async (eventData: EventCreate): Promise<EventRead> => {
+export const createEvent = async (
+    eventData: EventCreate & { event_type?: string, chat_ids?: number[], group_telegram_id?: number, date_from?: string, date_to?: string, max_pages?: number }, // Расширяем тип для АТО-специфичных полей
+): Promise<EventRead | EventRead[]> => { // Возвращаемый тип может быть EventRead или EventRead[]
     const logPrefix = '[eventsApi:createEvent]';
-    logger.log(`${logPrefix} 📡 Создание события...`, eventData);
-    try {
-        const response = await axiosInstance.post<EventRead>('/api/v1/events/', eventData);
-        logger.log(`${logPrefix} ✅ Событие создано:`, response.data);
-        return response.data;
-    } catch (error: any) {
-        logger.error(`${logPrefix} ❌ Ошибка при создании события:`, error);
-        if (axios.isAxiosError(error)) {
-            const detail = error.response?.data?.detail;
-            throw new Error(detail || error.message || 'Ошибка при создании события.');
-        } else if (error instanceof Error) {
+    
+    // Отладка: выводим полученные данные для принятия решения, какой эндпоинт вызывать
+    console.log(`${logPrefix} Данные события:`, JSON.stringify(eventData));
+    console.log(`${logPrefix} Тип события:`, eventData.event_type);
+    console.log(`${logPrefix} group_telegram_id:`, eventData.group_telegram_id);
+    
+    // Проверяем, является ли это событием типа "АТО"
+    // event_type должен быть 'ato' (как в типе EventCreate) 
+    // и group_telegram_id должен присутствовать для АТО
+    if (eventData.event_type === 'ato' && eventData.group_telegram_id) {
+        logger.log(`${logPrefix} 📡 Создание АТО события через RetailiQA для группы ${eventData.group_telegram_id}...`, eventData);
+        try {
+            // Используем существующую функцию, передавая нужные параметры
+            // Если date_from, date_to, max_pages не переданы в eventData, они будут undefined,
+            // и processRetailiQAReportsForGroup обработает это (они опциональны)
+            const atoResponse = await processRetailiQAReportsForGroup(
+                eventData.group_telegram_id,
+                eventData.date_from,
+                eventData.date_to,
+                eventData.max_pages
+            );
+            // processRetailiQAReportsForGroup уже логирует успешное выполнение
+            return atoResponse; // Возвращает Promise<EventRead[]>
+        } catch (error: any) {
+            // processRetailiQAReportsForGroup уже логирует ошибку
+            // Просто перебрасываем ошибку дальше, чтобы ее обработал thunk
             throw error;
         }
-        throw new Error('Произошла неизвестная ошибка при создании события.');
+    } else {
+        // Стандартная логика для создания обычного события
+        logger.log(`${logPrefix} 📡 Создание обычного события...`, eventData);
+        try {
+            const response = await axiosInstance.post<EventRead>('/api/v1/events/', eventData);
+            logger.log(`${logPrefix} ✅ Обычное событие создано:`, response.data);
+            return response.data; // Возвращает Promise<EventRead>
+        } catch (error: any) {
+            logger.error(`${logPrefix} ❌ Ошибка при создании обычного события:`, error);
+            if (axios.isAxiosError(error)) {
+                const detail = error.response?.data?.detail;
+                throw new Error(detail || error.message || 'Ошибка при создании обычного события.');
+            } else if (error instanceof Error) {
+                throw error;
+            }
+            throw new Error('Произошла неизвестная ошибка при создании обычного события.');
+        }
     }
 };
 
@@ -101,12 +134,20 @@ export const createNotification = async (
 ): Promise<EventNotification> => {
     const logPrefix = '[eventsApi:createNotification]';
     logger.log(`${logPrefix} 📡 Создание уведомления для события ID ${eventId}...`, notificationData);
+    
+    // Отладка параметров send_now, time и timeMode
+    console.log(`${logPrefix} ОТЛАДКА: send_now=${notificationData.send_now}, time=${notificationData.time}`);
+    
     try {
         const response = await axiosInstance.post<EventNotification>(
             `/api/v1/events/${eventId}/notifications`, 
             notificationData
         );
         logger.log(`${logPrefix} ✅ Уведомление создано:`, response.data);
+        
+        // Отладка ответа от сервера
+        console.log(`${logPrefix} ОТВЕТ API: status=${response.status}, `, response.data);
+        
         return response.data;
     } catch (error: any) {
         logger.error(`${logPrefix} ❌ Ошибка при создании уведомления для события ID ${eventId}:`, error);
@@ -159,6 +200,59 @@ export const updateNotification = async (
             throw error;
         }
         throw new Error('Произошла неизвестная ошибка при обновлении уведомления.');
+    }
+};
+
+/**
+ * Запускает обработку отчетов RetailiQA для указанной группы и диапазона дат.
+ * @param {number} groupTelegramId - Telegram ID группы.
+ * @param {string} [dateFrom] - Начальная дата в формате YYYY-MM-DD (опционально).
+ * @param {string} [dateTo] - Конечная дата в формате YYYY-MM-DD (опционально).
+ * @param {number} [maxPages] - Максимальное количество страниц для запроса (опционально).
+ * @returns {Promise<EventRead[]>} Массив созданных/обновленных событий.
+ */
+export const processRetailiQAReportsForGroup = async (
+    groupTelegramId: number,
+    dateFrom?: string,
+    dateTo?: string,
+    maxPages?: number
+): Promise<EventRead[]> => {
+    const logPrefix = '[eventsApi:processRetailiQAReportsForGroup]';
+    logger.log(`${logPrefix} 📡 Запуск обработки отчетов RetailiQA для группы ${groupTelegramId}, даты: ${dateFrom || 'N/A'} - ${dateTo || 'N/A'}, страницы: ${maxPages || 'N/A'}...`);
+
+    // Собираем параметры запроса, которые могут быть undefined
+    const params: { [key: string]: any } = {};
+    if (dateFrom) {
+        params.date_from = dateFrom;
+    }
+    if (dateTo) {
+        params.date_to = dateTo;
+    }
+    if (maxPages !== undefined) {
+        params.max_pages = maxPages;
+    }
+
+    try {
+        const response = await axiosInstance.post<EventRead[]>(
+            `/api/v1/events/groups/${groupTelegramId}/process-retailiqa-reports`,
+            null, // Тело запроса POST пустое, параметры передаются через URL query string
+            { params } // Axios автоматически добавит их в URL query string для POST запроса
+        );
+        logger.log(`${logPrefix} ✅ Обработка отчетов RetailiQA для группы ${groupTelegramId} завершена, получено событий: ${response.data?.length ?? 0} шт.`);
+        return response.data || [];
+    } catch (error: any) {
+        logger.error(`${logPrefix} ❌ Ошибка при обработке отчетов RetailiQA для группы ${groupTelegramId}:`, error);
+        if (axios.isAxiosError(error)) {
+            const status = error.response?.status;
+            const detail = error.response?.data?.detail;
+            if (status === 404) {
+                throw new Error(detail || 'Группа не найдена или объект RetailiQA не настроен.');
+            }
+            throw new Error(detail || error.message || 'Ошибка при обработке отчетов RetailiQA.');
+        } else if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error('Произошла неизвестная ошибка при обработке отчетов RetailiQA.');
     }
 };
 

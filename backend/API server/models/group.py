@@ -37,6 +37,9 @@ class Group(Base):
     # <<< ДОБАВЛЕНО: Поле для дополнительных кастомных товаров группы >>>
     json_inventory_additions = Column(JSON, nullable=True, comment='Stores group-specific item additions/definitions')
 
+    # НОВОЕ ПОЛЕ ДЛЯ ИНТЕГРАЦИИ С RETAILIQA
+    retailiqa_object_name = Column(String(255), nullable=True, comment='Имя объекта из RetailiQA для данной группы')
+
     # Связь с ассоциативной таблицей group_members
     members: Mapped[List["GroupMember"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 

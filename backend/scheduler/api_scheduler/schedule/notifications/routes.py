@@ -31,6 +31,11 @@ class NotificationSchedulePayload(BaseModel):
     updated_at: Optional[datetime] = None # Эти можно оставить или убрать
     # <<< НОВОЕ ПОЛЕ >>>
     requires_confirmation: bool = Field(False, description="Требуется ли подтверждение в чате?")
+    
+    # <<< НОВЫЕ ПОЛЯ ДЛЯ УПРАВЛЕНИЯ ВРЕМЕНЕМ >>>
+    use_absolute_time: bool = Field(False, description="Использовать абсолютное время вместо относительного")
+    absolute_time: Optional[str] = Field(None, description="Абсолютное время для отправки уведомления (ISO строка)")
+    send_now: bool = Field(False, description="Отправить уведомление немедленно после создания")
 
     # Config здесь не нужен, так как мы не создаем из ORM
     # class Config:
@@ -51,22 +56,25 @@ async def schedule_notification(
     для планирования или обновления задачи.
     """
     logger.info(f"[Schedule Notification] Received request for notification ID: {payload.notification_id}")
-    # --- ИСПРАВЛЕНИЕ: Проверим обязательные поля для TaskManager --- 
-    # TaskManager ожидает event_id и event_time, а они сейчас опциональны тут.
-    # Это временное решение, пока API не начнет их присылать.
-    # В реальном коде здесь нужна валидация или изменение логики.
-    # logger.debug(f"[Schedule Notification] Payload: {payload.model_dump()}")
-    # --- ------------------------------------------------------- ---
     
-    # --- Логируем полученные данные --- 
-    # Используем model_dump() для корректного отображения
+    # Логируем данные из payload
     try:
+        # Преобразуем Pydantic модель в словарь для логирования
         payload_dict = payload.model_dump()
-        logger.debug(f"[Schedule Notification] Parsed Payload: {payload_dict}")
-    except Exception as dump_exc:
-        logger.error(f"Error dumping received payload: {dump_exc}")
-        payload_dict = {} # Используем пустой словарь в случае ошибки
-    # ----------------------------------
+        logger.info(f"[Schedule Notification] Processed Payload: {payload_dict}")
+        # Проверяем конкретные поля
+        logger.info(f"[Schedule Notification] Значение send_now в payload: {payload.send_now}, тип: {type(payload.send_now)}")
+    except Exception as e:
+        logger.error(f"[Schedule Notification] Ошибка при логировании payload: {e}")
+    
+    # Логируем критически важные параметры для отладки
+    logger.info(f"[Schedule Notification] Параметры времени: send_now={payload.send_now}, use_absolute_time={payload.use_absolute_time}, time_before={payload.time_before}")
+    if payload.send_now:
+        logger.info(f"[Schedule Notification] Уведомление {payload.notification_id} настроено на немедленную отправку")
+    elif payload.use_absolute_time:
+        logger.info(f"[Schedule Notification] Уведомление {payload.notification_id} настроено на абсолютное время: {payload.absolute_time}")
+    else:
+        logger.info(f"[Schedule Notification] Уведомление {payload.notification_id} настроено на относительное время: за {payload.time_before} мин до {payload.event_date}")
     
     # --- Получаем TaskManager из состояния приложения ---
     try:
@@ -95,21 +103,31 @@ async def schedule_notification(
 
     # --- Вызываем метод планирования в TaskManager ---
     try:
-        success = await task_manager.schedule_event_notification(payload_dict)
+        # Получаем экземпляр EventNotificationTask для планирования
+        event_notification_task = task_manager.task_instances.get('event_notification')
+        if not event_notification_task:
+            logger.error(f"[Schedule Notification] EventNotificationTask не найден в task_manager.task_instances")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Scheduler internal error: EventNotificationTask not available"
+            )
+            
+        # Вызываем метод schedule экземпляра EventNotificationTask
+        success = await event_notification_task.schedule(payload_dict)
 
         if success:
             logger.info(f"[Schedule Notification] Task scheduling initiated successfully for notification ID: {payload.notification_id}")
             return {"status": "success", "message": "Notification scheduling initiated"}
         else:
-            # Если schedule_event_notification вернул False (например, из-за ошибки валидации или API)
-            logger.error(f"[Schedule Notification] TaskManager.schedule_event_notification вернул False для уведомления ID: {payload.notification_id}")
+            # Если schedule вернул False (например, из-за ошибки валидации или API)
+            logger.error(f"[Schedule Notification] EventNotificationTask.schedule вернул False для уведомления ID: {payload.notification_id}")
             # Возвращаем ошибку, чтобы API сервер знал о проблеме
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, # Или 400, если проблема в данных?
-                detail="Failed to schedule notification via TaskManager"
+                detail="Failed to schedule notification via EventNotificationTask"
             )
     except Exception as e:
-        logger.exception(f"[Schedule Notification] Ошибка при вызове task_manager.schedule_event_notification для ID {payload.notification_id}: {e}")
+        logger.exception(f"[Schedule Notification] Ошибка при вызове event_notification_task.schedule для ID {payload.notification_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal scheduler error during scheduling: {e}"

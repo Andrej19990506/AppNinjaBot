@@ -24,13 +24,23 @@ export const DrawerContainer = styled(motion.div)`
     z-index: 1000; /* Выше оверлея */
     display: flex;
     flex-direction: column;
+    overflow: hidden; /* Предотвращает проблемы с внутренним содержимым */
 `;
 
 export const DrawerContent = styled.div`
     flex-grow: 1;
     overflow-y: auto; /* Скролл, если контент не помещается */
-    padding: 20px;
-    /* Дополнительные стили для контента, если нужно */
+    padding: 0; /* Убираем отступы для полного заполнения */
+    width: 100%; /* Явно указываем ширину 100% */
+    display: flex; /* Используем flex для полного заполнения потомками */
+    flex-direction: column;
+    
+    /* Обеспечиваем, чтобы дочерние элементы занимали всю доступную ширину */
+    & > * {
+        width: 100%;
+        min-width: 100%;
+        box-sizing: border-box;
+    }
 `;
 
 // Можно добавить элемент для закрытия (например, ручку сверху)

@@ -20,8 +20,15 @@ class Notification(Base):
     repeat_config = Column(JSONB, nullable=True, comment="Additional repeat configuration (e.g., weekdays, month day)")
     chat_ids = Column(ARRAY(BigInteger), nullable=True, comment="List of chat IDs to send the notification to")
     requires_confirmation = Column(Boolean, nullable=False, server_default=sa.text("false"), comment="Does this notification require user confirmation?")
+    status = Column(String, nullable=False, server_default='pending', comment="Status of the notification: pending, sent, completed, failed")
+    completed_at = Column(TIMESTAMP(timezone=True), nullable=True, comment="Timestamp when the notification was completed")
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    
+    # Новые поля для управления временем уведомления
+    send_now = Column(Boolean, nullable=False, server_default=sa.text("false"), comment="Send notification immediately after creation")
+    use_absolute_time = Column(Boolean, nullable=False, server_default=sa.text("false"), comment="Use absolute time instead of relative to event time")
+    absolute_time = Column(TIMESTAMP(timezone=True), nullable=True, comment="Absolute time for notification if use_absolute_time is true")
 
     # Связь с событием (один-ко-многим: много уведомлений у одного события)
     event = relationship("Event", back_populates="notifications")

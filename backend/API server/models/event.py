@@ -1,8 +1,7 @@
 # backend/API server/models/event.py
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, JSON, Text, Float, BigInteger
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from sqlalchemy import sql as sa
 
 # Импортируем базовый класс для моделей из твоего проекта
 from .base import Base
@@ -26,6 +25,27 @@ class Event(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
+    # --- Поля для типа события и интеграции с RetailiQA (АТО) ---
+    event_type = Column(String, index=True, nullable=True) # Например: "АТО", "Зарплата"
+
+    retailiqa_insp_id = Column(String, unique=True, index=True, nullable=True) # ID проверки из RetailiQA
+    retailiqa_insp_obj_id = Column(String, index=True, nullable=True) # ID объекта проверки из RetailiQA
+    retailiqa_insp_obj_name = Column(String, nullable=True) # Название объекта проверки
+    retailiqa_total_points = Column(Float, nullable=True) # Общий набранный балл АТО
+    retailiqa_penalty_points = Column(Float, nullable=True) # Общий штрафной балл АТО
+    retailiqa_comments = Column(JSON, nullable=True) # Замечания АТО (например, список строк или объектов)
+    retailiqa_photos = Column(JSON, nullable=True) # Фото АТО (список URL)
+    
+    # --- Новые поля для результатов проверки RetailiQA ---
+    retailiqa_score_percentage = Column(Float, nullable=True) # Процент выполнения проверки
+    retailiqa_max_points = Column(Float, nullable=True) # Максимально возможные баллы
+    retailiqa_earned_points = Column(Float, nullable=True) # Набранные баллы
+    
+    # --- Новые поля для детальной информации о нарушениях ---
+    retailiqa_violation_count = Column(Integer, nullable=True) # Количество нарушений
+    retailiqa_detailed_violations = Column(JSON, nullable=True) # Детальная информация о нарушениях
+    # --- Конец полей для RetailiQA ---
+
     # <<< ДОБАВЛЕНО: Связь с уведомлениями >>>
     notifications = relationship(
         "Notification", 
@@ -34,8 +54,11 @@ class Event(Base):
         lazy="selectin" # Загружать уведомления сразу вместе с событием (эффективно для "один-ко-многим")
     )
 
+    # --- Поля для chat_ids --- Изменяем тип на JSON
+    chat_ids = Column(JSON, nullable=True) # Поле для хранения списка ID чатов как JSON
+
     def __repr__(self):
-        return f"<Event(id={self.id}, description='{self.description[:20]}...', date='{self.date}')>"
+        return f"<Event(id={self.id}, type='{self.event_type}', description='{self.description[:20]}...', date='{self.date}')>"
 
     # --- Дополнительные свойства для маппинга на Pydantic (если нужно) ---
     # Pydantic модель ожидает вложенные объекты repeat и scheduling_status

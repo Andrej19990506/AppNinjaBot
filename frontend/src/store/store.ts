@@ -27,6 +27,7 @@ import availableCouriersReducer from './slices/availableCouriersSlice';
 
 // NEW: Импорт редьюсера событий
 import eventsReducer from './slices/eventsSlice';
+import atoModalReducer from './slices/atoModalSlice';
 
 // Создаем listener middleware instance
 export const listenerMiddleware = createListenerMiddleware();
@@ -113,6 +114,7 @@ const store = configureStore({
         availableCouriers: availableCouriersReducer,
         // NEW: Добавляем редьюсер событий
         events: eventsReducer,
+        atoModal: atoModalReducer,
     },
     // preloadedState, // Закомментировано
     middleware: (getDefaultMiddleware) =>
@@ -139,6 +141,7 @@ export type RootState = {
     availableCouriers: ReturnType<typeof availableCouriersReducer>;
     // NEW: Добавляем тип для среза событий
     events: ReturnType<typeof eventsReducer>;
+    atoModal: ReturnType<typeof atoModalReducer>;
 };
 
 export type AppDispatch = typeof store.dispatch;

@@ -42,17 +42,6 @@ const GalleryContent = styled(motion.div)`
   align-items: center;
 `;
 
-const GalleryControls = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: space-between;
-  padding: 16px;
-  z-index: 1101;
-`;
-
 const GalleryCloseButton = styled(motion.button)`
   background: none;
   border: none;
@@ -69,9 +58,55 @@ const GalleryCloseButton = styled(motion.button)`
   &:hover {
     background-color: var(--primary-color);
   }
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1102;
 `;
 
-const GalleryImageContainer = styled(motion.div)<{ $scale: number }>`
+const GalleryNavButton = styled(motion.button)`
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.3);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 1102;
+  transition: background-color var(--transition-fast), opacity var(--transition-fast);
+  opacity: 0.7;
+  will-change: transform;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.5);
+    opacity: 1;
+  }
+
+  &.prev {
+    left: 16px;
+  }
+
+  &.next {
+    right: 16px;
+  }
+
+  &:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  svg {
+    font-size: 20px;
+  }
+`;
+
+const GalleryImageContainer = styled(motion.div)<{ $scale: number; $isNavigating?: boolean }>`
   position: relative;
   display: flex;
   justify-content: center;
@@ -80,7 +115,9 @@ const GalleryImageContainer = styled(motion.div)<{ $scale: number }>`
   height: 100%;
   overflow: hidden;
   transform: scale(${props => props.$scale});
-  transition: transform var(--transition-normal);
+  /* Условный переход: мгновенный при навигации, плавный при зуме */
+  transition: ${props => props.$isNavigating ? 'none' : `transform 0.3s ease`};
+  will-change: transform;
 `;
 
 const GalleryImage = styled(motion.img)`
@@ -91,39 +128,9 @@ const GalleryImage = styled(motion.img)`
   box-shadow: 0 5px 25px rgba(0, 0, 0, 0.3);
 `;
 
-const GalleryNavButton = styled(motion.button)`
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  cursor: pointer;
-  z-index: 1102;
-  transition: background-color var(--transition-normal);
-  
-  &:hover {
-    background-color: var(--primary-color);
-  }
-  
-  &.prev {
-    left: 16px;
-  }
-  
-  &.next {
-    right: 16px;
-  }
-`;
-
 const GalleryCounter = styled.div`
   position: absolute;
-  bottom: 16px;
+  top: 16px;
   left: 50%;
   transform: translateX(-50%);
   color: white;
@@ -137,7 +144,8 @@ const GalleryCounter = styled.div`
 const ZoomControls = styled.div`
   position: absolute;
   bottom: 16px;
-  right: 16px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   gap: 10px;
   z-index: 1102;
@@ -219,22 +227,27 @@ const contentVariants = {
 const imageVariants = {
   enter: (direction: number) => ({
     x: direction > 0 ? '100%' : '-100%',
-    opacity: 0
+    opacity: 0,
+    scale: 0.8
   }),
   center: {
     x: 0,
     opacity: 1,
+    scale: 1,
     transition: {
       x: { type: 'spring', stiffness: 300, damping: 30 },
-      opacity: { duration: 0.2 }
+      opacity: { duration: 0.2 },
+      scale: { duration: 0.3, ease: "easeOut" }
     }
   },
   exit: (direction: number) => ({
     x: direction < 0 ? '100%' : '-100%',
     opacity: 0,
+    scale: 0,
     transition: {
       x: { type: 'spring', stiffness: 300, damping: 30 },
-      opacity: { duration: 0.2 }
+      opacity: { duration: 0.2 },
+      scale: { duration: 0.2, ease: "easeIn" }
     }
   })
 };
@@ -249,12 +262,50 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   const [direction, setDirection] = useState(0);
   const [scale, setScale] = useState(1);
   const [imageError, setImageError] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   
-  useEffect(() => {
-    // Сбрасываем масштаб при смене фото
-    setScale(1);
-  }, [currentIndex]);
-  
+  // --- Определяем пропсы для перетаскивания --- 
+  const commonDragLogic = {
+    dragConstraints: { left: 0, right: 0 },
+    dragElastic: 0.5,
+    onDragEnd: (event: any, info: { offset: { x: number; y: number; }; velocity: { x: number; y: number; }; }) => {
+      // Для ImageErrorPlaceholder или GalleryImage при scale === 1 (когда isNavigating=false)
+      handleSwipe(info.offset, info.velocity);
+    },
+  };
+
+  const galleryImageDragProps = isNavigating ? {
+    drag: false as const,
+    onDragEnd: undefined,
+    dragConstraints: undefined,
+    dragElastic: undefined,
+  } : {
+    drag: scale === 1 ? "x" as const : (scale > 1 ? true : undefined),
+    dragConstraints: scale === 1
+      ? { left: 0, right: 0 }
+      : (scale > 1 
+          ? { left: -window.innerWidth / 2, right: window.innerWidth / 2, top: -window.innerHeight / 2, bottom: window.innerHeight /2 } // Более широкие границы для зума
+          : undefined),
+    dragElastic: scale === 1 ? 0.5 : 0.2, // Меньшая эластичность при зуме
+    onDragEnd: (event: any, info: { offset: { x: number; y: number; }; velocity: { x: number; y: number; }; }) => {
+      if (scale === 1) { 
+        handleSwipe(info.offset, info.velocity);
+      }
+      // Для масштабированных изображений здесь можно добавить логику возврата к центру или другую
+    },
+  };
+
+  const errorPlaceholderDragProps = isNavigating ? {
+    drag: false as const,
+    onDragEnd: undefined,
+    dragConstraints: undefined,
+    dragElastic: undefined,
+  } : {
+    drag: "x" as const,
+    ...commonDragLogic,
+  };
+  // --- Конец определения пропсов для перетаскивания ---
+
   useEffect(() => {
     // Сбрасываем индекс при открытии галереи
     if (isOpen) {
@@ -263,10 +314,18 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     }
   }, [isOpen, initialIndex]);
   
-  // Сброс состояния ошибки при изменении индекса
+  // Эффект для сброса ошибки изображения при смене индекса
   useEffect(() => {
     setImageError(false);
   }, [currentIndex]);
+  
+  // Обработчик завершения анимации для нового изображения
+  const handleImageAnimationComplete = (definition: any) => {
+    if (definition === "center") {
+      // Сброс флага навигации после завершения анимации перехода к центру
+      setIsNavigating(false);
+    }
+  };
   
   // Обработчик клавиш для навигации
   useEffect(() => {
@@ -294,13 +353,18 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, photos.length, onClose]);
+  }, [isOpen, currentIndex, photos.length, onClose, isNavigating]); // Добавляем isNavigating в зависимости
   
   // Функции навигации
   const showPrevious = () => {
     if (photos.length <= 1) return;
+    if (isNavigating) return; // Предотвращаем навигацию во время анимации
     
+    setIsNavigating(true); // Устанавливаем флаг навигации
+    setScale(1); // Сбрасываем масштаб перед сменой фото
     setDirection(-1);
+    
+    // Переключаем индекс немедленно
     setCurrentIndex((prevIndex) => 
       prevIndex === 0 ? photos.length - 1 : prevIndex - 1
     );
@@ -308,8 +372,13 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
   
   const showNext = () => {
     if (photos.length <= 1) return;
+    if (isNavigating) return; // Предотвращаем навигацию во время анимации
     
+    setIsNavigating(true); // Устанавливаем флаг навигации
+    setScale(1); // Сбрасываем масштаб перед сменой фото
     setDirection(1);
+    
+    // Переключаем индекс немедленно
     setCurrentIndex((prevIndex) => 
       prevIndex === photos.length - 1 ? 0 : prevIndex + 1
     );
@@ -335,6 +404,35 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
     setImageError(true);
   };
   
+  // Функция для обработки свайпа
+  const handleSwipe = (offset: { x: number; y: number }, velocity: { x: number; y: number }) => {
+    const swipeThreshold = 50;      // Минимальное расстояние перетаскивания для "засчитанного" свайпа
+    const velocityThreshold = 200;  // Минимальная скорость для "быстрого" свайпа (флика)
+
+    // Не обрабатываем свайпы во время анимации
+    if (isNavigating) return;
+
+    // Проверяем горизонтальный свайп
+    if (velocity.x < -velocityThreshold || offset.x < -swipeThreshold) {
+      showNext();
+    } else if (velocity.x > velocityThreshold || offset.x > swipeThreshold) {
+      showPrevious();
+    }
+  };
+  
+  // Добавляем эффект для отладки состояния isNavigating
+  useEffect(() => {
+    // Добавляем резервный механизм сброса isNavigating
+    // В случае если анимация не срабатывает корректно, гарантируем сброс флага
+    if (isNavigating) {
+      const timer = setTimeout(() => {
+        setIsNavigating(false);
+      }, 800); // Запас времени для завершения анимации
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isNavigating, currentIndex]);
+  
   if (!isOpen || photos.length === 0) return null;
   
   return (
@@ -357,44 +455,49 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
           exit="exit"
           onClick={(e) => e.stopPropagation()}
         >
-          <GalleryControls>
-            <GalleryCloseButton
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-            >
-              <CloseIcon />
-            </GalleryCloseButton>
-          </GalleryControls>
+          <GalleryCloseButton
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onClose}
+          >
+            <CloseIcon />
+          </GalleryCloseButton>
           
-          {/* Навигационные кнопки */}
+          
+          {/* Восстанавливаем и добавляем навигационные кнопки */}
           {photos.length > 1 && (
             <>
               <GalleryNavButton
                 className="prev"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={showPrevious}
+                whileHover={{ opacity: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+                whileTap={{ backgroundColor: 'var(--primary-color)', opacity: 1 }}
+                onClick={(e) => { e.stopPropagation(); showPrevious(); }}
+                disabled={currentIndex === 0}
               >
-                <ArrowBackIosNewIcon fontSize="small" />
+                <ArrowBackIosNewIcon />
               </GalleryNavButton>
               
               <GalleryNavButton
                 className="next"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={showNext}
+                whileHover={{ opacity: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+                whileTap={{ backgroundColor: 'var(--primary-color)', opacity: 1 }}
+                onClick={(e) => { e.stopPropagation(); showNext(); }}
+                disabled={currentIndex === photos.length - 1}
               >
-                <ArrowForwardIosIcon fontSize="small" />
+                <ArrowForwardIosIcon />
               </GalleryNavButton>
             </>
           )}
           
           {/* Контейнер для изображения */}
-          <GalleryImageContainer $scale={scale}>
+          <GalleryImageContainer 
+            $scale={scale} 
+            $isNavigating={isNavigating}
+            key={`container-${currentIndex}`} // Добавляем ключ для форсирования пересоздания при смене фото
+          >
             {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
             {/* @ts-ignore */}
-            <AnimatePresence initial={false} custom={direction}>
+            <AnimatePresence initial={false} custom={direction} mode="wait">
               {imageError ? (
                 <ImageErrorPlaceholder
                   key={`error-${currentIndex}`}
@@ -403,6 +506,8 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
                   initial="enter"
                   animate="center"
                   exit="exit"
+                  {...errorPlaceholderDragProps}
+                  onAnimationComplete={handleImageAnimationComplete}
                 >
                   <BrokenImageIcon />
                   <p>Не удалось загрузить изображение</p>
@@ -420,9 +525,8 @@ const PhotoGallery: React.FC<PhotoGalleryProps> = ({
                   exit="exit"
                   onClick={handleImageClick}
                   onError={handleImageError}
-                  drag={scale > 1}
-                  dragConstraints={{ left: -100, right: 100, top: -100, bottom: 100 }}
-                  dragElastic={0.1}
+                  {...galleryImageDragProps}
+                  onAnimationComplete={handleImageAnimationComplete}
                 />
               )}
             </AnimatePresence>

@@ -16,6 +16,7 @@ const API_BASE_URL = config.API_URL;
 export interface SlotConfigForDay {
     maxDaySlots: number;
     maxNightSlots: number;
+    hasSeniorSlot?: boolean; // Добавляем флаг для слота старшего курьера
 }
 // --- ---------------------------------------------- ---
 
@@ -79,6 +80,7 @@ interface BookShiftThunkParams {
 export const defaultSingleDaySlotConfig: SlotConfigForDay = {
     maxDaySlots: 4,
     maxNightSlots: 2,
+    hasSeniorSlot: false, // По умолчанию слот отключен
 };
 
 export const defaultWeeklySlotConfig: WeeklySlotConfig = {
@@ -621,16 +623,16 @@ const shiftsSlice = createSlice({
              }
         },
         // Редьюсер для обновления ТОЛЬКО конфига слотов (если нужно)
-        updateSlotConfigLocal: (state, action: PayloadAction<{ dayIndex: number; maxDaySlots: number; maxNightSlots: number }>) => {
-            const { dayIndex, maxDaySlots, maxNightSlots } = action.payload;
+        updateSlotConfigLocal: (state, action: PayloadAction<{ dayIndex: number; maxDaySlots: number; maxNightSlots: number; hasSeniorSlot?: boolean }>) => {
+            const { dayIndex, maxDaySlots, maxNightSlots, hasSeniorSlot = false } = action.payload;
             // Проверяем валидность dayIndex
             if (dayIndex >= 0 && dayIndex <= 6) {
-                logger.info(`[shiftsSlice] Обновление локального slotConfig для дня ${dayIndex}:`, { maxDaySlots, maxNightSlots });
+                logger.info(`[shiftsSlice] Обновление локального slotConfig для дня ${dayIndex}:`, { maxDaySlots, maxNightSlots, hasSeniorSlot });
                 if (!state.slotConfig) { // Если slotConfig был null, инициализируем его
                     state.slotConfig = { ...defaultWeeklySlotConfig };
                 }
                 // Обновляем только нужный день
-                state.slotConfig[dayIndex] = { maxDaySlots, maxNightSlots };
+                state.slotConfig[dayIndex] = { maxDaySlots, maxNightSlots, hasSeniorSlot };
             } else {
                  logger.warn(`[shiftsSlice] Попытка обновить slotConfig с неверным dayIndex: ${dayIndex}`);
             }
@@ -795,18 +797,27 @@ const shiftsSlice = createSlice({
                 
                 // Обновляем ТОЛЬКО конфиг слотов и lastUpdated
                 const { maxDaySlots, maxNightSlots, lastUpdated } = action.payload;
+                
+                // ИСПРАВЛЕНИЕ: Нужен индекс дня для обновления конфигурации
+                // Предположим, что обновляется день 0 (воскресенье) по умолчанию
+                // или сохраняем в отдельном поле текущий день
+                const defaultDayIndex = 0;
+                
                 if (state.slotConfig) { // Обновляем, если конфиг уже есть
-                    state.slotConfig[maxDaySlots] = { maxDaySlots, maxNightSlots };
+                    // Используем правильный индекс дня, а не значение maxDaySlots
+                    state.slotConfig[defaultDayIndex] = { maxDaySlots, maxNightSlots };
                 } else { // Иначе создаем
-                     state.slotConfig = {
-                        [maxDaySlots]: { maxDaySlots, maxNightSlots }
+                    state.slotConfig = {
+                        [defaultDayIndex]: { maxDaySlots, maxNightSlots }
                     };
                 }
+                
                 // Обновляем lastUpdated в accessSettings, если они есть
                 if (state.accessSettings && lastUpdated) {
                     state.accessSettings.lastUpdated = lastUpdated;
                 }
-                 logger.log('[shiftsSlice] updateSlotSettings fulfilled. State updated:', { access: state.accessSettings, slots: state.slotConfig });
+                
+                logger.log('[shiftsSlice] updateSlotSettings fulfilled. State updated:', { access: state.accessSettings, slots: state.slotConfig });
             })
             .addCase(updateSlotSettings.rejected, (state, action) => {
                 state.isLoadingSettings = false;

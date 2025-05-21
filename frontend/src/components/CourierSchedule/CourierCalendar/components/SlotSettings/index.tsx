@@ -263,6 +263,43 @@ const DaySelect = styled.select`
     }
 `;
 
+// Добавляем новые стили для Toggle переключателя
+const ToggleContainer = styled.div`
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+`;
+
+const ToggleSwitch = styled.div<{ $active: boolean }>`
+    position: relative;
+    width: 50px;
+    height: 24px;
+    background-color: ${props => props.$active ? 'var(--primary-color)' : 'var(--border-color)'};
+    border-radius: 12px;
+    transition: background-color 0.3s ease;
+    margin-right: 10px;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        left: ${props => props.$active ? '26px' : '2px'};
+        width: 20px;
+        height: 20px;
+        background-color: white;
+        border-radius: 50%;
+        transition: left 0.3s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+`;
+
+const ToggleLabel = styled.span`
+    font-size: 14px;
+    color: var(--text-color);
+    font-weight: 500;
+`;
+
 // Интерфейс для рефа
 export interface SlotSettingsRef {
     triggerSave: () => Promise<void>;
@@ -295,8 +332,12 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     // Получаем КОНКРЕТНУЮ конфигурацию для выбранного дня
     const initialDayConfig = useSelector(selectSlotConfigForDay(dayIndex));
     
+    // Добавляем логирование для проверки значений
+    logger.debug(`[SlotSettings] Инициализация для дня ${dayIndex}. Конфигурация из Redux:`, initialDayConfig);
+
     // Получаем ВСЮ конфигурацию
     const fullSlotConfig = useSelector(selectSlotConfig);
+    logger.debug(`[SlotSettings] Полная конфигурация слотов:`, fullSlotConfig);
 
     // Состояние для текущих значений слотов
     const [daySlots, setDaySlots] = useState<number>(
@@ -308,8 +349,8 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     
     // Добавляем состояние для слота старшего курьера
     const [hasSeniorSlot, setHasSeniorSlot] = useState<boolean>(
-        // Если в будущем в initialDayConfig будет свойство hasSeniorSlot, использовать его
-        false
+        // Используем значение из конфига, если оно есть
+        initialDayConfig?.hasSeniorSlot ?? false
     );
     
     // Состояния для UI
@@ -321,7 +362,7 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     // Вычисляем isDirty напрямую во время рендера (добавляем hasSeniorSlot)
     const initialDay = initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots;
     const initialNight = initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
-    const initialSeniorSlot = false; // По умолчанию считаем, что старший слот отключен
+    const initialSeniorSlot = initialDayConfig?.hasSeniorSlot ?? false; // Используем значение из конфига
     const calculatedIsDirty = isOpen && (
         daySlots !== initialDay || 
         nightSlots !== initialNight ||
@@ -357,7 +398,7 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             // Используем импортированные дефолты как fallback
             setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
             setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
-            setHasSeniorSlot(false); // Сбрасываем значение при переключении дня
+            setHasSeniorSlot(initialDayConfig?.hasSeniorSlot ?? false); // Используем значение из конфига
             setIsLoading(false);
         }
         // Если окно закрывается, сбрасываем isDirty (на всякий случай)
@@ -430,13 +471,15 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
         setIsLoading(true);
         setShowSuccess(false); // Сбрасываем успех перед новой попыткой
         
-        // Примечание: сейчас мы отправляем только maxDaySlots и maxNightSlots в API и Redux
-        // потом добавим интеграцию hasSeniorSlot с редаксом и бэкендом
+        // Обновляем параметры, включаем hasSeniorSlot в конфигурацию
         const configData = {
             maxDaySlots: daySlots,
-            maxNightSlots: nightSlots
-            // hasSeniorSlot: hasSeniorSlot - это мы добавим позже при интеграции с Redux
+            maxNightSlots: nightSlots,
+            hasSeniorSlot: hasSeniorSlot // Добавляем параметр в конфигурацию
         };
+        
+        // Логируем, что именно мы отправляем на сервер
+        logger.debug(`[SlotSettings] Данные для сохранения в API:`, { dayIndex, configData });
         
         // Создаем payload для API, ожидающий chatId и config с днями недели
         // Нам нужно обновить только текущий dayIndex
@@ -454,12 +497,11 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             logger.info('[SlotSettings] Slot config saved successfully.');
             
             // Обновляем локальный стейт Redux, передавая нужные поля
-            // Примечание: hasSeniorSlot будет добавлен позже при интеграции с Redux
             dispatch(updateSlotConfigLocal({
                  dayIndex, 
                  maxDaySlots: configData.maxDaySlots, 
-                 maxNightSlots: configData.maxNightSlots
-                 // hasSeniorSlot: configData.hasSeniorSlot - добавим при интеграции с Redux
+                 maxNightSlots: configData.maxNightSlots,
+                 hasSeniorSlot: configData.hasSeniorSlot // Добавляем параметр в Redux
             }));
             setShowSuccess(true); // Показываем экран успеха
             setIsLoading(false); 
@@ -472,17 +514,15 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                 duration: 5000
             }));
             setIsLoading(false);
-            // Больше не возвращаем false
-            // return false; 
         }
-    }, [calculatedIsDirty, chatId, dayIndex, daySlots, nightSlots, fullSlotConfig, dispatch]); // Убрали hasSeniorSlot из зависимостей
+    }, [calculatedIsDirty, chatId, dayIndex, daySlots, nightSlots, hasSeniorSlot, fullSlotConfig, dispatch]); // Добавляем hasSeniorSlot в зависимости
     
     // Функция сброса (вызывается через ref)
     const handleReset = useCallback(() => {
         logger.log("[SlotSettings] Resetting changes.");
         setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
         setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
-        setHasSeniorSlot(false); // Сбрасываем и слот старшего курьера
+        setHasSeniorSlot(initialDayConfig?.hasSeniorSlot ?? false); // Используем значение из конфига
         setIsLoading(false);
         setShowSuccess(false);
     }, [initialDayConfig]);
@@ -541,6 +581,17 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             <SlotSettingsContent>
                 {( 
                     <SettingsSection>
+                        {/* Новая строка для слота старшего курьера (переместили вверх) */}
+                        <SlotConfigRow>
+                            <SlotTypeLabel>
+                                <SlotTypeIcon>🌟</SlotTypeIcon> Слот для старшего курьера
+                            </SlotTypeLabel>
+                            <ToggleContainer onClick={isLoading ? undefined : handleToggleSeniorSlot}>
+                                <ToggleSwitch $active={hasSeniorSlot} />
+                                <ToggleLabel>{hasSeniorSlot ? 'Включен' : 'Отключен'}</ToggleLabel>
+                            </ToggleContainer>
+                        </SlotConfigRow>
+
                         <SlotConfigRow>
                             <SlotTypeLabel>
                                 <SlotTypeIcon>☀️</SlotTypeIcon> Дневные слоты
@@ -549,29 +600,6 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                                 <SlotCountButton onClick={handleDecreaseDaySlots} disabled={isLoading || daySlots <= 0}>-</SlotCountButton>
                                 <SlotCountValue>{daySlots}</SlotCountValue>
                                 <SlotCountButton onClick={handleIncreaseDaySlots} disabled={isLoading || daySlots >= 20}>+</SlotCountButton>
-                            </SlotCountControls>
-                        </SlotConfigRow>
-                        
-                        {/* Новая строка для слота старшего курьера */}
-                        <SlotConfigRow>
-                            <SlotTypeLabel>
-                                <SlotTypeIcon>🌟</SlotTypeIcon> Слот для старшего курьера
-                            </SlotTypeLabel>
-                            <SlotCountControls>
-                                <SlotCountButton 
-                                    onClick={handleToggleSeniorSlot} 
-                                    disabled={isLoading}
-                                    style={{ 
-                                        width: 'auto', 
-                                        padding: '0 12px',
-                                        minWidth: '170px',
-                                        borderRadius: 'var(--radius-sm)',
-                                        backgroundColor: hasSeniorSlot ? 'var(--warning-color)' : 'var(--primary-color)',
-                                        color: 'white' 
-                                    }}
-                                >
-                                    {hasSeniorSlot ? 'Удалить доп. слот' : 'Добавить доп. слот'}
-                                </SlotCountButton>
                             </SlotCountControls>
                         </SlotConfigRow>
                         

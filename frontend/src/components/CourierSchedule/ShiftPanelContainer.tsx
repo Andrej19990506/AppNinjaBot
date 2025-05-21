@@ -66,6 +66,7 @@ interface ShiftPanelContainerProps {
     isDraggingGlobal?: boolean;
     onOpenProfile?: (courier: ShiftSlot) => void;
     onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
+    hasSeniorSlot?: boolean;
 }
 
 const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
@@ -85,7 +86,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     draggingShiftType,
     isDraggingGlobal,
     onOpenProfile,
-    onLongPressEmptySlot
+    onLongPressEmptySlot,
+    hasSeniorSlot = false
 }) => {
     const [activeTooltipSlot, setActiveTooltipSlot] = useState<{ type: 'day' | 'night', index: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -127,22 +129,78 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
         const slots = [];
         const currentShifts = shifts;
         logger.debug(`[ShiftPanelContainer ${shiftType}] Rendering slots. Received shifts array:`, currentShifts.map(s => ({ id: s.id, userId: s.userId, index: s.slotIndex })) );
+        logger.debug(`[ShiftPanelContainer ${shiftType}] Debugging senior slot rendering: shiftType=${shiftType}, hasSeniorSlot=${hasSeniorSlot}, isSenior=${isSenior}`);
+
+        // Показываем слот старшего курьера, если это дневная смена и hasSeniorSlot=true
+        if (shiftType === 'day' && hasSeniorSlot) {
+            const seniorSlotData = currentShifts.find(shift => shift.slotIndex === -1);
+            const isOccupied = Boolean(seniorSlotData);
+
+            const shouldRenderSeniorSlot = isOccupied || (isSenior ?? false);
+            logger.debug(`[ShiftPanelContainer ${shiftType}] Senior slot check: isOccupied=${isOccupied}, isSenior=${isSenior}, shouldRenderSeniorSlot=${shouldRenderSeniorSlot}`);
+
+            if (shouldRenderSeniorSlot) {
+                logger.debug(`[ShiftPanelContainer ${shiftType}] Rendering SENIOR slot with hasSeniorSlot=${hasSeniorSlot}. Found data:`, seniorSlotData ? { id: seniorSlotData.id, userId: seniorSlotData.userId } : 'No senior data found');
+                const isSeniorSlotActiveTooltip = activeTooltipSlot?.type === shiftType && activeTooltipSlot?.index === -1;
+                
+                slots.push(
+                    <motion.div
+                        key={seniorSlotData ? seniorSlotData.id : 'day-senior-slot'}
+                        layout
+                        custom={-1} // Используем -1 как уникальный кастомный проп для анимации
+                        initial="initial"
+                        animate="animate"
+                        exit="exit"
+                        variants={slotVariants}
+                    >
+                        <ShiftSlotComponent
+                            shiftType={shiftType}
+                            slotIndex={-1} 
+                            courier={seniorSlotData}
+                            currentUserId={currentUserId}
+                            isDisabled={!seniorSlotData && !(isSenior ?? false)}
+                            onSlotClick={() => {
+                                if ((!seniorSlotData && (isSenior ?? false)) || seniorSlotData) {
+                                    handleCloseTooltip();
+                                    onSlotSelect(shiftType, -1, seniorSlotData?.id, false);
+                                }
+                            }}
+                            isLoading={isLoading && loadingSlot === -1}
+                            successAnimation={false}
+                            pressAnimationActive={false}
+                            isError={false}
+                            isSenior={isSenior} 
+                            showSuccessMessage={showSuccessMessage}
+                            showErrorMessage={showErrorMessage}
+                            draggingShiftType={draggingShiftType ?? null}
+                            isDraggingGlobal={isDraggingGlobal ?? false}
+                            onOpenProfile={handleOpenProfile}
+                            isActiveTooltip={isSeniorSlotActiveTooltip}
+                            onRequestTooltip={handleRequestTooltip}
+                            onLongPressEmptySlot={onLongPressEmptySlot}
+                            isSeniorCourierSlot={true} 
+                        />
+                    </motion.div>
+                );
+                logger.debug(`[ShiftPanelContainer ${shiftType}] Senior slot added. Total slots so far: ${slots.length}`);
+            } else {
+                logger.debug(`[ShiftPanelContainer ${shiftType}] SENIOR slot for ${shiftType} WILL NOT BE RENDERED (empty and user is not senior).`);
+            }
+        }
 
         for (let i = 0; i < maxSlots; i++) {
             const slotData = currentShifts.find(shift => shift.slotIndex === i);
-            logger.debug(`[ShiftPanelContainer ${shiftType}] Finding data for slot index ${i}. Found:`, slotData ? { id: slotData.id, userId: slotData.userId } : null);
+            // logger.debug(`[ShiftPanelContainer ${shiftType}] Finding data for slot index ${i}. Found:`, slotData ? { id: slotData.id, userId: slotData.userId } : null); // Закомментировано для уменьшения шума
 
-            const isDisabled = !slotData && userHasShift;
-            
+            const isDisabled = !slotData && userHasShift; 
             const key = slotData ? slotData.id : `${shiftType}-empty-${i}`;
-
             const isActiveTooltipForThisSlot = activeTooltipSlot?.type === shiftType && activeTooltipSlot?.index === i;
 
             slots.push(
                 <motion.div
                     key={key}
                     layout
-                    custom={i} // Передаем индекс как custom prop для задержки
+                    custom={i} // Используем индекс для кастомного пропа анимации
                     initial="initial"
                     animate="animate"
                     exit="exit"
@@ -153,18 +211,18 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         slotIndex={i}
                         courier={slotData}
                         currentUserId={currentUserId}
-                        isDisabled={isDisabled}
+                        isDisabled={isDisabled || (isLoading && loadingSlot === i)}
                         onSlotClick={() => {
-                            if (!slotData && !isDisabled) {
+                            if (!isDisabled || slotData) { // Разрешаем клик если не disabled или если есть данные (для тултипа)
                                 handleCloseTooltip();
-                                onSlotSelect(shiftType, i, undefined, false);
+                                onSlotSelect(shiftType, i, slotData?.id, false);
                             }
                         }}
                         isLoading={isLoading && loadingSlot === i}
-                        successAnimation={false}
+                        successAnimation={false} 
                         pressAnimationActive={false}
                         isError={false}
-                        isSenior={isSenior}
+                        isSenior={isSenior} 
                         showSuccessMessage={showSuccessMessage}
                         showErrorMessage={showErrorMessage}
                         draggingShiftType={draggingShiftType ?? null}
@@ -173,6 +231,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         isActiveTooltip={isActiveTooltipForThisSlot}
                         onRequestTooltip={handleRequestTooltip}
                         onLongPressEmptySlot={onLongPressEmptySlot}
+                        // Обычные слоты не являются isSeniorCourierSlot, если только не будет отдельной логики
+                        isSeniorCourierSlot={false} 
                     />
                 </motion.div>
             );
@@ -180,7 +240,6 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
         return slots;
     };
 
-    // Добавляем обертку для onOpenProfile с логированием
     const handleOpenProfile = useCallback((courier: ShiftSlot) => {
         console.log('[ShiftPanelContainer] handleOpenProfile called with courier:', courier);
         if (onOpenProfile) {
@@ -194,7 +253,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     return (
         <>
             <SlotsGrid ref={containerRef}>
-                {/* @ts-ignore - Suppressing TS2786 related to AnimatePresence return type */}
+                 {/* @ts-ignore: Ignoring type errors with AnimatePresence */}
                 <AnimatePresence initial={false}>
                     <>
                         {renderSlots()}

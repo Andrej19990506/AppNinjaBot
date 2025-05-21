@@ -306,6 +306,7 @@ from pydantic import BaseModel
 class DaySlotConfig(BaseModel):
     maxDaySlots: int
     maxNightSlots: int
+    hasSeniorSlot: Optional[bool] = False
 
 class SlotConfigUpdate(BaseModel):
     # Ключи - это индексы дня '0'-'6'

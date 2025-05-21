@@ -114,7 +114,7 @@ export const SettingsOverlay = styled.div<{ $isOpen: boolean }>`
     background-color: rgba(0, 0, 0, 0.4); // Полупрозрачный темный фон
     backdrop-filter: blur(4px); // Размытие
     -webkit-backdrop-filter: blur(4px); // Для Safari
-    z-index: ${Z_INDICES.TOOLTIP + 1}; // Ниже панели настроек, но выше остального
+    z-index: 950; // Ниже футера (1051) и ниже SlotSettingsContainer (1000)
     opacity: ${props => props.$isOpen ? 1 : 0};
     pointer-events: ${props => props.$isOpen ? 'auto' : 'none'}; // Отключаем клики, когда не видно
     animation: ${props => props.$isOpen ? fadeIn : fadeOut} 0.3s ease-in-out forwards;
@@ -135,7 +135,7 @@ export const SlotSettingsContainer = styled.div<{ $isOpen: boolean }>`
     transform: translateY(${props => props.$isOpen ? '0' : '100%'});
     transition: transform 0.3s ease-in-out;
     pointer-events: ${props => props.$isOpen ? 'auto' : 'none'};
-    z-index: ${Z_INDICES.TOOLTIP + 2}; /* Выше оверлея */
+    z-index: 1000; /* Значение ниже футера (z-index 1051) */
     max-height: 70vh;
     overflow-y: auto;
     display: flex;

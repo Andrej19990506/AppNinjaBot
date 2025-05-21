@@ -124,6 +124,7 @@ interface ShiftPanelProps {
     panelTargetSlotIndex: number | null;
     onCloseCouriersPanel: () => void;
     activeDragId?: string | null;
+    hasSeniorSlot?: boolean;
 }
 
 /**
@@ -160,7 +161,8 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     panelTargetShiftType,
     panelTargetSlotIndex,
     onCloseCouriersPanel,
-    activeDragId
+    activeDragId,
+    hasSeniorSlot = false
 }) => {
     // Логгируем приходящий isSenior
     logger.debug('[ShiftPanel] Rendering with isSenior:', isSenior);
@@ -225,6 +227,7 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                                 } as CourierShift)
                             } : undefined}
                             onLongPressEmptySlot={onLongPressEmptySlot}
+                            hasSeniorSlot={hasSeniorSlot}
                         />
                     </LayoutGroup>
                 </ShiftSection>

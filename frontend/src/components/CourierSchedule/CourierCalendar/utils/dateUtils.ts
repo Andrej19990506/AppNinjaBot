@@ -2,16 +2,6 @@ import { format } from 'date-fns';
 import store from '../../../../store/store';
 import { AccessSettings } from '../../../../store/slices/shiftsSlice';
 
-// Константа для включения/отключения отладочных сообщений
-const DEBUG_DATES = false;
-
-// Вспомогательная функция для условного логирования
-const debugLog = (message: string, ...data: any[]) => {
-    if (DEBUG_DATES) {
-        console.log(message, ...data);
-    }
-};
-
 export const isToday = (date: Date | null): boolean => {
     if (!date) return false;
     const today = new Date();
@@ -35,8 +25,6 @@ export const isSelected = (date: Date | null, selectedDate: Date | null): boolea
  * @returns true, если запись на указанную дату доступна
  */
 export function isDateAvailable(date: Date, userId?: string | number, accessSettings?: AccessSettings | null): boolean {
-    debugLog(`🔍 Проверка доступности даты: ${format(date, 'yyyy-MM-dd')}`);
-    
     const state = store.getState();
     // Получаем настройки либо из параметра, либо из хранилища
     const settings = accessSettings !== undefined ? accessSettings : state.shifts.accessSettings;
@@ -50,12 +38,8 @@ export function isDateAvailable(date: Date, userId?: string | number, accessSett
     
     // Дополнительно проверяем персональные ограничения (если дата в целом доступна)
     if (isAvailable && userId && settings?.restrictedUsers?.includes(userId)) {
-         debugLog(`❌ Дата ${dateFormatted} доступна по общим правилам, но ограничена для пользователя ${userId}`);
          return false;
     }
-    
-    debugLog(`${isAvailable ? '✅' : '❌'} Дата ${dateFormatted} ${isAvailable ? 'доступна' : 'недоступна'}`);
-    
     return isAvailable;
 }
 
@@ -253,8 +237,6 @@ function calculateSingleWindowDates(
     };
 
     const windowStartDate = calculateStart(baseRegistrationDate);
-    // debugLog(`  [calculateSingleWindow] База: ${baseRegistrationDate.toISOString()}, Старт окна: ${windowStartDate.toISOString()}`);
-
     const datesInWindow: string[] = [];
     for (let i = 0; i < periodLength; i++) {
         const date = addDays(windowStartDate, i);
@@ -262,18 +244,11 @@ function calculateSingleWindowDates(
     }
     return datesInWindow;
 }
-// <<< КОНЕЦ НОВОЙ ВСПОМОГАТЕЛЬНОЙ ФУНКЦИИ >>>
 
-/**
- * Рассчитывает доступные даты на основе настроек доступа
- * (Возврат к версии V4: Объединение двух последних НЕДЕЛЬНЫХ циклов + фильтр)
- */
 export function calculateAvailableDates(accessSettings?: AccessSettings | null): string[] {
-    debugLog('📅 Расчет доступных дат (V-Финал: Два окна, логика слияния)...');
     const settings = accessSettings !== undefined ? accessSettings : store.getState().shifts.accessSettings;
     
     if (!settings) {
-        debugLog('❌ Настройки не загружены, расчет невозможен');
         return [];
     }
     
@@ -284,21 +259,16 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
         
         if ((startDate && isBefore(currentDate, startDate)) || 
             (endDate && isAfter(currentDate, endDate))) {
-            debugLog('❌ Правило неактивно в текущий период');
             return [];
         }
     }
     
     const now = new Date();
     const todayDateStr = format(now, 'yyyy-MM-dd');
-    debugLog(`⏰ Текущее время: ${now.toISOString()} (Today: ${todayDateStr})`);
-    
     const registrationDay = settings.registrationStartDay ?? 4;
     const registrationHour = settings.registrationStartHour ?? 12;
     const registrationMinute = settings.registrationStartMinute ?? 0;
     const periodLength = settings.periodLength ?? 7; // Важно, используется в getLast/getPenultimate
-    const offsetAmount = settings.offsetAmount ?? 4; // для лога
-    const offsetType = settings.offsetType || 'days'; // для лога
 
     // --- 1. Определяем базовые даты для ДВУХ циклов --- 
     // currentCycleBaseDate - это последний прошедший/текущий момент регистрации (День Х)
@@ -306,23 +276,14 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
     // previousCycleBaseDate - это предпоследний прошедший момент регистрации
     const previousCycleBaseDate = getPenultimateRegistrationDay(now, registrationDay, registrationHour, registrationMinute, periodLength);
 
-    debugLog(`  База ТЕКУЩЕГО цикла (currentCycleBaseDate): ${currentCycleBaseDate.toISOString()}`);
-    debugLog(`  База ПРЕДЫДУЩЕГО цикла (previousCycleBaseDate): ${previousCycleBaseDate.toISOString()}`);
-
     // --- 2. Рассчитываем полные окна для этих двух циклов --- 
     const currentCycleWindowDates_Full = calculateSingleWindowDates(currentCycleBaseDate, settings, now);
     const previousCycleWindowDates_Full = calculateSingleWindowDates(previousCycleBaseDate, settings, now);
-
-    debugLog(`  Окно ТЕКУЩЕГО цикла (до фильтров): [${currentCycleWindowDates_Full.join(', ')}]`);
-    debugLog(`  Окно ПРЕДЫДУЩЕГО цикла (до фильтров): [${previousCycleWindowDates_Full.join(', ')}]`);
 
     // --- 3. Логика выбора и объединения --- 
     const combinedDatesSet = new Set<string>();
 
     if (now.getTime() >= currentCycleBaseDate.getTime()) {
-        // День Х (currentCycleBaseDate) НАСТУПИЛ или прошел
-        debugLog('  * День Х НАСТУПИЛ/ПРОШЕЛ. Берем текущее окно + хвост предыдущего.');
-
         // Добавляем все даты из окна текущего цикла (они все актуальны)
         currentCycleWindowDates_Full.forEach(dateStr => combinedDatesSet.add(dateStr));
         
@@ -333,8 +294,6 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
             }
         });
     } else {
-        // День Х (currentCycleBaseDate) ЕЩЕ НЕ НАСТУПИЛ
-        debugLog('  * День Х ЕЩЕ НЕ НАСТУПИЛ. Берем только хвост предыдущего окна.');
         
         // Из окна предыдущего цикла берем только те, что >= today
         previousCycleWindowDates_Full.forEach(dateStr => {
@@ -362,19 +321,6 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
     const finalAvailableDates = Array.from(combinedDatesSet);
     finalAvailableDates.sort();
     
-    // --- Итоговый лог --- 
-    console.log(
-        `%c*** ИТОГОВЫЙ РАСЧЕТ (V-Финал) ***` +
-        `\n  Current 'now': ${now.toISOString()} (Today: ${todayDateStr})` +
-        `\n  Settings: Day=${registrationDay}, Time=${String(registrationHour).padStart(2, '0')}:${String(registrationMinute).padStart(2, '0')}, Offset=${offsetAmount} ${offsetType}, Period=${periodLength}d` +
-        `\n  Prev. Cycle Base: ${previousCycleBaseDate.toISOString()}` +
-        `\n    -> Prev. Window (full): [${previousCycleWindowDates_Full.join(', ')}]` +
-        `\n  Curr. Cycle Base: ${currentCycleBaseDate.toISOString()}` +
-        `\n    -> Curr. Window (full): [${currentCycleWindowDates_Full.join(', ')}]` +
-        `\n  Condition: ${now.getTime() >= currentCycleBaseDate.getTime() ? 'День Х НАСТУПИЛ' : 'День Х НЕ НАСТУПИЛ'}` +
-        `\n  FINAL Available Dates (>=${todayDateStr}):\n  [${finalAvailableDates.join(', ')}]`,
-        'color: darkcyan; font-weight: bold;'
-    );
 
     return finalAvailableDates;
 }

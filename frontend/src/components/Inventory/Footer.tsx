@@ -429,7 +429,7 @@ const Footer: React.FC<FooterProps> = ({
                         >
                             {(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? 
                                 <ArrowForwardIcon className={styles.icon} /> : 
-                                (modalSaveText === "Создать уведомление" || modalSaveText === "Сохранить" ? <CheckIcon className={styles.icon} style={{ fontSize: '24px' }} /> : null)
+                                <CheckIcon className={styles.icon} style={{ fontSize: '24px' }} />
                             }
                             {/* Добавляем текст для кнопки сохранения, если предоставлен */}
                             {modalSaveText && modalSaveText !== "Создать уведомление" && modalSaveText !== "Сохранить" && <span style={{ marginLeft: "4px" }}>{modalSaveText}</span>}

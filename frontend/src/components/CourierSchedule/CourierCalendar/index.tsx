@@ -91,11 +91,21 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     const handleDayClick = useCallback((date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
-        const isAllowed = accessSettings ? isDateAvailable(date, currentUserId, accessSettings) : false;
+        const jsDate = new Date(date);
+        const dayOfWeek = jsDate.getDay();
         
-        if (isAllowed) {
-            logger.log(`[CourierCalendar] Клик по доступной дате: ${dateStr}`);
+        // Более подробное логирование даты, на которую нажали
+        logger.log(`[CourierCalendar] Клик по дате: ${dateStr} (${format(date, 'EEEE')}), день недели JS: ${dayOfWeek}`);
+        
+        if (accessSettings ? isDateAvailable(date, currentUserId, accessSettings) : false) {
+            // Устанавливаем дату для диалога
             setSelectedDateForDialog(date);
+            
+            // Добавляем проверку даты прямо после установки
+            const selectedDate = new Date(date);
+            logger.log(`[CourierCalendar] Установлена дата для диалога: ${format(selectedDate, 'yyyy-MM-dd')} (${format(selectedDate, 'EEEE')}), день недели JS: ${selectedDate.getDay()}`);
+            
+            logger.log(`[CourierCalendar] Клик по доступной дате: ${dateStr}`);
         } else {
             logger.log(`[CourierCalendar] Клик по недоступной дате: ${dateStr}`);
         }

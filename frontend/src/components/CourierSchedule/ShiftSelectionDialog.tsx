@@ -690,9 +690,22 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     }, [setIsConfirmationOpen, setPendingAction]);
 
     const dayIndex = date.getDay();
+
+    // <<< ДОБАВИТЬ ЭТО ЛОГИРОВАНИЕ >>>
+    logger.debug(`[ShiftSelectionDialog Render] Date: ${format(date, 'yyyy-MM-dd')}, DayIndex: ${dayIndex}`);
+    logger.debug(`[ShiftSelectionDialog Render] Received slotConfig for ALL days:`, slotConfig);
+    
     const dayConfig = slotConfig ? slotConfig[dayIndex] : undefined;
+    logger.debug(`[ShiftSelectionDialog Render] Derived dayConfig for DayIndex ${dayIndex}:`, dayConfig); // Логируем dayConfig
+
     const currentMaxDay = dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS;
     const currentMaxNight = dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS;
+    const currentHasSeniorSlot = dayConfig?.hasSeniorSlot ?? false;
+    
+    logger.debug(`[ShiftSelectionDialog Render] Calculated currentHasSeniorSlot for DayIndex ${dayIndex}: ${currentHasSeniorSlot}`); // Логируем результат
+
+    // <<< ДОБАВЛЕННЫЙ ЛОГ >>>
+    logger.debug(`[ShiftSelectionDialog] Passing to ShiftPanel: date=${format(date, 'yyyy-MM-dd')}, dayIndex=${dayIndex}, currentHasSeniorSlot=${currentHasSeniorSlot}`, { slotConfigReceived: slotConfig, derivedDayConfig: dayConfig });
 
     const sensors = useSensors(
         useSensor(KeyboardSensor, {
@@ -843,6 +856,17 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             
             logger.info(`[DndContext] Shift dropped on empty slot. Shift ID: ${shiftDbId}, Original Type: ${originalShiftType}, Target Type: ${targetShiftType}, Target Index: ${targetSlotIndex}`);
 
+            // НОВАЯ ПРОВЕРКА: Предотвращаем дроп на слот старшего курьера
+            if (targetSlotIndex === -1) {
+                logger.warn(`[DndContext] Prevented dropping on senior courier slot (slotIndex = -1)`);
+                // Сбрасываем состояние перетаскивания
+                setActiveDragId(null);
+                setActiveDragData(null);
+                setIsOverDeleteZoneManually(false);
+                setIsOverReserveZoneManually(false);
+                return;
+            }
+
             // Проверяем все условия
             if (shiftDbId && 
                 originalShiftType && 
@@ -920,6 +944,25 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             const targetSlotIndex = droppedOnData?.slotIndex;
 
             logger.info(`[DndContext] Courier from panel dropped on empty slot. Courier ID: ${draggedCourier?.user_id}, Target Type: ${targetShiftType}, Target Index: ${targetSlotIndex}`);
+
+            // НОВАЯ ПРОВЕРКА: Предотвращаем дроп на слот старшего курьера
+            if (targetSlotIndex === -1) {
+                logger.warn(`[DndContext] Prevented dropping on senior courier slot (slotIndex = -1)`);
+                // Сбрасываем состояние перетаскивания
+                setActiveDragId(null);
+                setActiveDragData(null);
+                setIsOverDeleteZoneManually(false);
+                setIsOverReserveZoneManually(false);
+                
+                // Показываем уведомление пользователю о невозможности этого действия
+                if (showNotification) {
+                    showNotification(
+                        NotificationTypes.WARNING,
+                        'Нельзя назначить обычного курьера на слот старшего курьера'
+                    );
+                }
+                return;
+            }
 
             // Проверяем все необходимые данные и права старшего курьера
             if (draggedCourier && targetShiftType && targetSlotIndex !== undefined && isCurrentUserSenior && chatId && date) {
@@ -1659,6 +1702,16 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         }
     }, [isCouriersPanelOpen, isDraggingGlobally]);
 
+    // В начале компонента ShiftSelectionDialog, после объявления всех useMemo и состояний
+    // Добавим логирование даты при каждом рендере
+    useEffect(() => {
+        if (isOpen && date) {
+            const dayOfWeek = date.getDay();
+            logger.debug(`[ShiftSelectionDialog] Открыт диалог для даты ${format(date, 'yyyy-MM-dd')} (день недели: ${dayOfWeek})`);
+            logger.debug(`[ShiftSelectionDialog] День недели даты ${format(date, 'yyyy-MM-dd EEEE')}, индекс: ${dayOfWeek}`);
+        }
+    }, [isOpen, date]);
+
     return (
         <DndContext 
             sensors={sensors} 
@@ -1877,7 +1930,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                         panelTargetSlotIndex={panelTargetSlotIndex}
                                         onCloseCouriersPanel={handleCloseCouriersPanel}
                                         // <<< Передаем активный ID для панели >>>
-                                        activeDragId={activeDragId} 
+                                        activeDragId={activeDragId}
+                                        hasSeniorSlot={currentHasSeniorSlot}
                                     />
                                 )
                             ) : (

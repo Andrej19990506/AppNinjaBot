@@ -175,6 +175,7 @@ interface SettingsPanelProps {
     onOpenShiftAccess: () => void;
     onOpenSlotSettings: () => void; 
     onOpenTimesheet: () => void;
+    onOpenCouriersList?: () => void;
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ 
@@ -182,7 +183,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onClose, 
     onOpenShiftAccess,
     onOpenSlotSettings,
-    onOpenTimesheet 
+    onOpenTimesheet,
+    onOpenCouriersList
 }) => {
     const [hasMounted, setHasMounted] = useState(false);
 

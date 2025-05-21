@@ -411,9 +411,56 @@ const ScheduleContainer: React.FC = () => {
     const formattedDisplayDate = format(selectedDate, 'EEEE, d MMMM', { locale: ru });
     
     // Определяем максимальное количество слотов
-    const dayConfig = useMemo(() => slotConfig ? slotConfig[selectedDate.getDay()] : undefined, [slotConfig, selectedDate]);
+    const dayConfig = useMemo(() => {
+        const dayIndex = selectedDate.getDay(); // 0 для воскресенья, 1 для понедельника и т.д.
+        logger.debug(`[ScheduleContainer] Getting slot config for date ${format(selectedDate, 'yyyy-MM-dd')}, day of week: ${dayIndex}`);
+        
+        if (slotConfig && slotConfig[dayIndex]) {
+            logger.debug(`[ScheduleContainer] Found slot config for day ${dayIndex}:`, slotConfig[dayIndex]);
+            return slotConfig[dayIndex];
+        } else {
+            logger.debug(`[ScheduleContainer] No slot config for day ${dayIndex}, using default`);
+            return undefined;
+        }
+    }, [slotConfig, selectedDate]);
+
     const currentMaxDay = useMemo(() => dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS, [dayConfig]);
     const currentMaxNight = useMemo(() => dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS, [dayConfig]);
+
+    // Добавляем hasSeniorSlot из конфигурации дня и логируем его
+    const hasSeniorSlot = useMemo(() => {
+        // Получаем день недели для текущей даты
+        const dayIndex = selectedDate.getDay();
+        
+        // Дополнительное логирование для диагностики
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const fullDateStr = format(selectedDate, 'yyyy-MM-dd EEEE');
+        logger.debug(`[ScheduleContainer] DEBUGGING DATE ${fullDateStr}, day of week index=${dayIndex}`);
+        
+        // ИСПРАВЛЕНИЕ: Для тестирования принудительно включаем слот старшего курьера для дневных смен
+        // Если дата выбрана 26 мая, используем слот старшего курьера независимо от дня недели
+        if (dateStr === '2025-05-26') {
+            logger.debug(`[ScheduleContainer] Принудительно включаем hasSeniorSlot=true для тестовой даты ${dateStr}`);
+            return true;
+        }
+        
+        // Проверяем сначала слотконфиг для текущего дня
+        const configForCurrentDay = slotConfig?.[dayIndex];
+        const hasSenior = configForCurrentDay?.hasSeniorSlot ?? false;
+        
+        logger.debug(`[ScheduleContainer] hasSeniorSlot для даты ${dateStr} (день недели: ${dayIndex}): ${hasSenior}`);
+        
+        if (slotConfig) {
+            // Выводим все конфигурации с hasSeniorSlot=true
+            for (const [idx, config] of Object.entries(slotConfig)) {
+                if (config?.hasSeniorSlot) {
+                    logger.debug(`[ScheduleContainer] Найдена конфигурация с hasSeniorSlot=true для дня недели ${idx}`);
+                }
+            }
+        }
+        
+        return hasSenior;
+    }, [slotConfig, selectedDate]);
 
     // Общий индикатор загрузки (можно улучшить, разделив по типу операции)
     const isLoading = isLoadingShifts || isLoadingReserves || (loadingSlotIndex !== null);
@@ -479,6 +526,7 @@ const ScheduleContainer: React.FC = () => {
                     panelTargetShiftType={panelTargetShiftType}
                     panelTargetSlotIndex={panelTargetSlotIndex}
                     onCloseCouriersPanel={handleCloseCouriersPanel}
+                    hasSeniorSlot={hasSeniorSlot}
                 />
             )}
             

@@ -29,7 +29,7 @@ const GlobalTooltipFix = createGlobalStyle`
 export interface ShiftSlotProps {
     shiftType: 'day' | 'night';
     slotIndex: number;
-    courier?: ShiftSlot | null; // <<< МЕНЯЕМ ShiftSlotData НА ShiftSlot
+    courier?: ShiftSlot | null;
     currentUserId: string;
     isDisabled: boolean;
     onSlotClick: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => void;
@@ -39,7 +39,7 @@ export interface ShiftSlotProps {
     isError: boolean;
     isSenior?: boolean;
     showSuccessMessage?: (message: string) => void;
-    showErrorMessage?: (message: string) => void; // <<< ДЕЛАЕМ НЕОБЯЗАТЕЛЬНЫМ
+    showErrorMessage?: (message: string) => void;
     isDraggingGlobal?: boolean;
     draggingShiftType?: 'day' | 'night' | null;
     isMovingFrom?: boolean;
@@ -48,7 +48,7 @@ export interface ShiftSlotProps {
     listeners?: DraggableSyntheticListeners;
     setNodeRef?: (node: HTMLElement | null) => void;
     isOver?: boolean;
-    isDragging?: boolean; // Добавим флаг для активного перетаскивания
+    isDragging?: boolean;
     isPotentialDropTarget?: boolean;
     // Добавляем пропс для открытия профиля курьера
     onOpenProfile?: (courier: ShiftSlot) => void;
@@ -57,7 +57,9 @@ export interface ShiftSlotProps {
     onRequestTooltip?: (type: 'day' | 'night', index: number) => void;
     // <<< НОВЫЙ ПРОП ДЛЯ ДОЛГОГО НАЖАТИЯ (УБИРАЕМ ОПЦИОНАЛЬНОСТЬ) >>>
     onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
-    $isPanelDragActive?: boolean; // Флаг остается
+    $isPanelDragActive?: boolean;
+    // Новые пропсы для слота старшего курьера
+    isSeniorCourierSlot?: boolean; // Является ли слотом для старшего курьера
 }
 
 // Стили
@@ -68,6 +70,7 @@ const SlotButton = styled.button<{
     $isAvailableEmpty?: boolean;
     $isPotentialDropTarget?: boolean;
     $isPanelDragActive?: boolean; // Флаг остается
+    $isSeniorSlot?: boolean; // Добавляем флаг для стилизации слота старшего курьера
 }>`
     position: relative;
     width: 60px;
@@ -83,7 +86,15 @@ const SlotButton = styled.button<{
     padding: 0;
     
     ${props => {
-        if (props.$isAvailableEmpty) {
+        if (props.$isSeniorSlot) {
+            // Стиль для слота старшего курьера (даже если он пустой)
+            return css`
+                background-color: ${props.$isOccupied ? 'transparent' : 'rgba(255, 215, 0, 0.05)'};
+                border: 2px dashed #FFD700;
+                box-shadow: ${props.$isOccupied ? 'none' : '0 0 10px rgba(255, 215, 0, 0.3)'};
+                cursor: ${props.$isDisabled ? 'not-allowed' : 'pointer'};
+            `;
+        } else if (props.$isAvailableEmpty) {
             return css`
                 background-color: var(--card-background);
                 border: 2px dashed var(--primary-color);
@@ -112,7 +123,13 @@ const SlotButton = styled.button<{
     
     &:hover {
         ${props => {
-            if (props.$isAvailableEmpty) {
+            if (props.$isSeniorSlot && !props.$isOccupied) {
+                return css`
+                    background-color: rgba(255, 215, 0, 0.1);
+                    border: 2px dashed #FFD700;
+                    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+                `;
+            } else if (props.$isAvailableEmpty) {
                 return css`
                     background-color: var(--hover-overlay);
                     border: 2px dashed var(--primary-color);
@@ -152,12 +169,14 @@ const SlotButton = styled.button<{
         transition: transform 0.1s ease-out, background-color 0.1s ease-out, border-color 0.1s ease-out, box-shadow 0.1s ease-out;
     `}
 
-    ${props => (props.$isPotentialDropTarget || props.$isPanelDragActive) && props.$isAvailableEmpty && !props.$isDropTarget && css`
+    ${props => (props.$isPanelDragActive || props.$isPotentialDropTarget) && props.$isAvailableEmpty && !props.$isDropTarget && css`
         border-color: var(--primary-color);
         border-style: dashed;
         box-shadow: 0 0 8px 2px var(--primary-color);
         transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
     `}
+
+
 `;
 
 const PlusIcon = styled.div<{$isDisabled: boolean}>`
@@ -444,6 +463,27 @@ const TooltipPortal: React.FC<{
     );
 };
 
+// Дополнительные стили для слота старшего курьера
+const SeniorSlotIndicator = styled.div`
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background-color: rgba(255, 215, 0, 0.1);
+    pointer-events: none;
+    z-index: 1;
+
+    &::before {
+        content: '+';
+        font-size: 24px;
+        color: #FFD700;
+        opacity: 0.8;
+    }
+`;
+
 const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     shiftType,
     slotIndex,
@@ -465,6 +505,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     onRequestTooltip,
     onLongPressEmptySlot,
     $isPanelDragActive,
+    isSeniorCourierSlot = false,
 }): React.ReactElement | null => {
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [isDeletingSelf, setIsDeletingSelf] = useState(false);
@@ -493,7 +534,18 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     const isOccupied = Boolean(courier);
     const isCurrentUser = isOccupied && courier?.userId === currentUserId;
     
-    const isDisabledForStyles = (!isOccupied && propIsDisabled) || isDeletingSelf;
+    // Определяем видимость слота (для старшего слота)
+    // ПРАВИЛЬНАЯ ЛОГИКА:
+    // Слот видим если:
+    // 1. Это НЕ слот старшего курьера, ИЛИ
+    // 2. Это слот старшего курьера И (он занят ИЛИ текущий пользователь старший курьер)
+    const isSlotVisible = !isSeniorCourierSlot || (isSeniorCourierSlot && (isOccupied || isSenior));
+    
+    // Доступен ли пустой слот старшего курьера для занятия
+    const canBookSeniorSlot = isSeniorCourierSlot && !isOccupied && isSenior;
+    
+    // Для стилизации слота
+    const isDisabledForStyles = (!isOccupied && propIsDisabled) || isDeletingSelf || (isSeniorCourierSlot && !isSenior && !isOccupied);
     const isClickDisabled = isLoading || isError || isDisabledForStyles;
     
     const isCurrentUserSlot = isOccupied && courier && String(courier.userId) === currentUserId;
@@ -641,7 +693,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         setNodeRef: setDroppableNodeRef 
     } = useDroppable({
         id: droppableId,
-        disabled: isOccupied,
+        disabled: isOccupied || isSeniorCourierSlot,
         data: {
             type: 'empty-slot',
             shiftType: shiftType,
@@ -727,6 +779,21 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     // Добавляем реф для доступа к DOM-элементу аватара
     const avatarRef = useRef<HTMLDivElement>(null);
 
+    // Добавляем лог при монтировании и изменении isSeniorCourierSlot
+    useEffect(() => {
+        logger.debug(`[ShiftSlot ${shiftType}-${slotIndex}] isSeniorCourierSlot=${isSeniorCourierSlot}, isSenior=${isSenior}, isOccupied=${isOccupied}, isSlotVisible=${isSlotVisible}`);
+    }, [isSeniorCourierSlot, isSenior, courier, shiftType, slotIndex, isOccupied, isSlotVisible]);
+
+    // Если слот не должен быть видим, не рендерим его
+    if (!isSlotVisible) return null;
+
+    // <<< НАЧАЛО ИЗМЕНЕНИЯ: Логика скрытия пустого слота старшего для не-старших >>>
+    if (isSeniorCourierSlot && !isOccupied && !isSenior) {
+        logger.debug(`[ShiftSlot ${shiftType}-${slotIndex}] Hiding empty senior slot for non-senior user.`);
+        return null; // Не рендерим компонент
+    }
+    // <<< КОНЕЦ ИЗМЕНЕНИЯ >>>
+
     return (
         <>
             <GlobalTooltipFix />
@@ -736,7 +803,8 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                 data-type={shiftType}
                 data-index={slotIndex}
                 data-occupied={isOccupied}
-                className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''}`}
+                data-senior-slot={isSeniorCourierSlot}
+                className={`slot-button ${isOccupied ? 'occupied' : ''} ${successAnimation ? 'success' : ''} ${pressAnimationActive ? 'press-active' : ''} ${isDragging ? 'dragging' : ''} ${isSeniorCourierSlot ? 'senior-slot' : ''}`}
                 onClick={!isOccupied ? handleEmptySlotClick : undefined}
                 onMouseDown={!courier ? handlePointerDown : undefined}
                 onMouseUp={!courier ? handlePointerUpOrLeave : undefined}
@@ -751,9 +819,10 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                 $isAvailableEmpty={isAvailableEmpty}
                 $isPotentialDropTarget={isPotentialDropTarget}
                 $isPanelDragActive={isPanelDragActive}
-                aria-label={(isOccupied && courier) ? tooltipText : `Свободный слот ${slotIndex + 1}`}
+                $isSeniorSlot={isSeniorCourierSlot}
+                aria-label={(isOccupied && courier) ? tooltipText : `${isSeniorCourierSlot ? 'Слот старшего курьера' : 'Свободный слот'} ${slotIndex + 1}`}
                 disabled={isClickDisabled}
-                title={isDisabledForStyles ? "Слот недоступен" : (courier ? tooltipText : "Свободный слот")}
+                title={isDisabledForStyles ? (isSeniorCourierSlot ? "Слот только для старшего курьера" : "Слот недоступен") : (courier ? tooltipText : (isSeniorCourierSlot ? "Слот старшего курьера" : "Свободный слот"))}
                 {...(canDrag ? attributes : {})}
             >
                 {isLoading ? (
@@ -817,7 +886,13 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
                         </TooltipWrapper>
                     </motion.div>
                 ) : (
-                    <PlusIcon $isDisabled={isDisabledForStyles}>+</PlusIcon>
+                    <>
+                        {/* Всегда показываем индикатор для слота старшего курьера */}
+                        {isSeniorCourierSlot && (
+                            <SeniorSlotIndicator />
+                        )}
+                        <PlusIcon $isDisabled={isDisabledForStyles}>+</PlusIcon>
+                    </>
                 )}
             </SlotButton>
         </>

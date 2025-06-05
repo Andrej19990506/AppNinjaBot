@@ -73,12 +73,13 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_WS_URL=ws://localhost:8001
-      - REACT_APP_ENV=development
-      - REACT_APP_DEBUG=true
+      - VITE_WS_URL=ws://localhost:8001
+      - VITE_API_URL=http://localhost:8000
+      - VITE_ENV=development
+      - VITE_DEBUG=true
     env_file:
       - ./frontend/.env.docker
-    command: ./node_modules/.bin/craco start
+    command: npm run dev
     restart: unless-stopped
     ports:
       - "3000:3000"

@@ -1,0 +1,18 @@
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, BigInteger
+from sqlalchemy.sql import func
+from .base import Base
+
+class WriteOff(Base):
+    __tablename__ = 'write_offs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    group_id = Column(BigInteger, ForeignKey('groups.group_id'), nullable=False)
+    user_id = Column(BigInteger, ForeignKey('members.user_id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    reason = Column(String(255), nullable=False)
+    quantity = Column(Float, nullable=False)
+    description = Column(Text, nullable=True)
+    unit_type = Column(String(10), nullable=False, default='шт')
+    status = Column(String(32), nullable=False, default='pending')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now()) 

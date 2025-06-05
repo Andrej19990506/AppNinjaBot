@@ -20,11 +20,6 @@ except ImportError:
     global_redis_client = None
 
 async def get_redis_client() -> Optional[redis.Redis]:
-    """
-    Dependency function to get the initialized Redis client.
 
-    Returns the global redis client instance initialized in main.py lifespan.
-    Returns None if the client failed to initialize.
-    """
     # Возвращаем импортированный глобальный клиент
     return global_redis_client 

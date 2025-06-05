@@ -1,3 +1,0 @@
-from .courier_service import CourierService
-
-__all__ = ['CourierService'] 

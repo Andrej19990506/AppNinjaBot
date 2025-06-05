@@ -6,18 +6,17 @@ import uuid
 import os
 import httpx
 from datetime import datetime, timedelta, date
-from services.retailiqa_service import RetailiQAService
-from db.session import get_db_session # Используем get_db_session, как определено в session.py
-
-# --- АБСОЛЮТНЫЕ ИМПОРТЫ (Новая попытка) ---
-import schemas          # Из /app/schemas/event.py
-import crud # <<< ДОБАВЛЕНО: Импорт CRUD операций
-# --- Импортируем нашу утилиту --- 
+from services.events.integrations.retailiqa.retailiqa_service import RetailiQAService
+from db.session import get_db_session 
+import schemas         
+import crud 
 from utils.scheduler_client import notify_scheduler
+from services.events.integrations.retailiqa.api_client import RetailiQAApiClient
 
-# --- Импорт для получения группы ---
-from api.v1.endpoints.groups import get_group_by_telegram_id # <--- ДОБАВЛЕНО
-from models.group import Group # <--- УБЕДИМСЯ, ЧТО ЭТОТ ИМПОРТ ЕСТЬ ИЛИ ДОБАВИМ
+from api.v1.endpoints.groups import get_group_by_telegram_id 
+from models.group import Group 
+
+router = APIRouter()
 
 # Функция для безопасного преобразования SQLAlchemy объектов в словари
 def sqlalchemy_obj_to_dict(obj, exclude_attrs=None) -> Dict[str, Any]:
@@ -44,30 +43,31 @@ def sqlalchemy_obj_to_dict(obj, exclude_attrs=None) -> Dict[str, Any]:
                 result[key] = value
     return result
 
-# Удаляем заглушки
-# class EventRead: ...
-# class Event: ...
-# def get_db(): ...
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+
 
 # Используем EventRead напрямую
 @router.get("/", response_model=List[schemas.EventRead], summary="Получить список всех событий") 
 async def read_events(
     skip: int = 0,
     limit: int = 100,
+    group_type: Optional[str] = Query(None, description="Тип группы для фильтрации событий (chef, courier, admin и т.д.)"),
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Получает список событий с пагинацией.
+    Получает список событий с пагинацией и фильтрацией по типу группы (если указан).
     Уведомления для каждого события также подгружаются.
     """
-    logger.info(f"Запрос на получение списка событий (skip={skip}, limit={limit})")
+    logger.info(f"Запрос на получение списка событий (skip={skip}, limit={limit}, group_type={group_type})")
     try:
-        db_events = await crud.event.get_events(db=db, skip=skip, limit=limit)
-        logger.info(f"Найдено {len(db_events)} событий")
+        if group_type:
+            db_events = await crud.event.get_events_by_group_type(db=db, group_type=group_type, skip=skip, limit=limit)
+            logger.info(f"Фильтрация по group_type={group_type}, найдено {len(db_events)} событий")
+        else:
+            db_events = await crud.event.get_events(db=db, skip=skip, limit=limit)
+            logger.info(f"Найдено {len(db_events)} событий (без фильтрации по group_type)")
         
         # Добавляем подробное логирование для проверки наличия фотографий в АТО событиях
         for event in db_events:
@@ -291,10 +291,6 @@ async def update_notification_for_event(
         await db.refresh(updated_notification)
         logger.info(f"Уведомление {notification_id} успешно обновлено")
 
-        # --- ВАЖНО: Загружаем событие, чтобы получить его время --- 
-        # Мы можем либо модифицировать crud.update_event_notification, чтобы он возвращал 
-        # обновленное уведомление С предзагруженным событием (через joinedload), 
-        # либо запросить событие здесь отдельно. Запросим отдельно для простоты.
         event = await crud.event.get_event(db=db, event_id=event_id)
         if not event:
              # Если событие вдруг удалили между проверкой и этим моментом
@@ -331,7 +327,7 @@ async def update_notification_for_event(
 # --- Эндпоинт для запуска обработки отчетов RetailiQA ---
 @router.post(
     "/groups/{group_telegram_id}/process-retailiqa-reports", # <--- ИЗМЕНЕН URL
-    response_model=List[dict], # Изменяем тип ответа на List[dict], так как мы добавляем score_info
+    response_model=List[schemas.EventRead], # Изменяем тип ответа на List[dict], так как мы добавляем score_info
     summary="Запустить обработку отчетов из RetailiQA для конкретной группы и создать события",
     description="Запускает процесс получения отчетов из RetailiQA для указанной группы (по ее Telegram ID), их обработки и создания/обновления событий типа 'АТО' в системе.",
     tags=["Events", "RetailiQA", "Groups"] # Добавляем тег RetailiQA для группировки в документации
@@ -390,33 +386,32 @@ async def trigger_process_retailiqa_reports_in_events(
             else:
                 retailiqa_service_instance = RetailiQAService(token=retailiqa_token) # Создаем экземпляр
                 try:
-                    found_objects = await retailiqa_service_instance.get_check_objects(name_filter=keyword_to_search)
-
-                    if len(found_objects) == 1:
-                        selected_object = found_objects[0]
-                        check_obj_name_candidate = selected_object.name
-                        if check_obj_name_candidate:
-                            check_obj_name = check_obj_name_candidate # Присваиваем найденное имя
-                            logger.info(f"Автоматически определен объект RetailiQA: '{check_obj_name}' для группы '{group.title}'.")
-                            
-                            # Сохраняем найденное имя в поле group.retailiqa_object_name
-                            group.retailiqa_object_name = check_obj_name
-                            try:
-                                db.add(group)
-                                await db.commit()
-                                await db.refresh(group)
-                                logger.info(f"Поле retailiqa_object_name для группы {group_telegram_id} обновлено: {check_obj_name}")
-                            except Exception as e_save:
-                                await db.rollback()
-                                logger.error(f"Ошибка при сохранении retailiqa_object_name для группы {group_telegram_id}: {e_save}", exc_info=True)
-                                # check_obj_name все еще установлен для текущего вызова, но не сохранен
-                        else:
-                            logger.warning(f"Найденный объект RetailiQA для '{keyword_to_search}' не имеет поля 'name'.")
-                    elif len(found_objects) > 1:
-                        object_names = [obj.name if obj.name is not None else "N/A" for obj in found_objects]
-                        logger.warning(f"Найдено несколько объектов RetailiQA ({len(found_objects)}) для ключевого слова '{keyword_to_search}' (группа '{group.title}'): {object_names}. Требуется ручная установка retailiqa_object_name.")
-                    else: # 0 объектов найдено
-                        logger.warning(f"Не удалось автоматически определить объект RetailiQA по ключевому слову '{keyword_to_search}' (группа '{group.title}'). Объекты не найдены.")
+                    found_objects_raw = await retailiqa_service_instance.get_check_objects()
+                    if isinstance(found_objects_raw, dict) and 'result' in found_objects_raw:
+                        found_objects = found_objects_raw['result']
+                    else:
+                        found_objects = found_objects_raw
+                    logger.info(f'type(found_objects): {type(found_objects)}, found_objects: {found_objects}')
+                    logger.info(f"Ищем ключ: '{keyword_to_search}' среди имён объектов")
+                    logger.info(f"Список имён объектов: {[obj.get('name') for obj in found_objects if isinstance(obj, dict)]}")
+                    filtered = [obj for obj in found_objects if isinstance(obj, dict) and keyword_to_search.lower() in obj.get('name', '').lower()]
+                    if len(filtered) == 1:
+                        check_obj_name = filtered[0]['name']
+                        logger.info(f"Автоматически определен объект RetailiQA по ключу '{keyword_to_search}': '{check_obj_name}' для группы '{group.title}'.")
+                        group.retailiqa_object_name = check_obj_name
+                        try:
+                            db.add(group)
+                            await db.commit()
+                            await db.refresh(group)
+                            logger.info(f"Поле retailiqa_object_name для группы {group_telegram_id} обновлено: {check_obj_name}")
+                        except Exception as e_save:
+                            await db.rollback()
+                            logger.error(f"Ошибка при сохранении retailiqa_object_name для группы {group_telegram_id}: {e_save}", exc_info=True)
+                    elif len(filtered) > 1:
+                        object_names = [obj.get('name', 'N/A') for obj in filtered]
+                        logger.warning(f"Найдено несколько объектов с ключом '{keyword_to_search}': {object_names}. Требуется ручная установка retailiqa_object_name.")
+                    else:
+                        logger.warning(f"Не найдено ни одного объекта с ключом '{keyword_to_search}'.")
                 except Exception as e_rq_get:
                     logger.error(f"Ошибка при запросе объектов из RetailiQA для авто-определения (группа '{group.title}', ключ '{keyword_to_search}'): {e_rq_get}", exc_info=True)
         else:
@@ -489,60 +484,20 @@ async def trigger_process_retailiqa_reports_in_events(
         processed_events = await retailiqa_service.process_new_reports(
             db=db, 
             check_obj_name_param=check_obj_name,
+            role=group.group_type,
             date_from_param=effective_date_from_iso,
             date_to_param=effective_date_to_iso,
             max_pages=max_pages
         )
         
-        # Дополнительно вызываем calculate_check_score для получения процента выполнения
-        score_data = {}
-        try:
-            # Получаем данные о результатах проверки
-            score_data = await retailiqa_service.calculate_check_score(
-                check_obj_name=check_obj_name,
-                date_from=effective_date_from_iso,
-                date_to=effective_date_to_iso
-            )
-            
-            if score_data.get("status") == "success":
-                logger.info(f"Результаты проверки АТО для объекта '{check_obj_name}': "
-                           f"Процент выполнения: {score_data.get('score_percentage', 0):.2f}%, "
-                           f"Макс. баллы: {score_data.get('max_points', 0)}, "
-                           f"Набрано: {score_data.get('earned_points', 0)}, "
-                           f"Штрафы: {score_data.get('penalty_points', 0)}")
-            else:
-                logger.warning(f"Не удалось получить результаты проверки: {score_data.get('message', 'Неизвестная ошибка')}")
-        except Exception as e:
-            logger.error(f"Ошибка при вызове calculate_check_score: {e}", exc_info=True)
-        
         if not processed_events:
             logger.info(f"Не найдено новых отчетов для обработки для объекта '{check_obj_name}' (группа {group_telegram_id}).")
-            # Если есть данные о процентах выполнения, возвращаем их даже при отсутствии событий
-            if score_data:
-                logger.info(f"Возвращаем только информацию о проценте выполнения без событий.")
-                return [{"score_info": score_data, "object_name": check_obj_name}]
-            # Возвращаем пустой список, если нет событий и данных о процентах
+            # Возвращаем пустой список, если нет событий
             return []
 
-        # Добавляем информацию о проценте выполнения к первому событию в списке, если она доступна
-        if processed_events and score_data:
-            # Преобразуем первое событие в словарь для добавления score_info
-            response_events = []
-            for i, event in enumerate(processed_events):
-                # Используем безопасное преобразование в словарь
-                event_dict = sqlalchemy_obj_to_dict(event)
-                
-                # Добавляем score_info только к первому событию
-                if i == 0:
-                    event_dict["score_info"] = score_data
-                
-                response_events.append(event_dict)
-                
-            logger.info(f"Успешно обработано и создано/обновлено {len(processed_events)} событий для объекта '{check_obj_name}' (группа {group_telegram_id}). Добавлена информация о проценте выполнения.")
-            return response_events
-
         logger.info(f"Успешно обработано и создано/обновлено {len(processed_events)} событий для объекта '{check_obj_name}' (группа {group_telegram_id}).")
-        return processed_events
+        # Возвращаем сериализуемый список Pydantic-моделей
+        return [schemas.EventRead.from_orm(event) for event in processed_events]
 
     except HTTPException as http_exc: # Пробрасываем HTTPException дальше
         raise http_exc
@@ -553,147 +508,7 @@ async def trigger_process_retailiqa_reports_in_events(
             detail=f"Внутренняя ошибка сервера при обработке отчетов RetailiQA: {str(e)}"
         )
 
-# --- Новый эндпоинт для расчета процента выполнения проверки RetailiQA ---
-@router.get(
-    "/groups/{group_telegram_id}/retailiqa-score", 
-    response_model=dict,
-    summary="Рассчитать процент выполнения проверки RetailiQA для указанной группы",
-    description="Получает данные о проверке RetailiQA для объекта, связанного с указанной группой, и рассчитывает процент выполнения."
-)
-async def calculate_retailiqa_score(
-    group_telegram_id: int,
-    date: str = Query(..., description="Дата проверки в формате YYYY-MM-DD"),
-    db: AsyncSession = Depends(get_db_session)
-):
-    logger.info(f"Запрос на расчет процента выполнения проверки RetailiQA для группы {group_telegram_id} на дату {date}")
-    
-    # Получаем группу по Telegram ID
-    group = await get_group_by_telegram_id(db=db, group_telegram_id=group_telegram_id)
-    if not group:
-        logger.warning(f"Группа с Telegram ID {group_telegram_id} не найдена.")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Группа с Telegram ID {group_telegram_id} не найдена."
-        )
 
-    # Получаем имя объекта RetailiQA
-    check_obj_name: Optional[str] = group.retailiqa_object_name
-    if not check_obj_name:
-        logger.error(f"Не удалось определить retailiqa_object_name для группы {group_telegram_id}.")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Имя объекта RetailiQA для группы {group_telegram_id} не настроено. Пожалуйста, установите 'retailiqa_object_name' для группы."
-        )
-    
-    # Проверяем формат даты
-    try:
-        parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
-    except ValueError:
-        logger.error(f"Некорректный формат date: '{date}'. Ожидается YYYY-MM-DD.")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Некорректный формат date. Ожидается YYYY-MM-DD."
-        )
-    
-    # Инициализируем сервис RetailiQA
-    retailiqa_token = os.getenv("RETAILIQA_TOKEN")
-    if not retailiqa_token:
-        logger.critical("Токен RETAILIQA_TOKEN не найден. Расчет процента выполнения проверки RetailiQA невозможен.")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка конфигурации сервера: отсутствует токен для RetailiQA."
-        )
-    
-    retailiqa_service = RetailiQAService(token=retailiqa_token)
-    
-    # Создаем StringIO объект для перехвата вывода print
-    import io
-    import sys
-    from contextlib import redirect_stdout
-    
-    output = io.StringIO()
-    report_data = {}
-    
-    try:
-        # Перехватываем вывод функции calculate_check_score
-        with redirect_stdout(output):
-            await retailiqa_service.calculate_check_score(
-                check_obj_name=check_obj_name,
-                date_from=date
-            )
-        
-        # Получаем вывод и обрабатываем его
-        output_str = output.getvalue()
-        logger.info(f"Результат расчета процента выполнения проверки RetailiQA: {output_str}")
-        
-        # Ищем в выводе информацию о результатах проверки
-        import re
-        
-        # Ищем ID проверки
-        insp_id_match = re.search(r"РЕЗУЛЬТАТЫ ПРОВЕРКИ (\S+)", output_str)
-        if insp_id_match:
-            report_data["insp_id"] = insp_id_match.group(1)
-        
-        # Ищем объект
-        object_match = re.search(r"Объект: (.+)$", output_str, re.MULTILINE)
-        if object_match:
-            report_data["object_name"] = object_match.group(1).strip()
-        
-        # Ищем дату проверки
-        date_match = re.search(r"Дата проверки: (.+)$", output_str, re.MULTILINE)
-        if date_match:
-            report_data["check_date"] = date_match.group(1).strip()
-        
-        # Ищем статус
-        status_match = re.search(r"Статус: (.+)$", output_str, re.MULTILINE)
-        if status_match:
-            report_data["status"] = status_match.group(1).strip()
-        
-        # Ищем максимально возможные баллы
-        total_points_match = re.search(r"Максимально возможные баллы: (\d+\.?\d*)", output_str)
-        if total_points_match:
-            report_data["total_points"] = float(total_points_match.group(1))
-        
-        # Ищем набранные баллы
-        earned_points_match = re.search(r"Набранные баллы: (\d+\.?\d*)", output_str)
-        if earned_points_match:
-            report_data["earned_points"] = float(earned_points_match.group(1))
-        
-        # Ищем штрафные баллы
-        penalty_points_match = re.search(r"Штрафные баллы: (\d+\.?\d*)", output_str)
-        if penalty_points_match:
-            report_data["penalty_points"] = float(penalty_points_match.group(1))
-        
-        # Ищем проценты выполнения
-        method1_match = re.search(r"Процент выполнения \(метод 1\): (\d+\.\d+)%", output_str)
-        if method1_match:
-            report_data["score_method1"] = float(method1_match.group(1))
-        
-        method2_match = re.search(r"Процент выполнения \(метод 2\): (\d+\.\d+)%", output_str)
-        if method2_match:
-            report_data["score_method2"] = float(method2_match.group(1))
-        
-        # Если не удалось найти основные данные, возвращаем ошибку
-        if not report_data.get("score_method1") and not report_data.get("score_method2"):
-            logger.warning(f"Не удалось получить данные о проценте выполнения проверки.")
-            if "Отчеты не найдены" in output_str:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Отчеты для объекта '{check_obj_name}' на дату {date} не найдены."
-                )
-            else:
-                return {"message": "Не удалось рассчитать процент выполнения проверки.", "raw_output": output_str}
-        
-        return report_data
-    
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        logger.exception(f"Ошибка при расчете процента выполнения проверки RetailiQA: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Внутренняя ошибка сервера при расчете процента выполнения проверки RetailiQA: {str(e)}"
-        )
 
 # --- Эндпоинт для получения событий по дате и типу АТО ---
 @router.get("/ato-by-date", response_model=List[schemas.EventRead], summary="Получить события АТО по дате")
@@ -945,5 +760,4 @@ async def update_notification_status(
             detail=f"Внутренняя ошибка сервера при обновлении статуса уведомления: {str(e)}"
         )
 
-# TODO: Добавить эндпоинты для обновления (PUT /id), получения одного (GET /id) событий,
-# и, возможно, для удаления уведомлений.
+

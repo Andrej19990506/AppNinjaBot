@@ -73,12 +73,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      target: production-build # Target the final build stage
+      target: production-build 
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL} 
-        REACT_APP_WS_URL: ${REACT_APP_WS_URL}   
-    image: appninjabot-frontend-img:latest # Explicit image name
-    # No command, ports, volumes, etc. - this service will not be run directly
+        VITE_APP_API_URL: ${VITE_APP_API_URL} 
+        VITE_APP_WS_URL: ${VITE_APP_WS_URL}   
+    image: appninjabot-frontend-img:latest 
+    
 
   websocket:
     build:
@@ -107,16 +107,16 @@ services:
   nginx:
     build:
       context: .
-      dockerfile: ./websocket-service/Dockerfile.nginx
+      dockerfile: ./nginx/Dockerfile.nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./websocket-service/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - server
       - websocket
-      - frontend # Keep dependency: nginx build depends on frontend image
+      - frontend 
     environment:
       REACT_APP_API_URL: ${API_URL:-https://appninjabot.ru/api}
       REACT_APP_WS_URL: ${WS_URL:-wss://appninjabot.ru}
@@ -193,9 +193,8 @@ volumes:
       o: bind
       device: ./backend/shared
   postgres-data:
-  # ---> ДОБАВЛЕНО: Volume для DragonflyDB <---
   dragonfly_data: 
-  # ---> КОНЕЦ ДОБАВЛЕНИЯ <---
+
 
 networks:
   ninja_network:

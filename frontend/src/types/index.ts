@@ -118,5 +118,4 @@ export interface ChatMetadata {
 }
 
 export * from './shifts';
-export * from './store';
-// ... остальные экспорты 
+export * from '../shared/types/store';

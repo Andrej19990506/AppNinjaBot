@@ -9,8 +9,6 @@ from typing import List, Optional, Dict, Set, Any, Tuple # <<< Добавляе�
 from pydantic import BaseModel, Field
 from uuid import UUID
 from datetime import date, datetime, timedelta, time, timezone 
-import io
-import csv
 from fastapi.responses import StreamingResponse
 import openpyxl
 from io import BytesIO
@@ -26,7 +24,7 @@ import re # <<< Добавляем импорт для регулярных вы
 # Используем АБСОЛЮТНЫЕ импорты от /app
 from db.session import get_db_session, AsyncSessionFactory
 from models.shift import Shift
-from schemas.shift import ShiftRead, ShiftCreate, ShiftBase
+from schemas.shift import ShiftRead
 from models.member import Member
 from models.group import Group
 from models.group_member import GroupMember
@@ -169,16 +167,19 @@ async def create_shift(
     try:
         date_obj = datetime.strptime(shift_in.date, '%Y-%m-%d').date()
     except ValueError:
-        logger.error(f"[Create Shift] Invalid date format received: {shift_in.date}")
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid date format. Use YYYY-MM-DD.")
 
-    # --- Шаг 3: Основная логика (теперь без явного db.begin()) ---
-    # Транзакция предполагается управляемой зависимостью get_db_session
+    # --- Логирование перед удалением резерва ---
+    logger.info(f"[DEBUG][Create Shift] Попытка удалить резерв: member_id={member.id}, group_id={group.id}, date={date_obj} (type: {type(date_obj)})")
+    all_reserves = await db.execute(
+        select(Reserve).where(Reserve.group_id == group.id, Reserve.date == date_obj)
+    )
+    for r in all_reserves.scalars().all():
+        logger.info(f"[DEBUG][Create Shift] Существующий резерв: id={r.id}, member_id={r.member_id}, date={r.date} (type: {type(r.date)})")
 
     # --- Шаг 3.1: Логика удаления старых смен при allowMultipleShifts=False ---
     allow_multiple = group.access_settings.get('allowMultipleShifts', True)
     if not allow_multiple:
-        logger.info(f"[Create Shift] allowMultipleShifts is False for group {group.id}. Checking existing shifts for member {member.id} on {date_obj}...")
         stmt_find_existing = (
             select(Shift)
             .where(
@@ -191,14 +192,27 @@ async def create_shift(
         existing_shifts = existing_shifts_result.scalars().all()
 
         if existing_shifts:
-            logger.info(f"[Create Shift] Found {len(existing_shifts)} existing shift(s) for member {member.id} on {date_obj}. Deleting them...")
             for existing_shift in existing_shifts:
-                logger.debug(f"[Create Shift] Deleting existing shift ID: {existing_shift.id}")
                 await db.delete(existing_shift)
-        else:
-            logger.info(f"[Create Shift] No existing shifts found for member {member.id} on {date_obj}.")
+
+    # --- Удаление резерва ---
+    stmt_find_existing_reserves = (
+        select(Reserve)
+        .where(
+            Reserve.member_id == member.id,
+            Reserve.group_id == group.id,
+            Reserve.date == date_obj
+        )
+    )
+    existing_reserves_result = await db.execute(stmt_find_existing_reserves)
+    existing_reserves = existing_reserves_result.scalars().all()
+
+    if existing_reserves:
+        logger.info(f"[Create Shift] Found {len(existing_reserves)} existing reserve(s) for member {member.id} on {date_obj}. Deleting them...")
+        for existing_reserve in existing_reserves:
+            await db.delete(existing_reserve)
     else:
-            logger.info(f"[Create Shift] allowMultipleShifts is True for group {group.id}. Skipping check for existing shifts.")
+        logger.info(f"[Create Shift] No existing reserves found for member {member.id} on {date_obj}.")
 
     # --- Шаг 3.2: Проверка доступности слота и поиск свободного ---
     target_slot_index: Optional[int] = None
@@ -872,6 +886,25 @@ async def assign_shift_by_senior(
                     await db.delete(existing_shift)
             else:
                 logger.info(f"[Assign Shift] No existing shifts found for target member {target_member.id} on {date_obj}.")
+
+        # --- Удаляем резервы для этого пользователя на эту дату и группу ---
+        stmt_find_existing_reserves = (
+            select(Reserve)
+            .where(
+                Reserve.member_id == target_member.id,
+                Reserve.group_id == group.id,
+                Reserve.date == date_obj
+            )
+        )
+        existing_reserves_result = await db.execute(stmt_find_existing_reserves)
+        existing_reserves = existing_reserves_result.scalars().all()
+
+        if existing_reserves:
+            logger.info(f"[Assign Shift] Found {len(existing_reserves)} existing reserve(s) for member {target_member.id} on {date_obj}. Deleting them...")
+            for existing_reserve in existing_reserves:
+                await db.delete(existing_reserve)
+        else:
+            logger.info(f"[Assign Shift] No existing reserves found for member {target_member.id} on {date_obj}.")
 
         # 7. Создать новую смену для НАЗНАЧАЕМОГО курьера
         db_shift = Shift(

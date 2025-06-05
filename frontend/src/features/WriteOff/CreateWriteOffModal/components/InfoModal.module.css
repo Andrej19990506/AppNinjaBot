@@ -1,0 +1,434 @@
+@import '../../../../styles/base/variables.css';
+
+/* Стили для информационного модального окна */
+.infoModalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 70px; /* Оставляем место для футера */
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1300; /* Выше основного оверлея (900), но ниже футера (1000) */
+  opacity: 0;
+  height: calc(100% - 70px); /* Уменьшаем высоту, чтобы футер был виден */
+  pointer-events: auto; /* Явно включаем обработку событий */
+}
+
+.infoModal {
+  position: relative;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow: hidden;
+  background-color: var(--card-background);
+  border-radius: var(--radius-lg);
+  box-shadow: 
+    var(--shadow-lg),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 0 30px rgba(var(--primary-rgb), 0.15);
+  display: flex;
+  flex-direction: column;
+  transform: scale(0.95);
+  opacity: 0;
+  z-index: 1300;
+  pointer-events: auto; /* Явно включаем обработку событий */
+}
+
+.infoModal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 8px;
+  background: var(--gradient-primary);
+  z-index: 1;
+  box-shadow: 0 2px 12px rgba(var(--primary-rgb), 0.4);
+  animation: glowTop 3s infinite alternate;
+}
+
+@keyframes glowTop {
+  from {
+    box-shadow: 0 2px 12px rgba(var(--primary-rgb), 0.2);
+  }
+  to {
+    box-shadow: 0 2px 20px rgba(var(--primary-rgb), 0.5);
+  }
+}
+
+.infoModal::after {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.2);
+  z-index: 1;
+}
+
+.infoModalContent {
+  flex: 1;
+  padding: 32px;
+  overflow-y: auto;
+  position: relative;
+  background-color: var(--card-background);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  line-height: 1.7;
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-height: 50vh;
+  scroll-behavior: smooth;
+}
+
+.infoModalContent::-webkit-scrollbar {
+  width: 8px;
+}
+
+.infoModalContent::-webkit-scrollbar-track {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
+}
+
+.infoModalContent::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.infoModalContent::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, var(--primary-light), var(--primary));
+}
+
+.infoModalContent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to bottom, var(--card-background), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.infoModalContent::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 20px;
+  background: linear-gradient(to top, var(--card-background), transparent);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.infoModalButton {
+  padding: 16px 24px;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-primary);
+  color: white;
+  border: none;
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  transition: var(--transition-slow);
+  position: relative;
+  overflow: hidden;
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: none !important;
+  letter-spacing: 0.5px;
+  box-shadow: 
+    0 4px 12px rgba(var(--primary-rgb), 0.25),
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  animation: buttonPulse 4s infinite alternate;
+}
+
+@keyframes buttonPulse {
+  0% {
+    box-shadow: 
+      0 4px 12px rgba(var(--primary-rgb), 0.25),
+      0 1px 3px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+  }
+  100% {
+    box-shadow: 
+      0 6px 18px rgba(var(--primary-rgb), 0.35),
+      0 2px 5px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+  }
+}
+
+.infoModalButton:global(.MuiButton-root) {
+  transition: var(--transition-slow);
+}
+
+.infoModalButton:hover {
+  background: linear-gradient(90deg, var(--primary-light), var(--primary));
+  transform: var(--hover-transform);
+  box-shadow: 
+    0 6px 15px rgba(var(--primary-rgb), 0.3),
+    0 2px 5px rgba(0, 0, 0, 0.15),
+    0 0 0 2px rgba(255, 255, 255, 0.1) inset;
+}
+
+.infoModalButton:active {
+  transform: var(--active-transform);
+  box-shadow: 
+    0 2px 8px rgba(var(--primary-rgb), 0.2),
+    0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.infoModalButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: all 0.6s ease;
+}
+
+.infoModalButton:hover::before {
+  left: 100%;
+}
+
+.infoModalFooter {
+  padding: 24px 32px;
+  border-top: 1px solid var(--border-color);
+  background-color: rgba(0, 0, 0, 0.03);
+  position: relative;
+}
+
+.infoModalFooter::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.infoModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 32px;
+  background-color: var(--card-background);
+  position: relative;
+}
+
+.infoModalHeader::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.infoModalHeader::after {
+  content: '';
+  position: absolute;
+  bottom: 1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.infoModalTitle {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-color);
+  margin: 0;
+  position: relative;
+  flex: 1;
+  text-align: center;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.05);
+  letter-spacing: 0.5px;
+  animation: titleAppear 0.6s ease forwards;
+}
+
+@keyframes titleAppear {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.infoModalTitle::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  width: 60px;
+  height: 3px;
+  background: var(--gradient-primary);
+  transform: translateX(-50%);
+  opacity: 0;
+  animation: lineAppear 0.8s ease forwards 0.3s;
+}
+
+@keyframes lineAppear {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+  to {
+    width: 60px;
+    opacity: 1;
+  }
+}
+
+.infoModalCloseButton {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  background: var(--hover-overlay);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  transition: var(--transition-normal);
+  margin-left: 10px;
+  box-shadow: 
+    0 2px 5px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  overflow: hidden;
+  transform-origin: center;
+  animation: closeButtonAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards 0.4s;
+  opacity: 0;
+}
+
+@keyframes closeButtonAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.5) rotate(-45deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+.infoModalCloseButton::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, transparent 0%, transparent 60%, rgba(var(--primary-rgb), 0.2) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 0;
+}
+
+.infoModalCloseButton:hover {
+  background: rgba(var(--primary-rgb), 0.1);
+  color: var(--primary-color);
+  transform: rotate(90deg);
+  box-shadow: 
+    0 3px 8px rgba(var(--primary-rgb), 0.2),
+    0 0 0 1px rgba(var(--primary-rgb), 0.1) inset;
+}
+
+.infoModalCloseButton:hover::before {
+  opacity: 1;
+}
+
+.infoModalCloseButton:active {
+  transform: scale(0.9) rotate(90deg);
+  background: rgba(var(--primary-rgb), 0.15);
+}
+
+.infoModalCloseButton svg {
+  position: relative;
+  z-index: 1;
+  font-size: 20px;
+  transition: all 0.3s ease;
+}
+
+.infoModalCloseButton:hover svg {
+  transform: scale(1.1);
+}
+
+/* Стили для отображения текстового содержимого */
+.contentText {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: textFadeIn 0.5s ease forwards 0.3s;
+  line-height: 1.7;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.contentText p {
+  margin-bottom: 16px;
+}
+
+.contentText p:last-child {
+  margin-bottom: 0;
+}
+
+.contentText strong {
+  color: var(--text-color);
+  font-weight: 600;
+}
+
+@keyframes textFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+  .infoModal {
+    width: 95%;
+    max-height: 80vh;
+  }
+  
+  .infoModalHeader {
+    padding: 18px 20px;
+  }
+  
+  .infoModalContent {
+    padding: 24px 20px;
+  }
+  
+  .infoModalFooter {
+    padding: 18px 20px;
+  }
+} 

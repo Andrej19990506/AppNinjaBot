@@ -65,18 +65,9 @@ from api_scheduler.schedule.availability.routes import router as availability_ro
 from api_scheduler.schedule.notifications.routes import router as notification_router
 from core.config import scheduler_settings
 from scheduler import InventoryScheduler
-# Удаляем старые импорты
-# from shared.db_utils import init_db
-# from models.scheduler_task import create_table_if_not_exists
-# Импортируем новый DatabaseService
 from services.database_service import DatabaseService
 
-# УДАЛЯЕМ импорт BackgroundTasks, если он больше не нужен
-# from fastapi import BackgroundTasks
 
-logger.info("--- SCHEDULER APP.PY STARTED (Using scheduler_settings) ---")
-
-# Lifespan менеджер для запуска/остановки шедулера
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 Инициализация сервиса и запуск шедулера...")
@@ -92,7 +83,6 @@ async def lifespan(app: FastAPI):
     
     db_pool = None
     try:
-        # Создаем пул с настройками для шедулера
         db_pool = await asyncpg.create_pool(
             dsn=dsn,
             min_size=2,  # Минимальное количество соединений
@@ -102,31 +92,24 @@ async def lifespan(app: FastAPI):
         
         # Инициализируем DatabaseService
         db_service = DatabaseService(pool=db_pool)
-        app.state.db_service = db_service  # Сохраняем в состоянии приложения
+        app.state.db_service = db_service
         logger.info("✅ Подключение к базе данных успешно установлено!")
         
         # Проверяем наличие требуемых таблиц
         logger.info("🔍 Проверка наличия необходимых таблиц...")
         if not await db_service.check_tables_exist():
             logger.warning("⚠️ Необходимые таблицы отсутствуют. Проверьте миграции.")
-            # Можно выбросить исключение, если таблицы обязательны
-            # raise HTTPException(status_code=500, detail="Отсутствуют необходимые таблицы в БД")
-            
         # Короткая проверка доступности API сервера без блокировки
         logger.info("🔌 Проверка доступности API сервера...")
         try:
             import requests
             api_url = scheduler_settings.API_URL
-            # Очень короткий таймаут, чтобы не ждать долго
-            # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце api_url --- #
             base_api_url = str(api_url).rstrip('/')
             health_check_url = f"{base_api_url}/health"
             response = requests.get(health_check_url, timeout=1)
             if response.status_code == 200:
-                # Логгируем правильный URL, к которому обращались
                 logger.info(f"✅ API сервер доступен: {health_check_url}")
             else:
-                # Логгируем правильный URL, к которому обращались
                 logger.warning(f"⚠️ API сервер ({health_check_url}) вернул код {response.status_code}")
         except Exception as api_error:
             logger.warning(f"⚠️ API сервер ({scheduler_settings.API_URL}) недоступен: {api_error}")
@@ -136,18 +119,13 @@ async def lifespan(app: FastAPI):
         telegram_bot_available = False
         try:
             import requests
-            # Правильный URL бота из docker-compose
             bot_url = "http://bot:8003" 
-            # Стучимся в /health
             bot_response = requests.get(f"{bot_url}/health", timeout=1)
             if bot_response.status_code == 200:
                 telegram_bot_available = True
                 logger.info(f"✅ Telegram бот доступен: {bot_url}")
-                
-                # --- ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ЭНДПОИНТА ОТПРАВКИ СООБЩЕНИЙ ---
                 logger.info("🔌 🚀 🔌 ПРОВЕРКА ДОСТУПНОСТИ ЭНДПОИНТА ОТПРАВКИ СООБЩЕНИЙ БОТА... 🔌 🚀 🔌")
                 try:
-                    # Проверяем URL для эндпоинта проверки доступности отправки сообщений
                     bot_send_message_health_url = f"{bot_url}/send_message/health"
                     logger.info(f"🔍 Проверка URL: {bot_send_message_health_url}")
                     
@@ -159,11 +137,9 @@ async def lifespan(app: FastAPI):
                         # Явно устанавливаем URL в переменную окружения
                         os.environ["HEALTHCHECK_BOT_SEND_MESSAGE_URL"] = bot_send_message_health_url
                         
-                        # Устанавливаем атрибут в объекте настроек динамически, если его нет
                         if hasattr(scheduler_settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL'):
                             scheduler_settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL = bot_send_message_health_url
                         else:
-                            # Если атрибута нет в объекте, добавляем его динамически
                             setattr(scheduler_settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL', bot_send_message_health_url)
                             logger.info(f"✅ Динамически добавлен атрибут HEALTHCHECK_BOT_SEND_MESSAGE_URL в настройки со значением: {bot_send_message_health_url}")
                             
@@ -182,17 +158,12 @@ async def lifespan(app: FastAPI):
             logger.warning(f"⚠️ Telegram бот недоступен: {bot_api_error}")
         # -----------------------------------------------------
         
-        # Передаем настройки и сервис БД в InventoryScheduler
         scheduler_instance = InventoryScheduler(settings=scheduler_settings, db_service=db_service)
         app.state.scheduler_instance = scheduler_instance
         
         try:
-            # Запускаем шедулер (теперь метод start() не загружает задачи автоматически)
             scheduler_instance.start()
             logger.info("✅ Шедулер успешно запущен.")
-            
-            # Создаем фоновую задачу для загрузки задач после запуска сервера
-            # ИСПОЛЬЗУЕМ asyncio.create_task ВМЕСТО Thread
             logger.info("🔄 Запуск фоновой загрузки активных задач...")
             asyncio.create_task(scheduler_instance.reload_scheduled_tasks())
             logger.info("✅ Загрузка задач запущена в фоне, сервер продолжает запуск")

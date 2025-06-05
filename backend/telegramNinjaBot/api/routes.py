@@ -36,6 +36,10 @@ ALLOWED_FILE_DIR = Path("/app/shared/timesheets")
 ALLOWED_REPORTS_DIR = Path(os.getenv("SHARED_REPORTS_FOLDER", "/app/shared/inventory_reports"))
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
+# ---> ДОБАВЛЕНИЕ: Директория для write-off отчетов < ---
+ALLOWED_WRITEOFF_REPORTS_DIR = Path(os.getenv("SHARED_WRITEOFF_REPORTS_FOLDER", "/app/shared/write_off_reports"))
+# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
 # Модель для эндпоинта отправки файла
 class SendFilePayload(BaseModel):
     target_chat_id: int
@@ -55,6 +59,12 @@ class SendExcelReportPayload(BaseModel):
     chat_id: str # Принимаем как строку, т.к. API отправляет строку
     file_path: str
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+# --- Модель для отправки DOCX write-off отчёта ---
+class SendWriteOffReportPayload(BaseModel):
+    chat_id: str
+    file_path: str
+# --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ DOCX write-off отчёта ---
 
 # Создаем APIRouter
 router = APIRouter()
@@ -306,9 +316,7 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
                     logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id} с подписью.")
                 except Exception as send_err:
                     logger.warning(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {processed_chat_id} (первая попытка): {send_err}")
-                    # <<< ИСПРАВЛЕНИЕ ЛОГИКИ ОБРАБОТКИ ОШИБКИ ОТПРАВКИ >>>
-                    # Пробуем альтернативный ID, если это группа и есть ошибка
-                    # (Логика остается прежней, но используем новый caption)
+
                     if str(processed_chat_id).startswith('-100'): 
                         alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
                         logger.info(f"Попытка отправить в чат {alternative_chat_id} (альтернативный ID)")
@@ -368,7 +376,7 @@ async def refresh_user_data(payload: RefreshUserPayload, request: Request):
             user_id = payload.user_id
             logger.info(f"Получение данных пользователя {user_id} из Telegram")
             
-            # Попробуем получить информацию пользователя через getChat
+
             try:
                 chat = await bot_app.bot.get_chat(user_id)
                 user_data = {
@@ -376,14 +384,14 @@ async def refresh_user_data(payload: RefreshUserPayload, request: Request):
                     "first_name": chat.first_name or "",
                     "last_name": chat.last_name or "",
                     "username": chat.username or "",
-                    "photo_url": ""  # Получим фото отдельно
+                    "photo_url": "" 
                 }
                 
                 # Попытаемся получить фото профиля
                 try:
                     photos = await bot_app.bot.get_user_profile_photos(user_id, limit=1)
                     if photos and photos.photos and len(photos.photos) > 0:
-                        photo = photos.photos[0][-1]  # Берём лучшее качество из первого фото
+                        photo = photos.photos[0][-1]
                         photo_file = await bot_app.bot.get_file(photo.file_id)
                         user_data["photo_url"] = photo_file.file_path
                 except Exception as photo_err:
@@ -485,7 +493,7 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
         # Формируем подпись для документа
         report_date = datetime.now().strftime("%d.%m.%Y")
         caption = f"📊 Отчет по инвентаризации от {report_date}"
-        logger.info(f"Сгенерирована подпись для Excel: '{caption}'")
+        logger.info(f"Сгенерирован подпись для Excel: '{caption}'")
 
         # Отправка документа
         try:
@@ -552,11 +560,117 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
         # --- Дополнительная проверка на удаление файла, если он все еще существует после ошибки отправки --- 
         # Это маловероятно из-за логики выше, но как подстраховка
         if resolved_path and os.path.exists(resolved_path):
-            # Проверяем, была ли ошибка именно при отправке (не при валидации)
-            # Если ошибка была ДО отправки, файл удалять не нужно
-            # (Эту логику сложно точно реализовать здесь, лучше полагаться на удаление после успешной отправки)
+           
             pass # Пока не удаляем здесь, чтобы избежать случайного удаления
-            # logger.warning(f"Файл {resolved_path} не был удален из-за ошибки.") 
+ 
+
+# --- НОВЫЙ ЭНДПОИНТ /internal/send_write_off_report --- 
+@router.post("/internal/send_write_off_report", tags=["Internal"], status_code=status.HTTP_200_OK)
+async def send_write_off_report_internal(payload: SendWriteOffReportPayload, request: Request):
+    """Принимает запрос от API Server и отправляет сгенерированный DOCX write-off отчёт в группу."""
+    logger.info(f"\ud83d\udce8 Получен внутренний запрос на /internal/send_write_off_report для чата ID {payload.chat_id}")
+    logger.debug(f"Payload: {payload.model_dump()}")
+    resolved_path: Optional[Path] = None
+
+    try:
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("\u274c \u042d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440 \u0431\u043e\u0442\u0430 \u043d\u0435 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0432 app.state \u043f\u0440\u0438 \u0437\u0430\u043f\u0440\u043e\u0441\u0435 send_write_off_report")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
+
+        # Преобразуем chat_id
+        try:
+            if not payload.chat_id.startswith('-'):
+                logger.warning(f"\u041f\u043e\u043b\u0443\u0447\u0435\u043d chat_id '{payload.chat_id}' \u0431\u0435\u0437 \u043c\u0438\u043d\u0443\u0441\u0430 \u0434\u043b\u044f \u0433\u0440\u0443\u043f\u043f\u044b. \u041f\u044b\u0442\u0430\u044e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c...")
+                processed_chat_id = int(f"-{payload.chat_id}")
+            else:
+                processed_chat_id = int(payload.chat_id)
+            logger.info(f"ID \u0447\u0430\u0442\u0430 \u0434\u043b\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u043e\u0442\u0447\u0451\u0442\u0430: {processed_chat_id}")
+        except ValueError:
+            logger.error(f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u0435\u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u0442\u044c chat_id '{payload.chat_id}' \u0432 \u0447\u0438\u0441\u043b\u043e")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {payload.chat_id}")
+
+        # \u0412\u0430\u043b\u0438\u0434\u0430\u0446\u0438\u044f \u043f\u0443\u0442\u0438 \u043a \u0444\u0430\u0439\u043b\u0443
+        requested_path = Path(payload.file_path)
+        logger.info(f"\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430 \u043f\u0443\u0442\u0438 DOCX \u0444\u0430\u0439\u043b\u0430: {requested_path}")
+
+        if not requested_path.is_absolute():
+            logger.error(f"\u274c \u0423\u043a\u0430\u0437\u0430\u043d \u043e\u0442\u043d\u043e\u0441\u0438\u0442\u0435\u043b\u044c\u043d\u044b\u0439 \u043f\u0443\u0442\u044c \u0434\u043b\u044f DOCX: {requested_path}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid DOCX file path: Must be absolute.")
+
+        if not requested_path.is_file():
+            logger.error(f"\u274c DOCX \u0444\u0430\u0439\u043b \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u043f\u043e \u043f\u0443\u0442\u0438: {requested_path}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"DOCX file not found at path: {requested_path.name}")
+
+        try:
+            resolved_path = requested_path.resolve(strict=True)
+            allowed_dir_resolved = ALLOWED_WRITEOFF_REPORTS_DIR.resolve(strict=True)
+            if not resolved_path.is_relative_to(allowed_dir_resolved):
+                logger.error(f"❌ Попытка доступа к DOCX файлу вне разрешённой директории: {resolved_path}")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to the specified DOCX file path.")
+        except Exception as path_resolve_err:
+            logger.error(f"❌ Ошибка при проверке пути DOCX файла {requested_path}: {path_resolve_err}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error validating DOCX file path.")
+
+        logger.info(f"Путь DOCX {resolved_path} прошел валидацию. Попытка отправки документа.")
+
+        # Формируем подпись для документа
+        report_date = datetime.now().strftime("%d.%m.%Y")
+        caption = f"📝 Акт списания от {report_date}"
+        logger.info(f"Сгенерирован подпись для DOCX: '{caption}'")
+
+        # Отправка документа
+        try:
+            with open(resolved_path, "rb") as document_file:
+                await bot_app.bot.send_document(
+                    chat_id=processed_chat_id,
+                    document=InputFile(document_file, filename=resolved_path.name),
+                    caption=caption
+                )
+                logger.info(f"✅ DOCX файл {resolved_path.name} успешно отправлен в чат {payload.chat_id}.")
+
+            # Удаляем файл после успешной отправки
+            try:
+                os.remove(resolved_path)
+                logger.info(f"✅ Временный DOCX файл {resolved_path} удален после отправки.")
+            except Exception as remove_err:
+                logger.error(f"⚠️ Не удалось удалить временный DOCX файл {resolved_path} после отправки: {remove_err}")
+
+            return {"success": True, "message": "Write-off report sent successfully"}
+
+        except BadRequest as tg_err:
+            logger.error(f"❌ Ошибка BadRequest при отправке DOCX {resolved_path.name} в чат {payload.chat_id}: {tg_err}")
+            if str(processed_chat_id).startswith('-100'):
+                alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
+                logger.info(f"Попытка отправить DOCX в чат {alternative_chat_id} (альтернативный ID)")
+                try:
+                    with open(resolved_path, "rb") as document_file:
+                        await bot_app.bot.send_document(
+                            chat_id=alternative_chat_id,
+                            document=InputFile(document_file, filename=resolved_path.name),
+                            caption=caption
+                        )
+                        logger.info(f"✅ DOCX файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id}.")
+                        try:
+                            os.remove(resolved_path)
+                            logger.info(f"✅ Временный DOCX файл {resolved_path} удален после второй попытки отправки.")
+                        except Exception as remove_err:
+                            logger.error(f"⚠️ Не удалось удалить временный DOCX файл {resolved_path} после второй попытки отправки: {remove_err}")
+                        return {"success": True, "message": "Write-off report sent successfully (alt ID)"}
+                except Exception as alt_send_err:
+                    logger.error(f"❌ Ошибка при отправке DOCX {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
+                    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send write-off report (alt ID): {alt_send_err}")
+            else:
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"BadRequest error sending write-off report: {tg_err}")
+        except Exception as send_err:
+            logger.error(f"❌ Ошибка при обработке DOCX файла {resolved_path.name} или отправке в чат {payload.chat_id}: {send_err}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send write-off report: {send_err}")
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"\u274c \u041d\u0435\u043f\u0440\u0435\u0434\u0432\u0438\u0434\u0435\u043d\u043d\u0430\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0432 /internal/send_write_off_report: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}")
 
 # --- НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ ПОДТВЕРЖДЕНИЯ --- 
 async def handle_confirmation_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -573,9 +687,9 @@ async def handle_confirmation_callback(update: Update, context: ContextTypes.DEF
     confirmation_type = 'default' # По умолчанию
     # <<< ДОБАВЛЯЕМ СПИСОК СЛОВ >>>
     positive_words = [
-        "Отлично", "Потрясающе", "Замечательно", "Супер",
-        "Прекрасно", "Великолепно", "Изумительно", "Так держать",
-        "Класс", "Здорово", "Чудесно", "Блестяще",
+        "Отлично", "Замечательно", "Супер",
+        "Прекрасно", "Так держать",
+        "Класс", "Здорово",
         "Одобрено", "Принято", 
         "Хорошо",  "Зафиксировано",
     ]
@@ -703,15 +817,6 @@ async def handle_confirmation_callback(update: Update, context: ContextTypes.DEF
         # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
         logger.error(f"Ошибка при отправке сообщения подтверждения для уведомления {notification_id_str}: {send_err}", exc_info=True)
 
-# --- ВАЖНО: Регистрация обработчика --- 
-# Этот обработчик нужно зарегистрировать в вашем основном файле бота,
-# там, где создается экземпляр `Application`. Примерно так:
-#
-# from telegramNinjaBot.api.routes import handle_confirmation_callback # Убедитесь, что путь импорта верный
-# ...
-# application = Application.builder().token(...).build()
-# ...
-# confirmation_handler = CallbackQueryHandler(handle_confirmation_callback, pattern=r"^confirm:")
-# application.add_handler(confirmation_handler)
-# ...
+
+
 

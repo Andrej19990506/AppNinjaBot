@@ -21,7 +21,13 @@
     "jsx": "react-jsx",
     "baseUrl": "src",
     "paths": {
-      "@/*": ["*"]
+      "@/*": ["*"],
+      "@shared/*": ["shared/*"],
+      "@features/*": ["features/*"],
+      "@entities/*": ["entities/*"],
+      "@app/*": ["app/*"],
+      "@widgets/*": ["widgets/*"],
+      "@pages/*": ["pages/*"]
     }
   },
   "include": [

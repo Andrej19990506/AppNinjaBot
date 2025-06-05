@@ -1,30 +1,21 @@
 from fastapi import FastAPI, Request, status, Depends
 from dotenv import load_dotenv
 import os
-# Добавляем импорт CORSMiddleware
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-# Удаляем неиспользуемый импорт SessionLocal
-from models.base import Base      # <<< ИСПРАВЛЕНО: Импорт из models.base
-from core.config import settings    # <<< ИЗМЕНЕНО: Абсолютный импорт
-# Удаляем старый импорт из routers
-# from routers import users as user, reserve 
-import logging
+from models.base import Base
+from core.config import settings
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from loguru import logger
 import redis.asyncio as redis
 
-# Импортируем роутеры
-# Удаляем старые импорты
-# from .routers import couriers, users 
-# Убираем префикс backend.API_server.
+
 from api.v1.api import api_router as api_v1_router # Импортируем наш агрегатор V1
 from core.logging_config import setup_logging
 from db.session import get_db_session, async_engine
 
 # Загрузка переменных окружения из .env файла
-# Убедись, что .env файл находится в корне проекта или укажи путь: load_dotenv(dotenv_path='path/to/.env')
 load_dotenv() 
 
 # Настройка логирования
@@ -33,12 +24,10 @@ setup_logging()
 # Создание таблиц в базе данных (если они еще не созданы)
 async def create_tables():
     async with async_engine.begin() as conn:
-        # await conn.run_sync(Base.metadata.drop_all) # Раскомментировать для удаления таблиц
         await conn.run_sync(Base.metadata.create_all)
     logger.info("Database tables checked/created.")
 
-# ---> ДОБАВЛЕНИЕ: Настройка клиента Redis/DragonflyDB < ---
-# Глобальная переменная для хранения клиента (или использовать state)
+
 redis_client = None
 
 @asynccontextmanager
@@ -63,28 +52,27 @@ async def lifespan(app: FastAPI):
 
     yield # Приложение работает
 
-    # Код, который выполняется при остановке
     logger.info("Приложение останавливается...")
-    # ---> Закрытие Redis клиента < ---
+
     if redis_client:
         await redis_client.close()
         logger.info("Соединение с Redis/DragonflyDB закрыто.")
-    # ---> Конец закрытия Redis < ---
+
 
 # ---> Создание экземпляра FastAPI с lifespan < ---
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.PROJECT_VERSION,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url=f"{settings.API_V1_STR}/docs", # Стандартный путь для Swagger
-    redoc_url=f"{settings.API_V1_STR}/redoc", # Стандартный путь для ReDoc
-    lifespan=lifespan # Используем новый lifespan
+    docs_url=f"{settings.API_V1_STR}/docs",
+    redoc_url=f"{settings.API_V1_STR}/redoc",
+    lifespan=lifespan
 )
 
 # Добавляем настройки CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost", "https://appninjabot.ru"],
+    allow_origins=["http://localhost:3000", "http://localhost", "https://appninjabot.ru", "http://192.168.0.115:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -118,14 +106,11 @@ async def health_check():
     """Эндпоинт для проверки состояния API."""
     return {"status": "ok"}
 
-# Подключаем ТОЛЬКО агрегированный роутер V1 с префиксом /api/v1
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
 
-# Глобальный обработчик ошибок валидации
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    # Здесь должна быть логика обработки ошибки
-    # Например, логирование и возврат стандартизированного ответа
     errors = []
     for error in exc.errors():
         errors.append({
@@ -141,9 +126,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 if __name__ == "__main__":
     import uvicorn
-    # Получаем хост и порт из переменных окружения или используем значения по умолчанию
     host = os.getenv("FASTAPI_HOST", "127.0.0.1")
-    # Используем порт 8000
     port = int(os.getenv("FASTAPI_PORT", "8000")) 
     
     print(f"🚀 Starting FastAPI server on http://{host}:{port}")

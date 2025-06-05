@@ -42,7 +42,7 @@ export interface SubscribeEventParams<T = any> {
   handler: (data: T) => void;
 }
 
-// Дополнительные параметры для работы с комнатами
+
 export interface RoomOptions {
   force?: boolean;
   refresh?: boolean;

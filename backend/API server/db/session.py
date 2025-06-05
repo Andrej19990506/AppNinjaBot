@@ -2,9 +2,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from core.config import settings
 
-# Создаем асинхронный движок SQLAlchemy
-# pool_pre_ping=True - проверяет соединение перед использованием
-# echo=True - логирует SQL запросы (полезно для отладки, можно убрать в production)
+
 async_engine = create_async_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { useParams } from 'react-router-dom';
-import Inventory from '../components/Inventory/Inventory';
+import Inventory from '@features/Inventory/Inventory';
 
 const InventoryPage: React.FC = () => {
   const { chatId } = useParams<{ chatId: string }>();

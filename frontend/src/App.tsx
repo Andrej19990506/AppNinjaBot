@@ -1,24 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Provider, useSelector } from 'react-redux';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'; 
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'; 
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'; 
 import { ThemeProvider as CustomThemeProvider } from './contexts/ThemeContext'; 
 import { theme } from './styles/themes/theme';
-import store from './store/store'; 
-import { initializeFromTelegram, selectIsUserInitialized, selectUserInitializationError/*, selectUser*/ } from './store/slices/userSlice'; 
-import { useAppDispatch } from './store/hooks';
-import { logger } from './utils/logger';
-import MainMenu from './components/MainMenu/MainMenu';
-import CourierSchedule from './components/CourierSchedule/CourierSchedule';
+import store from './shared/store/store'; 
+import { initializeFromTelegram} from '@shared/store/userSlice/userThunks';
+import { selectIsUserInitialized, selectUserInitializationError } from '@shared/store/userSlice/userSelectors';
+import { useAppDispatch } from './shared/store/hooks';
+import { logger } from './shared/utils/logger';
+import MainMenu from './features/MainMenu/MainMenu';
+import CourierSchedule from './features/courierSchedule/CourierSchedule';
 import './App.css';
 import './styles/base/variables.css';
-import LocationChangeListener from './components/common/LocationChangeListener'; 
-import { useWebSocketSync } from './hooks/useWebSocketSync';
-import NotificationHandler from './components/notifications/NotificationHandler';
+import LocationChangeListener from './shared/components/LocationChangeListener/LocationChangeListener'; 
+import { useWebSocketSync } from './shared/hooks/useWebSocketSync';
+import NotificationHandler from './shared/components/Notifications/NotificationHandler';
 import InventoryPage from './pages/InventoryPage';
-import ProtectedChefRoute from './components/ProtectedChefRoute';
-import LoadingOverlay from './components/common/LoadingOverlay/LoadingOverlay';
-import EventList from './components/Events/EventList';
+import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
+import LoadingOverlay from './shared/components/LoadingOverlay/LoadingOverlay';
+import EventList from './features/Events/EventList';
+import { setActiveRole } from './shared/store/userSlice/userSlice';
+import WriteOff from '@/features/WriteOff/WriteOff';
 
 const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
 const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
@@ -32,10 +35,20 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const initError = useSelector(selectUserInitializationError);
   const initStarted = useRef(false);
   const initStartTimeRef = useRef<number | null>(null); 
+  const location = useLocation();
 
   const [showOverlay, setShowOverlay] = useState(true); 
 
   const isActuallyLoading = !isUserInitialized && !initError;
+
+  // Восстанавливаем роль из URL при старте
+  useEffect(() => {
+    if (location.pathname.startsWith('/courier')) {
+      dispatch(setActiveRole('courier'));
+    } else if (location.pathname.startsWith('/chef')) {
+      dispatch(setActiveRole('chef'));
+    }
+  }, [location.pathname, dispatch]);
 
   useEffect(() => {
     if (!isUserInitialized && !initError && !initStarted.current) {
@@ -96,41 +109,15 @@ function App() {
             <AppInitializer>
               <NotificationHandler />
               <Routes>
-                <Route path="/" element={<MainMenu />} />
-                <Route 
-                  path="/courier-schedule" 
-                  element={ 
-                    <CourierSchedule /> 
-                  }
-                 />
-                <Route path="/admin" element={<AdminPanel />} /> 
-                <Route 
-                    path="/inventory" 
-                    element={
-                        <ProtectedChefRoute>
-                            <InventoryPage />
-                        </ProtectedChefRoute>
-                    }
-                 />
-                 <Route 
-                    path="/inventory/:chatId" 
-                    element={
-                        <ProtectedChefRoute>
-                            <InventoryPage />
-                        </ProtectedChefRoute>
-                    }
-                 />
-                
-                <Route 
-                    path="/events"
-                    element={
-                        <ProtectedChefRoute>
-                            <EventList />
-                        </ProtectedChefRoute>
-                    }
-                />
-
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route path="/courier" element={<MainMenu />} />
+                <Route path="/chef" element={<MainMenu />} />
+                <Route path="/courier/events" element={<EventList />} />
+                <Route path="/courier/courier-schedule" element={<CourierSchedule />} />
+                <Route path="/chef/events" element={<EventList />} />
+                <Route path="/chef/inventory" element={<InventoryPage />} />
+                <Route path="/chef/write-off" element={<WriteOff />} />
+                <Route path="/inventory/:chatId" element={<InventoryPage />} />
+                <Route path="*" element={<Navigate to="/courier" replace />} />
               </Routes>
             </AppInitializer>
           </Router>

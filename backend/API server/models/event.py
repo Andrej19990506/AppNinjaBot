@@ -57,6 +57,8 @@ class Event(Base):
     # --- Поля для chat_ids --- Изменяем тип на JSON
     chat_ids = Column(JSON, nullable=True) # Поле для хранения списка ID чатов как JSON
 
+    group_type = Column(String(50), nullable=True, index=True, comment='Тип группы (chef, courier, admin и т.д.)')
+
     def __repr__(self):
         return f"<Event(id={self.id}, type='{self.event_type}', description='{self.description[:20]}...', date='{self.date}')>"
 

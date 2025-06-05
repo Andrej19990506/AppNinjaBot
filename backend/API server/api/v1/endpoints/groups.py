@@ -5,17 +5,14 @@ from typing import List, Optional, Dict, Any
 import os
 import httpx
 import json
-from datetime import datetime # <-- Добавляем импорт datetime
+from datetime import datetime 
 
 # Используем абсолютные импорты от корня /app
 from db.session import get_db_session
 from models.group import Group
 from schemas.group import GroupRead # Схема для ответа
-from models.group_member import GroupMember # <-- Добавляем импорт GroupMember
-from models.member import Member # <-- Добавляем импорт Member
-# from models.inventory_history import InventoryHistory # <-- УДАЛЕНО
-
-# Импорты, необходимые для настроек (проверь дубликаты)
+from models.group_member import GroupMember 
+from models.member import Member 
 from schemas.group_settings import GroupSettings, GroupSettingsUpdate
 import logging
 
@@ -28,8 +25,6 @@ from pydantic import Field # Для описания полей
 
 # --- НОВЫЕ СХЕМЫ для ответа /chats ---
 class AdminInfo(UserSimple):
-    # Можно добавить роль, если нужно
-    # role: str
     pass
 
 class ChatWithAdmins(GroupRead):
@@ -38,13 +33,9 @@ class ChatWithAdmins(GroupRead):
     chat_id: str # Убедимся, что это строка
     metadata: Optional[Dict[str, Any]] = None # Добавим метаданные
 
-    # Конфигурация для преобразования group_id в chat_id при валидации
-    # или сделаем это при формировании ответа
-# --- ----------------------------- ---
 
 
 
-# Убедись, что логгер настроен или используй существующий, если он есть в groups.py
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
@@ -63,9 +54,6 @@ async def read_groups(
     group_type: Optional[str] = Query(None, description="Filter groups by type (e.g., 'courier', 'chef')"),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """
-    Fetches a list of groups, optionally filtered by group_type.
-    """
     query = select(Group)
     
     if group_type:
@@ -397,7 +385,7 @@ class SeniorityResponse(BaseModel):
     is_senior_courier: Optional[bool] # В ответе может быть null, если еще не установлен
     role: str
 
-# --- НОВЫЙ ЭНДПОИНТ ДЛЯ ОБНОВЛЕНИЯ СТАТУСА СТАРШЕГО --- 
+# ---ЭНДПОИНТ ДЛЯ ОБНОВЛЕНИЯ СТАТУСА СТАРШЕГО --- 
 @router.put(
     "/{group_telegram_id}/members/{user_telegram_id}/seniority",
     response_model=SeniorityResponse, 

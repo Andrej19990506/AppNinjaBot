@@ -1,5 +1,3 @@
-// frontend/src/types/event.ts
-
 // Тип для настроек повтора
 export interface RepeatSettings {
   type: 'none' | 'daily' | 'weekly' | 'monthly';
@@ -73,6 +71,7 @@ export interface EventCreate extends Omit<EventBase, 'date'> {
   date: string; // На API отправляем дату как строку ISO 8601
   event_type: 'manual' | 'ato'; // Тип создаваемого события
   chat_ids?: number[]; // Заменяем target_chat_id_for_ato на chat_ids
+  group_type?: string; // Тип группы (chef, courier, admin и т.д.)
 }
 
 // Тип данных события, получаемых от API
@@ -85,6 +84,7 @@ export interface EventRead {
   last_check?: string | null; // API возвращает строку ISO 8601 или null
   event_type?: 'manual' | 'ato' | 'АТО' | string; // Поле event_type, которое уже было или должно быть здесь для чтения
   chat_ids?: number[]; // Заменяем target_chat_id_for_ato на chat_ids
+  group_type?: string; // Тип группы (chef, courier, admin и т.д.)
    
   // Поля для событий АТО от RetailiQA
   retailiqa_insp_id?: string;           // ID инспекции в RetailiQA
@@ -118,7 +118,6 @@ export interface EventUpdate extends Partial<EventCreate> {
   // Позволяет обновлять description и/или date
 }
 
-// Interfaces for RetailiQA API /api/v2/report/
 
 export interface RetailiQAReportItem {
   insp_id: string;
@@ -133,7 +132,7 @@ export interface RetailiQAReportItem {
   insp_obj_id: string;
   insp_obj_code: string;
   insp_obj_region: string;
-  insp_obj_visited: string; // "Да" | "Нет"
+  insp_obj_visited: string; 
   insp_type: string;
   insp_schedule: string;
   insp_type_id: string;
@@ -147,9 +146,9 @@ export interface RetailiQAReportItem {
   task_pt: number;
   task_counter: number;
   task_sum: number;
-  task_answer: string; // "Да", "Нет", "Нет данных", etc.
+  task_answer: string; 
   task_comments: string;
-  task_photos: string; // Could be comma-separated URLs or empty
+  task_photos: string;
   task_files: string;
   insp_supervisor: string;
   supervisor_id: string;
@@ -159,7 +158,7 @@ export interface RetailiQAReportItem {
   state_message: string;
   is_closed: boolean;
   scope_type: string;
-  managers_list: unknown[]; // or any[] if structure is unknown
+  managers_list: unknown[]; 
   is_auto_closed: boolean;
   content_type: number;
   insp_api_id: string;
@@ -206,13 +205,13 @@ export interface RetailiQACheckObject {
   location: [number, number];
   region: RetailiQACheckObjectRegion;
   signers: RetailiQACheckObjectSigner[];
-  inspectionType: string; // ID типа инспекции
+  inspectionType: string; 
   inspector: RetailiQACheckObjectInspector[];
-  supervisor: string | null; // или объект, если известна структура
+  supervisor: string | null; 
   additional_supervisors: RetailiQACheckObjectInspector[];
-  format: string | null; // или объект, если известна структура
+  format: string | null; 
   uid: string;
-  managers: unknown[]; // или any[]
+  managers: unknown[]; 
 }
 
 export interface RetailiQACheckObjectsApiResponse {

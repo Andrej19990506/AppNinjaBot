@@ -1,23 +1,22 @@
-// frontend/src/types/inventoryTypes.ts
+// --- inventoryTypes.ts ---
+// Типы для работы с инвентарём: используются в inventorySlice, inventoryApi и связанных сервисах/компонентах.
 
-// Типы, используемые как в inventorySlice.ts, так и в inventoryApi.ts
-
-// Основной тип для данных инвентаря чата
+// Основной тип данных инвентаря чата
 export interface InventoryData {
-    inventory: Inventory; // Тип Inventory должен быть определен (см. ниже)
-    metadata: InventoryMetadata;
-    chat_title: string;
-    admins: Admin[]; // Тип Admin должен быть определен (см. ниже)
+    inventory: Inventory; // Инвентарь (структура ниже)
+    metadata: InventoryMetadata; // Метаданные инвентаря
+    chat_title: string; // Название чата
+    admins: Admin[]; // Список админов (тип ниже)
 }
 
-// Полезная нагрузка для обновления инвентаря
+// Пэйлоад для обновления инвентаря (частичный или полный)
 export interface InventoryUpdatePayload {
-    inventory?: Inventory; // Обновленный инвентарь (может быть частичным или полным)
-    metadata?: InventoryMetadata; // Обновленные метаданные
-    history?: InventoryHistoryItem; // Информация об изменении для записи в историю
+    inventory?: Inventory; // Обновлённый инвентарь
+    metadata?: InventoryMetadata; // Обновлённые метаданные
+    history?: InventoryHistoryItem; // Запись для истории изменений
 }
 
-// Тип для элемента чата в списке (используется в getChefChats)
+// Элемент чата в списке (например, для getChefChats)
 export interface ChatItem {
     id: number;
     chat_id: string;
@@ -25,12 +24,12 @@ export interface ChatItem {
     group_type: string;
     created_at: string;
     admins: Admin[];
-    metadata: InventoryMetadata | null; // Метаданные могут быть null
-    slot_config?: any; // Добавить, если используется
-    access_settings?: any; // Добавить, если используется
+    metadata: InventoryMetadata | null; // Метаданные могут отсутствовать
+    slot_config?: any; // Конфиг слотов (если используется)
+    access_settings?: any; // Настройки доступа (если используются)
 }
 
-// Тип для элемента истории инвентаря
+// Элемент истории изменений инвентаря
 export interface InventoryHistoryItem {
     id: number;
     group_id: number;
@@ -40,7 +39,7 @@ export interface InventoryHistoryItem {
     type: 'raw' | 'semifinished';
     old_quantity: number | null;
     new_quantity: number | null;
-    timestamp: string; // ISO string
+    timestamp: string; // ISO-строка времени
     author: {
         user_id: number;
         first_name: string | null;
@@ -48,29 +47,28 @@ export interface InventoryHistoryItem {
     } | null;
 }
 
-// --- Вспомогательные типы (нужно убедиться, что они тоже здесь или импортируются) ---
-
-// Пример: Определение типа Inventory (если он не импортируется откуда-то еще)
+// Детализация по конкретному товару (остатки, наличие)
 export interface InventoryItemDetails {
-    quantity: number;
-    filled: boolean;
-    isOutOfStock?: boolean;
-    // могут быть другие поля
+    quantity: number; // Количество
+    filled: boolean; // Заполнено ли
+    isOutOfStock?: boolean; // Нет в наличии (опционально)
 }
 
+// Описание товара в инвентаре
 export interface InventoryItem {
-    name: string;
+    name: string; // Название
     unit?: string; // Единица измерения
     itemType: 'raw' | 'semifinished' | 'both'; // Тип для бэка
-    raw?: InventoryItemDetails;
-    semifinished?: InventoryItemDetails;
-    has_semifinished?: boolean; // Флаг наличия полуфабриката
+    raw?: InventoryItemDetails; // Остатки сырья
+    semifinished?: InventoryItemDetails; // Остатки полуфабриката
+    has_semifinished?: boolean; // Есть ли полуфабрикат
     // могут быть другие поля
 }
 
+// Весь инвентарь: категория → товар → объект товара
 export type Inventory = Record<string, Record<string, InventoryItem>>;
 
-// Пример: Определение типа Admin (если он не импортируется)
+// Тип администратора (если не импортируется)
 export interface Admin {
     id: number;
     user_id: number;
@@ -80,9 +78,9 @@ export interface Admin {
     photo_url: string | null;
 }
 
-// Пример: Определение типа InventoryMetadata (если он не импортируется)
+// Метаданные инвентаря (если не импортируется)
 export interface InventoryMetadata {
-    lastUpdated: string;
-    progress: number;
-    chat_id: string;
+    lastUpdated: string; // Дата последнего обновления
+    progress: number; // Прогресс заполнения
+    chat_id: string; // ID чата
 } 

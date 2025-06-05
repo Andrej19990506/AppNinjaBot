@@ -17,18 +17,15 @@ from .event import (
     NotificationRead,
     SchedulingStatus
 )
+# Добавляем импорт схем для списаний
+from .write_off import WriteOffBase, WriteOffCreate, WriteOffResponse
 
 # Можно добавить __all__, чтобы явно указать экспортируемые имена
 __all__ = [
     "MemberBase", "MemberCreate", "MemberRead",
     "GroupBase", "GroupCreate", "GroupRead",
     "UserProfileResponse", "UserGroupsContextResponse", # Добавляем новые схемы
-    "ReserveBase", "ReserveCreate", "ReserveRead", "ReserveMember", "ReserveGroup", # Обновлено на ReserveMember и добавлен ReserveGroup
-    # Убираем несуществующие экспорты
-    # "Member",
-    # "MemberUpdate",
-    # "MemberStatus",
-    # NEW: Экспорт схем событий
+    "ReserveBase", "ReserveCreate", "ReserveRead", "ReserveMember", "ReserveGroup",
     "EventBase",
     "EventCreate",
     "EventUpdate",
@@ -39,4 +36,5 @@ __all__ = [
     "NotificationUpdate",
     "NotificationRead",
     "SchedulingStatus",
+    "WriteOffBase", "WriteOffCreate", "WriteOffResponse",
 ] 

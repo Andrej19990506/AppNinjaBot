@@ -1,8 +1,10 @@
+/// <reference types="vite/client" />
+
 const config = {
-    API_URL: process.env.REACT_APP_API_URL || 'http://localhost/api',
-    WS_URL: process.env.REACT_APP_WS_URL || 'ws://localhost:80',
-    ENV: process.env.NODE_ENV || 'development',
-    DEBUG: process.env.NODE_ENV !== 'production',
+    API_URL: import.meta.env.VITE_API_URL || 'http://localhost/api',
+    WS_URL: import.meta.env.VITE_WS_URL || 'ws://localhost:80',
+    ENV: import.meta.env.VITE_ENV || 'development',
+    DEBUG: import.meta.env.VITE_DEBUG === 'true' || false,
     SOCKET_CONFIG: {
         path: '/socket.io/',
         transports: ['websocket', 'polling'],

@@ -1,19 +1,22 @@
 # backend/API server/crud/event.py
 import uuid
-from typing import List, Optional, Any
-from datetime import datetime
+from typing import List, Optional
 import logging
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 # Предполагаем, что модели и схемы импортируются так:
 import models
 import schemas
+from models.group import Group
 
 async def create_event(db: AsyncSession, *, event_in: schemas.EventCreate) -> models.Event:
     """Создает новое событие в базе данных."""
+    logger = logging.getLogger(__name__)
+    logger.info(f'[create_event] event_in.group_type={getattr(event_in, "group_type", None)}')
+    logger.info(f'[create_event] event_in={event_in}')
     db_event = models.Event(
         description=event_in.description,
         date=event_in.date,
@@ -32,7 +35,8 @@ async def create_event(db: AsyncSession, *, event_in: schemas.EventCreate) -> mo
         retailiqa_earned_points=event_in.retailiqa_earned_points,
         # Добавляем новые поля для детальной информации о нарушениях
         retailiqa_violation_count=event_in.retailiqa_violation_count,
-        retailiqa_detailed_violations=event_in.retailiqa_detailed_violations
+        retailiqa_detailed_violations=event_in.retailiqa_detailed_violations,
+        group_type=getattr(event_in, 'group_type', None)
     )
     db.add(db_event)
     await db.commit()
@@ -267,4 +271,21 @@ async def get_notification_by_id(db: AsyncSession, notification_id: uuid.UUID) -
     result = await db.execute(query)
     return result.scalars().first()
 
-# TODO: Добавить функцию для удаления уведомлений при необходимости 
+async def get_events_by_group_type(db: AsyncSession, group_type: str, skip: int = 0, limit: int = 100) -> List[models.Event]:
+    """
+    Получает список событий по типу группы (chef, courier, admin и т.д.) напрямую по полю group_type.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"[get_events_by_group_type] Фильтрация по group_type={group_type}")
+    stmt = (
+        select(models.Event)
+        .where(models.Event.group_type == group_type)
+        .options(selectinload(models.Event.notifications))
+        .offset(skip)
+        .limit(limit)
+        .order_by(models.Event.date.desc())
+    )
+    result = await db.execute(stmt)
+    events = result.scalars().all()
+    logger.info(f"[get_events_by_group_type] Получено {len(events)} событий для group_type={group_type}")
+    return events

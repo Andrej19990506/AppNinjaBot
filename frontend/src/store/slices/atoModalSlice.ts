@@ -1,12 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { RootState } from '../store';
+import { RootState } from '../../shared/store/store';
 
 // Типы для комментариев АТО
 export interface AtoComment {
   title: string;
   text: string;
   penaltyPoints?: number; // Добавляем штрафные баллы для комментария
-  photos?: string[]; // <-- ДОБАВЛЯЕМ ЭТО ПОЛЕ
+  photos?: string[];
 }
 
 // Тип для состояния модального окна
@@ -96,8 +96,6 @@ const atoModalSlice = createSlice({
       state.selectedCommentTexts = [];
     },
     createNotificationFromAto: (state) => {
-      // Этот экшен не меняет состояние, он будет использоваться как триггер 
-      // для вызова функции handleCreateNotification из AtoCommentsModal
     }
   }
 });

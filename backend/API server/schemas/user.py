@@ -2,10 +2,10 @@ from pydantic import BaseModel, Field, HttpUrl
 from typing import List, Optional, Dict, Any
 import datetime
 
-# --- НОВАЯ ПРОСТАЯ СХЕМА --- 
+
 class UserSimple(BaseModel):
-    id: int # Внутренний ID из таблицы Member
-    user_id: int # Telegram ID
+    id: int 
+    user_id: int 
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None

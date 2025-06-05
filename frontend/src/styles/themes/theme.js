@@ -39,10 +39,8 @@ export const theme = createTheme({
     }
   },
   shape: {
-    // --- Используем СТАТИЧНОЕ число здесь --- 
     borderRadius: staticRadius, 
   },
-  // --- Используем CSS ПЕРЕМЕННЫЕ для переопределения стилей компонентов --- 
   components: {
     MuiButton: {
       styleOverrides: {
@@ -50,16 +48,6 @@ export const theme = createTheme({
           // Используем переменную для радиуса
           borderRadius: `var(--radius, ${staticRadius}px)`,
           textTransform: 'none',
-          // --- Пример явного задания цветов кнопке через переменные --- 
-          // Эти стили перебьют цвета, выведенные из статичной палитры
-          // Например, для contained primary кнопки:
-          // '&.MuiButton-containedPrimary': { 
-          //    backgroundColor: 'var(--orange-primary)',
-          //    color: 'var(--text-color-on-primary)', // Убедитесь, что эта переменная есть
-          //    '&:hover': {
-          //        backgroundColor: 'var(--orange-dark)',
-          //    }
-          // },
         },
       },
     },
@@ -108,9 +96,6 @@ export const theme = createTheme({
             }
         }
     },
-    // MuiInputBase нужен в основном для базовых стилей инпута, 
-    // MuiOutlinedInput выше уже должен покрыть большинство случаев.
-    // Оставляем на всякий случай, если есть другие типы инпутов.
     MuiInputBase: {
         styleOverrides: {
             input: {

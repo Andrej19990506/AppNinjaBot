@@ -1,11 +1,8 @@
-// frontend/src/types/user.ts
-
-// import { Group } from './index';
-
 export interface Group {
     chat_id: string;
     chat_title: string;
     group_type: string;
+    title: string;
 }
 
 export interface User {

@@ -15,12 +15,12 @@ from sqlalchemy import text
 # Загружаем переменные окружения
 load_dotenv()
 
-# Проверь и скорректируй эти пути, если необходимо:
+
 from db.session import get_db_session
-from models import Member, Group, GroupMember
+from models import Member, GroupMember
 # Импортируем Pydantic и схемы
 from pydantic import BaseModel
-from schemas import GroupRead, UserProfileResponse, UserGroupsContextResponse
+from schemas import GroupRead, UserProfileResponse
 
 # --- Инициализируем логгер --- 
 logger = logging.getLogger(__name__)

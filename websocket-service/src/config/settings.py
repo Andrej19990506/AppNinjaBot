@@ -25,8 +25,7 @@ DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST
 
 # Настройки CORS
 CORS_ALLOWED_ORIGINS = [
-    "https://reform-hand-simple-invisible.trycloudflare.com",
-    "https://pearl-roy-hugo-equity.trycloudflare.com",
+    "http://192.168.0.115:3000",
     "http://localhost:3000",
     "http://localhost",
     "https://appninjabot.ru"

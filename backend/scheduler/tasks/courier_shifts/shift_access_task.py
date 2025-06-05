@@ -73,17 +73,10 @@ class ShiftAccessTask(BaseTask):
         """
         super().__init__(scheduler_instance, task_manager, settings)
         logger.info(f"ShiftAccessTask инициализирован. API URL: {self.settings.API_URL}. Telegram Bot API URL: {getattr(self.settings, 'BOT_API_URL', 'Не задан')}")
-
-    # УДАЛЯЕМ МЕТОД ДЛЯ ДОСТУПА К БД
-    # def _get_access_settings_from_db(self, chat_id): ...
-
-    # Возвращаем асинхронный метод
     async def _get_access_settings_from_api(self, chat_id, settings: scheduler_settings):
         """Получает настройки доступа для чата из API сервера (асинхронно)."""
         try:
             chat_id_param = str(chat_id)
-            # Используем основной API URL для получения настроек
-            # --- ИСПРАВЛЕНИЕ: Убираем возможный слеш в конце api_url --- #
             base_api_url = str(settings.API_URL).rstrip('/')
             url = f"{base_api_url}/api/v1/groups/{chat_id_param}/settings"
             logger.info(f"({self.TASK_TYPE}) Запрос настроек доступа (async): {url}")
@@ -189,8 +182,7 @@ class ShiftAccessTask(BaseTask):
             immediate_next_dt_naive = datetime.combine(next_potential_date, time(hour=hour, minute=minute))
             immediate_next_dt_aware = immediate_next_dt_naive.replace(tzinfo=tz)
 
-            # 2. Проверяем, не наступило ли оно уже СЕГОДНЯ
-            # Если сегодня нужный день, и время еще не наступило
+
             if days_ahead == 0 and now < immediate_next_dt_aware:
                 logger.info(f"({self.TASK_TYPE}) Расчет: Ближайшее время ({immediate_next_dt_aware}) еще не наступило сегодня. Планируем на него.")
                 return immediate_next_dt_aware

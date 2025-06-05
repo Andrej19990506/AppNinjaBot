@@ -163,10 +163,13 @@ class EventBase(BaseModel):
     # <<< Добавляем новые поля в EventBase >>>
     retailiqa_detailed_violations: Optional[List[DetailedViolation]] = Field(None, description="Список детализированных нарушений из RetailiQA")
     retailiqa_violation_count: Optional[int] = Field(None, description="Количество нарушений в отчете RetailiQA")
+    # --- Новое поле ---
+    group_type: Optional[str] = Field(None, description="Тип группы (chef, courier, admin и т.д.)")
 
 class EventCreate(EventBase):
     description: str = Field(..., max_length=1000)
     date: datetime
+    # group_type уже унаследовано
 
 class EventUpdate(EventBase):
     pass

@@ -120,14 +120,14 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./websocket-service/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
+      - ./nginx/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx_logs:/var/log/nginx
-      - ./websocket-service/50-generate-config-js.sh:/docker-entrypoint.d/50-generate-config-js.sh:ro
+      - ./nginx/50-generate-config-js.sh:/docker-entrypoint.d/50-generate-config-js.sh:ro
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL:-https://appninjabot.ru}
-      - REACT_APP_WS_URL=${REACT_APP_WS_URL:-wss://appninjabot.ru}
+      - VITE_APP_API_URL=${VITE_APP_API_URL:-https://appninjabot.ru}
+      - VITE_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}
       - ENV_TYPE=${ENV_TYPE:-production}
-      - REACT_APP_DEBUG=${REACT_APP_DEBUG:-false}
+      - VITE_DEBUG=${VITE_DEBUG:-false}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
       - NGINX_HOST=appninjabot.ru
       - NGINX_PORT=80

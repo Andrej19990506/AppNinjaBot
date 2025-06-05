@@ -1,42 +1,34 @@
 # backend/API server/api/v1/api.py
 from fastapi import APIRouter
 
-# Импортируем роутеры из эндпоинтов
+
 from .endpoints.users import router as users_router
-# Импортируем НОВЫЙ роутер для групп
+
 from .endpoints.groups import router as groups_router 
-# from .endpoints.group_settings import router as group_settings_router # УДАЛЕНО
+
 from .endpoints.shifts import router as shifts_router
-# <<< ИСПРАВЛЯЕМ ИМПОРТ РОУТЕРА РЕЗЕРВОВ (ИЗ ПАПКИ endpoints) >>>
+
 from .endpoints.reserve import router as reserve_router 
 
-# Сюда же можно импортировать другие роутеры из endpoints, если они там есть/будут
-# from .endpoints import couriers # Например
-
-# <<< ДОБАВЛЯЕМ ИМПОРТ НОВОГО РОУТЕРА >>>
 from .endpoints import inventory
 
-# NEW: Импорт роутера событий
 from .endpoints.events import router as events_router
+
+from .endpoints.write_offs import router as write_offs_router
 
 api_router = APIRouter()
 
-# <<< ПЕРЕМЕЩАЕМ inventory.router В НАЧАЛО >>>
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
 
-# Подключаем роутеры с префиксами и тегами
+
 api_router.include_router(users_router, prefix="/users", tags=["Users"])
-# Подключаем НОВЫЙ роутер (раскомментируем и используем правильный префикс)
+
 api_router.include_router(groups_router, prefix="/groups", tags=["Groups"]) 
-# api_router.include_router(group_settings_router, prefix="/groups", tags=["Group Settings"]) # УДАЛЕНО
+
 api_router.include_router(shifts_router, prefix="/shifts", tags=["Shifts"])
-# <<< ПОДКЛЮЧАЕМ РОУТЕР РЕЗЕРВОВ >>>
+
 api_router.include_router(reserve_router, prefix="/reserves", tags=["Reserves"])
 
-# NEW: Подключаем роутер событий
 api_router.include_router(events_router, prefix="/events", tags=["Events"])
 
-# Подключаем другие роутеры, если они есть
-# api_router.include_router(couriers.router, prefix="/couriers", tags=["Couriers"]) 
-
-# --- КОНЕЦ ФАЙЛА api.py --- 
+api_router.include_router(write_offs_router, prefix="/write-offs", tags=["Write-offs"])

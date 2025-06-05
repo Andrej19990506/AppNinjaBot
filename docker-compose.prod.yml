@@ -122,7 +122,6 @@ services:
     volumes:
       - ./nginx/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx_logs:/var/log/nginx
-      - ./nginx/50-generate-config-js.sh:/docker-entrypoint.d/50-generate-config-js.sh:ro
     environment:
       - VITE_APP_API_URL=${VITE_APP_API_URL:-https://appninjabot.ru}
       - VITE_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}

@@ -19,10 +19,12 @@ import styled from 'styled-components';
 // <<< ИЗМЕНЕНИЕ: Импорты из Redux >>>
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { 
-    toggleShiftDialogMode    
+    toggleShiftDialogMode,
 } from '@/features/courierSchedule/store/shiftsSlice/shiftsSlice'; 
-import { selectIsShiftDialogOpen, selectShiftDialogMode } from '../courierSchedule/store/shiftsSlice/shiftsSelectors';
-
+import { 
+    selectIsShiftDialogOpen, 
+    selectShiftDialogMode 
+} from '@/features/courierSchedule/store/shiftsSlice/shiftsSelectors'; 
 // <<< Определяем тип здесь >>>
 interface FooterChatInfo {
   id: string;
@@ -34,112 +36,6 @@ interface ChatButtonProps {
     onClick: () => void;
 }
 
-const ChatButton: React.FC<ChatButtonProps> = ({ selectedChat, onClick }) => {
-    const [showTooltip, setShowTooltip] = useState(false);
-    const tooltipRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
-                setShowTooltip(false);
-            }
-        };
-
-        if (showTooltip) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [showTooltip]);
-
-    if (!selectedChat) return null;
-
-    return (
-        <motion.button 
-            className={styles.chatButton}
-            onClick={() => setShowTooltip(true)}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-        >
-            <div className={styles.chatInfo}>
-                <motion.svg 
-                    className={styles.chatIcon} 
-                    width="24" 
-                    height="24" 
-                    viewBox="0 0 24 24" 
-                    fill="none"
-                    whileHover={{ rotate: [0, -10, 10, -10, 10, 0] }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <motion.path 
-                        d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 14.663 3.04094 17.0829 4.73812 18.875L2.72681 21.1705C2.44361 21.4937 2.67314 22 3.10288 22H12Z" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                    />
-                    <motion.g
-                        animate={{ 
-                            scale: [1, 1.2, 1],
-                            y: [0, -2, 0]
-                        }}
-                        transition={{ 
-                            duration: 1.5,
-                            repeat: Infinity,
-                            repeatDelay: 2
-                        }}
-                    >
-                        <circle cx="8" cy="12" r="1" fill="currentColor" />
-                        <circle cx="12" cy="12" r="1" fill="currentColor" />
-                        <circle cx="16" cy="12" r="1" fill="currentColor" />
-                    </motion.g>
-                </motion.svg>
-
-                <AnimatePresence>
-                    {showTooltip && (
-                        <motion.div 
-                            ref={tooltipRef}
-                            className={styles.chatTooltip}
-                            initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -20, scale: 0.8 }}
-                            transition={{ type: "spring", damping: 20 }}
-                        >
-                            <div className={styles.tooltipContent}>
-                                <button 
-                                    className={styles.tooltipClose}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        setShowTooltip(false);
-                                    }}
-                                >
-                                    ✕
-                                </button>
-                                <div className={styles.tooltipText}>
-                                    {selectedChat.name}
-                                </div>
-                                <motion.button 
-                                    className={styles.changeButton}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onClick();
-                                        setShowTooltip(false);
-                                    }}
-                                    whileHover={{ scale: 1.05 }}
-                                    whileTap={{ scale: 0.95 }}
-                                >
-                                    Выбрать другой чат
-                                </motion.button>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </div>
-        </motion.button>
-    );
-};
 
 // --- Создаем стилизованный компонент для кнопки "Создать событие" --- 
 const StyledCreateEventButton = styled(Button)`
@@ -305,6 +201,7 @@ const Footer: React.FC<FooterProps> = ({
     onCreateEventClick,
     // Новые пропсы для кастомизации текстов кнопок в модальном окне
     modalSaveText,
+    modalCancelText,
     // Пропсы для средней кнопки
     showMiddleButton,
     onMiddleButtonClick,
@@ -318,6 +215,9 @@ const Footer: React.FC<FooterProps> = ({
     const dispatch = useAppDispatch();
     const isShiftDialogOpen = useAppSelector(selectIsShiftDialogOpen);
     const shiftDialogMode = useAppSelector(selectShiftDialogMode);
+
+    // <<< ДОБАВЛЯЕМ ЛОГ >>>
+    console.log('[Footer] Rendering. isShiftDialogOpen from Redux:', isShiftDialogOpen);
 
     // Проверяем переполнение текста
     useEffect(() => {
@@ -348,6 +248,30 @@ const Footer: React.FC<FooterProps> = ({
             exit={{ y: 100 }}
         >
             <div className={`${styles.container} ${showModalActions ? styles.modalActionsActive : ''}`}>
+                {/* Абсолютно центрированная кнопка Создать событие */}
+                {showCreateEventButton && (
+                    <div className={styles.absoluteCenterButtonWrapper}>
+                        <motion.div
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                        >
+                            <StyledCreateEventButton 
+                                className={styles.createButton}
+                                startIcon={<AddIcon />}
+                                onClick={onCreateEventClick}
+                                variant="contained"
+                                disableElevation
+                                disableRipple
+                            >
+                                Создать
+                            </StyledCreateEventButton>
+                        </motion.div>
+                    </div>
+                )}
                 
                 {showModalActions ? (
                     // --- Секция кнопок и шагов модального окна --- 
@@ -482,34 +406,112 @@ const Footer: React.FC<FooterProps> = ({
                                 </motion.button>
                             )}
                         </div>
-                        {/* Абсолютно центрированная кнопка 'Сформировать акт' */}
-                        {showGenerateDocButton && hasWriteOffItems && (
-                            <div className={styles.absoluteCenterButtonWrapper}>
+
+                        {/* --- Правая часть --- */}
+                        <div className={styles.rightSide}> 
+                            {/* Контейнер для правых иконок (Настройки, Чат, Поиск) */} 
+                            <div className={styles.rightIconsContainer}> 
+                                {/* Кнопка Настройки (если нужно) */} 
+                                {showSettingsButton && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.settingsButton}`}
+                                        onClick={onSettingsClick}
+                                        whileHover={{ scale: 1.05, rotate: 45 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <SettingsIcon className={styles.icon} />
+                                    </motion.button>
+                                )}
+        
+
+                                {/* --- НОВАЯ Кнопка Поиска для Инвентаря --- */}
+                                {showInventorySearchButton && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.searchInventoryButton}`}
+                                        onClick={onInventorySearchClick}
+                                        whileHover={{ scale: 1.05, rotate: isSearchOpen ? -5 : 5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title={isSearchOpen ? "Закрыть поиск" : "Поиск по инвентарю"}
+                                    >
+                                        {isSearchOpen ? 
+                                            <CloseIcon className={styles.icon} /> : 
+                                            <SearchIcon className={styles.icon} />
+                                        }
+                                    </motion.button>
+                                )}
+                                {/* --- КОНЕЦ НОВОЙ Кнопки Поиска --- */}
+                            </div>
+                            
+                            {/* Абсолютно центрированная кнопка Создать/Обновить */}
+                            {showCreateButton && (
+                                <div className={styles.absoluteCenterButtonWrapper}>
+                                    <motion.div
+                                        className={styles.createButtonWrapper}
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ scale: 1, opacity: 1 }}
+                                        exit={{ scale: 0, opacity: 0 }}
+                                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                                        whileHover={{ scale: isCreateButtonActive ? 1.03 : 1 }}
+                                        whileTap={{ scale: isCreateButtonActive ? 0.97 : 1 }}
+                                    >
+                                        <StyledGenericCreateButton 
+                                            className={`${styles.createButton} ${isCreateButtonActive ? styles.createButtonActive : styles.createButtonDisabled} ${createButtonText === 'Обновить' ? 'updateButton' : ''}`}
+                                            startIcon={createButtonText === 'Обновить' ? <RefreshIcon /> : <AddIcon />}
+                                            disabled={!isCreateButtonActive}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (isCreateButtonActive) {
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const x = e.clientX - rect.left;
+                                                    const y = e.clientY - rect.top;
+                                                    const ripple = document.createElement('span');
+                                                    ripple.classList.add('ripple-effect');
+                                                    ripple.style.left = `${x}px`;
+                                                    ripple.style.top = `${y}px`;
+                                                    const buttonElement = e.currentTarget as HTMLButtonElement;
+                                                    buttonElement.appendChild(ripple);
+                                                    setTimeout(() => {
+                                                        ripple.remove();
+                                                    }, 600);
+                                                }
+                                                if (onCreateClick) onCreateClick(e);
+                                            }}
+                                            variant="contained" 
+                                            disableElevation 
+                                        >
+                                            {createButtonText}
+                                        </StyledGenericCreateButton>
+                                    </motion.div>
+                                </div>
+                            )}
+                            {/* Кнопка Сформировать акт */} 
+                            {showGenerateDocButton && hasWriteOffItems && (
                                 <motion.div
                                     className={styles.generateDocButtonWrapper}
                                     initial={{ scale: 0, opacity: 0 }}
                                     animate={{ scale: 1, opacity: 1 }}
                                     exit={{ scale: 0, opacity: 0 }}
                                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                                    whileHover={{ scale: hasWriteOffItems && !isGeneratingDocument ? 1.03 : 1 }}
-                                    whileTap={{ scale: hasWriteOffItems && !isGeneratingDocument ? 0.97 : 1 }}
+                                    whileHover={{ scale: hasWriteOffItems && !isGeneratingDocument ? 1.03 : 1 }} // Условие для hover
+                                    whileTap={{ scale: hasWriteOffItems && !isGeneratingDocument ? 0.97 : 1 }}   // Условие для tap
                                 >
+                                    {/* Используем стилизованный компонент для акта */}
                                     <StyledGenerateDocButton
-                                        className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`}
+                                        className={`${styles.generateDocButton} ${hasWriteOffItems ? styles.generateDocButtonActive : styles.generateDocButtonDisabled}`} // Добавляем классы для доп. стилей если нужно
                                         startIcon={isGeneratingDocument ? 
                                             <CircularProgress size={18} className={styles.generatingSpinner} /> : 
                                             <DescriptionIcon />}
                                         disabled={!hasWriteOffItems || isGeneratingDocument}
                                         onClick={onGenerateDocClick}
-                                        variant="contained"
-                                        disableElevation
+                                        variant="contained" // variant можно оставить или убрать, если стили покрывают все
+                                        disableElevation // disableElevation можно оставить или убрать
+                                        // Убираем sx проп, так как стили теперь в StyledGenerateDocButton
                                     >
                                         {isGeneratingDocument ? 'Создание...' : 'Сформировать акт'}
                                     </StyledGenerateDocButton>
                                 </motion.div>
-                            </div>
-                        )}
-                        {/* <<< КОНЕЦ ПЕРЕМЕЩЕННОЙ КНОПКИ >>> */}
+                            )}
+                        </div>
                     </>
                 )}
             </div>

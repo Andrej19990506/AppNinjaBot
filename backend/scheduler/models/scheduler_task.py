@@ -29,7 +29,6 @@ class SchedulerTaskDB(BaseModel):
         if isinstance(data.get('next_run_time'), str):
             data['next_run_time'] = datetime.fromisoformat(data['next_run_time'])
         
-        # Преобразуем данные created_at и updated_at, если они есть
         for field in ['created_at', 'updated_at']:
             if field in data and isinstance(data[field], str):
                 data[field] = datetime.fromisoformat(data[field])

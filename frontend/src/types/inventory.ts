@@ -10,6 +10,7 @@ import {
 export interface ChatInventory {
     chat_id: string;
     chat_title: string;
+    title?: string;
     admins: Admin[];
     members: Array<{
         user_id: number;

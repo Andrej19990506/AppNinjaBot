@@ -29,17 +29,11 @@ def _prepare_data_for_json(data: Any) -> Any:
     elif isinstance(data, uuid.UUID):
         return str(data)
     elif isinstance(data, datetime):
-        # Преобразуем datetime в строку ISO 8601 (UTC)
-        # Убедимся, что время aware перед конвертацией в UTC
         if data.tzinfo is None or data.tzinfo.utcoffset(data) is None:
-            # Если naive, предполагаем локальное время и конвертируем в UTC (или просто isoformat?)
-            # Безопаснее просто использовать isoformat, он добавит смещение если оно есть
              return data.isoformat()
         else:
-            # Если aware, конвертируем в UTC и форматируем
             return data.astimezone(timezone.utc).isoformat()
     else:
-        # Возвращаем другие типы как есть
         return data
 
 class DatabaseService:
@@ -52,7 +46,6 @@ class DatabaseService:
 
     async def close_connection(self):
         """Закрывает пул соединений с базой данных"""
-        # Фактическое закрытие происходит в lifespan, но метод оставлен для совместимости
         logger.info("DatabaseService: закрытие пула соединений не требуется (управляется в lifespan)")
         return True
 
@@ -108,32 +101,18 @@ class DatabaseService:
                 async with conn.transaction():
                     # Проверка существования задачи
                     exists = await conn.fetchval(
-                        "SELECT EXISTS(SELECT 1 FROM scheduler_tasks WHERE task_id = $1)",
                         task_id
                     )
                     
                     if exists:
                         # Обновляем существующую задачу
                         await conn.execute(
-                            """
-                            UPDATE scheduler_tasks 
-                            SET chat_id = $2, task_type = $3, next_run_time = $4, 
-                                data = $5, updated_at = CURRENT_TIMESTAMP 
-                            WHERE task_id = $1
-                            """,
                             task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Обновлена задача с ID {task_id} в PostgreSQL")
                     else:
                         # Создаем новую задачу - УБИРАЕМ status
                         await conn.execute(
-                            """
-                            INSERT INTO scheduler_tasks 
-                            (task_id, chat_id, task_type, next_run_time, data, 
-                             created_at, updated_at) 
-                            VALUES ($1, $2, $3, $4, $5, 
-                                   CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                            """,
                             task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Добавлена новая задача с ID {task_id} в PostgreSQL (без status)")
@@ -260,7 +239,6 @@ class DatabaseService:
 
     async def notify_websocket(self, channel: str, payload: Dict[str, Any]) -> bool:
         """Отправляет NOTIFY в указанный канал PostgreSQL для WebSocket сервиса"""
-        # ... (код notify_websocket без изменений) ...
 
     async def notify_channel(self, channel: str, payload: Dict[str, Any]) -> bool:
         """Отправляет NOTIFY в указанный канал PostgreSQL.
@@ -287,8 +265,6 @@ class DatabaseService:
                 logger.warning(f"Payload для NOTIFY канала '{channel}' слишком большой ({len(payload_json.encode('utf-8'))} байт), может быть обрезан PostgreSQL.")
 
             async with self.pool.acquire() as conn:
-                # --- ИСПРАВЛЕНИЕ: Формируем строку NOTIFY с экранированным payload --- #
-                # Экранируем одинарные кавычки в JSON-строке
                 escaped_payload = payload_json.replace("'", "''")
                 # Формируем SQL запрос, вставляя payload как строковый литерал
                 sql_query = f"NOTIFY \"{channel}\", '{escaped_payload}'"
@@ -388,5 +364,4 @@ class DatabaseService:
             return False
 
     async def notify_channel(self, channel: str, payload: Dict[str, Any]) -> bool:
-        # ... (код notify_channel) ...
-        return False # Placeholder
+        return False 

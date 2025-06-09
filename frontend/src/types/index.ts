@@ -117,5 +117,5 @@ export interface ChatMetadata {
     status?: 'active' | 'completed' | 'pending';
 }
 
-export * from './shifts';
+
 export * from '../shared/types/store';

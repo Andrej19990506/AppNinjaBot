@@ -3,33 +3,21 @@ import os
 import asyncio # Добавляем импорт asyncio
 from contextlib import asynccontextmanager
 
-# --- НАСТРОЙКА ЛОГИРОВАНИЯ --- 
-# Переносим basicConfig как можно выше
-# Настраиваем форматтер
 log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-# Настраиваем обработчик (вывод в консоль)
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(log_formatter)
 
-# Настраиваем корневой логгер
 logging.basicConfig(level=logging.INFO, handlers=[log_handler])
 
-# Получаем и настраиваем кастомные логгеры
 logger = logging.getLogger("SchedulerServiceAPI")
 logger.setLevel(logging.INFO) # Явно ставим уровень
-# Добавляем явную настройку для логгера Scheduler
 scheduler_logger = logging.getLogger("Scheduler")
 scheduler_logger.setLevel(logging.INFO)
-# ----------------------------- 
-
-# --- ДОБАВЛЕНИЕ DEBUG ЛОГИРОВАНИЯ ДЛЯ APSCHEDULER ---
 apscheduler_logger = logging.getLogger("apscheduler")
 apscheduler_logger.setLevel(logging.DEBUG)
-# Добавим лог для подтверждения настройки
 logger.info("✅ Логгер 'apscheduler' настроен на уровень DEBUG (использует корневой обработчик).") 
-# -----------------------------------------------------
 
-# Определяем окружение и логируем его
+
 env = os.getenv('ENVIRONMENT', 'development')
 if env == 'development':
     logger.info("🚀🚀🚀 ШЕДУЛЕР ЗАПУЩЕН В РЕЖИМЕ РАЗРАБОТКИ (DEV ENVIRONMENT) 🚀🚀🚀")
@@ -40,22 +28,7 @@ elif env == 'production':
 else:
     logger.info(f"🚀 ШЕДУЛЕР ЗАПУЩЕН В РЕЖИМЕ: {env.upper()}")
 
-try:
-    import asyncpg
-except ImportError:
-    # Отлавливаем ошибку отсутствия библиотеки asyncpg
-    logger.critical("""    ❌ ОШИБКА: Библиотека asyncpg не установлена!
-    Выполните одно из следующих действий:
-    1. Установите библиотеку вручную в контейнере:
-       docker-compose exec scheduler pip install asyncpg
-       docker-compose restart scheduler
-    2. ИЛИ добавьте asyncpg в Dockerfile:
-       RUN pip install asyncpg
-    3. ИЛИ убедитесь, что 'asyncpg' добавлен в requirements.txt
-       и затем пересоберите контейнер:
-       docker-compose build --no-cache scheduler
-       docker-compose up -d scheduler    """)
-    raise
+
 
 from fastapi import FastAPI, HTTPException
 

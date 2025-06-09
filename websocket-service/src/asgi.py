@@ -12,7 +12,7 @@ try:
     import src.websocket_handler
 except Exception as e:
     logger.error("Failed to import src.websocket_handler", exc_info=True)
-    raise # Перевыбрасываем ошибку, чтобы увидеть трейсбек, если он есть
+    raise # Перевыбрасываем ошибку, чтобы увидеть трейсбек
 logger.info("✅ Обработчики WebSocket импортированы")
 
 # Затем импортируем ASGI приложение

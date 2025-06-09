@@ -3,7 +3,6 @@ import { useAppDispatch } from '@/shared/store/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
 import styles from '@/features/WriteOff/CreateWriteOffModal/CreateWriteOffModal.module.css';
 import { 
     setModalName, 
@@ -17,7 +16,6 @@ import {
   useDeviceDetection,
   useTouchHandling,
   useAnimationVariants,
-  usePerformanceOptimization
 } from '@/features/WriteOff/CreateWriteOffModal/hooks';
 import { useWriteOffForm } from '@/features/WriteOff/CreateWriteOffModal/hooks/useWriteOffForm';
 import {

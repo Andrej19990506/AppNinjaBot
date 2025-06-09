@@ -305,7 +305,7 @@ const Inventory: React.FC = () => {
         );
     }
     
-    // --- НОВАЯ ПРОВЕРКА (v2): Ищем чат в общем списке --- 
+
     const currentChatData = inventoryItems.find(item => item.chat_id === chatId);
 
     if (!currentChatData) {

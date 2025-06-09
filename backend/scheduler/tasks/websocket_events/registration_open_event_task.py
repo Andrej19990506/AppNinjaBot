@@ -1,18 +1,12 @@
 import logging
-import httpx # Меняем requests на httpx для асинхронности
-# import socketio # Убираем, если не используем прямое WS соединение
-# import psycopg # Убираем синхронный psycopg
+import httpx
 from datetime import datetime, timedelta, time, date, timezone
 import traceback
 import os
-from zoneinfo import ZoneInfo # Меняем dateutil.tz и pytz на zoneinfo
-from apscheduler.job import Job
+from zoneinfo import ZoneInfo
 from ..base_task import BaseTask
-from core.config import scheduler_settings, SchedulerSettings
-import json
-# Импортируем асинхронный HTTP-клиент
+from core.config import SchedulerSettings
 from shared.http_client import get_async_http_client
-# Импортируем Optional, Dict, Any для типизации
 from typing import Optional, Dict, Any, TYPE_CHECKING
 from services.database_service import DatabaseService 
 if TYPE_CHECKING:
@@ -47,8 +41,7 @@ async def execute_job(chat_id: str, db_service: DatabaseService, settings: Sched
     except Exception as reschedule_err:
         logger.error(f"[RegOpenEventTask.execute_job] Ошибка при перепланировании для {chat_id}: {reschedule_err}")
         logger.error(traceback.format_exc())
-    # ------------------------
-# --------------------------------------------------
+
 
 class RegistrationOpenEventTask(BaseTask):
     TASK_TYPE = 'registration_open_event'
@@ -59,11 +52,7 @@ class RegistrationOpenEventTask(BaseTask):
         """
         super().__init__(scheduler_instance, task_manager, settings)
         logger.info(f"RegistrationOpenEventTask инициализирован. API URL: {self.settings.API_URL}")
-        # Убираем WS параметры, т.к. используем NOTIFY
-        # self.ws_url = ...
-        # self.ws_connection_timeout = ...
 
-    # Делаем метод асинхронным и используем httpx
     async def _get_access_settings_from_api(self, chat_id, settings: SchedulerSettings) -> Optional[Dict[str, Any]]:
         """Получает настройки доступа для чата из API сервера (асинхронно)."""
         try:
@@ -197,11 +186,7 @@ class RegistrationOpenEventTask(BaseTask):
                 logger.error(f"({self.TASK_TYPE}) ❌ DatabaseService недоступен. Невозможно отправить NOTIFY.")
                 return False
             chat_id_str = str(chat_id)
-            # Можно опционально снова получить настройки, если они нужны для payload
-            # access_settings = await self._get_access_settings_from_api(chat_id_str)
-            # if not access_settings:
-            #     logger.error(f"({self.TASK_TYPE}) ❌ Настройки для {chat_id_str} не найдены перед отправкой NOTIFY.")
-            #     return False
+           
 
             # Формируем payload для NOTIFY
             payload_dict = {

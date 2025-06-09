@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -15,7 +14,6 @@ import styles from './MainMenu.module.css';
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { RootState } from '@/shared/store/store';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import { fetchInventory, selectInventoryChats, selectInventoryLoading, selectInventoryError } from '@/store/slices/inventorySlice';
 import { userSlice } from '@shared/store/userSlice/userSlice';
 import { selectActiveRole } from '@shared/store/userSlice/userSelectors';
 import { setActiveRole } from '@/shared/store/userSlice/userSlice';
@@ -32,7 +30,6 @@ const courierMenuItems = [
     { id: 'courier-schedule', title: 'Записаться', path: 'courier-schedule', icon: EventIcon },
 ];
 
-// Вариант для общих элементов (заголовок, кнопки, userInfo, переключатель роли)
 const itemVariants = {
     hidden: { opacity: 0, y: 10, scale: 0.95 },
     visible: { 
@@ -121,11 +118,6 @@ const MainMenu: React.FC = () => {
     // <<< Получаем activeRole ИЗ REDUX >>>
     const activeRole = useAppSelector(selectActiveRole);
 
-
-    const inventoryChats = useAppSelector(selectInventoryChats);
-    const isLoadingInventory = useAppSelector(selectInventoryLoading);
-    const inventoryError = useAppSelector(selectInventoryError);
-    
     // Проверяем членство в группах
     const isChefMember = useMemo(() => user?.groups?.some(group => group.group_type === "chef") ?? false, [user]);
     const isCourierMember = useMemo(() => user?.groups?.some(group => group.group_type === "courier") ?? false, [user]);
@@ -137,52 +129,16 @@ const MainMenu: React.FC = () => {
         return 'none';
     }, [isChefMember, isCourierMember]);
 
-    // --- Функция для загрузки инвентаря (если нужно) ---
-    const loadInventoryIfNeeded = useCallback(() => {
-        // Добавляем проверку: activeRole должна быть 'chef'
-        if (activeRole !== 'chef') {
-            console.log('[MainMenu] loadInventoryIfNeeded: Пропуск, т.к. activeRole не \'chef\'');
-            return;
-        }
-        
-        // Загружаем только если активна роль повара, данных нет и не идет загрузка/нет ошибки
-        if (!isLoadingInventory && !inventoryError && inventoryChats.length === 0) {
-            // Проверяем, что user существует и имеет ID
-            if (user?.id) {
-                console.log(`[MainMenu] Вызов fetchInventory(${user.id}, role: ${activeRole}) из loadInventoryIfNeeded...`);
-                // Передаем явно 'chef', т.к. мы проверили это выше
-                dispatch(fetchInventory({ userId: user.id, role: 'chef' })); 
-            } else {
-                console.warn('[MainMenu] Попытка вызвать fetchInventory без user.id');
-            }
-        }
-         console.log('[MainMenu] Проверка loadInventoryIfNeeded:', { role: activeRole, isLoading: isLoadingInventory, hasError: !!inventoryError, chatsLength: inventoryChats.length });
-    }, [isLoadingInventory, inventoryError, inventoryChats.length, dispatch, activeRole, user?.id]);
-
     // --- Обновляем роль при инициализации пользователя ---
     useEffect(() => {
         if (user) {
             const initialRole = getInitialRole();
-            // <<< Диспатчим начальную роль в Redux >>>
-            // Проверяем, что роль в Redux еще не установлена или не совпадает
-            // чтобы избежать лишних диспатчей при HMR
             if (activeRole !== initialRole) {
                 console.log(`[MainMenu] Dispatching initial role: ${initialRole}`);
                 dispatch(userSlice.actions.setActiveRole(initialRole));
             }
-            // Убираем вызов loadInventoryIfNeeded отсюда, его будет делать следующий useEffect
         }
-    }, [user, getInitialRole, dispatch]); // <<< Добавляем dispatch и activeRole в зависимости
-
-    // --- НОВЫЙ useEffect: Загружаем инвентарь ПРИ ИЗМЕНЕНИИ activeRole на 'chef' ---
-    useEffect(() => {
-        console.log(`[MainMenu] useEffect[activeRole] сработал. Новая роль: ${activeRole}`);
-        if (activeRole === 'chef') {
-            loadInventoryIfNeeded();
-        }
-        // Предыдущий useEffect для инициализации тоже можно убрать, т.к. этот сработает после него.
-        // Но для ясности оставим оба.
-    }, [activeRole, loadInventoryIfNeeded]); // Зависит от activeRole и loadInventoryIfNeeded
+    }, [user, getInitialRole, dispatch]);
 
     useEffect(() => {
         if (location.pathname.startsWith('/courier')) {
@@ -194,24 +150,20 @@ const MainMenu: React.FC = () => {
         }
     }, [location.pathname, dispatch]);
 
-    // Определяем, какое меню показывать
     const currentMenuItems = useMemo(() => {
         if (activeRole === 'chef') return chefMenuItems;
         if (activeRole === 'courier') return courierMenuItems;
-        if (activeRole === 'admin') return adminMenuItems;
         return [];
     }, [activeRole]);
     
     const canToggleRole = isChefMember && isCourierMember;
 
-    // --- Обработчик клика по кнопке роли ---
     const handleRoleButtonClick = (role: 'chef' | 'courier') => {
         navigate(`/${role}`);
         dispatch(setActiveRole(role));
         dispatch(clearEvents());
     };
 
-    // --- Обработчик клика по пункту меню ---
     const handleMenuItemClick = (path: string) => {
         if (!activeRole || activeRole === 'none') return;
         navigate(`/${activeRole}/${path}`);
@@ -226,9 +178,7 @@ const MainMenu: React.FC = () => {
                 exit="exit"
             >
                 {activeRole !== 'none' ? (
-                    // Обертка для случая, когда есть роли
                     <>
-                        {/* Блок с информацией о пользователе */}
                         <motion.div className={styles.userInfoContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
                             {user?.photo_url ? (
                                 <img src={user.photo_url} alt="User" className={styles.userPhoto} />
@@ -240,7 +190,6 @@ const MainMenu: React.FC = () => {
                             </span>
                         </motion.div>
 
-                        {/* Заголовок (для обычного меню) */}
                         <motion.h1 
                             className={styles.title}
                             variants={itemVariants} initial="hidden" animate="visible" exit="exit"
@@ -253,7 +202,6 @@ const MainMenu: React.FC = () => {
                             Главное меню
                         </motion.h1>
 
-                        {/* Переключатель ролей */}
                         {canToggleRole && (
                             <motion.div className={styles.roleToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
                                 <motion.div className={styles.roleToggleContainer}>
@@ -279,7 +227,6 @@ const MainMenu: React.FC = () => {
                             </motion.div>
                         )}
 
-                        {/* Сетка меню */}
                         <motion.div className={styles.menuGrid} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
                             {currentMenuItems.map((item, index) => {
                                 const Icon = item.icon;
@@ -319,7 +266,6 @@ const MainMenu: React.FC = () => {
                             })}
                         </motion.div>
 
-                        {/* Переключатель темы (для обычного меню) */}
                         <motion.div className={styles.themeToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
                             <motion.button 
                                 className={styles.themeButton} 
@@ -340,9 +286,7 @@ const MainMenu: React.FC = () => {
                         </motion.div>
                     </>
                 ) : (
-                    // Обертка для случая "Нет доступа"
                     <>
-                        {/* ---- НОВЫЙ ДИЗАЙН ЭКРАНА "НЕТ ДОСТУПА" ---- */}
                         <motion.div 
                             className={styles.noAccessCard} 
                             variants={noAccessCardVariants}
@@ -350,7 +294,6 @@ const MainMenu: React.FC = () => {
                             animate="visible"
                             exit="exit"
                          >
-                            {/* Информация о пользователе ВНУТРИ карточки */}
                             <motion.div className={styles.userInfoContainer} variants={noAccessContentVariants}>
                                  {user?.photo_url ? (
                                     <img src={user.photo_url} alt="User" className={styles.userPhoto} />
@@ -361,13 +304,11 @@ const MainMenu: React.FC = () => {
                                     {user?.first_name || user?.username || 'Пользователь'}
                                 </span>
                             </motion.div>
-                            
-                            {/* Новая иконка с отдельной анимацией */}
+
                             <motion.div variants={noAccessIconVariants}> 
                                 <LockOutlinedIcon className={styles.noAccessIcon} />
                             </motion.div>
 
-                            {/* Текст */}
                             <motion.p className={styles.noAccessText} variants={noAccessContentVariants}>
                                 Доступ ограничен
                             </motion.p>
@@ -377,7 +318,6 @@ const MainMenu: React.FC = () => {
                             </motion.p>
                        </motion.div>
                        
-                       {/* Переключатель темы (внизу, отдельно от карточки) */}
                        <motion.div 
                            className={styles.themeToggle} 
                            variants={itemVariants} 

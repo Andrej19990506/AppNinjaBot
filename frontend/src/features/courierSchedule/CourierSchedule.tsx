@@ -44,8 +44,6 @@ const CourierSchedule: React.FC = () => {
     const [currentModalStep, setCurrentModalStep] = useState(1);
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
     const slotSettingsRef = useRef<SlotSettingsRef>(null);
-    
-    // <<< Состояния для Табеля >>>
     const [isTimesheetLoading, setIsTimesheetLoading] = useState(false);
     const [timesheetData, setTimesheetData] = useState<TimesheetResponse | null>(null);
     const [isTimesheetPreviewVisible, setIsTimesheetPreviewVisible] = useState(false);
@@ -283,17 +281,14 @@ const CourierSchedule: React.FC = () => {
         setShowSlotSettings(true);
     }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);
 
-    // Новый обработчик долгого нажатия на слот
     const handleLongPress = useCallback((shiftType: 'day' | 'night', slotIndex: number) => {
         console.log(`[CourierSchedule] Long press detected on ${shiftType} slot ${slotIndex}`, { 
             isCouriersListOpen, 
             currentState: 'setting to true'
         });
         
-        // Установим флаг и проверим, что он установился
         setIsCouriersListOpen(true);
         
-        // Проверка в следующем тике, установился ли флаг
         setTimeout(() => {
             console.log('[CourierSchedule] Check after setTimeout', { 
                 isCouriersListOpenAfterTimeout: isCouriersListOpen 
@@ -301,7 +296,6 @@ const CourierSchedule: React.FC = () => {
         }, 0);
     }, [isCouriersListOpen]);
     
-    // Закрытие списка курьеров
     const handleCloseCouriersList = useCallback(() => {
         console.log('[CourierSchedule] Closing couriers list', { 
             isCouriersListOpen, 
@@ -310,25 +304,20 @@ const CourierSchedule: React.FC = () => {
         setIsCouriersListOpen(false);
     }, [isCouriersListOpen]);
 
-    // <<< ИЗМЕНЯЕМ fetchTimesheetData >>>
     const fetchTimesheetData = useCallback(async (chatId: string, period: SelectedPeriod) => {
         console.log(`[CourierSchedule] Fetching timesheet data for chat ${chatId}, period:`, period);
         setIsTimesheetLoading(true);
         setTimesheetError(null);
         try {
-            // <<< ФОРМИРУЕМ ПАРАМЕТРЫ ДЛЯ API >>>
             const params: Record<string, any> = {};
             if (period.type === 'month') {
                 if (period.year !== undefined) params.year = period.year;
-                // +1 т.к. API может ожидать 1-12 (убедитесь, что это так на бэкенде!)
                 if (period.month !== undefined) params.month = period.month + 1; 
             } else if (period.type === 'week') {
                 params.is_weekly = true;
             }
-            // <<< РАСКОММЕНТИРОВАЛИ ПЕРЕДАЧУ ПАРАМЕТРОВ >>>
-            // console.log('[CourierSchedule] TODO: Pass these params to getTimesheetData:', params);
-            const data = await getTimesheetData(chatId, { params }); // <<< Передаем параметры как второй аргумент
-            // const data = await getTimesheetData(chatId); // <<< УДАЛЯЕМ ВРЕМЕННЫЙ ВЫЗОВ
+          
+            const data = await getTimesheetData(chatId, { params });
             setTimesheetData(data);
         } catch (err) {
             console.error('[CourierSchedule] Error fetching timesheet data:', err);
@@ -337,35 +326,28 @@ const CourierSchedule: React.FC = () => {
         } finally {
             setIsTimesheetLoading(false);
         }
-    // <<< УБИРАЕМ getTimesheetData ИЗ ЗАВИСИМОСТЕЙ >>>
     }, []); 
 
-    // <<< ДОБАВЛЯЕМ ОБРАБОТЧИК СМЕНЫ ПЕРИОДА >>>
     const handleTimesheetPeriodChange = useCallback((newPeriod: SelectedPeriod) => {
         console.log('[CourierSchedule] handleTimesheetPeriodChange called with:', newPeriod);
         setSelectedPeriod(newPeriod);
-        // Вызываем загрузку данных для нового периода
         if (courierChatIdString) { 
             fetchTimesheetData(courierChatIdString, newPeriod);
         } else {
             console.error('[CourierSchedule] Cannot fetch timesheet data: courierChatIdString is missing.');
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
         }
-    // <<< Добавляем fetchTimesheetData в зависимости >>>
     }, [courierChatIdString, fetchTimesheetData, dispatch]); 
 
-    // <<< Обработчик для кнопки "Показать табель" >>>
     const handleShowTimesheet = useCallback(() => {
         if (!courierChatIdString) {
              dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
              return;
         }
-        // <<< ИСПРАВЛЯЕМ ВЫЗОВ: Передаем selectedPeriod >>>
         fetchTimesheetData(courierChatIdString, selectedPeriod); 
         setIsTimesheetPreviewVisible(true);
     }, [courierChatIdString, dispatch, fetchTimesheetData, selectedPeriod]);
 
-    // Добавим функцию для открытия профиля курьера
     const handleOpenCourierProfile = useCallback((courier: any) => {
         setSelectedCourier({
             first_name: courier.firstName || courier.first_name || '',
@@ -376,15 +358,12 @@ const CourierSchedule: React.FC = () => {
         setIsProfileModalOpen(true);
     }, []);
 
-    // Добавим функцию для закрытия профиля курьера
     const handleCloseProfileModal = useCallback(() => {
         setIsProfileModalOpen(false);
         setSelectedCourier(null);
     }, []);
 
-    // <<< НОВАЯ ФУНКЦИЯ-ОБЕРТКА ДЛЯ ОТПРАВКИ ТАБЕЛЯ >>>
     const handleSendTimesheetRequestWrapper = useCallback(async (destination: 'user' | 'group') => {
-        // <<< Добавляем `originalLoadingState` и `destinationText` как локальные переменные >>>
         const destinationText = destination === 'user' ? "личный чат" : "чат группы";
         const originalLoadingState = isTimesheetLoading;
 
@@ -417,7 +396,6 @@ const CourierSchedule: React.FC = () => {
         } finally {
              setIsTimesheetLoading(originalLoadingState);
         }
-    // <<< УБИРАЕМ requestTimesheetViaBot ИЗ ЗАВИСИМОСТЕЙ >>>
     }, [user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading]); 
 
     return (
@@ -490,7 +468,6 @@ const CourierSchedule: React.FC = () => {
                 onOpenTimesheet={handleShowTimesheet} 
             />
 
-            {/* <<< ИСПРАВЛЯЕМ ВЫЗОВ TimesheetPreview >>> */}
             {isTimesheetPreviewVisible && courierChatIdString && (
                  <TimesheetPreview
                     isOpen={isTimesheetPreviewVisible}
@@ -522,7 +499,6 @@ const CourierSchedule: React.FC = () => {
                 isModalSaveDisabled={getIsModalSaveDisabled()}
             />
 
-            {/* Добавим рендеринг модального окна профиля */}
             {isProfileModalOpen && selectedCourier && (
                 <CourierProfile 
                     isSeniorCourier={selectedCourier.isSeniorCourier}

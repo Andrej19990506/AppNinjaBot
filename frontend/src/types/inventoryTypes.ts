@@ -16,7 +16,6 @@ export interface InventoryUpdatePayload {
     history?: InventoryHistoryItem; // Запись для истории изменений
 }
 
-// Элемент чата в списке (например, для getChefChats)
 export interface ChatItem {
     id: number;
     chat_id: string;
@@ -24,12 +23,11 @@ export interface ChatItem {
     group_type: string;
     created_at: string;
     admins: Admin[];
-    metadata: InventoryMetadata | null; // Метаданные могут отсутствовать
-    slot_config?: any; // Конфиг слотов (если используется)
-    access_settings?: any; // Настройки доступа (если используются)
+    metadata: InventoryMetadata | null;
+    slot_config?: any;
+    access_settings?: any;
 }
 
-// Элемент истории изменений инвентаря
 export interface InventoryHistoryItem {
     id: number;
     group_id: number;
@@ -39,7 +37,7 @@ export interface InventoryHistoryItem {
     type: 'raw' | 'semifinished';
     old_quantity: number | null;
     new_quantity: number | null;
-    timestamp: string; // ISO-строка времени
+    timestamp: string;
     author: {
         user_id: number;
         first_name: string | null;
@@ -47,28 +45,23 @@ export interface InventoryHistoryItem {
     } | null;
 }
 
-// Детализация по конкретному товару (остатки, наличие)
 export interface InventoryItemDetails {
-    quantity: number; // Количество
-    filled: boolean; // Заполнено ли
-    isOutOfStock?: boolean; // Нет в наличии (опционально)
+    quantity: number;
+    filled: boolean;
+    isOutOfStock?: boolean;
 }
 
-// Описание товара в инвентаре
 export interface InventoryItem {
-    name: string; // Название
-    unit?: string; // Единица измерения
-    itemType: 'raw' | 'semifinished' | 'both'; // Тип для бэка
-    raw?: InventoryItemDetails; // Остатки сырья
-    semifinished?: InventoryItemDetails; // Остатки полуфабриката
-    has_semifinished?: boolean; // Есть ли полуфабрикат
-    // могут быть другие поля
+    name: string;
+    unit?: string;
+    itemType: 'raw' | 'semifinished' | 'both';
+    raw?: InventoryItemDetails;
+    semifinished?: InventoryItemDetails;
+    has_semifinished?: boolean;
 }
 
-// Весь инвентарь: категория → товар → объект товара
 export type Inventory = Record<string, Record<string, InventoryItem>>;
 
-// Тип администратора (если не импортируется)
 export interface Admin {
     id: number;
     user_id: number;
@@ -78,9 +71,8 @@ export interface Admin {
     photo_url: string | null;
 }
 
-// Метаданные инвентаря (если не импортируется)
 export interface InventoryMetadata {
-    lastUpdated: string; // Дата последнего обновления
-    progress: number; // Прогресс заполнения
-    chat_id: string; // ID чата
+    lastUpdated: string;
+    progress: number;
+    chat_id: string;
 } 

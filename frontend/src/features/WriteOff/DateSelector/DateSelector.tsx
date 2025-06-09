@@ -112,7 +112,6 @@ const DateSelector: React.FC<DateSelectorProps> = ({
   }, [hasAvailableDates, formattedAvailableDates, initialDate, onDateChange]);
   
   // Проверка, является ли дата сегодняшней или будущей
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const isDisabledNext = disableFutureDates && isToday(selectedDate);
   
   // Проверяем, доступна ли предыдущая дата
@@ -137,10 +136,8 @@ const DateSelector: React.FC<DateSelectorProps> = ({
   
   // Форматирование даты для отображения
   const formatDateDisplay = useCallback((date: Date): string => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     if (isToday(date)) {
       return 'Сегодня';
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } else if (isYesterday(date)) {
       return 'Вчера';
     } else {
@@ -226,7 +223,6 @@ const DateSelector: React.FC<DateSelectorProps> = ({
   
   // Эффект для синхронизации при изменении initialDate извне
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     if (initialDate && !isSameDay(initialDate, selectedDate)) {
       console.log('DateSelector: Initial date changed, updating selected date');
       

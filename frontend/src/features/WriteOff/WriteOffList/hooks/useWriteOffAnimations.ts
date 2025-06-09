@@ -1,10 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { WriteOffItem } from '@/types/writeOff';
 
-/**
- * Кастомный хук для управления анимациями элементов списка
- * @param items Массив элементов списания
- */
+
 export const useWriteOffAnimations = (items: WriteOffItem[]) => {
   const [removingItems, setRemovingItems] = useState<Set<string>>(new Set());
   const [removedItems, setRemovedItems] = useState<Set<string>>(new Set());
@@ -34,7 +31,6 @@ export const useWriteOffAnimations = (items: WriteOffItem[]) => {
 
   // Запуск анимации удаления элемента
   const startRemoveAnimation = (id: string) => {
-    console.log(`🔄 Запуск анимации удаления для элемента: ${id}`);
     setRemovingItems(prev => {
       const newSet = new Set(prev);
       newSet.add(id);
@@ -51,15 +47,13 @@ export const useWriteOffAnimations = (items: WriteOffItem[]) => {
     }, 500); // Время анимации исчезновения
   };
 
-  // Пометка элемента как постоянно удаленного
+
   const markItemAsPermanentlyRemoved = (id: string) => {
-    console.log(`✅ Элемент окончательно удален: ${id}`);
     markItemAsRemoved(id);
   };
 
   // Отмена анимации удаления
   const cancelRemoveAnimation = (id: string) => {
-    console.log(`❌ Отмена анимации удаления для элемента: ${id}`);
     // Очищаем таймер для этого элемента
     if (animationTimers.current[id]) {
       clearTimeout(animationTimers.current[id]);
@@ -83,7 +77,6 @@ export const useWriteOffAnimations = (items: WriteOffItem[]) => {
 
   // Очистка всех анимаций
   const clearAllRemovingItems = () => {
-    console.log('🧹 Очистка всех анимаций удаления');
     // Очищаем все таймеры
     Object.values(animationTimers.current).forEach(timer => clearTimeout(timer));
     animationTimers.current = {};
@@ -97,7 +90,6 @@ export const useWriteOffAnimations = (items: WriteOffItem[]) => {
   useEffect(() => {
     // Если нет элементов, очищаем состояния удаления
     if (items.length === 0) {
-      console.log('📋 WriteOffList: список пуст, очищаем состояния удаления');
       setRemovingItems(new Set());
       setRemovedItems(new Set());
       // Очищаем все таймеры

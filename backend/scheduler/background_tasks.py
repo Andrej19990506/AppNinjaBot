@@ -1,10 +1,9 @@
 import logging
 import asyncio
-# from scheduler import InventoryScheduler # <-- Убираем импорт модуля
 
 logger = logging.getLogger(__name__)
 
-# Используем строковый type hint для scheduler_instance
+
 def schedule_access_task_background(scheduler_instance: 'InventoryScheduler', chat_id: str):
     """
     Фоновая задача для запуска планирования доступа.

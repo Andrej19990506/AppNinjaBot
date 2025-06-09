@@ -2,7 +2,6 @@ import React, { useRef, useState, useEffect, memo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import styles from './Footer.module.css';
 import { motion } from 'framer-motion';
-import { AnimatePresence } from 'framer-motion';
 import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import Button from '@mui/material/Button';
@@ -16,7 +15,6 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SearchIcon from '@mui/icons-material/Search';
 import styled from 'styled-components';
 
-// <<< ИЗМЕНЕНИЕ: Импорты из Redux >>>
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { 
     toggleShiftDialogMode,
@@ -159,21 +157,17 @@ interface FooterProps {
     isSearchOpen?: boolean;
     showCreateEventButton?: boolean;
     onCreateEventClick?: () => void;
-    // Новые пропсы для кастомизации текстов кнопок в модальном окне
     modalSaveText?: string;
     modalCancelText?: string;
-    // Пропсы для средней кнопки
     showMiddleButton?: boolean;
     onMiddleButtonClick?: () => void;
     middleButtonText?: string;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
-    selectedChat,
     selectedCategory,
     selectedItem,
     onBack,
-    onChatSelect,
     showCreateButton = false,
     isCreateButtonActive = false,
     onCreateClick,
@@ -199,10 +193,7 @@ const Footer: React.FC<FooterProps> = ({
     isSearchOpen = false,
     showCreateEventButton = false,
     onCreateEventClick,
-    // Новые пропсы для кастомизации текстов кнопок в модальном окне
     modalSaveText,
-    modalCancelText,
-    // Пропсы для средней кнопки
     showMiddleButton,
     onMiddleButtonClick,
     middleButtonText

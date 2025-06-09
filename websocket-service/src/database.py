@@ -9,8 +9,6 @@ import socketio
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Загрузка переменных окружения
-# load_dotenv()
 
 # Получаем параметры подключения из переменных окружения
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
@@ -22,7 +20,7 @@ POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
 # Канал для прослушивания
 PG_CHANNEL = 'websocket_channel'
 
-# --- НОВАЯ АСИНХРОННАЯ ФУНКЦИЯ СЛУШАТЕЛЯ ---
+
 async def listen_for_notifications(sio: socketio.AsyncServer):
     """
     Подключается к PostgreSQL, слушает канал PG_CHANNEL
@@ -41,37 +39,34 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
 
             event_type = data.get('type')
             
-            # <<< ИЗМЕНЕННАЯ ЛОГИКА ОБРАБОТКИ >>>
+          
             if not event_type:
                 logger.warning("Получено уведомление без 'type' в payload.")
                 return
                 
             if event_type == 'profile_updated':
-                # Отправляем всем подключенным (без указания комнаты)
                 logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}'")
-                await sio.emit(event_type, data) # Убираем room=...
+                await sio.emit(event_type, data)
                 logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено.")
             else:
-                # Для остальных событий ожидаем chat_id
                 chat_id = data.get('chat_id')
                 if not chat_id:
                     logger.warning(f"Получено уведомление типа '{event_type}' без 'chat_id' в payload.")
                     return
                     
-                # <<< ИСПРАВЛЕНИЕ: Определяем комнату на основе event_type >>>
                 room_name = None
                 if event_type == 'inventory_updated' or event_type == 'inventory_reset':
                     room_name = f"inventory_{chat_id}" # Комната для инвентаря
                 elif event_type in ['reserve_added', 'reserve_removed', 'shifts_updated', 'shift_cancelled', 'bulk_reserve_removed', 'reserve_transferred_to_shift', 'shift_access_sent']: 
-                    room_name = str(chat_id) # <<< ОТПРАВЛЯЕМ В КОМНАТУ С ID ЧАТА >>>
+                    room_name = str(chat_id)
                 else:
                     logger.warning(f"Неизвестный тип события '{event_type}' для отправки в комнату.")
-                    return # Не отправляем, если не знаем куда
+                    return 
 
                 logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
                 await sio.emit(event_type, data, room=room_name)
                 logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")
-            # <<< КОНЕЦ ИЗМЕНЕННОЙ ЛОГИКИ >>>
+
 
         except json.JSONDecodeError:
             logger.error(f"Ошибка декодирования JSON из payload: {payload}")
@@ -80,7 +75,7 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
             logger.exception("Стек ошибки обработчика уведомлений:")
 
     async def _keep_listening():
-        nonlocal conn # Разрешаем изменять conn во внешней области видимости
+        nonlocal conn 
         while not stop_event.is_set():
             try:
                 if conn is None or conn.is_closed():
@@ -94,10 +89,7 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                     )
                     await conn.add_listener(PG_CHANNEL, _notification_handler)
                     logger.info(f"✅ Успешно подключен и слушаю канал '{PG_CHANNEL}'")
-
-                # Просто ждем событий, add_listener работает в фоне
-                # Можно добавить проверку соединения раз в N секунд, если нужно
-                await asyncio.sleep(30) # Проверка каждые 30 сек
+                await asyncio.sleep(30)
 
             except (asyncpg.PostgresConnectionError, ConnectionRefusedError, OSError) as e:
                 logger.error(f"Ошибка подключения/связи с PostgreSQL: {e}. Повторная попытка через 5 секунд...")
@@ -113,7 +105,7 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                     try: await conn.close()
                     except: pass
                 conn = None
-                await asyncio.sleep(10) # Пауза подольше при непонятных ошибках
+                await asyncio.sleep(10)
 
         # Завершение работы
         logger.info("Слушатель PostgreSQL получил сигнал остановки.")
@@ -132,6 +124,3 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
     # Возвращаем задачу и событие остановки, чтобы внешний код мог управлять
     return listener_task, stop_event
 
-# --- УДАЛЯЕМ СТАРУЮ СИНХРОННУЮ ФУНКЦИЮ ---
-# async def subscribe_to_events(callback):
-#    ... (старый код) ... 

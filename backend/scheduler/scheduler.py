@@ -71,8 +71,6 @@ class InventoryScheduler:
                 self.scheduler.start() # AsyncIOScheduler.start() неблокирующий
                 self._is_running = True
                 
-                # Убираем вызов загрузки активных задач из метода start()
-                # Загрузка задач будет выполняться отдельно в app.py
                 logger.info("✅ Планировщик успешно запущен")
                 
         except Exception as e:

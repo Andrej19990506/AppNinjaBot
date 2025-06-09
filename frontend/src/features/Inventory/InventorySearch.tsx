@@ -6,7 +6,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import { AnimatePresence, motion } from 'framer-motion';
 import styled, { css, keyframes } from 'styled-components';
 
-// --- Styled Components --- 
 
 const spinAnimation = keyframes`
   0% { transform: rotate(0deg); }
@@ -296,7 +295,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
         overflow: 'hidden'
       }}
     >
-      <div // Replace IconWrapper
+        <div
         style={{
           margin: '0 16px',
           display: 'flex',
@@ -310,7 +309,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
         <SearchIcon />
       </div>
       
-      <input // Replace SearchInputStyled
+      <input
         ref={searchInputRef}
         type="text"
         placeholder="Поиск товаров по всем категориям..."
@@ -318,10 +317,9 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
         onChange={handleSearchChange}
         onKeyDown={handleKeyDown}
         onFocus={handleFocus}
-        // onBlur={handleBlur} // Temporarily commented out as well
         style={{
           flexGrow: 1,
-          backgroundColor: 'transparent', // Keep transparent for container background
+          backgroundColor: 'transparent',
           border: 'none',
           outline: 'none',
           padding: '12px 10px',
@@ -334,7 +332,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
       
       <AnimatePresence>
         {localQuery && (
-          <motion.button // Replace ClearButtonStyled
+          <motion.button
             onClick={clearSearch}
             aria-label="Очистить поиск"
             initial={{ opacity: 0, scale: 0.5 }}
@@ -363,7 +361,7 @@ const InventorySearch: React.FC<InventorySearchProps> = ({
       
       <AnimatePresence>
         {isSearching && (
-          <motion.div // Replace SpinnerContainerStyled
+            <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}

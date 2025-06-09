@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Provider, useSelector } from 'react-redux';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom'; 
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'; 
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'; 
 import { ThemeProvider as CustomThemeProvider } from './contexts/ThemeContext'; 
 import { theme } from './styles/themes/theme';
@@ -16,15 +16,13 @@ import './styles/base/variables.css';
 import LocationChangeListener from './shared/components/LocationChangeListener/LocationChangeListener'; 
 import { useWebSocketSync } from './shared/hooks/useWebSocketSync';
 import NotificationHandler from './shared/components/Notifications/NotificationHandler';
-import InventoryPage from './pages/InventoryPage';
-import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
+import InventoryPage from './features/Inventory/pages/InventoryPage';
 import LoadingOverlay from './shared/components/LoadingOverlay/LoadingOverlay';
 import EventList from './features/Events/EventList';
 import { setActiveRole } from './shared/store/userSlice/userSlice';
 import WriteOff from '@/features/WriteOff/WriteOff';
+import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
 
-const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => <div style={{ color: 'red' }}>{message}</div>;
-const AdminPanel: React.FC = () => <div>Admin Panel Placeholder</div>;
 
 
 const MIN_LOADING_TIME = 1500; 
@@ -91,7 +89,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
         <>{children}</>
       )}
       {initError && (
-        <ErrorDisplay message={`Ошибка инициализации: ${initError}`} />
+        <TelegramAccessError error={initError} />
       )}
     </>
   );

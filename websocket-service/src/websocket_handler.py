@@ -4,17 +4,13 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime, timedelta
-import functools # Переносим functools выше для порядка
+import functools 
 from typing import Dict, Set, Any
 
 import aiohttp
-# import socketio # <-- Убираем импорт socketio
 from dotenv import load_dotenv
-# Убираем импорт Gauge и REGISTRY отсюда
-# from prometheus_client import Gauge, REGISTRY 
 
-# Импортируем sio из socket_instance
-from .socket_instance import sio # <-- ИМПОРТИРУЕМ ПРАВИЛЬНЫЙ SIO
+from .socket_instance import sio
 
 # --- Возвращаем импорт метрик из metrics.py ---
 from .metrics import connected_clients, events_received 
@@ -27,29 +23,20 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Настройки Socket.IO # <-- Убираем создание sio и app
-# sio = socketio.AsyncServer(async_mode='aiohttp', cors_allowed_origins=os.getenv('CORS_ALLOWED_ORIGINS', '*'))
-# app = aiohttp.web.Application()
-# sio.attach(app)
-
 # Время жизни неактивных пользователей (в секундах)
 USER_INACTIVITY_TIMEOUT = int(os.getenv('USER_INACTIVITY_TIMEOUT', 1800)) # 30 минут
 
 # Глобальные хранилища
 user_info = defaultdict(lambda: {'last_activity': datetime.utcnow(), 'rooms': set(), 'is_away': False})
-user_rooms = defaultdict(set) # sid -> {room1, room2}
-room_users = defaultdict(set) # room -> {sid1, sid2}
+user_rooms = defaultdict(set) 
+room_users = defaultdict(set) 
 
 # Префиксы для комнат
 COURIER_ROOM_PREFIX = 'couriers_'
 RESERVE_ROOM_PREFIX = 'reserves_'
 ADMIN_ROOM_PREFIX = 'admins_'
 
-# Глобальный обработчик ошибок Socket.IO
-# @sio.on("*") # <-- Комментируем декоратор
-# async def catch_all(event, sid, *args, **kwargs): # <-- Комментируем функцию
-#     \"\"\"Глобальный обработчик для всех событий\"\"\"
-#     logger.info(f\" CATCH_ALL received event: '{event}' from SID: {sid}\")\n#     logger.info(f\"🎯 Получено событие: {event} от {sid}\")\n#     logger.info(f\"📦 Аргументы: {args}\")\n#     logger.info(f\"🔧 Параметры: {kwargs}\")\n
+
 
 @sio.on("error")
 async def error_handler(sid, data):
@@ -63,8 +50,7 @@ async def connect_error(sid, data):
     logger.error(f"🚫 Ошибка подключения для {sid}: {data}")
     logger.error("Полный стек ошибки:", exc_info=True)
 
-# Список подключенных пользователей - Убираем, т.к. не используем?
-# active_users = set()
+
 
 # Добавляем константы для пинг-понга
 PING_INTERVAL = 25  # интервал отправки пинга в секундах
@@ -123,23 +109,17 @@ async def connect(sid, environ, auth):
             previous_sid = user_id_to_sid.get(user_id)
             if previous_sid and previous_sid != sid:
                 logger.info(f"🔄 Обнаружено переподключение для User ID: {user_id}. Старый SID: {previous_sid}, Новый SID: {sid}")
-                # Удаляем старую информацию (или переносим комнаты?)
                 if previous_sid in user_info:
                     logger.info(f"🧹 Удаление старой информации для SID: {previous_sid}")
-                    # Можно перенести комнаты:
-                    # existing_rooms = user_info[previous_sid].get('rooms', set())
                     del user_info[previous_sid]
                 if previous_sid in user_rooms:
                     del user_rooms[previous_sid]
-                # Обновляем карту user_id -> sid
                 user_id_to_sid[user_id] = sid
             elif not previous_sid:
-                # Новый пользователь с user_id
                 user_id_to_sid[user_id] = sid
                 logger.info(f"맵핑 New mapping: User ID {user_id} -> SID {sid}")
         # -------------------------------------------------- 
 
-        # Инкрементируем счетчик ТОЛЬКО если это действительно новое подключение (нет ошибки)
         if connected_clients is not None:
             connected_clients.inc()
             logger.info(f"📊 Увеличен счетчик подключенных клиентов")
@@ -149,7 +129,7 @@ async def connect(sid, environ, auth):
             "sid": sid,
             "user_id": user_id, # Сохраняем user_id
             "connection_time": str(asyncio.get_event_loop().time()),
-            "rooms": set(), # Начинаем с пустого набора комнат (или переносим из старого sid?)
+            "rooms": set(),
             "transport": environ.get('wsgi.url_scheme', 'unknown'),
             "user_info": {}, # Данные профиля добавятся при join_room
             "last_activity": asyncio.get_event_loop().time(),
@@ -172,7 +152,7 @@ async def connect(sid, environ, auth):
         await sio.emit('user_joined', {
             'status': 'success',
             'room': 'global',
-            'user_info': user_info[sid].get('user_info', {}), # Пока пустое
+            'user_info': user_info[sid].get('user_info', {}),
             'sid': sid,
             'user_id': user_id,
             'timestamp': user_info[sid]['connection_time']
@@ -182,12 +162,10 @@ async def connect(sid, environ, auth):
     except Exception as e:
         logger.error(f"❌ Ошибка при подключении (User ID: {user_id}, SID: {sid}): {e}")
         logger.exception("Полный стек ошибки:")
-        # Если была ошибка, откатываем инкремент счетчика, если он был
+    
         if connected_clients is not None:
-            # Проверить, успели ли мы сделать inc() до ошибки
-            # Проще пока не декрементировать, чтобы не усложнять
             pass
-        # Удаляем информацию, если она успела создаться
+       
         if sid in user_info:
             del user_info[sid]
         if user_id and user_id_to_sid.get(user_id) == sid:
@@ -230,9 +208,7 @@ async def disconnect(sid):
                 await leave_room(sid, room) # leave_room теперь не трогает БД
             del user_rooms[sid]
         
-        # Удаляем пользователя из списка активных
-        # if sid in active_users: # Убираем
-        #     active_users.remove(sid)
+
         
         # Удаляем информацию о пользователе
         if sid in user_info:
@@ -315,10 +291,6 @@ async def pong(sid, data):
 @sio.event
 async def join_room(sid, data):
     """Обработчик присоединения к комнате"""
-    # !!!!! ДОБАВЛЯЕМ ЛОГИ ПРЯМО В НАЧАЛЕ !!!!!
-    logger.info(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-    logger.info(f"!!!! JOIN_ROOM RECEIVED !!!! sid={sid}, data={data}")
-    logger.info(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 
     try:
         logger.info("=" * 80)
@@ -344,7 +316,6 @@ async def join_room(sid, data):
         # Проверяем, не находится ли пользователь уже в комнате
         if sid in user_rooms and room in user_rooms[sid]:
             logger.info(f"ℹ️ Пользователь {sid} уже находится в комнате {room}")
-            # Возможно, стоит вернуть текущее состояние или просто success
             return {'status': 'already_joined', 'room': room}
 
         # Добавляем пользователя в комнату
@@ -492,17 +463,16 @@ async def notification_handler(payload):
 
                 if not shift_data:
                     logger.error(f"❌ Не найдены данные смены ('shift_data') в уведомлении shifts_updated: {data}")
-                    return # Не можем продолжить без данных
+                    return 
                 
-                # Убедимся, что shift_data - это словарь (хотя после json.loads должен быть)
+                
                 if not isinstance(shift_data, dict):
                     logger.error(f"❌ Данные смены ('shift_data') в уведомлении не являются словарем: {type(shift_data)}")
                     return
 
                 logger.info(f"✅ Получены полные данные смены ID: {shift_data.get('id')} из уведомления PostgreSQL.")
 
-                # Готовим payload для WebSocket. Фронтенд ожидает объект ApiShift.
-                # Мы предполагаем, что shift_data УЖЕ содержит все нужные поля (включая member).
+                
                 ws_payload = {
                     **shift_data, # Разворачиваем все данные смены
                     'source': source # Добавляем источник, если нужно
@@ -530,10 +500,8 @@ async def notification_handler(payload):
             else:
                  logger.warning(f"⚠️ Не найден chat_id в уведомлении shift_cancelled: {data}")
         
-        elif event_type == 'reserve_update': # Или reserve_added / reserve_deleted
+        elif event_type == 'reserve_update': 
              if courier_room:
-                 # TODO: Проверить, что API шлет правильные типы уведомлений для резервов
-                 # и фронтенд их обрабатывает
                  await sio.emit('reserve_update', data, room=courier_room) 
                  logger.info(f"📢 Отправлено reserve_update в комнату {courier_room}...")
              else:
@@ -547,11 +515,7 @@ async def notification_handler(payload):
                 logger.info(f"🔑 Отправлено REGISTRATION_OPENED в комнату {courier_room}...")
             else:
                 logger.warning(f"⚠️ Не найден chat_id в уведомлении registration_opened: {data}")
-        # --- КОНЕЦ ДОБАВЛЕНИЯ --- 
-            
-        # Добавить обработку других нужных типов (reserve_added, reserve_deleted)
-        # elif event_type == 'reserve_added': ...
-        # elif event_type == 'reserve_deleted': ...
+
         else:
             logger.warning(f"⚠️ Неизвестный или ненужный тип уведомления: {event_type}")
 
@@ -643,7 +607,6 @@ async def book_shift(sid, data):
         
         # Отправляем HTTP запрос к API
         async with aiohttp.ClientSession() as session:
-            # TODO: Убедиться, что URL правильный (/api/v1/shifts)
             api_url = os.getenv('API_SERVICE_URL', 'http://server:8000') + '/api/v1/shifts' 
             async with session.post(api_url, json=data) as response:
                 if response.status == 201:
@@ -684,24 +647,20 @@ async def shift_update(sid, data):
         
         # Отправляем HTTP запрос к API
         async with aiohttp.ClientSession() as session:
-            # TODO: Убедиться, что URL и метод правильные (PUT /api/v1/shifts/{id} ?)
             api_url = os.getenv('API_SERVICE_URL', 'http://server:8000') + '/api/v1/shifts' # Placeholder URL
-            # Метод, вероятно, должен быть PUT или PATCH, и нужен ID смены
             shift_id = data.get('id') 
             api_url_update = f"{os.getenv('API_SERVICE_URL', 'http://server:8000')}/api/v1/shifts/{shift_id}" if shift_id else None
             if not api_url_update:
                  logger.error(f"❌ Не найден ID смены для обновления в данных: {data}")
-                 return None # Или отправить ошибку
+                 return None
                  
-            async with session.put(api_url_update, json=data) as response: # Используем PUT
-                if response.status == 200: # Ожидаем 200 OK для обновления
+            async with session.put(api_url_update, json=data) as response:
+                if response.status == 200:
                     result = await response.json()
                     logger.info(f"✅ Смена успешно обновлена API: {result}")
                     
-                    # Отправляем уведомление в комнату чата
-                    chat_id = data.get('chat_id') # Предполагаем, что chat_id есть в data
+                    chat_id = data.get('chat_id')
                     if chat_id:
-                        # Используем обновленный префикс
                         courier_room = f"{COURIER_ROOM_PREFIX}{chat_id}"
                         # Меняем имя события на shift_updated
                         await sio.emit('shift_updated', result, room=courier_room) 
@@ -745,7 +704,6 @@ logger.info("=" * 80)
 
 logger.info("✅ Все обработчики событий успешно зарегистрированы")
 
-# Точка входа
+
 if __name__ == '__main__':
-    # ... (запуск asyncio loop и aiohttp app) ...
     pass 

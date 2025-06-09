@@ -8,7 +8,6 @@ import logging
 import datetime
 from zoneinfo import ZoneInfo
 
-# Ищем .env файл в текущей директории scheduler/ или выше
 env_path = Path('.') / '.env'
 load_dotenv(dotenv_path=env_path)
 
@@ -35,8 +34,7 @@ class SchedulerSettings(BaseSettings):
     REDIS_HOST: str = Field("cache", validation_alias='REDIS_HOST') # Используем имя сервиса из docker-compose
     REDIS_PORT: int = Field(6379, validation_alias='REDIS_PORT')
     REDIS_DB_SCHEDULER: int = Field(0, validation_alias='REDIS_DB_SCHEDULER') # БД для задач APScheduler
-    REDIS_PASSWORD: Optional[str] = Field(None, validation_alias='REDIS_PASSWORD') # Если есть пароль
-    # <<< КОНЕЦ ДОБАВЛЕНИЯ >>>
+    REDIS_PASSWORD: Optional[str] = Field(None, validation_alias='REDIS_PASSWORD') 
 
     # Настройки API Телеграм Бота (куда отправлять уведомления)
     BOT_API_URL: AnyUrl = Field(..., validation_alias='BOT_API_URL')
@@ -76,12 +74,9 @@ class SchedulerSettings(BaseSettings):
 
     class Config:
         case_sensitive = True
-        # Можно указать .env файл явно, если он всегда лежит в папке scheduler
-        # env_file = ".env"
-        # env_file_encoding = 'utf-8'
         env_file = ('.env.prod', '.env.dev', '.env') 
         env_file_encoding = 'utf-8'
-        extra = 'ignore' # Игнорировать лишние переменные в env
+        extra = 'ignore' 
 
 # Создаем экземпляр настроек для импорта в других модулях scheduler
 scheduler_settings = SchedulerSettings()
@@ -93,36 +88,3 @@ logger.info("🕐🕐🕐 ЧАСОВОЙ ПОЯС ШЕДУЛЕРА: {} 🕐🕐�
 local_time = datetime.datetime.now(ZoneInfo(scheduler_settings.TIMEZONE))
 logger.info("🕐🕐🕐 ТЕКУЩЕЕ ВРЕМЯ В КРАСНОЯРСКЕ: {} 🕐🕐🕐".format(local_time.strftime("%Y-%m-%d %H:%M:%S %Z (UTC%z)")))
 logger.info("="*80)
-
-# --- Опционально: Конфигурация логирования на основе настроек --- #
-# import logging.config
-# logging_config = {
-#     'version': 1,
-#     'disable_existing_loggers': False,
-#     'formatters': {
-#         'standard': {
-#             'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-#         },
-#     },
-#     'handlers': {
-#         'console': {
-#             'level': scheduler_settings.LOG_LEVEL,
-#             'formatter': 'standard',
-#             'class': 'logging.StreamHandler',
-#         },
-#     },
-#     'loggers': {
-#         '': { # root logger
-#             'handlers': ['console'],
-#             'level': scheduler_settings.LOG_LEVEL,
-#             'propagate': True
-#         },
-#         # Можно добавить конфигурации для конкретных логгеров
-#         'apscheduler': {
-#             'handlers': ['console'],
-#             'level': 'WARNING', # Уменьшить шум от APScheduler
-#             'propagate': False
-#         },
-#     }
-# }
-# logging.config.dictConfig(logging_config)

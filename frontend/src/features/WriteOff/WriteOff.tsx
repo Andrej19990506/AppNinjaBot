@@ -236,10 +236,8 @@ const WriteOff: React.FC = () => {
             console.log('[LOG] useEffect: инициализация writeOffItems из selectedWriteOffChat.writeOffs', selectedWriteOffChat.writeOffs);
             setWriteOffItems(selectedWriteOffChat.writeOffs || []);
         }
-        // eslint-disable-next-line
     }, [selectedWriteOffChat?.chat_id]);
 
-    // Добавляем логирование для отладки WebSocket событий
     useEffect(() => {
         // Настраиваем логирование всех WebSocket-событий для отладки
         const logAllEvents = (eventName: string, data: any) => {
@@ -270,15 +268,12 @@ const WriteOff: React.FC = () => {
     }, []);
 
     const handleCreateWriteOff = () => {
-        // Сбрасываем режим редактирования при создании нового списания
         setEditingItemId(null);
-        // Очищаем форму
         setWriteOffName('');
         setSelectedReason(null);
         setWriteOffQuantity(0);
         setWriteOffDescription('');
         setWriteOffUnitType('шт');
-        // Открываем модальное окно
         setIsCreateWriteOffModalOpen(true);
     };
 

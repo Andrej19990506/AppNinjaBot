@@ -351,7 +351,7 @@ interface RemoveInventoryItemResult {
     itemId: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 interface AddInventoryItemResult {
     chatId: string;
     category: string;
@@ -628,6 +628,7 @@ const inventorySlice = createSlice({
                 state.isLoading = false;
                 state.items = action.payload.map(chat => ({
                     ...chat,
+                    chat_title: chat.chat_title || chat.title || 'Без названия',
                     metadata: {
                         ...(chat.metadata || {}),
                         chat_id: chat.chat_id

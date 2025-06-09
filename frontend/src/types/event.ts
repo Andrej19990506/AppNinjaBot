@@ -1,90 +1,69 @@
-// Тип для настроек повтора
 export interface RepeatSettings {
   type: 'none' | 'daily' | 'weekly' | 'monthly';
-  weekdays?: number[]; // Массив чисел от 0 до 6, опционально
-  month_day?: number;  // Число от 1 до 31, опционально
+  weekdays?: number[];
+  month_day?: number;
 }
 
-// Базовый тип для полей уведомления
 export interface EventNotificationBase {
   message: string;
-  time: number; // Минуты до события
-  repeat?: RepeatSettings; // Настройки повтора для этого уведомления
-  chat_ids?: number[];     // Список ID чатов для этого уведомления
-  requires_confirmation?: boolean; // Требуется ли подтверждение от пользователя
+  time: number;
+  repeat?: RepeatSettings;
+  chat_ids?: number[];
+  requires_confirmation?: boolean;
 }
 
-// Тип данных, отправляемых на API для создания уведомления
 export interface NotificationCreate extends EventNotificationBase {
-  // Наследует все поля EventNotificationBase
-  // Бэкенд ожидает RepeatSettings внутри repeat
-  
-  // Поля для управления временем уведомления
-  send_now?: boolean;             // Если true, уведомление отправляется немедленно
-  use_absolute_time?: boolean;    // Если true, используется absolute_time вместо time
-  absolute_time?: string | Date;  // Абсолютное время для уведомления (в формате ISO)
+  send_now?: boolean;
+  use_absolute_time?: boolean;
+  absolute_time?: string | Date;
 }
 
-// Тип данных для обновления уведомления
 export interface NotificationUpdate {
   message?: string;
   time?: number; 
-  repeat?: RepeatSettings; // Повторение тоже можно обновлять
-  chat_ids?: number[];     // И чаты
+  repeat?: RepeatSettings;
+  chat_ids?: number[];
   requires_confirmation?: boolean;
-  
-  // Поля для управления временем уведомления
-  send_now?: boolean;             // Если true, уведомление отправляется немедленно
-  use_absolute_time?: boolean;    // Если true, используется absolute_time вместо time
-  absolute_time?: string | Date;  // Абсолютное время для уведомления (в формате ISO)
+  send_now?: boolean;
+  use_absolute_time?: boolean;
 }
 
-// Тип данных уведомления, получаемых от API
 export interface EventNotification extends EventNotificationBase {
-  id: string; // ID уведомления (UUID от бэка, представленный строкой)
-  
-  // Поля для управления временем уведомления
-  send_now?: boolean;             // Если true, уведомление отправляется немедленно
-  use_absolute_time?: boolean;    // Если true, используется absolute_time вместо time
-  absolute_time?: string;         // Абсолютное время для уведомления (в формате ISO)
-  
-  // Поля статуса и времени выполнения (для завершенных уведомлений)
-  status?: string;                // Статус уведомления (например, 'completed', 'pending')
-  completed_at?: string;          // Время завершения уведомления (в формате ISO)
+  id: string;
+  send_now?: boolean;
+  use_absolute_time?: boolean;
+  absolute_time?: string;
+  status?: string;
+  completed_at?: string;
 }
 
-// Тип статуса планирования, получаемый от API
 export interface SchedulingStatus {
   active: boolean;
 }
 
-// Базовый тип события
 export interface EventBase {
   description?: string;
-  // Дата может быть строкой (от API) или объектом Date (для работы во фронте)
   date?: string | Date;
 }
 
-// Тип данных, отправляемых на API для создания события
 export interface EventCreate extends Omit<EventBase, 'date'> {
-  description: string; // Обязательно при создании
-  date: string; // На API отправляем дату как строку ISO 8601
-  event_type: 'manual' | 'ato'; // Тип создаваемого события
-  chat_ids?: number[]; // Заменяем target_chat_id_for_ato на chat_ids
-  group_type?: string; // Тип группы (chef, courier, admin и т.д.)
+  description: string;
+  date: string;
+  event_type: 'manual' | 'ato';
+  chat_ids?: number[];
+  group_type?: string;
 }
 
-// Тип данных события, получаемых от API
 export interface EventRead {
-  id: number; // ID события - int от бэка
+  id: number;
   description: string;
-  date: string; // API возвращает дату как строку ISO 8601
-  notifications: EventNotification[]; // Массив данных уведомлений
+  date: string;
+  notifications: EventNotification[];
   scheduling_status: SchedulingStatus;
-  last_check?: string | null; // API возвращает строку ISO 8601 или null
-  event_type?: 'manual' | 'ato' | 'АТО' | string; // Поле event_type, которое уже было или должно быть здесь для чтения
-  chat_ids?: number[]; // Заменяем target_chat_id_for_ato на chat_ids
-  group_type?: string; // Тип группы (chef, courier, admin и т.д.)
+  last_check?: string | null;
+  event_type?: 'manual' | 'ato' | 'АТО' | string;
+  chat_ids?: number[];
+  group_type?: string;
    
   // Поля для событий АТО от RetailiQA
   retailiqa_insp_id?: string;           // ID инспекции в RetailiQA
@@ -166,16 +145,12 @@ export interface RetailiQAReportItem {
 
 export interface RetailiQAReportResult {
   result: RetailiQAReportItem[];
-  // Если в этом объекте есть 'meta', его нужно будет добавить сюда
 }
 
 export interface RetailiQAReportApiResponse {
   result: RetailiQAReportResult;
-  // Если на верхнем уровне ответа есть 'meta' или другие поля, их нужно будет добавить сюда
 }
 
-// Также может понадобиться интерфейс для /api/v2/check_objects/ если его детализация важна для бэкенда
-// Например:
 export interface RetailiQACheckObjectRegion {
   id: string;
   name: string;

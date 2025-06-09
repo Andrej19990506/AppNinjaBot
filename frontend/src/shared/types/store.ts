@@ -1,20 +1,19 @@
-// --- store.ts (types) ---
-// Глобальные типы для Redux store
+
 
 import type { InventoryState } from '@types/inventoryTypes';
 import type { WriteOffState } from '@types/writeOff';
 import type { NotificationState } from '@types/notification';
 import type { UserState } from '@types/user';
-import type { AdminState } from '@types/user'; // или './admin', если есть
+import type { AdminState } from '@types/user';
 import type { CourierState } from '@features/courierSchedule/types/courierScheduleTypes';
 import type { ShiftState, ReserveState } from '@features/courierSchedule/types/courierScheduleTypes';
 import type { ChatState } from '@features/chat/types/chatTypes';
 import type { SocketState } from '@features/websocket/types/websocketTypes';
-import type { AvailableCouriersState } from '@features/courierSchedule/types/courierScheduleTypes'; // или './availableCouriers', если есть
+import type { AvailableCouriersState } from '@features/courierSchedule/types/courierScheduleTypes';
 import type { EventsState } from '@features/courierSchedule/types/eventsTypes';
-import type { AtoModalState } from '@features/courierSchedule/types/atoModalTypes'; // или './atoModal', если есть
+import type { AtoModalState } from '@features/courierSchedule/types/atoModalTypes';
 
-// --- Интерфейс состояния всего приложения ---
+
 export interface RootState {
   inventory: InventoryState;
   writeOff: WriteOffState;

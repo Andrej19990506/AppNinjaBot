@@ -3,7 +3,7 @@ FROM nginx:alpine
 # Установка certbot, его nginx плагина и gettext (для envsubst)
 RUN apk add --no-cache certbot certbot-nginx curl
 
-# Восстановить COPY --from для добавления статических файлов в образ nginx
+# Копируем собранные статические файлы из образа frontend
 COPY --from=appninjabot-frontend-img:latest /app/dist /usr/share/nginx/html
 
 # Аргумент для выбора конфигурации

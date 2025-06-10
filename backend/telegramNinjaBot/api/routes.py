@@ -355,83 +355,82 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
 @router.post("/refresh_user", tags=["API"], status_code=status.HTTP_200_OK)
 async def refresh_user_data(payload: RefreshUserPayload, request: Request):
     """
-    Получает актуальные данные пользователя из Telegram и возвращает их.
-    Этот эндпоинт вызывается API сервером для обновления данных пользователя в БД.
+    Обновляет данные пользователя из Telegram и сохраняет фото на сервер.
     """
-    logger.info(f"📬 Получен запрос на /api/refresh_user для пользователя ID {payload.user_id}")
-    
+    logger.info(f"📬 Получен запрос на обновление данных пользователя: {payload.user_id}")
+
+    # Получаем экземпляр бота
+    bot_app: Application = request.app.state.bot_application
+    if not bot_app or not bot_app.bot:
+        logger.error("❌ Экземпляр бота не доступен в app.state")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
+
+    # Получаем данные пользователя из Telegram
     try:
-        # Получаем экземпляр бота
-        bot_app: Application = request.app.state.bot_application
-        if not bot_app or not bot_app.bot:
-            logger.error("❌ Экземпляр бота не доступен в app.state при запросе refresh_user")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, 
-                               detail="Bot instance not available")
-
-        # Получаем данные пользователя из Telegram
+        user_id = payload.user_id
+        logger.info(f"Получение данных пользователя {user_id} из Telegram")
+        
         try:
-            # Пытаемся получить информацию о пользователе через getChatMember
-            # Это работает, даже если пользователь не общался с ботом недавно
-            # Но требует, чтобы пользователь был членом чата с ботом
-            user_id = payload.user_id
-            logger.info(f"Получение данных пользователя {user_id} из Telegram")
+            chat = await bot_app.bot.get_chat(user_id)
+            user_data = {
+                "user_id": chat.id,
+                "first_name": chat.first_name or "",
+                "last_name": chat.last_name or "",
+                "username": chat.username or "",
+                "photo_url": "" 
+            }
             
-
+            # Попытаемся получить и сохранить фото профиля
             try:
-                chat = await bot_app.bot.get_chat(user_id)
-                user_data = {
-                    "user_id": chat.id,
-                    "first_name": chat.first_name or "",
-                    "last_name": chat.last_name or "",
-                    "username": chat.username or "",
-                    "photo_url": "" 
-                }
-                
-                # Попытаемся получить фото профиля
-                try:
-                    photos = await bot_app.bot.get_user_profile_photos(user_id, limit=1)
-                    if photos and photos.photos and len(photos.photos) > 0:
-                        photo = photos.photos[0][-1]
-                        photo_file = await bot_app.bot.get_file(photo.file_id)
-                        user_data["photo_url"] = photo_file.file_path
-                except Exception as photo_err:
-                    logger.warning(f"⚠️ Не удалось получить фото пользователя {user_id}: {photo_err}")
-                    # Игнорируем эту ошибку, просто оставляем photo_url пустым
-                
-                logger.info(f"✅ Данные пользователя {user_id} успешно получены")
-                return user_data
-                
-            except Exception as chat_err:
-                logger.warning(f"⚠️ Не удалось получить данные через getChat: {chat_err}")
-                # Попробуем другой подход - через getChatMember, но для этого
-                # нужно знать ID чата, где пользователь состоит вместе с ботом
-                
-                # Здесь можно добавить код для получения данных через getChatMember,
-                # если у вас есть доступ к чатам, где состоит пользователь
-                
-                # Если все методы не сработали:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"User information cannot be retrieved from Telegram: {chat_err}"
-                )
-                
-        except HTTPException as http_exc:
-            raise http_exc
-        except Exception as e:
-            logger.error(f"❌ Ошибка при получении данных пользователя {payload.user_id}: {e}", 
-                         exc_info=True)
+                photos = await bot_app.bot.get_user_profile_photos(user_id, limit=1)
+                if photos and photos.photos and len(photos.photos) > 0:
+                    photo = photos.photos[0][-1]
+                    photo_file = await bot_app.bot.get_file(photo.file_id)
+                    
+                    # Создаем папку для фото пользователей
+                    photos_dir = Path("/app/shared/users-photo")
+                    photos_dir.mkdir(exist_ok=True)
+                    
+                    # Путь к файлу фото пользователя
+                    photo_filename = f"user_{user_id}.jpg"
+                    photo_path = photos_dir / photo_filename
+                    
+                    # Скачиваем фото на сервер
+                    await photo_file.download_to_drive(custom_path=photo_path)
+                    
+                    # Сохраняем относительный путь
+                    user_data["photo_url"] = f"/users-photo/{photo_filename}"
+                    logger.info(f"Фото пользователя {user_id} сохранено на сервер")
+                    
+            except Exception as photo_err:
+                logger.warning(f"⚠️ Не удалось получить/сохранить фото пользователя {user_id}: {photo_err}")
+                # Игнорируем эту ошибку, просто оставляем photo_url пустым
+            
+            logger.info(f"✅ Данные пользователя {user_id} успешно получены")
+            return user_data
+            
+        except Exception as chat_err:
+            logger.warning(f"⚠️ Не удалось получить данные через getChat: {chat_err}")
+            # Попробуем другой подход - через getChatMember, но для этого
+            # нужно знать ID чата, где пользователь состоит вместе с ботом
+            
+            # Здесь можно добавить код для получения данных через getChatMember,
+            # если у вас есть доступ к чатам, где состоит пользователь
+            
+            # Если все методы не сработали:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error retrieving user data from Telegram: {e}"
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User information cannot be retrieved from Telegram: {chat_err}"
             )
             
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.error(f"❌ Непредвиденная ошибка в /api/refresh_user: {e}", exc_info=True)
+        logger.error(f"❌ Ошибка при получении данных пользователя {payload.user_id}: {e}", 
+                     exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {e}"
+            detail=f"Error retrieving user data from Telegram: {e}"
         ) 
 
 # --- НОВЫЙ ЭНДПОИНТ /internal/send_excel_report --- 

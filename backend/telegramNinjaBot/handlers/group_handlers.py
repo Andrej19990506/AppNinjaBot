@@ -16,6 +16,7 @@ from telegramNinjaBot.config.config import Config
 from telegramNinjaBot.services.database_service import DatabaseService
 import traceback
 import re
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -332,42 +333,43 @@ class GroupHandler:
             return f"-{str_id}"
 
     async def _get_user_photo(self, user_id: int, context: ContextTypes.DEFAULT_TYPE, force_update: bool = False) -> Optional[str]:
-        """Получение фотографии пользователя"""
+        """Получение и сохранение фотографии пользователя на сервер"""
         try:
-            # Проверяем кэш только если не требуется принудительное обновление
+            # Путь к папке для сохранения фото пользователей
+            photos_dir = Path("/app/shared/users-photo")
+            photos_dir.mkdir(exist_ok=True)
+            
+            # Путь к файлу фото пользователя
+            photo_filename = f"user_{user_id}.jpg"
+            photo_path = photos_dir / photo_filename
+            
+            # Проверяем кэш и существующий файл
             cache_key = str(user_id)
-            if not force_update and cache_key in self.photo_cache:
+            if not force_update and cache_key in self.photo_cache and photo_path.exists():
                 logger.info(f"Возвращаем фото из кэша для пользователя {user_id}")
                 return self.photo_cache[cache_key]
             
-            # Получаем фотографии пользователя
+            # Получаем фотографии пользователя из Telegram
             photos = await context.bot.get_user_profile_photos(user_id, limit=1)
             
             if photos and photos.photos:
                 # Берем последнюю фотографию
                 photo = photos.photos[0][-1]  # Берем файл с максимальным размером
                 
-                # Получаем файл
+                # Получаем файл из Telegram
                 file = await context.bot.get_file(photo.file_id)
                 
-                # Проверяем, является ли file.file_path уже полным URL
-                if file.file_path.startswith('http'):
-                    photo_url = file.file_path
-                else:
-                    # Формируем URL для загрузки файла
-                    bot_token = context.bot.token
-                    photo_url = f"https://api.telegram.org/file/bot{bot_token}/{file.file_path}"
+                # Скачиваем файл на сервер
+                await file.download_to_drive(custom_path=photo_path)
                 
-                # Очищаем URL от возможного дублирования
-                if "https://api.telegram.org/file/bot" in photo_url[30:]:
-                    photo_url = photo_url[:photo_url.find("/https://")]
+                # Формируем относительный путь для возврата
+                relative_photo_path = f"/users-photo/{photo_filename}"
                 
                 # Сохраняем в кэш
-                self.photo_cache[cache_key] = photo_url
-
+                self.photo_cache[cache_key] = relative_photo_path
                 
-                logger.info(f"Получен URL фото для пользователя {user_id}: {photo_url}")
-                return photo_url
+                logger.info(f"Фото пользователя {user_id} сохранено на сервер: {relative_photo_path}")
+                return relative_photo_path
             
             logger.warning(f"Фотографии не найдены для пользователя {user_id}")
             return None

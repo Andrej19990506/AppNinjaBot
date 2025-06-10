@@ -5,12 +5,13 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 import httpx
 import asyncio
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import os
 from dotenv import load_dotenv
 import json
 import logging
 from sqlalchemy import text
+from pathlib import Path
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -441,5 +442,46 @@ async def refresh_user_profile_from_telegram(
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to execute curl to connect to bot: {str(e)}"
+        )
+
+@router.get(
+    "/{user_id}/photo",
+    summary="Get User Photo",
+    description="Returns the user's profile photo file from server storage",
+    tags=["Users"]
+)
+async def get_user_photo(user_id: int):
+    """
+    Возвращает файл фотографии пользователя с сервера.
+    Если фото не найдено, возвращает 404 ошибку.
+    """
+    try:
+        # Путь к папке с фото пользователей
+        photos_dir = Path("/app/shared/users-photo")
+        photo_filename = f"user_{user_id}.jpg"
+        photo_path = photos_dir / photo_filename
+        
+        # Проверяем существование файла
+        if not photo_path.exists():
+            logger.warning(f"Фото пользователя {user_id} не найдено: {photo_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Фото пользователя {user_id} не найдено"
+            )
+        
+        logger.info(f"Возвращаем фото пользователя {user_id}: {photo_path}")
+        return FileResponse(
+            path=str(photo_path),
+            media_type="image/jpeg",
+            filename=photo_filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при получении фото пользователя {user_id}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка сервера при получении фото: {str(e)}"
         )
 

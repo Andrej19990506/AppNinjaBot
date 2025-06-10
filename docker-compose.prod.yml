@@ -137,7 +137,6 @@ services:
     depends_on:
       - server
       - websocket
-      - frontend
     restart: unless-stopped
     deploy:
       resources:

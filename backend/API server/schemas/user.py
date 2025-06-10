@@ -9,7 +9,7 @@ class UserSimple(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
-    photo_url: Optional[HttpUrl] = None
+    photo_url: Optional[str] = None  # Теперь будет содержать путь к файлу на сервере
 
     class Config:
         from_attributes = True # Используем новый синтаксис Pydantic V2
@@ -95,20 +95,20 @@ class User(BaseModel):
     class Config:
         from_attributes = True
 
-# Схема для обновления профиля (вероятно, уже существует)
+# Схема для обновления профиля
 class UserProfileUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
-    photo_url: Optional[HttpUrl] = None
+    photo_url: Optional[str] = None  # Теперь путь к файлу на сервере
 
-# Схема для ответа профиля (вероятно, уже существует)
+# Схема для ответа профиля
 class UserProfileResponse(BaseModel):
     user_id: int
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     username: Optional[str] = None
-    photo_url: Optional[HttpUrl] = None
+    photo_url: Optional[str] = None  # Теперь путь к файлу на сервере
     created_at: Optional[datetime.datetime] = None
     updated_at: Optional[datetime.datetime] = None
 

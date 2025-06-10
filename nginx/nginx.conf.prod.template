@@ -111,6 +111,14 @@ http {
             proxy_set_header X-Forwarded-Host $host;
         }
 
+        # User photos static files
+        location /users-photo/ {
+            alias /app/shared/users-photo/;
+            expires 7d; # Cache for 7 days
+            access_log off;
+            add_header Cache-Control "public";
+        }
+
         # WebSocket endpoints
         location ~ ^/(api/ws|socket\.io)/ {
             proxy_pass http://websocket:8001;

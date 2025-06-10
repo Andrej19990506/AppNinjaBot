@@ -34,6 +34,8 @@ services:
       target: production
     expose:
       - 8000
+    volumes:
+      - shared-data:/app/shared
     command: gunicorn main:app -b 0.0.0.0:8000 --workers 4 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
       - API_BASE_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api
@@ -125,6 +127,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx_logs:/var/log/nginx
+      - shared-data:/app/shared
     environment:
       - REACT_APP_API_URL=${VITE_APP_API_URL:-https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
       - REACT_APP_WS_URL=${VITE_APP_WS_URL:-wss://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
@@ -168,3 +171,6 @@ services:
 networks:
   ninja_network:
     driver: bridge 
+
+volumes:
+  shared-data:

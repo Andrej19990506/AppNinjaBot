@@ -82,7 +82,6 @@ class DatabaseService:
             task_id = task_data['task_id']
             chat_id = task_data.get('chat_id')
             task_type = task_data['task_type']
-            
             # Преобразуем next_run_time в timestamp с timezone
             next_run_time = task_data['next_run_time']
             if next_run_time.tzinfo is None:
@@ -90,33 +89,39 @@ class DatabaseService:
                 next_run_time = next_run_time.replace(tzinfo=timezone.utc)
             else:
                 next_run_time = next_run_time.astimezone(timezone.utc)
-            
             # Данные задачи (словарь)
             data = task_data.get('data', {})
             # Подготовка данных перед сериализацией
             data_to_save = _prepare_data_for_json(data)
             data_json = json.dumps(data_to_save)
-            
             async with self.pool.acquire() as conn:
                 async with conn.transaction():
                     # Проверка существования задачи
                     exists = await conn.fetchval(
+                        "SELECT 1 FROM scheduler_tasks WHERE task_id = $1",
                         task_id
                     )
-                    
                     if exists:
                         # Обновляем существующую задачу
                         await conn.execute(
+                            """
+                            UPDATE scheduler_tasks
+                            SET chat_id = $2, task_type = $3, next_run_time = $4, data = $5, updated_at = CURRENT_TIMESTAMP
+                            WHERE task_id = $1
+                            """,
                             task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Обновлена задача с ID {task_id} в PostgreSQL")
                     else:
                         # Создаем новую задачу - УБИРАЕМ status
                         await conn.execute(
+                            """
+                            INSERT INTO scheduler_tasks (task_id, chat_id, task_type, next_run_time, data, created_at, updated_at)
+                            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                            """,
                             task_id, chat_id, task_type, next_run_time, data_json
                         )
                         logger.debug(f"Добавлена новая задача с ID {task_id} в PostgreSQL (без status)")
-                    
                     return True
         except KeyError as e:
             logger.error(f"Ошибка сохранения задачи: отсутствует обязательное поле {e} в task_data")

@@ -2,7 +2,7 @@ import logging
 import os
 import asyncio # Добавляем импорт asyncio
 from contextlib import asynccontextmanager
-
+import asyncpg
 log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 log_handler = logging.StreamHandler()
 log_handler.setFormatter(log_formatter)

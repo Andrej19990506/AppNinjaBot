@@ -115,22 +115,25 @@ services:
           memory: 256M
 
   nginx:
-    image: nginx:stable-alpine
+    build:
+      context: .
+      dockerfile: ./nginx/Dockerfile.nginx
+      args:
+        NGINX_CONFIG: nginx.conf.prod.template
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/nginx.conf.prod.template:/etc/nginx/templates/nginx.conf.template:ro
       - ./nginx_logs:/var/log/nginx
     environment:
-      - VITE_APP_API_URL=${VITE_APP_API_URL:-https://appninjabot.ru}
-      - VITE_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}
+      - REACT_APP_API_URL=${VITE_APP_API_URL:-https://appninjabot.ru}
+      - REACT_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}
       - ENV_TYPE=${ENV_TYPE:-production}
-      - VITE_DEBUG=${VITE_DEBUG:-false}
+      - REACT_APP_DEBUG=${VITE_DEBUG:-false}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
       - NGINX_HOST=appninjabot.ru
       - NGINX_PORT=80
-    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf && sh /docker-entrypoint.d/50-generate-config-js.sh && nginx -g 'daemon off;'"
+    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/nginx.conf.prod.template > /etc/nginx/nginx.conf && /docker-entrypoint.d/50-generate-config-js.sh && nginx -g 'daemon off;'"
     depends_on:
       - server
       - websocket

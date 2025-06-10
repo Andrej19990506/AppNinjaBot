@@ -7,18 +7,27 @@ import {
     getItemHistory as inventoryGetItemHistory 
 } from '@features/Inventory/services/inventoryApi';
 
-declare global {
-  interface Window { APP_CONFIG?: { API_URL?: string; WS_URL?: string; ENV?: string }; }
-}
-
-const runtimeApiUrl = (window as any).APP_CONFIG?.API_URL;
+const runtimeApiUrl = window.APP_CONFIG?.API_URL;
 const buildtimeApiUrl = import.meta.env.VITE_API_URL;
 
 const baseURL = runtimeApiUrl || buildtimeApiUrl;
 
+// Логирование для отладки
+if (window.APP_CONFIG?.DEBUG === 'true') {
+    console.log('🔧 [API] Configuration:', {
+        runtime: runtimeApiUrl,
+        buildtime: buildtimeApiUrl,
+        selected: baseURL,
+        fullConfig: window.APP_CONFIG
+    });
+}
+
 if (runtimeApiUrl) {
+    console.log('✅ [API] Using runtime config URL:', runtimeApiUrl);
 } else if (buildtimeApiUrl) {
+    console.log('⚠️ [API] Using buildtime config URL:', buildtimeApiUrl);
 } else {
+    console.error('❌ [API] No API URL found in runtime or buildtime config!');
 }
 
 // Создаем инстанс axios с базовыми настройками
@@ -61,7 +70,7 @@ const userApi = {
     // Новая функция для получения контекста пользователя (групп)
     getUserContext: async (userId: string | number): Promise<any[]> => {
         console.log(`=== 📡 Запрос контекста пользователя ID: ${userId} ===`);
-        const url = `/api/v1/users/${userId}/context`; // Используем новый путь V1
+        const url = `/v1/users/${userId}/context`; // Используем новый путь V1
         console.log('🔗 URL запроса:', url);
         console.log('🔗 Полный URL:', `${axiosInstance.defaults.baseURL}${url}`);
         try {
@@ -88,7 +97,7 @@ const userApi = {
     // --- НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ПРОФИЛЯ --- 
     getUserProfile: async (userId: string | number): Promise<any> => {
         console.log(`=== 👤 Запрос профиля пользователя ID: ${userId} ===`);
-        const url = `/api/v1/users/${userId}/profile`; // Новый эндпоинт
+        const url = `/v1/users/${userId}/profile`; // Новый эндпоинт
         console.log('🔗 URL запроса профиля:', url);
         console.log('🔗 Полный URL профиля:', `${axiosInstance.defaults.baseURL}${url}`);
         try {

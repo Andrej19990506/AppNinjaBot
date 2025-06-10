@@ -15,7 +15,7 @@ export const getReserves = async (groupTelegramId: string | number, reserveDate?
         const params: Record<string, any> = {
             group_telegram_id: groupTelegramId
         };
-        const response = await axiosInstance.get('/api/v1/reserves', { params });
+        const response = await axiosInstance.get('/v1/reserves', { params });
         const reserves = Array.isArray(response.data) ? response.data : [];
         return reserves;
     } catch (error) {
@@ -37,7 +37,7 @@ export const deleteReserve = async (
     logger.info(`[reservesApi] 📡 Запрос на удаление резерва ID: ${reserveId} от имени ${requesterTelegramId}`);
     try {
         const response = await axiosInstance.delete<ApiReserve>(
-            `/api/v1/reserves/${reserveId}`, 
+            `/v1/reserves/${reserveId}`, 
             { params: { requester_telegram_id: requesterTelegramId } }
         );
         logger.info(`[reservesApi] ✅ Резерв ID: ${reserveId} удален пользователем ${requesterTelegramId}`, response.data);
@@ -66,7 +66,7 @@ export const deleteReserve = async (
 export const addReserve = async (data: AddReserveApiData): Promise<ApiReserve> => {
     logger.info(`[reservesApi] 📡 Создание записи в резерве:`, data);
     try {
-        const response = await axiosInstance.post<ApiReserve>('/api/v1/reserves', data);
+        const response = await axiosInstance.post<ApiReserve>('/v1/reserves', data);
         logger.info(`[reservesApi] ✅ Запись в резерв создана:`, response.data);
         return response.data;
     } catch (error) {

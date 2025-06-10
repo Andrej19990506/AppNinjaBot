@@ -25,7 +25,7 @@ export const getShifts = async (chatId: number | string): Promise<ApiShift[]> =>
   }
   logger.info(`[shiftsApi] 📡 Запрос смен для группы ID: ${groupId}`);
   try {
-    const response = await axiosInstance.get<ApiShift[]>('/api/v1/shifts', {
+    const response = await axiosInstance.get<ApiShift[]>('/v1/shifts', {
       params: { group_telegram_id: groupId }
     });
     return response.data || [];
@@ -47,7 +47,7 @@ export const getShifts = async (chatId: number | string): Promise<ApiShift[]> =>
 // Бронирование смены
 export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
   try {
-    const response = await axiosInstance.post<ApiShift>('/api/v1/shifts', data);
+    const response = await axiosInstance.post<ApiShift>('/v1/shifts', data);
     return response.data;
   } catch (error) {
     if ((error as any).isAxiosError) {
@@ -86,7 +86,7 @@ export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
 export const deleteShiftAsSenior = async (shiftId: string, requesterTelegramId: string): Promise<void> => {
   logger.log(`[shiftsApi] deleteShiftAsSenior: Attempting to delete shift ${shiftId} by senior ${requesterTelegramId}`);
   try {
-    await axiosInstance.delete(`/api/v1/shifts/${shiftId}`, {
+    await axiosInstance.delete(`/v1/shifts/${shiftId}`, {
       params: { requester_telegram_id: requesterTelegramId }
     });
     logger.log(`[shiftsApi] deleteShiftAsSenior: Shift ${shiftId} deleted successfully`);
@@ -103,7 +103,7 @@ export const getShiftAccessSettings = async (chatId: string | number): Promise<A
   const groupId = typeof chatId === 'string' ? parseInt(chatId) : chatId;
   logger.info(`[shiftsApi] 📡 Запрос настроек доступа для группы ID: ${groupId}`);
   try {
-    const response = await axiosInstance.get<AccessSettings>(`/api/v1/groups/${groupId}/settings`);
+    const response = await axiosInstance.get<AccessSettings>(`/v1/groups/${groupId}/settings`);
     return response.data;
   } catch (error) {
     if ((error as any).isAxiosError) {
@@ -132,7 +132,7 @@ export const updateShiftAccessSettings = async (
   const groupId = typeof chatId === 'string' ? parseInt(chatId) : chatId;
   logger.info(`[shiftsApi] 📡 Обновление настроек доступа для группы ID: ${groupId}`);
   try {
-    const response = await axiosInstance.put<AccessSettings>(`/api/v1/groups/${groupId}/settings`, settings);
+    const response = await axiosInstance.put<AccessSettings>(`/v1/groups/${groupId}/settings`, settings);
     return response.data;
   } catch (error) {
     if ((error as any).isAxiosError) {
@@ -174,7 +174,7 @@ export const createOrUpdateShift = async (shiftData: {
       user_telegram_id,
       group_telegram_id
     };
-    const response = await axiosInstance.post('/api/v1/shifts', payload);
+    const response = await axiosInstance.post('/v1/shifts', payload);
     logger.info(`[shiftsApi] ✅ Смена успешно создана`, response.data);
     return response.data;
   } catch (error: any) {
@@ -187,7 +187,7 @@ export const createOrUpdateShift = async (shiftData: {
 export const getSlotConfig = async (groupTelegramId: number): Promise<SlotConfigResponse> => {
   logger.info(`[shiftsApi] 📡 Запрос конфигурации слотов для группы ID: ${groupTelegramId}`);
   try {
-    const response = await axiosInstance.get<SlotConfigResponse>(`/api/v1/groups/${groupTelegramId}/slot_config`);
+    const response = await axiosInstance.get<SlotConfigResponse>(`/v1/groups/${groupTelegramId}/slot_config`);
     return response.data;
   } catch (error) {
     if ((error as any).isAxiosError) {
@@ -213,7 +213,7 @@ export const updateSlotConfig = async (
   logger.info(`[shiftsApi] 📡 Обновление конфигурации слотов для группы ID: ${groupTelegramId}`);
   try {
     const response = await axiosInstance.put<SlotConfigResponse>(
-      `/api/v1/groups/${groupTelegramId}/slot_config`,
+      `/v1/groups/${groupTelegramId}/slot_config`,
       slotConfigData
     );
     return response.data;
@@ -248,7 +248,7 @@ export const updateShiftSlot = async (
 ): Promise<CourierShift> => {
   try {
     const response = await axiosInstance.patch<CourierShift>(
-      `/api/v1/shifts/${shiftId}/move?requester_telegram_id=${requesterId}`,
+      `/v1/shifts/${shiftId}/move?requester_telegram_id=${requesterId}`,
       { target_shift_type: targetShiftType, target_slot_index: targetSlotIndex }
     );
     return response.data;
@@ -261,7 +261,7 @@ export const updateShiftSlot = async (
 export const assignCourierToShift = async (data: AssignCourierApiData): Promise<ApiShift> => {
   logger.info(`[shiftsApi] 📡 Назначение курьера ${data.target_user_telegram_id} на слот ${data.shift_type}-${data.slot_index} от ${data.assigner_telegram_id}`);
   try {
-    const response = await axiosInstance.post<ApiShift>('/api/v1/shifts/assign', data);
+    const response = await axiosInstance.post<ApiShift>('/v1/shifts/assign', data);
     logger.info(`[shiftsApi] ✅ Курьер успешно назначен через API:`, response.data);
     return response.data;
   } catch (error) {
@@ -297,7 +297,7 @@ export const getTimesheetData = async (
 ): Promise<TimesheetResponse> => {
   logger.info(`[shiftsApi] 📡 Запрос данных табеля для группы ${groupTelegramId}`);
   try {
-    const response = await axiosInstance.get<TimesheetResponse>('/api/v1/shifts/timesheets', {
+    const response = await axiosInstance.get<TimesheetResponse>('/v1/shifts/timesheets', {
       params: {
         group_telegram_id: groupTelegramId,
         ...(options?.params || {})
@@ -327,7 +327,7 @@ export const getAvailableTimesheetPeriods = async (
   logger.info(`[shiftsApi] 📡 Запрос доступных периодов для табеля группы ${groupTelegramId}`);
   try {
     const response = await axiosInstance.get<AvailablePeriodResponse[]>(
-      `/api/v1/shifts/available-periods`,
+      `/v1/shifts/available-periods`,
       { params: { group_telegram_id: groupTelegramId } }
     );
     return (response.data || []).map(period => ({
@@ -364,7 +364,7 @@ export const requestTimesheetViaBot = async ({
   if (year !== undefined) params.set('year', String(year));
   if (month !== undefined) params.set('month', String(month));
   if (is_weekly !== undefined) params.set('is_weekly', String(is_weekly).toLowerCase());
-  const endpoint = `/api/v1/shifts/groups/${groupTelegramId}/timesheet/send-to-bot?${params.toString()}`;
+  const endpoint = `/v1/shifts/groups/${groupTelegramId}/timesheet/send-to-bot?${params.toString()}`;
   try {
     const response = await axiosInstance.post(endpoint);
     if (response.status === 202 && response.data) {
@@ -406,7 +406,7 @@ export const moveShiftToReserve = async (
 ): Promise<ApiReserve> => {
     try {
         const response = await axiosInstance.post<ApiReserve>(
-            `/api/v1/shifts/${shiftId}/move_to_reserve`,
+            `/v1/shifts/${shiftId}/move_to_reserve`,
             null,
             { params: { requester_telegram_id: requesterId } }
         );

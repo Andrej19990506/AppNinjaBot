@@ -13,7 +13,7 @@ export const getEvents = async (groupType?: string): Promise<EventRead[]> => {
     try {
         const params: any = {};
         if (groupType) params.group_type = groupType;
-        const response = await axiosInstance.get<EventRead[]>('/api/v1/events/', { params });
+        const response = await axiosInstance.get<EventRead[]>('/v1/events/', { params });
         logger.log(`${logPrefix} ✅ Список событий получен: ${response.data?.length ?? 0} шт.`);
         
         // Добавляем логирование для отслеживания структуры данных
@@ -98,7 +98,7 @@ export const createEvent = async (
         // Стандартная логика для создания обычного события
         logger.log(`${logPrefix} 📡 Создание обычного события...`, eventData);
         try {
-            const response = await axiosInstance.post<EventRead>('/api/v1/events/', eventData);
+            const response = await axiosInstance.post<EventRead>('/v1/events/', eventData);
             logger.log(`${logPrefix} ✅ Обычное событие создано:`, response.data);
             return response.data; // Возвращает Promise<EventRead>
         } catch (error: any) {
@@ -123,7 +123,7 @@ export const deleteEvent = async (eventId: number): Promise<EventRead> => {
     const logPrefix = '[eventsApi:deleteEvent]';
     logger.log(`${logPrefix} 📡 Удаление события ID: ${eventId}...`);
     try {
-        const response = await axiosInstance.delete<EventRead>(`/api/v1/events/${eventId}`);
+        const response = await axiosInstance.delete<EventRead>(`/v1/events/${eventId}`);
         logger.log(`${logPrefix} ✅ Событие ID ${eventId} удалено:`, response.data);
         return response.data; // Возвращаем данные удаленного события
     } catch (error: any) {
@@ -160,7 +160,7 @@ export const createNotification = async (
     
     try {
         const response = await axiosInstance.post<EventNotification>(
-            `/api/v1/events/${eventId}/notifications`, 
+            `/v1/events/${eventId}/notifications`, 
             notificationData
         );
         logger.log(`${logPrefix} ✅ Уведомление создано:`, response.data);
@@ -202,7 +202,7 @@ export const updateNotification = async (
     logger.log(`${logPrefix} 📡 Обновление уведомления ID ${notificationId} для события ID ${eventId}...`, notificationData);
     try {
         const response = await axiosInstance.put<EventNotification>(
-            `/api/v1/events/${eventId}/notifications/${notificationId}`, 
+            `/v1/events/${eventId}/notifications/${notificationId}`, 
             notificationData
         );
         logger.log(`${logPrefix} ✅ Уведомление обновлено:`, response.data);
@@ -254,7 +254,7 @@ export const processRetailiQAReportsForGroup = async (
 
     try {
         const response = await axiosInstance.post<EventRead[]>(
-            `/api/v1/events/groups/${groupTelegramId}/process-retailiqa-reports`,
+            `/v1/events/groups/${groupTelegramId}/process-retailiqa-reports`,
             null, 
             { params }
         );

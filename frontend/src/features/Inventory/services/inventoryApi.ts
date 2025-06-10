@@ -17,7 +17,7 @@ import {
  */
 export const getInventoryTemplate = async (): Promise<Record<string, any>> => {
     try {
-        const response = await axiosInstance.get<Record<string, any>>('/api/v1/inventory/template');
+        const response = await axiosInstance.get<Record<string, any>>('/v1/inventory/template');
         return response.data;
     } catch (error) {
         throw error;
@@ -34,7 +34,7 @@ export const getChatInventory = async (chatId: string): Promise<InventoryData> =
         throw new Error('chatId обязателен для получения инвентаря.');
     }
     try {
-        const response = await axiosInstance.get<InventoryData>(`/api/v1/inventory/${chatId}`);
+        const response = await axiosInstance.get<InventoryData>(`/v1/inventory/${chatId}`);
         if (!response.data.inventory) {
             response.data.inventory = {};
         }
@@ -55,7 +55,7 @@ export const updateChatInventory = async (chatId: string, payload: InventoryUpda
         throw new Error('chatId обязателен для обновления инвентаря.');
     }
     try {
-        const response = await axiosInstance.post<InventoryData>(`/api/v1/inventory/${chatId}`, payload);
+        const response = await axiosInstance.post<InventoryData>(`/v1/inventory/${chatId}`, payload);
         if (!response.data.inventory) {
             response.data.inventory = {};
         }
@@ -78,7 +78,7 @@ export const getItemHistory = async (chatId: string, category: string, itemName:
     }
     const encodedCategory = encodeURIComponent(category);
     const encodedItemName = encodeURIComponent(itemName);
-    const url = `/api/v1/inventory/history/${chatId}/${encodedCategory}/${encodedItemName}`;
+    const url = `/v1/inventory/history/${chatId}/${encodedCategory}/${encodedItemName}`;
     try {
         const response = await axiosInstance.get<InventoryHistoryItem[]>(url);
         return response.data;
@@ -123,7 +123,7 @@ export const addCustomInventoryItem = async (
     if (!chatId || !category || !itemName) {
         throw new Error('chatId, категория и название товара обязательны для добавления товара.');
     }
-    const url = `/api/v1/inventory/${chatId}/items`;
+    const url = `/v1/inventory/${chatId}/items`;
     const payload = { category, item_name: itemName, has_semifinished: hasSemifinshed };
     try {
         const response = await axiosInstance.post<any>(url, payload);
@@ -146,7 +146,7 @@ export const deleteInventoryItem = async (chatId: string, category: string, item
     }
     const encodedCategory = encodeURIComponent(category);
     const encodedItemName = encodeURIComponent(itemName);
-    const url = `/api/v1/inventory/${chatId}/items/${encodedCategory}/${encodedItemName}`;
+    const url = `/v1/inventory/${chatId}/items/${encodedCategory}/${encodedItemName}`;
     try {
         const response = await axiosInstance.delete<any>(url);
         return response.data;
@@ -164,7 +164,7 @@ export const triggerExcelReportGeneration = async (chatId: string): Promise<{sta
     if (!chatId) {
         throw new Error('chatId обязателен для генерации Excel-отчёта.');
     }
-    const url = `/api/v1/inventory/${chatId}/excel`;
+    const url = `/v1/inventory/${chatId}/excel`;
     try {
         const response = await axiosInstance.post<any>(url);
         return response.data;
@@ -189,7 +189,7 @@ export const resetChatInventory = async (chatId: string): Promise<{message: stri
     if (!chatId) {
         throw new Error('chatId обязателен для сброса инвентаря.');
     }
-    const url = `/api/v1/inventory/${chatId}/reset`;
+    const url = `/v1/inventory/${chatId}/reset`;
     try {
         const response = await axiosInstance.post<{message: string}>(url);
         return response.data;

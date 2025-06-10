@@ -22,7 +22,7 @@ const emitSocketEvent = (event: string, data: any): Promise<boolean> => {
 
 export const WriteOffApi = {
     getWriteOffChats: (userId: number, groupType: string) => {
-        return axiosInstance.get('/api/v1/groups/chats', {
+        return axiosInstance.get('/v1/groups/chats', {
             params: {
                 user_id: userId,
                 group_type: groupType
@@ -30,10 +30,10 @@ export const WriteOffApi = {
         });
     },
     getWriteOffChat: (group_id: string) => {
-        return axiosInstance.get(`/api/v1/chats/${group_id}`);
+        return axiosInstance.get(`/v1/chats/${group_id}`);
     },
     getWriteOffs: (group_id: string) => {
-        return axiosInstance.get(`/api/v1/write-offs/${group_id}`)
+        return axiosInstance.get(`/v1/write-offs/${group_id}`)
             .then((response: AxiosResponse<any>) => {
                 if (response.data && response.data[group_id]) {
                     return { data: response.data[group_id] };
@@ -51,7 +51,7 @@ export const WriteOffApi = {
             });
     },
     createWriteOff: (group_id: string, data: any) => {
-        return axiosInstance.post(`/api/v1/write-offs/${group_id}`, {
+        return axiosInstance.post(`/v1/write-offs/${group_id}`, {
             name: data.name,
             reason: typeof data.reason === 'string' ? data.reason : data.reason.id,
             quantity: data.quantity,
@@ -107,7 +107,7 @@ export const WriteOffApi = {
                     }
                 });
                 const fallbackToREST = () => {
-                    axiosInstance.put(`/api/v1/write-offs/${group_id}/${writeOffId}`, {
+                    axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, {
                         name: data.name,
                         reason: data.reason,
                         quantity: data.quantity,
@@ -129,7 +129,7 @@ export const WriteOffApi = {
                 }, 10000);
             });
         } else {
-            return axiosInstance.put(`/api/v1/write-offs/${group_id}/${writeOffId}`, {
+            return axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, {
                 name: data.name,
                 reason: data.reason,
                 quantity: data.quantity,
@@ -139,12 +139,12 @@ export const WriteOffApi = {
         }
     },
     deleteWriteOff: (group_id: string, writeOffId: string) => {
-        return axiosInstance.delete(`/api/v1/write-offs/${group_id}/${writeOffId}`)
+        return axiosInstance.delete(`/v1/write-offs/${group_id}/${writeOffId}`)
             .then((response: AxiosResponse<any>) => {
                 return { success: true };
             });
     },
     sendWriteOffReport: (groupId: string) => {
-        return axiosInstance.post(`/api/v1/write-offs/${groupId}/report`);
+        return axiosInstance.post(`/v1/write-offs/${groupId}/report`);
     },
 };

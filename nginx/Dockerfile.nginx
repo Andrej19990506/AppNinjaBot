@@ -10,7 +10,7 @@ COPY --from=appninjabot-frontend-img:latest /app/dist /usr/share/nginx/html
 ARG NGINX_CONFIG=nginx.conf
 
 # Копирование конфигурации Nginx
-COPY nginx/${NGINX_CONFIG} /etc/nginx/nginx.conf
+COPY nginx/${NGINX_CONFIG} /etc/nginx/${NGINX_CONFIG}
 
 # Удаляем стандартный конфиг, который конфликтует с нашей настройкой
 RUN rm -f /etc/nginx/conf.d/default.conf

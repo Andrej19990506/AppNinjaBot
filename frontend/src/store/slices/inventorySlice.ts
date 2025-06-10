@@ -124,7 +124,7 @@ export const fetchInventory = createAsyncThunk<
             if (role && role !== 'none') {
                 params.group_type = role;
             }
-            const response = await axiosInstance.get<ChatInventory[]>('/api/v1/groups/chats', {
+            const response = await axiosInstance.get<ChatInventory[]>('/v1/groups/chats', {
                 params: params
             });
             return response.data;
@@ -146,7 +146,7 @@ export const fetchChatInventory = createAsyncThunk<
     'inventory/fetchChatInventory',
     async (chatId: string, { rejectWithValue }) => {
         try {
-            const inventoryResponse = await axiosInstance.get<InventoryData>(`/api/v1/inventory/${chatId}`);
+            const inventoryResponse = await axiosInstance.get<InventoryData>(`/v1/inventory/${chatId}`);
             const inventoryData = inventoryResponse.data;
             if (!inventoryData) {
                 return rejectWithValue('Не получены данные инвентаря от API');
@@ -187,7 +187,7 @@ export const applyInventoryTemplate = createAsyncThunk<
              return rejectWithValue('Не удалось определить пользователя для применения шаблона.');
         }
         try {
-            const templateResponse = await axiosInstance.get<Inventory>('/api/v1/groups/inventory/template');
+            const templateResponse = await axiosInstance.get<Inventory>('/v1/groups/inventory/template');
             const templateData = templateResponse.data;
             if (!templateData || typeof templateData !== 'object' || Object.keys(templateData).length === 0) {
                 throw new Error('Пустой или неверный шаблон получен с сервера.');
@@ -201,7 +201,7 @@ export const applyInventoryTemplate = createAsyncThunk<
                 inventory: templateData,
                 metadata: metadata
             };
-            await axiosInstance.post<{ success: boolean; message?: string }>(`/api/v1/groups/inventory/${chatId}`, payloadToSend);
+            await axiosInstance.post<{ success: boolean; message?: string }>(`/v1/groups/inventory/${chatId}`, payloadToSend);
             return { chatId, inventory: templateData, metadata };
         } catch (error: any) {
             const message = error.response?.data?.detail || error.message || 'Не удалось применить шаблон';
@@ -271,7 +271,7 @@ export const updateInventoryItem = createAsyncThunk<
                     userId: currentUser?.id
                 }
             };
-            await axiosInstance.post(`/api/v1/inventory/${chatId}`, inventoryData);
+            await axiosInstance.post(`/v1/inventory/${chatId}`, inventoryData);
             return {
                 chatId,
                 inventory: updatedInventory

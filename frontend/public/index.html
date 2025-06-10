@@ -26,6 +26,28 @@
     -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <!-- Inject runtime configuration -->
+    <script>
+        // Диагностика загрузки config.js
+        window.configLoadStart = Date.now();
+        window.addEventListener('appConfigLoaded', function(event) {
+            console.log('✅ Config loaded successfully:', event.detail);
+            window.configLoadEnd = Date.now();
+            console.log('⏱️ Config load time:', (window.configLoadEnd - window.configLoadStart) + 'ms');
+        });
+        
+        // Fallback на случай если config.js не загрузится
+        setTimeout(function() {
+            if (!window.APP_CONFIG) {
+                console.error('❌ Config.js failed to load within 5 seconds');
+                console.log('🔧 User Agent:', navigator.userAgent);
+                console.log('🌐 Connection:', navigator.connection ? {
+                    effectiveType: navigator.connection.effectiveType,
+                    downlink: navigator.connection.downlink,
+                    rtt: navigator.connection.rtt
+                } : 'not available');
+            }
+        }, 5000);
+    </script>
     <script src="/config.js"></script>
     <title>AppNinjaBot</title>
   </head>

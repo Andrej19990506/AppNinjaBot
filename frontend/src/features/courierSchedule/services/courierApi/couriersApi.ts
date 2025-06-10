@@ -42,7 +42,7 @@ export const updateCourierProfile = async (userId: number | string, data: Update
                 delete backendData[key];
             }
         });
-        const response = await axiosInstance.put(`/api/v1/users/${userId}/profile`, backendData);
+        const response = await axiosInstance.put(`/v1/users/${userId}/profile`, backendData);
         console.log(`[couriersApi] ✅ Профиль курьера ID: ${userId} обновлен:`, response.data);
         return response.data;
     } catch (error) {
@@ -88,7 +88,7 @@ export const updateMemberSeniority = async (
     try {
         const data: UpdateSeniorityData = { is_senior_courier: isSeniorCourier };
         const response = await axiosInstance.put<UpdateSeniorityResponse>(
-            `/api/v1/groups/${groupTelegramId}/members/${userTelegramId}/seniority`,
+            `/v1/groups/${groupTelegramId}/members/${userTelegramId}/seniority`,
             data
         );
         logger.info('[couriersApi] ✅ Статус старшего курьера обновлен:', response.data);
@@ -125,7 +125,7 @@ export const refreshCourierProfileFromTelegram = async (userId: number | string)
     }
     logger.info(`[couriersApi] 📡 Запрос обновления профиля курьера ID: ${telegramId} из Telegram`);
     try {
-        const response = await axiosInstance.post(`/api/v1/users/${telegramId}/refresh`);
+        const response = await axiosInstance.post(`/v1/users/${telegramId}/refresh`);
         logger.info(`[couriersApi] ✅ Профиль курьера ID: ${telegramId} обновлен из Telegram:`, response.data);
         return response.data;
     } catch (error) {
@@ -159,7 +159,7 @@ export const getGroupCouriers = async (
 ): Promise<CourierInfo[]> => {
   try {
     const response = await axiosInstance.get<CourierInfo[]>(
-      `/api/v1/groups/${groupId}/couriers`,
+      `/v1/groups/${groupId}/couriers`,
       { params: { requester_id: requesterId } }
     );
     return response.data;

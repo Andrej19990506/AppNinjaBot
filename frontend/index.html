@@ -6,32 +6,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
     <title>AppNinjaBot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Диагностика загрузки config.js -->
+    <!-- Диагностика и retry загрузки config.js -->
     <script>
         window.configLoadStart = Date.now();
+        window.configRetryCount = 0;
+        window.maxRetries = 3;
+        
         window.addEventListener('appConfigLoaded', function(event) {
             console.log('✅ Config loaded successfully:', event.detail);
             window.configLoadEnd = Date.now();
             console.log('⏱️ Config load time:', (window.configLoadEnd - window.configLoadStart) + 'ms');
+            if (window.configRetryCount > 0) {
+                console.log('🔄 Config loaded after', window.configRetryCount, 'retries');
+            }
         });
         
-        // Fallback на случай если config.js не загрузится
+        // Функция для retry загрузки config.js
+        function retryConfigLoad() {
+            if (window.APP_CONFIG || window.configRetryCount >= window.maxRetries) {
+                return;
+            }
+            
+            window.configRetryCount++;
+            console.log('🔄 Retry loading config.js, attempt:', window.configRetryCount);
+            
+            // Удаляем старый script
+            const oldScript = document.querySelector('script[src*="config.js"]');
+            if (oldScript) {
+                oldScript.remove();
+            }
+            
+            // Создаем новый script с timestamp для обхода кэша
+            const script = document.createElement('script');
+            script.src = '/config.js?t=' + Date.now() + '&retry=' + window.configRetryCount;
+            script.onerror = function() {
+                console.warn('❌ Config.js retry', window.configRetryCount, 'failed');
+                setTimeout(retryConfigLoad, 1000); // Retry через 1 секунду
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Первый timeout для мобильных (увеличен до 8 секунд)
         setTimeout(function() {
             if (!window.APP_CONFIG) {
-                console.error('❌ Config.js failed to load within 5 seconds');
+                console.warn('⚠️ Config.js не загрузился за 8 секунд, начинаем retry...');
                 console.log('🔧 User Agent:', navigator.userAgent);
                 console.log('🌐 Connection:', navigator.connection ? {
                     effectiveType: navigator.connection.effectiveType,
                     downlink: navigator.connection.downlink,
                     rtt: navigator.connection.rtt
                 } : 'not available');
+                retryConfigLoad();
             }
-        }, 5000);
+        }, 8000);
+        
+        // Финальный timeout
+        setTimeout(function() {
+            if (!window.APP_CONFIG) {
+                console.error('❌ Config.js completely failed to load after', window.maxRetries, 'retries');
+            }
+        }, 15000);
     </script>
   </head>
   <body>
     <div id="root"></div>
-    <script src="/config.js"></script>
+    <script src="/config.js?v=2025-06-10-2141" id="config-script"></script>
     <script type="module" src="/src/main.tsx"></script>
     <!-- В продакшн-сборке Vite автоматически добавит тег <script type="module" src="/assets/index-*.js"></script> -->
   </body>

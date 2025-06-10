@@ -102,7 +102,7 @@ http {
 
         # API v1 endpoints
         location /v1/ {
-            proxy_pass http://server:8000/v1/;
+            proxy_pass http://server:8000/api/v1/;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;

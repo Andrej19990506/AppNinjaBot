@@ -6,7 +6,7 @@ services:
       context: ./backend/telegramNinjaBot
       target: production
     environment:
-      - API_URL=https://appninjabot.ru
+      - API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
       - ENVIRONMENT=production
       - PYTHONPATH=/app
       - BOT_PORT=8003
@@ -36,12 +36,12 @@ services:
       - 8000
     command: gunicorn main:app -b 0.0.0.0:8000 --workers 4 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
-      - API_BASE_URL=https://appninjabot.ru/api
+      - API_BASE_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api
       - BOT_URL=http://bot:8003
       - SCHEDULER_URL=http://scheduler:8002
       - WEBSOCKET_SERVER_URL=http://websocket:8001
-      - SOCKET_URL=wss://appninjabot.ru
-      - DOMAIN=appninjabot.ru
+      - SOCKET_URL=wss://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
+      - DOMAIN=c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
       - ALLOWED_ORIGINS=*
       - TRUST_PROXY=true
       - PORT=8000
@@ -80,8 +80,8 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
       - BOT_API_URL=http://bot:8003
-      - HEALTHCHECK_API_URL=https://appninjabot.ru/api/health
-      - HEALTHCHECK_BOT_URL=https://appninjabot.ru/api/bot/health
+      - HEALTHCHECK_API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/health
+      - HEALTHCHECK_BOT_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/bot/health
       - HEALTHCHECK_BOT_SEND_MESSAGE_URL=http://bot:8003/send_message/health
     restart: unless-stopped
     deploy:
@@ -126,8 +126,8 @@ services:
     volumes:
       - ./nginx_logs:/var/log/nginx
     environment:
-      - REACT_APP_API_URL=${VITE_APP_API_URL:-https://appninjabot.ru}
-      - REACT_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}
+      - REACT_APP_API_URL=${VITE_APP_API_URL:-https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
+      - REACT_APP_WS_URL=${VITE_APP_WS_URL:-wss://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
       - ENV_TYPE=${ENV_TYPE:-production}
       - REACT_APP_DEBUG=${VITE_DEBUG:-false}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}

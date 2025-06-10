@@ -28,7 +28,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.0.115:3000",
     "http://localhost:3000",
     "http://localhost",
-    "https://appninjabot.ru"
+    "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net"
 ]
 
 # Настройки WebSocket

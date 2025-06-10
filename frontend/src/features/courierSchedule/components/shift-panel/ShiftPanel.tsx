@@ -162,7 +162,7 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     const user = useAppSelector(selectUser);
 
     React.useEffect(() => {
-        const isSeniorOrAdmin = user?.groups?.some(
+        const isSeniorOrAdmin = Array.isArray(user?.groups) && user.groups.some(
             g => String(g.chat_id) === String(chatId) && (g.is_senior_courier || g.role === 'creator')
         );
         if (isCouriersPanelOpen && chatId && user?.id && isSeniorOrAdmin) {

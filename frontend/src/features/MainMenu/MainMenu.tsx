@@ -119,8 +119,8 @@ const MainMenu: React.FC = () => {
     const activeRole = useAppSelector(selectActiveRole);
 
     // Проверяем членство в группах
-    const isChefMember = useMemo(() => user?.groups?.some(group => group.group_type === "chef") ?? false, [user]);
-    const isCourierMember = useMemo(() => user?.groups?.some(group => group.group_type === "courier") ?? false, [user]);
+    const isChefMember = useMemo(() => Array.isArray(user?.groups) && user.groups.some(group => group.group_type === "chef"), [user]);
+    const isCourierMember = useMemo(() => Array.isArray(user?.groups) && user.groups.some(group => group.group_type === "courier"), [user]);
     
     // Определяем начальную роль
     const getInitialRole = useCallback((): 'chef' | 'courier' | 'none' => {

@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredGroup }) => {
     const { user } = useAppSelector((state) => state.user);
     const requiredGroups = Array.isArray(requiredGroup) ? requiredGroup : [requiredGroup];
-    const hasAccess = user?.groups?.some(group => requiredGroups.includes(group.group_type)) ?? false;
+    const hasAccess = Array.isArray(user?.groups) && user.groups.some(group => requiredGroups.includes(group.group_type));
 
     if (!hasAccess) {
         return <Navigate to="/" replace />;

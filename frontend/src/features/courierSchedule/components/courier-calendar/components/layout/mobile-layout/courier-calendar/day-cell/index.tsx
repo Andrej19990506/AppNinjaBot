@@ -118,10 +118,12 @@ const DayCell: React.FC<DayCellProps> = ({
             );
         }
 
-        if (isAvailable) {
-            const allDaySlotsOccupied = dayShifts.length >= currentMaxDay;
-            const allNightSlotsOccupied = nightShifts.length >= currentMaxNight;
+        const occupiedDaySlots = dayShifts.filter(s => s.slotIndex !== -1).length;
+        const occupiedNightSlots = nightShifts.filter(s => s.slotIndex !== -1).length;
+        const allDaySlotsOccupied = occupiedDaySlots >= currentMaxDay;
+        const allNightSlotsOccupied = occupiedNightSlots >= currentMaxNight;
 
+        if (isAvailable || (allDaySlotsOccupied && allNightSlotsOccupied)) {
             if (allDaySlotsOccupied && allNightSlotsOccupied) {
                 return (
                     <OccupiedSlotIndicator title="Все смены заняты">

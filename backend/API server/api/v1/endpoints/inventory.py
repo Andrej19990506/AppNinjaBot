@@ -25,31 +25,20 @@ from pydantic import Field, BaseModel
 import redis.asyncio as redis # Типизация для клиента
 from core.dependencies import get_redis_client # Импортируем из нового файла
 from fastapi import Depends # Обновляем импорт Depends, чтобы он включал нашу зависимость
-# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
-# ---> ДОБАВЛЕНИЕ: Импорты для генерации Excel <---
-import pandas as pd
-import openpyxl
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
-from io import BytesIO
-from fastapi.responses import StreamingResponse
-# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
-# ---> ДОБАВЛЕНИЕ: Дополнительные импорты для Redis и вызова бота <---
 import uuid
 import httpx # Для асинхронных HTTP запросов к боту
 from pathlib import Path as FilePath # <--- Переименовано для избежания конфликта с fastapi.Path
-# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
-# ---> ДОБАВЛЕНИЕ: Импорт typing для аннотаций <---
+
 from typing import List, Dict, Tuple, Any 
-# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+
+from services.inventory.excel_generator import generate_inventory_excel
 
 logger = logging.getLogger(__name__)
-# Убедись, что basicConfig вызывается где-то глобально или настрой логгер как нужно
-# logging.basicConfig(level=logging.INFO)
+
 
 router = APIRouter()
 
-# --- Вспомогательные функции (перенесены из groups.py) ---
+
 
 # Вспомогательная функция для получения группы по Telegram ID
 async def get_group_by_telegram_id(db: AsyncSession, group_telegram_id: int) -> Group | None:
@@ -993,258 +982,6 @@ async def delete_inventory_item(
 
 # --- ЭНДПОИНТ ИСТОРИИ ---
 
-# Вспомогательная функция для генерации Excel-содержимого
-def _generate_excel_content(inventory_data: Dict[str, Any], metadata: Dict[str, Any], group_title: str) -> BytesIO | None: # <-- ИЗМЕНЕНО: возвращает None при ошибке
-    """Генерирует Excel файл в памяти (BytesIO) с новой сортировкой и группировкой."""
-    logger.info("Starting Excel generation with new sorting logic...")
-    output = BytesIO()
-    try:
-        # ---> НАЧАЛО НОВОЙ ЛОГИКИ СОРТИРОВКИ И ГРУППИРОВКИ <---
-        # --- ИЗМЕНЕНИЕ: Обновляем название категории --- 
-        special_category_names_lower = ["полуфабрикаты", "напитки", "упаковка и приборы"] 
-        main_items_list: List[Tuple[str, str, Dict[str, Any]]] = [] # (category_name, item_name, item_data)
-        # --- ИЗМЕНЕНИЕ: Обновляем ключи в словаре --- 
-        special_items_dict: Dict[str, List[Tuple[str, Dict[str, Any]]]] = {name: [] for name in special_category_names_lower} # key: lower_cat_name, value: [(item_name, item_data)]
-
-        # 1. Разделение данных
-        for category, items_dict in inventory_data.items():
-            if not isinstance(items_dict, dict): continue # Пропускаем некорректные данные
-            
-            category_lower = category.lower()
-            items_to_process = list(items_dict.items()) # Создаем список для безопасной итерации
-
-            for item_name, item_data in items_to_process:
-                if not isinstance(item_data, dict): continue # Пропускаем некорректные данные товара
-
-                if category_lower in special_category_names_lower:
-                    special_items_dict[category_lower].append((item_name, item_data))
-                else:
-                    main_items_list.append((category, item_name, item_data))
-
-        # 2. Сортировка
-        main_items_list.sort(key=lambda x: x[1]) # Сортировка основного списка по имени товара
-        for item_list in special_items_dict.values():
-            item_list.sort(key=lambda x: x[0]) # Сортировка специальных списков по имени товара
-
-        # 3. Формирование данных для Excel (excel_data)
-        excel_data = []
-        item_number = 1
-
-        # 3.1 Основной список
-        logger.debug(f"Processing {len(main_items_list)} main items...")
-        for category, item_name, item_data in main_items_list:
-            raw_data = item_data.get('raw', {})
-            semifinished_data = item_data.get('semifinished', {})
-            raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
-            semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
-            raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
-            semifin_display = semifin_qty
-
-            excel_data.append({
-                '№ п/п': item_number,
-                'Категория': category, # Оставляем категорию для ясности
-                'Товар': item_name,
-                'Сырье (шт.)': raw_display if raw_display is not None else '',
-                'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
-            })
-            item_number += 1
-
-        # 3.2 Специальные категории
-        # --- ИЗМЕНЕНИЕ: Обновляем порядок вывода --- 
-        special_category_order = ["полуфабрикаты", "напитки", "упаковка и приборы"] # Порядок вывода
-        original_cap_map = {cat.lower(): cat for cat in inventory_data.keys()} # Карта для восстановления регистра заголовка
-
-        for special_cat_name_lower in special_category_order:
-            item_list = special_items_dict.get(special_cat_name_lower)
-            if item_list:
-                logger.debug(f"Processing special category '{special_cat_name_lower}' with {len(item_list)} items...")
-                # Добавляем пустую строку-разделитель
-                excel_data.append({'№ п/п': '', 'Категория': '', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-                
-                # Добавляем заголовок специальной категории
-                original_cat_name = original_cap_map.get(special_cat_name_lower, special_cat_name_lower.capitalize())
-                excel_data.append({'№ п/п': '', 'Категория': original_cat_name + ':', 'Товар': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-                
-                item_number = 1 # Сброс нумерации
-                for item_name, item_data in item_list:
-                    raw_data = item_data.get('raw', {})
-                    semifinished_data = item_data.get('semifinished', {})
-                    raw_qty = raw_data.get('quantity') if isinstance(raw_data, dict) else None
-                    semifin_qty = semifinished_data.get('quantity') if isinstance(semifinished_data, dict) else None
-                    raw_display = "Нет в наличии" if isinstance(raw_data, dict) and raw_data.get('isOutOfStock') else raw_qty
-                    semifin_display = semifin_qty
-
-                    excel_data.append({
-                        '№ п/п': item_number,
-                        'Категория': '', # Не указываем категорию внутри спец. секции
-                        'Товар': item_name,
-                        'Сырье (шт.)': raw_display if raw_display is not None else '',
-                        'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
-                    })
-                    item_number += 1
-        # ---> КОНЕЦ НОВОЙ ЛОГИКИ СОРТИРОВКИ И ГРУППИРОВКИ <---
-
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # 1. Метаданные (Информация о документе) - без изменений
-            # ... (код метаданных остается прежним) ...
-            author_first_name = metadata.get('currentUser', {}).get('first_name', '')
-            author_last_name = metadata.get('currentUser', {}).get('last_name', '')
-            author_full_name = f"{author_first_name} {author_last_name}".strip()
-            
-            meta_info = {
-                'Поле': ['Дата:', 'Филиал:', 'Автор:'],
-                'Значение': [
-                    datetime.now().strftime('%d.%m.%Y %H:%M'),
-                    group_title,
-                    author_full_name if author_full_name else 'Не указан' 
-                ]
-            }
-            metadata_df = pd.DataFrame(meta_info)
-            metadata_df.to_excel(writer, sheet_name='Инвентаризация', index=False, header=False, startrow=0)
-            logger.debug("Metadata written to Excel.")
-
-            # 2. Данные инвентаря (используем подготовленный excel_data)
-            # Определяем колонки DataFrame в нужном порядке
-            df_columns = ['№ п/п', 'Категория', 'Товар', 'Сырье (шт.)', 'Полуфабрикаты (шт.)']
-            df = pd.DataFrame(excel_data, columns=df_columns)
-            df.to_excel(writer, sheet_name='Инвентаризация', index=False, startrow=5) # Начинаем с 6 строки (0-based index 5)
-            logger.debug("Inventory data written to Excel.")
-
-            # 3. Форматирование
-            worksheet = writer.sheets['Инвентаризация']
-
-            # Форматирование метаданных (строки 1-3) - без изменений
-            # ... (код форматирования метаданных) ...
-            metadata_font = Font(bold=True)
-            metadata_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
-            border_thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-
-            for row in range(1, 4): # Строки 1, 2, 3
-                for col in range(1, 3): # Столбцы A, B
-                    cell = worksheet.cell(row=row, column=col)
-                    cell.font = metadata_font
-                    cell.fill = metadata_fill
-                    cell.alignment = Alignment(horizontal='left', vertical='center')
-                    cell.border = border_thin
-            
-            # Форматирование заголовков таблицы (строка 6) - добавлена колонка "№ п/п"
-            header_font = Font(bold=True, color="FFFFFF") # Белый текст
-            header_fill = PatternFill(start_color='FF5F1F', end_color='FF5F1F', fill_type='solid') # Оранжевый фон
-            
-            header_row_index = 6 # Заголовки теперь в 6-й строке
-            for col_idx, header_text in enumerate(df_columns, 1):
-                 cell = worksheet.cell(row=header_row_index, column=col_idx)
-                 cell.value = header_text # Устанавливаем текст заголовка из df_columns
-                 cell.font = header_font
-                 cell.fill = header_fill
-                 # Выравнивание: № п/п и количества - центр, остальное - лево
-                 align_horizontal = 'center' if header_text in ['№ п/п', 'Сырье (шт.)', 'Полуфабрикаты (шт.)'] else 'left'
-                 cell.alignment = Alignment(horizontal=align_horizontal, vertical='center', wrap_text=True)
-                 cell.border = border_thin
-
-            # ---> НАЧАЛО НОВОЙ ЛОГИКИ ФОРМАТИРОВАНИЯ ДАННЫХ <---
-            data_start_row = header_row_index + 1 # Данные начинаются со строки 7
-            is_gray = False # Для чередования цветов
-
-            for row_idx, row in enumerate(worksheet.iter_rows(min_row=data_start_row, max_col=len(df_columns)), start=data_start_row):
-                # Получаем значения для анализа строки
-                num_val = row[0].value # № п/п (A)
-                cat_val = row[1].value # Категория (B)
-
-                # Определяем тип строки
-                is_special_header = isinstance(cat_val, str) and cat_val.endswith(':')
-                is_empty_separator = (num_val is None or str(num_val).strip() == '') and \
-                                     (cat_val is None or str(cat_val).strip() == '')
-                is_data_row = not is_special_header and not is_empty_separator
-
-                if is_special_header:
-                    # Форматируем заголовок специальной категории
-                    row[1].font = Font(bold=True) # Делаем жирным
-                    # Можно объединить ячейки для заголовка, если нужно
-                    # worksheet.merge_cells(start_row=row_idx, start_column=2, end_row=row_idx, end_column=len(df_columns))
-                    # row[1].alignment = Alignment(horizontal='left', vertical='center')
-                    is_gray = False # Сброс цвета для новой секции
-                    # Применяем границы и убираем фон для строки заголовка
-                    for cell in row:
-                        cell.border = border_thin
-                        cell.fill = PatternFill(fill_type=None)
-
-                elif is_empty_separator:
-                    # Очищаем форматирование для пустых строк-разделителей
-                     for cell in row:
-                         cell.border = None 
-                         cell.fill = PatternFill(fill_type=None) 
-                         # Можно задать высоту строки, если нужно worksheet.row_dimensions[row_idx].height = 10
-                
-                elif is_data_row:
-                    # Применяем чередующийся фон и стили к строкам данных
-                    row_fill = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid') if is_gray else PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
-                    for cell in row:
-                        cell.fill = row_fill
-                        cell.border = border_thin
-                        # Выравнивание: № п/п и количества - центр, Категория/Товар - лево
-                        col_letter = get_column_letter(cell.column)
-                        if col_letter == 'A' or col_letter in ['D', 'E']: # № п/п, Сырье, Полуфабрикаты
-                             cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                        elif col_letter in ['B', 'C']: # Категория, Товар
-                             cell.alignment = Alignment(horizontal='left', vertical='center', wrap_text=True)
-
-                    is_gray = not is_gray # Меняем цвет для следующей строки данных
-                else: 
-                    # Неожиданный тип строки - применяем базовые границы
-                    for cell in row:
-                         cell.border = border_thin
-
-            logger.debug("Cell formatting applied with new logic.")
-            # ---> КОНЕЦ НОВОЙ ЛОГИКИ ФОРМАТИРОВАНИЯ ДАННЫХ <---
-
-            # Автоподбор ширины столбцов (учитываем новую колонку '№ п/п')
-            for col_idx, column_cells in enumerate(worksheet.columns, 1):
-                max_length = 0
-                column_letter = get_column_letter(col_idx)
-
-                # Устанавливаем минимальную ширину
-                if column_letter == 'A': # № п/п
-                    min_width = 6
-                elif column_letter == 'B': # Категория
-                    min_width = 20
-                elif column_letter == 'C': # Товар
-                    min_width = 25
-                else: # Сырье, Полуфабрикаты
-                    min_width = 15 
-                
-                # Находим максимальную длину содержимого (пропуская заголовки метаданных)
-                for cell in column_cells:
-                    if cell.value and cell.row >= header_row_index: # Начинаем с строки заголовков таблицы
-                         try:
-                             cell_text_length = 0
-                             lines = str(cell.value).split('\\n') # Используем \\n если pandas его вставляет
-                             if not lines: lines = str(cell.value).split('\n')
-                             max_line_length = max(len(line.strip()) for line in lines) if lines else 0
-                             cell_text_length = max_line_length
-                             
-                             if cell_text_length > max_length:
-                                 max_length = cell_text_length
-                         except Exception:
-                             pass 
-                
-                # Устанавливаем ширину
-                adjusted_width = max(min_width, max_length + 2) # Добавляем запас +2
-                max_allowed_width = 50 # Ограничение максимальной ширины
-                adjusted_width = min(adjusted_width, max_allowed_width)
-
-                worksheet.column_dimensions[column_letter].width = adjusted_width
-            logger.debug("Column widths adjusted.")
-
-        output.seek(0)
-        logger.info("Excel generation finished successfully.")
-        return output
-
-    except Exception as e:
-        logger.exception(f"Error generating Excel content: {e}")
-        # Возвращаем None, чтобы показать ошибку
-        return None 
-
 # --- ЭНДПОИНТ ДЛЯ ГЕНЕРАЦИИ EXCEL (БЕЗ СКАЧИВАНИЯ) ---
 @router.post(
     "/{chat_id}/excel",
@@ -1334,11 +1071,13 @@ async def trigger_excel_generation(
              raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No inventory data available to generate the report.")
 
         # Вызываем функцию генерации
-        excel_content_stream = _generate_excel_content(
+        # --- ГЕНЕРАЦИЯ EXCEL-ФАЙЛА (логика вынесена в services/inventory/excel_generator.py) ---
+        excel_content_stream = generate_inventory_excel(
             inventory_data=final_inventory_data,
             metadata=inventory_metadata,
             group_title=group_title
         )
+        # --- КОНЕЦ ГЕНЕРАЦИИ ---
 
         # ---> ДОБАВЛЕНА ПРОВЕРКА НА ОШИБКУ ГЕНЕРАЦИИ <---
         if excel_content_stream is None:

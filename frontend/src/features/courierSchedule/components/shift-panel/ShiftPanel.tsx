@@ -153,8 +153,9 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     const userHasNightShift = useMemo(() => nightShifts.some(shift => shift.userId === currentUserId), [nightShifts, currentUserId]);
     const userHasShift = userHasDayShift || userHasNightShift; 
     const totalSlots = maxDaySlots + maxNightSlots;
-    const totalOccupiedSlots = dayShifts.length + nightShifts.length;
-    const isFullyBooked = totalOccupiedSlots >= totalSlots;
+    const totalOccupiedDaySlots = dayShifts.filter(s => s.slotIndex !== -1).length;
+    const totalOccupiedNightSlots = nightShifts.filter(s => s.slotIndex !== -1).length;
+    const isFullyBooked = totalOccupiedDaySlots >= maxDaySlots && totalOccupiedNightSlots >= maxNightSlots;
     
     const bottomPadding = isCouriersPanelOpen ? `${COURIERS_PANEL_HEIGHT}px` : '0px';
     

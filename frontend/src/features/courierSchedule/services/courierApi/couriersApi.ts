@@ -11,9 +11,14 @@ import { CourierStatusResponse, UpdateSeniorityResponse, UpdateProfileData, Back
 // Получить статус курьера
 export const getCourierStatus = async (userId: number | string, chatId: string): Promise<CourierStatusResponse> => {
     try {
+        console.log(`[couriersApi] 📡 Запрос статуса курьера ${userId} для чата ${chatId}`);
         const response = await axiosInstance.get<CourierStatusResponse>(`/couriers/${userId}/status`, {
-            params: { chat_id: chatId }
+            params: { 
+                chat_id: chatId,
+                _t: Date.now() // Добавляем timestamp для предотвращения кэширования
+            }
         });
+        console.log(`[couriersApi] ✅ Получен статус курьера:`, response.data);
         return response.data;
     } catch (error) {
         const err = error as any;
@@ -160,7 +165,12 @@ export const getGroupCouriers = async (
   try {
     const response = await axiosInstance.get<CourierInfo[]>(
       `/v1/groups/${groupId}/couriers`,
-      { params: { requester_id: requesterId } }
+      { 
+        params: { 
+          requester_id: requesterId,
+          _t: Date.now() // Добавляем timestamp для предотвращения кэширования
+        } 
+      }
     );
     return response.data;
   } catch (error) {

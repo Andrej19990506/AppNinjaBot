@@ -33,17 +33,36 @@ export const WriteOffApi = {
         return axiosInstance.get(`/v1/chats/${group_id}`);
     },
     getWriteOffs: (group_id: string) => {
-        return axiosInstance.get(`/v1/write-offs/${group_id}`)
+        return axiosInstance.get(`/v1/write-offs/${group_id}`, {
+            params: {
+                _t: Date.now()
+            }
+        })
             .then((response: AxiosResponse<any>) => {
+                console.log('🔍 [getWriteOffs] Raw response:', {
+                    status: response.status,
+                    data: response.data,
+                    headers: response.headers,
+                    dataType: typeof response.data,
+                    isArray: Array.isArray(response.data),
+                    hasGroupIdKey: response.data && response.data[group_id] !== undefined,
+                    userAgent: navigator.userAgent,
+                    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                });
+                
                 if (response.data && response.data[group_id]) {
+                    console.log('📦 [getWriteOffs] Returning data from group_id key:', response.data[group_id]);
                     return { data: response.data[group_id] };
                 }
                 if (Array.isArray(response.data)) {
+                    console.log('📦 [getWriteOffs] Returning array data:', response.data);
                     return { data: response.data };
                 }
+                console.log('⚠️ [getWriteOffs] Returning empty array - unexpected data format');
                 return { data: [] };
             })
             .catch((error: any) => {
+                console.error('❌ [getWriteOffs] Error:', error);
                 if (error.response?.status === 404) {
                     return { data: [] };
                 }

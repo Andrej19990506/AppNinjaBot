@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 const config = {
-    API_URL: import.meta.env.VITE_API_URL || 'http://localhost/api',
+    API_URL: import.meta.env.VITE_API_URL || 'http://localhost/api/v1',
     WS_URL: import.meta.env.VITE_WS_URL || 'ws://localhost:80',
     ENV: import.meta.env.VITE_ENV || 'development',
     DEBUG: import.meta.env.VITE_DEBUG === 'true' || false,

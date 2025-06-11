@@ -120,10 +120,13 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             const totalSlots = daySlots + nightSlots;
                             
                             if (totalSlots > 0) {
-                                const dayShiftsCount = getDayShifts(date).length;
-                                const nightShiftsCount = getNightShifts(date).length;
+                                // Новый способ: считаем только обычные слоты (slotIndex !== -1)
+                                const dayShifts = getDayShifts(date).filter(s => s.slotIndex !== -1);
+                                const nightShifts = getNightShifts(date).filter(s => s.slotIndex !== -1);
+                                const dayShiftsCount = dayShifts.length;
+                                const nightShiftsCount = nightShifts.length;
                                 const filledSlots = dayShiftsCount + nightShiftsCount;
-                                const completionPercentage = (filledSlots / totalSlots) * 100;
+                                const completionPercentage = totalSlots > 0 ? (filledSlots / totalSlots) * 100 : 0;
 
                                 const iconStyle = { fontSize: 'inherit', color: 'white' };
 

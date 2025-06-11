@@ -26,7 +26,7 @@ let pendingJoinRoomId: string | null = null; // Комната, в котору�
 let currentPathname: string | null = null; // Текущий маршрут
 
 // --- Хелперы для работы с комнатами ---
-const COURIER_ROUTE = '/courier-schedule';
+const COURIER_ROUTE = '/courier/courier-schedule';
 
 // Получить chat_id курьерской группы из state
 const findCourierChatId = (state: RootState | null): string | undefined => {
@@ -292,6 +292,7 @@ listenerMiddleware.startListening({
             }
             if (newTargetRoomName) {
                 if (isConnected) {
+                    console.log('[DEBUG] Попытка joinRoom для курьеров:', newTargetRoomName);
                     joinRoom(newTargetRoomName); 
                 } else {
                     pendingJoinRoomId = newTargetRoomName; 

@@ -36,11 +36,19 @@ const reservesSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(fetchReservesForGroup.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
             .addCase(fetchReservesForGroup.fulfilled, (state, action) => {
                 console.log('[DEBUG] reducer: fetchReservesForGroup.fulfilled payload =', action.payload);
                 state.reserves = action.payload;
                 state.loading = false;
                 state.error = null;
+            })
+            .addCase(fetchReservesForGroup.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload || 'Не удалось загрузить резервы';
             });
     }
 });

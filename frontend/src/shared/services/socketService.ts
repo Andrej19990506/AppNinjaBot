@@ -462,6 +462,7 @@ class SocketService {
     }
 
     return new Promise((resolve) => {
+      console.log('[DEBUG] socket.emit join_room', room, userInfo);
       this.socket?.emit('join_room', { room, user_info: userInfo }, (response: any) => {
         if (response?.error) {
           logger.error('❌ Ошибка при присоединении к комнате:', response.error);

@@ -34,7 +34,11 @@ if (runtimeApiUrl) {
 const axiosInstance = axios.create({
     baseURL: baseURL,
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        // Добавляем заголовки для предотвращения кэширования
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
     }
 });
 

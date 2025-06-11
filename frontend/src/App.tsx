@@ -8,7 +8,6 @@ import store from './shared/store/store';
 import { initializeFromTelegram} from '@shared/store/userSlice/userThunks';
 import { selectIsUserInitialized, selectUserInitializationError } from '@shared/store/userSlice/userSelectors';
 import { useAppDispatch } from './shared/store/hooks';
-import { logger } from './shared/utils/logger';
 import MainMenu from './features/MainMenu/MainMenu';
 import CourierSchedule from './features/courierSchedule/CourierSchedule';
 import './App.css';
@@ -22,6 +21,7 @@ import EventList from './features/Events/EventList';
 import { setActiveRole } from './shared/store/userSlice/userSlice';
 import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
+import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 
 
 
@@ -41,10 +41,27 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Восстанавливаем роль из URL при старте
   useEffect(() => {
+    // Получаем пользователя из стора
+    const user = store.getState().user.user;
     if (location.pathname.startsWith('/courier')) {
       dispatch(setActiveRole('courier'));
     } else if (location.pathname.startsWith('/chef')) {
       dispatch(setActiveRole('chef'));
+    } else {
+      // Если путь не начинается ни с chef, ни с courier — определяем дефолтную роль по группам
+      if (Array.isArray(user?.groups)) {
+        if (user.groups.length === 1) {
+          const onlyType = user.groups[0].group_type;
+          if (onlyType === 'chef') dispatch(setActiveRole('chef'));
+          else if (onlyType === 'courier') dispatch(setActiveRole('courier'));
+        } else {
+          const hasChef = user.groups.some(group => group.group_type === 'chef');
+          const hasCourier = user.groups.some(group => group.group_type === 'courier');
+          if (hasChef && !hasCourier) dispatch(setActiveRole('chef'));
+          else if (hasCourier && !hasChef) dispatch(setActiveRole('courier'));
+          else if (hasChef && hasCourier) dispatch(setActiveRole('chef'));
+        }
+      }
     }
   }, [location.pathname, dispatch]);
 
@@ -53,13 +70,10 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       initStarted.current = true;
       initStartTimeRef.current = Date.now(); 
       setShowOverlay(true); 
-      logger.log('🚀 [AppInitializer] Начало инициализации приложения...');
-      
       dispatch(initializeFromTelegram()).unwrap()
         .then((initResult) => {
         })
         .catch((error) => {
-          logger.error('❌ [AppInitializer] Ошибка инициализации пользователя:', error);
         });
     }
   }, [dispatch, isUserInitialized, initError]);
@@ -95,9 +109,26 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   );
 };
 
-function App() {
-  logger.log('🔄 Инициализация главного меню (запускается рендер App)...');
+// --- Автоматический редирект по ролям ---
+const AutoRedirectByRole = () => {
+  const user = store.getState().user.user;
+  if (Array.isArray(user?.groups)) {
+    if (user.groups.length === 1) {
+      const onlyType = user.groups[0].group_type;
+      if (onlyType === 'chef') return <Navigate to="/chef" replace />;
+      if (onlyType === 'courier') return <Navigate to="/courier" replace />;
+    } else {
+      const hasChef = user.groups.some(group => group.group_type === 'chef');
+      const hasCourier = user.groups.some(group => group.group_type === 'courier');
+      if (hasChef) return <Navigate to="/chef" replace />;
+      if (hasCourier) return <Navigate to="/courier" replace />;
+    }
+  }
+  // Если нет групп — редирект на / или страницу ошибки
+  return <Navigate to="/" replace />;
+};
 
+function App() {
   return (
     <Provider store={store}>
       <CustomThemeProvider>
@@ -107,15 +138,23 @@ function App() {
             <AppInitializer>
               <NotificationHandler />
               <Routes>
-                <Route path="/courier" element={<MainMenu />} />
-                <Route path="/chef" element={<MainMenu />} />
+                <Route path="/courier" element={
+                  <ProtectedRoute requiredGroup="courier">
+                    <MainMenu />
+                  </ProtectedRoute>
+                } />
+                <Route path="/chef" element={
+                  <ProtectedRoute requiredGroup="chef">
+                    <MainMenu />
+                  </ProtectedRoute>
+                } />
                 <Route path="/courier/events" element={<EventList />} />
                 <Route path="/courier/courier-schedule" element={<CourierSchedule />} />
                 <Route path="/chef/events" element={<EventList />} />
                 <Route path="/chef/inventory" element={<InventoryPage />} />
                 <Route path="/chef/write-off" element={<WriteOff />} />
                 <Route path="/inventory/:chatId" element={<InventoryPage />} />
-                <Route path="*" element={<Navigate to="/courier" replace />} />
+                <Route path="*" element={<AutoRedirectByRole />} />
               </Routes>
             </AppInitializer>
           </Router>

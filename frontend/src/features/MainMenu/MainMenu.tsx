@@ -124,17 +124,29 @@ const MainMenu: React.FC = () => {
     
     // Определяем начальную роль
     const getInitialRole = useCallback((): 'chef' | 'courier' | 'none' => {
-        if (isCourierMember) return 'courier';
-        if (isChefMember) return 'chef';
+        if (Array.isArray(user?.groups)) {
+            if (user.groups.length === 1) {
+                // Если только одна группа — выбираем её тип
+                const onlyType = user.groups[0].group_type;
+                if (onlyType === 'chef') return 'chef';
+                if (onlyType === 'courier') return 'courier';
+            } else {
+                // Если есть обе — приоритет chef
+                const hasChef = user.groups.some(group => group.group_type === 'chef');
+                const hasCourier = user.groups.some(group => group.group_type === 'courier');
+                if (hasChef && !hasCourier) return 'chef';
+                if (hasCourier && !hasChef) return 'courier';
+                if (hasChef && hasCourier) return 'chef'; // или оставить прежнюю логику
+            }
+        }
         return 'none';
-    }, [isChefMember, isCourierMember]);
+    }, [user]);
 
     // --- Обновляем роль при инициализации пользователя ---
     useEffect(() => {
         if (user) {
             const initialRole = getInitialRole();
             if (activeRole !== initialRole) {
-                console.log(`[MainMenu] Dispatching initial role: ${initialRole}`);
                 dispatch(userSlice.actions.setActiveRole(initialRole));
             }
         }

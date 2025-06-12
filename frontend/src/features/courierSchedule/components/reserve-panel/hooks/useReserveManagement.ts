@@ -5,6 +5,8 @@ import { useAppDispatch } from '@shared/store/hooks'; // Используем т
 import { ReserveEntry } from '@features/courierSchedule/types/courierScheduleTypes';
 import { selectAllReserves, selectReservesError, selectReservesLoading } from '@features/courierSchedule/store/reservesSlice/reservesSelectors';
 import { addCurrentUserToReserveThunk, fetchReservesForGroup, removeReserveByIdThunk } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
+import { clearReservesState } from '@features/courierSchedule/store/reservesSlice/reservesSlice';
+import { clearShifts } from '@features/courierSchedule/store/shiftsSlice/shiftsSlice';
 
 // --- Новый рефакторенный хук ---
 export const useReserveManagement = (currentUserId: string | undefined, chatId: string | undefined) => { // Сделаем ID опциональными
@@ -16,6 +18,9 @@ export const useReserveManagement = (currentUserId: string | undefined, chatId: 
 
     // 1. Автоматическая загрузка резервов при монтировании/смене chatId
     useEffect(() => {
+        // Очищаем резервы и смены при смене группы/чата
+        dispatch(clearReservesState());
+        dispatch(clearShifts());
         // Загружаем только если есть chatId
         if (chatId) {
             const groupId = parseInt(chatId, 10);
@@ -23,8 +28,6 @@ export const useReserveManagement = (currentUserId: string | undefined, chatId: 
                 dispatch(fetchReservesForGroup({ groupId }));
             }
         }
-        // Очистка состояния при размонтировании или смене chatId/userId? Пока не делаем.
-        // return () => { dispatch(clearReservesState()); }
     }, [chatId, dispatch]);
 
     // 2. Функция для фильтрации резервов на КОНКРЕТНУЮ дату (для отображения)

@@ -22,6 +22,7 @@ import { setActiveRole } from './shared/store/userSlice/userSlice';
 import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
+import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
 
 
 
@@ -31,6 +32,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const dispatch = useAppDispatch();
   const isUserInitialized = useSelector(selectIsUserInitialized);
   const initError = useSelector(selectUserInitializationError);
+  const user = useSelector((state: any) => state.user.user);
   const initStarted = useRef(false);
   const initStartTimeRef = useRef<number | null>(null); 
   const location = useLocation();
@@ -100,7 +102,10 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     <>
         <LoadingOverlay isLoading={showOverlay} /> 
       {!showOverlay && !initError && (
-        <>{children}</>
+        // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
+        (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
+          ? <NoGroupAssigned user={user} />
+          : <>{children}</>
       )}
       {initError && (
         <TelegramAccessError error={initError} />

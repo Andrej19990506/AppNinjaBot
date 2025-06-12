@@ -34,11 +34,13 @@ function mapApiShiftToCourierShift(apiShift: ApiShift): CourierShift {
 }
 
 // --- Thunk: загрузка смен ---
-export const fetchShifts = createAsyncThunk(
+export const fetchShifts = createAsyncThunk<
+    CourierShift[],
+    { chatId: number | string },
+    { rejectValue: string }
+>(
     'shifts/fetchShifts',
-    async (_, { getState, rejectWithValue, dispatch }) => {
-        const state = getState() as RootState;
-        const chatId = state.user.user?.groups?.find((g: any) => g.group_type === 'courier')?.chat_id;
+    async ({ chatId }, { rejectWithValue }) => {
         if (!chatId) {
             return rejectWithValue('Не найден chat_id для загрузки смен');
         }

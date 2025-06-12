@@ -20,6 +20,7 @@ import { TimesheetResponse } from '@features/courierSchedule/types/timesheet';
 import { getTimesheetData, requestTimesheetViaBot } from '@features/courierSchedule/services/courierApi';
 import type { SelectedPeriod } from '@/features/courierSchedule/components/TimesheetPreview';
 import useDeviceDetect from '@shared/hooks/useDeviceDetect';
+import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
 
 const Container = styled.div`
     padding: 20px;
@@ -64,6 +65,16 @@ const CourierSchedule: React.FC = () => {
     const [selectedCourier, setSelectedCourier] = useState<any | null>(null);
     // Состояние для отображения модального окна профиля
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+
+    const courierGroups = useMemo(() => user?.groups?.filter(g => g.group_type === 'courier') || [], [user?.groups]);
+    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+    // Если только один курьерский чат — выбираем его автоматически
+    useEffect(() => {
+        if (courierGroups.length === 1) {
+            setSelectedChatId(courierGroups[0].chat_id.toString());
+        }
+    }, [courierGroups]);
 
     const courierChatId = useMemo(() => {
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
@@ -405,108 +416,116 @@ const CourierSchedule: React.FC = () => {
                     isOpen={isProfileDialogOpen} 
                     onClose={() => setIsProfileDialogOpen(false)} 
                     onSave={handleProfileSave}
-                    chatId={courierChatIdString}
+                    chatId={selectedChatId || undefined}
                 />
             )}
 
-            {showCalendar && user && (
-                <CourierCalendar 
-                    chatId={courierChatIdString}
-                    currentUserId={String(user.id)}
-                    currentUserAvatar={user.photo_url || undefined}
-                    currentUserName={`${user.first_name || ''} ${user.last_name || ''}`}
-                    isCurrentUserSenior={currentCourierGroup?.is_senior_courier ?? false}
-                    onClose={() => setShowCalendar(false)} 
-                    onShiftSelect={handleShiftSelect}
-                    onOpenSlotSettings={(dayIndex: number) => {
-                        console.log(`[CourierSchedule] Slot Settings clicked for day index: ${dayIndex}`);
-                        setSelectedDayIndexForSlots(dayIndex);
-                        setShowSlotSettings(true);
-                        if (isSettingsPanelOpen) closeSettingsPanel();
-                        if (showShiftAccessSettings) handleCloseShiftAccessSettings();
-                    }}
-                    onLongPress={handleLongPress}
-                    onOpenProfile={handleOpenCourierProfile}
-                />
-            )}
-            
-            
-            <ShiftAccessModal 
-                ref={shiftAccessModalRef}
-                isOpen={showShiftAccessSettings}
-                onClose={handleCloseShiftAccessSettings}
-                chatId={courierChatIdString}
-                onIsDirtyChange={handleShiftAccessDirtyChange}
-                onStepChange={setCurrentModalStep}
-            />
-            
-            <ModalBackdropOverlay 
-                $isOpen={showSlotSettings} 
-                onClick={handleCloseSlotSettings}
-            /> 
-            {selectedDayIndexForSlots !== null && (
-                <SlotSettings
-                    ref={slotSettingsRef}
-                    isOpen={showSlotSettings}
-                    onClose={handleCloseSlotSettings}
-                    chatId={courierChatId}
-                    dayIndex={selectedDayIndexForSlots}
-                    onDayChangeRequest={handleSlotSettingsDayChange}
-                    onDirtyChange={setIsSlotSettingsDirty}
+            {/* --- ВЫБОР ЧАТА ДЛЯ КУРЬЕРА --- */}
+            {user && courierGroups.length > 1 && !selectedChatId && (
+                <ChatSelector
+                    chats={courierGroups.map(g => ({
+                        chat_id: g.chat_id.toString(),
+                        chat_title: g.title || `Группа ${g.chat_id}`,
+                        admins: g.admins || [],
+                    }))}
+                    mode="events"
+                    title="Выберите чат для расписания курьеров"
+                    onChatSelect={(ids) => setSelectedChatId(ids[0])}
                 />
             )}
 
-            {(() => { 
-                console.log(`[CourierSchedule] Rendering SettingsPanel CHECK. isSettingsPanelOpen: ${isSettingsPanelOpen}`);
-                return null;
-            })()} 
-            <SettingsPanel 
-                isOpen={isSettingsPanelOpen}
-                onClose={closeSettingsPanel}
-                onOpenShiftAccess={handleOpenShiftAccessModal}
-                onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
-                onOpenTimesheet={handleShowTimesheet} 
-            />
+            {/* --- КАЛЕНДАРЬ и все связанные элементы --- */}
+            {selectedChatId && (
+                <>
+                    {showCalendar && user && (
+                        <CourierCalendar 
+                            chatId={selectedChatId}
+                            currentUserId={String(user.id)}
+                            currentUserAvatar={user.photo_url || undefined}
+                            currentUserName={`${user.first_name || ''} ${user.last_name || ''}`}
+                            isCurrentUserSenior={(user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.is_senior_courier) ?? false}
+                            onClose={() => setShowCalendar(false)} 
+                            onShiftSelect={handleShiftSelect}
+                            onOpenSlotSettings={(dayIndex: number) => {
+                                setSelectedDayIndexForSlots(dayIndex);
+                                setShowSlotSettings(true);
+                                if (isSettingsPanelOpen) closeSettingsPanel();
+                                if (showShiftAccessSettings) handleCloseShiftAccessSettings();
+                            }}
+                            onLongPress={handleLongPress}
+                            onOpenProfile={handleOpenCourierProfile}
+                        />
+                    )}
 
-            {isTimesheetPreviewVisible && courierChatIdString && (
-                 <TimesheetPreview
-                    isOpen={isTimesheetPreviewVisible}
-                    onClose={() => setIsTimesheetPreviewVisible(false)}
-                    onSendRequest={handleSendTimesheetRequestWrapper} 
-                    data={timesheetData}
-                    isLoading={isTimesheetLoading}
-                    error={timesheetError}
-                    chatId={courierChatIdString}
-                    slotConfig={slotConfig}
-                    groupTitle={currentCourierGroup?.title || 'Группа курьеров'} 
-                    onPeriodChange={handleTimesheetPeriodChange} 
-                 />
-             )}
-
-            <Footer 
-                onBack={handleFooterBack}
-                showSettingsButton={currentCourierGroup?.is_senior_courier ?? false} 
-                onSettingsClick={toggleSettingsPanel}
-                showModalActions={isModalActive}
-                showModalSteps={activeModalType === 'shiftAccess'}
-                modalCurrentStep={activeModalType === 'shiftAccess' ? currentModalStep : undefined}
-                modalTotalSteps={activeModalType === 'shiftAccess' ? MODAL_TOTAL_STEPS : undefined}
-                onModalBack={activeModalType === 'shiftAccess' ? handleModalPrevStep : undefined}
-                onModalNext={activeModalType === 'shiftAccess' ? handleModalNextStep : undefined}
-                isModalNextDisabled={getIsModalNextDisabled()}
-                onModalSave={handleModalSave}
-                onModalCancel={handleModalCancel}
-                isModalSaveDisabled={getIsModalSaveDisabled()}
-            />
-
-            {isProfileModalOpen && selectedCourier && (
-                <CourierProfile 
-                    isSeniorCourier={selectedCourier.isSeniorCourier}
-                    targetUserId={selectedCourier.userId}
-                    isModal={true}
-                    isOpen={isProfileModalOpen}
-                    onClose={handleCloseProfileModal}
-                />
+                    <ShiftAccessModal 
+                        ref={shiftAccessModalRef}
+                        isOpen={showShiftAccessSettings}
+                        onClose={handleCloseShiftAccessSettings}
+                        chatId={selectedChatId || undefined}
+                        onIsDirtyChange={handleShiftAccessDirtyChange}
+                        onStepChange={setCurrentModalStep}
+                    />
+                    <ModalBackdropOverlay 
+                        $isOpen={showSlotSettings} 
+                        onClick={handleCloseSlotSettings}
+                    /> 
+                    {selectedDayIndexForSlots !== null && (
+                        <SlotSettings
+                            ref={slotSettingsRef}
+                            isOpen={showSlotSettings}
+                            onClose={handleCloseSlotSettings}
+                            chatId={Number(selectedChatId)}
+                            dayIndex={selectedDayIndexForSlots}
+                            onDayChangeRequest={handleSlotSettingsDayChange}
+                            onDirtyChange={setIsSlotSettingsDirty}
+                        />
+                    )}
+                    <SettingsPanel 
+                        isOpen={isSettingsPanelOpen}
+                        onClose={closeSettingsPanel}
+                        onOpenShiftAccess={handleOpenShiftAccessModal}
+                        onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
+                        onOpenTimesheet={handleShowTimesheet} 
+                    />
+                    {isTimesheetPreviewVisible && selectedChatId && (
+                        <TimesheetPreview
+                            isOpen={isTimesheetPreviewVisible}
+                            onClose={() => setIsTimesheetPreviewVisible(false)}
+                            onSendRequest={handleSendTimesheetRequestWrapper} 
+                            data={timesheetData}
+                            isLoading={isTimesheetLoading}
+                            error={timesheetError}
+                            chatId={selectedChatId}
+                            slotConfig={slotConfig}
+                            groupTitle={user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.title || 'Группа курьеров'} 
+                            onPeriodChange={handleTimesheetPeriodChange} 
+                        />
+                    )}
+                    <Footer 
+                        onBack={handleFooterBack}
+                        showSettingsButton={(user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.is_senior_courier) ?? false}
+                        onSettingsClick={toggleSettingsPanel}
+                        showModalActions={isModalActive}
+                        showModalSteps={activeModalType === 'shiftAccess'}
+                        modalCurrentStep={activeModalType === 'shiftAccess' ? currentModalStep : undefined}
+                        modalTotalSteps={activeModalType === 'shiftAccess' ? MODAL_TOTAL_STEPS : undefined}
+                        onModalBack={activeModalType === 'shiftAccess' ? handleModalPrevStep : undefined}
+                        onModalNext={activeModalType === 'shiftAccess' ? handleModalNextStep : undefined}
+                        isModalNextDisabled={getIsModalNextDisabled()}
+                        onModalSave={handleModalSave}
+                        onModalCancel={handleModalCancel}
+                        isModalSaveDisabled={getIsModalSaveDisabled()}
+                    />
+                    {isProfileModalOpen && selectedCourier && (
+                        <CourierProfile 
+                            isSeniorCourier={selectedCourier.isSeniorCourier}
+                            targetUserId={selectedCourier.userId}
+                            isModal={true}
+                            isOpen={isProfileModalOpen}
+                            onClose={handleCloseProfileModal}
+                        />
+                    )}
+                </>
             )}
         </Container>
     );

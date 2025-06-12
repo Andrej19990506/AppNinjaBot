@@ -10,7 +10,7 @@ import { formatDateForAPI } from '../courier-calendar/utils/dateUtils';
 import { selectAllShifts, selectError, selectIsLoading } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { selectUser } from '@/shared/store/userSlice/userSelectors';
 
-export const useCalendarData = (currentUserId: string) => {
+export const useCalendarData = (currentUserId: string, chatId: number | string | undefined) => {
     const dispatch = useDispatch<AppDispatch>();
     const shifts = useSelector(selectAllShifts);
     const isLoading = useSelector(selectIsLoading);
@@ -20,16 +20,12 @@ export const useCalendarData = (currentUserId: string) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const loadCalendarData = useCallback(() => {
-        const courierGroup = userGroups?.find(g => g.group_type === 'courier');
-        const chatId = courierGroup?.chat_id;
-
         if (chatId !== undefined) {
-            dispatch(fetchShifts());
-            dispatch(fetchSlotConfig({ chatId }));
+            dispatch(fetchShifts({ chatId }));
+            dispatch(fetchSlotConfig({ chatId: Number(chatId) }));
             dispatch(fetchAccessSettings({ chatId: String(chatId) }));
-        } else {
         }
-    }, [dispatch, userGroups]);
+    }, [dispatch, chatId]);
 
     const refetchData = useCallback(() => {
         loadCalendarData();

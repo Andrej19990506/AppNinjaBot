@@ -22,13 +22,14 @@ import { selectSlotConfig } from '@features/courierSchedule/store/shiftsSlice/sh
 import { CalendarProps } from '@features/courierSchedule/components/types';
 import { addCurrentUserToReserveThunk } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
 import { useCourierWebSocketSync } from '@features/courierSchedule/hooks/useCourierWebSocketSync';
+import { selectSelectedChatId } from '@shared/store/chatSlice/chatSelectors';
 
 const CourierCalendar: React.FC<CalendarProps> = ({
     currentUserId,
     currentUserAvatar,
     currentUserName,
     isCurrentUserSenior,
-    chatId,
+    chatId: propChatId,
     onShiftSelect,
     onOpenProfile
 }) => {
@@ -46,6 +47,9 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     const accessSettings = useAccessSettingsSync(() => {});
 
+    const selectedChatId = useAppSelector(selectSelectedChatId);
+    const chatId = propChatId || selectedChatId || '';
+
     const {
         shifts,
         isLoading: isShiftsLoading,
@@ -54,7 +58,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         getDayShifts,
         getNightShifts,
         hasUserShift,
-    } = useCalendarData(currentUserId);
+    } = useCalendarData(currentUserId, chatId);
 
     const monthsToDisplay = useMemo(() => {
         const monthsArray: Date[] = [];
@@ -75,7 +79,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         isCurrentUserInReserveForDate,
         addCurrentUserToReserve,
         cancelReserveById
-    } = useReserveManagement(currentUserId, chatId || '');
+    } = useReserveManagement(currentUserId, chatId);
 
     useAvailabilityCheck(chatId || '', () => {});
 

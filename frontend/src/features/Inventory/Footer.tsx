@@ -162,6 +162,7 @@ interface FooterProps {
     showMiddleButton?: boolean;
     onMiddleButtonClick?: () => void;
     middleButtonText?: string;
+    rightElement?: React.ReactNode;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -194,9 +195,11 @@ const Footer: React.FC<FooterProps> = ({
     showCreateEventButton = false,
     onCreateEventClick,
     modalSaveText,
+    modalCancelText,
     showMiddleButton,
     onMiddleButtonClick,
-    middleButtonText
+    middleButtonText,
+    rightElement
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -433,6 +436,10 @@ const Footer: React.FC<FooterProps> = ({
                                 {/* --- КОНЕЦ НОВОЙ Кнопки Поиска --- */}
                             </div>
                             
+                            {rightElement && (
+                                <div style={{ marginLeft: 12 }}>{rightElement}</div>
+                            )}
+
                             {/* Абсолютно центрированная кнопка Создать/Обновить */}
                             {showCreateButton && (
                                 <div className={styles.absoluteCenterButtonWrapper}>

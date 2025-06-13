@@ -81,10 +81,6 @@ const CourierSchedule: React.FC = () => {
         return courierGroup ? Number(courierGroup.chat_id) : undefined;
     }, [user?.groups]);
 
-    const courierChatIdString = useMemo(() => {
-        return courierChatId?.toString();
-    }, [courierChatId]);
-
     const currentCourierGroup = useMemo(() => {
         if (!user?.groups || !courierChatId) return null;
         return user.groups.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId));
@@ -132,7 +128,7 @@ const CourierSchedule: React.FC = () => {
             return;
         }
 
-        if (!courierChatIdString) {
+        if (!selectedChatId) {
             dispatch(addNotification({
                 type: NotificationTypes.ERROR,
                 message: 'Не удалось определить группу для бронирования смены'
@@ -146,7 +142,7 @@ const CourierSchedule: React.FC = () => {
                 shiftType,
                 slotIndex,
                 userId: String(user.id),
-                chatId: courierChatIdString
+                chatId: selectedChatId
             })).unwrap();
 
             dispatch(addNotification({
@@ -342,22 +338,22 @@ const CourierSchedule: React.FC = () => {
     const handleTimesheetPeriodChange = useCallback((newPeriod: SelectedPeriod) => {
         console.log('[CourierSchedule] handleTimesheetPeriodChange called with:', newPeriod);
         setSelectedPeriod(newPeriod);
-        if (courierChatIdString) { 
-            fetchTimesheetData(courierChatIdString, newPeriod);
+        if (selectedChatId) { 
+            fetchTimesheetData(selectedChatId, newPeriod);
         } else {
-            console.error('[CourierSchedule] Cannot fetch timesheet data: courierChatIdString is missing.');
+            console.error('[CourierSchedule] Cannot fetch timesheet data: selectedChatId is missing.');
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
         }
-    }, [courierChatIdString, fetchTimesheetData, dispatch]); 
+    }, [selectedChatId, fetchTimesheetData, dispatch]); 
 
     const handleShowTimesheet = useCallback(() => {
-        if (!courierChatIdString) {
+        if (!selectedChatId) {
              dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить ID чата курьеров' }));
              return;
         }
-        fetchTimesheetData(courierChatIdString, selectedPeriod); 
+        fetchTimesheetData(selectedChatId, selectedPeriod); 
         setIsTimesheetPreviewVisible(true);
-    }, [courierChatIdString, dispatch, fetchTimesheetData, selectedPeriod]);
+    }, [selectedChatId, dispatch, fetchTimesheetData, selectedPeriod]);
 
     const handleOpenCourierProfile = useCallback((courier: any) => {
         setSelectedCourier({
@@ -382,7 +378,7 @@ const CourierSchedule: React.FC = () => {
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось идентифицировать пользователя.' }));
             return;
         }
-        if (!courierChatIdString) {
+        if (!selectedChatId) {
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Не удалось определить группу.' }));
             return;
         }
@@ -393,7 +389,7 @@ const CourierSchedule: React.FC = () => {
         
         try {
             await requestTimesheetViaBot({
-                groupTelegramId: courierChatIdString,
+                groupTelegramId: selectedChatId,
                 userId: String(user.id),
                 destination: destination,
                  year: selectedPeriod.type === 'month' ? selectedPeriod.year : undefined,
@@ -407,7 +403,7 @@ const CourierSchedule: React.FC = () => {
         } finally {
              setIsTimesheetLoading(originalLoadingState);
         }
-    }, [user, courierChatIdString, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading]); 
+    }, [user, selectedChatId, dispatch, selectedPeriod, isTimesheetLoading, setIsTimesheetLoading]); 
 
     return (
         <Container>

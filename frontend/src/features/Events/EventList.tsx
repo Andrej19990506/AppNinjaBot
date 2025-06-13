@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '../../shared/store/hooks';
 import { 
     fetchEvents, 
@@ -27,7 +27,8 @@ import {
     resetSelection,
 } from '../../store/slices/atoModalSlice';
 import AtoCommentsModal from './AtoCommentsModal';
-import { selectActiveRole } from '../../shared/store/userSlice/userSelectors';
+import { selectActiveRole, selectUser } from '../../shared/store/userSlice/userSelectors';
+import GroupFilterDropdown from './GroupFilterDropdown';
 
 // <<< ДОБАВЛЕНО: Тип для состояния формы >>>
 interface FormState {
@@ -51,8 +52,26 @@ const EventListContainer = styled.div`
     position: relative;
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    height: 100vh;
     box-sizing: border-box;
+`;
+
+// Новый скроллируемый контейнер для списка событий
+const ScrollWrapper = styled.div`
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    width: 100%;
+    padding-bottom: 80px; /* чтобы контент не уходил под футер */
+`;
+
+// Фиксируем Footer
+const FixedFooter = styled(Footer)`
+    position: fixed !important;
+    left: 0;
+    bottom: 0;
+    width: 100vw;
+    z-index: 100;
 `;
 
 // Обновляем EventsGrid, чтобы принимал проп $isCentering
@@ -106,6 +125,47 @@ interface ExtendedNotificationCreate extends NotificationCreate {
     send_now?: boolean;
 }
 
+const ChatTagsBar = styled.div`
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px 0 16px;
+  overflow-x: auto;
+  background: var(--background-color);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+`;
+
+const ChatTag = styled.button<{ $active?: boolean }>`
+  border: none;
+  background: ${({ $active }) => $active ? 'var(--primary-color)' : 'var(--gray-200)'};
+  color: ${({ $active }) => $active ? 'var(--text-color-on-primary)' : 'var(--text-secondary)'};
+  border-radius: 16px;
+  padding: 6px 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
+  &:hover {
+    background: var(--primary-dark);
+    color: var(--text-color-on-primary);
+  }
+`;
+
+// --- Новый компонент: Анимированная стрелка ---
+const FilterArrowIcon = ({ open }: { open: boolean }) => (
+  <motion.span
+    style={{ display: 'inline-block', marginLeft: 8 }}
+    animate={{ rotate: open ? 180 : 0 }}
+    transition={{ duration: 0.25 }}
+  >
+    <svg width="18" height="18" viewBox="0 0 24 24">
+      <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" fill="none" />
+    </svg>
+  </motion.span>
+);
+
 const EventList: React.FC = () => {
     const dispatch = useAppDispatch();
     const realEvents = useAppSelector(selectAllEvents);
@@ -133,10 +193,50 @@ const EventList: React.FC = () => {
     });
 
     const activeRole = useAppSelector(selectActiveRole);
+    const user = useAppSelector(selectUser);
+    const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+    // Добавляем состояние для фильтра групп
+    const [isGroupFilterOpen, setIsGroupFilterOpen] = useState(false);
+    const [groupFilterAnchor, setGroupFilterAnchor] = useState<null | HTMLElement>(null);
+    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+
+    const groupFilterButtonRef = useRef<HTMLButtonElement>(null);
+
+    const [isScrolled, setIsScrolled] = useState(false);
+    const scrollWrapperRef = useRef<HTMLDivElement>(null);
+
+    const filterButtonFixedStyle: React.CSSProperties = {
+      position: 'fixed',
+      top: 50,
+      left: '50%',
+      zIndex: 2100,
+      background: 'var(--card-background)',
+      border: '1.5px solid var(--border-color)',
+      boxShadow: isScrolled ? '0 12px 40px rgba(0,0,0,0.22), var(--shadow-lg)' : 'var(--shadow-lg)',
+      borderRadius: 20,
+      padding: 0,
+      margin: 0,
+      transform: isScrolled ? 'translateY(-8px)' : 'none',
+      transition: 'box-shadow 0.18s, background 0.18s, border 0.18s, transform 0.18s',
+      // Можно добавить backdropFilter для эффекта стекла:
+      // backdropFilter: 'blur(4px)',
+    };
 
     useEffect(() => {
         dispatch(fetchEvents(activeRole || undefined));
     }, [dispatch, activeRole]);
+
+    useEffect(() => {
+      const handleScroll = () => {
+        if (scrollWrapperRef.current) {
+          setIsScrolled(scrollWrapperRef.current.scrollTop > 0);
+        }
+      };
+      const el = scrollWrapperRef.current;
+      if (el) el.addEventListener('scroll', handleScroll);
+      return () => { if (el) el.removeEventListener('scroll', handleScroll); };
+    }, []);
 
     const handleCancelCreatingEvent = useCallback(() => { 
         const tempId = creatingEventId;
@@ -276,6 +376,66 @@ const EventList: React.FC = () => {
         return baseList;
     }, [realEvents, temporaryEventItem, isCreatingInCenter]);
 
+    // Получаем только нужные группы пользователя
+    const filteredUserGroups = useMemo(() => {
+      if (!user?.groups) return [];
+      if (!activeRole) return user.groups.filter(g => g.chat_id);
+      return user.groups.filter(g => g.chat_id && g.group_type === activeRole);
+    }, [user, activeRole]);
+
+    // Кнопка фильтра групп (fixed)
+    const groupFilterButton = (
+      <motion.button
+        ref={groupFilterButtonRef}
+        style={{
+          ...filterButtonFixedStyle,
+          display: 'flex', alignItems: 'center', gap: 6, background: 'var(--card-background)',
+          border: '1.5px solid var(--border-color)', borderRadius: 20, padding: '6px 18px', cursor: 'pointer', fontWeight: 500,
+        }}
+        initial={{ x: '-50%' }}
+        animate={{ x: '-50%' }}
+        onClick={e => {
+          setGroupFilterAnchor(groupFilterButtonRef.current);
+          setIsGroupFilterOpen(v => !v);
+        }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.97 }}
+      >
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M3 6h18M6 12h12M10 18h4" stroke="var(--primary-color)" strokeWidth="2" strokeLinecap="round"/></svg>
+        <span>{selectedGroupId ? (filteredUserGroups.find(g => String(g.chat_id) === selectedGroupId)?.chat_title || filteredUserGroups.find(g => String(g.chat_id) === selectedGroupId)?.title || `Чат ${selectedGroupId}`) : 'Все группы'}</span>
+        <FilterArrowIcon open={isGroupFilterOpen} />
+      </motion.button>
+    );
+
+    const filteredItemsToRender = useMemo(() => {
+      if (!selectedGroupId) return allItemsToRender;
+      const filtered = allItemsToRender.filter(ev => {
+        let ids: string[] = [];
+        if (Array.isArray(ev.chat_ids) && ev.chat_ids.length > 0) {
+          ids = ev.chat_ids.map(id => String(id));
+        } else if (Array.isArray(ev.notifications)) {
+          ev.notifications.forEach(n => {
+            if (Array.isArray(n.chat_ids)) {
+              ids.push(...n.chat_ids.map(id => String(id)));
+            }
+          });
+        }
+
+        if (
+          ids.length === 0 &&
+          (ev.event_type === 'ato' || ev.event_type === 'АТО') &&
+          ((ev as any).group_telegram_id || (ev as any).group_id)
+        ) {
+          ids = [String((ev as any).group_telegram_id || (ev as any).group_id)];
+        }
+        const match = ids.includes(String(selectedGroupId));
+        // Отладка:
+        console.log('[ФИЛЬТР] chat_ids события:', ids, 'selectedGroupId:', selectedGroupId, 'match:', match);
+        return match;
+      });
+      return filtered;
+    }, [allItemsToRender, selectedGroupId]);
+
     const renderContent = () => {
         if ((loadingStatus === 'pending' || loadingStatus === 'idle') && realEvents.length === 0 && !temporaryEventItem) {
             return <PlaceholderWrapper>Загрузка событий...</PlaceholderWrapper>;
@@ -291,34 +451,41 @@ const EventList: React.FC = () => {
                 </EmptyStateWrapper>
             );
         }
+        if (filteredItemsToRender.length === 0) {
+            return (
+                <EmptyStateWrapper>
+                    Нет событий для выбранной группы
+                </EmptyStateWrapper>
+            );
+        }
 
-        const isCenteringGrid = allItemsToRender.length === 1 && typeof allItemsToRender[0].id === 'string' && !isCreatingInCenter;
+        const isCenteringGrid = filteredItemsToRender.length === 1 && typeof filteredItemsToRender[0].id === 'string' && !isCreatingInCenter;
 
         return (
-            // @ts-ignore // Known issue with framer-motion types
-            <AnimatePresence>
+            <>
+              <AnimatePresence>
                 <EventsGrid $isCentering={isCenteringGrid} layout={!isCreatingInCenter}>
-                    {allItemsToRender.map((item) => {
-                        const isTemp = typeof item.id === 'string';
-                        const isJustSavedItem = !isTemp && justSavedId !== null && item.id === justSavedId;
-
-                        return (
-                            <EventItem 
-                                key={item.id}
-                                event={item as EventRead & { id: number | string }}
-                                onDeleteClick={handleDeleteEvent}
-                                onSaveCreating={isTemp ? handleSaveCreatingEvent : undefined}
-                                onCancelCreating={isTemp ? handleCancelCreatingEvent : undefined}
-                                onAddNotificationClick={isTemp ? undefined : handleAddOrEditNotificationClick}
-                                isCreating={isTemp}
-                                isJustSaved={isJustSavedItem}
-                                isSaveLoading={isTemp && isCreateThunkLoading}
-                                onAtoModalOpen={handleAtoModalStateChange}
-                            />
-                        );
-                    })}
+                  {filteredItemsToRender.map((item) => {
+                    const isTemp = typeof item.id === 'string';
+                    const isJustSavedItem = !isTemp && justSavedId !== null && item.id === justSavedId;
+                    return (
+                      <EventItem
+                        key={item.id}
+                        event={item as EventRead & { id: number | string }}
+                        onDeleteClick={handleDeleteEvent}
+                        onSaveCreating={isTemp ? handleSaveCreatingEvent : undefined}
+                        onCancelCreating={isTemp ? handleCancelCreatingEvent : undefined}
+                        onAddNotificationClick={isTemp ? undefined : handleAddOrEditNotificationClick}
+                        isCreating={isTemp}
+                        isJustSaved={isJustSavedItem}
+                        isSaveLoading={isTemp && isCreateThunkLoading}
+                        onAtoModalOpen={handleAtoModalStateChange}
+                      />
+                    );
+                  })}
                 </EventsGrid>
-            </AnimatePresence>
+              </AnimatePresence>
+            </>
         );
     };
 
@@ -588,9 +755,26 @@ const EventList: React.FC = () => {
                 )}
             </AnimatePresence>
             
-            {renderContent()}
+            {/* --- Кнопка фильтрации групп теперь fixed сверху --- */}
+            {groupFilterButton}
 
-            <Footer {...footerProps} />
+            {/* СКРОЛЛИРУЕМЫЙ БЛОК */}
+            <ScrollWrapper ref={scrollWrapperRef}>
+                {renderContent()}
+            </ScrollWrapper>
+
+            <GroupFilterDropdown
+              open={isGroupFilterOpen}
+              anchorEl={groupFilterButtonRef.current}
+              groups={filteredUserGroups}
+              selectedGroupId={selectedGroupId}
+              onSelect={id => {
+                setSelectedGroupId(id);
+                setIsGroupFilterOpen(false);
+              }}
+              onClose={() => setIsGroupFilterOpen(false)}
+            />
+            <FixedFooter {...footerProps} />
 
             {/* Рендерим форму добавления/редактирования уведомления напрямую, без SlidingDrawer */}
             <div>

@@ -961,8 +961,11 @@ const EventItem: React.FC<EventItemProps> = ({
     const userChats = useMemo(() => {
         const chatMap = new Map<number, string>();
         user?.groups?.forEach((g: Group) => {
-            if (g.chat_id && g.chat_title) {
-                chatMap.set(Number(g.chat_id), g.chat_title);
+            if (g.chat_id) {
+                chatMap.set(
+                    Number(g.chat_id),
+                    g.chat_title || g.title || `Чат ${g.chat_id}`
+                );
             }
         });
         return chatMap;

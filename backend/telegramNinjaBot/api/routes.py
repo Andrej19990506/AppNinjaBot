@@ -66,6 +66,16 @@ class SendWriteOffReportPayload(BaseModel):
     file_path: str
 # --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ DOCX write-off отчёта ---
 
+# --- Модель для отправки запроса на добавление товара ---
+class SendItemRequestPayload(BaseModel):
+    inventory_group_id: str  # ID группы инвентаризации
+    chef_group_id: str       # ID chef группы
+    chef_group_title: str    # Название chef группы
+    item_name: str           # Название товара
+    category: str           # Категория товара
+    has_semifinished: bool  # Есть ли полуфабрикаты
+# --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ ЗАПРОСА НА ДОБАВЛЕНИЕ ТОВАРА ---
+
 # Создаем APIRouter
 router = APIRouter()
 
@@ -815,6 +825,99 @@ async def handle_confirmation_callback(update: Update, context: ContextTypes.DEF
     except Exception as send_err:
         # <<< ИЗМЕНЕНИЕ: Используем notification_id в логе >>>
         logger.error(f"Ошибка при отправке сообщения подтверждения для уведомления {notification_id_str}: {send_err}", exc_info=True)
+
+
+# --- Эндпоинт для отправки запроса на добавление товара в группу инвентаризации ---
+@router.post("/internal/send_item_request", tags=["Internal"], status_code=status.HTTP_200_OK)
+async def send_item_request_internal(payload: SendItemRequestPayload, request: Request):
+    """
+    Отправляет запрос на добавление товара в группу инвентаризации.
+    """
+    logger.info(f"📋 Получен запрос на добавление товара в группу инвентаризации")
+    logger.info(f"Данные: inventory_group_id={payload.inventory_group_id}, chef_group_id={payload.chef_group_id}, item_name={payload.item_name}")
+    
+    try:
+        # Получаем экземпляр бота из app.state
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
+        
+        # Преобразуем ID группы инвентаризации в int
+        try:
+            inventory_group_id = int(payload.inventory_group_id)
+        except ValueError:
+            logger.error(f"❌ Неверный формат inventory_group_id: {payload.inventory_group_id}")
+            raise HTTPException(status_code=400, detail="Invalid inventory_group_id format")
+        
+        # Формируем красивое сообщение с запросом
+        semicolon_icon = "🔗" if payload.has_semifinished else "➖"
+        message_text = f"""
+🔥 <b>Новый запрос на добавление товара</b> 🔥
+
+📦 <b>Товар:</b> {payload.item_name}
+📂 <b>Категория:</b> {payload.category}
+{semicolon_icon} <b>Полуфабрикаты:</b> {"Есть" if payload.has_semifinished else "Нет"}
+
+🏢 <b>Группа:</b> {payload.chef_group_title}
+
+⏰ <b>Время запроса:</b> {datetime.now().strftime("%H:%M:%S")}
+         """.strip()
+        
+        # Отправляем сообщение в группу инвентаризации
+        try:
+            await bot_app.bot.send_message(
+                chat_id=inventory_group_id,
+                text=message_text,
+                parse_mode=ParseMode.HTML
+            )
+            logger.info(f"✅ Запрос на добавление товара '{payload.item_name}' успешно отправлен в группу инвентаризации {payload.inventory_group_id}")
+            sent_to_inventory_group = True
+            
+        except BadRequest as e:
+            error_message = str(e)
+            logger.warning(f"⚠️ Ошибка BadRequest при отправке запроса в группу инвентаризации {payload.inventory_group_id}: {error_message}")
+            
+            # Пробуем альтернативный ID
+            if payload.inventory_group_id.startswith("-100"):
+                try:
+                    alternative_inventory_group_id = int(f"-{payload.inventory_group_id[4:]}")
+                    logger.info(f"Попытка отправить запрос в группу инвентаризации {alternative_inventory_group_id} (альтернативный ID)")
+                    
+                    await bot_app.bot.send_message(
+                        chat_id=alternative_inventory_group_id,
+                        text=message_text,
+                        parse_mode=ParseMode.HTML
+                    )
+                    logger.info(f"✅ Запрос на добавление товара '{payload.item_name}' успешно отправлен в группу инвентаризации {alternative_inventory_group_id} (альтернативный ID)")
+                    sent_to_inventory_group = True
+                    
+                except Exception as retry_exc:
+                    logger.error(f"❌ Ошибка при второй попытке отправки запроса в группу инвентаризации {alternative_inventory_group_id}: {retry_exc}")
+                    sent_to_inventory_group = False
+                    raise HTTPException(status_code=500, detail=f"Failed to send item request after retry: {retry_exc}")
+            else:
+                sent_to_inventory_group = False
+                raise HTTPException(status_code=500, detail=f"Failed to send item request: {error_message}")
+        
+        except Exception as e:
+            logger.error(f"❌ Непредвиденная ошибка при отправке запроса в группу инвентаризации {payload.inventory_group_id}: {e}", exc_info=True)
+            sent_to_inventory_group = False
+            raise HTTPException(status_code=500, detail=f"Failed to send item request: {e}")
+        
+        return {
+            "success": True,
+            "message": "Запрос на добавление товара успешно отправлен",
+            "sent_to_inventory_group": sent_to_inventory_group,
+            "inventory_group_id": payload.inventory_group_id,
+            "item_name": payload.item_name
+        }
+        
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в /internal/send_item_request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 
 

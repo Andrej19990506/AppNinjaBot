@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import styles from './ItemList.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
-import { removeInventoryItem, addInventoryItem } from '@/store/slices/inventorySlice';
+import { removeInventoryItem } from '@/store/slices/inventorySlice';
+import { requestAddItemThroughBot } from './services/inventoryApi';
+import { addNotification } from '@shared/store/notificationSlice/notificationSlice';
+import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform, animate } from 'framer-motion';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -369,18 +372,44 @@ const ItemList: React.FC<ItemListProps> = ({
         }
     };
     
-    // Функция для добавления нового товара
-    const handleAddItem = () => {
+    // Функция для отправки запроса на добавление товара через бота
+    const handleAddItem = async () => {
         if (newItemName.trim()) {
-            dispatch(addInventoryItem({ 
-                chatId, 
-                category, 
-                itemId: newItemName.trim(), 
-                hasSemifinshed: newItemHasSemifinshed 
-            }));
-            setShowAddForm(false);
-            setNewItemName('');
-            setNewItemHasSemifinshed(false);
+            try {
+                // Отправляем запрос через бота в группу инвентаризации
+                await requestAddItemThroughBot(
+                    chatId,
+                    category,
+                    newItemName.trim(),
+                    newItemHasSemifinshed
+                );
+                
+                // Показываем уведомление об успешной отправке запроса
+                dispatch(addNotification({
+                    id: `item-request-${Date.now()}`,
+                    title: '📤 Запрос отправлен',
+                    message: `Запрос на добавление товара "${newItemName.trim()}" отправлен администраторам в группу инвентаризации.`,
+                    type: NotificationTypes.SUCCESS,
+                    duration: 5000
+                }));
+                
+                // Очищаем форму
+                setShowAddForm(false);
+                setNewItemName('');
+                setNewItemHasSemifinshed(false);
+                
+            } catch (error) {
+                console.error('Ошибка при отправке запроса:', error);
+                
+                // Показываем уведомление об ошибке
+                dispatch(addNotification({
+                    id: `item-request-error-${Date.now()}`,
+                    title: '❌ Ошибка отправки запроса',
+                    message: `Не удалось отправить запрос: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
+                    type: NotificationTypes.ERROR,
+                    duration: 8000
+                }));
+            }
         }
     };
     
@@ -547,7 +576,7 @@ const ItemList: React.FC<ItemListProps> = ({
                         ref={inputRef}
                         type="text"
                         className={styles.addItemInput}
-                        placeholder="Введите название товара..."
+                        placeholder="Введите название товара для запроса..."
                         value={newItemName}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
@@ -569,7 +598,7 @@ const ItemList: React.FC<ItemListProps> = ({
                             onClick={handleAddItem}
                             disabled={!newItemName.trim()}
                         >
-                            ОК
+                            📤 Отправить запрос
                         </button>
                         <button 
                             className={styles.cancelButton} 
@@ -582,7 +611,7 @@ const ItemList: React.FC<ItemListProps> = ({
             ) : (
                 <button onClick={handleShowAddForm} className={styles.addItemButton}>
                     <AddIcon style={{ marginRight: '8px' }} />
-                    Добавить новый товар
+                    📋 Запросить добавление товара
                 </button>
             )}
             

@@ -308,7 +308,12 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
             console.log(`ChatSelector: Redux context/chat set for ${selectedChatLocal.chat_id}`);
 
             // 2. Navigate
-            const targetUrl = `/inventory/${selectedChatLocal.chat_id}`;
+            let targetUrl;
+            if (mode === 'writeoff') {
+                targetUrl = '/chef/write-off';
+            } else {
+                targetUrl = `/inventory/${selectedChatLocal.chat_id}`;
+            }
             const currentUrl = window.location.pathname;
             if (currentUrl === targetUrl) {
                 console.log('ChatSelector: Already on target page, forcing reload');

@@ -7,6 +7,7 @@ import ItemList from '@features/Inventory/ItemList';
 import ItemHistory from '@features/Inventory/ItemHistory/ItemHistory';
 import ItemEdit from '@features/Inventory/ItemEdit';
 import InventoryCompleteDialog from '@features/Inventory/InventoryCompleteDialog';
+import TemplateChangesModal from '@features/Inventory/components/TemplateChangesModal';
 import Header from '@features/Inventory/Header';
 import styles from '@features/Inventory/Inventory.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
@@ -83,7 +84,11 @@ const Inventory: React.FC = () => {
     });
     
     // <<< ВЫЗЫВАЕМ ХУК БЕЗ АРГУМЕНТА >>>
-    useInventoryWebSocketSync(); 
+    const {
+        templateChanges,
+        isChangesModalOpen,
+        closeChangesModal
+    } = useInventoryWebSocketSync(); 
     
     const {
         searchQuery,
@@ -395,6 +400,15 @@ const Inventory: React.FC = () => {
                 inventoryData={currentChatData as any}
                 chatId={currentChatData.chat_id}
             />
+            
+            {/* Модальное окно с изменениями шаблона */}
+            {templateChanges && (
+                <TemplateChangesModal
+                    isOpen={isChangesModalOpen}
+                    onClose={closeChangesModal}
+                    changes={templateChanges}
+                />
+            )}
         </div>
     );
 };

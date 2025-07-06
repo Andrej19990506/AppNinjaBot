@@ -98,6 +98,15 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   useWebSocketSync();
 
+  // Отладка состояний
+  console.log('🔍 [App Debug] Состояния:', {
+    showOverlay,
+    initError,
+    isUserInitialized,
+    user: user ? { id: user.id, groups: user.groups } : null,
+    hasGroups: user?.groups ? user.groups.length : 0
+  });
+
   return (
     <>
         <LoadingOverlay isLoading={showOverlay} /> 
@@ -117,20 +126,38 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // --- Автоматический редирект по ролям ---
 const AutoRedirectByRole = () => {
   const user = store.getState().user.user;
+  
+  console.log('🔍 [AutoRedirectByRole] Пользователь:', user);
+  
   if (Array.isArray(user?.groups)) {
-    if (user.groups.length === 1) {
-      const onlyType = user.groups[0].group_type;
+    // Фильтруем только рабочие группы (chef и courier), исключаем технические группы
+    const workingGroups = user.groups.filter(group => 
+      group.group_type === 'chef' || group.group_type === 'courier'
+    );
+    
+    console.log('🔍 [AutoRedirectByRole] Рабочие группы:', workingGroups);
+    
+    if (workingGroups.length === 1) {
+      const onlyType = workingGroups[0].group_type;
+      console.log('🔍 [AutoRedirectByRole] Единственная рабочая группа:', onlyType);
+      
       if (onlyType === 'chef') return <Navigate to="/chef" replace />;
       if (onlyType === 'courier') return <Navigate to="/courier" replace />;
-    } else {
-      const hasChef = user.groups.some(group => group.group_type === 'chef');
-      const hasCourier = user.groups.some(group => group.group_type === 'courier');
+    } else if (workingGroups.length > 1) {
+      const hasChef = workingGroups.some(group => group.group_type === 'chef');
+      const hasCourier = workingGroups.some(group => group.group_type === 'courier');
+      
+      console.log('🔍 [AutoRedirectByRole] Несколько рабочих групп:', { hasChef, hasCourier });
+      
+      // Приоритет: chef > courier
       if (hasChef) return <Navigate to="/chef" replace />;
       if (hasCourier) return <Navigate to="/courier" replace />;
     }
   }
-  // Если нет групп — редирект на / или страницу ошибки
-  return <Navigate to="/" replace />;
+  
+  console.log('🔍 [AutoRedirectByRole] Нет рабочих групп, показываем NoGroupAssigned');
+  // Если нет рабочих групп — показываем NoGroupAssigned
+  return <NoGroupAssigned user={user} />;
 };
 
 function App() {

@@ -134,6 +134,44 @@ export const addCustomInventoryItem = async (
 };
 
 /**
+ * Отправить запрос на добавление товара через бота в группу инвентаризации
+ * @param chatId 
+ * @param category 
+ * @param itemName 
+ * @param hasSemifinshed 
+ * @returns {Promise<any>}
+ */
+export const requestAddItemThroughBot = async (
+    chatId: string, 
+    category: string, 
+    itemName: string, 
+    hasSemifinshed: boolean
+): Promise<any> => {
+    if (!chatId || !category || !itemName) {
+        throw new Error('chatId, категория и название товара обязательны для запроса добавления товара.');
+    }
+    const url = `/v1/inventory/${chatId}/request-item`;
+    const payload = { 
+        category, 
+        item_name: itemName, 
+        has_semifinished: hasSemifinshed 
+    };
+    try {
+        const response = await axiosInstance.post<any>(url, payload);
+        return response.data;
+    } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.data?.detail) { 
+             throw new Error(error.response.data.detail);
+        }
+        if (error instanceof Error) {
+             throw error;
+        } else {
+             throw new Error('Неизвестная ошибка при запросе добавления товара.');
+        }
+    }
+};
+
+/**
  * Удалить товар из инвентаря
  * @param chatId 
  * @param category 
@@ -201,6 +239,31 @@ export const resetChatInventory = async (chatId: string): Promise<{message: stri
              throw error;
         } else {
              throw new Error('Неизвестная ошибка при сбросе инвентаря.');
+        }
+    }
+};
+
+/**
+ * Синхронизировать инвентарь чата с актуальным шаблоном
+ * @param chatId 
+ * @returns {Promise<any>} Отчет об изменениях
+ */
+export const syncChatWithTemplate = async (chatId: string): Promise<any> => {
+    if (!chatId) {
+        throw new Error('chatId обязателен для синхронизации с шаблоном.');
+    }
+    const url = `/v1/inventory/${chatId}/sync-template`;
+    try {
+        const response = await axiosInstance.post<any>(url);
+        return response.data;
+    } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.data?.detail) {
+             throw new Error(error.response.data.detail);
+        }
+        if (error instanceof Error) {
+             throw error;
+        } else {
+             throw new Error('Неизвестная ошибка при синхронизации с шаблоном.');
         }
     }
 };

@@ -100,14 +100,10 @@ def generate_inventory_excel(
             })
         # --- 2. Полуфабрикаты ---
         rows.append({'№ п/п': '', 'Секция': 'Полуфабрикаты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-        for idx, item_name in enumerate(EXCEL_SEMIFINISHED, 1):
-            found = None
-            for cat, items in inventory_data.items():
-                if item_name in items:
-                    found = items[item_name]
-                    break
-            raw = found.get('raw', {}) if found else {}
-            semifinished = found.get('semifinished', {}) if found else {}
+        for idx, (category, item_name) in enumerate(EXCEL_SEMIFINISHED, 1):
+            item_data = inventory_data.get(category, {}).get(item_name, {})
+            raw = item_data.get('raw', {})
+            semifinished = item_data.get('semifinished', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             rows.append({
@@ -119,13 +115,9 @@ def generate_inventory_excel(
             })
         # --- 3. Напитки ---
         rows.append({'№ п/п': '', 'Секция': 'Напитки', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-        for idx, item_name in enumerate(EXCEL_DRINKS, 1):
-            found = None
-            for cat, items in inventory_data.items():
-                if item_name in items:
-                    found = items[item_name]
-                    break
-            raw = found.get('raw', {}) if found else {}
+        for idx, (category, item_name) in enumerate(EXCEL_DRINKS, 1):
+            item_data = inventory_data.get(category, {}).get(item_name, {})
+            raw = item_data.get('raw', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             rows.append({
                 '№ п/п': idx,
@@ -136,13 +128,9 @@ def generate_inventory_excel(
             })
         # --- 4. Упаковка и приборы ---
         rows.append({'№ п/п': '', 'Секция': 'Упаковка и приборы', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-        for idx, item_name in enumerate(EXCEL_PACKAGING, 1):
-            found = None
-            for cat, items in inventory_data.items():
-                if item_name in items:
-                    found = items[item_name]
-                    break
-            raw = found.get('raw', {}) if found else {}
+        for idx, (category, item_name) in enumerate(EXCEL_PACKAGING, 1):
+            item_data = inventory_data.get(category, {}).get(item_name, {})
+            raw = item_data.get('raw', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             rows.append({
                 '№ п/п': idx,
@@ -153,13 +141,9 @@ def generate_inventory_excel(
             })
         # --- 5. Десерты ---
         rows.append({'№ п/п': '', 'Секция': 'Десерты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-        for idx, item_name in enumerate(EXCEL_DESSERTS, 1):
-            found = None
-            for cat, items in inventory_data.items():
-                if item_name in items:
-                    found = items[item_name]
-                    break
-            raw = found.get('raw', {}) if found else {}
+        for idx, (category, item_name) in enumerate(EXCEL_DESSERTS, 1):
+            item_data = inventory_data.get(category, {}).get(item_name, {})
+            raw = item_data.get('raw', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             rows.append({
                 '№ п/п': idx,
@@ -168,25 +152,20 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_qty if raw_qty is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
-        # --- 6. Бар (по подгруппам) ---
+        # --- 6. Бар (отдельная секция) ---
         rows.append({'№ п/п': '', 'Секция': 'Бар', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-        for subgroup, items in EXCEL_BAR.items():
-            rows.append({'№ п/п': '', 'Секция': subgroup, 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
-            for idx, item_name in enumerate(items, 1):
-                found = None
-                for cat, cat_items in inventory_data.items():
-                    if item_name in cat_items:
-                        found = cat_items[item_name]
-                        break
-                raw = found.get('raw', {}) if found else {}
-                raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
-                rows.append({
-                    '№ п/п': idx,
-                    'Секция': '',
-                    'Наименование': item_name,
-                    'Сырье (шт.)': raw_qty if raw_qty is not None else '',
-                    'Полуфабрикаты (шт.)': ''
-                })
+        for idx, (category, item_name) in enumerate(EXCEL_BAR, 1):
+            item_data = inventory_data.get(category, {}).get(item_name, {})
+            raw = item_data.get('raw', {})
+            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
+            raw_display = "Нет в наличии" if isinstance(raw, dict) and raw.get('isOutOfStock') else raw_qty
+            rows.append({
+                '№ п/п': idx,
+                'Секция': '',
+                'Наименование': item_name,
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
+                'Полуфабрикаты (шт.)': ''
+            })
         # --- Excel запись и оформление ---
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             author_first_name = metadata.get('currentUser', {}).get('first_name', '')

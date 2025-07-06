@@ -622,9 +622,124 @@ class GroupHandler:
             )
             logger.info(f"✅ Отфильтрованные данные группы {chat.title} успешно сохранены в БД после добавления бота")
 
+            # Отправляем специальное приветствие для групп инвентаризации
+            group_type = self.db_service.determine_group_type(chat.title)
+            if group_type == "inventory":
+                await self._send_inventory_welcome_message(chat, context)
+                
+            # Автоматически связываем группу инвентаризации с chef группами (независимо от приветственного сообщения)
+            if group_type == "inventory":
+                await self._link_inventory_group_to_chef_groups(chat, context)
+
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке добавления бота (сохранение данных): {str(e)}")
             logger.error(traceback.format_exc())
+
+    async def _link_inventory_group_to_chef_groups(self, chat: Chat, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Автоматически связывает группу инвентаризации с chef группами"""
+        try:
+            inventory_group_id = str(chat.id)
+            
+            # Проверяем дедупликацию - создаем уникальный ключ для этого события
+            link_event_key = f"inventory_link_{inventory_group_id}"
+            current_time = asyncio.get_event_loop().time()
+            
+            # Проверяем, было ли уже выполнено связывание в течение последних 300 секунд (5 минут)
+            if hasattr(self, '_link_events'):
+                if link_event_key in self._link_events:
+                    last_link_time = self._link_events[link_event_key]
+                    if current_time - last_link_time < 300:  # 5 минут
+                        logger.info(f"🔗 Связывание группы инвентаризации '{chat.title}' с chef группами уже было выполнено недавно, пропускаем")
+                        return
+            else:
+                self._link_events = {}
+            
+            logger.info(f"🔗 Начинаю автоматическое связывание группы инвентаризации '{chat.title}' (ID: {inventory_group_id}) с chef группами")
+            
+            # Получаем все chef группы
+            chef_groups = await self.db_service.get_groups_by_type("chef")
+            
+            if not chef_groups:
+                logger.info(f"🔗 Не найдено chef групп для связывания с группой инвентаризации '{chat.title}'")
+                return
+                
+            logger.info(f"🔗 Найдено {len(chef_groups)} chef групп для связывания")
+            
+            # Обновляем метаданные каждой chef группы
+            linked_count = 0
+            for chef_group in chef_groups:
+                chef_group_id = str(chef_group.get('group_id'))
+                chef_group_title = chef_group.get('title', 'Unknown')
+                
+                # Обновляем метаданные chef группы
+                metadata_updates = {
+                    "inventory_management_group_id": inventory_group_id
+                }
+                
+                success = await self.db_service.update_group_metadata(chef_group_id, metadata_updates)
+                
+                if success:
+                    linked_count += 1
+                    logger.info(f"✅ Chef группа '{chef_group_title}' (ID: {chef_group_id}) успешно связана с группой инвентаризации '{chat.title}'")
+                else:
+                    logger.error(f"❌ Не удалось связать chef группу '{chef_group_title}' (ID: {chef_group_id}) с группой инвентаризации '{chat.title}'")
+            
+            if linked_count > 0:
+                logger.info(f"🎉 Группа инвентаризации '{chat.title}' автоматически связана с {linked_count} chef группами")
+                # Сохраняем время выполнения связывания
+                self._link_events[link_event_key] = current_time
+            else:
+                logger.warning(f"⚠️ Не удалось связать группу инвентаризации '{chat.title}' ни с одной chef группой")
+                
+        except Exception as e:
+            logger.error(f"❌ Ошибка при автоматическом связывании группы инвентаризации '{chat.title}' с chef группами: {e}")
+            logger.error(traceback.format_exc())
+
+    async def _send_inventory_welcome_message(self, chat: Chat, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет приветственное сообщение для групп инвентаризации"""
+        try:
+            # Проверяем дедупликацию - создаем уникальный ключ для этого события
+            event_key = f"inventory_welcome_{chat.id}"
+            current_time = asyncio.get_event_loop().time()
+            
+            # Проверяем, было ли уже отправлено приветствие в течение последних 60 секунд
+            if hasattr(self, '_welcome_events'):
+                if event_key in self._welcome_events:
+                    last_sent_time = self._welcome_events[event_key]
+                    if current_time - last_sent_time < 60:  # 60 секунд
+                        logger.info(f"Приветственное сообщение для группы инвентаризации '{chat.title}' уже было отправлено недавно, пропускаем")
+                        return
+            else:
+                self._welcome_events = {}
+            
+            # Отправляем информационное сообщение о функциях бота
+            welcome_text = (
+                "🤖 Я помогу вам автоматически обновлять шаблоны инвентаризации на основе Excel-файлов от бухгалтерии.\n\n"
+                "📋 **Что я умею:**\n"
+                "• 📊 Автоматически обрабатывать Excel-файлы (.xlsx)\n"
+                "• ✅ Сопоставлять новые товары с существующими\n"
+                "• 🆕 Добавлять новые позиции в систему\n"
+                "• 📈 Обновлять шаблоны инвентаризации\n"
+                "• 🔄 Поддерживать актуальность данных\n\n"
+                "📤 **Как пользоваться:**\n"
+                "Просто отправьте Excel-файл в эту группу, и я автоматически его обработаю!\n\n"
+                "⚠️ **Важно:** Поддерживаются только файлы формата .xlsx\n\n"
+                "🆘 При возникновении проблем обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text=welcome_text,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+            # Сохраняем время отправки для предотвращения дублирования
+            self._welcome_events[event_key] = current_time
+            logger.info(f"✅ Отправлено информационное сообщение для группы инвентаризации: {chat.title}")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке приветственного сообщения для группы инвентаризации: {e}")
 
     async def handle_left_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик удаления участника из чата"""
@@ -1058,6 +1173,15 @@ class GroupHandler:
             )
             logger.info("✅ Обработчик inline-кнопки 'Записаться' зарегистрирован")
             
+            # Регистрируем обработчик кнопки синхронизации шаблонов
+            self.application.add_handler(
+                CallbackQueryHandler(
+                    self.handle_sync_templates_callback,
+                    pattern="^sync_templates$"
+                )
+            )
+            logger.info("✅ Обработчик кнопки синхронизации шаблонов зарегистрирован")
+            
             # --- ДОБАВЛЕН НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ --- 
             # Обработчик нажатия кнопки "Зарегистрироваться в боте"
             register_button_text = "✅ Зарегистрироваться в боте"
@@ -1065,6 +1189,17 @@ class GroupHandler:
                 filters.TEXT & filters.ChatType.GROUPS & ~filters.COMMAND & filters.Regex(f'^{re.escape(register_button_text)}$'), 
                 self.handle_register_button_press
             ))
+            # --- КОНЕЦ ДОБАВЛЕНИЯ ---
+
+            # --- НОВЫЙ ОБРАБОТЧИК EXCEL ДОКУМЕНТОВ ---
+            # Обработчик Excel файлов для групп инвентаризации
+            self.application.add_handler(
+                MessageHandler(
+                    filters.Document.FileExtension("xlsx") & filters.ChatType.GROUPS,
+                    self.handle_excel_document
+                )
+            )
+            logger.info("✅ Обработчик Excel документов зарегистрирован")
             # --- КОНЕЦ ДОБАВЛЕНИЯ ---
 
             logger.info("✅ Все обработчики групповых событий зарегистрированы")
@@ -1584,3 +1719,518 @@ class GroupHandler:
         else:
              logger.warning(f"Регистрация пользователя {user.id} в группе {chat.id} не была полностью успешной (вероятно, не удалось отправить ЛС). Подтверждение в группу не отправлено.")
     # --- КОНЕЦ ОБРАБОТЧИКА КНОПКИ ---
+
+    async def handle_excel_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик Excel документов для групп инвентаризации"""
+        try:
+            message = update.effective_message
+            document = message.document
+            chat = message.chat
+            user = message.from_user
+            
+            if not document:
+                logger.warning("Получен вызов handle_excel_document без документа")
+                return
+            
+            # Проверяем, является ли группа инвентаризационной
+            group_type = self.db_service.determine_group_type(chat.title)
+            if group_type != "inventory":
+                # Если это не группа инвентаризации, игнорируем
+                logger.info(f"Excel файл получен в группе {chat.title} (тип: {group_type}), но это не группа инвентаризации - игнорируем")
+                return
+            
+            logger.info(f"📊 Получен Excel файл '{document.file_name}' от пользователя {user.username or user.id} в группе инвентаризации '{chat.title}'")
+            
+            # Валидация типа документа
+            if not document.file_name.lower().endswith('.xlsx'):
+                error_message = (
+                    f"❌ **Неподдерживаемый формат файла**\n\n"
+                    f"Я понимаю только Excel файлы в формате .xlsx\n"
+                    f"Пожалуйста, отправьте файл в правильном формате.\n\n"
+                    f"📋 **Поддерживаемые форматы:** .xlsx\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+                )
+                
+                await message.reply_text(
+                    error_message,
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+                logger.warning(f"Отклонен файл '{document.file_name}' - неподдерживаемый формат")
+                return
+            
+            # Проверяем размер файла (макс 10MB)
+            max_size_mb = 10
+            max_size_bytes = max_size_mb * 1024 * 1024
+            if document.file_size > max_size_bytes:
+                error_message = (
+                    f"❌ **Файл слишком большой**\n\n"
+                    f"Максимальный размер файла: {max_size_mb}MB\n"
+                    f"Размер вашего файла: {document.file_size / (1024*1024):.1f}MB\n\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+                )
+                
+                await message.reply_text(
+                    error_message,
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+                logger.warning(f"Отклонен файл '{document.file_name}' - слишком большой размер: {document.file_size} байт")
+                return
+            
+            # Отправляем сообщение о начале обработки
+            processing_message = await message.reply_text(
+                f"📋 **Обрабатываю файл от бухгалтерии...**\n\n"
+                f"📁 Файл: `{document.file_name}`\n"
+                f"👤 Отправил: {user.mention_markdown()}\n"
+                f"⏳ Пожалуйста, подождите...",
+                parse_mode='Markdown'
+            )
+            
+            # Загружаем файл
+            try:
+                file = await context.bot.get_file(document.file_id)
+                
+                # Создаем временный файл
+                import tempfile
+                import uuid
+                temp_suffix = f"_{uuid.uuid4().hex[:8]}_{document.file_name}"
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=temp_suffix,
+                    delete=False,
+                    dir="/tmp"
+                )
+                
+                # Скачиваем файл
+                await file.download_to_drive(temp_file.name)
+                temp_file.close()
+                
+                logger.info(f"📥 Файл '{document.file_name}' скачан во временную директорию: {temp_file.name}")
+                
+                # Отправляем файл в адаптер через API
+                await self._process_excel_with_adapter(temp_file.name, document.file_name, chat, user, processing_message, context)
+                
+            except Exception as download_error:
+                logger.error(f"❌ Ошибка загрузки файла '{document.file_name}': {download_error}")
+                
+                error_text = (
+                    f"❌ **Ошибка загрузки файла**\n\n"
+                    f"Не удалось загрузить файл для обработки.\n"
+                    f"Пожалуйста, попробуйте еще раз или обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+                )
+                
+                await processing_message.edit_text(
+                    error_text,
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке Excel документа: {e}")
+            logger.error(traceback.format_exc())
+            
+            try:
+                await message.reply_text(
+                    f"❌ **Произошла неожиданная ошибка**\n\n"
+                    f"Пожалуйста, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)",
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+            except:
+                pass
+
+    async def _process_excel_with_adapter(self, temp_file_path: str, original_filename: str, chat: Chat, user, processing_message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет Excel файл в адаптер инвентаризации и обрабатывает результат"""
+        try:
+            import httpx
+            import os
+            
+            # URL адаптера
+            api_base_url = os.getenv("API_INTERNAL_URL", "http://server:8000")
+            adapter_url = f"{api_base_url}/api/v1/inventory/admin/adapt-accounting-excel"
+            
+            logger.info(f"🔄 Отправляем файл '{original_filename}' в адаптер: {adapter_url}")
+            
+            # Отправляем файл в адаптер
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                with open(temp_file_path, 'rb') as f:
+                    files = {
+                        'excel_file': (original_filename, f, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    }
+                    
+                    response = await client.post(adapter_url, files=files)
+            
+            # Удаляем временный файл
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"🗑️ Временный файл удален: {temp_file_path}")
+            except OSError as e:
+                logger.error(f"Ошибка удаления временного файла {temp_file_path}: {e}")
+            
+            # Обрабатываем ответ
+            if response.status_code == 200:
+                result = response.json()
+                await self._send_success_result(result, original_filename, user, processing_message, context)
+            else:
+                logger.error(f"❌ Адаптер вернул ошибку {response.status_code}: {response.text}")
+                await self._send_error_result(response.status_code, response.text, original_filename, processing_message, context)
+                
+        except httpx.RequestError as e:
+            logger.error(f"❌ Ошибка подключения к адаптеру: {e}")
+            await self._send_connection_error(processing_message, context)
+        except Exception as e:
+            logger.error(f"❌ Неожиданная ошибка при обработке через адаптер: {e}")
+            logger.error(traceback.format_exc())
+            await self._send_unexpected_error(processing_message, context)
+
+    def _escape_markdown(self, text: str) -> str:
+        """Экранирует только критичные символы Markdown для безопасного отображения"""
+        if not text:
+            return text
+        
+        # Экранируем только критичные символы для Telegram Markdown
+        # Убираем точки, дефисы и другие символы которые могут не нуждаться в экранировании
+        critical_chars = ['`', '*', '_', '[', ']']
+        escaped_text = text
+        for char in critical_chars:
+            escaped_text = escaped_text.replace(char, f'\\{char}')
+        return escaped_text
+
+    async def _send_success_result(self, result: dict, filename: str, user, processing_message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение об успешной обработке"""
+        try:
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            
+            # ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ: показываем полный ответ от API
+            logger.info(f"🔍 [DEBUG] Полный ответ от API: {result}")
+            
+            processing_results = result.get('processing_results', {})
+            templates_updated = result.get('templates_updated', {})
+            details = result.get('details', {})
+            synchronization = result.get('synchronization', {})
+            
+            # ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ: показываем секцию синхронизации
+            logger.info(f"🔍 [DEBUG] Секция synchronization: {synchronization}")
+            
+            # Формируем сообщение о результатах
+            escaped_filename = self._escape_markdown(str(filename))
+            success_text = (
+                f"✅ **Файл успешно обработан!**\n\n"
+                f"📁 **Файл:** {escaped_filename}\n"
+                f"👤 **Отправил:** {self._escape_markdown(str(user.first_name or user.username or 'Пользователь'))}\n\n"
+                f"📊 **Результаты обработки:**\n"
+                f"• 📋 Всего товаров найдено: **{processing_results.get('total_items_found', 0)}**\n"
+                f"• ✅ Существующих совпадений: **{processing_results.get('existing_items_matched', 0)}**\n"
+                f"• 🔍 Нечетких совпадений: **{processing_results.get('fuzzy_matches_found', 0)}**\n"
+                f"• 🆕 Новых товаров добавлено: **{processing_results.get('new_items_added', 0)}**\n"
+                f"• 🗑️ Товаров удалено: **{processing_results.get('removed_items', 0)}**\n\n"
+                f"🔄 **Обновления шаблонов:**\n"
+                f"• 📄 inventory_template.json: {'✅ обновлен' if templates_updated.get('inventory_template_updated') else '⏭️ без изменений'}\n"
+                f"• 📊 excel_template.py: {'✅ обновлен' if templates_updated.get('excel_template_updated') else '⏭️ без изменений'}"
+            )
+            
+            # Добавляем информацию о новых товарах
+            new_items = details.get('new_items', [])
+            if new_items:
+                success_text += f"\n\n🆕 **Добавленные товары:**\n"
+                for item in new_items[:5]:  # Показываем только первые 5
+                    item_name = self._escape_markdown(str(item.get('name', 'Неизвестный')))
+                    item_category = self._escape_markdown(str(item.get('suggested_category', 'Общая')))
+                    success_text += f"• {item_name} → {item_category}\n"
+                
+                if len(new_items) > 5:
+                    success_text += f"• ... и еще {len(new_items) - 5} товаров\n"
+            
+            # Добавляем информацию об удаленных товарах
+            removed_items = details.get('removed_items', [])
+            if removed_items:
+                success_text += f"\n\n🗑️ **Удаленные товары:**\n"
+                for item in removed_items[:5]:  # Показываем только первые 5
+                    item_name = self._escape_markdown(str(item.get('name', 'Неизвестный')))
+                    item_category = self._escape_markdown(str(item.get('category', 'Неизвестная')))
+                    success_text += f"• {item_name} ← {item_category}\n"
+                
+                if len(removed_items) > 5:
+                    success_text += f"• ... и еще {len(removed_items) - 5} товаров\n"
+            
+            # Проверяем статус синхронизации
+            needs_synchronization = synchronization.get('needs_synchronization', False)
+            desync_count = synchronization.get('desynchronization_count', 0)
+            
+            # ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ: показываем процесс принятия решения
+            logger.info(f"🔍 [DEBUG] Проверка синхронизации:")
+            logger.info(f"🔍 [DEBUG] - needs_synchronization: {needs_synchronization}")
+            logger.info(f"🔍 [DEBUG] - desync_count: {desync_count}")
+            logger.info(f"🔍 [DEBUG] - Условие для кнопки: {needs_synchronization and desync_count > 0}")
+            
+            # Создаем клавиатуру
+            keyboard = None
+            
+            if needs_synchronization and desync_count > 0:
+                logger.info("🔍 [DEBUG] Создаем кнопку синхронизации...")
+                success_text += f"\n\n⚠️ **Обнаружена рассинхронизация шаблонов**\n"
+                success_text += f"📊 Несоответствий: **{desync_count}** товаров\n"
+                
+                # Добавляем детали рассинхронизации
+                only_in_inventory = synchronization.get('only_in_inventory', [])
+                only_in_excel = synchronization.get('only_in_excel', [])
+                
+                if only_in_inventory:
+                    success_text += f"\n📄 **Только в inventory_template.json ({len(only_in_inventory)} товаров):**\n"
+                    for item in only_in_inventory[:3]:  # Показываем первые 3
+                        escaped_item = self._escape_markdown(str(item))
+                        success_text += f"• {escaped_item}\n"
+                    if len(only_in_inventory) > 3:
+                        success_text += f"• ... и еще {len(only_in_inventory) - 3} товаров\n"
+                
+                if only_in_excel:
+                    success_text += f"\n📊 **Только в excel_template.py ({len(only_in_excel)} товаров):**\n"
+                    for item in only_in_excel[:3]:  # Показываем первые 3
+                        escaped_item = self._escape_markdown(str(item))
+                        success_text += f"• {escaped_item}\n"
+                    if len(only_in_excel) > 3:
+                        success_text += f"• ... и еще {len(only_in_excel) - 3} товаров\n"
+                
+                success_text += f"\n💡 **Нажмите кнопку ниже для автоматической синхронизации**"
+                
+                # Добавляем кнопку синхронизации
+                sync_button = InlineKeyboardButton(
+                    "🔄 Синхронизировать шаблоны", 
+                    callback_data="sync_templates"
+                )
+                keyboard = InlineKeyboardMarkup([[sync_button]])
+                logger.info("✅ [DEBUG] Кнопка синхронизации создана!")
+            else:
+                logger.info("🔍 [DEBUG] Кнопка синхронизации НЕ создается - условие не выполнено")
+                success_text += f"\n\n✅ **Шаблоны синхронизированы**"
+            
+            # ОТЛАДОЧНОЕ ЛОГИРОВАНИЕ: показываем итоговый текст и его длину
+            logger.info(f"🔍 [DEBUG] Итоговый текст ({len(success_text)} символов):")
+            logger.info(f"🔍 [DEBUG] Текст: {repr(success_text)}")
+            logger.info(f"🔍 [DEBUG] Байт 830-850: {repr(success_text[830:850]) if len(success_text) > 830 else 'Текст короче 830 символов'}")
+            
+            # Временно отключаем Markdown для диагностики
+            try:
+                await processing_message.edit_text(
+                    success_text,
+                    parse_mode='Markdown',
+                    reply_markup=keyboard
+                )
+            except Exception as markdown_error:
+                logger.error(f"❌ Ошибка Markdown: {markdown_error}")
+                # Пробуем без Markdown
+                plain_text = success_text.replace('**', '').replace('`', '').replace('*', '')
+                await processing_message.edit_text(
+                    f"⚠️ РЕЖИМ ОТЛАДКИ (без Markdown):\n\n{plain_text}",
+                    reply_markup=keyboard
+                )
+            
+            logger.info(f"✅ Отправлен отчет об успешной обработке файла '{filename}' (синхронизация: {needs_synchronization})")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке результатов успешной обработки: {e}")
+
+    async def _send_error_result(self, status_code: int, error_text: str, filename: str, processing_message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение об ошибке обработки"""
+        try:
+            error_message = (
+                f"❌ **Ошибка обработки файла**\n\n"
+                f"📁 **Файл:** `{filename}`\n"
+                f"🚫 **Код ошибки:** {status_code}\n"
+                f"📄 **Описание:** {error_text[:200]}{'...' if len(error_text) > 200 else ''}\n\n"
+                f"🆘 Пожалуйста, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6) с этой ошибкой"
+            )
+            
+            await processing_message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения об ошибке: {e}")
+
+    async def _send_connection_error(self, processing_message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение об ошибке подключения"""
+        try:
+            error_message = (
+                f"❌ **Ошибка подключения**\n\n"
+                f"Не удалось подключиться к системе обработки файлов.\n"
+                f"Попробуйте еще раз через несколько минут.\n\n"
+                f"🆘 Если проблема повторяется, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await processing_message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения об ошибке подключения: {e}")
+
+    async def _send_unexpected_error(self, processing_message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение о неожиданной ошибке"""
+        try:
+            error_message = (
+                f"❌ **Неожиданная ошибка**\n\n"
+                f"Произошла неожиданная ошибка при обработке файла.\n\n"
+                f"🆘 Пожалуйста, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await processing_message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения о неожиданной ошибке: {e}")
+
+    async def handle_sync_templates_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик нажатия кнопки синхронизации шаблонов"""
+        try:
+            import httpx
+            import os
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            
+            query = update.callback_query
+            await query.answer()  # Подтверждаем получение callback
+            
+            message = query.message
+            user = query.from_user
+            
+            logger.info(f"🔄 Пользователь {user.mention_markdown()} запустил синхронизацию шаблонов")
+            
+            # Показываем статус загрузки
+            loading_text = (
+                f"🔄 **Синхронизация шаблонов**\n\n"
+                f"📊 Анализируем различия между шаблонами...\n"
+                f"⏳ Пожалуйста, подождите"
+            )
+            
+            await message.edit_text(
+                loading_text,
+                parse_mode='Markdown'
+            )
+            
+            # URL API для синхронизации
+            api_base_url = os.getenv("API_INTERNAL_URL", "http://server:8000")
+            sync_url = f"{api_base_url}/api/v1/inventory/admin/synchronize-templates"
+            
+            logger.info(f"🔄 Отправляем запрос синхронизации: {sync_url}")
+            
+            # Отправляем запрос синхронизации
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(sync_url)
+            
+            # Обрабатываем ответ
+            if response.status_code == 200:
+                result = response.json()
+                await self._send_sync_success_result(result, user, message, context)
+            else:
+                logger.error(f"❌ API синхронизации вернул ошибку {response.status_code}: {response.text}")
+                await self._send_sync_error_result(response.status_code, response.text, message, context)
+                
+        except httpx.RequestError as e:
+            logger.error(f"❌ Ошибка подключения к API синхронизации: {e}")
+            await self._send_sync_connection_error(message, context)
+        except Exception as e:
+            logger.error(f"❌ Неожиданная ошибка при синхронизации: {e}")
+            logger.error(traceback.format_exc())
+            await self._send_sync_unexpected_error(message, context)
+
+    async def _send_sync_success_result(self, result: dict, user, message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет результат успешной синхронизации"""
+        try:
+            changes_made = result.get('changes_made', False)
+            details = result.get('details', {})
+            before = details.get('before', {})
+            after = details.get('after', {})
+            
+            if changes_made:
+                success_text = (
+                    f"✅ **Синхронизация завершена успешно!**\n\n"
+                    f"👤 **Инициатор:** {self._escape_markdown(str(user.first_name or user.username or 'Пользователь'))}\n\n"
+                    f"📊 **Результаты синхронизации:**\n"
+                    f"• **До синхронизации:** {before.get('desynchronization_count', 0)} несоответствий\n"
+                    f"• **После синхронизации:** {after.get('desynchronization_count', 0)} несоответствий\n"
+                    f"• **Статус:** {'✅ Синхронизированы' if after.get('is_synchronized', False) else '⚠️ Частично синхронизированы'}\n\n"
+                    f"🔄 **Выполненные изменения:**\n"
+                    f"• Добавлено товаров в inventory_template.json: **{before.get('only_in_excel', 0)}**\n"
+                    f"• Добавлено товаров в excel_template.py: **{before.get('only_in_inventory', 0)}**\n\n"
+                    f"✅ Все шаблоны теперь содержат одинаковый набор товаров!"
+                )
+            else:
+                success_text = (
+                    f"ℹ️ **Синхронизация не требуется**\n\n"
+                    f"👤 **Проверил:** {self._escape_markdown(str(user.first_name or user.username or 'Пользователь'))}\n\n"
+                    f"✅ Шаблоны уже синхронизированы\n"
+                    f"📊 Несоответствий не обнаружено"
+                )
+            
+            await message.edit_text(
+                success_text,
+                parse_mode='Markdown'
+            )
+            
+            logger.info(f"✅ Отправлен результат синхронизации (изменения: {changes_made})")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке результатов синхронизации: {e}")
+
+    async def _send_sync_error_result(self, status_code: int, error_text: str, message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение об ошибке синхронизации"""
+        try:
+            error_message = (
+                f"❌ **Ошибка синхронизации**\n\n"
+                f"🚫 **Код ошибки:** {status_code}\n"
+                f"📄 **Описание:** {error_text[:200]}{'...' if len(error_text) > 200 else ''}\n\n"
+                f"🆘 Пожалуйста, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6) с этой ошибкой"
+            )
+            
+            await message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения об ошибке синхронизации: {e}")
+
+    async def _send_sync_connection_error(self, message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение об ошибке подключения к API синхронизации"""
+        try:
+            error_message = (
+                f"❌ **Ошибка подключения**\n\n"
+                f"Не удалось подключиться к системе синхронизации.\n"
+                f"Попробуйте еще раз через несколько минут.\n\n"
+                f"🆘 Если проблема повторяется, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения об ошибке подключения: {e}")
+
+    async def _send_sync_unexpected_error(self, message, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет сообщение о неожиданной ошибке синхронизации"""
+        try:
+            error_message = (
+                f"❌ **Неожиданная ошибка**\n\n"
+                f"Произошла неожиданная ошибка при синхронизации.\n\n"
+                f"🆘 Пожалуйста, обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await message.edit_text(
+                error_message,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке сообщения о неожиданной ошибке синхронизации: {e}")

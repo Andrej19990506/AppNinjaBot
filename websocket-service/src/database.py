@@ -48,6 +48,10 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}'")
                 await sio.emit(event_type, data)
                 logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено.")
+            elif event_type == 'template_updated':
+                logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}' - обновление шаблона инвентаря")
+                await sio.emit(event_type, data)
+                logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено всем клиентам")
             else:
                 chat_id = data.get('chat_id')
                 if not chat_id:

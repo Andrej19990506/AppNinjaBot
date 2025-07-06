@@ -12,3 +12,4 @@ openpyxl
 redis>=5.0.0
 pandas
 python-docx
+python-multipart

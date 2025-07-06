@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body, BackgroundTasks, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import desc, text # <-- ДОБАВЛЕН ИМПОРТ text
@@ -9,6 +9,8 @@ import os
 import json
 from datetime import datetime
 import logging
+import tempfile
+import uuid
 
 # Используем абсолютные импорты от корня /app
 from db.session import get_db_session, async_engine
@@ -32,6 +34,7 @@ from pathlib import Path as FilePath # <--- Переименовано для и
 from typing import List, Dict, Tuple, Any 
 
 from services.inventory.excel_generator import generate_inventory_excel
+from services.inventory.inventory_adapter import InventoryAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -827,12 +830,117 @@ async def add_custom_inventory_item(
         logger.error(f"[add_custom_inventory_item] HTTP Exception occurred: {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        # Откат транзакции произойдет
-        logger.exception(f"[add_custom_inventory_item] Error processing add item request for chat_id: {chat_id}: {str(e)}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not add custom item definition due to a server error")
-# ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+        logger.exception(f"[add_custom_inventory_item] Unexpected error adding custom item for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred.")
 
-# ---> НАЧАЛО ДОБАВЛЕНИЯ: Эндпоинт для удаления товара <---
+
+class RequestItemPayload(BaseModel):
+    category: str = Field(..., description="Category name for the requested item")
+    item_name: str = Field(..., description="Name of the requested item")
+    has_semifinished: bool = Field(False, description="Does the item have a semifinished component?")
+
+
+@router.post(
+    "/{chat_id}/request-item",
+    status_code=status.HTTP_200_OK,
+    summary="Request Item Addition Through Bot",
+    description="Sends a request to add a new inventory item through the bot to the inventory management group.",
+    tags=["Inventory", "Request Items"]
+)
+async def request_item_addition_through_bot(
+    payload: RequestItemPayload,
+    chat_id: str = Path(..., description="Telegram ID of the chef chat (group)"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Отправляет запрос на добавление товара через бота в группу инвентаризации.
+    """
+    logger.info(f"[request_item_addition_through_bot] POST /inventory/{chat_id}/request-item")
+    
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[request_item_addition_through_bot] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    try:
+        # 1. Получаем chef группу
+        group = await get_group_by_telegram_id(db, group_telegram_id)
+        
+        if not group:
+            logger.warning(f"[request_item_addition_through_bot] Group not found for chat_id: {chat_id}")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+
+        if group.group_type != 'chef':
+            logger.warning(f"[request_item_addition_through_bot] Item request denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Item requests can only be made from groups of type 'chef'")
+
+        # 2. Получаем ID группы инвентаризации из метаданных
+        metadata = group.json_metadata or {}
+        inventory_management_group_id = metadata.get("inventory_management_group_id")
+        
+        if not inventory_management_group_id:
+            logger.warning(f"[request_item_addition_through_bot] No inventory management group configured for chat_id: {chat_id}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Группа инвентаризации не настроена для этой chef группы"
+            )
+
+        # 3. Формируем запрос к боту
+        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
+        send_request_endpoint = f"{bot_internal_base_url}/internal/send_item_request"
+        
+        bot_payload = {
+            "inventory_group_id": inventory_management_group_id,
+            "chef_group_id": str(chat_id),
+            "chef_group_title": group.title,
+            "item_name": payload.item_name,
+            "category": payload.category,
+            "has_semifinished": payload.has_semifinished
+        }
+
+        # 4. Отправляем запрос боту
+        logger.info(f"[request_item_addition_through_bot] Sending request to bot: {send_request_endpoint}")
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            try:
+                response = await client.post(send_request_endpoint, json=bot_payload)
+                response.raise_for_status()
+                
+                response_data = response.json()
+                sent_to_inventory_group = response_data.get("sent_to_inventory_group", False)
+                
+                logger.info(f"[request_item_addition_through_bot] Bot request successful for chat_id: {chat_id}, item: {payload.item_name}")
+                
+                return {
+                    "success": True,
+                    "message": "Запрос на добавление товара успешно отправлен",
+                    "item_name": payload.item_name,
+                    "category": payload.category,
+                    "sent_to_inventory_group": sent_to_inventory_group,
+                    "inventory_group_id": inventory_management_group_id
+                }
+                
+            except httpx.RequestError as req_err:
+                logger.error(f"[request_item_addition_through_bot] Request error while contacting bot: {req_err}")
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Не удалось связаться с ботом для отправки запроса"
+                )
+            except httpx.HTTPStatusError as status_err:
+                logger.error(f"[request_item_addition_through_bot] Bot returned error status {status_err.response.status_code}: {status_err.response.text}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Бот не смог обработать запрос на добавление товара"
+                )
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.exception(f"[request_item_addition_through_bot] Unexpected error for chat_id: {chat_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred.")
+
+
 @router.delete(
     "/{chat_id}/items/{category}/{item_name:path}",
     status_code=status.HTTP_200_OK,
@@ -1311,3 +1419,508 @@ async def reset_inventory_for_chat(
     # 6. Возвращаем ответ
     return {"message": f"Inventory for chat {chat_id} has been reset successfully."}
 # ---> КОНЕЦ ДОБАВЛЕНИЯ <---
+
+
+# ---> НОВЫЙ ЭНДПОИНТ: Адаптер инвентаризации <---
+@router.post(
+    "/admin/adapt-accounting-excel",
+    status_code=status.HTTP_200_OK,
+    summary="Adapt Accounting Excel File",
+    description="Uploads an Excel file from accounting department and adapts inventory templates automatically. Updates both inventory_template.json and excel_template.py with new items.",
+    tags=["Inventory", "Admin", "Templates"]
+)
+async def adapt_accounting_excel(
+    excel_file: UploadFile = File(..., description="Excel file from accounting department"),
+    # TODO: Добавить зависимость для проверки прав администратора
+):
+    """
+    Обрабатывает Excel-файл от бухгалтерии и автоматически обновляет шаблоны инвентаризации.
+    
+    Процесс:
+    1. Загружает и парсит Excel-файл
+    2. Сопоставляет товары с существующими в системе
+    3. Добавляет новые товары в шаблоны
+    4. Возвращает подробный отчет о проделанной работе
+    """
+    logger.info(f"[adapt_accounting_excel] POST /inventory/admin/adapt-accounting-excel - файл: {excel_file.filename}")
+    
+    # Проверяем формат файла
+    if not excel_file.filename.endswith(('.xlsx', '.xls')):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Поддерживаются только Excel файлы (.xlsx, .xls)"
+        )
+    
+    # Создаем временный файл
+    temp_file_path = None
+    try:
+        # Создаем временный файл с уникальным именем
+        temp_suffix = f"_{uuid.uuid4().hex[:8]}_{excel_file.filename}"
+        temp_file = tempfile.NamedTemporaryFile(
+            suffix=temp_suffix,
+            delete=False,
+            dir="/tmp"
+        )
+        temp_file_path = temp_file.name
+        
+        # Записываем содержимое загруженного файла
+        content = await excel_file.read()
+        temp_file.write(content)
+        temp_file.close()
+        
+        logger.info(f"[adapt_accounting_excel] Временный файл создан: {temp_file_path}")
+        
+        # Инициализируем адаптер
+        adapter = InventoryAdapter()
+        
+        # Обрабатываем файл
+        logger.info(f"[adapt_accounting_excel] Запускаем адаптер для файла: {excel_file.filename}")
+        result = adapter.process_accounting_excel(temp_file_path)
+        
+        if not result["success"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ошибка обработки файла: {result.get('error', 'Неизвестная ошибка')}"
+            )
+        
+        # Формируем подробный ответ
+        response = {
+            "success": True,
+            "message": "Excel-файл успешно обработан",
+            "file_info": {
+                "filename": excel_file.filename,
+                "size_bytes": len(content)
+            },
+            "processing_results": {
+                "total_items_found": result["total_items"],
+                "existing_items_matched": result["exact_matches"],
+                "new_items_added": result["new_items"],
+                "removed_items": result.get("removed_items", 0)
+            },
+            "templates_updated": {
+                "inventory_template_updated": result["templates_updated"]["inventory_template"],
+                "excel_template_updated": result["templates_updated"]["excel_template"]
+            },
+            "synchronization": result.get("synchronization", {
+                "is_synchronized": True,
+                "needs_synchronization": False,
+                "desynchronization_count": 0,
+                "only_in_inventory": [],
+                "only_in_excel": []
+            }),
+            "details": result.get("details", {})
+        }
+        
+        # Логируем успешный результат
+        logger.info(f"[adapt_accounting_excel] Файл {excel_file.filename} обработан успешно:")
+        logger.info(f"  - Всего товаров: {result['total_items']}")
+        logger.info(f"  - Существующих: {result['exact_matches']}")
+        logger.info(f"  - Новых: {result['new_items']}")
+        logger.info(f"  - Удаленных: {result.get('removed_items', 0)}")
+        logger.info(f"  - Шаблоны обновлены: inventory={result['templates_updated']['inventory_template']}, excel={result['templates_updated']['excel_template']}")
+        
+        # Логируем информацию об удаленных товарах
+        removed_items_details = result.get("details", {}).get("removed_items", [])
+        if removed_items_details:
+            logger.warning(f"🗑️ Удаленные товары:")
+            for item in removed_items_details:
+                logger.warning(f"  - {item.get('name')} (категория: {item.get('category')})")
+        
+        # Логируем информацию о синхронизации
+        sync_info = result.get("synchronization", {})
+        if sync_info.get("needs_synchronization", False):
+            logger.warning(f"⚠️ Обнаружена рассинхронизация шаблонов:")
+            if sync_info.get("only_in_inventory"):
+                logger.warning(f"  - Только в inventory_template.json ({len(sync_info['only_in_inventory'])} товаров):")
+                for item in sync_info["only_in_inventory"]:
+                    logger.warning(f"    • {item}")
+            if sync_info.get("only_in_excel"):
+                logger.warning(f"  - Только в excel_template.py ({len(sync_info['only_in_excel'])} товаров):")
+                for item in sync_info["only_in_excel"]:
+                    logger.warning(f"    • {item}")
+        else:
+            logger.info("✅ Шаблоны синхронизированы")
+        
+        # Отправляем WebSocket уведомление если шаблон был обновлен
+        if result['templates_updated']['inventory_template']:
+            await send_template_updated_notification(db, result)
+            logger.info("📡 WebSocket уведомление о обновлении шаблона отправлено")
+        
+        return response
+        
+    except HTTPException:
+        # Пробрасываем HTTP исключения как есть
+        raise
+    except Exception as e:
+        logger.exception(f"[adapt_accounting_excel] Неожиданная ошибка при обработке файла {excel_file.filename}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Внутренняя ошибка сервера при обработке файла: {str(e)}"
+        )
+    finally:
+        # Удаляем временный файл
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+                logger.info(f"[adapt_accounting_excel] Временный файл удален: {temp_file_path}")
+            except OSError as e:
+                logger.error(f"[adapt_accounting_excel] Ошибка удаления временного файла {temp_file_path}: {e}")
+
+
+# Дополнительный эндпоинт для получения отчета адаптации
+@router.get(
+    "/admin/adaptation-status",
+    summary="Get Adaptation Status",
+    description="Returns the current status and statistics of template adaptations.",
+    tags=["Inventory", "Admin", "Templates"]
+)
+async def get_adaptation_status():
+    """
+    Возвращает статистику по адаптациям шаблонов.
+    """
+    try:
+        # Читаем текущие шаблоны для статистики
+        template_path = "/app/data/templates/inventory_template.json"
+        
+        total_categories = 0
+        total_items = 0
+        
+        if os.path.exists(template_path):
+            with open(template_path, 'r', encoding='utf-8') as f:
+                template_data = json.load(f)
+                total_categories = len(template_data)
+                for category_items in template_data.values():
+                    if isinstance(category_items, dict):
+                        total_items += len(category_items)
+        
+        return {
+            "status": "active",
+            "template_statistics": {
+                "total_categories": total_categories,
+                "total_items": total_items,
+                "template_file_exists": os.path.exists(template_path),
+                "last_modified": datetime.fromtimestamp(os.path.getmtime(template_path)).isoformat() if os.path.exists(template_path) else None
+            },
+            "adapter_info": {
+                "version": "1.0.0",
+                "supported_formats": [".xlsx", ".xls"],
+                "max_file_size_mb": 10
+            }
+        }
+        
+    except Exception as e:
+        logger.exception(f"[get_adaptation_status] Ошибка получения статуса адаптации: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка получения статуса адаптации"
+        )
+
+# ---> НОВЫЕ ЭНДПОИНТЫ ДЛЯ СИНХРОНИЗАЦИИ ШАБЛОНОВ <---
+@router.get(
+    "/admin/synchronization-status",
+    summary="Check Template Synchronization Status",
+    description="Checks synchronization status between inventory_template.json and excel_template.py",
+    tags=["Inventory", "Admin", "Templates"]
+)
+async def check_synchronization_status():
+    """
+    Проверяет состояние синхронизации между шаблонами инвентаризации.
+    """
+    try:
+        logger.info("[check_synchronization_status] Проверяем синхронизацию шаблонов")
+        
+        # Создаем адаптер для проверки синхронизации
+        adapter = InventoryAdapter()
+        
+        # Проверяем синхронизацию
+        sync_status = adapter.check_template_synchronization()
+        
+        if sync_status.get("error"):
+            logger.error(f"[check_synchronization_status] Ошибка: {sync_status['error']}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error checking synchronization: {sync_status['error']}"
+            )
+        
+        return {
+            "success": True,
+            "synchronization": sync_status,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"[check_synchronization_status] Ошибка проверки синхронизации: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error checking synchronization status: {str(e)}"
+        )
+
+@router.post(
+    "/admin/synchronize-templates",
+    status_code=status.HTTP_200_OK,
+    summary="Synchronize Templates",
+    description="Synchronizes inventory_template.json and excel_template.py by adding missing items to each template",
+    tags=["Inventory", "Admin", "Templates"]
+)
+async def synchronize_templates():
+    """
+    Синхронизирует шаблоны инвентаризации, добавляя недостающие товары в каждый шаблон.
+    """
+    try:
+        logger.info("[synchronize_templates] Запуск синхронизации шаблонов")
+        
+        # Создаем адаптер для синхронизации
+        adapter = InventoryAdapter()
+        
+        # Выполняем синхронизацию
+        sync_result = adapter.synchronize_templates()
+        
+        if not sync_result.get("success"):
+            logger.error(f"[synchronize_templates] Ошибка синхронизации: {sync_result.get('error')}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Synchronization failed: {sync_result.get('error')}"
+            )
+        
+        logger.info(f"[synchronize_templates] Синхронизация завершена: {sync_result}")
+        
+        return {
+            "success": True,
+            "message": sync_result.get("message", "Синхронизация завершена"),
+            "changes_made": sync_result.get("changes_made", False),
+            "details": {
+                "before": sync_result.get("before", {}),
+                "after": sync_result.get("after", {})
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"[synchronize_templates] Ошибка синхронизации: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error synchronizing templates: {str(e)}"
+        )
+
+# ---> КОНЕЦ НОВЫХ ЭНДПОИНТОВ <---
+
+@router.post(
+    "/{chat_id}/sync-template",
+    status_code=status.HTTP_200_OK,
+    summary="Synchronize Chat Inventory with Template",
+    description="Synchronizes the chat's inventory with the current template. Adds new items, removes obsolete ones (if not filled), keeps filled data.",
+    tags=["Inventory", "Templates"]
+)
+async def sync_chat_with_template(
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session),
+    # TODO: Добавить зависимость для проверки прав администратора
+):
+    """
+    Синхронизирует инвентарь чата с актуальным шаблоном inventory_template.json
+    
+    Логика:
+    1. Загружает актуальный шаблон
+    2. Загружает текущий инвентарь чата
+    3. Выполняет умный мерж:
+       - Добавляет новые позиции из шаблона (quantity=0, filled=false)
+       - Удаляет позиции, которых нет в шаблоне (только если quantity=0 и filled=false)
+       - Сохраняет заполненные позиции
+    4. Обновляет БД
+    5. Возвращает отчет об изменениях
+    """
+    logger.info(f"[sync_chat_with_template] POST /inventory/{chat_id}/sync-template")
+    
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[sync_chat_with_template] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    try:
+        # 1. Получаем группу из БД
+        group = await get_group_by_telegram_id(db, group_telegram_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+        
+        if group.group_type != 'chef':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory sync is only available for chef groups")
+        
+        # 2. Загружаем шаблон
+        template_path = "/app/data/templates/inventory_template.json"
+        if not os.path.exists(template_path):
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Template file not found")
+        
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_data = json.load(f)
+        
+        # 3. Получаем текущий инвентарь чата
+        current_inventory = group.json_inventory or {}
+        
+        # 4. Выполняем умный мерж
+        sync_report = perform_smart_merge(current_inventory, template_data)
+        updated_inventory = sync_report["merged_inventory"]
+        
+        # 5. Сохраняем обновленный инвентарь в БД
+        group.json_inventory = updated_inventory
+        flag_modified(group, "json_inventory")
+        
+        # 6. Обновляем метаданные
+        now = datetime.now().isoformat()
+        if not group.json_metadata:
+            group.json_metadata = {}
+        group.json_metadata["lastUpdated"] = now
+        group.json_metadata["lastSynced"] = now
+        group.json_metadata["progress"] = calculate_inventory_progress_py(updated_inventory)
+        flag_modified(group, "json_metadata")
+        
+        await db.commit()
+        
+        logger.info(f"[sync_chat_with_template] Successfully synchronized inventory for chat {chat_id}")
+        
+        return {
+            "status": "success",
+            "message": "Inventory synchronized with template",
+            "chat_id": chat_id,
+            "changes": sync_report["changes"],
+            "summary": {
+                "added_items": len(sync_report["changes"]["added"]),
+                "removed_items": len(sync_report["changes"]["removed"]),
+                "preserved_items": len(sync_report["changes"]["preserved"])
+            },
+            "updated_at": now
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[sync_chat_with_template] Error synchronizing inventory for chat {chat_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Error synchronizing inventory: {str(e)}")
+
+
+def perform_smart_merge(current_inventory: Dict[str, Any], template_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Выполняет умный мерж текущего инвентаря с шаблоном
+    
+    Args:
+        current_inventory: Текущий инвентарь из БД
+        template_data: Новый шаблон из inventory_template.json
+        
+    Returns:
+        Dict с merged_inventory и changes
+    """
+    merged_inventory = {}
+    changes = {
+        "added": [],      # Новые позиции
+        "removed": [],    # Удаленные позиции  
+        "preserved": []   # Сохраненные позиции
+    }
+    
+    # Обрабатываем каждую категорию из шаблона
+    for category_name, template_items in template_data.items():
+        merged_inventory[category_name] = {}
+        current_category = current_inventory.get(category_name, {})
+        
+        # Добавляем/обновляем позиции из шаблона
+        for item_name, template_item in template_items.items():
+            if item_name in current_category:
+                # Позиция существует - сохраняем данные пользователя
+                merged_inventory[category_name][item_name] = current_category[item_name]
+                changes["preserved"].append(f"{category_name} → {item_name}")
+            else:
+                # Новая позиция - добавляем из шаблона
+                merged_inventory[category_name][item_name] = template_item
+                changes["added"].append(f"{category_name} → {item_name}")
+    
+    # Проверяем на удаленные позиции (есть в current, но нет в template)
+    for category_name, current_items in current_inventory.items():
+        if category_name not in template_data:
+            # Вся категория удалена из шаблона
+            for item_name, item_data in current_items.items():
+                if is_item_empty(item_data):
+                    changes["removed"].append(f"{category_name} → {item_name} (empty)")
+                else:
+                    # Сохраняем заполненные позиции даже если категории нет в шаблоне
+                    if category_name not in merged_inventory:
+                        merged_inventory[category_name] = {}
+                    merged_inventory[category_name][item_name] = item_data
+                    changes["preserved"].append(f"{category_name} → {item_name} (filled, kept despite template)")
+        else:
+            # Категория есть в шаблоне, проверяем позиции
+            template_items = template_data[category_name]
+            for item_name, item_data in current_items.items():
+                if item_name not in template_items:
+                    # Позиция удалена из шаблона
+                    if is_item_empty(item_data):
+                        changes["removed"].append(f"{category_name} → {item_name} (empty)")
+                    else:
+                        # Сохраняем заполненную позицию
+                        merged_inventory[category_name][item_name] = item_data
+                        changes["preserved"].append(f"{category_name} → {item_name} (filled, kept despite template)")
+    
+    return {
+        "merged_inventory": merged_inventory,
+        "changes": changes
+    }
+
+
+def is_item_empty(item_data: Dict[str, Any]) -> bool:
+    """
+    Проверяет, пуста ли позиция инвентаря (можно безопасно удалить)
+    
+    Args:
+        item_data: Данные позиции {"raw": {...}, "semifinished": {...}}
+        
+    Returns:
+        True если позиция пуста и может быть удалена
+    """
+    # Проверяем raw часть
+    raw = item_data.get("raw", {})
+    if raw.get("filled") or raw.get("quantity", 0) > 0 or raw.get("isOutOfStock"):
+        return False
+    
+    # Проверяем semifinished часть если есть
+    semifinished = item_data.get("semifinished", {})
+    if semifinished.get("filled") or semifinished.get("quantity", 0) > 0:
+        return False
+    
+    return True
+
+
+async def send_template_updated_notification(db: AsyncSession, adaptation_result: Dict[str, Any]):
+    """
+    Отправляет WebSocket уведомление о том, что шаблон инвентаря был обновлен
+    
+    Args:
+        db: Сессия базы данных
+        adaptation_result: Результат адаптации шаблона
+    """
+    try:
+        # Формируем payload для WebSocket события
+        notification_payload = {
+            "type": "template_updated",
+            "timestamp": datetime.now().isoformat(),
+            "summary": {
+                "total_items": adaptation_result.get("total_items", 0),
+                "new_items": adaptation_result.get("new_items", 0),
+                "removed_items": adaptation_result.get("removed_items", 0),
+                "inventory_template_updated": adaptation_result.get("templates_updated", {}).get("inventory_template", False),
+                "excel_template_updated": adaptation_result.get("templates_updated", {}).get("excel_template", False)
+            },
+            "details": {
+                "new_items_list": [item.get("name") for item in adaptation_result.get("details", {}).get("new_items", [])],
+                "removed_items_list": [item.get("name") for item in adaptation_result.get("details", {}).get("removed_items", [])]
+            }
+        }
+        
+        # Отправляем PostgreSQL NOTIFY
+        notification_json = json.dumps(notification_payload)
+        await db.execute(text("SELECT pg_notify('websocket_channel', :payload)"), {"payload": notification_json})
+        
+        logger.info(f"[send_template_updated_notification] WebSocket уведомление отправлено: {adaptation_result.get('new_items', 0)} новых, {adaptation_result.get('removed_items', 0)} удаленных товаров")
+        
+    except Exception as e:
+        logger.error(f"[send_template_updated_notification] Ошибка отправки WebSocket уведомления: {e}")
+        # Не поднимаем исключение, чтобы не прерывать основной процесс
+
+# ---> КОНЕЦ НОВЫХ ЭНДПОИНТОВ <---

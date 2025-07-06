@@ -809,18 +809,6 @@ const WriteOff: React.FC = () => {
         initializeData();
     }, [dispatch, controls]);
 
-    // --- АВТОВЫБОР ПЕРВОГО ЧАТА ---
-    const wasAutoSelected = useRef(false);
-    useEffect(() => {
-        if (!isChatsLoading && chats && chats.length > 0 && !selectedWriteOffChat && !wasAutoSelected.current) {
-            wasAutoSelected.current = true;
-            dispatch(selectWriteOffChat(chats[0].chat_id));
-        }
-        if (!chats || chats.length === 0) {
-            wasAutoSelected.current = false;
-        }
-    }, [isChatsLoading, chats, selectedWriteOffChat, dispatch]);
-
     // Обновляем условие рендеринга для загрузки
     console.log('[LOG] USER:', user);
     if (!userId || isWriteOffLoading || isChatsLoading) {
@@ -940,7 +928,10 @@ const WriteOff: React.FC = () => {
                 >
                     {chats && chats.length > 0 ? (
                         <ChatSelector
-                            chats={chats}
+                            chats={chats.map(chat => ({
+                                ...chat,
+                                chat_title: chat.chat_title || chat.title || chat.name || `Чат ${chat.chat_id}`
+                            }))}
                             onChatSelect={handleChatSelect}
                             mode="writeoff"
                         />

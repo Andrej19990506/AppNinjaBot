@@ -45,6 +45,8 @@ class DatabaseService:
             return "courier"
         elif any(word in chat_title_lower for word in ["повар", "повара", "поваров", "поварской", "поварская", "поварские", "повор", "повора"]):
             return "chef"
+        elif "инвентаризация" in chat_title_lower:
+            return "inventory"
         else:
             return "general"
     
@@ -280,6 +282,59 @@ class DatabaseService:
             logger.error(f"❌ [async] Неожиданная ошибка при получении списка групп типа {group_type}: {e}")
             logger.error(traceback.format_exc())
             return []
+
+    async def update_group_metadata(self, chat_id: str, metadata_updates: Dict) -> bool:
+        """Асинхронно обновляет метаданные группы"""
+        try:
+            group_chat_id_int = int(chat_id)
+        except (ValueError, TypeError):
+            logger.error(f"[async] Некорректный chat_id '{chat_id}' для обновления метаданных группы")
+            return False
+
+        try:
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    # Сначала получаем текущие метаданные
+                    current_metadata_json = await conn.fetchval(
+                        "SELECT metadata FROM groups WHERE group_id = $1",
+                        group_chat_id_int
+                    )
+                    
+                    # Парсим существующие метаданные
+                    current_metadata = {}
+                    if current_metadata_json:
+                        try:
+                            current_metadata = json.loads(current_metadata_json)
+                        except json.JSONDecodeError:
+                            logger.warning(f"Не удалось декодировать существующие метаданные для группы {chat_id}")
+                            current_metadata = {}
+                    
+                    # Обновляем метаданные
+                    current_metadata.update(metadata_updates)
+                    
+                    # Сохраняем обновленные метаданные
+                    status = await conn.execute(
+                        "UPDATE groups SET metadata = $1 WHERE group_id = $2",
+                        json.dumps(current_metadata),
+                        group_chat_id_int
+                    )
+                    
+                    updated = 'UPDATE 1' in status
+                    if updated:
+                        logger.info(f"✅ [async] Метаданные группы {chat_id} успешно обновлены")
+                    else:
+                        logger.warning(f"[async] Не удалось обновить метаданные для группы {chat_id}")
+                    
+                    return updated
+                    
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [async] Ошибка PostgreSQL при обновлении метаданных группы {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return False
+        except Exception as e:
+            logger.error(f"❌ [async] Неожиданная ошибка при обновлении метаданных группы {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return False
 
     async def delete_group(self, chat_id: str) -> bool:
         """Асинхронно удаляет группу и её связи из базы данных"""

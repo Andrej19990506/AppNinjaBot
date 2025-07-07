@@ -122,7 +122,7 @@ async def read_chats_for_user(
         if group.members: # Проверяем, что участники загружены
             for gm in group.members:
                 # Проверяем роль и наличие данных участника
-                if gm.role in ['admin', 'creator'] and gm.member:
+                if gm.role in ['administrator', 'creator'] and gm.member:
                     # ВРУЧНУЮ создаем словарь для AdminInfo
                     admin_data = {
                         "id": gm.member.id,

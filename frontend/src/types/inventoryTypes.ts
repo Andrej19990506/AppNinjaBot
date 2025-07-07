@@ -75,4 +75,15 @@ export interface InventoryMetadata {
     lastUpdated: string;
     progress: number;
     chat_id: string;
+    lastTemplateUpdate?: {
+        timestamp: string;
+        changes: {
+            added: string[];
+            removed: string[];
+            added_count: number;
+            removed_count: number;
+        };
+        viewed: boolean;
+        viewedAt?: string;
+    };
 } 

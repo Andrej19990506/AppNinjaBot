@@ -10,7 +10,7 @@ import {
     fetchChatInventory,
     receiveItemUpdate
 } from '@/store/slices/inventorySlice';
-import { syncChatWithTemplate } from '@features/Inventory/services/inventoryApi';
+import { syncChatWithTemplate, markTemplateChangesViewed, getChatInventory } from '@features/Inventory/services/inventoryApi';
 import { addNotification } from '@shared/store/notificationSlice/notificationSlice';
 import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
 
@@ -42,6 +42,97 @@ export const useInventoryWebSocketSync = () => {
         setIsChangesModalOpen(false);
         setTemplateChanges(null);
     }, []);
+    
+    // Функция для отметки изменений как просмотренные
+    const markChangesViewed = useCallback(async (chatId: string) => {
+        try {
+            await markTemplateChangesViewed(chatId);
+            logger.info(`[useInventoryWebSocketSync] Template changes marked as viewed for chat ${chatId}`);
+        } catch (error) {
+            logger.error('[useInventoryWebSocketSync] Error marking template changes as viewed:', error);
+        }
+    }, []);
+    
+    // Функция для проверки и показа уведомлений о непросмотренных изменениях
+    const checkForUnviewedTemplateChanges = useCallback(async (chatId: string, metadata?: InventoryMetadata) => {
+        try {
+            logger.info(`[checkForUnviewedTemplateChanges] Проверяем изменения для чата ${chatId}`, metadata);
+            
+            // Всегда загружаем свежие данные из API
+            logger.info(`[checkForUnviewedTemplateChanges] Загружаем свежие данные из API для чата ${chatId}`);
+            
+            const freshData = await getChatInventory(chatId);
+            const freshMetadata = freshData.metadata;
+            
+            logger.info(`[checkForUnviewedTemplateChanges] Получены свежие метаданные:`, freshMetadata);
+            
+            const lastTemplateUpdate = freshMetadata.lastTemplateUpdate;
+            
+            if (!lastTemplateUpdate) {
+                logger.info(`[checkForUnviewedTemplateChanges] Нет lastTemplateUpdate в свежих метаданных`);
+                return; // Нет изменений или они уже просмотрены
+            }
+            
+            if (lastTemplateUpdate.viewed) {
+                logger.info(`[checkForUnviewedTemplateChanges] Изменения уже просмотрены (viewed: true)`);
+                return; // Нет изменений или они уже просмотрены
+            }
+            
+            logger.info(`[checkForUnviewedTemplateChanges] Найдены непросмотренные изменения:`, lastTemplateUpdate);
+            
+            const { changes } = lastTemplateUpdate;
+            
+            // Показываем уведомление о непросмотренных изменениях
+            const changesList = [];
+            if (changes.added_count > 0) {
+                changesList.push(`${changes.added_count} новых позиций`);
+                logger.info(`[checkForUnviewedTemplateChanges] Добавлено в changesList: ${changes.added_count} новых позиций`);
+            }
+            if (changes.removed_count > 0) {
+                changesList.push(`${changes.removed_count} удалённых позиций`);
+                logger.info(`[checkForUnviewedTemplateChanges] Добавлено в changesList: ${changes.removed_count} удалённых позиций`);
+            }
+            
+            logger.info(`[checkForUnviewedTemplateChanges] changesList:`, changesList);
+            
+            if (changesList.length > 0) {
+                const changesText = changesList.join(', ');
+                
+                // Автоматически показываем модальное окно с изменениями
+                const templateChanges: TemplateChanges = {
+                    new_items: changes.added.map((item: string) => item.replace(/.*→\s*/, '')),
+                    removed_items: changes.removed.map((item: string) => item.replace(/.*→\s*/, '').replace(/\s*\(.*\)$/, '')),
+                    summary: {
+                        added_items: changes.added_count,
+                        removed_items: changes.removed_count,
+                        preserved_items: 0
+                    }
+                };
+                
+                logger.info(`[checkForUnviewedTemplateChanges] Показываем модальное окно с изменениями:`, templateChanges);
+                
+                setTemplateChanges(templateChanges);
+                setIsChangesModalOpen(true);
+                
+                // Отмечаем как просмотренные
+                markChangesViewed(chatId);
+                
+                // Также показываем уведомление для информации
+                dispatch(addNotification({
+                    id: `unviewed-changes-${chatId}-${Date.now()}`,
+                    title: '🆕 Обновления инвентаря',
+                    message: `В инвентаре были изменения: ${changesText}`,
+                    type: NotificationTypes.INFO,
+                    duration: 5000
+                }));
+                
+                logger.info(`[checkForUnviewedTemplateChanges] Уведомление отправлено и модальное окно показано для чата ${chatId}`);
+            }
+            
+        } catch (error) {
+            logger.error('[useInventoryWebSocketSync] Error checking for unviewed template changes:', error);
+        }
+    }, [dispatch, markChangesViewed, setTemplateChanges, setIsChangesModalOpen]);
 
     useEffect(() => {
         logger.log(`[useInventoryWebSocketSync] Effect RUN. selectedInventoryChatId: ${selectedInventoryChatId}`);
@@ -113,6 +204,12 @@ export const useInventoryWebSocketSync = () => {
                             logger.info(`[WS Sync - inventory_updated] Событие без деталей товара для ТЕКУЩЕГО чата. Перезапрашиваем весь инвентарь для ${payload.chat_id}...`);
                             dispatch(fetchChatInventory(payload.chat_id));
                         }
+                        
+                        // Убираем проверку непросмотренных изменений для онлайн пользователей
+                        // Для онлайн пользователей изменения автоматически помечаются как просмотренные в handleTemplateUpdated
+                        logger.info(`[WS Sync - inventory_updated] Онлайн пользователь - изменения будут помечены как просмотренные автоматически`);
+                        
+                        // checkForUnviewedTemplateChanges(payload.chat_id); // Убрано для онлайн пользователей
                     } else {
                         logger.log(`[WS Sync - inventory_updated] Обновляем только метаданные для ДРУГОГО (${payload.chat_id}) чата.`);
                         dispatch(receiveItemUpdate({
@@ -160,23 +257,62 @@ export const useInventoryWebSocketSync = () => {
                     
                     logger.info(`[WS Sync - template_updated] Синхронизация завершена успешно:`, syncResult);
                     
-                    // Подготавливаем данные для модального окна
-                    const changes: TemplateChanges = {
-                        new_items: syncResult.changes.added.map((item: string) => item.replace(/.*→\s*/, '')),
-                        removed_items: syncResult.changes.removed.map((item: string) => item.replace(/.*→\s*/, '').replace(/\s*\(.*\)$/, '')),
-                        summary: {
-                            added_items: syncResult.summary.added_items,
-                            removed_items: syncResult.summary.removed_items,
-                            preserved_items: syncResult.summary.preserved_items
-                        }
-                    };
+                    // ВАЖНО: Вместо syncResult берем данные из свежих метаданных БД
+                    logger.info(`[WS Sync - template_updated] Загружаем свежие метаданные для получения актуальных изменений`);
+                    const freshData = await getChatInventory(selectedInventoryChatId);
+                    const lastTemplateUpdate = freshData.metadata.lastTemplateUpdate;
                     
-                    // Показываем модальное окно с результатами
-                    setTemplateChanges(changes);
-                    setIsChangesModalOpen(true);
-                    
-                    // Перезагружаем данные инвентаря
-                    dispatch(fetchChatInventory(selectedInventoryChatId));
+                    if (lastTemplateUpdate && lastTemplateUpdate.changes) {
+                        logger.info(`[WS Sync - template_updated] Используем данные из свежих метаданных:`, lastTemplateUpdate.changes);
+                        
+                        // Подготавливаем данные для модального окна из СВЕЖИХ метаданных
+                        const changes: TemplateChanges = {
+                            new_items: lastTemplateUpdate.changes.added.map((item: string) => item.replace(/.*→\s*/, '')),
+                            removed_items: lastTemplateUpdate.changes.removed.map((item: string) => item.replace(/.*→\s*/, '').replace(/\s*\(.*\)$/, '')),
+                            summary: {
+                                added_items: lastTemplateUpdate.changes.added_count,
+                                removed_items: lastTemplateUpdate.changes.removed_count,
+                                preserved_items: 0
+                            }
+                        };
+                        
+                        logger.info(`[WS Sync - template_updated] Подготовленные данные для модального окна:`, changes);
+                        
+                        // Показываем модальное окно с результатами
+                        setTemplateChanges(changes);
+                        setIsChangesModalOpen(true);
+                        
+                        // ВАЖНО: Автоматически помечаем изменения как просмотренные для онлайн пользователей
+                        logger.info(`[WS Sync - template_updated] Помечаем изменения как просмотренные для онлайн пользователя в чате ${selectedInventoryChatId}`);
+                        markChangesViewed(selectedInventoryChatId);
+                        
+                        // Перезагружаем данные инвентаря
+                        dispatch(fetchChatInventory(selectedInventoryChatId));
+                    } else {
+                        logger.warn(`[WS Sync - template_updated] Нет lastTemplateUpdate в свежих метаданных - используем fallback данные из syncResult`);
+                        
+                        // Fallback: используем данные из syncResult если нет lastTemplateUpdate
+                        const changes: TemplateChanges = {
+                            new_items: syncResult.changes.added.map((item: string) => item.replace(/.*→\s*/, '')),
+                            removed_items: syncResult.changes.removed.map((item: string) => item.replace(/.*→\s*/, '').replace(/\s*\(.*\)$/, '')),
+                            summary: {
+                                added_items: syncResult.summary.added_items,
+                                removed_items: syncResult.summary.removed_items,
+                                preserved_items: syncResult.summary.preserved_items
+                            }
+                        };
+                        
+                        // Показываем модальное окно с результатами
+                        setTemplateChanges(changes);
+                        setIsChangesModalOpen(true);
+                        
+                        // ВАЖНО: Автоматически помечаем изменения как просмотренные для онлайн пользователей
+                        logger.info(`[WS Sync - template_updated] Помечаем изменения как просмотренные для онлайн пользователя в чате ${selectedInventoryChatId}`);
+                        markChangesViewed(selectedInventoryChatId);
+                        
+                        // Перезагружаем данные инвентаря
+                        dispatch(fetchChatInventory(selectedInventoryChatId));
+                    }
                     
                 } catch (error) {
                     logger.error(`[WS Sync - template_updated] Ошибка автоматической синхронизации:`, error);
@@ -226,6 +362,7 @@ export const useInventoryWebSocketSync = () => {
     return {
         templateChanges,
         isChangesModalOpen,
-        closeChangesModal
+        closeChangesModal,
+        checkForUnviewedTemplateChanges // Экспортируем функцию для использования извне
     };
 }; 

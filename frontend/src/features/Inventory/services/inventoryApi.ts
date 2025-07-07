@@ -257,13 +257,38 @@ export const syncChatWithTemplate = async (chatId: string): Promise<any> => {
         const response = await axiosInstance.post<any>(url);
         return response.data;
     } catch (error: unknown) {
-        if (isAxiosError(error) && error.response?.data?.detail) {
+        if (isAxiosError(error) && error.response?.data?.detail) { 
              throw new Error(error.response.data.detail);
         }
         if (error instanceof Error) {
              throw error;
         } else {
              throw new Error('Неизвестная ошибка при синхронизации с шаблоном.');
+        }
+    }
+};
+
+/**
+ * Отметить изменения шаблона как просмотренные
+ * @param chatId 
+ * @returns {Promise<any>}
+ */
+export const markTemplateChangesViewed = async (chatId: string): Promise<any> => {
+    if (!chatId) {
+        throw new Error('chatId обязателен для отметки изменений как просмотренные.');
+    }
+    const url = `/v1/inventory/${chatId}/mark-template-changes-viewed`;
+    try {
+        const response = await axiosInstance.post<any>(url);
+        return response.data;
+    } catch (error: unknown) {
+        if (isAxiosError(error) && error.response?.data?.detail) { 
+             throw new Error(error.response.data.detail);
+        }
+        if (error instanceof Error) {
+             throw error;
+        } else {
+             throw new Error('Неизвестная ошибка при отметке изменений как просмотренные.');
         }
     }
 };

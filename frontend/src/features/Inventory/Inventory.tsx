@@ -87,7 +87,8 @@ const Inventory: React.FC = () => {
     const {
         templateChanges,
         isChangesModalOpen,
-        closeChangesModal
+        closeChangesModal,
+        checkForUnviewedTemplateChanges
     } = useInventoryWebSocketSync(); 
     
     const {
@@ -188,6 +189,15 @@ const Inventory: React.FC = () => {
         }
     }, [selectedItem, selectedCategory, selectedChat?.inventory, handleBack]); // Зависим от выбранного товара/категории и состояния инвентаря
     // --- КОНЕЦ НОВОГО useEffect ---
+
+    // --- useEffect для проверки непросмотренных изменений шаблона при загрузке ---
+    useEffect(() => {
+        if (selectedChat?.chat_id && !isInventoryLoading) {
+            console.log('[Inventory Effect] Проверяем непросмотренные изменения шаблона для чата:', selectedChat.chat_id);
+            checkForUnviewedTemplateChanges(selectedChat.chat_id);
+        }
+    }, [selectedChat?.chat_id, isInventoryLoading, checkForUnviewedTemplateChanges]);
+    // --- КОНЕЦ useEffect для проверки изменений шаблона ---
 
     // --- 6. Инициализация useCallback хуков ---
     const getHeaderTitle = useCallback(() => {

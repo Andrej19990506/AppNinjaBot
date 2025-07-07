@@ -107,13 +107,15 @@ class GroupHandler:
             current_members = await self._get_chat_members(chat, context)
             current_admins = await self._get_chat_admins(original_chat_id, context)
             
-            # --- НАЧАЛО ИЗМЕНЕНИЙ: Подготовка клавиатуры ---
+            # --- НАЧАЛО ИЗМЕНЕНИЙ: Подготовка клавиатуры (ТОЛЬКО ДЛЯ КУРЬЕРОВ) ---
             reply_markup_for_new_members = None
-            if any(not member.is_bot for member in new_members):
+            if is_courier and any(not member.is_bot for member in new_members):
                 registration_button = KeyboardButton("✅ Зарегистрироваться в боте")
                 reply_markup_for_new_members = ReplyKeyboardMarkup([[registration_button]], resize_keyboard=True, one_time_keyboard=False)
-                logger.info("Клавиатура регистрации подготовлена для новых участников.")
-            # --- КОНЕЦ ИЗМЕНЕНИЙ: Подготовка клавиатуры ---
+                logger.info("Клавиатура регистрации подготовлена для новых участников в курьерской группе.")
+            elif not is_courier and any(not member.is_bot for member in new_members):
+                logger.info("Группа НЕ курьерская - клавиатура регистрации НЕ будет отправлена.")
+            # --- КОНЕЦ ИЗМЕНЕНИЙ: Подготовка клавиатуры (ТОЛЬКО ДЛЯ КУРЬЕРОВ) ---
 
             # Обрабатываем каждого нового участника
             for new_member in new_members:

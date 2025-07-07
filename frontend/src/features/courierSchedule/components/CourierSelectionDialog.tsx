@@ -377,23 +377,18 @@ const SwipeIndicator = styled.div<{ direction: 'left' | 'right' | null }>`
 
 const DateIndicator = styled.div`
     position: absolute;
-    top: 20px;
+    top: 8px;
     left: 50%;
-    transform: translateX(-50%) translateY(-60px);
+    transform: translateX(-50%);
     background-color: var(--primary-color);
     color: white;
-    padding: 8px 16px;
-    border-radius: 20px;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-    font-size: 16px;
+    padding: 6px 14px;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
     font-weight: 500;
     z-index: 100;
-    animation: slideDown 0.4s ease-out forwards;
-    
-    @keyframes slideDown {
-        0% { transform: translateX(-50%) translateY(-60px); opacity: 0; }
-        100% { transform: translateX(-50%) translateY(0); opacity: 1; }
-    }
+    opacity: 1;
 `;
 
 interface ShiftSelectionDialogProps {
@@ -805,7 +800,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     );
                     
                     // Напрямую запрашиваем обновление смен из Redux
-                    dispatch(fetchShifts());
+                    if (chatId) {
+                        dispatch(fetchShifts({ chatId: Number(chatId) }));
+                    }
                     
                     if (showNotification) {
                         const courierName = `${draggedData.courier?.firstName || ''} ${draggedData.courier?.lastName || ''}`.trim() || 'Курьер';
@@ -1311,7 +1308,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 );
             }
             // Напрямую запрашиваем обновление смен из Redux
-            dispatch(fetchShifts());
+            if (chatId) {
+                dispatch(fetchShifts({ chatId: Number(chatId) }));
+            }
             
         } catch (error: any) {
             if (showNotification) {
@@ -1646,10 +1645,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     <SwipeIndicator direction={swipeInfo.direction} />
                 )}
                 
-                {/* Индикатор новой даты во время смены */}
-                {isChangingDate && targetDate && !showCourierProfile && (
+                {/* Постоянный индикатор дня недели */}
+                {!showCourierProfile && (
                     <DateIndicator>
-                        {format(targetDate, 'd MMMM', { locale: ru })}
+                        {format(date, 'EEEE', { locale: ru })}
                     </DateIndicator>
                 )}
                 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useRef } from 'react';
+import React, { useEffect, useState, useCallback, forwardRef, useImperativeHandle, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { AppDispatch } from '@shared/store/store';
 import { 
@@ -218,22 +218,110 @@ const OkButton = styled.button`
     }
 `;
 
-const DaySelect = styled.select`
-    padding: 8px 12px;
+// Убрали DaySelect - больше не нужен
+
+const WeekIndicatorContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0;
+    padding: 12px;
+    background-color: var(--background-secondary);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
-    background-color: var(--background-color);
-    color: var(--text-color);
-    font-size: 0.95rem;
-    cursor: pointer;
-    max-width: 180px; 
-    flex-shrink: 0;
+`;
 
-    &:focus {
-        outline: none;
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 2px var(--primary-transparent);
+const pulse = keyframes`
+    0% { 
+        opacity: 1; 
+        transform: scale(1); 
     }
+    50% { 
+        opacity: 0.5; 
+        transform: scale(1.3); 
+    }
+    100% { 
+        opacity: 1; 
+        transform: scale(1); 
+    }
+`;
+
+const AnimatedDot = styled.div`
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    background-color: #FF6B35;
+    border-radius: 50%;
+    border: 1px solid var(--card-background);
+    animation: ${pulse} 1.2s ease-in-out infinite;
+    transform-origin: center;
+    z-index: 10;
+`;
+
+const DayIndicator = styled.div<{ 
+    $isActive: boolean; 
+    $isModified: boolean; 
+    $clickable?: boolean;
+}>`
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: ${props => props.$clickable ? 'pointer' : 'default'};
+    transition: all 0.2s ease;
+    position: relative;
+    
+    ${props => {
+        if (props.$isActive && props.$isModified) {
+            return `
+                background-color: #FF6B35;
+                color: white;
+                box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.3);
+            `;
+        } else if (props.$isActive) {
+            return `
+                background-color: var(--primary-color);
+                color: white;
+                box-shadow: 0 0 0 2px var(--primary-transparent);
+            `;
+        } else if (props.$isModified) {
+            return `
+                background-color: #FF6B35;
+                color: white;
+                border: 2px solid #FF6B35;
+            `;
+        } else {
+            return `
+                background-color: var(--card-background);
+                color: var(--text-secondary);
+                border: 1px solid var(--border-color);
+            `;
+        }
+    }}
+
+    &:hover {
+        ${props => props.$clickable && `
+            transform: scale(1.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        `}
+    }
+
+
+`;
+
+const WeekIndicatorTitle = styled.div`
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: 500;
 `;
 
 const ToggleContainer = styled.div`
@@ -298,38 +386,65 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
 }, ref) => {
     const dispatch = useDispatch<AppDispatch>();
 
-    const initialDayConfig = useSelector(selectSlotConfigForDay(dayIndex));
-    
     const fullSlotConfig = useSelector(selectSlotConfig);
 
-    const [daySlots, setDaySlots] = useState<number>(
-        initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots
-    );
-    const [nightSlots, setNightSlots] = useState<number>(
-        initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots
-    );
-    
-    const [hasSeniorSlot, setHasSeniorSlot] = useState<boolean>(
-        initialDayConfig?.hasSeniorSlot ?? false
-    );
+    // Локальное состояние для всех дней недели
+    const [weekConfig, setWeekConfig] = useState<SlotConfigForDay[]>(() => {
+        const initialConfig: SlotConfigForDay[] = [];
+        for (let i = 0; i < 7; i++) {
+            const dayConfig = Array.isArray(fullSlotConfig) 
+                ? fullSlotConfig[i] 
+                : fullSlotConfig?.[i as keyof typeof fullSlotConfig];
+            initialConfig[i] = dayConfig || { ...defaultSingleDaySlotConfig };
+        }
+        return initialConfig;
+    });
+
+    // Получаем настройки для текущего выбранного дня
+    const currentDayConfig = weekConfig[dayIndex];
+    const daySlots = currentDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots;
+    const nightSlots = currentDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
+    const hasSeniorSlot = currentDayConfig?.hasSeniorSlot ?? false;
     
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
     const dayOfWeekNames = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+    const dayShortNames = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
 
-    const initialDay = initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots;
-    const initialNight = initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
-    const initialSeniorSlot = initialDayConfig?.hasSeniorSlot ?? false;
-    const calculatedIsDirty = isOpen && (
-        daySlots !== initialDay || 
-        nightSlots !== initialNight ||
-        hasSeniorSlot !== initialSeniorSlot
-    );
+    // Функция для проверки изменений конкретного дня
+    const isDayModified = useCallback((dayIndex: number): boolean => {
+        if (!weekConfig[dayIndex]) return false;
+        
+        const dayConfig = weekConfig[dayIndex];
+        const original = Array.isArray(fullSlotConfig) 
+            ? fullSlotConfig[dayIndex] 
+            : fullSlotConfig?.[dayIndex as keyof typeof fullSlotConfig];
+        const initialConfig = original || defaultSingleDaySlotConfig;
+        
+        const isModified = dayConfig.maxDaySlots !== initialConfig.maxDaySlots ||
+               dayConfig.maxNightSlots !== initialConfig.maxNightSlots ||
+               dayConfig.hasSeniorSlot !== initialConfig.hasSeniorSlot;
+        
+        console.log(`[SlotSettings] isDayModified(${dayIndex}):`, {
+            isModified,
+            dayConfig,
+            initialConfig
+        });
+        
+        return isModified;
+    }, [weekConfig, fullSlotConfig]);
+
+    // Проверяем, есть ли изменения в любом дне недели
+    const calculatedIsDirty = useMemo(() => {
+        if (!isOpen || weekConfig.length === 0) return false;
+        return weekConfig.some((_, index) => isDayModified(index));
+    }, [isOpen, weekConfig, isDayModified]);
 
     const prevCalculatedIsDirtyRef = useRef<boolean>();
     useEffect(() => {
         if (prevCalculatedIsDirtyRef.current !== calculatedIsDirty) {
+            console.log('[SlotSettings] Dirty state changed:', calculatedIsDirty);
             onDirtyChange(calculatedIsDirty);
             prevCalculatedIsDirtyRef.current = calculatedIsDirty;
         }
@@ -337,91 +452,109 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
 
     useEffect(() => {
         if (isOpen) {
-            setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
-            setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
-            setHasSeniorSlot(initialDayConfig?.hasSeniorSlot ?? false);
+            // Обновляем состояние для всех дней недели при открытии
+            const updatedConfig: SlotConfigForDay[] = [];
+            for (let i = 0; i < 7; i++) {
+                const dayConfig = Array.isArray(fullSlotConfig) 
+                    ? fullSlotConfig[i] 
+                    : fullSlotConfig?.[i as keyof typeof fullSlotConfig];
+                updatedConfig[i] = dayConfig || { ...defaultSingleDaySlotConfig };
+            }
+            setWeekConfig(updatedConfig);
             setIsLoading(false);
         }
-    }, [isOpen, dayIndex, initialDayConfig]);
+    }, [isOpen, fullSlotConfig]);
 
-    const handleDayChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        const newDayIndex = parseInt(event.target.value, 10);
-        onDayChangeRequest(newDayIndex);
+
+
+    const handleDayIndicatorClick = (newDayIndex: number) => {
+        if (newDayIndex !== dayIndex) {
+            onDayChangeRequest(newDayIndex);
+        }
     };
 
     const handleDecreaseDaySlots = () => {
-        setDaySlots((prev: number) => {
-            const nextVal = Math.max(prev - 1, 0);
-            return nextVal;
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                maxDaySlots: Math.max(newConfig[dayIndex].maxDaySlots - 1, 0)
+            };
+            return newConfig;
         });
     };
+
     const handleIncreaseDaySlots = () => {
-        setDaySlots((prev: number) => {
-            const nextVal = Math.min(prev + 1, 20); 
-            return nextVal;
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                maxDaySlots: Math.min(newConfig[dayIndex].maxDaySlots + 1, 20)
+            };
+            return newConfig;
         });
     }; 
+
     const handleDecreaseNightSlots = () => {
-        setNightSlots((prev: number) => {
-            const nextVal = Math.max(prev - 1, 0);
-            return nextVal;
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                maxNightSlots: Math.max(newConfig[dayIndex].maxNightSlots - 1, 0)
+            };
+            return newConfig;
         });
     };
+
     const handleIncreaseNightSlots = () => {
-        setNightSlots((prev: number) => {
-            const nextVal = Math.min(prev + 1, 20);
-            return nextVal;
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                maxNightSlots: Math.min(newConfig[dayIndex].maxNightSlots + 1, 20)
+            };
+            return newConfig;
         });
     };
 
     const handleToggleSeniorSlot = () => {
-        setHasSeniorSlot((prev: boolean) => {
-            const nextVal = !prev;
-            return nextVal;
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                hasSeniorSlot: !newConfig[dayIndex].hasSeniorSlot
+            };
+            return newConfig;
         });
     };
 
     const handleSave = useCallback(async (): Promise<void> => {
-        if (!calculatedIsDirty || !chatId || dayIndex === null) {
+        if (!calculatedIsDirty || !chatId) {
             return;
         }
 
         setIsLoading(true);
         setShowSuccess(false);
         
-        const configData = {
-            maxDaySlots: daySlots,
-            maxNightSlots: nightSlots,
-            hasSeniorSlot: hasSeniorSlot
-        };
-        
-        
-        const currentFullConfig = Array.isArray(fullSlotConfig)
-            ? [...(fullSlotConfig || [])]
-            : Object.values(fullSlotConfig || {}) as SlotConfigForDay[];
-        // Заполняем пропущенные дни недели дефолтным конфигом
-        for (let i = 0; i < 7; i++) {
-            if (!currentFullConfig[i]) {
-                currentFullConfig[i] = defaultSingleDaySlotConfig;
-            }
-        }
-        currentFullConfig[dayIndex] = configData;
-        
         const apiPayload: SlotConfigUpdatePayload = {
             config: Object.fromEntries(
-                currentFullConfig.map((item, idx) => [String(idx), item as SlotConfigForDay])
+                weekConfig.map((dayConfig, idx) => [String(idx), dayConfig])
             )
         };
 
         try {
             await updateSlotConfig(chatId, apiPayload); 
             
-            dispatch(updateSlotConfigLocal({
-                 dayIndex, 
-                 maxDaySlots: configData.maxDaySlots, 
-                 maxNightSlots: configData.maxNightSlots,
-                 hasSeniorSlot: configData.hasSeniorSlot
-            }));
+            // Обновляем Redux состояние для всех измененных дней недели
+            weekConfig.forEach((dayConfig, dayIndex) => {
+                dispatch(updateSlotConfigLocal({
+                    dayIndex, 
+                    maxDaySlots: dayConfig.maxDaySlots, 
+                    maxNightSlots: dayConfig.maxNightSlots,
+                    hasSeniorSlot: dayConfig.hasSeniorSlot
+                }));
+            });
+            
             setShowSuccess(true);
             setIsLoading(false); 
             
@@ -433,15 +566,21 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
             }));
             setIsLoading(false);
         }
-    }, [calculatedIsDirty, chatId, dayIndex, daySlots, nightSlots, hasSeniorSlot, fullSlotConfig, dispatch]);
+    }, [calculatedIsDirty, chatId, weekConfig, dispatch]);
     
     const handleReset = useCallback(() => {
-        setDaySlots(initialDayConfig?.maxDaySlots ?? defaultSingleDaySlotConfig.maxDaySlots);
-        setNightSlots(initialDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots);
-        setHasSeniorSlot(initialDayConfig?.hasSeniorSlot ?? false);
+        // Сбрасываем к исходным значениям для всех дней недели
+        const resetConfig: SlotConfigForDay[] = [];
+        for (let i = 0; i < 7; i++) {
+            const dayConfig = Array.isArray(fullSlotConfig) 
+                ? fullSlotConfig[i] 
+                : fullSlotConfig?.[i as keyof typeof fullSlotConfig];
+            resetConfig[i] = dayConfig || { ...defaultSingleDaySlotConfig };
+        }
+        setWeekConfig(resetConfig);
         setIsLoading(false);
         setShowSuccess(false);
-    }, [initialDayConfig]);
+    }, [fullSlotConfig]);
 
 
     useImperativeHandle(ref, () => ({
@@ -481,14 +620,31 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                 <SlotSettingsTitle>
                     Настройки слотов на {dayOfWeekNames[dayIndex]}
                 </SlotSettingsTitle>
-                <DaySelect value={dayIndex} onChange={handleDayChange}>
-                    {dayOfWeekNames.map((name, index) => (
-                        <option key={index} value={index}>{name}</option>
-                    ))}
-                </DaySelect>
             </SlotSettingsHeader>
 
             <SlotSettingsContent>
+                {/* Индикаторы дней недели */}
+                <div>
+                    <WeekIndicatorTitle>
+                        Дни недели {calculatedIsDirty && '(есть несохраненные изменения)'}
+                    </WeekIndicatorTitle>
+                    <WeekIndicatorContainer>
+                        {dayShortNames.map((shortName, index) => (
+                            <DayIndicator
+                                key={index}
+                                $isActive={index === dayIndex}
+                                $isModified={isDayModified(index)}
+                                $clickable={!isLoading}
+                                onClick={() => !isLoading && handleDayIndicatorClick(index)}
+                                title={`${dayOfWeekNames[index]}${isDayModified(index) ? ' (изменен)' : ''}`}
+                            >
+                                {shortName}
+                                {isDayModified(index) && <AnimatedDot />}
+                            </DayIndicator>
+                        ))}
+                    </WeekIndicatorContainer>
+                </div>
+
                 {( 
                     <SettingsSection>
                         <SlotConfigRow>

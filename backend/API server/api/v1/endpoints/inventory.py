@@ -7,10 +7,13 @@ from sqlalchemy.orm.attributes import flag_modified # <--- ДОБАВЛЕН ИМ
 from typing import List, Optional, Dict, Any, Tuple
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import tempfile
 import uuid
+import asyncio
+import subprocess
+from urllib.parse import unquote
 
 # Используем абсолютные импорты от корня /app
 from db.session import get_db_session, async_engine
@@ -291,7 +294,7 @@ async def read_inventory_for_chat(
             .join(GroupMember, GroupMember.member_id == Member.id)
             .where(
                 GroupMember.group_id == group.id,
-                GroupMember.role.in_(['admin', 'creator'])
+                GroupMember.role.in_(['administrator', 'creator'])
             )
         )
         admins_result = await db.execute(admins_query)
@@ -310,13 +313,17 @@ async def read_inventory_for_chat(
             admins_list_of_dicts.append(admin_data)
 
         # Формируем ответ, используя final_inventory_data и пересчитанный progress
+        # Важно: сохраняем ВСЕ поля из метаданных, включая lastTemplateUpdate
+        full_metadata = group.json_metadata or {}
+        full_metadata.update({
+            "lastUpdated": last_updated, # Обновляем время последнего обновления
+            "progress": progress, # Обновляем пересчитанный прогресс
+            "chat_id": chat_id # Убеждаемся, что chat_id присутствует
+        })
+        
         response_dict = {
             "inventory": final_inventory_data,
-            "metadata": {
-                "lastUpdated": last_updated, # Время последнего обновления не меняем здесь
-                "progress": progress, # Используем пересчитанный прогресс
-                "chat_id": chat_id
-            },
+            "metadata": full_metadata, # Используем ПОЛНЫЕ метаданные
             "chat_title": group.title,
             "admins": admins_list_of_dicts
         }
@@ -566,7 +573,7 @@ async def update_inventory_for_chat(
                      .join(GroupMember, GroupMember.member_id == Member.id)
                      .where(
                          GroupMember.group_id == group_id_for_response,
-                         GroupMember.role.in_(['admin', 'creator'])
+                         GroupMember.role.in_(['administrator', 'creator'])
                      )
                  )
                  admins_result = await response_db.execute(admins_query)
@@ -601,7 +608,17 @@ async def get_item_history(
     item_name: str = Path(..., description="Item name"),
     db: AsyncSession = Depends(get_db_session)
 ):
-    logger.info(f"[get_item_history] Request for history: chat={chat_id}, category={category}, item={item_name}")
+    # Декодируем URL-encoded параметры для правильной обработки кириллических символов
+    try:
+        category_decoded = unquote(category)
+        item_name_decoded = unquote(item_name)
+        logger.info(f"[get_item_history] URL decoded: category='{category}' -> '{category_decoded}', item='{item_name}' -> '{item_name_decoded}'")
+    except Exception as decode_error:
+        logger.warning(f"[get_item_history] URL decoding failed: {decode_error}. Using original values.")
+        category_decoded = category
+        item_name_decoded = item_name
+    
+    logger.info(f"[get_item_history] Request for history: chat={chat_id}, category={category_decoded}, item={item_name_decoded}")
     try:
         # --- Проверка chat_id и поиск группы ---
         try:
@@ -627,13 +644,13 @@ async def get_item_history(
             .options(selectinload(InventoryHistory.author_member))
             .where(
                 InventoryHistory.group_id == group.id,
-                InventoryHistory.category == category,
-                InventoryHistory.item_name == item_name
+                InventoryHistory.category == category_decoded,
+                InventoryHistory.item_name == item_name_decoded
             )
             .order_by(desc(InventoryHistory.timestamp))
         )
         # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ ПЕРЕД ВЫПОЛНЕНИЕМ ЗАПРОСА <--- 
-        logger.info(f"[get_item_history] Executing history query for group.id={group.id}, category='{category}', item_name='{item_name}'")
+        logger.info(f"[get_item_history] Executing history query for group.id={group.id}, category='{category_decoded}', item_name='{item_name_decoded}'")
         result = await db.execute(history_query)
         history_records = result.scalars().all()
         # ---> ДОБАВЛЕНО ЛОГИРОВАНИЕ КОЛИЧЕСТВА НАЙДЕННЫХ ЗАПИСЕЙ <--- 
@@ -669,7 +686,7 @@ async def get_item_history(
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        logger.exception(f"[get_item_history] Error fetching history for chat={chat_id}, item={item_name}: {e}")
+        logger.exception(f"[get_item_history] Error fetching history for chat={chat_id}, item={item_name_decoded}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not fetch item history")
 
 # ---> ДОБАВЛЕНИЕ: Pydantic модель для добавления товара <---
@@ -958,7 +975,17 @@ async def delete_inventory_item(
     """
     Deletes an item definition and its data from the group's inventory and additions.
     """
-    logger.info(f"[delete_inventory_item] DELETE /inventory/{chat_id}/items/{category}/{item_name}")
+    # Декодируем URL-encoded параметры для правильной обработки кириллических символов
+    try:
+        category_decoded = unquote(category)
+        item_name_decoded = unquote(item_name)
+        logger.info(f"[delete_inventory_item] URL decoded: category='{category}' -> '{category_decoded}', item='{item_name}' -> '{item_name_decoded}'")
+    except Exception as decode_error:
+        logger.warning(f"[delete_inventory_item] URL decoding failed: {decode_error}. Using original values.")
+        category_decoded = category
+        item_name_decoded = item_name
+    
+    logger.info(f"[delete_inventory_item] DELETE /inventory/{chat_id}/items/{category_decoded}/{item_name_decoded}")
 
     try:
         group_telegram_id = int(chat_id)
@@ -990,47 +1017,47 @@ async def delete_inventory_item(
             # 1. Попытка удаления из основного инвентаря (json_inventory)
             inventory = group.json_inventory
             if inventory and isinstance(inventory, dict) and \
-               category in inventory and isinstance(inventory[category], dict) and \
-               item_name in inventory[category]:
+               category_decoded in inventory and isinstance(inventory[category_decoded], dict) and \
+               item_name_decoded in inventory[category_decoded]:
                 
-                logger.info(f"[delete_inventory_item] Deleting '{item_name}' from category '{category}' in main inventory for chat {chat_id}.")
-                del inventory[category][item_name]
+                logger.info(f"[delete_inventory_item] Deleting '{item_name_decoded}' from category '{category_decoded}' in main inventory for chat {chat_id}.")
+                del inventory[category_decoded][item_name_decoded]
                 # Опционально: удалить пустую категорию
-                if not inventory[category]:
-                    logger.info(f"[delete_inventory_item] Category '{category}' became empty in main inventory, removing it.")
-                    del inventory[category]
+                if not inventory[category_decoded]:
+                    logger.info(f"[delete_inventory_item] Category '{category_decoded}' became empty in main inventory, removing it.")
+                    del inventory[category_decoded]
                 
                 group.json_inventory = inventory
                 flag_modified(group, "json_inventory")
                 deleted_from_inventory = True
             else:
-                logger.info(f"[delete_inventory_item] Item '{item_name}' in category '{category}' not found in main inventory for chat {chat_id}.")
+                logger.info(f"[delete_inventory_item] Item '{item_name_decoded}' in category '{category_decoded}' not found in main inventory for chat {chat_id}.")
 
             # 2. Попытка удаления из добавлений (json_inventory_additions)
             additions = group.json_inventory_additions
             if additions and isinstance(additions, dict) and \
-               category in additions and isinstance(additions[category], dict) and \
-               item_name in additions[category]:
+               category_decoded in additions and isinstance(additions[category_decoded], dict) and \
+               item_name_decoded in additions[category_decoded]:
                
-                logger.info(f"[delete_inventory_item] Deleting definition '{item_name}' from category '{category}' in additions for chat {chat_id}.")
-                del additions[category][item_name]
+                logger.info(f"[delete_inventory_item] Deleting definition '{item_name_decoded}' from category '{category_decoded}' in additions for chat {chat_id}.")
+                del additions[category_decoded][item_name_decoded]
                 # Опционально: удалить пустую категорию
-                if not additions[category]:
-                    logger.info(f"[delete_inventory_item] Category '{category}' became empty in additions, removing it.")
-                    del additions[category]
+                if not additions[category_decoded]:
+                    logger.info(f"[delete_inventory_item] Category '{category_decoded}' became empty in additions, removing it.")
+                    del additions[category_decoded]
 
                 group.json_inventory_additions = additions
                 flag_modified(group, "json_inventory_additions")
                 deleted_from_additions = True
             else:
-                 logger.info(f"[delete_inventory_item] Item definition '{item_name}' in category '{category}' not found in additions for chat {chat_id}.")
+                 logger.info(f"[delete_inventory_item] Item definition '{item_name_decoded}' in category '{category_decoded}' not found in additions for chat {chat_id}.")
 
             # 3. Проверка, было ли что-то удалено
             if not deleted_from_inventory and not deleted_from_additions:
-                logger.warning(f"[delete_inventory_item] Item '{item_name}' in category '{category}' not found anywhere for chat {chat_id}. Raising 404.")
+                logger.warning(f"[delete_inventory_item] Item '{item_name_decoded}' in category '{category_decoded}' not found anywhere for chat {chat_id}. Raising 404.")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, 
-                    detail=f"Item '{item_name}' not found in category '{category}' for this group."
+                    detail=f"Item '{item_name_decoded}' not found in category '{category_decoded}' for this group."
                 )
 
             # 4. Обновление метаданных, если удалено из основного инвентаря
@@ -1046,7 +1073,7 @@ async def delete_inventory_item(
             updated_metadata_for_notify = metadata # Сохраняем метаданные для отправки в NOTIFY
 
         # Транзакция успешно завершена (commit)
-        logger.info(f"[delete_inventory_item] DB transaction committed for chat_id: {chat_id} after deleting '{item_name}'.")
+        logger.info(f"[delete_inventory_item] DB transaction committed for chat_id: {chat_id} after deleting '{item_name_decoded}'.")
 
     except HTTPException as http_exc:
         # Откат транзакции произойдет
@@ -1085,7 +1112,7 @@ async def delete_inventory_item(
         logger.error(f"Failed to send PostgreSQL NOTIFY after item deletion for chat_id {chat_id}: {notify_error}", exc_info=True)
 
     # 6. Возвращаем ответ
-    return {"message": f"Item '{item_name}' in category '{category}' deleted successfully."}
+    return {"message": f"Item '{item_name_decoded}' in category '{category_decoded}' deleted successfully."}
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
 # --- ЭНДПОИНТ ИСТОРИИ ---
@@ -1431,6 +1458,7 @@ async def reset_inventory_for_chat(
 )
 async def adapt_accounting_excel(
     excel_file: UploadFile = File(..., description="Excel file from accounting department"),
+    db: AsyncSession = Depends(get_db_session),
     # TODO: Добавить зависимость для проверки прав администратора
 ):
     """
@@ -1541,8 +1569,29 @@ async def adapt_accounting_excel(
         else:
             logger.info("✅ Шаблоны синхронизированы")
         
-        # Отправляем WebSocket уведомление если шаблон был обновлен
+        # Отправляем WebSocket уведомление и автоматически синхронизируем все группы
         if result['templates_updated']['inventory_template']:
+            # Автоматически синхронизируем все группы с новым шаблоном
+            logger.info("🔄 Начинаем автоматическую синхронизацию всех групп с новым шаблоном...")
+            sync_result = await sync_all_groups_with_template(db)
+            
+            if sync_result.get("success"):
+                logger.info(f"✅ Автоматическая синхронизация завершена: {sync_result.get('groups_updated', 0)} групп обновлено, {sync_result.get('total_changes', 0)} изменений")
+                # Добавляем информацию о синхронизации в response
+                response["auto_sync"] = {
+                    "performed": True,
+                    "groups_processed": sync_result.get("groups_processed", 0),
+                    "groups_updated": sync_result.get("groups_updated", 0),
+                    "total_changes": sync_result.get("total_changes", 0)
+                }
+            else:
+                logger.error(f"❌ Ошибка автоматической синхронизации: {sync_result.get('error', 'Unknown error')}")
+                response["auto_sync"] = {
+                    "performed": False,
+                    "error": sync_result.get("error", "Unknown error")
+                }
+            
+            # Отправляем WebSocket уведомление
             await send_template_updated_notification(db, result)
             logger.info("📡 WebSocket уведомление о обновлении шаблона отправлено")
         
@@ -1701,6 +1750,73 @@ async def synchronize_templates():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error synchronizing templates: {str(e)}"
         )
+
+# ---> НОВЫЙ ЭНДПОИНТ ДЛЯ ОТМЕТКИ ИЗМЕНЕНИЙ КАК ПРОСМОТРЕННЫЕ <---
+
+@router.post(
+    "/{chat_id}/mark-template-changes-viewed",
+    status_code=status.HTTP_200_OK,
+    summary="Mark Template Changes as Viewed",
+    description="Marks the latest template changes as viewed by the user for this chat.",
+    tags=["Inventory", "Templates"]
+)
+async def mark_template_changes_viewed(
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    db: AsyncSession = Depends(get_db_session),
+    # TODO: Добавить зависимость для проверки авторизации пользователя
+):
+    """
+    Отмечает последние изменения шаблона как просмотренные пользователем
+    """
+    logger.info(f"[mark_template_changes_viewed] POST /inventory/{chat_id}/mark-template-changes-viewed")
+    
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        logger.error(f"[mark_template_changes_viewed] Invalid chat_id format: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    try:
+        # Получаем группу
+        group = await get_group_by_telegram_id(db, group_telegram_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+        
+        if group.group_type != 'chef':
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Template changes are only available for chef groups")
+        
+        # Проверяем, есть ли информация о последних изменениях
+        if not group.json_metadata:
+            group.json_metadata = {}
+        
+        if "lastTemplateUpdate" in group.json_metadata:
+            # Отмечаем изменения как просмотренные
+            group.json_metadata["lastTemplateUpdate"]["viewed"] = True
+            group.json_metadata["lastTemplateUpdate"]["viewedAt"] = datetime.now().isoformat()
+            flag_modified(group, "json_metadata")
+            
+            await db.commit()
+            
+            logger.info(f"[mark_template_changes_viewed] Template changes marked as viewed for chat {chat_id}")
+            return {
+                "status": "success",
+                "message": "Template changes marked as viewed",
+                "chat_id": chat_id,
+                "viewed_at": group.json_metadata["lastTemplateUpdate"]["viewedAt"]
+            }
+        else:
+            logger.info(f"[mark_template_changes_viewed] No template changes to mark as viewed for chat {chat_id}")
+            return {
+                "status": "success",
+                "message": "No template changes to mark as viewed",
+                "chat_id": chat_id
+            }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[mark_template_changes_viewed] Error marking template changes as viewed for chat {chat_id}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error marking template changes as viewed")
 
 # ---> КОНЕЦ НОВЫХ ЭНДПОИНТОВ <---
 
@@ -1886,6 +2002,133 @@ def is_item_empty(item_data: Dict[str, Any]) -> bool:
     
     return True
 
+
+async def sync_all_groups_with_template(db: AsyncSession) -> Dict[str, Any]:
+    """
+    Синхронизирует все группы типа 'chef' с актуальным шаблоном
+    
+    Args:
+        db: Сессия базы данных
+        
+    Returns:
+        Dict с результатами синхронизации
+    """
+    try:
+        from sqlalchemy import select
+        from models.group import Group
+        
+        # Получаем все группы типа 'chef'
+        result = await db.execute(select(Group).where(Group.group_type == 'chef'))
+        chef_groups = result.scalars().all()
+        
+        if not chef_groups:
+            logger.info("[sync_all_groups_with_template] Нет групп типа 'chef' для синхронизации")
+            return {
+                "success": True,
+                "message": "Нет групп для синхронизации",
+                "groups_processed": 0,
+                "groups_updated": 0,
+                "total_changes": 0
+            }
+        
+        # Загружаем шаблон
+        template_path = "/app/data/templates/inventory_template.json"
+        if not os.path.exists(template_path):
+            logger.error("[sync_all_groups_with_template] Файл шаблона не найден")
+            return {
+                "success": False,
+                "error": "Template file not found"
+            }
+        
+        with open(template_path, 'r', encoding='utf-8') as f:
+            template_data = json.load(f)
+        
+        sync_summary = {
+            "success": True,
+            "groups_processed": 0,
+            "groups_updated": 0,
+            "total_changes": 0,
+            "groups_details": []
+        }
+        
+        # Синхронизируем каждую группу
+        for group in chef_groups:
+            try:
+                logger.info(f"[sync_all_groups_with_template] Синхронизация группы {group.group_id}")
+                
+                # Получаем текущий инвентарь
+                current_inventory = group.json_inventory or {}
+                
+                # Выполняем умный мерж
+                sync_report = perform_smart_merge(current_inventory, template_data)
+                updated_inventory = sync_report["merged_inventory"]
+                
+                # Проверяем, есть ли изменения
+                changes_count = len(sync_report["changes"]["added"]) + len(sync_report["changes"]["removed"])
+                
+                if changes_count > 0:
+                    # Сохраняем обновленный инвентарь
+                    group.json_inventory = updated_inventory
+                    flag_modified(group, "json_inventory")
+                    
+                    # Обновляем метаданные
+                    now = datetime.now().isoformat()
+                    if not group.json_metadata:
+                        group.json_metadata = {}
+                    group.json_metadata["lastUpdated"] = now
+                    group.json_metadata["lastSynced"] = now
+                    group.json_metadata["progress"] = calculate_inventory_progress_py(updated_inventory)
+                    
+                    # 🆕 ДОБАВЛЯЕМ ИНФОРМАЦИЮ О ПОСЛЕДНИХ ИЗМЕНЕНИЯХ ДЛЯ УВЕДОМЛЕНИЙ
+                    group.json_metadata["lastTemplateUpdate"] = {
+                        "timestamp": now,
+                        "changes": {
+                            "added": sync_report["changes"]["added"],
+                            "removed": sync_report["changes"]["removed"],
+                            "added_count": len(sync_report["changes"]["added"]),
+                            "removed_count": len(sync_report["changes"]["removed"])
+                        },
+                        "viewed": False  # Флаг, что изменения не просмотрены
+                    }
+                    
+                    flag_modified(group, "json_metadata")
+                    
+                    sync_summary["groups_updated"] += 1
+                    sync_summary["total_changes"] += changes_count
+                    
+                    logger.info(f"[sync_all_groups_with_template] Группа {group.group_id}: {changes_count} изменений")
+                else:
+                    logger.info(f"[sync_all_groups_with_template] Группа {group.group_id}: без изменений")
+                
+                sync_summary["groups_processed"] += 1
+                sync_summary["groups_details"].append({
+                    "group_id": group.group_id,
+                    "changes_count": changes_count,
+                    "added": len(sync_report["changes"]["added"]),
+                    "removed": len(sync_report["changes"]["removed"]),
+                    "preserved": len(sync_report["changes"]["preserved"])
+                })
+                
+            except Exception as e:
+                logger.error(f"[sync_all_groups_with_template] Ошибка синхронизации группы {group.group_id}: {e}")
+                sync_summary["groups_details"].append({
+                    "group_id": group.group_id,
+                    "error": str(e)
+                })
+        
+        # Сохраняем изменения в БД
+        await db.commit()
+        
+        logger.info(f"[sync_all_groups_with_template] Синхронизация завершена: {sync_summary['groups_processed']} групп обработано, {sync_summary['groups_updated']} обновлено, {sync_summary['total_changes']} изменений")
+        
+        return sync_summary
+        
+    except Exception as e:
+        logger.error(f"[sync_all_groups_with_template] Ошибка автоматической синхронизации: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 async def send_template_updated_notification(db: AsyncSession, adaptation_result: Dict[str, Any]):
     """

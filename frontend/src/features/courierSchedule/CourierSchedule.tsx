@@ -200,7 +200,8 @@ const CourierSchedule: React.FC = () => {
         console.log(`[CourierSchedule] Request to change slot settings day to: ${newDayIndex}`);
         if (selectedDayIndexForSlots !== newDayIndex) {
             setSelectedDayIndexForSlots(newDayIndex);
-            setIsSlotSettingsDirty(false);
+            // НЕ СБРАСЫВАЕМ isSlotSettingsDirty при смене дня, так как изменения могут быть в других днях
+            // setIsSlotSettingsDirty(false);
         }
     }, [selectedDayIndexForSlots]);
 
@@ -269,6 +270,7 @@ const CourierSchedule: React.FC = () => {
             return !isLast || !dirty;
         } else if (activeModalType === 'slotSettings') {
             dirty = isSlotSettingsDirty;
+            console.log('[CourierSchedule] getIsModalSaveDisabled - slotSettings:', { dirty, isSlotSettingsDirty });
             return !dirty;
         }
         return true;
@@ -284,6 +286,7 @@ const CourierSchedule: React.FC = () => {
         closeSettingsPanel();
         if (showShiftAccessSettings) handleCloseShiftAccessSettings();
         setSelectedDayIndexForSlots(defaultDayIndex);
+        // Сбрасываем только при первом открытии, но не при переключении дней
         setIsSlotSettingsDirty(false);
         setShowSlotSettings(true);
     }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);

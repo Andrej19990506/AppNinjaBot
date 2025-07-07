@@ -175,7 +175,12 @@ async def lifespan(app: FastAPI):
                         allowed_updates=Update.ALL_TYPES,
                         secret_token=secret_token
                     )
-                    logger.info(f"✅ Вебхук успешно установлен: {webhook_url}")
+                    logger.info(f"✅ Вебхук успешно установлен: {webhook_url}")                    
+                    # КРИТИЧЕСКИ ВАЖНО: Запускаем обработчик очереди для webhook режима
+                    logger.info("🔄 Запуск обработчика очереди обновлений для webhook режима...")
+                    asyncio.create_task(bot_app.updater.start_processing_updates())
+                    logger.info("✅ Обработчик очереди обновлений запущен для webhook режима")
+                    
                 except Exception as e:
                     logger.error(f"❌ Ошибка при установке вебхука: {e}. Приложение продолжит работу, но вебхук может быть неактивен.")
 

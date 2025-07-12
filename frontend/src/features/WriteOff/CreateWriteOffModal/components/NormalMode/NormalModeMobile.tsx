@@ -191,8 +191,8 @@ export const NormalModeMobile: React.FC<NormalModeMobileProps> = ({
         <PhotoUpload
           selectedPhotos={selectedPhotos}
           onPhotosChange={onPhotosChange}
-          isRequired={true}
-          label="Фото списания"
+          isRequired={false}
+          label="Фото списания (опционально)"
         />
         
         {/* Секция количества */}

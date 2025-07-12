@@ -246,8 +246,8 @@ export const NormalModeDesktop: React.FC<NormalModeDesktopProps> = ({
             <PhotoUpload
               selectedPhotos={selectedPhotos}
               onPhotosChange={onPhotosChange}
-              isRequired={true}
-              label="Фото списания"
+              isRequired={false}
+              label="Фото списания (опционально)"
             />
           </motion.div>
 

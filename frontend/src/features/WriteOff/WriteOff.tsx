@@ -432,10 +432,9 @@ const WriteOff: React.FC = () => {
             return;
         }
         
+        // Фото теперь опционально
         if (selectedPhotos.length === 0) {
-            console.log('❌ [handleCreateWriteOffSubmit] Отмена - фото обязательно для списания');
-            alert('Пожалуйста, добавьте фото списания');
-            return;
+            console.log('ℹ️ [handleCreateWriteOffSubmit] Создание списания без фото');
         }
         
         console.log('⭐ [handleCreateWriteOffSubmit] Начало создания/обновления списания');

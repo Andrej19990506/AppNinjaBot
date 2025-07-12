@@ -119,22 +119,71 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
 
   // Открытие камеры
   const handleCameraCapture = () => {
+    console.log('📷 [PhotoUpload] Открытие камеры');
     if (cameraInputRef.current) {
-      cameraInputRef.current.click();
+      const input = cameraInputRef.current;
+      
+      // Определяем устройство
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      
+      // Устанавливаем правильные атрибуты в зависимости от устройства
+      if (isMobile) {
+        if (isIOS) {
+          // Для iOS используем environment (задняя камера)
+          input.setAttribute('capture', 'environment');
+        } else {
+          // Для Android используем environment
+          input.setAttribute('capture', 'environment');
+        }
+      } else {
+        // Для десктопа используем user (фронтальная камера)
+        input.setAttribute('capture', 'user');
+      }
+      
+      input.setAttribute('accept', 'image/*');
+      
+      // Логируем для отладки
+      console.log('📷 [PhotoUpload] Настройки камеры:', {
+        isMobile,
+        isIOS,
+        capture: input.getAttribute('capture'),
+        accept: input.getAttribute('accept'),
+        userAgent: navigator.userAgent.substring(0, 100)
+      });
+      
+      input.click();
     }
   };
 
   // Открытие галереи
   const handleGallerySelect = () => {
+    console.log('🖼️ [PhotoUpload] Открытие галереи');
     if (galleryInputRef.current) {
+      // Убираем атрибут capture для галереи
+      galleryInputRef.current.removeAttribute('capture');
       galleryInputRef.current.click();
     }
   };
 
-  // Обработка изменения файла в инпуте
-  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Обработка изменения файла в инпуте камеры
+  const handleCameraInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📷 [PhotoUpload] Обработка фото с камеры');
     const files = event.target.files;
     if (files && files.length > 0) {
+      console.log('📷 [PhotoUpload] Получено фото с камеры:', files[0].name);
+      handleAddPhotos(files);
+    }
+    // Очищаем input для возможности повторного выбора
+    event.target.value = '';
+  };
+
+  // Обработка изменения файла в инпуте галереи
+  const handleGalleryInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('🖼️ [PhotoUpload] Обработка фото из галереи');
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      console.log('🖼️ [PhotoUpload] Получено фото из галереи:', Array.from(files).map(f => f.name));
       handleAddPhotos(files);
     }
     // Очищаем input для возможности повторного выбора
@@ -294,9 +343,9 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
         type="file"
         accept="image/*"
         capture="environment"
-        multiple={false}
         style={{ display: 'none' }}
-        onChange={handleInputChange}
+        onChange={handleCameraInputChange}
+        title="Сделать фото с камеры"
       />
       
       <input
@@ -305,7 +354,8 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
         accept="image/*"
         multiple
         style={{ display: 'none' }}
-        onChange={handleInputChange}
+        onChange={handleGalleryInputChange}
+        title="Выбрать из галереи"
       />
 
       {/* Полноэкранная галерея */}

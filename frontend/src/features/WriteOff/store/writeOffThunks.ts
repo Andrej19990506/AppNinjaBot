@@ -53,14 +53,16 @@ export const fetchWriteOffChats = createAsyncThunk(
 // Загрузка списаний для конкретного чата
 export const fetchWriteOffs = createAsyncThunk(
     'writeOff/fetchWriteOffs',
-    async (chatId: string, { rejectWithValue }) => {
+    async ({ chatId, date }: { chatId: string; date?: string }, { rejectWithValue }) => {
         try {
             console.log('=== 🔄 Загрузка списаний для чата ===');
             console.log('🏠 Чат:', chatId);
-            const response = await WriteOffApi.getWriteOffs(chatId);
+            console.log('📅 Дата:', date || 'все даты');
+            const response = await WriteOffApi.getWriteOffs(chatId, date);
             console.log('✅ Получены списания:', response.data);
             return {
                 chatId,
+                date,
                 writeOffs: response.data
             };
         } catch (error: any) {
@@ -73,11 +75,25 @@ export const fetchWriteOffs = createAsyncThunk(
 // Выбор чата для списания
 export const selectWriteOffChat = createAsyncThunk(
     'writeOff/selectChat',
-    async (chatId: string, { getState, dispatch }) => {
+    async ({ chatId, date }: { chatId: string; date?: string }, { getState, dispatch }) => {
         const state = getState() as RootState;
         const chat = state.writeOff.chats.find((c: any) => c.chat_id === chatId);
-        if (!chat || !state.user.user?.id) {
-            console.log('❌ Чат не найден или ID пользователя отсутствует');
+        const userId = state.user.user?.id;
+        
+        console.log('🔍 Debug selectWriteOffChat:', {
+            chatId,
+            chat: !!chat,
+            userId,
+            userState: state.user.user,
+            allChats: state.writeOff.chats.map(c => c.chat_id)
+        });
+        
+        if (!chat || !userId) {
+            console.log('❌ Чат не найден или ID пользователя отсутствует', {
+                chatFound: !!chat,
+                userId,
+                userObject: state.user.user
+            });
             throw new Error('Чат не найден или нет доступа');
         }
         try {
@@ -86,12 +102,12 @@ export const selectWriteOffChat = createAsyncThunk(
                 first_name: admin.first_name || ''
             }));
             await dispatch(checkAdminRights({
-                userId: state.user.user.id,
+                userId: userId,
                 chatId,
                 admins: formattedAdmins,
                 context: 'writeoff'
             })).unwrap();
-            const writeOffsResult = await dispatch(fetchWriteOffs(chatId)).unwrap();
+            const writeOffsResult = await dispatch(fetchWriteOffs({ chatId, date })).unwrap();
             const writeOffs = Array.isArray(writeOffsResult)
                 ? writeOffsResult
                 : writeOffsResult.writeOffs ?? [];
@@ -108,14 +124,16 @@ export const selectWriteOffChat = createAsyncThunk(
 export const createWriteOffItem = createAsyncThunk(
     'writeOff/createWriteOffItem',
     async (
-        { chatId, name, reason, quantity, description = '', unitType = 'шт', user_id }: {
+        { chatId, name, reason, quantity, description = '', unitType = 'шт', user_id, date, photos = [] }: {
             chatId: string,
             name: string,
             reason: string | WriteOffReason,
             quantity: number,
             description?: string,
             unitType?: 'шт' | 'гр',
-            user_id: string | number
+            user_id: string | number,
+            date?: string,  // Дата списания в формате YYYY-MM-DD
+            photos?: File[]  // Фото списания
         },
         { getState, rejectWithValue }
     ) => {
@@ -128,7 +146,8 @@ export const createWriteOffItem = createAsyncThunk(
                 quantity,
                 description,
                 unitType,
-                user_id
+                user_id,
+                photosCount: photos.length
             });
             const response = await WriteOffApi.createWriteOff(chatId, {
                 name,
@@ -136,7 +155,9 @@ export const createWriteOffItem = createAsyncThunk(
                 quantity,
                 description,
                 unitType,
-                user_id
+                user_id,
+                date,  // Передаем дату для списания
+                photos  // Передаем фото
             });
             console.log('✅ Списание успешно создано:', response);
             return response;
@@ -184,14 +205,16 @@ export const deleteWriteOffItem = createAsyncThunk(
 export const updateWriteOffItem = createAsyncThunk(
     'writeOff/updateWriteOffItem',
     async (
-        { chatId, itemId, name, reason, quantity, description = '', unitType = 'шт' }: {
+        { chatId, itemId, name, reason, quantity, description = '', unitType = 'шт', date, photos = [] }: {
             chatId: string,
             itemId: string,
             name: string,
             reason: WriteOffReason,
             quantity: number,
             description?: string,
-            unitType?: 'шт' | 'гр'
+            unitType?: 'шт' | 'гр',
+            date?: string,  // Дата списания в формате YYYY-MM-DD
+            photos?: File[]  // Фото списания
         },
         { getState, rejectWithValue }
     ) => {
@@ -204,14 +227,17 @@ export const updateWriteOffItem = createAsyncThunk(
                 reason,
                 quantity,
                 description,
-                unitType
+                unitType,
+                photosCount: photos.length
             });
             const response = await WriteOffApi.updateWriteOff(chatId, itemId, {
                 name,
                 reason,
                 quantity,
                 description,
-                unitType
+                unitType,
+                date,  // Передаем дату для обновления
+                photos  // Передаем фото
             });
             console.log('✅ Списание успешно обновлено:', response);
             return response;

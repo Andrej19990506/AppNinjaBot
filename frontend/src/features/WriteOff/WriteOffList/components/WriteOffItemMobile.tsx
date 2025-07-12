@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { memo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import IconButton from '@mui/material/IconButton';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DescriptionIcon from '@mui/icons-material/Description';
+import PhotoIcon from '@mui/icons-material/Photo';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { WriteOffItem } from '@/types/writeOff';
 import styles from '@/features/WriteOff/WriteOffList/WriteOffList.module.css';
 import { formatDate } from '@/features/WriteOff/WriteOffList/utils/dateUtils';
+import PhotoThumbnail from '@shared/components/PhotoGallery/PhotoThumbnail';
+import PhotoGallery from '@shared/components/PhotoGallery/PhotoGallery';
 
 interface WriteOffItemMobileProps {
   item: WriteOffItem;
@@ -24,6 +28,30 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
   isRemoving, 
   onMenuOpen 
 }) => {
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  
+  // Логирование данных элемента
+  console.log('📋 [WriteOffItemMobile] Данные элемента:', {
+    id: item.id,
+    name: item.name,
+    photoPath: item.photoPath,
+    hasPhotoPath: !!item.photoPath,
+    photoUrl: item.photoPath ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000'}/api/v1/write-offs/photos/${item.photoPath}` : null,
+    item: item
+  });
+  
+  // URL фото для галереи
+  const photoUrl = item.photoPath 
+    ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000'}/v1/write-offs/photos/${item.photoPath}`
+    : null;
+  
+  // Обработчик клика на фото
+  const handlePhotoClick = () => {
+    if (photoUrl) {
+      setIsGalleryOpen(true);
+    }
+  };
+
   return (
     <motion.div
       key={item.id}
@@ -65,6 +93,21 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
           </IconButton>
         </div>
         
+        {/* Отображение фото */}
+        {photoUrl && (
+          <div className={styles.photoContainer}>
+            <div className={styles.photoThumbnailsContainer}>
+              <PhotoThumbnail
+                src={photoUrl}
+                alt={`Фото списания ${item.name}`}
+                onClick={handlePhotoClick}
+                width="60px"
+                height="60px"
+              />
+            </div>
+          </div>
+        )}
+        
         <div className={styles.todoInfo}>
           {item.reason && (
             <div className={styles.infoRow}>
@@ -90,6 +133,17 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Галерея для просмотра фото через Portal */}
+      {photoUrl && isGalleryOpen && typeof document !== 'undefined' && createPortal(
+        <PhotoGallery
+          photos={[photoUrl]}
+          initialIndex={0}
+          isOpen={isGalleryOpen}
+          onClose={() => setIsGalleryOpen(false)}
+        />,
+        document.body
+      )}
     </motion.div>
   );
 };

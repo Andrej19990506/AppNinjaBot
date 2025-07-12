@@ -118,6 +118,12 @@ export interface SlotConfigForDay {
     maxDaySlots: number;
     maxNightSlots: number;
     hasSeniorSlot?: boolean;
+    // Время начала и конца дневной смены
+    dayShiftStartTime?: string; // формат "HH:mm"
+    dayShiftEndTime?: string; // формат "HH:mm"
+    // Время начала и конца ночной смены
+    nightShiftStartTime?: string; // формат "HH:mm"
+    nightShiftEndTime?: string; // формат "HH:mm"
 }
 
 // --- Конфиг слотов на неделю ---

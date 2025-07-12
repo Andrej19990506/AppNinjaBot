@@ -4,6 +4,7 @@
 import io
 import os
 import httpx
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -16,6 +17,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.write_off import WriteOffService
 from models.group import Group
 from sqlalchemy.future import select
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 # --- ДОБАВЛЯЕМ СЛОВАРЬ ПЕРЕВОДА ПРИЧИН ---
 REASON_TRANSLATE = {
@@ -193,7 +197,7 @@ async def generate_and_send_write_off_report(
     responsible_last_name: str = None
 ):
     """
-    Генерирует DOCX-акт списания по группе, сохраняет файл и отправляет его боту через background-задачу.
+    Генерирует DOCX-акт списания по группе, собирает фотографии, сохраняет файл и отправляет всё боту через background-задачу.
     """
     # 1. Получаем списания по группе
     service = WriteOffService()
@@ -204,9 +208,12 @@ async def generate_and_send_write_off_report(
     group = result.scalar_one_or_none()
     chat_title = group.title if group else f"Группа {group_id}"
 
-    # 3. Формируем структуру для генератора
+    # 3. Формируем структуру для генератора и собираем фотографии
     items = []
+    photos = []  # Массив фотографий для отправки в бот
+    
     for w in write_offs:
+        # Добавляем данные для DOCX
         items.append({
             "name": w.name,
             "quantity": w.quantity,
@@ -214,6 +221,24 @@ async def generate_and_send_write_off_report(
             "reason": {"title": w.reason} if w.reason else {},
             "description": w.description or ""
         })
+        
+        # Собираем фотографии если есть
+        if hasattr(w, 'photo_path') and w.photo_path:
+            photo_full_path = f"/app/shared/write_off_photos/{w.photo_path}"
+            if os.path.exists(photo_full_path):
+                logger.info(f"📷 Найдено фото для {w.name}: {w.photo_path}")
+                photos.append({
+                    "file_path": photo_full_path,
+                    "caption": f"📦 {w.name}\n💯 {w.quantity} {getattr(w, 'unit_type', 'шт')}\n🔹 {REASON_TRANSLATE.get(w.reason, w.reason) if w.reason else 'Без причины'}",
+                    "item_name": w.name,
+                    "quantity": w.quantity,
+                    "unit_type": getattr(w, "unit_type", "шт"),
+                    "reason": w.reason
+                })
+            else:
+                logger.warning(f"❌ Фото не найдено: {photo_full_path}")
+        else:
+            logger.info(f"ℹ️ Нет фото для {w.name}")
     # --- СОБИРАЕМ ФИО ОТВЕТСТВЕННОГО ---
     responsible = ""
     if responsible_first_name or responsible_last_name:
@@ -245,31 +270,47 @@ async def generate_and_send_write_off_report(
     send_report_endpoint = f"{bot_internal_base_url}/internal/send_write_off_report"
     bot_payload = {
         "chat_id": str(group_id),
-        "file_path": absolute_file_path
+        "file_path": absolute_file_path,
+        "photos": photos,  # Массив фотографий для отправки
+        "photos_count": len(photos),
+        "items_count": len(items)
     }
 
-    # 7. Запускаем background-задачу
+    # 7. Логируем результат и запускаем background-задачу
+    logger.info(f"📊 Создан отчет для группы {group_id}: {len(items)} позиций, {len(photos)} фотографий")
+    logger.info(f"📄 Документ: {absolute_file_path}")
     background_tasks.add_task(send_write_off_report_to_bot, send_report_endpoint, bot_payload, absolute_file_path)
 
     return {
         "status": "success",
-        "message": "Запрос на формирование и отправку акта списания получен. Бот скоро отправит файл в группу.",
+        "message": f"Запрос на формирование и отправку акта списания получен. Бот скоро отправит {len(photos)} фото и файл в группу.",
         "chat_id": group_id,
-        "file_path": absolute_file_path
+        "file_path": absolute_file_path,
+        "photos_count": len(photos),
+        "items_count": len(items)
     }
 
 async def send_write_off_report_to_bot(url: str, payload: dict, file_path_to_delete: str):
     """
-    Отправляет акт списания боту и удаляет временный файл.
+    Отправляет акт списания боту (фото + DOCX) и удаляет временный файл.
     """
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
+            logger.info(f"🤖 Отправляем отчет боту: {payload['photos_count']} фото + DOCX")
+            logger.info(f"📡 URL: {url}")
+            logger.info(f"💬 Чат: {payload['chat_id']}")
+            
             response = await client.post(url, json=payload)
             response.raise_for_status()
+            
+            logger.info(f"✅ Отчет успешно отправлен боту для чата {payload['chat_id']}")
+            
             # Удаляем файл после успешной отправки
             try:
                 os.remove(file_path_to_delete)
-            except OSError:
-                pass
-        except Exception:
-            pass 
+                logger.info(f"🗑️ Временный файл удален: {file_path_to_delete}")
+            except OSError as e:
+                logger.warning(f"⚠️ Не удалось удалить файл {file_path_to_delete}: {e}")
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке отчета боту: {e}")
+            logger.error(f"📄 Файл остался: {file_path_to_delete}") 

@@ -46,6 +46,13 @@ interface NormalModeProps {
   writeOffReasons?: WriteOffReason[];
   handleReasonSelect?: (reason: WriteOffReason) => void;
   handleDescriptionChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  
+  // Обработчик открытия выбора товара
+  handleOpenProductSearch: () => void;
+  
+  // Пропсы для работы с фото
+  selectedPhotos?: File[];
+  onPhotosChange?: (files: File[]) => void;
 }
 
 export const NormalMode: React.FC<NormalModeProps> = (props) => {

@@ -16,6 +16,7 @@ import { checkAdminRights } from '@shared/store/userSlice/userThunks';
 import { RootState } from '@shared/store/store';
 import ChatModal from '@shared/components/ChatAccessModal/ChatAccessModal';
 import { setSelectedChat, setContext } from '@shared/store/chatSlice/chatSlice';
+import { selectWriteOffChat } from '@features/WriteOff/store/writeOffThunks';
 import { Admin } from '@/types/inventoryTypes';
 import { ChatContext } from '@/shared/store/chatSlice/chatTypes';
 
@@ -304,8 +305,15 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         try {
             // 1. Dispatch Redux actions
             dispatch(setContext(mode));
-            dispatch(setSelectedChat(selectedChatLocal.chat_id));
-            console.log(`ChatSelector: Redux context/chat set for ${selectedChatLocal.chat_id}`);
+            if (mode === 'writeoff') {
+                // Для writeoff используем специальный thunk
+                await dispatch(selectWriteOffChat({ chatId: selectedChatLocal.chat_id })).unwrap();
+                console.log(`ChatSelector: WriteOff chat selected for ${selectedChatLocal.chat_id}`);
+            } else {
+                // Для inventory используем обычный setSelectedChat
+                dispatch(setSelectedChat(selectedChatLocal.chat_id));
+                console.log(`ChatSelector: Redux context/chat set for ${selectedChatLocal.chat_id}`);
+            }
 
             // 2. Navigate
             let targetUrl;
@@ -316,8 +324,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
             }
             const currentUrl = window.location.pathname;
             if (currentUrl === targetUrl) {
-                console.log('ChatSelector: Already on target page, forcing reload');
-                window.location.reload();
+                console.log('ChatSelector: Already on target page, updating state without reload');
+                // Не делаем reload, просто завершаем функцию - Redux состояние уже обновлено
                 return;
             }
             navigate(targetUrl, { replace: true });

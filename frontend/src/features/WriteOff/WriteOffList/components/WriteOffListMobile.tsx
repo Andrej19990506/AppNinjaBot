@@ -21,7 +21,7 @@ interface WriteOffListMobileProps {
   handleEditClick: () => void;
   handleDeleteClick: () => void;
   handleCloneClick: () => void;
-  onAddNew: () => void;
+  onAddNew?: () => void;
 }
 
 /**
@@ -51,7 +51,7 @@ const WriteOffListMobile: React.FC<WriteOffListMobileProps> = ({
   // Отфильтрованные элементы (без удаленных)
   const filteredItems = items.filter(item => !removedItems.includes(item.id));
   const isEmpty = filteredItems.length === 0;
-  
+
   // Обработчик скролла для показа/скрытия теней
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;

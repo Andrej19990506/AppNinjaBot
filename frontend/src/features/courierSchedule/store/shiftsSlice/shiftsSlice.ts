@@ -13,6 +13,10 @@ export const defaultSingleDaySlotConfig: SlotConfigForDay = {
     maxDaySlots: 4,
     maxNightSlots: 2,
     hasSeniorSlot: false,
+    dayShiftStartTime: "10:00",
+    dayShiftEndTime: "18:00",
+    nightShiftStartTime: "18:00",
+    nightShiftEndTime: "02:00",
 };
 
 export const defaultWeeklySlotConfig: WeeklySlotConfig = [
@@ -56,10 +60,18 @@ const shiftsSlice = createSlice({
             state.shifts = state.shifts.filter(shift => shift.id !== action.payload.shift_id);
         },
         updateAccessRulesState: (state, action: PayloadAction<Partial<AccessSettings>>) => {},
-        updateSlotConfigLocal: (state, action: PayloadAction<{ dayIndex: number; maxDaySlots: number; maxNightSlots: number; hasSeniorSlot?: boolean }>) => {
-            const { dayIndex, maxDaySlots, maxNightSlots, hasSeniorSlot = false } = action.payload;
+        updateSlotConfigLocal: (state, action: PayloadAction<{ dayIndex: number; maxDaySlots: number; maxNightSlots: number; hasSeniorSlot?: boolean; dayShiftStartTime?: string; dayShiftEndTime?: string; nightShiftStartTime?: string; nightShiftEndTime?: string }>) => {
+            const { dayIndex, maxDaySlots, maxNightSlots, hasSeniorSlot = false, dayShiftStartTime, dayShiftEndTime, nightShiftStartTime, nightShiftEndTime } = action.payload;
             if (state.slotConfig && dayIndex >= 0 && dayIndex <= 6) {
-                state.slotConfig[dayIndex] = { maxDaySlots, maxNightSlots, hasSeniorSlot };
+                state.slotConfig[dayIndex] = { 
+                    maxDaySlots, 
+                    maxNightSlots, 
+                    hasSeniorSlot,
+                    dayShiftStartTime: dayShiftStartTime || state.slotConfig[dayIndex].dayShiftStartTime || "10:00",
+                    dayShiftEndTime: dayShiftEndTime || state.slotConfig[dayIndex].dayShiftEndTime || "18:00",
+                    nightShiftStartTime: nightShiftStartTime || state.slotConfig[dayIndex].nightShiftStartTime || "18:00",
+                    nightShiftEndTime: nightShiftEndTime || state.slotConfig[dayIndex].nightShiftEndTime || "02:00",
+                };
             }
         },
         clearShifts: (state) => {},

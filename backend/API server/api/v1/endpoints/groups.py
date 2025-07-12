@@ -295,6 +295,12 @@ class DaySlotConfig(BaseModel):
     maxDaySlots: int
     maxNightSlots: int
     hasSeniorSlot: Optional[bool] = False
+    # Время начала и конца дневной смены
+    dayShiftStartTime: Optional[str] = "10:00"  # формат "HH:mm"
+    dayShiftEndTime: Optional[str] = "18:00"    # формат "HH:mm"
+    # Время начала и конца ночной смены
+    nightShiftStartTime: Optional[str] = "18:00"  # формат "HH:mm"
+    nightShiftEndTime: Optional[str] = "02:00"    # формат "HH:mm"
 
 class SlotConfigUpdate(BaseModel):
     # Ключи - это индексы дня '0'-'6'

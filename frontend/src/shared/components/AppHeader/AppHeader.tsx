@@ -1,5 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import ArrowBackIosIcon from '@mui/icons-material/ArrowBackIos';
+import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
+import IconButton from '@mui/material/IconButton';
 import styles from './AppHeader.module.css';
 
 interface AppHeaderProps {
@@ -16,6 +20,13 @@ interface AppHeaderProps {
     onNotificationClose?: (id: string) => void;
     isVisible?: boolean;
     isLoading?: boolean;
+    // Новые props для работы с датами (режим writeoff)
+    selectedDate?: string;
+    onDateChange?: (date: string) => void;
+    onPreviousDay?: () => void;
+    onNextDay?: () => void;
+    canNavigatePrevious?: boolean;
+    canNavigateNext?: boolean;
 }
 
 const AppHeader: React.FC<AppHeaderProps> = ({
@@ -26,7 +37,14 @@ const AppHeader: React.FC<AppHeaderProps> = ({
     hasUnreadNotifications = false,
     onNotificationClose = () => {},
     isVisible = true,
-    isLoading = false
+    isLoading = false,
+    // Новые props для дат
+    selectedDate,
+    onDateChange = () => {},
+    onPreviousDay = () => {},
+    onNextDay = () => {},
+    canNavigatePrevious = true,
+    canNavigateNext = true
 }) => {
     if (!isVisible) return null;
 
@@ -48,7 +66,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                 {title}
             </motion.h2>
 
-            {/* Отображаем прогресс и уведомления только для режима инвентаризации */}
+            {/* Действия в зависимости от режима */}
             {mode === 'inventory' && (
                 <div className={styles.headerActions}>
                     {notifications.length > 0 && (
@@ -86,6 +104,46 @@ const AppHeader: React.FC<AppHeaderProps> = ({
                         </motion.div>
                     )}
                 </div>
+            )}
+
+            {/* Навигация по датам для режима списаний */}
+            {mode === 'writeoff' && selectedDate && (
+                <motion.div 
+                    className={styles.dateNavigation}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1, duration: 0.3 }}
+                >
+                    <div className={styles.dateNavigationContainer}>
+                        <IconButton
+                            onClick={onPreviousDay}
+                            disabled={!canNavigatePrevious}
+                            size="small"
+                            className={styles.dateNavButton}
+                        >
+                            <ArrowBackIosIcon fontSize="small" />
+                        </IconButton>
+                        
+                        <div className={styles.currentDate}>
+                            <CalendarTodayIcon className={styles.calendarIcon} />
+                            <input
+                                type="date"
+                                value={selectedDate}
+                                onChange={(e) => onDateChange(e.target.value)}
+                                className={styles.dateInput}
+                            />
+                        </div>
+                        
+                        <IconButton
+                            onClick={onNextDay}
+                            disabled={!canNavigateNext}
+                            size="small"
+                            className={styles.dateNavButton}
+                        >
+                            <ArrowForwardIosIcon fontSize="small" />
+                        </IconButton>
+                    </div>
+                </motion.div>
             )}
         </motion.div>
     );

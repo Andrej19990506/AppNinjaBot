@@ -3,4 +3,5 @@ export * from './InfoModal';
 export * from './DescriptionModal';
 export * from './ReasonSelectionMode';
 export * from './ReasonCard';
-export * from './SuccessNotification'; 
+export * from './SuccessNotification';
+export * from './PhotoUpload/PhotoUpload'; 

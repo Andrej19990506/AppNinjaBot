@@ -1,6 +1,21 @@
 import { axiosInstance } from '@/shared/api/api';
 import { socketService } from '@/shared/services/socketService';
 import { AxiosResponse } from 'axios';
+import { convertLocalDateToUTC, convertUTCDateToLocal } from '@/shared/utils/dateUtils';
+
+// Типы для инвентаря
+export interface InventoryItem {
+    name: string;
+    category: string;
+}
+
+export interface InventoryTemplateResponse {
+    success: boolean;
+    items?: InventoryItem[];
+    total_count?: number;
+    categories?: string[];
+    error?: string;
+}
 
 const emitSocketEvent = (event: string, data: any): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -32,11 +47,27 @@ export const WriteOffApi = {
     getWriteOffChat: (group_id: string) => {
         return axiosInstance.get(`/v1/chats/${group_id}`);
     },
-    getWriteOffs: (group_id: string) => {
+    getWriteOffs: (group_id: string, date?: string) => {
+        const params: { _t: number; date?: string } = {
+            _t: Date.now()
+        };
+        
+        // Конвертируем локальную дату в UTC дату для поиска в БД
+        if (date) {
+            params.date = convertLocalDateToUTC(date);
+        }
+        
+        console.log('🔍 [getWriteOffs] Параметры запроса:', {
+            group_id,
+            originalDate: date,
+            convertedDate: params.date,
+            params,
+            finalUrl: `/v1/write-offs/${group_id}`,
+            queryString: new URLSearchParams(params as any).toString()
+        });
+        
         return axiosInstance.get(`/v1/write-offs/${group_id}`, {
-            params: {
-                _t: Date.now()
-            }
+            params
         })
             .then((response: AxiosResponse<any>) => {
                 console.log('🔍 [getWriteOffs] Raw response:', {
@@ -47,16 +78,39 @@ export const WriteOffApi = {
                     isArray: Array.isArray(response.data),
                     hasGroupIdKey: response.data && response.data[group_id] !== undefined,
                     userAgent: navigator.userAgent,
-                    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+                    requestConfig: response.config
                 });
                 
+                // Функция для конвертации UTC дат в локальные и маппинга snake_case → camelCase
+                const convertDatesInRecords = (records: any[]) => {
+                    return records.map(record => {
+                        const converted = {
+                            ...record,
+                            date: record.date ? convertUTCDateToLocal(record.date) : record.date,
+                            unitType: record.unit_type || 'шт', // ← ИСПРАВЛЕНО: snake_case → camelCase
+                            photoPath: record.photo_path // ← ДОБАВЛЕНО: маппинг photo_path → photoPath
+                        };
+                        console.log('🔄 [convertDatesInRecords] Маппинг записи:', {
+                            original_unit_type: record.unit_type,
+                            mapped_unitType: converted.unitType,
+                            original_photo_path: record.photo_path,
+                            mapped_photoPath: converted.photoPath,
+                            name: record.name
+                        });
+                        return converted;
+                    });
+                };
+                
                 if (response.data && response.data[group_id]) {
-                    console.log('📦 [getWriteOffs] Returning data from group_id key:', response.data[group_id]);
-                    return { data: response.data[group_id] };
+                    const convertedData = convertDatesInRecords(response.data[group_id]);
+                    console.log('📦 [getWriteOffs] Returning converted data from group_id key:', convertedData);
+                    return { data: convertedData };
                 }
                 if (Array.isArray(response.data)) {
-                    console.log('📦 [getWriteOffs] Returning array data:', response.data);
-                    return { data: response.data };
+                    const convertedData = convertDatesInRecords(response.data);
+                    console.log('📦 [getWriteOffs] Returning converted array data:', convertedData);
+                    return { data: convertedData };
                 }
                 console.log('⚠️ [getWriteOffs] Returning empty array - unexpected data format');
                 return { data: [] };
@@ -70,93 +124,138 @@ export const WriteOffApi = {
             });
     },
     createWriteOff: (group_id: string, data: any) => {
-        return axiosInstance.post(`/v1/write-offs/${group_id}`, {
-            name: data.name,
-            reason: typeof data.reason === 'string' ? data.reason : data.reason.id,
-            quantity: data.quantity,
-            description: data.description || '',
-            unitType: data.unitType || 'шт',
-            user_id: data.user_id
-        }).then((response: AxiosResponse<any>) => response.data);
-    },
-    updateWriteOff: (group_id: string, writeOffId: string, data: any) => {
-        if (socketService.isConnected()) {
-            return new Promise((resolve, reject) => {
-                let isResolved = false;
-                const successHandler = (response: any) => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    socketService.unsubscribe('writeoff_update_sent');
-                    socketService.unsubscribe('writeoff_update_error');
-                    resolve(response.writeOffItem);
-                };
-                const errorHandler = (error: any) => {
-                    if (isResolved) return;
-                    isResolved = true;
-                    socketService.unsubscribe('writeoff_update_sent');
-                    socketService.unsubscribe('writeoff_update_error');
-                    reject(error);
-                };
-                socketService.subscribe('writeoff_update_sent', successHandler);
-                socketService.subscribe('writeoff_update_error', errorHandler);
-                emitSocketEvent('writeoff_update', {
-                    action: 'update',
-                    group_id: group_id,
-                    writeOffId: writeOffId,
-                    writeOffItem: {
-                        name: data.name,
-                        reason: data.reason,
-                        quantity: data.quantity,
-                        description: data.description || '',
-                        unitType: data.unitType || 'шт'
-                    }
-                }).then((success: boolean) => {
-                    if (!success && !isResolved) {
-                        isResolved = true;
-                        socketService.unsubscribe('writeoff_update_sent');
-                        socketService.unsubscribe('writeoff_update_error');
-                        fallbackToREST();
-                    }
-                }).catch(() => {
-                    if (!isResolved) {
-                        isResolved = true;
-                        socketService.unsubscribe('writeoff_update_sent');
-                        socketService.unsubscribe('writeoff_update_error');
-                        fallbackToREST();
-                    }
-                });
-                const fallbackToREST = () => {
-                    axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, {
-                        name: data.name,
-                        reason: data.reason,
-                        quantity: data.quantity,
-                        description: data.description || '',
-                        unitType: data.unitType || 'шт'
-                    }).then((response: AxiosResponse<any>) => {
-                        resolve(response.data);
-                    }).catch((error: any) => {
-                        reject(error);
-                    });
-                };
-                setTimeout(() => {
-                    if (!isResolved) {
-                        isResolved = true;
-                        socketService.unsubscribe('writeoff_update_sent');
-                        socketService.unsubscribe('writeoff_update_error');
-                        fallbackToREST();
-                    }
-                }, 10000);
+        console.log('🔍 [createWriteOff] Исходные данные:', data);
+        
+        // Если есть фото, используем FormData
+        if (data.photos && data.photos.length > 0) {
+            const formData = new FormData();
+            formData.append('name', data.name);
+            formData.append('reason', typeof data.reason === 'string' ? data.reason : data.reason.id);
+            formData.append('quantity', data.quantity.toString());
+            formData.append('description', data.description || '');
+            formData.append('unit_type', data.unitType || 'шт');
+            formData.append('user_id', data.user_id.toString());
+            
+            if (data.date) {
+                formData.append('date', data.date);
+            }
+            
+            // Добавляем фото
+            data.photos.forEach((photo: File, index: number) => {
+                formData.append('photo', photo);
+            });
+            
+            console.log('🚀 [createWriteOff] Отправляем FormData с фото:', {
+                ...Object.fromEntries(formData.entries()),
+                photosCount: data.photos.length
+            });
+            
+            return axiosInstance.post(`/v1/write-offs/${group_id}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }).then((response: AxiosResponse<any>) => {
+                // Маппим photo_path → photoPath и unit_type → unitType
+                const data = response.data;
+                if (data.photo_path) {
+                    data.photoPath = data.photo_path;
+                }
+                if (data.unit_type) {
+                    data.unitType = data.unit_type;
+                }
+                return data;
             });
         } else {
-            return axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, {
+            // Без фото - обычный JSON
+            const payload = {
                 name: data.name,
-                reason: data.reason,
+                reason: typeof data.reason === 'string' ? data.reason : data.reason.id,
                 quantity: data.quantity,
                 description: data.description || '',
-                unitType: data.unitType || 'шт'
-            }).then((response: AxiosResponse<any>) => response.data);
+                unit_type: data.unitType || 'шт',
+                user_id: data.user_id,
+                date: data.date
+            };
+            console.log('🚀 [createWriteOff] Отправляем JSON без фото:', payload);
+            return axiosInstance.post(`/v1/write-offs/${group_id}`, payload).then((response: AxiosResponse<any>) => {
+                // Маппим photo_path → photoPath и unit_type → unitType
+                const data = response.data;
+                if (data.photo_path) {
+                    data.photoPath = data.photo_path;
+                }
+                if (data.unit_type) {
+                    data.unitType = data.unit_type;
+                }
+                return data;
+            });
         }
     },
+    updateWriteOff: (group_id: string, writeOffId: string, data: any) => {
+        console.log('🔍 [updateWriteOff] Исходные данные:', data);
+        
+        // Если есть фото, используем FormData
+        if (data.photos && data.photos.length > 0) {
+            const formData = new FormData();
+            formData.append('name', data.name);
+            formData.append('reason', typeof data.reason === 'string' ? data.reason : data.reason.id);
+            formData.append('quantity', data.quantity.toString());
+            formData.append('description', data.description || '');
+            formData.append('unit_type', data.unitType || 'шт');
+            
+            if (data.date) {
+                formData.append('date', data.date);
+            }
+            
+            // Добавляем фото
+            data.photos.forEach((photo: File, index: number) => {
+                formData.append('photo', photo);
+            });
+            
+            console.log('🚀 [updateWriteOff] Отправляем FormData с фото:', {
+                ...Object.fromEntries(formData.entries()),
+                photosCount: data.photos.length
+            });
+            
+            return axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
+            }).then((response: AxiosResponse<any>) => {
+                // Маппим photo_path → photoPath и unit_type → unitType
+                const data = response.data;
+                if (data.photo_path) {
+                    data.photoPath = data.photo_path;
+                }
+                if (data.unit_type) {
+                    data.unitType = data.unit_type;
+                }
+                return data;
+            });
+        } else {
+            // Без фото - обычный JSON
+            const payload = {
+                name: data.name,
+                reason: typeof data.reason === 'string' ? data.reason : data.reason.id,
+                quantity: data.quantity,
+                description: data.description || '',
+                unit_type: data.unitType || 'шт',
+                date: data.date
+            };
+            console.log('🚀 [updateWriteOff] Отправляем JSON без фото:', payload);
+            return axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, payload).then((response: AxiosResponse<any>) => {
+                // Маппим photo_path → photoPath и unit_type → unitType
+                const data = response.data;
+                if (data.photo_path) {
+                    data.photoPath = data.photo_path;
+                }
+                if (data.unit_type) {
+                    data.unitType = data.unit_type;
+                }
+                return data;
+            });
+        }
+    },
+    
     deleteWriteOff: (group_id: string, writeOffId: string) => {
         return axiosInstance.delete(`/v1/write-offs/${group_id}/${writeOffId}`)
             .then((response: AxiosResponse<any>) => {
@@ -165,5 +264,26 @@ export const WriteOffApi = {
     },
     sendWriteOffReport: (groupId: string) => {
         return axiosInstance.post(`/v1/write-offs/${groupId}/report`);
+    },
+    
+    getInventoryTemplate: async (groupId: string): Promise<InventoryTemplateResponse> => {
+        try {
+            console.log('🔄 [WriteOffApi] Загрузка шаблона инвентаря для группы:', groupId);
+            const response = await axiosInstance.get(`/v1/write-offs/${groupId}/inventory-template`);
+            
+            console.log('✅ [WriteOffApi] Шаблон загружен:', response.data);
+            return {
+                success: true,
+                items: response.data.items || [],
+                total_count: response.data.total_count || 0,
+                categories: response.data.categories || []
+            };
+        } catch (error: any) {
+            console.error('❌ [WriteOffApi] Ошибка загрузки шаблона:', error);
+            return {
+                success: false,
+                error: error.response?.data?.detail || error.message || 'Ошибка загрузки шаблона инвентаря'
+            };
+        }
     },
 };

@@ -16,6 +16,7 @@ import EmptyWriteOff from '@/features/WriteOff/EmptyWriteOff';
 import CreateWriteOffModal from '@/features/WriteOff/CreateWriteOffModal/CreateWriteOffModal';
 import WriteOffList from '@/features/WriteOff/WriteOffList/WriteOffList';
 import DocGenerationModal from './DocGenerationModal';
+import { ProductSelectModal } from '@/features/WriteOff/CreateWriteOffModal/components/ProductSelectModal/ProductSelectModal';
 import { RootState } from '@/store';
 
 import { Admin } from '@/types/inventory';
@@ -25,9 +26,10 @@ import { useAppDispatch } from '@/shared/store/hooks';
 import { 
     selectSelectedWriteOffChat, 
 } from '@features/WriteOff/store/writeOffSelectors.ts';
-import { clearSelectedChat, resetModal } from '@features/WriteOff/store/writeOffSlice';
+import { clearSelectedChat, resetModal, setSelectedDate, setModalUnitType } from '@features/WriteOff/store/writeOffSlice';
 import {
     fetchWriteOffChats,
+    fetchWriteOffs,
     createWriteOffItem,
     deleteWriteOffItem,
     updateWriteOffItem,
@@ -43,6 +45,7 @@ import config from '@/config';
 import useAnimations from '@/features/WriteOff/hooks/useGSAPAnimations';
 import { ChatListSkeleton } from '@/shared/components/Skeleton/Skeleton';
 import { useWriteOffLoader } from '@/features/WriteOff/hooks/useWriteOffLoader';
+import { getTodayLocalString, getLocalDateString } from '@/shared/utils/dateUtils';
 
 // Интерфейс для причины списания
 interface WriteOffReason {
@@ -95,6 +98,17 @@ const pageTransition = {
 
 const WriteOff: React.FC = () => {
     const [writeOffItems, setWriteOffItems] = useState<WriteOffItem[]>([]);
+    
+    // Безопасная функция для обновления writeOffItems
+    const safeSetWriteOffItems = (items: any) => {
+        if (Array.isArray(items)) {
+            setWriteOffItems(items);
+            console.log('✅ [safeSetWriteOffItems] Установлен массив:', items.length, 'элементов');
+        } else {
+            console.error('❌ [safeSetWriteOffItems] Попытка установить не-массив:', typeof items, items);
+            setWriteOffItems([]);
+        }
+    };
     const [selectedChat, setSelectedChat] = useState<WriteOffChat | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isCreateWriteOffModalOpen, setIsCreateWriteOffModalOpen] = useState(false);
@@ -103,10 +117,14 @@ const WriteOff: React.FC = () => {
     const [selectedReason, setSelectedReason] = useState<WriteOffReason | null>(null);
     const [writeOffQuantity, setWriteOffQuantity] = useState<number>(0);
     const [writeOffDescription, setWriteOffDescription] = useState<string>('');
-    const [writeOffUnitType, setWriteOffUnitType] = useState<'шт' | 'гр'>('шт');
+    // Убираем локальное состояние unitType - используем только Redux
+    // const [writeOffUnitType, setWriteOffUnitType] = useState<'шт' | 'гр'>('шт');
     const [editingItemId, setEditingItemId] = useState<string | null>(null);
     const [filterText, setFilterText] = useState('');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+    
+    // Получаем selectedDate из Redux состояния
+    const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
     
     // Состояния для модальных окон
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -118,14 +136,23 @@ const WriteOff: React.FC = () => {
     // Состояния для генерации документа
     const [isDocModalOpen, setIsDocModalOpen] = useState(false);
     
+    // Состояния для выбора товара
+    const [isProductSelectModalOpen, setIsProductSelectModalOpen] = useState(false);
+    
+    // Состояние для выбранных фото списания
+    const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
+    
     const writeOffListRef = useRef<any>(null);
     
     const controls = useAnimation();
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     
-    const { chats, isLoading: isChatsLoading, selectedChat: selectedWriteOffChat } = useSelector((state: RootState) => state.writeOff);
+    const { chats, isLoading: isChatsLoading, selectedChat: selectedWriteOffChat, modal } = useSelector((state: RootState) => state.writeOff);
     const user = useSelector((state: RootState) => state.user) as any;
+    
+    // Получаем unitType из Redux store вместо локального состояния
+    const writeOffUnitType = modal.unitType;
     const userId = user?.user?.id;
     const branchName = useSelector((state: RootState) => (state.user as any).branchName || 'Филиал не выбран');
 
@@ -148,7 +175,8 @@ const WriteOff: React.FC = () => {
     } = useWriteOffLoader({
         chatId: selectedWriteOffChat?.chat_id,
         currentUserId: userId || null,
-        isAdmin: user?.user?.isAdmin || false
+        isAdmin: user?.user?.isAdmin || false,
+        selectedDate: selectedDate  // Передаем выбранную дату
     });
 
     // Обработчик удаления списания (перемещен на верхний уровень)
@@ -231,12 +259,27 @@ const WriteOff: React.FC = () => {
 
     // Обновляем список элементов только при изменении выбранного чата или его списаний
     useEffect(() => {
-        console.log('[LOG] useEffect: selectedWriteOffChat', selectedWriteOffChat);
+        console.log('🔄 [useEffect-SYNC] Синхронизация writeOffItems с Redux');
+        console.log('🔄 [useEffect-SYNC] selectedWriteOffChat:', selectedWriteOffChat);
+        console.log('🔄 [useEffect-SYNC] selectedDate:', selectedDate);
+        
         if (selectedWriteOffChat?.chat_id) {
-            console.log('[LOG] useEffect: инициализация writeOffItems из selectedWriteOffChat.writeOffs', selectedWriteOffChat.writeOffs);
-            setWriteOffItems(selectedWriteOffChat.writeOffs || []);
+            const reduxWriteOffs = selectedWriteOffChat.writeOffs || [];
+            
+            console.log('🔄 [useEffect-SYNC] Redux writeOffs:', reduxWriteOffs.length, 'элементов');
+            console.log('🔄 [useEffect-SYNC] Данные из Redux:', reduxWriteOffs);
+            console.log('🔄 [useEffect-SYNC] Тип данных:', Array.isArray(reduxWriteOffs) ? 'массив' : typeof reduxWriteOffs);
+            
+            // Проверяем что данные корректны
+            if (Array.isArray(reduxWriteOffs)) {
+                setWriteOffItems(reduxWriteOffs);
+                console.log('✅ [useEffect-SYNC] writeOffItems обновлен массивом:', reduxWriteOffs.length, 'элементов');
+            } else {
+                console.error('❌ [useEffect-SYNC] Redux writeOffs не является массивом:', reduxWriteOffs);
+                setWriteOffItems([]);
+            }
         }
-    }, [selectedWriteOffChat?.chat_id]);
+    }, [selectedWriteOffChat?.chat_id, selectedWriteOffChat?.writeOffs]);
 
     useEffect(() => {
         // Настраиваем логирование всех WebSocket-событий для отладки
@@ -273,7 +316,8 @@ const WriteOff: React.FC = () => {
         setSelectedReason(null);
         setWriteOffQuantity(0);
         setWriteOffDescription('');
-        setWriteOffUnitType('шт');
+        // Убираем принудительный сброс unitType - позволяем пользователю сохранить выбор
+        // dispatch(setModalUnitType('шт'));
         setIsCreateWriteOffModalOpen(true);
     };
 
@@ -305,7 +349,7 @@ const WriteOff: React.FC = () => {
         setIsModalOpen(true);
         
         try {
-            await dispatch(selectWriteOffChat(chatId)).unwrap();
+            await dispatch(selectWriteOffChat({ chatId, date: selectedDate })).unwrap();
             
             // Анимация после выбора чата
             await controls.start({
@@ -330,7 +374,10 @@ const WriteOff: React.FC = () => {
                 console.log('🔄 Загрузка списаний для чата:', selectedChatForModal.chat_id);
                 
                 // Сначала выбираем чат через Redux
-                await dispatch(selectWriteOffChat(selectedChatForModal.chat_id)).unwrap();
+                await dispatch(selectWriteOffChat({ 
+                    chatId: selectedChatForModal.chat_id, 
+                    date: selectedDate 
+                })).unwrap();
                 
                 // После успешного выбора чата устанавливаем его в локальное состояние
                 setSelectedChat(selectedChatForModal as WriteOffChat);
@@ -370,7 +417,26 @@ const WriteOff: React.FC = () => {
         description: string = '',
         unitType: 'шт' | 'гр' = 'шт'
     ) => {
-        if (!reason || !selectedWriteOffChat) return;
+        console.log('🎯 [handleCreateWriteOffSubmit] ПОЛУЧЕНЫ ПАРАМЕТРЫ:', {
+            name,
+            reason: reason?.title,
+            quantity,
+            description,
+            unitType,
+            selectedWriteOffChat: selectedWriteOffChat?.chat_title,
+            photosCount: selectedPhotos.length
+        });
+        
+        if (!reason || !selectedWriteOffChat) {
+            console.log('❌ [handleCreateWriteOffSubmit] Отмена - отсутствуют обязательные данные');
+            return;
+        }
+        
+        if (selectedPhotos.length === 0) {
+            console.log('❌ [handleCreateWriteOffSubmit] Отмена - фото обязательно для списания');
+            alert('Пожалуйста, добавьте фото списания');
+            return;
+        }
         
         console.log('⭐ [handleCreateWriteOffSubmit] Начало создания/обновления списания');
         
@@ -383,7 +449,8 @@ const WriteOff: React.FC = () => {
                     reason: reason.id, 
                     quantity,
                     description,
-                    unitType
+                    unitType,
+                    photosCount: selectedPhotos.length
                 });
                 
                 const updatedItem = await dispatch(updateWriteOffItem({
@@ -393,7 +460,8 @@ const WriteOff: React.FC = () => {
                     reason: reason.id,
                     quantity,
                     description,
-                    unitType
+                    unitType,
+                    photos: selectedPhotos  // Передаем фото
                 })).unwrap();
                 
                 // Обновляем UI инициатора без ожидания WebSocket
@@ -426,7 +494,8 @@ const WriteOff: React.FC = () => {
                     description,
                     chat: selectedWriteOffChat.chat_title,
                     unitType,
-                    user_id: userId
+                    user_id: userId,
+                    photosCount: selectedPhotos.length
                 });
                 
                 const newItem = await dispatch(createWriteOffItem({
@@ -436,7 +505,9 @@ const WriteOff: React.FC = () => {
                     quantity,
                     description,
                     unitType,
-                    user_id: userId
+                    user_id: userId,
+                    date: selectedDate,  // Передаем выбранную дату
+                    photos: selectedPhotos  // Передаем фото
                 })).unwrap();
                 
                 // Обновляем UI инициатора без ожидания WebSocket
@@ -470,7 +541,8 @@ const WriteOff: React.FC = () => {
             setSelectedReason(null);
             setWriteOffQuantity(0);
             setWriteOffDescription('');
-            setWriteOffUnitType('шт');
+            // НЕ сбрасываем unitType - пользователь может создавать несколько записей подряд
+            // dispatch(setModalUnitType('шт'));
             
         } catch (error) {
             console.error('❌ Ошибка при создании/обновлении списания:', error);
@@ -526,7 +598,9 @@ const WriteOff: React.FC = () => {
         setSelectedReason(null);
         setWriteOffQuantity(0);
         setWriteOffDescription('');
-        setWriteOffUnitType('шт');
+        console.log('📷 [WriteOff] Очистка selectedPhotos при закрытии модального окна');
+        setSelectedPhotos([]); // Сбрасываем выбранные фото
+        dispatch(setModalUnitType('шт'));
         setEditingItemId(null);
         
         console.log('✅ [handleCloseCreateWriteOffModal] Состояние сброшено после закрытия модального окна');
@@ -585,8 +659,8 @@ const WriteOff: React.FC = () => {
     // Обработчик для установки единицы измерения
     const handleWriteOffUnitTypeChange = useCallback((unitType: 'шт' | 'гр') => {
         console.log('📝 [handleWriteOffUnitTypeChange] Новая единица измерения:', unitType);
-        setWriteOffUnitType(unitType);
-    }, []);
+        dispatch(setModalUnitType(unitType));
+    }, [dispatch]);
 
     // Обработчик редактирования элемента списания
     const handleEditWriteOff = (item: WriteOffItem) => {
@@ -772,6 +846,116 @@ const WriteOff: React.FC = () => {
     const handleOpenDocModal = () => {
         setIsDocModalOpen(true);
     };
+
+    const handleOpenProductSelect = () => {
+        setIsProductSelectModalOpen(true);
+    };
+
+    const handleCloseProductSelect = () => {
+        setIsProductSelectModalOpen(false);
+    };
+
+    const handleProductSelect = (productName: string) => {
+        setWriteOffName(productName);
+        setIsProductSelectModalOpen(false);
+    };
+    
+    // Обработчики для работы с фото
+    const handlePhotosChange = useCallback((files: File[]) => {
+        console.log('📷 [WriteOff] Изменение фото:', files.length, 'файлов');
+        console.log('📷 [WriteOff] Файлы:', files.map(f => f.name));
+        console.log('📷 [WriteOff] Текущее состояние selectedPhotos:', selectedPhotos.length);
+        setSelectedPhotos(files);
+        console.log('📷 [WriteOff] setSelectedPhotos вызван с', files.length, 'файлами');
+    }, [selectedPhotos.length]); // Добавляем зависимость для отслеживания изменений
+    
+    // Функции для работы с датами
+    const handleDateChange = async (newDate: string) => {
+        console.log('📅 Изменение даты на:', newDate);
+        
+        // Проверяем, что новая дата не в будущем
+        const today = getTodayLocalString();
+        if (newDate > today) {
+            console.log('🚫 Попытка выбрать будущую дату отклонена:', newDate);
+            return; // Не разрешаем выбирать будущие даты
+        }
+        
+        dispatch(setSelectedDate(newDate));
+        
+        // Загружаем данные для новой даты если чат выбран
+        if (selectedWriteOffChat?.chat_id) {
+            console.log('🔄 Загрузка данных для новой даты:', newDate, 'chatId:', selectedWriteOffChat.chat_id);
+            
+            // Сначала очищаем текущие данные для быстрой обратной связи
+            console.log('🧹 Очистка текущих данных перед загрузкой новых');
+            setWriteOffItems([]);
+            
+            try {
+                // Ждем завершения загрузки данных
+                const result = await dispatch(fetchWriteOffs({ 
+                    chatId: selectedWriteOffChat.chat_id, 
+                    date: newDate 
+                })).unwrap();
+                
+                const writeOffs = result?.writeOffs || [];
+                console.log('✅ Данные загружены для даты:', newDate, 'количество:', writeOffs.length);
+                console.log('🔍 Результат fetchWriteOffs:', result);
+                
+                // Принудительно синхронизируем локальное состояние с результатом загрузки
+                // На случай если useEffect не сработает
+                setTimeout(() => {
+                    console.log('🔄 Принудительная синхронизация с результатом fetchWriteOffs:', writeOffs.length, 'элементов');
+                    // Дополнительная проверка что writeOffs это массив
+                    if (Array.isArray(writeOffs)) {
+                        setWriteOffItems(writeOffs);
+                        console.log('✅ writeOffItems обновлен массивом:', writeOffs.length, 'элементов');
+                    } else {
+                        console.error('❌ writeOffs не является массивом:', writeOffs);
+                        setWriteOffItems([]);
+                    }
+                }, 100);
+                
+            } catch (error) {
+                console.error('❌ Ошибка загрузки данных для даты:', newDate, error);
+            }
+        }
+    };
+
+    const handlePreviousDay = () => {
+        const currentDate = new Date(selectedDate);
+        currentDate.setDate(currentDate.getDate() - 1);
+        const newDate = getLocalDateString(currentDate);
+        handleDateChange(newDate);
+    };
+
+    const handleNextDay = () => {
+        const currentDate = new Date(selectedDate);
+        currentDate.setDate(currentDate.getDate() + 1);
+        const newDate = getLocalDateString(currentDate);
+        handleDateChange(newDate);
+    };
+
+    // Проверяем можно ли навигировать
+    const canNavigatePrevious = () => {
+        // Ограничиваем просмотр максимум 30 дней назад
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const currentSelectedDate = new Date(selectedDate);
+        return currentSelectedDate > thirtyDaysAgo;
+    };
+
+    const canNavigateNext = () => {
+        // Ограничиваем просмотр максимум сегодняшним днем (нельзя выбирать будущие дни)
+        const today = getTodayLocalString(); // YYYY-MM-DD в локальном часовом поясе
+        return selectedDate < today; // Можно идти вперед только если выбранная дата меньше сегодняшней
+    };
+
+    // Проверяем текущий ли день выбран
+    const isToday = () => {
+        const today = getTodayLocalString();
+        return selectedDate === today;
+    };
+
     // Закрытие модального окна
     const handleCloseDocModal = React.useCallback(() => {
         setIsDocModalOpen(false);
@@ -787,6 +971,21 @@ const WriteOff: React.FC = () => {
             isActive: !!(writeOffName && selectedReason)
         });
     }, [writeOffName, selectedReason]);
+
+    // Проверяем, что selectedDate не в будущем
+    useEffect(() => {
+        const today = getTodayLocalString();
+        if (selectedDate > today) {
+            console.log('🚫 Обнаружена будущая дата, сбрасываем на сегодняшнюю:', selectedDate, '->', today);
+            dispatch(setSelectedDate(today));
+        }
+    }, [selectedDate, dispatch]);
+
+    // Отслеживаем изменения selectedPhotos
+    useEffect(() => {
+        console.log('📷 [WriteOff] selectedPhotos изменилось:', selectedPhotos.length, 'файлов');
+        console.log('📷 [WriteOff] Файлы в состоянии:', selectedPhotos.map(f => f.name));
+    }, [selectedPhotos]);
 
     useEffect(() => {
         const initializeData = async () => {
@@ -879,6 +1078,12 @@ const WriteOff: React.FC = () => {
                             mode="writeoff"
                             progress={loadingProgress}
                             isLoading={isWriteOffLoading}
+                            selectedDate={selectedDate}
+                            onDateChange={handleDateChange}
+                            onPreviousDay={handlePreviousDay}
+                            onNextDay={handleNextDay}
+                            canNavigatePrevious={canNavigatePrevious()}
+                            canNavigateNext={canNavigateNext()}
                         />
                     </div>
 
@@ -1106,6 +1311,9 @@ const WriteOff: React.FC = () => {
                         isEditMode={!!editingItemId}
                         onRenderCallback={(id, phase, actual, base, start) => {
                         }}
+                        onOpenProductSearch={handleOpenProductSelect}
+                        selectedPhotos={selectedPhotos}
+                        onPhotosChange={handlePhotosChange}
                     />
                 )}
             </AnimatePresence>
@@ -1119,6 +1327,14 @@ const WriteOff: React.FC = () => {
                     groupId={selectedWriteOffChat.chat_id}
                 />
             )}
+            
+            {/* Модальное окно выбора товара */}
+            <ProductSelectModal
+                isOpen={isProductSelectModalOpen}
+                onClose={handleCloseProductSelect}
+                onProductSelect={handleProductSelect}
+                groupId={selectedWriteOffChat?.chat_id || 'test'}
+            />
         </motion.div>
     );
 };

@@ -136,7 +136,7 @@ export const SlotSettingsContainer = styled.div<{ $isOpen: boolean }>`
     transition: transform 0.3s ease-in-out;
     pointer-events: ${props => props.$isOpen ? 'auto' : 'none'};
     z-index: 1000; /* Значение ниже футера (z-index 1051) */
-    max-height: 70vh;
+    max-height: 73vh;
     overflow-y: auto;
     display: flex;
     flex-direction: column;

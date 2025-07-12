@@ -13,17 +13,20 @@
   flex-direction: column;
   color: var(--text-color);
   position: relative;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 0 0 24px 0;
+  /* Важно: НЕ устанавливаем overflow - пусть родитель управляет */
+  padding: 0;
 }
 
 /* Основной контент */
 .content {
   display: flex;
   flex-direction: column;
-  padding: 16px 20px;
+  padding: 0;
   flex: 1;
+  /* Обеспечиваем что контент может расти по высоте */
+  min-height: 0;
+  /* Убираем any ограничения по высоте */
+  height: auto;
 }
 
 /* === ОБЩИЕ СТИЛИ === */
@@ -33,7 +36,21 @@
 .quantitySection,
 .reasonsSection {
   margin-bottom: 24px;
+  padding: 0 20px; /* Добавляем горизонтальные отступы */
   position: relative;
+  /* Убеждаемся что секции не блокируют скролл */
+  overflow: visible;
+  flex-shrink: 0; /* Секции не сжимаются */
+}
+
+/* Первая секция получает верхний отступ */
+.inputSection {
+  padding-top: 16px;
+}
+
+/* Последняя секция получает нижний отступ для скролла */
+.reasonsSection {
+  padding-bottom: 60px; /* Дополнительный отступ снизу */
 }
 
 /* Заголовки секций */
@@ -197,6 +214,59 @@
   opacity: 1;
   transform: rotate(90deg);
   transition: transform 0.3s ease;
+}
+
+/* === СЕКЦИЯ ВЫБОРА ТОВАРА === */
+
+/* Кнопка выбора товара */
+.productSelectButton {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--card-background);
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  justify-content: space-between;
+  position: relative;
+}
+
+.productSelectButton:hover {
+  border-color: rgba(var(--primary-rgb), 0.4);
+  box-shadow: 0 2px 4px rgba(var(--primary-rgb), 0.1);
+  color: var(--text-color);
+}
+
+.productSelectButton:active {
+  transform: scale(0.98);
+}
+
+.productSelectButton.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(var(--primary-rgb), 0.05);
+  color: var(--text-color);
+}
+
+/* Левая часть кнопки с иконкой поиска и текстом */
+.productSelectButton > span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Иконка поиска */
+.searchIcon {
+  color: var(--primary-color) !important;
+  font-size: 20px !important;
+  opacity: 0.8;
 }
 
 /* === СЕКЦИЯ КОЛИЧЕСТВА === */

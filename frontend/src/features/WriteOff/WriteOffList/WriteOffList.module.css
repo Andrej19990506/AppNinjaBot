@@ -1054,4 +1054,55 @@
     font-size: 12px;
     font-weight: 500;
     margin-top: 6px;
+}
+
+/* Контейнер для фото в мобильной карточке */
+.photoContainer {
+    margin: 8px 0;
+    position: relative;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+}
+
+.photoIcon {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    padding: 4px;
+    box-shadow: var(--shadow-sm);
+    z-index: 2;
+}
+
+.photoImage {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    display: block;
+    transition: transform var(--transition-normal);
+}
+
+.photoImage:hover {
+    transform: scale(1.02);
+}
+
+/* Контейнер для превью фото */
+.photoThumbnailsContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(var(--primary-rgb), 0.02);
+    border-radius: var(--radius);
+    border: 1px dashed var(--border-color);
+    transition: all var(--transition-normal);
+}
+
+.photoThumbnailsContainer:hover {
+    border-color: var(--primary-color);
+    background: rgba(var(--primary-rgb), 0.05);
 } 

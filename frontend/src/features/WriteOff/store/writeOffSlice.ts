@@ -1,11 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { WriteOffState, WriteOffReason, WriteOffItem } from '@/types/writeOff';
 import { fetchWriteOffChats, fetchWriteOffs, selectWriteOffChat, createWriteOffItem, deleteWriteOffItem, updateWriteOffItem } from '@/features/WriteOff/store/writeOffThunks';
+import { getTodayLocalString } from '@/shared/utils/dateUtils';
 
 const initialState: WriteOffState = {
     chats: [],
     selectedChatId: null,
     selectedChat: null,
+    selectedDate: getTodayLocalString(), // Текущая дата в локальном часовом поясе в формате YYYY-MM-DD
     isLoading: false,
     error: null,
     modal: {
@@ -26,6 +28,9 @@ const writeOffSlice = createSlice({
         clearSelectedChat: (state) => {
             state.selectedChat = null;
             state.selectedChatId = null;
+        },
+        setSelectedDate: (state, action: PayloadAction<string>) => {
+            state.selectedDate = action.payload;
         },
         setModalName: (state, action: PayloadAction<string>) => {
             state.modal.name = action.payload;
@@ -193,7 +198,8 @@ const writeOffSlice = createSlice({
             })
             .addCase(fetchWriteOffs.fulfilled, (state, action) => {
                 state.isLoading = false;
-                const chatId = action.meta.arg;
+                // Теперь fetchWriteOffs принимает объект { chatId, date }
+                const chatId = typeof action.meta.arg === 'string' ? action.meta.arg : action.meta.arg.chatId;
                 const writeOffs = Array.isArray(action.payload) ? action.payload : action.payload.writeOffs ? action.payload.writeOffs : [];
                 if (state.selectedChat && state.selectedChat.chat_id === chatId) {
                     state.selectedChat.writeOffs = writeOffs;
@@ -246,5 +252,5 @@ const writeOffSlice = createSlice({
     }
 });
 
-export const { clearSelectedChat, setModalName, setModalReason, setModalQuantity, setModalDescription, setModalUnitType, setModalSubmitting, resetModal, receiveWriteOffItem, receiveWriteOffUpdate, receiveWriteOffDeletion, updateChatWriteOffs } = writeOffSlice.actions;
+export const { clearSelectedChat, setSelectedDate, setModalName, setModalReason, setModalQuantity, setModalDescription, setModalUnitType, setModalSubmitting, resetModal, receiveWriteOffItem, receiveWriteOffUpdate, receiveWriteOffDeletion, updateChatWriteOffs } = writeOffSlice.actions;
 export default writeOffSlice.reducer; 

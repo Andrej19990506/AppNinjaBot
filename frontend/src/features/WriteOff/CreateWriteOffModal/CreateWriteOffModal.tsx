@@ -26,8 +26,6 @@ import {
   NormalMode
 } from '@/features/WriteOff/CreateWriteOffModal/components';
 import { writeOffReasons } from '@/features/WriteOff/CreateWriteOffModal/utils/constants';
-import InventorySearch from '@/features/Inventory/InventorySearch';
-import SearchResultsDropdown from '@/features/Inventory/SearchResultsDropdown';
 
 interface ReasonInfo extends WriteOffReason {
   description: string;
@@ -49,6 +47,11 @@ interface CreateWriteOffModalProps {
     initialUnitType?: 'шт' | 'гр';
     isEditMode?: boolean;
     onRenderCallback: (id: string, phase: string, actualDuration: number, baseDuration: number, startTime: number) => void;
+    onOpenProductSearch?: () => void;
+    
+    // Пропсы для работы с фото
+    selectedPhotos?: File[];
+    onPhotosChange?: (files: File[]) => void;
 }
 
 export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({ 
@@ -66,7 +69,12 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
     initialDescription = '',
     initialUnitType = 'шт',
     isEditMode = false,
-    onRenderCallback
+    onRenderCallback,
+    onOpenProductSearch,
+    
+    // Пропсы для работы с фото
+    selectedPhotos,
+    onPhotosChange,
 }) => {
     const { isMobile, isDesktop, windowWidth } = useDeviceDetection();
     const dispatch = useAppDispatch();
@@ -120,6 +128,14 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
         onDescriptionChange,
         onUnitTypeChange
     });
+    
+    console.log('🔧 [CreateWriteOffModal] Props vs Redux:', {
+        propsInitialName: initialName,
+        reduxWriteOffName: writeOffName,
+        isOpen,
+        selectedPhotosLength: selectedPhotos?.length || 0,
+        onPhotosChange: !!onPhotosChange
+    });
 
     const [infoModalOpen, setInfoModalOpen] = useState<string | null>(null);
     const [showDescriptionModal, setShowDescriptionModal] = useState<boolean>(false);
@@ -132,10 +148,7 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
     const [isReasonSelectionMode, setIsReasonSelectionMode] = useState<boolean>(false);
     const [isGeneratingDocument, setIsGeneratingDocument] = useState<boolean>(false);
     const [isDescriptionModalOpen, setIsDescriptionModalOpen] = useState<boolean>(false);
-    const [isInventorySearchOpen, setIsInventorySearchOpen] = useState(false);
-    const [inventorySearchQuery, setInventorySearchQuery] = useState('');
-    const [inventorySearchResults, setInventorySearchResults] = useState([]);
-    const [isInventorySearching, setIsInventorySearching] = useState(false);
+
     
     const modalRef = useRef<HTMLDivElement>(null);
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -143,8 +156,6 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
 
     const [isClosing, setIsClosing] = useState(false);
     const [isSuccessClosing, setIsSuccessClosing] = useState(false);
-
-    const wasInitialized = useRef(false);
 
     const handleCloseInfoModal = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
         if (e) {
@@ -237,13 +248,22 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
     }, []);
 
     const handleSubmit = useCallback(() => {
-        
+        console.log('🚀 [handleSubmit] Начало отправки формы с данными:', {
+            writeOffName,
+            selectedReason: selectedReason?.title,
+            quantity,
+            writeOffDescription,
+            unitType,
+            isEditMode
+        });
         
         if (!writeOffName || !selectedReason) {
+            console.log('❌ [handleSubmit] Отмена отправки - не заполнены обязательные поля');
             return;
         }
         
         handleStartSubmitting();
+        console.log('📤 [handleSubmit] Вызов onSubmit с unitType:', unitType);
         onSubmit(writeOffName, selectedReason, quantity, writeOffDescription, unitType);
         
         console.log('✅ [handleSubmit] Форма успешно отправлена');
@@ -311,18 +331,28 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
     }, [isSubmitting, isSuccess, isOpen, isEditMode, showSuccessNotification]);
 
     useEffect(() => {
-        if (isOpen && !wasInitialized.current) {
+        console.log('🔄 [CreateWriteOffModal] useEffect СИНХРОНИЗАЦИИ:', {
+            isOpen,
+            initialName,
+            currentReduxName: writeOffName
+        });
+        
+        if (isOpen) {
+            console.log('✅ [CreateWriteOffModal] СИНХРОНИЗАЦИЯ Redux с props:', {
+                initialName,
+                initialReason,
+                initialQuantity,
+                initialDescription,
+                initialUnitType
+            });
+            // Всегда синхронизируем props с Redux когда модалка открыта
             dispatch(setModalName(initialName));
             dispatch(setModalReason(initialReason));
             dispatch(setModalQuantity(initialQuantity));
             dispatch(setModalDescription(initialDescription));
             dispatch(setModalUnitType(initialUnitType));
-            wasInitialized.current = true;
         }
-        if (!isOpen) {
-            wasInitialized.current = false;
-        }
-    }, [isOpen, initialName, initialReason, initialQuantity, initialDescription, initialUnitType, dispatch]);
+    }, [isOpen, initialName, initialReason, initialQuantity, initialDescription, initialUnitType, dispatch, writeOffName]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -497,38 +527,7 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
     };
 
     // Открыть модалку поиска
-    const handleOpenInventorySearch = useCallback(() => {
-        setIsInventorySearchOpen(true);
-        setInventorySearchQuery('');
-        setInventorySearchResults([]);
-    }, []);
-    // Закрыть модалку поиска
-    const handleCloseInventorySearch = useCallback(() => {
-        setIsInventorySearchOpen(false);
-    }, []);
-    // Выбор товара из шаблона
-    const handleSelectInventoryItem = useCallback((category: string, itemId: string) => {
-        // itemId = название товара из шаблона
-        handleNameChange(itemId);
-        setIsInventorySearchOpen(false);
-    }, [handleNameChange]);
-    // Поиск по шаблону (заглушка, потом подключим реальный поиск)
-    const handleInventorySearch = useCallback((query: string) => {
-        setInventorySearchQuery(query);
-        setIsInventorySearching(true);
-        // TODO: здесь будет реальный поиск по шаблону
-        setTimeout(() => {
-            // Пример: ищем по inventory_template.json (заглушка)
-            setInventorySearchResults([]); // сюда подставить результаты
-            setIsInventorySearching(false);
-        }, 500);
-    }, []);
 
-    // Корректный сброс поиска
-    const handleClearInventorySearch = useCallback(() => {
-        setInventorySearchQuery('');
-        setInventorySearchResults([]);
-    }, []);
 
     return (
         <Profiler id="CreateWriteOffModal" onRender={onRenderCallback}>
@@ -647,6 +646,7 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
                                 ) : (
                                     <motion.div 
                                         key="normal-mode"
+                                        className={styles.modalContent}
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ 
                                           opacity: 1, 
@@ -701,45 +701,16 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
                                             writeOffReasons={writeOffReasons}
                                             handleReasonSelect={handleReasonSelect}
                                             handleDescriptionChange={handleDescriptionChange}
+                                            
+                                            handleOpenProductSearch={onOpenProductSearch || (() => {})}
+                                            
+                                            selectedPhotos={selectedPhotos}
+                                            onPhotosChange={onPhotosChange}
                                         />
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                            {/* --- Модалка поиска товара из шаблона --- */}
-                            <AnimatePresence>
-                                {isInventorySearchOpen && (
-                                    <div className={styles.infoModalOverlay}>
-                                        <motion.div
-                                            className={styles.infoModal}
-                                            initial={{ opacity: 0, y: 30 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: 30 }}
-                                            transition={{ duration: 0.3 }}
-                                            style={{ maxWidth: 500, width: '95vw', maxHeight: '90vh', overflow: 'hidden' }}
-                                            onClick={e => e.stopPropagation()}
-                                        >
-                                            <div className={styles.infoModalHeader}>
-                                                <h3 className={styles.infoModalTitle}>Выбор товара из шаблона</h3>
-                                                <IconButton className={styles.infoModalCloseButton} onClick={handleCloseInventorySearch} aria-label="Закрыть">
-                                                    <CloseIcon />
-                                                </IconButton>
-                                            </div>
-                                            <div className={styles.infoModalContent} style={{ padding: 0 }}>
-                                                <InventorySearch
-                                                    searchQuery={inventorySearchQuery}
-                                                    onSearch={handleInventorySearch}
-                                                    isFocused={true}
-                                                    isSearching={isInventorySearching}
-                                                    searchResults={inventorySearchResults}
-                                                    onClearSearch={handleClearInventorySearch}
-                                                    onSelectResult={handleSelectInventoryItem}
-                                                />
-                                                {/* Можно добавить SearchResultsDropdown, если нужен отдельный дропдаун */}
-                                            </div>
-                                        </motion.div>
-                                    </div>
-                                )}
-                            </AnimatePresence>
+
                         </motion.div>
 
                         <AnimatePresence mode="popLayout">
@@ -780,5 +751,15 @@ export const CreateWriteOffModal: React.FC<CreateWriteOffModalProps> = ({
 };
 
 export default React.memo(CreateWriteOffModal, (prevProps, nextProps) => {
-    return prevProps.isOpen === nextProps.isOpen;
+    return (
+        prevProps.isOpen === nextProps.isOpen &&
+        prevProps.initialName === nextProps.initialName &&
+        prevProps.initialReason === nextProps.initialReason &&
+        prevProps.initialQuantity === nextProps.initialQuantity &&
+        prevProps.initialDescription === nextProps.initialDescription &&
+        prevProps.initialUnitType === nextProps.initialUnitType &&
+        prevProps.isEditMode === nextProps.isEditMode &&
+        prevProps.selectedPhotos === nextProps.selectedPhotos &&
+        prevProps.onPhotosChange === nextProps.onPhotosChange
+    );
 }); 

@@ -3,14 +3,30 @@ from sqlalchemy.future import select
 from models.write_off import WriteOff
 from schemas.write_off import WriteOffCreate, WriteOffUpdate
 from fastapi import HTTPException, status
-from typing import List
+from typing import List, Optional
+from datetime import date
 
-async def get_write_offs_by_group(db: AsyncSession, group_id: int) -> List[WriteOff]:
-    result = await db.execute(select(WriteOff).where(WriteOff.group_id == group_id))
+async def get_write_offs_by_group(db: AsyncSession, group_id: int, date_filter: Optional[date] = None) -> List[WriteOff]:
+    query = select(WriteOff).where(WriteOff.group_id == group_id)
+    
+    # Добавляем фильтр по дате если он указан
+    if date_filter:
+        query = query.where(WriteOff.date == date_filter)
+    
+    # Сортируем по дате и времени создания (новые сверху)
+    query = query.order_by(WriteOff.date.desc(), WriteOff.created_at.desc())
+    
+    result = await db.execute(query)
     return result.scalars().all()
 
 async def create_write_off(db: AsyncSession, group_id: int, write_off: WriteOffCreate) -> WriteOff:
-    db_write_off = WriteOff(**write_off.dict(), group_id=group_id)
+    write_off_data = write_off.dict()
+    
+    # Если дата не указана, устанавливаем текущую дату
+    if not write_off_data.get('date'):
+        write_off_data['date'] = date.today()
+    
+    db_write_off = WriteOff(**write_off_data, group_id=group_id)
     db.add(db_write_off)
     await db.commit()
     await db.refresh(db_write_off)

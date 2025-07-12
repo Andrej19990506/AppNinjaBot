@@ -11,6 +11,7 @@ import isSameDay from 'date-fns/isSameDay';
 import parseISO from 'date-fns/parseISO';
 import { ru } from 'date-fns/locale';
 import styles from './DateSelector.module.css';
+import { getLocalDateString } from '@/shared/utils/dateUtils';
 
 interface DateSelectorProps {
   onDateChange: (date: Date) => void;
@@ -44,7 +45,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
         // Если дата в ISO формате с временем и часовым поясом
         if (dateStr.includes('T')) {
           const date = new Date(dateStr);
-          return date.toISOString().split('T')[0]; // Берем только часть YYYY-MM-DD
+          return getLocalDateString(date); // Берем только часть YYYY-MM-DD в локальном часовом поясе
         }
         
         // Если просто строка YYYY-MM-DD

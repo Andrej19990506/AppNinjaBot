@@ -69,8 +69,8 @@
   left: 0;
   right: 0;
   background-color: var(--card-background);
-  border-radius: 28px 28px 0 0;
-  max-height: calc(95vh - 70px); /* Вычитаем высоту футера */
+  height: calc(100vh - 70px); /* Фиксированная высота на всю доступную область */
+  max-height: calc(100vh - 70px); /* Вычитаем высоту футера */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -391,11 +391,16 @@
 .modalContent {
   padding: 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 24px;
   position: relative;
+  /* Улучшенный скролл для мобильных */
+  -webkit-overflow-scrolling: touch;
+  /* Обеспечиваем минимальную высоту для работы flex */
+  min-height: 0;
 }
 
 .modalContent::-webkit-scrollbar {
@@ -473,7 +478,7 @@
   
   .modalOverlay {
     bottom: 70px;
-    height: calc(100% - 70px);
+    height: calc(100vh - 70px); /* Используем vh для полной высоты экрана */
     /* Оптимизация рендеринга оверлея */
     will-change: opacity;
     /* Упрощаем визуальные эффекты для мобильных устройств */
@@ -494,11 +499,12 @@
   
   .drawerContainer {
     position: absolute;
-    bottom: 55px;
+    bottom: 70px; /* Увеличиваем до стандартного значения футера */
     left: 0;
     right: 0;
     margin-bottom: 0;
-    max-height: calc(100vh - 65px);
+    height: calc(100vh - 70px); /* Добавляем фиксированную высоту */
+    max-height: calc(100vh - 70px); /* Синхронизируем с height */
     z-index: 995;
     /* Упрощаем тени для мобильных устройств */
     box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
@@ -524,8 +530,11 @@
   }
   
   .modalContent {
-    padding: 22px;
+    padding: 16px 20px 80px 20px; /* Добавляем отступ снизу для скролла */
     gap: 18px;
+    /* Обеспечиваем правильный скролл для всего контента */
+    height: auto;
+    min-height: calc(100vh - 70px); /* Исправляем минимальную высоту под контейнер */
   }
   
   .srOnly {

@@ -1,8 +1,12 @@
 import React, { useEffect, useRef, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { motion, useAnimation } from 'framer-motion';
 import Typography from '@mui/material/Typography';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import { RootState } from '@/store';
+import { getTodayLocalString } from '@/shared/utils/dateUtils';
 import styles from '@/features/WriteOff/EmptyWriteOff.module.css';
 
 interface EmptyWriteOffProps {
@@ -13,6 +17,18 @@ interface EmptyWriteOffProps {
 const EmptyWriteOff: React.FC<EmptyWriteOffProps> = ({ branchName, onCreateWriteOff }) => {
     const iconControls = useAnimation();
     const containerRef = useRef<HTMLDivElement>(null);
+    
+    // Получаем выбранную дату из Redux
+    const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
+    const todayDate = getTodayLocalString();
+    const isToday = selectedDate === todayDate;
+    
+    console.log('📅 [EmptyWriteOff] Проверка даты:', {
+        selectedDate,
+        todayDate, 
+        isToday,
+        canCreate: isToday
+    });
 
     useEffect(() => {
         // Оптимизированная анимация пульсации для иконки
@@ -63,16 +79,24 @@ const EmptyWriteOff: React.FC<EmptyWriteOffProps> = ({ branchName, onCreateWrite
                 layoutId="emptyStateCard"
             >
                 <div className={styles.iconContainer}>
-                    <div className={styles.rippleEffect}></div>
-                    <div className={styles.rippleEffect}></div>
+                    {isToday && (
+                        <>
+                            <div className={styles.rippleEffect}></div>
+                            <div className={styles.rippleEffect}></div>
+                        </>
+                    )}
                     <motion.div 
-                        className={styles.iconCircle}
-                        onClick={onCreateWriteOff}
-                        whileTap={{ scale: 0.95 }}
-                        animate={iconControls}
-                        onHoverStart={handleIconHover}
+                        className={`${styles.iconCircle} ${!isToday ? styles.iconCircleDisabled : ''}`}
+                        onClick={isToday ? onCreateWriteOff : undefined}
+                        whileTap={isToday ? { scale: 0.95 } : {}}
+                        animate={isToday ? iconControls : {}}
+                        onHoverStart={isToday ? handleIconHover : undefined}
                     >
-                        <AddCircleOutlineIcon className={styles.icon} />
+                        {isToday ? (
+                            <AddCircleOutlineIcon className={styles.icon} />
+                        ) : (
+                            <EventBusyIcon className={styles.icon} />
+                        )}
                     </motion.div>
                 </div>
                 
@@ -83,7 +107,7 @@ const EmptyWriteOff: React.FC<EmptyWriteOffProps> = ({ branchName, onCreateWrite
                         transition={{ delay: 0.2, duration: 0.3 }}
                     >
                         <Typography className={styles.title}>
-                            Список пуст
+                            {isToday ? 'Список пуст' : 'Нет списаний'}
                         </Typography>
                     </motion.div>
                     
@@ -93,19 +117,35 @@ const EmptyWriteOff: React.FC<EmptyWriteOffProps> = ({ branchName, onCreateWrite
                         transition={{ delay: 0.3, duration: 0.3 }}
                     >
                         <Typography className={styles.subtitle}>
-                            В этом чате еще нет списаний товаров
+                            {isToday 
+                                ? 'В этом чате еще нет списаний товаров'
+                                : `За ${selectedDate} списаний нет`
+                            }
                         </Typography>
                     </motion.div>
                     
-                    <motion.div 
-                        className={styles.hintText}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.4, duration: 0.3 }}
-                    >
-                        <TouchAppIcon className={styles.hintIcon} />
-                        Нажмите на иконку для создания
-                    </motion.div>
+                    {isToday && (
+                        <motion.div 
+                            className={styles.hintText}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4, duration: 0.3 }}
+                        >
+                            <TouchAppIcon className={styles.hintIcon} />
+                            Нажмите на иконку для создания
+                        </motion.div>
+                    )}
+                    
+                    {!isToday && (
+                        <motion.div 
+                            className={styles.hintText}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 0.4, duration: 0.3 }}
+                        >
+                            Создавать списания можно только за сегодня
+                        </motion.div>
+                    )}
                 </div>
             </motion.div>
         </motion.div>

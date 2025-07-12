@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import time
 import telegram
 from telegram.error import BadRequest
@@ -64,6 +64,9 @@ class SendExcelReportPayload(BaseModel):
 class SendWriteOffReportPayload(BaseModel):
     chat_id: str
     file_path: str
+    photos: Optional[List[dict]] = []  # Массив фотографий
+    photos_count: Optional[int] = 0
+    items_count: Optional[int] = 0
 # --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ DOCX write-off отчёта ---
 
 # --- Модель для отправки запроса на добавление товара ---
@@ -623,9 +626,56 @@ async def send_write_off_report_internal(payload: SendWriteOffReportPayload, req
 
         logger.info(f"Путь DOCX {resolved_path} прошел валидацию. Попытка отправки документа.")
 
+        # Сначала отправляем фотографии, если есть
+        if payload.photos and len(payload.photos) > 0:
+            logger.info(f"📷 Отправляем {len(payload.photos)} фотографий списания...")
+            
+            for i, photo in enumerate(payload.photos, 1):
+                try:
+                    photo_path = photo.get('file_path')
+                    photo_caption = photo.get('caption', f'Фото списания {i}')
+                    
+                    if photo_path and os.path.exists(photo_path):
+                        try:
+                            with open(photo_path, "rb") as photo_file:
+                                await bot_app.bot.send_photo(
+                                    chat_id=processed_chat_id,
+                                    photo=InputFile(photo_file, filename=f"writeoff_photo_{i}.jpg"),
+                                    caption=photo_caption
+                                )
+                            logger.info(f"✅ Фото {i}/{len(payload.photos)} успешно отправлено: {photo.get('item_name', 'неизвестно')}")
+                        
+                        except BadRequest as photo_tg_err:
+                            # Пытаемся с альтернативным chat_id
+                            if str(processed_chat_id).startswith('-100'):
+                                alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
+                                logger.info(f"Попытка отправить фото {i} в чат {alternative_chat_id} (альтернативный ID)")
+                                try:
+                                    with open(photo_path, "rb") as photo_file:
+                                        await bot_app.bot.send_photo(
+                                            chat_id=alternative_chat_id,
+                                            photo=InputFile(photo_file, filename=f"writeoff_photo_{i}.jpg"),
+                                            caption=photo_caption
+                                        )
+                                    logger.info(f"✅ Фото {i} успешно отправлено в чат {alternative_chat_id}")
+                                except Exception as alt_photo_err:
+                                    logger.error(f"❌ Ошибка при отправке фото {i} в альтернативный чат: {alt_photo_err}")
+                            else:
+                                logger.error(f"❌ BadRequest при отправке фото {i}: {photo_tg_err}")
+                    else:
+                        logger.warning(f"⚠️ Фото {i} не найдено: {photo_path}")
+                        
+                except Exception as photo_err:
+                    logger.error(f"❌ Ошибка при отправке фото {i}: {photo_err}")
+                    # Продолжаем отправку остальных фото
+                    continue
+            
+            logger.info(f"📷 Завершена отправка фотографий. Переходим к DOCX...")
+        
         # Формируем подпись для документа
         report_date = datetime.now().strftime("%d.%m.%Y")
-        caption = f"📝 Акт списания от {report_date}"
+        photos_text = f" ({payload.photos_count} фото)" if payload.photos_count > 0 else ""
+        caption = f"📝 Акт списания от {report_date}{photos_text}"
         logger.info(f"Сгенерирован подпись для DOCX: '{caption}'")
 
         # Отправка документа

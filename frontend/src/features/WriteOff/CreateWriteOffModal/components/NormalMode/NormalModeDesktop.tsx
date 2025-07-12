@@ -19,6 +19,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 // Импортируем новые стили из отдельного файла
 import styles from './NormalModeDesktop.module.css';
 import { WriteOffReason } from '../../../../../types/writeOff';
+import { PhotoUpload } from '../PhotoUpload/PhotoUpload';
 
 // Расширяем тип для использования в компоненте
 interface ReasonInfo extends WriteOffReason {
@@ -61,6 +62,10 @@ interface NormalModeDesktopProps {
   writeOffReasons: WriteOffReason[];
   handleReasonSelect: (reason: WriteOffReason) => void;
   handleDescriptionChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  
+  // Пропсы для работы с фото
+  selectedPhotos?: File[];
+  onPhotosChange?: (files: File[]) => void;
 }
 
 /**
@@ -102,7 +107,11 @@ export const NormalModeDesktop: React.FC<NormalModeDesktopProps> = ({
   // Параметры для интегрированных компонентов
   writeOffReasons = [],
   handleReasonSelect,
-  handleDescriptionChange
+  handleDescriptionChange,
+  
+  // Параметры для работы с фото
+  selectedPhotos,
+  onPhotosChange,
 }) => {
   // Локальное состояние для выбора причины
   const [isReasonsListOpen, setIsReasonsListOpen] = useState(false);
@@ -229,6 +238,16 @@ export const NormalModeDesktop: React.FC<NormalModeDesktopProps> = ({
               InputProps={{
                 className: styles.input
               }}
+            />
+          </motion.div>
+
+          {/* Секция фотографирования списания */}
+          <motion.div className={styles.section} variants={itemVariants}>
+            <PhotoUpload
+              selectedPhotos={selectedPhotos}
+              onPhotosChange={onPhotosChange}
+              isRequired={true}
+              label="Фото списания"
             />
           </motion.div>
 

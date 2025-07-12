@@ -8,11 +8,13 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import SearchIcon from '@mui/icons-material/Search';
 import styles from './NormalModeMobile.module.css';
 import { WriteOffReason } from '../../../../../types/writeOff';
 import CheckIcon from '@mui/icons-material/Check';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
+import { PhotoUpload } from '../PhotoUpload/PhotoUpload';
 
 // Расширяем тип для использования в компоненте
 interface ReasonInfo extends WriteOffReason {
@@ -56,7 +58,12 @@ interface NormalModeMobileProps {
   handleReasonSelect?: (reason: WriteOffReason) => void;
   handleDescriptionChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
 
-  handleOpenInventorySearch: () => void;
+  // Новые пропсы для выбора товара
+  handleOpenProductSearch: () => void;
+  
+  // Пропсы для работы с фото
+  selectedPhotos?: File[];
+  onPhotosChange?: (files: File[]) => void;
 }
 
 // Варианты анимации для кнопки поиска
@@ -103,48 +110,57 @@ export const NormalModeMobile: React.FC<NormalModeMobileProps> = ({
   handleReasonSelect,
   handleDescriptionChange,
 
-  handleOpenInventorySearch,
+  // Новые параметры для выбора товара
+  handleOpenProductSearch,
+  
+  // Параметры для работы с фото
+  selectedPhotos,
+  onPhotosChange,
 }) => {
+  console.log('🔍 [NormalModeMobile] RENDER:', { 
+    writeOffName, 
+    hasName: !!writeOffName,
+    selectedPhotos: selectedPhotos?.length || 0,
+    onPhotosChange: !!onPhotosChange
+  });
+  
   return (
     <div className={styles.container}>
       <div className={styles.content}>
-        {/* Название списания */}
+        {/* Выбор товара для списания */}
         <section className={styles.inputSection}>
-          <label className={styles.inputLabel}>Название списания</label>
-          <div className={styles.nameInputWrapper} style={{ position: 'relative' }}>
-            <TextField 
-              className={styles.nameInput}
-              variant="outlined"
-              fullWidth
-              placeholder="Введите название списания..."
-              value={writeOffName}
-              onChange={handleNameChange}
-              inputRef={nameInputRef}
-              InputProps={{
-                endAdornment: (
-                  <>
-                    <IconButton 
-                      className={`${styles.descriptionButton} ${writeOffDescription ? styles.descriptionButtonActive : ''}`}
-                      onClick={handleOpenDescriptionModal}
-                      size="small"
-                      aria-label="Добавить описание"
-                    >
-                      {writeOffDescription ? (
-                        <div style={{ position: 'relative' }}>
-                          <DescriptionIcon fontSize="small" />
-                          <div className={styles.descriptionIndicator} />
-                        </div>
-                      ) : (
-                        <DescriptionOutlinedIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  </>
-                )
+          <label className={styles.inputLabel}>Товар для списания</label>
+          <div className={styles.nameInputWrapper} style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={handleOpenProductSearch}
+              className={`${styles.productSelectButton} ${writeOffName ? styles.selected : ''}`}
+              style={{ flex: 1 }}
+            >
+              <SearchIcon className={styles.searchIcon} />
+              <span>{writeOffName || 'Выберите товар...'}</span>
+            </button>
+            <IconButton 
+              className={`${styles.descriptionButton} ${writeOffDescription ? styles.descriptionButtonActive : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDescriptionModal(e);
               }}
-            />
+              size="small"
+              aria-label="Добавить описание"
+              style={{ flexShrink: 0 }}
+            >
+              {writeOffDescription ? (
+                <div style={{ position: 'relative' }}>
+                  <DescriptionIcon fontSize="small" />
+                  <div className={styles.descriptionIndicator} />
+                </div>
+              ) : (
+                <DescriptionOutlinedIcon fontSize="small" />
+              )}
+            </IconButton>
           </div>
           
-
           <AnimatePresence>
             {showDescriptionHint && (
               <motion.div 
@@ -170,6 +186,14 @@ export const NormalModeMobile: React.FC<NormalModeMobileProps> = ({
             )}
           </AnimatePresence>
         </section>
+        
+        {/* Секция фотографирования списания */}
+        <PhotoUpload
+          selectedPhotos={selectedPhotos}
+          onPhotosChange={onPhotosChange}
+          isRequired={true}
+          label="Фото списания"
+        />
         
         {/* Секция количества */}
         <section className={styles.quantitySection}>

@@ -992,8 +992,15 @@ class SlotConfigForDay(BaseModel):
     """Описывает конфигурацию слотов для одного дня."""
     maxDaySlots: int
     maxNightSlots: int
+    hasSeniorSlot: Optional[bool] = False
+    # Время начала и конца дневной смены
+    dayShiftStartTime: Optional[str] = "10:00"  # формат "HH:mm"
+    dayShiftEndTime: Optional[str] = "18:00"    # формат "HH:mm"
+    # Время начала и конца ночной смены
+    nightShiftStartTime: Optional[str] = "18:00"  # формат "HH:mm"
+    nightShiftEndTime: Optional[str] = "02:00"    # формат "HH:mm"
 
-default_single_day_slot_config = SlotConfigForDay(maxDaySlots=4, maxNightSlots=2)
+default_single_day_slot_config = SlotConfigForDay(maxDaySlots=4, maxNightSlots=2, hasSeniorSlot=False, dayShiftStartTime="10:00", dayShiftEndTime="18:00", nightShiftStartTime="18:00", nightShiftEndTime="02:00")
 
 # --- Вспомогательная функция для получения и форматирования данных табеля ---
 # <<< ДОБАВЛЯЕМ ПАРАМЕТРЫ ПЕРИОДА, НО ПОКА НЕ ИСПОЛЬЗУЕМ ИХ >>>
@@ -1009,6 +1016,14 @@ async def get_formatted_timesheet_data(
     """Получает смены (с фильтрацией по периоду/неделе для записи), группирует и возвращает."""
     logger.info(f"[Timesheet Helper] Called for group {group_telegram_id}, period: year={year}, month={month}, weekly={is_weekly}",
                  extra={"access_settings_received": bool(access_settings)})
+
+    # Получаем конфигурацию слотов группы для использования в настройках времени смен
+    group_result = await db.execute(
+        select(Group).where(Group.group_id == group_telegram_id)
+    )
+    db_group = group_result.scalar_one_or_none()
+    group_slot_config = db_group.slot_config or {} if db_group else {}
+    logger.info(f"[Timesheet Helper] Got slot config for group {group_telegram_id}: {group_slot_config}")
 
     filter_conditions = [Shift.group_id == group_internal_id]
     period_description = "all time"
@@ -1143,11 +1158,20 @@ async def get_formatted_timesheet_data(
         # Добавляем информацию о смене на эту дату
         date_str = shift.date.isoformat()
         
-        # <<< Определяем значение для ячейки >>>
+        # <<< Определяем значение для ячейки на основе настроек времени смен >>>
+        # Получаем конфигурацию для дня недели этой смены
+        day_index = shift.date.weekday()
+        slot_config_key = str((day_index + 1) % 7)  # Конвертируем в наш формат ключей
+        config_for_day_dict = group_slot_config.get(slot_config_key, {})
+        
         if shift.shift_type == 'day':
-            current_shift_info = '10' 
+            day_start_time = config_for_day_dict.get('dayShiftStartTime', default_single_day_slot_config.dayShiftStartTime)
+            # Извлекаем только часы из времени "HH:mm"
+            current_shift_info = day_start_time.split(':')[0] if day_start_time else '10'
         elif shift.shift_type == 'night':
-            current_shift_info = '18'
+            night_start_time = config_for_day_dict.get('nightShiftStartTime', default_single_day_slot_config.nightShiftStartTime)
+            # Извлекаем только часы из времени "HH:mm"
+            current_shift_info = night_start_time.split(':')[0] if night_start_time else '18'
         else:
             current_shift_info = shift.shift_type.capitalize() # Fallback на всякий случай
             

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест мобильной формы списания</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background: #ff5f1f;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-weight: 600;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: calc(100vh - 70px);
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: flex-end;
+        }
+        
+        .drawer-container {
+            width: 100%;
+            height: calc(100vh - 70px);
+            background: white;
+            border-radius: 28px 28px 0 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .drawer-handle {
+            padding: 18px 20px;
+            display: flex;
+            justify-content: center;
+            background: white;
+        }
+        
+        .handle-bar {
+            width: 60px;
+            height: 5px;
+            background: #ccc;
+            border-radius: 4px;
+        }
+        
+        .modal-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 16px 20px 80px 20px;
+        }
+        
+        .section {
+            margin-bottom: 24px;
+            padding: 0 20px;
+        }
+        
+        .section:first-child {
+            padding-top: 16px;
+        }
+        
+        .section:last-child {
+            padding-bottom: 40px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #ff5f1f;
+        }
+        
+        .form-field {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        
+        .photo-gallery {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 8px 0;
+            margin-bottom: 16px;
+        }
+        
+        .photo-item {
+            width: 80px;
+            height: 80px;
+            background: #ff5f1f;
+            border-radius: 12px;
+            flex-shrink: 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .delete-btn {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            background: #ff4444;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .add-photo-btn {
+            background: #ff5f1f;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            margin: 8px 4px;
+            cursor: pointer;
+        }
+        
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            justify-content: center;
+            margin: 16px 0;
+        }
+        
+        .quantity-btn {
+            width: 40px;
+            height: 40px;
+            border: 1px solid #ff5f1f;
+            background: white;
+            border-radius: 50%;
+            color: #ff5f1f;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .quantity-value {
+            font-size: 24px;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .reason-card {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+        }
+        
+        .reason-card.selected {
+            border-color: #ff5f1f;
+            background: rgba(255, 95, 31, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- Футер -->
+    <div class="footer">
+        Футер приложения (70px)
+    </div>
+    
+    <!-- Модальное окно -->
+    <div class="modal-overlay">
+        <div class="drawer-container">
+            <!-- Хендл для перетаскивания -->
+            <div class="drawer-handle">
+                <div class="handle-bar"></div>
+            </div>
+            
+            <!-- Содержимое формы -->
+            <div class="modal-content">
+                <!-- Секция выбора товара -->
+                <div class="section">
+                    <div class="section-title">Товар для списания</div>
+                    <div class="form-field">Выберите товар...</div>
+                </div>
+                
+                <!-- Секция фото -->
+                <div class="section">
+                    <div class="section-title">Фото списания *</div>
+                    <div class="photo-gallery">
+                        <div class="photo-item">
+                            Фото 1
+                            <button class="delete-btn">×</button>
+                        </div>
+                        <div class="photo-item">
+                            Фото 2
+                            <button class="delete-btn">×</button>
+                        </div>
+                        <div class="photo-item">
+                            Фото 3
+                            <button class="delete-btn">×</button>
+                        </div>
+                    </div>
+                    <button class="add-photo-btn">📷 Камера</button>
+                    <button class="add-photo-btn">🖼 Галерея</button>
+                </div>
+                
+                <!-- Секция количества -->
+                <div class="section">
+                    <div class="section-title">Количество</div>
+                    <div class="quantity-controls">
+                        <button class="quantity-btn">-</button>
+                        <div class="quantity-value">5 шт</div>
+                        <button class="quantity-btn">+</button>
+                    </div>
+                </div>
+                
+                <!-- Секция причин -->
+                <div class="section">
+                    <div class="section-title">Причина списания</div>
+                    <div class="reason-card">
+                        <strong>Истек срок годности</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Товар больше не пригоден для продажи
+                        </div>
+                    </div>
+                    <div class="reason-card selected">
+                        <strong>Повреждение упаковки</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Упаковка повреждена при транспортировке
+                        </div>
+                    </div>
+                    <div class="reason-card">
+                        <strong>Возврат поставщику</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Товар возвращается поставщику
+                        </div>
+                    </div>
+                    <div class="reason-card">
+                        <strong>Брак производства</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Заводской брак, товар не соответствует стандартам
+                        </div>
+                    </div>
+                    <div class="reason-card">
+                        <strong>Технические неисправности</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Товар имеет технические дефекты
+                        </div>
+                    </div>
+                    <div class="reason-card">
+                        <strong>Другое</strong>
+                        <div style="font-size: 14px; color: #666; margin-top: 4px;">
+                            Причина не указана в списке
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Дополнительный контент для тестирования скролла -->
+                <div class="section">
+                    <div class="section-title">Дополнительная информация</div>
+                    <div class="form-field">Дополнительное описание...</div>
+                    <div class="form-field">Комментарии...</div>
+                    <div class="form-field">Примечания...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Простая эмуляция функций удаления фото
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                this.parentElement.remove();
+            });
+        });
+        
+        // Эмуляция управления количеством
+        let quantity = 5;
+        const quantityValue = document.querySelector('.quantity-value');
+        
+        document.querySelectorAll('.quantity-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (this.textContent === '+') {
+                    quantity++;
+                } else if (quantity > 1) {
+                    quantity--;
+                }
+                quantityValue.textContent = quantity + ' шт';
+            });
+        });
+        
+        // Эмуляция выбора причин
+        document.querySelectorAll('.reason-card').forEach(card => {
+            card.addEventListener('click', function() {
+                document.querySelectorAll('.reason-card').forEach(c => c.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+        
+        console.log('✅ Тест мобильной формы загружен!');
+        console.log('📱 Высота контейнера:', window.getComputedStyle(document.querySelector('.drawer-container')).height);
+        console.log('📏 Высота экрана:', window.innerHeight + 'px');
+    </script>
+</body>
+</html> 

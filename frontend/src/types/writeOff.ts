@@ -26,6 +26,7 @@ export interface WriteOffItem {
     created_at: string;
     status: string;
     unitType?: 'шт' | 'гр';
+    photoPath?: string;
 }
 
 export interface ChatAdmin {
@@ -61,6 +62,7 @@ export interface WriteOffState {
     chats: WriteOffChat[];
     selectedChatId: string | null;
     selectedChat: WriteOffChat | null;
+    selectedDate: string; // Выбранная дата в формате YYYY-MM-DD
     isLoading: boolean;
     error: string | null;
     modal: WriteOffModalState;

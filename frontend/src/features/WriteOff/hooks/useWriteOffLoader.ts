@@ -11,11 +11,12 @@ interface UseWriteOffLoaderProps {
     chatId?: string;
     currentUserId: number | null;
     isAdmin: boolean;
+    selectedDate?: string;  // Выбранная дата для фильтрации
 }
 
 type LoadWriteOffResult = BaseWriteOffChat | BaseWriteOffChat[] | null;
 
-export const useWriteOffLoader = ({ chatId, currentUserId, isAdmin }: UseWriteOffLoaderProps) => {
+export const useWriteOffLoader = ({ chatId, currentUserId, isAdmin, selectedDate }: UseWriteOffLoaderProps) => {
     const dispatch = useAppDispatch();
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(true);
@@ -76,15 +77,17 @@ export const useWriteOffLoader = ({ chatId, currentUserId, isAdmin }: UseWriteOf
                     }
 
                     // Сначала получаем информацию о чате и проверяем права доступа
-                    const chatInfo = await dispatch(selectWriteOffChat(chatId)).unwrap();
+                    const chatInfo = await dispatch(selectWriteOffChat({ 
+                        chatId, 
+                        date: selectedDate 
+                    })).unwrap();
                     
                     if (!chatInfo || !checkChatAccess(chatInfo)) {
                         throw new Error('У вас нет доступа к этому чату');
                     }
 
-                    // Затем загружаем списания
-                    const writeOffsResult = await dispatch(fetchWriteOffs(chatId)).unwrap();
-                    console.log('📦 Загружены списания:', writeOffsResult);
+                    // Списания уже загружены в selectWriteOffChat с фильтром по дате
+                    console.log('📦 Чат и списания загружены успешно для даты:', selectedDate || 'все даты');
 
                     return chatInfo;
                 } else {

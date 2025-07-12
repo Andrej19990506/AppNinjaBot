@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, BigInteger
+from sqlalchemy import Column, Integer, String, Float, DateTime, Date, ForeignKey, Text, BigInteger
 from sqlalchemy.sql import func
 from .base import Base
 
@@ -14,5 +14,7 @@ class WriteOff(Base):
     description = Column(Text, nullable=True)
     unit_type = Column(String(10), nullable=False, default='шт')
     status = Column(String(32), nullable=False, default='pending')
+    photo_path = Column(String(500), nullable=True, comment='Путь к фото списания')
+    date = Column(Date, nullable=False, server_default=func.current_date())  # Дата списания (без времени)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now()) 

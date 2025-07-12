@@ -1,0 +1,330 @@
+@import '../../../../../styles/base/variables.css';
+
+/* Основная секция фото */
+.photoSection {
+  margin-bottom: 24px;
+  padding: 0 20px; /* Синхронизируем с другими секциями */
+  position: relative;
+  /* Обеспечиваем что секция не блокирует скролл */
+  overflow: visible;
+  flex-shrink: 0; /* Не сжимается */
+}
+
+.photoLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.required {
+  color: var(--error-color, #ff4444);
+}
+
+.photoCount {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: rgba(255, 95, 31, 0.1);
+  padding: 2px 8px;
+  border-radius: 12px;
+  margin-left: auto;
+}
+
+/* Галерея существующих фото */
+.photosGallery {
+  margin-bottom: 16px;
+  /* Убеждаемся что галерея не блокирует родительский скролл */
+  overflow: visible;
+  flex-shrink: 0;
+}
+
+.photosScroll {
+  display: flex;
+  gap: 4px; /* Уменьшаем gap так как у контейнеров теперь свои отступы */
+  overflow-x: auto;
+  padding: 8px 8px 8px 0; /* Добавляем отступ справа для последней кнопки удаления */
+  scroll-behavior: smooth;
+  
+  /* Красивая прокрутка */
+  scrollbar-width: thin;
+  scrollbar-color: var(--orange-primary, #ff5f1f) transparent;
+}
+
+.photosScroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.photosScroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.photosScroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, 
+    var(--orange-primary, #ff5f1f) 0%, 
+    var(--orange-secondary, #ff7e3e) 100%);
+  border-radius: 3px;
+  transition: background 0.3s ease;
+}
+
+.photosScroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, 
+    var(--orange-secondary, #ff7e3e) 0%, 
+    var(--orange-primary, #ff5f1f) 100%);
+}
+
+.photoThumbnailContainer {
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: visible; /* Позволяем кнопке выходить за границы */
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+  /* Добавляем отступы для кнопки удаления */
+  margin: 8px 8px 8px 0;
+}
+
+.photoThumbnailContainer:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 24px rgba(0, 0, 0, 0.15),
+    0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.deletePhotoButton {
+  position: absolute !important;
+  top: -6px !important;
+  right: -6px !important;
+  background: linear-gradient(135deg, #ff4444 0%, #e53e3e 100%) !important;
+  color: white !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: 2px solid white !important;
+  border-radius: 50% !important;
+  box-shadow: 
+    0 4px 12px rgba(255, 68, 68, 0.4),
+    0 2px 6px rgba(0, 0, 0, 0.15) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  z-index: 15;
+  backdrop-filter: blur(4px);
+}
+
+.deletePhotoButton:hover {
+  background: linear-gradient(135deg, #e53e3e 0%, #ff4444 100%) !important;
+  transform: scale(1.15) !important;
+  box-shadow: 
+    0 6px 16px rgba(255, 68, 68, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.deletePhotoButton:active {
+  transform: scale(1.05) !important;
+}
+
+.deletePhotoButton :global(.MuiSvgIcon-root) {
+  font-size: 16px !important;
+  transition: all 0.3s ease !important;
+}
+
+.deletePhotoButton:hover :global(.MuiSvgIcon-root) {
+  font-size: 18px !important;
+}
+
+/* Контейнер загрузки */
+.uploadContainer {
+  border: 2px dashed var(--border-light);
+  border-radius: 16px;
+  background: var(--surface-background);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.uploadContainer.dragOver {
+  border-color: var(--orange-primary, #ff5f1f);
+  background: rgba(255, 95, 31, 0.05);
+  transform: scale(1.02);
+}
+
+.uploadArea {
+  padding: 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.uploadIcon {
+  font-size: 40px !important;
+  color: var(--orange-primary, #ff5f1f);
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.uploadContainer:hover .uploadIcon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.uploadText {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.uploadButtons {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Кнопки камеры и галереи */
+.cameraButton {
+  background: linear-gradient(135deg, 
+    var(--orange-primary, #ff5f1f) 0%, 
+    var(--orange-secondary, #ff7e3e) 100%) !important;
+  color: white !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  box-shadow: 
+    0 2px 8px rgba(255, 95, 31, 0.3),
+    0 1px 4px rgba(255, 95, 31, 0.2) !important;
+  border: none !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  min-width: 100px;
+  font-size: 13px !important;
+}
+
+.cameraButton:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 
+    0 4px 12px rgba(255, 95, 31, 0.4),
+    0 2px 8px rgba(255, 95, 31, 0.3) !important;
+}
+
+.galleryButton {
+  background: transparent !important;
+  color: var(--orange-primary, #ff5f1f) !important;
+  border: 1px solid var(--orange-primary, #ff5f1f) !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  padding: 8px 16px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  min-width: 100px;
+  font-size: 13px !important;
+}
+
+.galleryButton:hover {
+  background: rgba(255, 95, 31, 0.1) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 8px rgba(255, 95, 31, 0.2) !important;
+}
+
+/* Сообщение о максимальном количестве фото */
+.maxPhotosMessage {
+  text-align: center;
+  padding: 16px;
+  background: rgba(255, 95, 31, 0.1);
+  border: 1px solid rgba(255, 95, 31, 0.2);
+  border-radius: 12px;
+  color: var(--orange-primary, #ff5f1f);
+  font-weight: 500;
+  font-size: 14px;
+}
+
+/* Мобильные адаптации */
+@media (max-width: 480px) {
+  .uploadArea {
+    padding: 16px;
+  }
+  
+  .uploadButtons {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .cameraButton,
+  .galleryButton {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .uploadIcon {
+    font-size: 32px !important;
+  }
+  
+  .uploadText {
+    font-size: 13px;
+  }
+
+  .photosScroll {
+    gap: 8px;
+  }
+  
+  .photoLabel {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+  
+  .photoCount {
+    margin-left: 0;
+  }
+}
+
+/* Анимации */
+@keyframes photosAppear {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.photosGallery {
+  animation: photosAppear 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Улучшенные эффекты наведения */
+.uploadContainer:not(.dragOver):hover {
+  border-color: var(--orange-primary, #ff5f1f);
+  background: rgba(255, 95, 31, 0.02);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 95, 31, 0.1);
+}
+
+/* Accessibility */
+.cameraButton:focus,
+.galleryButton:focus,
+.deletePhotoButton:focus {
+  outline: 2px solid var(--orange-primary, #ff5f1f);
+  outline-offset: 2px;
+}
+
+/* Эффекты для горизонтальной прокрутки */
+.photosScroll {
+  /* Добавляем отступ справа для удобства прокрутки */
+  padding-right: 16px;
+}
+
+.photosScroll::after {
+  content: '';
+  min-width: 8px;
+  flex-shrink: 0;
+} 

@@ -20,6 +20,7 @@ import { selectSlotConfig, selectSlotConfigForDay } from '@features/courierSched
 import { SlotConfigUpdatePayload } from '@features/courierSchedule/types/courierScheduleTypes';
 import { NotificationTypes } from '@/shared/store/notificationSlice/notificationTypes';
 import { SlotConfigForDay } from '@features/courierSchedule/types/courierScheduleTypes';
+import ShiftTimeSelector from './components/ShiftTimeSelector';
 
 
 const SettingsSection = styled.div`
@@ -406,6 +407,12 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
     const nightSlots = currentDayConfig?.maxNightSlots ?? defaultSingleDaySlotConfig.maxNightSlots;
     const hasSeniorSlot = currentDayConfig?.hasSeniorSlot ?? false;
     
+    // Время смен для текущего дня
+    const dayShiftStartTime = currentDayConfig?.dayShiftStartTime ?? defaultSingleDaySlotConfig.dayShiftStartTime ?? "10:00";
+    const dayShiftEndTime = currentDayConfig?.dayShiftEndTime ?? defaultSingleDaySlotConfig.dayShiftEndTime ?? "18:00";
+    const nightShiftStartTime = currentDayConfig?.nightShiftStartTime ?? defaultSingleDaySlotConfig.nightShiftStartTime ?? "18:00";
+    const nightShiftEndTime = currentDayConfig?.nightShiftEndTime ?? defaultSingleDaySlotConfig.nightShiftEndTime ?? "02:00";
+    
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
 
@@ -424,7 +431,11 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
         
         const isModified = dayConfig.maxDaySlots !== initialConfig.maxDaySlots ||
                dayConfig.maxNightSlots !== initialConfig.maxNightSlots ||
-               dayConfig.hasSeniorSlot !== initialConfig.hasSeniorSlot;
+               dayConfig.hasSeniorSlot !== initialConfig.hasSeniorSlot ||
+               dayConfig.dayShiftStartTime !== initialConfig.dayShiftStartTime ||
+               dayConfig.dayShiftEndTime !== initialConfig.dayShiftEndTime ||
+               dayConfig.nightShiftStartTime !== initialConfig.nightShiftStartTime ||
+               dayConfig.nightShiftEndTime !== initialConfig.nightShiftEndTime;
         
         console.log(`[SlotSettings] isDayModified(${dayIndex}):`, {
             isModified,
@@ -528,6 +539,51 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
         });
     };
 
+    // Обработчики для изменения времени смен
+    const handleDayShiftStartChange = useCallback((time: string) => {
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                dayShiftStartTime: time
+            };
+            return newConfig;
+        });
+    }, [dayIndex]);
+
+    const handleDayShiftEndChange = useCallback((time: string) => {
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                dayShiftEndTime: time
+            };
+            return newConfig;
+        });
+    }, [dayIndex]);
+
+    const handleNightShiftStartChange = useCallback((time: string) => {
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                nightShiftStartTime: time
+            };
+            return newConfig;
+        });
+    }, [dayIndex]);
+
+    const handleNightShiftEndChange = useCallback((time: string) => {
+        setWeekConfig(prev => {
+            const newConfig = [...prev];
+            newConfig[dayIndex] = {
+                ...newConfig[dayIndex],
+                nightShiftEndTime: time
+            };
+            return newConfig;
+        });
+    }, [dayIndex]);
+
     const handleSave = useCallback(async (): Promise<void> => {
         if (!calculatedIsDirty || !chatId) {
             return;
@@ -551,7 +607,11 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                     dayIndex, 
                     maxDaySlots: dayConfig.maxDaySlots, 
                     maxNightSlots: dayConfig.maxNightSlots,
-                    hasSeniorSlot: dayConfig.hasSeniorSlot
+                    hasSeniorSlot: dayConfig.hasSeniorSlot,
+                    dayShiftStartTime: dayConfig.dayShiftStartTime,
+                    dayShiftEndTime: dayConfig.dayShiftEndTime,
+                    nightShiftStartTime: dayConfig.nightShiftStartTime,
+                    nightShiftEndTime: dayConfig.nightShiftEndTime
                 }));
             });
             
@@ -670,7 +730,7 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                         
                         <SlotConfigRow>
                             <SlotTypeLabel>
-                                <SlotTypeIcon>🌙</SlotTypeIcon> Ночные слоты
+                                <SlotTypeIcon>🌙</SlotTypeIcon> Вечерние слоты
                             </SlotTypeLabel>
                             <SlotCountControls>
                                 <SlotCountButton onClick={handleDecreaseNightSlots} disabled={isLoading || nightSlots <= 0}>-</SlotCountButton>
@@ -680,6 +740,18 @@ const SlotSettingsComponent: React.ForwardRefRenderFunction<SlotSettingsRef, ISl
                         </SlotConfigRow>
                     </SettingsSection>
                 )}
+                
+                {/* Компонент настройки времени смен */}
+                <ShiftTimeSelector
+                    dayShiftStartTime={dayShiftStartTime}
+                    dayShiftEndTime={dayShiftEndTime}
+                    nightShiftStartTime={nightShiftStartTime}
+                    nightShiftEndTime={nightShiftEndTime}
+                    onDayShiftStartChange={handleDayShiftStartChange}
+                    onDayShiftEndChange={handleDayShiftEndChange}
+                    onNightShiftStartChange={handleNightShiftStartChange}
+                    onNightShiftEndChange={handleNightShiftEndChange}
+                />
                 {isLoading && (
                     <div style={{ textAlign: 'center', marginTop: '10px' }}>
                         <InlineSpinner /> Сохранение...

@@ -129,7 +129,7 @@ const WriteOffList = memo(forwardRef<WriteOffListRef, WriteOffListProps>((props,
     handleCloneClick: adaptedHandleCloneClick,
     removingItems: Array.from(removingItems),
     removedItems: Array.from(removedItems),
-    onAddNew: onAddNew || (() => {})
+    onAddNew: onAddNew || (() => {}),
   };
   
   // Передаем все необходимые свойства и методы для десктопной версии

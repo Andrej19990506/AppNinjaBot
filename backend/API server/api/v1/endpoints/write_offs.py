@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, Query, Form, File, UploadFile
+from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, Query, Form, File, UploadFile, Body, Request
 from fastapi.responses import FileResponse
 from typing import List, Dict, Any, Optional, Union
 from datetime import date
@@ -89,18 +89,7 @@ async def get_write_off_photo(photo_filename: str):
 @router.post("/{group_id}", response_model=WriteOffResponse, status_code=status.HTTP_201_CREATED)
 async def create_write_off(
     group_id: int,
-    # Для JSON данных
-    write_off: Optional[WriteOffCreate] = None,
-    # Для Form данных с файлом
-    user_id: Optional[int] = Form(None),
-    name: Optional[str] = Form(None),
-    reason: Optional[str] = Form(None),
-    quantity: Optional[float] = Form(None),
-    description: Optional[str] = Form(None),
-    unit_type: Optional[str] = Form('шт'),
-    status: Optional[str] = Form('pending'),
-    date: Optional[str] = Form(None),
-    photo: Optional[UploadFile] = File(None),
+    request: Request,
     service: WriteOffService = Depends(get_write_off_service),
     db: AsyncSession = Depends(get_db_session)
 ):
@@ -111,74 +100,225 @@ async def create_write_off(
     2. Form data (multipart/form-data) - для загрузки фото
     """
     
-    # Определяем откуда взять данные
-    if write_off is not None:
+    # Определяем тип содержимого
+    content_type = request.headers.get("content-type", "")
+    logger.info(f"🔍 [create_write_off] Content-Type: {content_type}")
+    
+    if content_type.startswith("application/json"):
         # JSON данные
-        write_off_data = write_off
-        photo_path = None
-    else:
-        # Form данные
-        if not all([user_id, name, reason, quantity]):
+        try:
+            json_data = await request.json()
+            logger.info(f"✅ [create_write_off] Обрабатываем JSON данные: {json_data}")
+            
+            # Создаем объект WriteOffCreate из JSON
+            write_off_data = WriteOffCreate(**json_data)
+            photo_path = None
+            
+        except Exception as e:
+            logger.error(f"❌ [create_write_off] Ошибка парсинга JSON: {e}")
             raise HTTPException(
                 status_code=422,
-                detail="Обязательные поля: user_id, name, reason, quantity"
+                detail=f"Ошибка парсинга JSON данных: {str(e)}"
             )
-        
-        # Сохраняем фото если есть
-        photo_path = None
-        if photo:
-            # Создаем директорию для фото если не существует
-            photos_dir = Path("/app/shared/write_off_photos")
-            photos_dir.mkdir(parents=True, exist_ok=True)
+    elif content_type.startswith("multipart/form-data"):
+        # Form данные с файлом
+        try:
+            form_data = await request.form()
+            logger.info(f"🔄 [create_write_off] Обрабатываем Form данные: {dict(form_data)}")
             
-            # Генерируем уникальное имя файла
-            file_extension = photo.filename.split('.')[-1] if '.' in photo.filename else 'jpg'
-            photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
-            photo_path = photos_dir / photo_filename
+            # Извлекаем обязательные поля
+            user_id = form_data.get("user_id")
+            name = form_data.get("name")
+            reason = form_data.get("reason")
+            quantity = form_data.get("quantity")
             
-            # Сохраняем файл
-            with open(photo_path, "wb") as f:
-                content = await photo.read()
-                f.write(content)
-            
-            # Сохраняем только имя файла, а не полный путь
-            photo_path = photo_filename
-        
-        # Создаем объект WriteOffCreate из form данных
-        date_obj = None
-        if date:
-            try:
-                from datetime import datetime
-                date_obj = datetime.strptime(date, "%Y-%m-%d").date()
-            except ValueError:
+            # Проверяем обязательные поля
+            if not all([user_id, name, reason, quantity]):
+                logger.error(f"❌ [create_write_off] Отсутствуют обязательные поля: user_id={user_id}, name={name}, reason={reason}, quantity={quantity}")
                 raise HTTPException(
                     status_code=422,
-                    detail="Неверный формат даты. Используйте YYYY-MM-DD"
+                    detail="Обязательные поля: user_id, name, reason, quantity"
                 )
-        
-        write_off_data = WriteOffCreate(
-            user_id=user_id,
-            name=name,
-            reason=reason,
-            quantity=quantity,
-            description=description,
-            unit_type=unit_type,
-            status=status,
-            photo_path=photo_path,
-            date=date_obj
+            
+            # Обрабатываем фото
+            photo_path = None
+            photo_file = form_data.get("photo")
+            if photo_file and hasattr(photo_file, 'filename'):
+                # Создаем директорию для фото если не существует
+                photos_dir = Path("/app/shared/write_off_photos")
+                photos_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Генерируем уникальное имя файла
+                file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
+                photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
+                photo_path_full = photos_dir / photo_filename
+                
+                # Сохраняем файл
+                with open(photo_path_full, "wb") as f:
+                    content = await photo_file.read()
+                    f.write(content)
+                
+                # Сохраняем только имя файла
+                photo_path = photo_filename
+                logger.info(f"📸 [create_write_off] Сохранено фото: {photo_filename}")
+            
+            # Обрабатываем дату
+            date_obj = None
+            date_str = form_data.get("date")
+            if date_str:
+                try:
+                    from datetime import datetime
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Неверный формат даты. Используйте YYYY-MM-DD"
+                    )
+            
+            # Создаем объект WriteOffCreate из form данных
+            write_off_data = WriteOffCreate(
+                user_id=int(user_id),
+                name=name,
+                reason=reason,
+                quantity=float(quantity),
+                description=form_data.get("description") or "",
+                unit_type=form_data.get("unit_type") or "шт",
+                status=form_data.get("status") or "pending",
+                photo_path=photo_path,
+                date=date_obj
+            )
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ [create_write_off] Ошибка парсинга Form данных: {e}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ошибка парсинга Form данных: {str(e)}"
+            )
+    else:
+        logger.error(f"❌ [create_write_off] Неподдерживаемый Content-Type: {content_type}")
+        raise HTTPException(
+            status_code=415,
+            detail="Неподдерживаемый тип содержимого. Используйте application/json или multipart/form-data"
         )
     
+    logger.info(f"🚀 [create_write_off] Создаем списание: {write_off_data}")
     return await service.create_write_off(db, group_id, write_off_data)
 
 @router.put("/{group_id}/{write_off_id}", response_model=WriteOffResponse)
 async def update_write_off(
     group_id: int,
     write_off_id: int,
-    write_off: WriteOffUpdate,
+    request: Request,
     service: WriteOffService = Depends(get_write_off_service),
     db: AsyncSession = Depends(get_db_session)
 ):
-    return await service.update_write_off(db, group_id, write_off_id, write_off)
+    """
+    Обновляет списание.
+    Поддерживает два формата данных:
+    1. JSON (application/json) - для обратной совместимости
+    2. Form data (multipart/form-data) - для загрузки фото
+    """
+    
+    # Определяем тип содержимого
+    content_type = request.headers.get("content-type", "")
+    logger.info(f"🔍 [update_write_off] Content-Type: {content_type}")
+    
+    if content_type.startswith("application/json"):
+        # JSON данные
+        try:
+            json_data = await request.json()
+            logger.info(f"✅ [update_write_off] Обрабатываем JSON данные: {json_data}")
+            
+            # Создаем объект WriteOffUpdate из JSON
+            write_off_data = WriteOffUpdate(**json_data)
+            
+        except Exception as e:
+            logger.error(f"❌ [update_write_off] Ошибка парсинга JSON: {e}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ошибка парсинга JSON данных: {str(e)}"
+            )
+    elif content_type.startswith("multipart/form-data"):
+        # Form данные с файлом
+        try:
+            form_data = await request.form()
+            logger.info(f"🔄 [update_write_off] Обрабатываем Form данные: {dict(form_data)}")
+            
+            # Обрабатываем фото
+            photo_path = None
+            photo_file = form_data.get("photo")
+            if photo_file and hasattr(photo_file, 'filename'):
+                # Создаем директорию для фото если не существует
+                photos_dir = Path("/app/shared/write_off_photos")
+                photos_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Генерируем уникальное имя файла
+                file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
+                photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
+                photo_path_full = photos_dir / photo_filename
+                
+                # Сохраняем файл
+                with open(photo_path_full, "wb") as f:
+                    content = await photo_file.read()
+                    f.write(content)
+                
+                # Сохраняем только имя файла
+                photo_path = photo_filename
+                logger.info(f"📸 [update_write_off] Сохранено фото: {photo_filename}")
+            
+            # Обрабатываем дату
+            date_obj = None
+            date_str = form_data.get("date")
+            if date_str:
+                try:
+                    from datetime import datetime
+                    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Неверный формат даты. Используйте YYYY-MM-DD"
+                    )
+            
+            # Создаем объект WriteOffUpdate из form данных
+            update_data = {}
+            if form_data.get("name"):
+                update_data["name"] = form_data.get("name")
+            if form_data.get("reason"):
+                update_data["reason"] = form_data.get("reason")
+            if form_data.get("quantity"):
+                update_data["quantity"] = float(form_data.get("quantity"))
+            if form_data.get("description") is not None:
+                update_data["description"] = form_data.get("description")
+            if form_data.get("unit_type"):
+                update_data["unit_type"] = form_data.get("unit_type")
+            if form_data.get("status"):
+                update_data["status"] = form_data.get("status")
+            if photo_path:
+                update_data["photo_path"] = photo_path
+            if date_obj:
+                update_data["date"] = date_obj
+            
+            write_off_data = WriteOffUpdate(**update_data)
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"❌ [update_write_off] Ошибка парсинга Form данных: {e}")
+            raise HTTPException(
+                status_code=422,
+                detail=f"Ошибка парсинга Form данных: {str(e)}"
+            )
+    else:
+        logger.error(f"❌ [update_write_off] Неподдерживаемый Content-Type: {content_type}")
+        raise HTTPException(
+            status_code=415,
+            detail="Неподдерживаемый тип содержимого. Используйте application/json или multipart/form-data"
+        )
+    
+    logger.info(f"🚀 [update_write_off] Обновляем списание: {write_off_data}")
+    return await service.update_write_off(db, group_id, write_off_id, write_off_data)
 
 @router.delete("/{group_id}/{write_off_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_write_off(

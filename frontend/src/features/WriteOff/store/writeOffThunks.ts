@@ -149,6 +149,13 @@ export const createWriteOffItem = createAsyncThunk(
                 user_id,
                 photosCount: photos.length
             });
+            
+            // Проверяем что user_id определен
+            if (!user_id) {
+                console.error('❌ [createWriteOffItem] Отсутствует user_id:', { user_id });
+                throw new Error('Не указан user_id');
+            }
+            
             const response = await WriteOffApi.createWriteOff(chatId, {
                 name,
                 reason: typeof reason === 'string' ? reason : reason.id,

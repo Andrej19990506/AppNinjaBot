@@ -65,12 +65,10 @@
 
 .drawerContainer {
   position: absolute;
-  bottom: 70px; /* Располагаем над футером */
   left: 0;
   right: 0;
   background-color: var(--card-background);
-  height: calc(100vh - 70px); /* Фиксированная высота на всю доступную область */
-  max-height: calc(100vh - 70px); /* Вычитаем высоту футера */
+  height: calc(100vh); /* Фиксированная высота на всю доступную область */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -140,11 +138,12 @@
 }
 
 .drawerHandle {
+  margin-top: 50px;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px 20px;
+  padding: 33px 20px;
   position: relative;
   background-color: var(--card-background);
   box-shadow: 0 4px 12px -8px rgba(0, 0, 0, 0.1);
@@ -499,12 +498,10 @@
   
   .drawerContainer {
     position: absolute;
-    bottom: 70px; /* Увеличиваем до стандартного значения футера */
     left: 0;
     right: 0;
     margin-bottom: 0;
-    height: calc(100vh - 70px); /* Добавляем фиксированную высоту */
-    max-height: calc(100vh - 70px); /* Синхронизируем с height */
+    height: calc(100vh); /* Добавляем фиксированную высоту */
     z-index: 995;
     /* Упрощаем тени для мобильных устройств */
     box-shadow: 0 -5px 15px rgba(0, 0, 0, 0.2);
@@ -534,7 +531,6 @@
     gap: 18px;
     /* Обеспечиваем правильный скролл для всего контента */
     height: auto;
-    min-height: calc(100vh - 70px); /* Исправляем минимальную высоту под контейнер */
   }
   
   .srOnly {

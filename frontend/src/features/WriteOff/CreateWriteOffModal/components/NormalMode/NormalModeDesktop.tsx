@@ -19,7 +19,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 // Импортируем новые стили из отдельного файла
 import styles from './NormalModeDesktop.module.css';
 import { WriteOffReason } from '../../../../../types/writeOff';
-import { PhotoUpload } from '../PhotoUpload/PhotoUpload';
+import PhotoUpload from '../PhotoUpload/PhotoUpload';
 
 // Расширяем тип для использования в компоненте
 interface ReasonInfo extends WriteOffReason {

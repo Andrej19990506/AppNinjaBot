@@ -408,13 +408,17 @@ async def update_inventory_for_chat(
             updated_inventory_for_response = group.json_inventory # Сохраняем обновленный инвентарь
 
             calculated_progress = calculate_inventory_progress_py(payload.inventory)
-            metadata_to_save = {
+            
+            # ИСПРАВЛЕНИЕ: Сохраняем существующие метаданные и обновляем только нужные поля
+            existing_metadata = group.json_metadata or {}
+            existing_metadata.update({
                 "progress": calculated_progress,
                 "lastUpdated": datetime.now().isoformat(),
                 "chat_id": chat_id
-            }
-            logger.info(f"Calculated progress: {calculated_progress}%. Saving new metadata: {metadata_to_save}")
-            group.json_metadata = metadata_to_save
+            })
+            
+            logger.info(f"Calculated progress: {calculated_progress}%. Updating metadata while preserving existing fields: {list(existing_metadata.keys())}")
+            group.json_metadata = existing_metadata
             updated_metadata_for_response = group.json_metadata # Сохраняем обновленные метаданные
 
             # --- ОБРАБОТКА И СОХРАНЕНИЕ ИСТОРИИ ---

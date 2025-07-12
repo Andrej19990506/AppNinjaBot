@@ -497,6 +497,29 @@ const WriteOff: React.FC = () => {
                     photosCount: selectedPhotos.length
                 });
                 
+                // Проверяем что user_id определен
+                if (!userId) {
+                    console.error('❌ [handleCreateWriteOffSubmit] Отсутствует user_id:', {
+                        userId,
+                        userState: user,
+                        userIdFromState: user?.user?.id
+                    });
+                    alert('Ошибка: не удалось определить пользователя');
+                    return;
+                }
+                
+                console.log('🔍 [handleCreateWriteOffSubmit] Данные для отправки:', {
+                    chatId: selectedWriteOffChat.chat_id,
+                    name,
+                    reason: reason.id,
+                    quantity,
+                    description,
+                    unitType,
+                    user_id: userId,
+                    date: selectedDate,
+                    photos: selectedPhotos
+                });
+                
                 const newItem = await dispatch(createWriteOffItem({
                     chatId: selectedWriteOffChat.chat_id,
                     name,

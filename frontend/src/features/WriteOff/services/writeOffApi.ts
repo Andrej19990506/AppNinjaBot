@@ -174,8 +174,18 @@ export const WriteOffApi = {
                 description: data.description || '',
                 unit_type: data.unitType || 'шт',
                 user_id: data.user_id,
-                date: data.date
+                ...(data.date && { date: data.date }) // Добавляем date только если он определен
             };
+            
+            console.log('🔍 [createWriteOff] Проверка user_id:', {
+                originalUserId: data.user_id,
+                userIdType: typeof data.user_id,
+                userIdInPayload: payload.user_id,
+                isUserIdValid: payload.user_id !== undefined && payload.user_id !== null,
+                dateValue: data.date,
+                dateIncluded: !!data.date
+            });
+            
             console.log('🚀 [createWriteOff] Отправляем JSON без фото:', payload);
             return axiosInstance.post(`/v1/write-offs/${group_id}`, payload).then((response: AxiosResponse<any>) => {
                 // Маппим photo_path → photoPath и unit_type → unitType
@@ -239,7 +249,7 @@ export const WriteOffApi = {
                 quantity: data.quantity,
                 description: data.description || '',
                 unit_type: data.unitType || 'шт',
-                date: data.date
+                ...(data.date && { date: data.date }) // Добавляем date только если он определен
             };
             console.log('🚀 [updateWriteOff] Отправляем JSON без фото:', payload);
             return axiosInstance.put(`/v1/write-offs/${group_id}/${writeOffId}`, payload).then((response: AxiosResponse<any>) => {

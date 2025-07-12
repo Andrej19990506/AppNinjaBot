@@ -729,14 +729,7 @@
 
 .createButtonWrapper,
 .generateDocButtonWrapper {
-    /* Убираем абсолютное позиционирование, если оно было */
-    /* position: absolute; */ 
-    /* right: 15px; */
-    /* bottom: 15px; */
-    /* z-index: 10; */
-
-    /* Добавляем margin, если нужно отделить от правых иконок */
-    margin-left: 10px; /* Пример */
+    margin-left: 10px; 
 }
 
 .rightIconsContainer {

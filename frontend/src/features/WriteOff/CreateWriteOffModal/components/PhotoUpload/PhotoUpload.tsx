@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import IconButton from '@mui/material/IconButton';
 import Button from '@mui/material/Button';
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddAPhotoIcon from '@mui/icons-material/AddAPhoto';
@@ -22,7 +21,7 @@ interface PhotoUploadProps {
  * Компонент галереи фото для списания
  * Поддерживает несколько фото, горизонтальную прокрутку и просмотр в полном размере
  */
-export const PhotoUpload: React.FC<PhotoUploadProps> = ({
+const PhotoUpload: React.FC<PhotoUploadProps> = ({
   onPhotosChange,
   selectedPhotos = [],
   isRequired = false,
@@ -34,7 +33,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
     selectedPhotosNames: selectedPhotos?.map(f => f.name) || [],
     onPhotosChange: !!onPhotosChange
   });
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
@@ -60,7 +59,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
     
     // Принудительно обновляем компонент
     setForceUpdate(prev => prev + 1);
-    
+
     // Очистка при размонтировании
     return () => {
       newUrls.forEach(url => URL.revokeObjectURL(url));
@@ -76,7 +75,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
       console.warn(`Максимальное количество фото: ${maxPhotos}`);
       return;
     }
-    
+
     const updatedPhotos = [...selectedPhotos, ...newFiles];
     console.log('📷 [PhotoUpload] Добавлено фото:', newFiles.length, 'общее количество:', updatedPhotos.length);
     console.log('📷 [PhotoUpload] Новые файлы:', newFiles.map(f => f.name));
@@ -117,73 +116,21 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
     }
   };
 
-  // Открытие камеры
-  const handleCameraCapture = () => {
-    console.log('📷 [PhotoUpload] Открытие камеры');
-    if (cameraInputRef.current) {
-      const input = cameraInputRef.current;
-      
-      // Определяем устройство
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      
-      // Устанавливаем правильные атрибуты в зависимости от устройства
-      if (isMobile) {
-        if (isIOS) {
-          // Для iOS используем environment (задняя камера)
-          input.setAttribute('capture', 'environment');
-        } else {
-          // Для Android используем environment
-          input.setAttribute('capture', 'environment');
-        }
-      } else {
-        // Для десктопа используем user (фронтальная камера)
-        input.setAttribute('capture', 'user');
-      }
-      
-      input.setAttribute('accept', 'image/*');
-      
-      // Логируем для отладки
-      console.log('📷 [PhotoUpload] Настройки камеры:', {
-        isMobile,
-        isIOS,
-        capture: input.getAttribute('capture'),
-        accept: input.getAttribute('accept'),
-        userAgent: navigator.userAgent.substring(0, 100)
-      });
-      
-      input.click();
-    }
-  };
-
-  // Открытие галереи
-  const handleGallerySelect = () => {
-    console.log('🖼️ [PhotoUpload] Открытие галереи');
+  // Открытие галереи (переименовано из handleGallerySelect)
+  const handlePhotoSelect = () => {
+    console.log('📷 [PhotoUpload] Открытие выбора фото');
     if (galleryInputRef.current) {
-      // Убираем атрибут capture для галереи
-      galleryInputRef.current.removeAttribute('capture');
+      console.log('📷 [PhotoUpload] Клик по input для открытия файлового диалога');
       galleryInputRef.current.click();
     }
   };
 
-  // Обработка изменения файла в инпуте камеры
-  const handleCameraInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('📷 [PhotoUpload] Обработка фото с камеры');
+  // Обработка изменения файла в инпуте
+  const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('📷 [PhotoUpload] Обработка выбранных фото');
     const files = event.target.files;
     if (files && files.length > 0) {
-      console.log('📷 [PhotoUpload] Получено фото с камеры:', files[0].name);
-      handleAddPhotos(files);
-    }
-    // Очищаем input для возможности повторного выбора
-    event.target.value = '';
-  };
-
-  // Обработка изменения файла в инпуте галереи
-  const handleGalleryInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('🖼️ [PhotoUpload] Обработка фото из галереи');
-    const files = event.target.files;
-    if (files && files.length > 0) {
-      console.log('🖼️ [PhotoUpload] Получено фото из галереи:', Array.from(files).map(f => f.name));
+      console.log('📷 [PhotoUpload] Получено фото:', Array.from(files).map(f => f.name));
       handleAddPhotos(files);
     }
     // Очищаем input для возможности повторного выбора
@@ -302,23 +249,13 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
             
             <div className={styles.uploadButtons}>
               <Button
-                onClick={handleCameraCapture}
+                onClick={handlePhotoSelect}
                 variant="contained"
-                startIcon={<CameraAltIcon />}
+                startIcon={<PhotoLibraryIcon />}
                 className={styles.cameraButton}
                 size="large"
               >
-                Камера
-              </Button>
-              
-              <Button
-                onClick={handleGallerySelect}
-                variant="outlined"
-                startIcon={<PhotoLibraryIcon />}
-                className={styles.galleryButton}
-                size="large"
-              >
-                Галерея
+                Выбрать фото
               </Button>
             </div>
           </div>
@@ -337,25 +274,15 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
         </motion.div>
       )}
 
-      {/* Скрытые инпуты для камеры и галереи */}
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        style={{ display: 'none' }}
-        onChange={handleCameraInputChange}
-        title="Сделать фото с камеры"
-      />
-      
+      {/* Скрытый input элемент для загрузки фото */}
       <input
         ref={galleryInputRef}
         type="file"
         accept="image/*"
         multiple
         style={{ display: 'none' }}
-        onChange={handleGalleryInputChange}
-        title="Выбрать из галереи"
+        onChange={handleInputChange}
+        title="Выбрать фото"
       />
 
       {/* Полноэкранная галерея */}
@@ -367,4 +294,6 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
       />
     </section>
   );
-}; 
+};
+
+export default PhotoUpload; 

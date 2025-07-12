@@ -14,7 +14,7 @@ import { WriteOffReason } from '../../../../../types/writeOff';
 import CheckIcon from '@mui/icons-material/Check';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
-import { PhotoUpload } from '../PhotoUpload/PhotoUpload';
+import PhotoUpload from '../PhotoUpload/PhotoUpload';
 
 // Расширяем тип для использования в компоненте
 interface ReasonInfo extends WriteOffReason {

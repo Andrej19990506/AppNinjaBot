@@ -596,7 +596,7 @@ async def update_inventory_for_chat(
 
 # --- ЭНДПОИНТ ИСТОРИИ ---
 @router.get(
-    "/history/{chat_id}/{category}/{item_name:path}",
+    "/history/{chat_id}",
     response_model=List[Dict[str, Any]],
     summary="Get Item History",
     description="Retrieves the history of changes for a specific item in a chat.",
@@ -604,19 +604,13 @@ async def update_inventory_for_chat(
 )
 async def get_item_history(
     chat_id: str = Path(..., description="Telegram ID of the chat"),
-    category: str = Path(..., description="Category name"),
-    item_name: str = Path(..., description="Item name"),
+    category: str = Query(..., description="Category name"),
+    item_name: str = Query(..., description="Item name"),
     db: AsyncSession = Depends(get_db_session)
 ):
-    # Декодируем URL-encoded параметры для правильной обработки кириллических символов
-    try:
-        category_decoded = unquote(category)
-        item_name_decoded = unquote(item_name)
-        logger.info(f"[get_item_history] URL decoded: category='{category}' -> '{category_decoded}', item='{item_name}' -> '{item_name_decoded}'")
-    except Exception as decode_error:
-        logger.warning(f"[get_item_history] URL decoding failed: {decode_error}. Using original values.")
-        category_decoded = category
-        item_name_decoded = item_name
+    # Query parameters автоматически декодируются FastAPI
+    category_decoded = category
+    item_name_decoded = item_name
     
     logger.info(f"[get_item_history] Request for history: chat={chat_id}, category={category_decoded}, item={item_name_decoded}")
     try:
@@ -959,7 +953,7 @@ async def request_item_addition_through_bot(
 
 
 @router.delete(
-    "/{chat_id}/items/{category}/{item_name:path}",
+    "/{chat_id}/items",
     status_code=status.HTTP_200_OK,
     summary="Delete Inventory Item",
     description="Deletes an item from both the main inventory (`json_inventory`) and the custom additions (`json_inventory_additions`) for the group. Updates metadata if deleted from main inventory.",
@@ -967,25 +961,19 @@ async def request_item_addition_through_bot(
 )
 async def delete_inventory_item(
     chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
-    category: str = Path(..., description="Category name of the item to delete"),
-    item_name: str = Path(..., description="Name of the item to delete"),
+    category: str = Query(..., description="Category name of the item to delete"),
+    item_name: str = Query(..., description="Name of the item to delete"),
     # TODO: Добавить зависимость для проверки прав администратора
     db: AsyncSession = Depends(get_db_session)
 ):
     """
     Deletes an item definition and its data from the group's inventory and additions.
     """
-    # Декодируем URL-encoded параметры для правильной обработки кириллических символов
-    try:
-        category_decoded = unquote(category)
-        item_name_decoded = unquote(item_name)
-        logger.info(f"[delete_inventory_item] URL decoded: category='{category}' -> '{category_decoded}', item='{item_name}' -> '{item_name_decoded}'")
-    except Exception as decode_error:
-        logger.warning(f"[delete_inventory_item] URL decoding failed: {decode_error}. Using original values.")
-        category_decoded = category
-        item_name_decoded = item_name
+    # Query parameters автоматически декодируются FastAPI
+    category_decoded = category
+    item_name_decoded = item_name
     
-    logger.info(f"[delete_inventory_item] DELETE /inventory/{chat_id}/items/{category_decoded}/{item_name_decoded}")
+    logger.info(f"[delete_inventory_item] DELETE /inventory/{chat_id}/items?category={category_decoded}&item_name={item_name_decoded}")
 
     try:
         group_telegram_id = int(chat_id)

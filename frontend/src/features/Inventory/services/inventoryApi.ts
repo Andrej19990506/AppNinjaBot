@@ -76,11 +76,14 @@ export const getItemHistory = async (chatId: string, category: string, itemName:
     if (!chatId || !category || !itemName) {
         throw new Error('chatId, категория и название товара обязательны для получения истории.');
     }
-    const encodedCategory = encodeURIComponent(category);
-    const encodedItemName = encodeURIComponent(itemName);
-    const url = `/v1/inventory/history/${chatId}/${encodedCategory}/${encodedItemName}`;
+    const url = `/v1/inventory/history/${chatId}`;
     try {
-        const response = await axiosInstance.get<InventoryHistoryItem[]>(url);
+        const response = await axiosInstance.get<InventoryHistoryItem[]>(url, {
+            params: {
+                category,
+                item_name: itemName
+            }
+        });
         return response.data;
     } catch (error) {
         throw error;
@@ -182,11 +185,14 @@ export const deleteInventoryItem = async (chatId: string, category: string, item
     if (!chatId || !category || !itemName) {
         throw new Error('chatId, категория и название товара обязательны для удаления товара.');
     }
-    const encodedCategory = encodeURIComponent(category);
-    const encodedItemName = encodeURIComponent(itemName);
-    const url = `/v1/inventory/${chatId}/items/${encodedCategory}/${encodedItemName}`;
+    const url = `/v1/inventory/${chatId}/items`;
     try {
-        const response = await axiosInstance.delete<any>(url);
+        const response = await axiosInstance.delete<any>(url, {
+            params: {
+                category,
+                item_name: itemName
+            }
+        });
         return response.data;
     } catch (error) {
         throw error;

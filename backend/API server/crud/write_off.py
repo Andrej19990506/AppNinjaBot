@@ -5,19 +5,40 @@ from schemas.write_off import WriteOffCreate, WriteOffUpdate
 from fastapi import HTTPException, status
 from typing import List, Optional
 from datetime import date
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def get_write_offs_by_group(db: AsyncSession, group_id: int, date_filter: Optional[date] = None) -> List[WriteOff]:
+    logger.info(f"🔍 [CRUD] get_write_offs_by_group вызван: group_id={group_id}, date_filter={date_filter}")
+    
     query = select(WriteOff).where(WriteOff.group_id == group_id)
     
     # Добавляем фильтр по дате если он указан
     if date_filter:
+        logger.info(f"📅 [CRUD] Добавляем фильтр по дате: {date_filter}")
         query = query.where(WriteOff.date == date_filter)
+    else:
+        logger.info(f"📅 [CRUD] Фильтр по дате не применяется - запрашиваем все даты")
     
     # Сортируем по дате и времени создания (новые сверху)
     query = query.order_by(WriteOff.date.desc(), WriteOff.created_at.desc())
     
+    logger.info(f"🔍 [CRUD] Выполняем запрос к БД...")
     result = await db.execute(query)
-    return result.scalars().all()
+    write_offs = result.scalars().all()
+    
+    logger.info(f"✅ [CRUD] Найдено {len(write_offs)} списаний")
+    
+    # Логируем детали найденных списаний для отладки
+    if write_offs:
+        logger.info(f"📋 [CRUD] Детали найденных списаний:")
+        for i, wo in enumerate(write_offs):
+            logger.info(f"  {i+1}. ID: {wo.id}, name: {wo.name}, date: {wo.date}, created_at: {wo.created_at}")
+    else:
+        logger.info(f"📋 [CRUD] Списания не найдены")
+    
+    return write_offs
 
 async def create_write_off(db: AsyncSession, group_id: int, write_off: WriteOffCreate) -> WriteOff:
     write_off_data = write_off.dict()

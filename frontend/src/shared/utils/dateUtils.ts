@@ -72,4 +72,37 @@ export const convertUTCDateToLocal = (utcDateString: string): string => {
     const localDay = String(utcDate.getDate()).padStart(2, '0');
     
     return `${localYear}-${localMonth}-${localDay}`;
+};
+
+/**
+ * Проверяет, можно ли редактировать списания для указанной даты
+ * Редактирование разрешено только для сегодняшнего дня
+ */
+export const canEditWriteOffsForDate = (date: string): boolean => {
+    const today = getTodayLocalString();
+    return date === today;
+};
+
+/**
+ * Проверяет, является ли дата прошедшей
+ */
+export const isPastDate = (date: string): boolean => {
+    const today = getTodayLocalString();
+    return date < today;
+};
+
+/**
+ * Проверяет, является ли дата будущей
+ */
+export const isFutureDate = (date: string): boolean => {
+    const today = getTodayLocalString();
+    return date > today;
+};
+
+/**
+ * Проверяет, является ли дата сегодняшней
+ */
+export const isToday = (date: string): boolean => {
+    const today = getTodayLocalString();
+    return date === today;
 }; 

@@ -59,11 +59,11 @@ export const fetchWriteOffs = createAsyncThunk(
             console.log('🏠 Чат:', chatId);
             console.log('📅 Дата:', date || 'все даты');
             const response = await WriteOffApi.getWriteOffs(chatId, date);
-            console.log('✅ Получены списания:', response.data);
+            console.log('✅ Получены списания:', response);
             return {
                 chatId,
                 date,
-                writeOffs: response.data
+                writeOffs: response
             };
         } catch (error: any) {
             console.error('❌ Ошибка при загрузке списаний:', error);

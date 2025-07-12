@@ -31,6 +31,10 @@ const writeOffSlice = createSlice({
         },
         setSelectedDate: (state, action: PayloadAction<string>) => {
             state.selectedDate = action.payload;
+            // Очищаем списания при смене даты
+            if (state.selectedChat) {
+                state.selectedChat.writeOffs = [];
+            }
         },
         setModalName: (state, action: PayloadAction<string>) => {
             state.modal.name = action.payload;

@@ -1,4 +1,5 @@
 import React, { memo, useCallback } from 'react';
+import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -12,7 +13,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileCopyIcon from '@mui/icons-material/FileCopy';
 import Chip from '@mui/material/Chip';
+import { RootState } from '@/store';
 import { WriteOffItem } from '@/types/writeOff';
+import { canEditWriteOffsForDate } from '@/shared/utils/dateUtils';
 import styles from '@/features/WriteOff/WriteOffList/components/WriteOffItemDesktop.module.css';
 import { formatDate } from '@/features/WriteOff/WriteOffList/utils/dateUtils';
 
@@ -35,6 +38,9 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
   onDelete,
   onClone
 }) => {
+  const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
+  const canEdit = canEditWriteOffsForDate(selectedDate);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'active':
@@ -58,6 +64,8 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
     e.stopPropagation();
     e.preventDefault();
     
+    if (!canEdit) return;
+    
     // Делаем копию элемента с правильным типом
     // Обратите внимание: убедитесь, что reason не может быть null
     const itemCopy = { 
@@ -74,11 +82,13 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
     });
     
     onEdit(itemCopy);
-  }, [item, onEdit]);
+  }, [item, onEdit, canEdit]);
 
   const handleCloneClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    
+    if (!canEdit) return;
     
     // Делаем копию элемента с правильным типом
     const itemCopy = { 
@@ -95,11 +105,13 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
     });
     
     onClone(itemCopy);
-  }, [item, onClone]);
+  }, [item, onClone, canEdit]);
 
   const handleDeleteClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
+    
+    if (!canEdit) return;
     
     // Делаем копию элемента с правильным типом
     const itemCopy = { 
@@ -114,7 +126,7 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
     });
     
     onDelete(itemCopy);
-  }, [item, onDelete]);
+  }, [item, onDelete, canEdit]);
 
   return (
     <div 
@@ -206,40 +218,40 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
               }}
             />
             
-            <motion.div 
+            <motion.div
               className={styles.actionButtons}
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <Tooltip title="Редактировать" arrow placement="top">
+              <Tooltip title={canEdit ? "Редактировать" : "Нельзя редактировать прошедшие дни"} arrow placement="top">
                 <IconButton 
                   size="small" 
                   className={`${styles.actionButton} ${styles.editButton}`} 
                   onClick={handleEditClick}
-                  disabled={isRemoving}
+                  disabled={isRemoving || !canEdit}
                 >
                   <EditIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
               
-              <Tooltip title="Клонировать" arrow placement="top">
+              <Tooltip title={canEdit ? "Клонировать" : "Нельзя клонировать в прошедшие дни"} arrow placement="top">
                 <IconButton 
                   size="small" 
                   className={`${styles.actionButton} ${styles.cloneButton}`} 
                   onClick={handleCloneClick}
-                  disabled={isRemoving}
+                  disabled={isRemoving || !canEdit}
                 >
                   <FileCopyIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>
               </Tooltip>
               
-              <Tooltip title="Удалить" arrow placement="top">
+              <Tooltip title={canEdit ? "Удалить" : "Нельзя удалить в прошедшие дни"} arrow placement="top">
                 <IconButton 
                   size="small" 
                   className={`${styles.actionButton} ${styles.deleteButton}`} 
                   onClick={handleDeleteClick}
-                  disabled={isRemoving}
+                  disabled={isRemoving || !canEdit}
                 >
                   <DeleteIcon sx={{ fontSize: '0.9rem' }} />
                 </IconButton>

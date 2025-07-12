@@ -411,14 +411,16 @@ async def update_inventory_for_chat(
             
             # ИСПРАВЛЕНИЕ: Сохраняем существующие метаданные и обновляем только нужные поля
             existing_metadata = group.json_metadata or {}
-            existing_metadata.update({
+            # Создаем новый объект метаданных для корректного отслеживания изменений ORM
+            updated_metadata = {
+                **existing_metadata,  # Копируем существующие метаданные
                 "progress": calculated_progress,
                 "lastUpdated": datetime.now().isoformat(),
                 "chat_id": chat_id
-            })
+            }
             
-            logger.info(f"Calculated progress: {calculated_progress}%. Updating metadata while preserving existing fields: {list(existing_metadata.keys())}")
-            group.json_metadata = existing_metadata
+            logger.info(f"Calculated progress: {calculated_progress}%. Updating metadata while preserving existing fields: {list(updated_metadata.keys())}")
+            group.json_metadata = updated_metadata
             updated_metadata_for_response = group.json_metadata # Сохраняем обновленные метаданные
 
             # --- ОБРАБОТКА И СОХРАНЕНИЕ ИСТОРИИ ---
@@ -1382,13 +1384,17 @@ async def reset_inventory_for_chat(
             flag_modified(group, "json_inventory")
 
             # 4. Обновляем метаданные
-            metadata = group.json_metadata or {}
-            metadata['progress'] = 0
-            metadata['lastUpdated'] = datetime.now().isoformat()
-            metadata['chat_id'] = chat_id # Убедимся, что chat_id есть в метаданных
-            group.json_metadata = metadata
+            existing_metadata = group.json_metadata or {}
+            # Создаем новый объект метаданных для корректного отслеживания изменений ORM
+            updated_metadata = {
+                **existing_metadata,  # Копируем существующие метаданные
+                'progress': 0,
+                'lastUpdated': datetime.now().isoformat(),
+                'chat_id': chat_id
+            }
+            group.json_metadata = updated_metadata
             flag_modified(group, "json_metadata")
-            updated_metadata_for_notify = metadata # Сохраняем для NOTIFY
+            updated_metadata_for_notify = updated_metadata # Сохраняем для NOTIFY
             logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0, lastUpdated set.")
 
         # Транзакция успешно завершена (commit)

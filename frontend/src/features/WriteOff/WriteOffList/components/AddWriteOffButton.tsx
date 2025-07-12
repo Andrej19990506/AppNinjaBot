@@ -1,7 +1,11 @@
 import React from 'react';
+import { useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import Button from '@mui/material/Button';
 import AddIcon from '@mui/icons-material/Add';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
+import { RootState } from '@/store';
+import { canEditWriteOffsForDate } from '@/shared/utils/dateUtils';
 import styles from '@/features/WriteOff/WriteOffList/WriteOffList.module.css';
 
 interface AddWriteOffButtonProps {
@@ -12,6 +16,9 @@ interface AddWriteOffButtonProps {
  * Компонент кнопки добавления нового списания с анимацией
  */
 const AddWriteOffButton: React.FC<AddWriteOffButtonProps> = ({ onAddNew }) => {
+  const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
+  const canEdit = canEditWriteOffsForDate(selectedDate);
+
   return (
     <div className={styles.addButtonContainer}>
       <motion.div
@@ -25,11 +32,12 @@ const AddWriteOffButton: React.FC<AddWriteOffButtonProps> = ({ onAddNew }) => {
       >
         <Button
           variant="contained"
-          startIcon={<AddIcon className={styles.addButtonIcon} />}
-          onClick={onAddNew}
-          className={styles.addButton}
+          startIcon={canEdit ? <AddIcon className={styles.addButtonIcon} /> : <EventBusyIcon className={styles.addButtonIcon} />}
+          onClick={canEdit ? onAddNew : undefined}
+          disabled={!canEdit}
+          className={`${styles.addButton} ${!canEdit ? styles.addButtonDisabled : ''}`}
         >
-          Добавить списание
+          {canEdit ? 'Добавить списание' : 'Нельзя добавить в прошедшие дни'}
         </Button>
       </motion.div>
     </div>

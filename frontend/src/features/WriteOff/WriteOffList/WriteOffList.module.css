@@ -759,6 +759,19 @@
     box-shadow: 0 2px 6px rgba(var(--primary-rgb), 0.2) !important;
 }
 
+.addButtonDisabled {
+    background: linear-gradient(135deg, #9e9e9e, #757575) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.addButtonDisabled:hover {
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
 .addButtonIcon {
     animation: spin 0.3s ease-out;
     margin-right: 4px !important;

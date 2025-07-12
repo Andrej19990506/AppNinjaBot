@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, Query, Form, File, UploadFile, Body, Request
+from fastapi import APIRouter, Depends, status, BackgroundTasks, HTTPException, Query, Form, File, UploadFile, Body, Request, Response
 from fastapi.responses import FileResponse
 from typing import List, Dict, Any, Optional, Union
 from datetime import date
@@ -22,23 +22,41 @@ router = APIRouter(tags=["write-offs"])
 @router.get("/{group_id}", response_model=List[WriteOffResponse])
 async def get_write_offs(
     group_id: int,
+    response: Response,
     date: Optional[str] = Query(None, description="Фильтр по дате в формате YYYY-MM-DD"),
     service: WriteOffService = Depends(get_write_off_service),
     db: AsyncSession = Depends(get_db_session)
 ):
+    """
+    Получает список списаний для группы с опциональной фильтрацией по дате.
+    Добавлены заголовки против кэширования для решения проблемы с переключением дат.
+    """
+    logger.info(f"🔍 [get_write_offs] Запрос списаний для группы {group_id}, дата: {date}")
+    
+    # Добавляем заголовки против кэширования
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    
     # Преобразуем строковую дату в объект date если она указана
     date_filter = None
     if date:
         try:
             from datetime import datetime
             date_filter = datetime.strptime(date, "%Y-%m-%d").date()
+            logger.info(f"📅 [get_write_offs] Дата преобразована: {date} -> {date_filter}")
         except ValueError:
+            logger.error(f"❌ [get_write_offs] Неверный формат даты: {date}")
             raise HTTPException(
                 status_code=400,
                 detail="Неверный формат даты. Используйте YYYY-MM-DD"
             )
     
-    return await service.get_write_offs_by_group(db, group_id, date_filter)
+    # Получаем списания из сервиса
+    write_offs = await service.get_write_offs_by_group(db, group_id, date_filter)
+    logger.info(f"✅ [get_write_offs] Найдено {len(write_offs)} списаний для группы {group_id}")
+    
+    return write_offs
 
 @router.get("/photos/{photo_filename}")
 async def get_write_off_photo(photo_filename: str):

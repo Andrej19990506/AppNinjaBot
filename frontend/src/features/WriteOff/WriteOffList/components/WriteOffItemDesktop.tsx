@@ -7,7 +7,6 @@ import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -18,6 +17,7 @@ import { WriteOffItem } from '@/types/writeOff';
 import { canEditWriteOffsForDate } from '@/shared/utils/dateUtils';
 import styles from '@/features/WriteOff/WriteOffList/components/WriteOffItemDesktop.module.css';
 import { formatDate } from '@/features/WriteOff/WriteOffList/utils/dateUtils';
+import WriteOffAuthor from './WriteOffAuthor';
 
 interface WriteOffItemDesktopProps {
   item: WriteOffItem;
@@ -189,17 +189,12 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
         )}
         
         <div className={styles.footerRow}>
-          <Typography className={styles.date} variant="caption" component="span">
-            <AccessTimeIcon sx={{ 
-              mr: 0.5, 
-              fontSize: '0.8rem', 
-              opacity: 0.7,
-              verticalAlign: 'text-bottom',
-              color: 'var(--text-secondary)',
-              transition: 'all var(--transition-fast)'
-            }} />
-            {formatDate(item.created_at)}
-          </Typography>
+          <WriteOffAuthor
+            author={item.author}
+            created_at={item.created_at}
+            variant="desktop"
+            showTime={true}
+          />
           
           <div className={styles.actionsContainer}>
             <Chip

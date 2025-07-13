@@ -7,6 +7,7 @@ export interface WriteOffMetadata {
     chat_id: string;
     totalWriteOffs: number;
     pendingWriteOffs: number;
+    lastFilteredDate?: string; // Дата последней фильтрации для кэширования
 }
 
 export interface WriteOffReason {
@@ -27,6 +28,14 @@ export interface WriteOffItem {
     status: string;
     unitType?: 'шт' | 'гр';
     photoPath?: string;
+    // Информация об авторе списания
+    author?: {
+        user_id: number;
+        first_name: string | null;
+        last_name?: string | null;
+        photo_url?: string | null;
+        username?: string | null;
+    } | null;
 }
 
 export interface ChatAdmin {

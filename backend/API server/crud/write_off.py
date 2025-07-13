@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 from models.write_off import WriteOff
+from models.member import Member
 from schemas.write_off import WriteOffCreate, WriteOffUpdate
 from fastapi import HTTPException, status
 from typing import List, Optional
@@ -12,7 +14,13 @@ logger = logging.getLogger(__name__)
 async def get_write_offs_by_group(db: AsyncSession, group_id: int, date_filter: Optional[date] = None) -> List[WriteOff]:
     logger.info(f"🔍 [CRUD] get_write_offs_by_group вызван: group_id={group_id}, date_filter={date_filter}")
     
-    query = select(WriteOff).where(WriteOff.group_id == group_id)
+    # Добавляем join с таблицей Member для получения информации об авторе
+    query = (
+        select(WriteOff)
+        .outerjoin(Member, WriteOff.user_id == Member.user_id)
+        .where(WriteOff.group_id == group_id)
+        .options(selectinload(WriteOff.author_member))  # Загружаем связанного автора
+    )
     
     # Добавляем фильтр по дате если он указан
     if date_filter:

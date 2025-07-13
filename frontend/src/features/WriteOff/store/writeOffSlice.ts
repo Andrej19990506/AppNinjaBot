@@ -204,12 +204,14 @@ const writeOffSlice = createSlice({
                 state.isLoading = false;
                 // Теперь fetchWriteOffs принимает объект { chatId, date }
                 const chatId = typeof action.meta.arg === 'string' ? action.meta.arg : action.meta.arg.chatId;
+                const filterDate = typeof action.meta.arg === 'string' ? undefined : action.meta.arg.date;
                 const writeOffs = Array.isArray(action.payload) ? action.payload : action.payload.writeOffs ? action.payload.writeOffs : [];
                 if (state.selectedChat && state.selectedChat.chat_id === chatId) {
                     state.selectedChat.writeOffs = writeOffs;
                     if (state.selectedChat.metadata) {
                         state.selectedChat.metadata.totalWriteOffs = writeOffs.length;
                         state.selectedChat.metadata.lastUpdated = new Date().toISOString();
+                        state.selectedChat.metadata.lastFilteredDate = filterDate; // Сохраняем дату для кэширования
                     }
                 }
                 const chatIndex = state.chats.findIndex(chat => chat.chat_id === chatId);
@@ -219,6 +221,7 @@ const writeOffSlice = createSlice({
                     if (chat.metadata) {
                         chat.metadata.totalWriteOffs = writeOffs.length;
                         chat.metadata.lastUpdated = new Date().toISOString();
+                        chat.metadata.lastFilteredDate = filterDate; // Сохраняем дату для кэширования
                     }
                 }
             })

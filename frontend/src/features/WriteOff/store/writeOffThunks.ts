@@ -82,6 +82,8 @@ export const selectWriteOffChat = createAsyncThunk(
         
         console.log('🔍 Debug selectWriteOffChat:', {
             chatId,
+            date,
+            dateType: typeof date,
             chat: !!chat,
             userId,
             userState: state.user.user,

@@ -13,6 +13,7 @@ import styles from '@/features/WriteOff/WriteOffList/WriteOffList.module.css';
 import { formatDate } from '@/features/WriteOff/WriteOffList/utils/dateUtils';
 import PhotoThumbnail from '@shared/components/PhotoGallery/PhotoThumbnail';
 import PhotoGallery from '@shared/components/PhotoGallery/PhotoGallery';
+import WriteOffAuthor from './WriteOffAuthor';
 
 interface WriteOffItemMobileProps {
   item: WriteOffItem;
@@ -93,6 +94,14 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
           </IconButton>
         </div>
         
+        {/* Информация об авторе списания */}
+        <WriteOffAuthor
+          author={item.author}
+          created_at={item.created_at}
+          variant="mobile"
+          showTime={false}
+        />
+        
         {/* Отображение фото */}
         {photoUrl && (
           <div className={styles.photoContainer}>
@@ -123,10 +132,7 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
             </div>
           )}
           
-          <div className={styles.infoRow}>
-            <AccessTimeIcon className={styles.infoIcon} fontSize="small" />
-            <span className={styles.infoText}>{formatDate(item.created_at)}</span>
-          </div>
+
           
           <div className={styles.status}>
             {item.status === 'active' ? 'Активен' : item.status}

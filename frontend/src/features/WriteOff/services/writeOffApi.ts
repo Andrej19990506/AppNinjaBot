@@ -82,13 +82,22 @@ export const WriteOffApi = {
                         ...record,
                         date: record.date ? convertUTCDateToLocal(record.date) : record.date,
                         unitType: record.unit_type || 'шт', // ← ИСПРАВЛЕНО: snake_case → camelCase
-                        photoPath: record.photo_path // ← ДОБАВЛЕНО: маппинг photo_path → photoPath
+                        photoPath: record.photo_path, // ← ДОБАВЛЕНО: маппинг photo_path → photoPath
+                        author: record.author_member ? {
+                            user_id: record.author_member.user_id,
+                            first_name: record.author_member.first_name,
+                            last_name: record.author_member.last_name,
+                            username: record.author_member.username,
+                            photo_url: record.author_member.photo_url
+                        } : null // ← ДОБАВЛЕНО: маппинг автора списания
                     };
                     console.log('🔄 [convertDatesInRecords] Маппинг записи:', {
                         original_unit_type: record.unit_type,
                         mapped_unitType: converted.unitType,
                         original_photo_path: record.photo_path,
                         mapped_photoPath: converted.photoPath,
+                        author_present: !!record.author_member,
+                        author_name: record.author_member?.first_name,
                         name: record.name
                     });
                     return converted;

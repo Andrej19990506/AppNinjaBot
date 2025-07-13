@@ -71,12 +71,31 @@ export const useWriteOffLoader = ({ chatId, currentUserId, isAdmin, selectedDate
                 if (chatId) {
                     console.log('📥 Загрузка списаний для конкретного чата:', chatId);
                     
+                    // ИСПРАВЛЕНИЕ: Проверяем кэш только если дата соответствует
+                    // Иначе при первой загрузке показываются списания из вчерашнего дня
                     if (!forceReload && selectedChat?.chat_id === chatId && selectedChat.writeOffs) {
-                        console.log('📦 Используем кэшированные данные');
-                        return selectedChat;
+                        // Проверяем, соответствует ли дата в кэше текущей выбранной дате
+                        const cacheDate = selectedChat.metadata?.lastFilteredDate || null;
+                        if (cacheDate === selectedDate) {
+                            console.log('📦 Используем кэшированные данные для даты:', selectedDate);
+                            return selectedChat;
+                        } else {
+                            console.log('🔄 Кэш устарел - дата изменилась:', {
+                                cached: cacheDate,
+                                current: selectedDate,
+                                needsRefresh: true
+                            });
+                        }
                     }
 
                     // Сначала получаем информацию о чате и проверяем права доступа
+                    console.log('🔍 [useWriteOffLoader] Вызов selectWriteOffChat с параметрами:', {
+                        chatId,
+                        selectedDate,
+                        dateType: typeof selectedDate,
+                        isUndefined: selectedDate === undefined,
+                        isNull: selectedDate === null
+                    });
                     const chatInfo = await dispatch(selectWriteOffChat({ 
                         chatId, 
                         date: selectedDate 

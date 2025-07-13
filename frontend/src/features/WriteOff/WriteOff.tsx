@@ -372,6 +372,12 @@ const WriteOff: React.FC = () => {
         if (selectedChatForModal) {
             try {
                 console.log('🔄 Загрузка списаний для чата:', selectedChatForModal.chat_id);
+                console.log('🔍 [handleStartWriteOff] selectedDate:', {
+                    selectedDate,
+                    dateType: typeof selectedDate,
+                    isUndefined: selectedDate === undefined,
+                    isNull: selectedDate === null
+                });
                 
                 // Сначала выбираем чат через Redux
                 await dispatch(selectWriteOffChat({ 

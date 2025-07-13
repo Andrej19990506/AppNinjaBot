@@ -3,6 +3,17 @@ from typing import Optional, Literal
 from datetime import datetime
 import datetime as dt
 
+# Схема для информации об авторе списания
+class WriteOffAuthor(BaseModel):
+    user_id: int = Field(..., description="Telegram ID пользователя")
+    first_name: Optional[str] = Field(None, description="Имя пользователя")
+    last_name: Optional[str] = Field(None, description="Фамилия пользователя")
+    username: Optional[str] = Field(None, description="Username пользователя")
+    photo_url: Optional[str] = Field(None, description="URL фото пользователя")
+
+    class Config:
+        from_attributes = True
+
 class WriteOffBase(BaseModel):
     user_id: int = Field(..., description="ID пользователя (BigInt)")
     name: str = Field(..., description="Название списания")
@@ -36,4 +47,7 @@ class WriteOffInDB(WriteOffBase):
         orm_mode = True
 
 class WriteOffResponse(WriteOffInDB):
-    pass 
+    author: Optional[WriteOffAuthor] = Field(None, description="Информация об авторе списания")
+    
+    class Config:
+        from_attributes = True 

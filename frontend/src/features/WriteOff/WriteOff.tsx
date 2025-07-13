@@ -411,6 +411,14 @@ const WriteOff: React.FC = () => {
         // Перенаправляем пользователя на главную страницу
         navigate('/');
     };
+    
+    // Очищаем состояние при размонтировании компонента
+    useEffect(() => {
+        return () => {
+            console.log('🔄 WriteOff компонент размонтируется, очищаем состояние');
+            dispatch(clearSelectedChat());
+        };
+    }, [dispatch]);
 
     const handleRetry = () => {
         loadWriteOffData(true);

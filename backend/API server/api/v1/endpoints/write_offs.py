@@ -63,19 +63,37 @@ async def get_write_offs(
         
         # Явно добавляем информацию об авторе
         if hasattr(write_off, 'author_member') and write_off.author_member:
-            write_off_dict['author'] = {
+            author_data = {
                 'user_id': write_off.author_member.user_id,
                 'first_name': write_off.author_member.first_name,
                 'last_name': write_off.author_member.last_name,
                 'username': write_off.author_member.username,
                 'photo_url': write_off.author_member.photo_url
             }
+            write_off_dict['author'] = author_data
             logger.info(f"📋 [get_write_offs] Добавлена информация об авторе для списания {write_off.id}: {write_off.author_member.first_name}")
+            logger.info(f"📋 [get_write_offs] Данные автора: {author_data}")
         else:
             write_off_dict['author'] = None
             logger.info(f"📋 [get_write_offs] Информация об авторе недоступна для списания {write_off.id}")
         
+        # Удаляем внутренние SQLAlchemy поля перед отправкой
+        write_off_dict.pop('_sa_instance_state', None)
+        write_off_dict.pop('author_member', None)
+        
+        # Преобразуем datetime объекты в строки для JSON сериализации
+        from datetime import datetime, date
+        for key, value in write_off_dict.items():
+            if isinstance(value, datetime):
+                write_off_dict[key] = value.isoformat()
+            elif isinstance(value, date):
+                write_off_dict[key] = value.isoformat()
+        
         result.append(write_off_dict)
+    
+    logger.info(f"📋 [get_write_offs] Итоговый результат: {len(result)} записей")
+    if result:
+        logger.info(f"📋 [get_write_offs] Пример первой записи: {result[0]}")
     
     return result
 

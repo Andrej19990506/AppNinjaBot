@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAppDispatch } from '@shared/store/hooks';
 import { logger } from '@shared/utils/logger';
 import { routeChanged } from '@/store/actions';
+import { resetWriteOffState } from '@features/WriteOff/store/writeOffSlice';
 
 
 const LocationChangeListener: React.FC = () => {
@@ -15,6 +16,13 @@ const LocationChangeListener: React.FC = () => {
     if (previousPathnameRef.current !== currentPathname) {
        logger.log('[LocationChangeListener] Route changed to:', currentPathname);
        dispatch(routeChanged(currentPathname));
+       
+       // Очищаем состояние списаний при переходе на главную страницу
+       if (currentPathname === '/') {
+         dispatch(resetWriteOffState());
+         logger.log('[LocationChangeListener] Cleared writeOff state on home navigation');
+       }
+       
        previousPathnameRef.current = currentPathname;
     }
   }, [location.pathname, dispatch]);

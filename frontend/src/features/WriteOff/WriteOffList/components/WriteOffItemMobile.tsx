@@ -94,14 +94,6 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
           </IconButton>
         </div>
         
-        {/* Информация об авторе списания */}
-        <WriteOffAuthor
-          author={item.author}
-          created_at={item.created_at}
-          variant="mobile"
-          showTime={false}
-        />
-        
         {/* Отображение фото */}
         {photoUrl && (
           <div className={styles.photoContainer}>
@@ -132,11 +124,19 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
             </div>
           )}
           
-
-          
           <div className={styles.status}>
             {item.status === 'active' ? 'Активен' : item.status}
           </div>
+        </div>
+        
+        {/* Футер карточки с информацией об авторе */}
+        <div className={styles.cardFooter}>
+          <WriteOffAuthor
+            author={item.author}
+            created_at={item.created_at}
+            variant="mobile"
+            showTime={true}
+          />
         </div>
       </div>
       

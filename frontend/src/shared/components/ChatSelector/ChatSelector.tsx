@@ -17,6 +17,7 @@ import { RootState } from '@shared/store/store';
 import ChatModal from '@shared/components/ChatAccessModal/ChatAccessModal';
 import { setSelectedChat, setContext } from '@shared/store/chatSlice/chatSlice';
 import { selectWriteOffChat } from '@features/WriteOff/store/writeOffThunks';
+import { resetWriteOffState } from '@features/WriteOff/store/writeOffSlice';
 import { Admin } from '@/types/inventoryTypes';
 import { ChatContext } from '@/shared/store/chatSlice/chatTypes';
 
@@ -367,12 +368,15 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     }, [isNavigating, setShowModal, setSelectedChatLocal]);
 
     const handleHomeClick = useCallback(() => {
+        // Очищаем состояние списаний при переходе на главную
+        dispatch(resetWriteOffState());
+        
         if (onHomeClick) {
             onHomeClick();
         } else {
             navigate('/');
         }
-    }, [onHomeClick, navigate]);
+    }, [onHomeClick, navigate, dispatch]);
 
     useEffect(() => {
         if (!cardsContainerRef.current) return;

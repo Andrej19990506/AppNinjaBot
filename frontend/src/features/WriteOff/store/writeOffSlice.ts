@@ -29,6 +29,15 @@ const writeOffSlice = createSlice({
             state.selectedChat = null;
             state.selectedChatId = null;
         },
+        resetWriteOffState: (state) => {
+            // Полная очистка состояния списаний (кроме даты)
+            state.selectedChat = null;
+            state.selectedChatId = null;
+            state.chats = [];
+            state.error = null;
+            state.modal = initialState.modal;
+            console.log('🔄 [writeOffSlice] Состояние списаний полностью очищено');
+        },
         setSelectedDate: (state, action: PayloadAction<string>) => {
             state.selectedDate = action.payload;
             // Очищаем списания при смене даты
@@ -259,5 +268,5 @@ const writeOffSlice = createSlice({
     }
 });
 
-export const { clearSelectedChat, setSelectedDate, setModalName, setModalReason, setModalQuantity, setModalDescription, setModalUnitType, setModalSubmitting, resetModal, receiveWriteOffItem, receiveWriteOffUpdate, receiveWriteOffDeletion, updateChatWriteOffs } = writeOffSlice.actions;
+export const { clearSelectedChat, resetWriteOffState, setSelectedDate, setModalName, setModalReason, setModalQuantity, setModalDescription, setModalUnitType, setModalSubmitting, resetModal, receiveWriteOffItem, receiveWriteOffUpdate, receiveWriteOffDeletion, updateChatWriteOffs } = writeOffSlice.actions;
 export default writeOffSlice.reducer; 

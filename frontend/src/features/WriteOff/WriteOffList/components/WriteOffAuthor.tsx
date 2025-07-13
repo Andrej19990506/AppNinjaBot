@@ -4,6 +4,7 @@ import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import CreateIcon from '@mui/icons-material/Create';
 import { formatDate } from '@/features/WriteOff/WriteOffList/utils/dateUtils';
 import styles from './WriteOffAuthor.module.css';
 
@@ -65,10 +66,12 @@ const WriteOffAuthor: React.FC<WriteOffAuthorProps> = ({
     }
   };
 
-  // URL фото пользователя
-  const photoUrl = author?.photo_url 
-    ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000'}/api${author.photo_url}`
+  // URL фото пользователя через API endpoint
+  const photoUrl = author?.user_id 
+    ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${author.user_id}/photo`
     : null;
+  
+
 
   const userName = getUserName();
   const initials = getInitials();
@@ -80,6 +83,31 @@ const WriteOffAuthor: React.FC<WriteOffAuthorProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.1 }}
     >
+      <div className={styles.infoContainer}>
+        <div className={styles.authorStatement}>
+          <div 
+            className={styles.statementText}
+            title={`Списание делал(а): ${userName}`}
+          >
+            <CreateIcon className={styles.createIcon} />
+            <span className={styles.actionText}>Списание сделал(а)</span>
+          </div>
+        </div>
+        
+        {showTime && (
+          <div className={styles.timeContainer}>
+            <AccessTimeIcon className={styles.timeIcon} />
+            <Typography 
+              variant="caption" 
+              className={styles.timeText}
+              title={`Создано: ${formatDate(created_at)}`}
+            >
+              {formatDate(created_at)}
+            </Typography>
+          </div>
+        )}
+      </div>
+      
       <div className={styles.avatarContainer}>
         <Avatar
           src={photoUrl || undefined}
@@ -100,27 +128,8 @@ const WriteOffAuthor: React.FC<WriteOffAuthorProps> = ({
         <div className={styles.statusIndicator} />
       </div>
       
-      <div className={styles.infoContainer}>
-        <Typography 
-          variant="body2" 
-          className={styles.userName}
-          title={userName}
-        >
-          {userName}
-        </Typography>
-        
-        {showTime && (
-          <div className={styles.timeContainer}>
-            <AccessTimeIcon className={styles.timeIcon} />
-            <Typography 
-              variant="caption" 
-              className={styles.timeText}
-              title={`Создано: ${formatDate(created_at)}`}
-            >
-              {formatDate(created_at)}
-            </Typography>
-          </div>
-        )}
+      <div className={styles.userNameContainer}>
+        <span className={styles.userName}>{userName}</span>
       </div>
     </motion.div>
   );

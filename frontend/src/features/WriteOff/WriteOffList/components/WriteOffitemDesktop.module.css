@@ -165,14 +165,22 @@
   opacity: 1 !important;
 }
 
-.footerRow {
+.cardFooter {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid var(--border-color);
+  padding: 12px 16px;
+  background: rgba(var(--primary-rgb), 0.02);
+  border-top: 1px solid rgba(var(--border-color-rgb), 0.3);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  transition: all var(--transition-normal);
   font-size: 0.75rem;
+}
+
+.container:hover .cardFooter {
+  background: rgba(var(--primary-rgb), 0.05);
+  border-top-color: rgba(var(--primary-rgb), 0.2);
 }
 
 .date {

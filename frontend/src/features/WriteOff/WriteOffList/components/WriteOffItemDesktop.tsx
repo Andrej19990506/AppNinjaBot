@@ -188,7 +188,7 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
           </div>
         )}
         
-        <div className={styles.footerRow}>
+        <div className={styles.cardFooter}>
           <WriteOffAuthor
             author={item.author}
             created_at={item.created_at}

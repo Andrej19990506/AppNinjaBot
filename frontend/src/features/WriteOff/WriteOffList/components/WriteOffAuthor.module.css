@@ -56,33 +56,84 @@
 
 /* Контейнер информации */
 .infoContainer {
-  flex: 1;
-  min-width: 0;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  margin-right: 4px;
 }
 
-/* Имя пользователя */
+/* Утверждение об авторстве */
+.authorStatement {
+  margin-bottom: 2px;
+}
+
+.statementText {
+  margin: 0 !important;
+  line-height: 1.3 !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.createIcon {
+  font-size: 12px !important;
+  color: var(--text-secondary) !important;
+  transition: color var(--transition-fast);
+  margin-right: 2px;
+}
+
+.desktop .createIcon {
+  font-size: 14px !important;
+}
+
+.actionText {
+  font-size: 0.75rem !important;
+  font-weight: 400 !important;
+  color: var(--text-secondary) !important;
+  transition: color var(--transition-fast);
+}
+
+.desktop .actionText {
+  font-size: 0.8rem !important;
+}
+
 .userName {
   font-size: 0.8rem !important;
-  font-weight: 500 !important;
+  font-weight: 600 !important;
   color: var(--text-color) !important;
-  margin: 0 !important;
+  transition: color var(--transition-fast);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.2 !important;
-  transition: color var(--transition-fast);
+  max-width: 150px;
 }
 
 .desktop .userName {
   font-size: 0.85rem !important;
-  font-weight: 600 !important;
+  font-weight: 700 !important;
+  max-width: 200px;
+}
+
+.container:hover .createIcon {
+  color: var(--primary-color) !important;
+}
+
+.container:hover .actionText {
+  color: var(--primary-color) !important;
 }
 
 .container:hover .userName {
   color: var(--primary-color) !important;
+}
+
+/* Контейнер имени пользователя */
+.userNameContainer {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: 4px;
 }
 
 /* Контейнер времени */
@@ -194,6 +245,13 @@
   height: 12px;
 }
 
+.loading .userNameContainer {
+  background: var(--gray-light);
+  border-radius: 4px;
+  width: 80px;
+  height: 12px;
+}
+
 .loading .timeText {
   background: var(--gray-light);
   color: transparent !important;
@@ -211,6 +269,10 @@
 .unknownUser .userName {
   color: var(--text-secondary) !important;
   font-style: italic;
+}
+
+.unknownUser .userNameContainer {
+  opacity: 0.7;
 }
 
 .unknownUser .statusIndicator {

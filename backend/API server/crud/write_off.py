@@ -42,7 +42,8 @@ async def get_write_offs_by_group(db: AsyncSession, group_id: int, date_filter: 
     if write_offs:
         logger.info(f"📋 [CRUD] Детали найденных списаний:")
         for i, wo in enumerate(write_offs):
-            logger.info(f"  {i+1}. ID: {wo.id}, name: {wo.name}, date: {wo.date}, created_at: {wo.created_at}")
+            author_info = f"author_member: {wo.author_member.first_name if wo.author_member else 'None'}" if hasattr(wo, 'author_member') else "author_member: НЕТ АТРИБУТА"
+            logger.info(f"  {i+1}. ID: {wo.id}, name: {wo.name}, date: {wo.date}, user_id: {wo.user_id}, {author_info}")
     else:
         logger.info(f"📋 [CRUD] Списания не найдены")
     

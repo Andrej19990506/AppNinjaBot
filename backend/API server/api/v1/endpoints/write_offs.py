@@ -56,7 +56,28 @@ async def get_write_offs(
     write_offs = await service.get_write_offs_by_group(db, group_id, date_filter)
     logger.info(f"✅ [get_write_offs] Найдено {len(write_offs)} списаний для группы {group_id}")
     
-    return write_offs
+    # Преобразуем данные для правильной сериализации автора
+    result = []
+    for write_off in write_offs:
+        write_off_dict = write_off.__dict__.copy()
+        
+        # Явно добавляем информацию об авторе
+        if hasattr(write_off, 'author_member') and write_off.author_member:
+            write_off_dict['author'] = {
+                'user_id': write_off.author_member.user_id,
+                'first_name': write_off.author_member.first_name,
+                'last_name': write_off.author_member.last_name,
+                'username': write_off.author_member.username,
+                'photo_url': write_off.author_member.photo_url
+            }
+            logger.info(f"📋 [get_write_offs] Добавлена информация об авторе для списания {write_off.id}: {write_off.author_member.first_name}")
+        else:
+            write_off_dict['author'] = None
+            logger.info(f"📋 [get_write_offs] Информация об авторе недоступна для списания {write_off.id}")
+        
+        result.append(write_off_dict)
+    
+    return result
 
 @router.get("/photos/{photo_filename}")
 async def get_write_off_photo(photo_filename: str):

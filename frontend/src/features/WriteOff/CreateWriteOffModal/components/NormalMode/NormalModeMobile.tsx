@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TextField from '@mui/material/TextField';
 import IconButton from '@mui/material/IconButton';
@@ -9,6 +9,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
+import EditIcon from '@mui/icons-material/Edit';
 import styles from './NormalModeMobile.module.css';
 import { WriteOffReason } from '../../../../../types/writeOff';
 import CheckIcon from '@mui/icons-material/Check';
@@ -123,42 +124,121 @@ export const NormalModeMobile: React.FC<NormalModeMobileProps> = ({
     selectedPhotos: selectedPhotos?.length || 0,
     onPhotosChange: !!onPhotosChange
   });
+
+  // Состояние для переключения между выбором из шаблона и ручным вводом
+  const [isManualInput, setIsManualInput] = useState(false);
   
   return (
     <div className={styles.container}>
       <div className={styles.content}>
         {/* Выбор товара для списания */}
         <section className={styles.inputSection}>
-          <label className={styles.inputLabel}>Товар для списания</label>
-          <div className={styles.nameInputWrapper} style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <label className={styles.inputLabel}>Товар для списания</label>
             <button
               type="button"
-              onClick={handleOpenProductSearch}
-              className={`${styles.productSelectButton} ${writeOffName ? styles.selected : ''}`}
-              style={{ flex: 1 }}
-            >
-              <SearchIcon className={styles.searchIcon} />
-              <span>{writeOffName || 'Выберите товар...'}</span>
-            </button>
-            <IconButton 
-              className={`${styles.descriptionButton} ${writeOffDescription ? styles.descriptionButtonActive : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleOpenDescriptionModal(e);
+              onClick={() => setIsManualInput(!isManualInput)}
+              style={{
+                background: 'var(--primary-color)',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '6px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '32px',
+                height: '32px',
+                transition: 'all 0.2s ease'
               }}
-              size="small"
-              aria-label="Добавить описание"
-              style={{ flexShrink: 0 }}
+              title={isManualInput ? 'Выбрать из шаблона' : 'Ручной ввод'}
             >
-              {writeOffDescription ? (
-                <div style={{ position: 'relative' }}>
-                  <DescriptionIcon fontSize="small" />
-                  <div className={styles.descriptionIndicator} />
-                </div>
-              ) : (
-                <DescriptionOutlinedIcon fontSize="small" />
-              )}
-            </IconButton>
+              {isManualInput ? <SearchIcon fontSize="small" /> : <EditIcon fontSize="small" />}
+            </button>
+          </div>
+          
+          {isManualInput ? (
+            // Режим ручного ввода
+            <div className={styles.nameInputWrapper} style={{ display: 'flex', gap: '8px' }}>
+              <TextField
+                className={styles.nameInput}
+                variant="outlined"
+                placeholder="Введите название (напр. Пицца Мясная)..."
+                value={writeOffName}
+                onChange={handleNameChange}
+                inputRef={nameInputRef}
+                fullWidth
+                autoComplete="off"
+              />
+              <IconButton 
+                className={`${styles.descriptionButton} ${writeOffDescription ? styles.descriptionButtonActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDescriptionModal(e);
+                }}
+                size="small"
+                aria-label="Добавить описание"
+                style={{ flexShrink: 0 }}
+              >
+                {writeOffDescription ? (
+                  <div style={{ position: 'relative' }}>
+                    <DescriptionIcon fontSize="small" />
+                    <div className={styles.descriptionIndicator} />
+                  </div>
+                ) : (
+                  <DescriptionOutlinedIcon fontSize="small" />
+                )}
+              </IconButton>
+            </div>
+          ) : (
+            // Режим выбора из шаблона (существующий код)
+            <div className={styles.nameInputWrapper} style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={handleOpenProductSearch}
+                className={`${styles.productSelectButton} ${writeOffName ? styles.selected : ''}`}
+                style={{ flex: 1 }}
+              >
+                <SearchIcon className={styles.searchIcon} />
+                <span>{writeOffName || 'Выберите товар...'}</span>
+              </button>
+              <IconButton 
+                className={`${styles.descriptionButton} ${writeOffDescription ? styles.descriptionButtonActive : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleOpenDescriptionModal(e);
+                }}
+                size="small"
+                aria-label="Добавить описание"
+                style={{ flexShrink: 0 }}
+              >
+                {writeOffDescription ? (
+                  <div style={{ position: 'relative' }}>
+                    <DescriptionIcon fontSize="small" />
+                    <div className={styles.descriptionIndicator} />
+                  </div>
+                ) : (
+                  <DescriptionOutlinedIcon fontSize="small" />
+                )}
+              </IconButton>
+            </div>
+          )}
+          
+          {/* Подсказка */}
+          <div style={{ 
+            marginTop: '8px', 
+            padding: '6px 10px', 
+            background: 'rgba(var(--primary-rgb), 0.1)', 
+            borderRadius: '6px', 
+            fontSize: '12px', 
+            color: 'var(--primary-color)', 
+            textAlign: 'center' 
+          }}>
+            {isManualInput ? 
+              'Ручной ввод наименования товара' : 
+              'Выбор из шаблона инвентаризации'
+            }
           </div>
           
           <AnimatePresence>

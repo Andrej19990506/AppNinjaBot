@@ -445,7 +445,7 @@ http {
             # Логирование для отладки
             access_log /var/log/nginx/api_access.log combined;
             error_log /var/log/nginx/api_error.log warn;
-        }
+         }
 
         # API endpoints для localhost (дублируем из основного сервера)
         location ~ ^/(api|v1|couriers|users|shifts|reserves|groups|inventory|write-offs)(/.*)?$ {

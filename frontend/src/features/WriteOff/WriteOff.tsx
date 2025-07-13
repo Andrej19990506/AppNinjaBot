@@ -142,6 +142,9 @@ const WriteOff: React.FC = () => {
     // Состояние для выбранных фото списания
     const [selectedPhotos, setSelectedPhotos] = useState<File[]>([]);
     
+    // Состояние для предотвращения моргания при инициализации
+    const [isInitializing, setIsInitializing] = useState(true);
+    
     const writeOffListRef = useRef<any>(null);
     
     const controls = useAnimation();
@@ -371,6 +374,7 @@ const WriteOff: React.FC = () => {
     const handleStartWriteOff = async () => {
         if (selectedChatForModal) {
             try {
+                setIsInitializing(true);
                 console.log('🔄 Загрузка списаний для чата:', selectedChatForModal.chat_id);
                 console.log('🔍 [handleStartWriteOff] selectedDate:', {
                     selectedDate,
@@ -394,8 +398,13 @@ const WriteOff: React.FC = () => {
                 // Загружаем данные списаний через хук
                 await loadWriteOffData(true);
                 console.log('✅ Списания загружены успешно');
+                
+                // Небольшая пауза для плавности переходов
+                await new Promise(resolve => setTimeout(resolve, 150));
+                setIsInitializing(false);
             } catch (error) {
                 console.error('❌ Ошибка при загрузке списаний:', error);
+                setIsInitializing(false);
             }
         }
     };
@@ -1026,8 +1035,12 @@ const WriteOff: React.FC = () => {
     useEffect(() => {
         const initializeData = async () => {
             try {
+                setIsInitializing(true);
                 await dispatch(initializeFromTelegram()).unwrap();
                 await dispatch(fetchWriteOffChats()).unwrap();
+                
+                // Небольшая пауза для плавности
+                await new Promise(resolve => setTimeout(resolve, 200));
                 
                 // Анимация появления контента
                 controls.start({
@@ -1036,8 +1049,10 @@ const WriteOff: React.FC = () => {
                     transition: { duration: 0.5, delay: 0.2 }
                 });
                 
+                setIsInitializing(false);
             } catch (error) {
                 console.error('Ошибка при инициализации данных:', error);
+                setIsInitializing(false);
             }
         };
         
@@ -1046,7 +1061,7 @@ const WriteOff: React.FC = () => {
 
     // Обновляем условие рендеринга для загрузки
     console.log('[LOG] USER:', user);
-    if (!userId || isWriteOffLoading || isChatsLoading) {
+    if (!userId || isWriteOffLoading || isChatsLoading || isInitializing) {
         return (
             <div className={styles.container}>
                 <ChatListSkeleton 
@@ -1105,12 +1120,21 @@ const WriteOff: React.FC = () => {
             variants={pageVariants}
             transition={pageTransition}
         >
-            {console.log('[LOG] RENDER:', { selectedWriteOffChat, writeOffItems })}
+            {console.log('[LOG] RENDER:', { selectedWriteOffChat, writeOffItems, isInitializing })}
             {selectedWriteOffChat ? (
                 <>
                     <div ref={headerRef} className={styles.header}>
+                        {/* Плавающие частицы под хедером */}
+                        <div className={styles.headerParticles}>
+                            <div className={styles.headerParticle}></div>
+                            <div className={styles.headerParticle}></div>
+                            <div className={styles.headerParticle}></div>
+                            <div className={styles.headerParticle}></div>
+                            <div className={styles.headerParticle}></div>
+                        </div>
+                        
                         <AppHeader
-                            title="Списания"
+                            title={selectedWriteOffChat?.chat_title || "Списание"}
                             mode="writeoff"
                             progress={loadingProgress}
                             isLoading={isWriteOffLoading}
@@ -1120,6 +1144,7 @@ const WriteOff: React.FC = () => {
                             onNextDay={handleNextDay}
                             canNavigatePrevious={canNavigatePrevious()}
                             canNavigateNext={canNavigateNext()}
+                            chatTitle={null}
                         />
                     </div>
 
@@ -1188,8 +1213,12 @@ const WriteOff: React.FC = () => {
                                     Нет доступных чатов
                                 </Typography>
                                 <Typography variant="body1" className={styles.noChatsSubtitle}>
-                                    У вас нет доступа к чатам для списания товаров
+                                    Обратитесь к администратору для получения доступа
                                 </Typography>
+                                <motion.div
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
                                 <Button 
                                     variant="contained" 
                                     color="primary" 
@@ -1199,6 +1228,7 @@ const WriteOff: React.FC = () => {
                                 >
                                     Обновить список
                                 </Button>
+                                </motion.div>
                             </motion.div>
                         </div>
                     )}

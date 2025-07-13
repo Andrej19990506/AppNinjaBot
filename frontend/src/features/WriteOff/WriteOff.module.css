@@ -916,3 +916,132 @@ html, body, #root {
         padding: 1.25rem;
     }
 }
+
+/* Стили для хедера */
+.header {
+    position: relative;
+}
+
+/* Плавающие частицы под хедером */
+.headerParticles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.headerParticle {
+    position: absolute;
+    display: block;
+    pointer-events: none;
+    width: 6px;
+    height: 6px;
+    background-color: rgba(255, 95, 31, 0.2);
+    border-radius: 50%;
+    opacity: 0.8;
+}
+
+.headerParticle:nth-child(1) {
+    top: 20%;
+    left: 15%;
+    animation: floatHeaderParticle 16s infinite linear;
+}
+
+.headerParticle:nth-child(2) {
+    top: 70%;
+    left: 80%;
+    width: 8px;
+    height: 8px;
+    animation: floatHeaderParticle 20s infinite linear;
+}
+
+.headerParticle:nth-child(3) {
+    top: 40%;
+    left: 45%;
+    width: 4px;
+    height: 4px;
+    animation: floatHeaderParticle 24s infinite linear;
+}
+
+.headerParticle:nth-child(4) {
+    top: 85%;
+    left: 25%;
+    width: 7px;
+    height: 7px;
+    animation: floatHeaderParticle 18s infinite linear;
+}
+
+.headerParticle:nth-child(5) {
+    top: 30%;
+    left: 70%;
+    width: 5px;
+    height: 5px;
+    animation: floatHeaderParticle 22s infinite linear;
+}
+
+@keyframes floatHeaderParticle {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.8;
+    }
+    25% {
+        transform: translate(30px, 20px);
+        opacity: 0.6;
+    }
+    50% {
+        transform: translate(0, 40px);
+        opacity: 0.4;
+    }
+    75% {
+        transform: translate(-30px, 20px);
+        opacity: 0.6;
+    }
+    100% {
+        transform: translate(0, 0);
+        opacity: 0.8;
+    }
+}
+
+/* Специфичные настройки для темного режима */
+[data-theme="dark"] .headerParticle {
+    background-color: rgba(255, 95, 31, 0.15);
+}
+
+/* Медиа-запросы для мобильных устройств */
+@media (max-width: 768px) {
+    .headerParticle {
+        animation-duration: 12s;
+        opacity: 0.6;
+    }
+    
+    .headerParticle:nth-child(1) {
+        animation-duration: 12s;
+    }
+    
+    .headerParticle:nth-child(2) {
+        animation-duration: 14s;
+    }
+    
+    .headerParticle:nth-child(3) {
+        animation-duration: 16s;
+    }
+    
+    .headerParticle:nth-child(4) {
+        animation-duration: 13s;
+    }
+    
+    .headerParticle:nth-child(5) {
+        animation-duration: 15s;
+    }
+}
+
+/* Оптимизация производительности частичек */
+.headerParticles, .headerParticle {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}

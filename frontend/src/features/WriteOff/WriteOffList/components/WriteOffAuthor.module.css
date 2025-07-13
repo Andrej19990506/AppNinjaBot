@@ -1,9 +1,11 @@
 .container {
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 6px 0;
   transition: all var(--transition-normal);
+  text-align: center;
 }
 
 /* Варианты размера */
@@ -19,6 +21,9 @@
 .avatarContainer {
   position: relative;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .avatar {
@@ -54,18 +59,35 @@
   right: -1px;
 }
 
-/* Контейнер информации */
-.infoContainer {
-  flex-shrink: 0;
+/* Первая строка: действие */
+.actionRow {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-right: 4px;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
-/* Утверждение об авторстве */
-.authorStatement {
-  margin-bottom: 2px;
+/* Вторая строка: пользователь */
+.userRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+/* Третья строка: время */
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast);
+}
+
+.container:hover .timeRow {
+  opacity: 1;
 }
 
 .statementText {
@@ -128,26 +150,7 @@
   color: var(--primary-color) !important;
 }
 
-/* Контейнер имени пользователя */
-.userNameContainer {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-left: 4px;
-}
 
-/* Контейнер времени */
-.timeContainer {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  opacity: 0.8;
-  transition: opacity var(--transition-fast);
-}
-
-.container:hover .timeContainer {
-  opacity: 1;
-}
 
 /* Иконка времени */
 .timeIcon {
@@ -245,13 +248,6 @@
   height: 12px;
 }
 
-.loading .userNameContainer {
-  background: var(--gray-light);
-  border-radius: 4px;
-  width: 80px;
-  height: 12px;
-}
-
 .loading .timeText {
   background: var(--gray-light);
   color: transparent !important;
@@ -269,10 +265,6 @@
 .unknownUser .userName {
   color: var(--text-secondary) !important;
   font-style: italic;
-}
-
-.unknownUser .userNameContainer {
-  opacity: 0.7;
 }
 
 .unknownUser .statusIndicator {

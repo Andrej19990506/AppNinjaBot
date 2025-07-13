@@ -65,39 +65,141 @@
 }
 
 .scrollContainer {
-  max-height: 350px; /* Увеличиваем высоту для лучшей видимости */
+  max-height: 400px;
   overflow-y: auto;
-  border-radius: calc(var(--radius-sm) - 2px);
-  position: relative;
+  padding: 12px 16px;
   scrollbar-width: thin;
   scrollbar-color: var(--primary-color) transparent;
-  background-color: var(--card-background);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  
+  /* Плавное растворение под хедером */
+  mask: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.1) 1.5%,
+    rgba(0, 0, 0, 0.3) 4%,
+    rgba(0, 0, 0, 0.7) 7%,
+    black 10%,
+    black 90%,
+    rgba(0, 0, 0, 0.8) 94%,
+    rgba(0, 0, 0, 0.4) 97%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.1) 1.5%,
+    rgba(0, 0, 0, 0.3) 4%,
+    rgba(0, 0, 0, 0.7) 7%,
+    black 10%,
+    black 90%,
+    rgba(0, 0, 0, 0.8) 94%,
+    rgba(0, 0, 0, 0.4) 97%,
+    transparent 100%
+  );
+  
+  position: relative;
 }
 
-/* Стили скролбара для WebKit браузеров (Chrome, Safari, новые версии Edge) */
+/* Современный скроллбар для десктопа */
 .scrollContainer::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
+  background: transparent;
 }
 
 .scrollContainer::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 10px;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--primary-rgb), 0.03),
+    rgba(var(--primary-rgb), 0.08),
+    rgba(var(--primary-rgb), 0.03)
+  );
+  border-radius: 12px;
+  margin: 10px 0;
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
 }
 
 .scrollContainer::-webkit-scrollbar-thumb {
-  background-color: var(--primary-color);
-  border-radius: 10px;
-  border: 2px solid transparent;
+  background: linear-gradient(
+    135deg,
+    var(--primary-color) 0%,
+    #FF8F4F 50%,
+    #FFAF7F 100%
+  );
+  border-radius: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 2px 4px rgba(var(--primary-rgb), 0.2),
+    inset 0 1px 2px rgba(255, 255, 255, 0.3);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .scrollContainer::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-dark);
+  background: linear-gradient(
+    135deg,
+    #FF4F1F 0%,
+    #FF7F3F 50%,
+    #FF9F5F 100%
+  );
+  box-shadow: 
+    0 4px 8px rgba(var(--primary-rgb), 0.3),
+    inset 0 1px 3px rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.scrollContainer::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(
+    135deg,
+    #FF3F0F 0%,
+    #FF6F2F 50%,
+    #FF8F4F 100%
+  );
+  transform: scale(0.95);
+}
+
+/* Дополнительные эффекты плавности */
+.scrollContainer {
+  scroll-padding-top: 20px;
+  scroll-padding-bottom: 20px;
+}
+
+/* Плавная анимация при появлении скроллбара */
+.scrollContainer:hover::-webkit-scrollbar-thumb {
+  opacity: 1;
+}
+
+.scrollContainer:not(:hover)::-webkit-scrollbar-thumb {
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
 }
 
 /* Для Firefox */
 .scrollContainer {
   scrollbar-width: thin;
   scrollbar-color: var(--primary-color) transparent;
+}
+
+/* Дополнительный эффект размытия для десктопа */
+.scrollContainer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 6px; /* Учитываем скроллбар */
+  height: 25px;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--card-rgb), 0.9) 0%,
+    rgba(var(--card-rgb), 0.5) 60%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+  backdrop-filter: blur(1.5px);
+  -webkit-backdrop-filter: blur(1.5px);
+  border-radius: 12px 12px 0 0;
 }
 
 .listBorderInner {
@@ -154,38 +256,40 @@
   color: rgba(0, 0, 0, 0.6);
 }
 
+/* Улучшения анимаций для десктопа */
 .listItem {
-  width: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
-  transition: all 0.3s cubic-bezier(.25,.8,.25,1);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(0) scale(1);
 }
 
 .listItem:hover {
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16), 0 3px 6px rgba(0, 0, 0, 0.23);
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 
+    0 8px 25px rgba(var(--primary-rgb), 0.15),
+    0 3px 10px rgba(0, 0, 0, 0.1);
 }
 
-/* Анимации для элементов списка */
+/* Анимации появления/исчезновения для десктопа */
 .itemEnter {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(30px) scale(0.9) rotateX(10deg);
 }
 
 .itemEnterActive {
   opacity: 1;
-  transform: translateY(0);
-  transition: opacity 300ms, transform 300ms;
+  transform: translateY(0) scale(1) rotateX(0deg);
+  transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .itemExit {
   opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .itemExitActive {
   opacity: 0;
-  transform: translateX(-100%);
-  transition: opacity 300ms, transform 300ms;
+  transform: translateY(-30px) scale(0.8);
+  transition: all 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53);
 }
 
 .listTransitionWrapper {
@@ -223,52 +327,7 @@
   opacity: 0.05;
 }
 
-.scrollContainer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 6px;
-  height: 100%;
-  background: var(--primary-transparent);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  border-radius: 3px;
-  z-index: 2;
-}
-
-/* Анимация тени при скролле */
-.scrollShadowTop, 
-.scrollShadowBottom {
-  position: absolute;
-  left: 0;
-  right: 6px; /* Оставляем место для скроллбара */
-  height: 40px;
-  pointer-events: none;
-  z-index: 3;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.scrollShadowTop {
-  top: 0;
-  background: linear-gradient(to bottom, 
-    var(--card-background), 
-    transparent
-  );
-}
-
-.scrollShadowBottom {
-  bottom: 0;
-  background: linear-gradient(to top, 
-    var(--card-background), 
-    transparent
-  );
-}
-
-.scrollShadowVisible {
-  opacity: 0.8;
-}
+/* Анимация тени при скролле удалена */
 
 /* Dark theme enhancements */
 [data-theme="dark"] .container::before,
@@ -279,4 +338,274 @@
 [data-theme="dark"] .emptyState {
   background-color: var(--card-background);
   border-color: var(--border-color);
+} 
+
+/* Улучшения для темной темы на десктопе */
+[data-theme="dark"] .scrollContainer::before {
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 18, 18, 0.95) 0%,
+    rgba(18, 18, 18, 0.6) 60%,
+    transparent 100%
+  );
+}
+
+[data-theme="dark"] .scrollContainer::-webkit-scrollbar-track {
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.03),
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .scrollContainer::-webkit-scrollbar-thumb {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .scrollContainer::-webkit-scrollbar-thumb:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 3px rgba(255, 255, 255, 0.15);
+} 
+
+/* Индикатор прогресса скролла для десктопа */
+.scrollProgress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 8px; /* Учитываем скроллбар */
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--primary-color) 0%,
+    #FF8F4F 30%,
+    #FFAF7F 70%,
+    #FFCF9F 100%
+  );
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 5;
+  border-radius: 0 3px 3px 0;
+  box-shadow: 
+    0 1px 3px rgba(var(--primary-rgb), 0.4),
+    0 0 8px rgba(var(--primary-rgb), 0.2);
+}
+
+.scrollContainer.scrolling .scrollProgress {
+  transform: scaleX(var(--scroll-progress, 0));
+}
+
+/* Эффект пульсации при активном скролле */
+.scrollContainer.actively-scrolling .scrollProgress {
+  box-shadow: 
+    0 1px 6px rgba(var(--primary-rgb), 0.6),
+    0 0 12px rgba(var(--primary-rgb), 0.3);
+  animation: progressPulse 0.6s ease-in-out;
+}
+
+@keyframes progressPulse {
+  0%, 100% { 
+    transform: scaleX(var(--scroll-progress, 0)) scaleY(1); 
+  }
+  50% { 
+    transform: scaleX(var(--scroll-progress, 0)) scaleY(1.5); 
+  }
+} 
+
+/* Адаптивные классы для позиции скролла в десктопной версии */
+.scrollContainer.atTop {
+  /* Убираем размытие сверху когда в самом верху */
+  mask: linear-gradient(
+    to bottom,
+    black 0%,
+    black 90%,
+    rgba(0, 0, 0, 0.8) 94%,
+    rgba(0, 0, 0, 0.4) 97%,
+    transparent 100%
+  );
+  -webkit-mask: linear-gradient(
+    to bottom,
+    black 0%,
+    black 90%,
+    rgba(0, 0, 0, 0.8) 94%,
+    rgba(0, 0, 0, 0.4) 97%,
+    transparent 100%
+  );
+}
+
+.scrollContainer.atBottom {
+  /* Убираем размытие снизу когда в самом низу */
+  mask: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.1) 1.5%,
+    rgba(0, 0, 0, 0.3) 4%,
+    rgba(0, 0, 0, 0.7) 7%,
+    black 10%,
+    black 100%
+  );
+  -webkit-mask: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.1) 1.5%,
+    rgba(0, 0, 0, 0.3) 4%,
+    rgba(0, 0, 0, 0.7) 7%,
+    black 10%,
+    black 100%
+  );
+}
+
+.scrollContainer.atTop.atBottom {
+  /* Когда контент помещается полностью - убираем все размытие */
+  mask: none;
+  -webkit-mask: none;
+}
+
+/* Адаптируем ::before псевдоэлемент для десктопа */
+.scrollContainer.atTop::before {
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Плавные переходы для mask */
+.scrollContainer {
+  transition: mask 0.3s ease, -webkit-mask 0.3s ease;
+} 
+
+/* Оптимизируем анимации для лучшей производительности */
+.container, .listContainer, .scrollContainer, .listBorder, .listBorderInner {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Плавающие частицы */
+.particles {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.particle {
+    position: absolute;
+    display: block;
+    pointer-events: none;
+    width: 5px;
+    height: 5px;
+    background-color: rgba(255, 95, 31, 0.18);
+    border-radius: 50%;
+    opacity: 0.9;
+}
+
+.particle:nth-child(1) {
+    top: 12%;
+    left: 10%;
+    animation: floatParticle 20s infinite linear;
+}
+
+.particle:nth-child(2) {
+    top: 68%;
+    left: 82%;
+    width: 8px;
+    height: 8px;
+    animation: floatParticle 25s infinite linear;
+}
+
+.particle:nth-child(3) {
+    top: 38%;
+    left: 45%;
+    width: 4px;
+    height: 4px;
+    animation: floatParticle 30s infinite linear;
+}
+
+.particle:nth-child(4) {
+    top: 78%;
+    left: 18%;
+    width: 9px;
+    height: 9px;
+    animation: floatParticle 23s infinite linear;
+}
+
+.particle:nth-child(5) {
+    top: 28%;
+    left: 72%;
+    width: 6px;
+    height: 6px;
+    animation: floatParticle 27s infinite linear;
+}
+
+@keyframes floatParticle {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.9;
+    }
+    25% {
+        transform: translate(60px, 60px);
+        opacity: 0.7;
+    }
+    50% {
+        transform: translate(0, 120px);
+        opacity: 0.5;
+    }
+    75% {
+        transform: translate(-60px, 60px);
+        opacity: 0.7;
+    }
+    100% {
+        transform: translate(0, 0);
+        opacity: 0.9;
+    }
+}
+
+/* Специфичные настройки для темного режима */
+[data-theme="dark"] .particle {
+    background-color: rgba(255, 95, 31, 0.14);
+}
+
+/* Медиа-запросы для планшетов */
+@media (max-width: 1024px) {
+    .particle {
+        animation-duration: 18s;
+        opacity: 0.7;
+    }
+    
+    .particle:nth-child(1) {
+        animation-duration: 16s;
+    }
+    
+    .particle:nth-child(2) {
+        animation-duration: 19s;
+    }
+    
+    .particle:nth-child(3) {
+        animation-duration: 22s;
+    }
+    
+    .particle:nth-child(4) {
+        animation-duration: 18s;
+    }
+    
+    .particle:nth-child(5) {
+        animation-duration: 20s;
+    }
+}
+
+/* Оптимизация производительности частичек */
+.particles, .particle {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
 } 

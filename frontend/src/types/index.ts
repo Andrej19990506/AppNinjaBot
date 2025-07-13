@@ -94,7 +94,6 @@ export interface WriteOffRecord {
     };
     createdAt: string;
     createdBy: string;
-    status: 'pending' | 'completed' | 'cancelled';
 }
 
 // Типы для событий

@@ -34,16 +34,26 @@
 }
 
 .todoItem {
-    background: var(--card-background);
+    background: linear-gradient(
+        135deg,
+        var(--card-background) 0%,
+        rgba(var(--primary-rgb), 0.02) 100%
+    );
     border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow);
+    border: 1px solid rgba(var(--primary-rgb), 0.08);
+    box-shadow: 
+        0 4px 20px rgba(var(--primary-rgb), 0.08),
+        0 2px 8px rgba(0, 0, 0, 0.04);
     cursor: pointer;
     overflow: hidden;
     position: relative;
-    transition: all var(--transition-normal);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    margin-bottom: 16px;
+    transform: translateZ(0);
+    will-change: transform, box-shadow;
+    animation: slideInFromBottom 0.5s ease-out;
 }
 
 .todoItem::before {
@@ -55,31 +65,34 @@
     height: 100%;
     background: var(--gradient-primary);
     opacity: 0;
-    transition: opacity var(--transition-normal);
+    transition: opacity 0.3s ease;
+    border-radius: 0 2px 2px 0;
 }
 
 .todoItem::after {
     content: '';
     position: absolute;
-    inset: 0;
-    border-radius: var(--radius-lg);
-    padding: 2px;
-    background: linear-gradient(
-        135deg,
-        rgba(var(--primary-rgb), 0.5),
-        transparent 50%
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(
+        circle at top right,
+        rgba(var(--primary-rgb), 0.1) 0%,
+        rgba(var(--primary-rgb), 0.05) 50%,
+        transparent 70%
     );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
     opacity: 0;
-    transition: opacity var(--transition-normal);
+    transition: opacity 0.4s ease;
+    z-index: 0;
 }
 
 .todoItem:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 
+        0 12px 32px rgba(var(--primary-rgb), 0.15),
+        0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: rgba(var(--primary-rgb), 0.2);
 }
 
 .todoItem:hover::before {
@@ -123,7 +136,7 @@
 }
 
 .todoContent {
-    padding: var(--radius);
+    padding: 16px;
     position: relative;
     z-index: 1;
 }
@@ -132,15 +145,25 @@
 .cardFooter {
     margin-top: auto;
     padding: 12px 16px;
-    background: rgba(var(--primary-rgb), 0.02);
-    border-top: 1px solid rgba(var(--border-color-rgb), 0.3);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.03) 0%,
+        rgba(var(--primary-rgb), 0.01) 100%
+    );
+    border-top: 1px solid rgba(var(--primary-rgb), 0.1);
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    transition: all var(--transition-normal);
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
 }
 
 .todoItem:hover .cardFooter {
-    background: rgba(var(--primary-rgb), 0.05);
-    border-top-color: rgba(var(--primary-rgb), 0.2);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.08) 0%,
+        rgba(var(--primary-rgb), 0.03) 100%
+    );
+    border-top-color: rgba(var(--primary-rgb), 0.25);
+    transform: translateY(-1px);
 }
 
 .todoHeader {
@@ -193,14 +216,33 @@
 
 .titleIcon {
     color: var(--primary-color);
-    font-size: 24px !important;
+    font-size: 18px !important;
     filter: drop-shadow(0 2px 4px rgba(var(--primary-rgb), 0.3));
-    transition: all var(--transition-normal);
+    transition: all 0.3s ease;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.1) 0%,
+        rgba(var(--primary-rgb), 0.05) 100%
+    );
+    border-radius: 50%;
+    padding: 8px;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
 }
 
 .todoItem:hover .titleIcon {
-    transform: scale(1.1);
+    transform: scale(1.1) rotate(-5deg);
     filter: drop-shadow(0 4px 8px rgba(var(--primary-rgb), 0.4));
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.2) 0%,
+        rgba(var(--primary-rgb), 0.1) 100%
+    );
+    color: var(--primary-dark);
 }
 
 .titleText {
@@ -297,16 +339,16 @@
     align-items: center;
     justify-content: center;
     min-width: 60px;
-    padding: 6px 14px;
-    background: var(--primary-transparent);
-    color: var(--primary-color);
-    border-radius: var(--radius-sm);
+    padding: 8px 16px;
+    background: var(--gradient-primary);
+    color: white;
+    border-radius: var(--radius);
     font-weight: 600;
-    font-size: 0.95rem;
-    transition: all var(--transition-normal);
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
-    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
 }
 
 .quantityBadge::before {
@@ -338,19 +380,11 @@
 }
 
 .todoItem:hover .quantityBadge {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
-    border-color: rgba(var(--primary-rgb), 0.4);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.4);
 }
 
-.todoItem:hover .quantityBadge::before {
-    opacity: 1;
-}
 
-.todoItem:hover .quantityBadge::after {
-    opacity: 1;
-    animation: glowingBorder 2s infinite;
-}
 
 .quantityBadge span {
     position: relative;
@@ -726,7 +760,7 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    margin: 20px 0 60px;
+    margin: 20px 0 100px;
     position: relative;
 }
 
@@ -924,17 +958,25 @@
 
 /* Элемент списка на мобильных устройствах */
 .todoItemMobile {
-    background: var(--card-background);
-    border-radius: var(--radius);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-sm);
+    background: linear-gradient(
+        135deg,
+        var(--card-background) 0%,
+        rgba(var(--primary-rgb), 0.02) 100%
+    );
+    border-radius: var(--radius-lg);
+    border: 1px solid rgba(var(--primary-rgb), 0.08);
+    box-shadow: 
+        0 4px 20px rgba(var(--primary-rgb), 0.08),
+        0 2px 8px rgba(0, 0, 0, 0.04);
     cursor: pointer;
     overflow: hidden;
     position: relative;
-    transition: all var(--transition-normal);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    margin-bottom: 12px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    margin-bottom: 16px;
+    transform: translateZ(0);
+    will-change: transform, box-shadow;
 }
 
 .todoItemMobile::before {
@@ -946,21 +988,47 @@
     height: 100%;
     background: radial-gradient(
         circle at top right,
-        rgba(var(--primary-rgb), 0.05) 0%,
+        rgba(var(--primary-rgb), 0.1) 0%,
+        rgba(var(--primary-rgb), 0.05) 50%,
         transparent 70%
     );
     opacity: 0;
-    transition: opacity 0.5s ease;
+    transition: opacity 0.4s ease;
     z-index: 0;
+}
+
+.todoItemMobile::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: var(--gradient-primary);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 0 2px 2px 0;
+}
+
+.todoItemMobile:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 
+        0 12px 32px rgba(var(--primary-rgb), 0.15),
+        0 4px 16px rgba(0, 0, 0, 0.08);
+    border-color: rgba(var(--primary-rgb), 0.2);
 }
 
 .todoItemMobile:hover::before {
     opacity: 1;
 }
 
+.todoItemMobile:hover::after {
+    opacity: 1;
+}
+
 /* Контент элемента списка - мобильная версия */
 .todoContentMobile {
-    padding: 12px;
+    padding: 16px;
     position: relative;
     z-index: 1;
 }
@@ -968,24 +1036,33 @@
 /* Футер мобильной карточки */
 .todoItemMobile .cardFooter {
     margin-top: auto;
-    padding: 10px 12px;
-    background: rgba(var(--primary-rgb), 0.02);
-    border-top: 1px solid rgba(var(--border-color-rgb), 0.2);
-    border-radius: 0 0 var(--radius) var(--radius);
-    transition: all var(--transition-normal);
-    font-size: 0.75rem;
+    padding: 12px 16px;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.03) 0%,
+        rgba(var(--primary-rgb), 0.01) 100%
+    );
+    border-top: 1px solid rgba(var(--primary-rgb), 0.1);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    transition: all 0.3s ease;
+    font-size: 0.8rem;
 }
 
 .todoItemMobile:hover .cardFooter {
-    background: rgba(var(--primary-rgb), 0.05);
-    border-top-color: rgba(var(--primary-rgb), 0.2);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.08) 0%,
+        rgba(var(--primary-rgb), 0.03) 100%
+    );
+    border-top-color: rgba(var(--primary-rgb), 0.25);
+    transform: translateY(-1px);
 }
 
 /* Заголовок элемента - мобильная версия */
 .todoHeaderMobile {
     display: flex;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
     position: relative;
 }
 
@@ -993,24 +1070,55 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
-    margin-right: 10px;
+    width: 36px;
+    height: 36px;
+    margin-right: 12px;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.1) 0%,
+        rgba(var(--primary-rgb), 0.05) 100%
+    );
+    border-radius: 50%;
+    border: 2px solid rgba(var(--primary-rgb), 0.15);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .iconWrapperMobile {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.2) 0%,
+        rgba(var(--primary-rgb), 0.1) 100%
+    );
+    border-color: rgba(var(--primary-rgb), 0.3);
+    transform: scale(1.1);
 }
 
 .titleIconMobile {
-    font-size: 16px;
+    font-size: 18px;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .titleIconMobile {
+    color: var(--primary-dark);
+    transform: rotate(-5deg);
 }
 
 .todoTitleMobile {
     flex: 1;
     margin: 0;
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--text-color);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: color 0.3s ease;
+    letter-spacing: -0.01em;
+}
+
+.todoItemMobile:hover .todoTitleMobile {
+    color: var(--primary-dark);
 }
 
 .titleTextMobile {
@@ -1022,47 +1130,98 @@
 }
 
 .actionButtonMobile {
-    margin-left: 5px;
+    margin-left: 8px;
     color: var(--text-secondary);
+    padding: 8px !important;
+    border-radius: 50% !important;
+    transition: all 0.3s ease !important;
+    background: rgba(var(--primary-rgb), 0.05) !important;
+}
+
+.actionButtonMobile:hover {
+    color: var(--primary-color) !important;
+    background: rgba(var(--primary-rgb), 0.15) !important;
+    transform: scale(1.1) !important;
 }
 
 /* Информация об элементе - мобильная версия */
 .todoInfoMobile {
-    margin-top: 10px;
-    font-size: 13px;
+    margin-top: 12px;
+    font-size: 14px;
     color: var(--text-secondary);
 }
 
 .infoRowMobile {
     display: flex;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    padding: 6px 12px;
+    background: rgba(var(--primary-rgb), 0.03);
+    border-radius: var(--radius-sm);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .infoRowMobile {
+    background: rgba(var(--primary-rgb), 0.08);
+    transform: translateX(2px);
 }
 
 .infoIconMobile {
-    margin-right: 6px;
-    font-size: 12px;
+    margin-right: 8px;
+    font-size: 14px;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .infoIconMobile {
+    color: var(--primary-dark);
+    transform: scale(1.1);
 }
 
 .infoTextMobile {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
+    flex: 1;
 }
 
 /* Описание элемента - мобильная версия */
 .todoDescriptionMobile {
-    margin: 8px 0;
-    padding: 8px;
-    background-color: rgba(var(--neutral-rgb), 0.05);
+    margin: 12px 0;
+    padding: 12px;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.04) 0%,
+        rgba(var(--primary-rgb), 0.02) 100%
+    );
     border-radius: var(--radius-sm);
+    border-left: 3px solid rgba(var(--primary-rgb), 0.3);
     display: flex;
     align-items: flex-start;
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .todoDescriptionMobile {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.08) 0%,
+        rgba(var(--primary-rgb), 0.04) 100%
+    );
+    border-left-color: var(--primary-color);
+    transform: translateX(2px);
 }
 
 .descriptionIconMobile {
-    margin-right: 6px;
-    font-size: 12px;
+    margin-right: 8px;
+    font-size: 14px;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .descriptionIconMobile {
+    color: var(--primary-dark);
+    transform: scale(1.1);
 }
 
 .descriptionTextMobile {
@@ -1073,80 +1232,208 @@
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    line-height: 1.4;
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 /* Бейдж с количеством - мобильная версия */
 .quantityBadgeMobile {
     display: inline-flex;
     align-items: center;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    background-color: rgba(var(--primary-rgb), 0.1);
-    color: var(--primary-color);
-    font-size: 13px;
-    font-weight: 500;
-    margin-top: 4px;
+    padding: 6px 12px;
+    border-radius: var(--radius);
+    background: var(--gradient-primary);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    margin-top: 6px;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+    transition: all 0.3s ease;
 }
 
-/* Статус - мобильная версия */
-.statusMobile {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: var(--radius-xs);
-    background-color: rgba(var(--success-rgb), 0.1);
-    color: var(--success-color);
-    font-size: 12px;
-    font-weight: 500;
-    margin-top: 6px;
+.todoItemMobile:hover .quantityBadgeMobile {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.4);
+}
+
+/* Дополнительные анимации для мобильной версии */
+@keyframes slideInFromBottom {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulseGlow {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(var(--primary-rgb), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
+    }
+}
+
+.todoItemMobile {
+    animation: slideInFromBottom 0.5s ease-out;
+}
+
+.todoItemMobile:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.todoItemMobile:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.todoItemMobile:nth-child(4) {
+    animation-delay: 0.3s;
+}
+
+.todoItemMobile:nth-child(n+5) {
+    animation-delay: 0.4s;
+}
+
+/* Темная тема для мобильной версии */
+[data-theme="dark"] .todoItemMobile {
+    background: linear-gradient(
+        135deg,
+        rgba(30, 30, 30, 0.95) 0%,
+        rgba(20, 20, 20, 0.85) 100%
+    );
+    border-color: rgba(var(--primary-rgb), 0.15);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .todoItemMobile:hover {
+    border-color: rgba(var(--primary-rgb), 0.4);
+    box-shadow: 
+        0 12px 32px rgba(0, 0, 0, 0.4),
+        0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .todoItemMobile .cardFooter {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.08) 0%,
+        rgba(var(--primary-rgb), 0.03) 100%
+    );
+    border-top-color: rgba(var(--primary-rgb), 0.2);
+}
+
+[data-theme="dark"] .todoItemMobile:hover .cardFooter {
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.15) 0%,
+        rgba(var(--primary-rgb), 0.08) 100%
+    );
+    border-top-color: rgba(var(--primary-rgb), 0.4);
+}
+
+[data-theme="dark"] .actionButtonMobile {
+    background: rgba(40, 40, 40, 0.8) !important;
+    border: 1px solid rgba(var(--primary-rgb), 0.2) !important;
+}
+
+[data-theme="dark"] .actionButtonMobile:hover {
+    background: rgba(var(--primary-rgb), 0.2) !important;
+    border-color: rgba(var(--primary-rgb), 0.4) !important;
+}
+
+[data-theme="dark"] .photoIcon {
+    background: rgba(40, 40, 40, 0.95);
+    color: var(--primary-color);
+}
+
+[data-theme="dark"] .todoItemMobile:hover .photoIcon {
+    background: rgba(40, 40, 40, 1);
+    color: var(--primary-light);
 }
 
 /* Контейнер для фото в мобильной карточке */
 .photoContainer {
-    margin: 8px 0;
+    margin: 12px 0;
     position: relative;
     border-radius: var(--radius);
     overflow: hidden;
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.03) 0%,
+        rgba(var(--primary-rgb), 0.01) 100%
+    );
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .photoContainer {
+    border-color: rgba(var(--primary-rgb), 0.3);
+    box-shadow: 0 4px 16px rgba(var(--primary-rgb), 0.1);
+    transform: translateY(-2px);
 }
 
 .photoIcon {
     position: absolute;
-    top: 8px;
-    left: 8px;
-    color: var(--text-secondary);
-    background: rgba(255, 255, 255, 0.9);
+    top: 10px;
+    left: 10px;
+    color: var(--primary-color);
+    background: rgba(255, 255, 255, 0.95);
     border-radius: 50%;
-    padding: 4px;
-    box-shadow: var(--shadow-sm);
+    padding: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 2;
+    transition: all 0.3s ease;
+}
+
+.todoItemMobile:hover .photoIcon {
+    color: var(--primary-dark);
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.1);
 }
 
 .photoImage {
     width: 100%;
-    height: 120px;
+    height: 140px;
     object-fit: cover;
     display: block;
-    transition: transform var(--transition-normal);
+    transition: transform 0.4s ease;
 }
 
 .photoImage:hover {
-    transform: scale(1.02);
+    transform: scale(1.05);
 }
 
 /* Контейнер для превью фото */
 .photoThumbnailsContainer {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    padding: 8px;
-    background: rgba(var(--primary-rgb), 0.02);
+    gap: 10px;
+    padding: 12px;
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.04) 0%,
+        rgba(var(--primary-rgb), 0.02) 100%
+    );
     border-radius: var(--radius);
-    border: 1px dashed var(--border-color);
-    transition: all var(--transition-normal);
+    border: 2px dashed rgba(var(--primary-rgb), 0.2);
+    transition: all 0.3s ease;
 }
 
 .photoThumbnailsContainer:hover {
     border-color: var(--primary-color);
-    background: rgba(var(--primary-rgb), 0.05);
+    background: linear-gradient(
+        135deg,
+        rgba(var(--primary-rgb), 0.08) 0%,
+        rgba(var(--primary-rgb), 0.04) 100%
+    );
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);
 } 

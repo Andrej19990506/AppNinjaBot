@@ -53,35 +53,35 @@ export const WriteOffApi = {
             const params: { date?: string } = {};
             if (selectedDate) {
                 params.date = selectedDate; // Отправляем дату как есть, без преобразования
-            }
-            
-            console.log('🔍 [getWriteOffs] Параметры запроса:', {
+        }
+        
+        console.log('🔍 [getWriteOffs] Параметры запроса:', {
                 group_id: groupId,
                 originalDate: selectedDate,
                 // Убираем convertedDate так как больше не конвертируем
-                params,
+            params,
                 finalUrl: `/v1/write-offs/${groupId}`,
                 finalParams: params
-            });
-
+        });
+        
             const response = await axiosInstance.get<any[]>(`/v1/write-offs/${groupId}`, { params });
             
-            console.log('🔍 [getWriteOffs] Raw response:', {
-                status: response.status,
-                data: response.data,
-                headers: response.headers,
-                dataType: typeof response.data,
-                isArray: Array.isArray(response.data),
+                console.log('🔍 [getWriteOffs] Raw response:', {
+                    status: response.status,
+                    data: response.data,
+                    headers: response.headers,
+                    dataType: typeof response.data,
+                    isArray: Array.isArray(response.data),
                 length: Array.isArray(response.data) ? response.data.length : 'N/A'
-            });
-
-            // Функция для конвертации UTC дат в локальные и маппинга snake_case → camelCase
-            const convertDatesInRecords = (records: any[]) => {
-                return records.map(record => {
-                    const converted = {
-                        ...record,
-                        date: record.date ? convertUTCDateToLocal(record.date) : record.date,
-                        unitType: record.unit_type || 'шт', // ← ИСПРАВЛЕНО: snake_case → camelCase
+                });
+                
+                // Функция для конвертации UTC дат в локальные и маппинга snake_case → camelCase
+                const convertDatesInRecords = (records: any[]) => {
+                    return records.map(record => {
+                        const converted = {
+                            ...record,
+                            date: record.date ? convertUTCDateToLocal(record.date) : record.date,
+                            unitType: record.unit_type || 'шт', // ← ИСПРАВЛЕНО: snake_case → camelCase
                         photoPath: record.photo_path, // ← ДОБАВЛЕНО: маппинг photo_path → photoPath
                         author: record.author ? {
                             user_id: record.author.user_id,
@@ -90,32 +90,32 @@ export const WriteOffApi = {
                             username: record.author.username,
                             photo_url: record.author.photo_url
                         } : null // ← ДОБАВЛЕНО: маппинг автора списания
-                    };
-                    console.log('🔄 [convertDatesInRecords] Маппинг записи:', {
+                        };
+                        console.log('🔄 [convertDatesInRecords] Маппинг записи:', {
                         name: record.name,
                         author_present: !!record.author,
                         author_name: record.author?.first_name
+                        });
+                        return converted;
                     });
-                    return converted;
-                });
-            };
-
+                };
+                
             // Если данные в правильном формате, конвертируем их
-            if (Array.isArray(response.data)) {
-                const convertedData = convertDatesInRecords(response.data);
-                console.log('📦 [getWriteOffs] Returning converted array data:', convertedData);
+                if (Array.isArray(response.data)) {
+                    const convertedData = convertDatesInRecords(response.data);
+                    console.log('📦 [getWriteOffs] Returning converted array data:', convertedData);
                 return convertedData;
-            }
+                }
 
             // Если данные в неправильном формате, возвращаем пустой массив
             console.warn('⚠️ [getWriteOffs] Unexpected response format:', response.data);
             return [];
         } catch (error: any) {
-            console.error('❌ [getWriteOffs] Error:', error);
-            if (error.response?.status === 404) {
+                console.error('❌ [getWriteOffs] Error:', error);
+                if (error.response?.status === 404) {
                 return [];
-            }
-            throw error;
+                }
+                throw error;
         }
     },
     createWriteOff: (group_id: string, data: any) => {

@@ -14,7 +14,6 @@ class WriteOff(Base):
     quantity = Column(Float, nullable=False)
     description = Column(Text, nullable=True)
     unit_type = Column(String(10), nullable=False, default='шт')
-    status = Column(String(32), nullable=False, default='pending')
     photo_path = Column(String(500), nullable=True, comment='Путь к фото списания')
     date = Column(Date, nullable=False, server_default=func.current_date())  # Дата списания (без времени)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

@@ -19,6 +19,7 @@ export const fetchWriteOffChats = createAsyncThunk(
             }
             const response = await WriteOffApi.getWriteOffChats(userId, groupType);
             console.log('✅ Получены данные:', response.data);
+            console.log('🔍 [DEBUG] Первый чат из API:', response.data[0]);
 
             if (!response.data || !Array.isArray(response.data)) {
                 throw new Error('Некорректный формат данных от сервера');
@@ -27,6 +28,7 @@ export const fetchWriteOffChats = createAsyncThunk(
             // Возвращаем все чаты без фильтрации по админам
             const writeOffChats = response.data.map((chat: any) => ({
                 ...chat,
+                chat_title: chat.chat_title || chat.title || chat.name || `Чат ${chat.chat_id}`, // Обеспечиваем наличие chat_title
                 writeOffs: [],
                 metadata: {
                     lastUpdated: new Date().toISOString(),
@@ -42,6 +44,7 @@ export const fetchWriteOffChats = createAsyncThunk(
             }
 
             console.log('✅ Данные преобразованы:', writeOffChats);
+            console.log('🔍 [DEBUG] Первый преобразованный чат:', writeOffChats[0]);
             return writeOffChats;
         } catch (error: any) {
             console.error('❌ Ошибка при загрузке чатов:', error);
@@ -85,6 +88,9 @@ export const selectWriteOffChat = createAsyncThunk(
             date,
             dateType: typeof date,
             chat: !!chat,
+            chatStructure: chat,
+            chatTitle: chat?.chat_title,
+            chatName: chat?.title,
             userId,
             userState: state.user.user,
             allChats: state.writeOff.chats.map(c => c.chat_id)

@@ -44,33 +44,33 @@ const WriteOffListMobile: React.FC<WriteOffListMobileProps> = ({
   // Рефы для скролл-контейнера
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
-  // Состояния для теней при скролле
-  const [showTopShadow, setShowTopShadow] = useState(false);
-  const [showBottomShadow, setShowBottomShadow] = useState(true);
+  // Состояния для отслеживания позиции скролла
+  const [isAtTop, setIsAtTop] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
   
   // Отфильтрованные элементы (без удаленных)
   const filteredItems = items.filter(item => !removedItems.includes(item.id));
   const isEmpty = filteredItems.length === 0;
 
-  // Обработчик скролла для показа/скрытия теней
+  // Обработчик скролла для управления эффектом размытия
   const handleScroll = () => {
     if (!scrollContainerRef.current) return;
     
     const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
     
-    // Показываем верхнюю тень, когда не в начале скролла
-    setShowTopShadow(scrollTop > 5);
+    // Определяем находимся ли мы в самом верху (с небольшим допуском)
+    setIsAtTop(scrollTop <= 5);
     
-    // Показываем нижнюю тень, когда не в конце скролла
-    setShowBottomShadow(scrollTop + clientHeight < scrollHeight - 5);
+    // Определяем находимся ли мы в самом низу (с небольшим допуском)
+    setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 5);
   };
-  
-  // Добавляем обработчики при монтировании
+
+  // Добавляем обработчик скролла
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
       scrollContainer.addEventListener('scroll', handleScroll);
-      // Инициализируем состояние теней
+      // Проверяем начальное состояние
       handleScroll();
     }
     
@@ -80,20 +80,32 @@ const WriteOffListMobile: React.FC<WriteOffListMobileProps> = ({
       }
     };
   }, []);
-  
-  // Обновляем тени при изменении списка элементов
+
+  // Обновляем состояние при изменении элементов
   useEffect(() => {
-    handleScroll();
+    // Небольшая задержка для корректного расчета размеров
+    setTimeout(() => {
+      handleScroll();
+    }, 100);
   }, [items, removedItems]);
   
   return (
     <div className={styles.container}>
       <div className={styles.listContainer}>
-        {/* Скролл-контейнер с тенями */}
-        <div className={styles.scrollContainer} ref={scrollContainerRef}>
-          {/* Тени для скролла */}
-          <div className={`${styles.scrollShadowTop} ${showTopShadow ? styles.scrollShadowVisible : ''}`} />
-          <div className={`${styles.scrollShadowBottom} ${showBottomShadow ? styles.scrollShadowVisible : ''}`} />
+        {/* Плавающие частицы */}
+        <div className={styles.particles}>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+        </div>
+        
+        {/* Скролл-контейнер */}
+        <div 
+          className={`${styles.scrollContainer} ${isAtTop ? styles.atTop : ''} ${isAtBottom ? styles.atBottom : ''}`} 
+          ref={scrollContainerRef}
+        >
           
           {isEmpty ? (
             <motion.div

@@ -83,54 +83,55 @@ const WriteOffAuthor: React.FC<WriteOffAuthorProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: 0.1 }}
     >
-      <div className={styles.infoContainer}>
-        <div className={styles.authorStatement}>
-          <div 
-            className={styles.statementText}
-            title={`Списание делал(а): ${userName}`}
+      {/* Первая строка: Списание делал(а) */}
+      <div className={styles.actionRow}>
+        <div 
+          className={styles.statementText}
+          title={`Списание делал(а): ${userName}`}
+        >
+          <CreateIcon className={styles.createIcon} />
+          <span className={styles.actionText}>Списание делал(а)</span>
+        </div>
+      </div>
+      
+      {/* Вторая строка: Фото + Имя */}
+      <div className={styles.userRow}>
+        <div className={styles.avatarContainer}>
+          <Avatar
+            src={photoUrl || undefined}
+            className={styles.avatar}
+            sx={{
+              width: variant === 'desktop' ? 32 : 28,
+              height: variant === 'desktop' ? 32 : 28,
+              fontSize: variant === 'desktop' ? '0.9rem' : '0.8rem',
+              backgroundColor: 'var(--primary-color)',
+              color: 'white',
+              fontWeight: 600,
+            }}
           >
-            <CreateIcon className={styles.createIcon} />
-            <span className={styles.actionText}>Списание сделал(а)</span>
-          </div>
+            {!photoUrl && (initials || <PersonIcon fontSize="small" />)}
+          </Avatar>
+          
+          {/* Индикатор онлайн статуса (можно расширить в будущем) */}
+          <div className={styles.statusIndicator} />
         </div>
         
-        {showTime && (
-          <div className={styles.timeContainer}>
-            <AccessTimeIcon className={styles.timeIcon} />
-            <Typography 
-              variant="caption" 
-              className={styles.timeText}
-              title={`Создано: ${formatDate(created_at)}`}
-            >
-              {formatDate(created_at)}
-            </Typography>
-          </div>
-        )}
-      </div>
-      
-      <div className={styles.avatarContainer}>
-        <Avatar
-          src={photoUrl || undefined}
-          className={styles.avatar}
-          sx={{
-            width: variant === 'desktop' ? 32 : 28,
-            height: variant === 'desktop' ? 32 : 28,
-            fontSize: variant === 'desktop' ? '0.9rem' : '0.8rem',
-            backgroundColor: 'var(--primary-color)',
-            color: 'white',
-            fontWeight: 600,
-          }}
-        >
-          {!photoUrl && (initials || <PersonIcon fontSize="small" />)}
-        </Avatar>
-        
-        {/* Индикатор онлайн статуса (можно расширить в будущем) */}
-        <div className={styles.statusIndicator} />
-      </div>
-      
-      <div className={styles.userNameContainer}>
         <span className={styles.userName}>{userName}</span>
       </div>
+      
+      {/* Третья строка: Время создания */}
+      {showTime && (
+        <div className={styles.timeRow}>
+          <AccessTimeIcon className={styles.timeIcon} />
+          <Typography 
+            variant="caption" 
+            className={styles.timeText}
+            title={`Создано: ${formatDate(created_at)}`}
+          >
+            {formatDate(created_at)}
+          </Typography>
+        </div>
+      )}
     </motion.div>
   );
 };

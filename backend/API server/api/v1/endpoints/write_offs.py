@@ -169,7 +169,7 @@ async def create_write_off(
             
             # Создаем объект WriteOffCreate из JSON
             write_off_data = WriteOffCreate(**json_data)
-            photo_path = None
+        photo_path = None
             
         except Exception as e:
             logger.error(f"❌ [create_write_off] Ошибка парсинга JSON: {e}")
@@ -188,7 +188,7 @@ async def create_write_off(
             name = form_data.get("name")
             reason = form_data.get("reason")
             quantity = form_data.get("quantity")
-            
+        
             # Проверяем обязательные поля
             if not all([user_id, name, reason, quantity]):
                 logger.error(f"❌ [create_write_off] Отсутствуют обязательные поля: user_id={user_id}, name={name}, reason={reason}, quantity={quantity}")
@@ -198,53 +198,53 @@ async def create_write_off(
                 )
             
             # Обрабатываем фото
-            photo_path = None
+        photo_path = None
             photo_file = form_data.get("photo")
             if photo_file and hasattr(photo_file, 'filename'):
-                # Создаем директорию для фото если не существует
-                photos_dir = Path("/app/shared/write_off_photos")
-                photos_dir.mkdir(parents=True, exist_ok=True)
-                
-                # Генерируем уникальное имя файла
+            # Создаем директорию для фото если не существует
+            photos_dir = Path("/app/shared/write_off_photos")
+            photos_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Генерируем уникальное имя файла
                 file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
-                photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
+            photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
                 photo_path_full = photos_dir / photo_filename
-                
-                # Сохраняем файл
+            
+            # Сохраняем файл
                 with open(photo_path_full, "wb") as f:
                     content = await photo_file.read()
-                    f.write(content)
-                
-                # Сохраняем только имя файла
-                photo_path = photo_filename
-                logger.info(f"📸 [create_write_off] Сохранено фото: {photo_filename}")
+                f.write(content)
             
+                # Сохраняем только имя файла
+            photo_path = photo_filename
+                logger.info(f"📸 [create_write_off] Сохранено фото: {photo_filename}")
+        
             # Обрабатываем дату
-            date_obj = None
+        date_obj = None
             date_str = form_data.get("date")
             if date_str:
-                try:
-                    from datetime import datetime
+            try:
+                from datetime import datetime
                     date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-                except ValueError:
-                    raise HTTPException(
-                        status_code=422,
-                        detail="Неверный формат даты. Используйте YYYY-MM-DD"
-                    )
-            
+            except ValueError:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Неверный формат даты. Используйте YYYY-MM-DD"
+                )
+        
             # Создаем объект WriteOffCreate из form данных
-            write_off_data = WriteOffCreate(
+        write_off_data = WriteOffCreate(
                 user_id=int(user_id),
-                name=name,
-                reason=reason,
+            name=name,
+            reason=reason,
                 quantity=float(quantity),
                 description=form_data.get("description") or "",
                 unit_type=form_data.get("unit_type") or "шт",
                 status=form_data.get("status") or "pending",
-                photo_path=photo_path,
-                date=date_obj
-            )
-            
+            photo_path=photo_path,
+            date=date_obj
+        )
+    
         except HTTPException:
             raise
         except Exception as e:
@@ -350,8 +350,7 @@ async def update_write_off(
                 update_data["description"] = form_data.get("description")
             if form_data.get("unit_type"):
                 update_data["unit_type"] = form_data.get("unit_type")
-            if form_data.get("status"):
-                update_data["status"] = form_data.get("status")
+
             if photo_path:
                 update_data["photo_path"] = photo_path
             if date_obj:

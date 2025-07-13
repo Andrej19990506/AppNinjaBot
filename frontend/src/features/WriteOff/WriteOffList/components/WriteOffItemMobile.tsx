@@ -123,10 +123,6 @@ const WriteOffItemMobile: React.FC<WriteOffItemMobileProps> = ({
               <span className={styles.descriptionText}>{item.description}</span>
             </div>
           )}
-          
-          <div className={styles.status}>
-            {item.status === 'active' ? 'Активен' : item.status}
-          </div>
         </div>
         
         {/* Футер карточки с информацией об авторе */}

@@ -11,7 +11,6 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FileCopyIcon from '@mui/icons-material/FileCopy';
-import Chip from '@mui/material/Chip';
 import { RootState } from '@/store';
 import { WriteOffItem } from '@/types/writeOff';
 import { canEditWriteOffsForDate } from '@/shared/utils/dateUtils';
@@ -41,23 +40,7 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
   const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
   const canEdit = canEditWriteOffsForDate(selectedDate);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return { bg: 'var(--primary-transparent)', color: 'var(--primary-color)' };
-      case 'pending':
-        return { bg: 'var(--warning-transparent)', color: 'var(--warning-color)' };
-      case 'completed':
-        return { bg: 'var(--success-transparent)', color: 'var(--success-color)' };
-      case 'cancelled':
-        return { bg: 'var(--error-transparent)', color: 'var(--error-color)' };
-      default:
-        return { bg: 'var(--gray-transparent)', color: 'var(--text-secondary)' };
-    }
-  };
 
-  const statusColors = getStatusColor(item.status);
-  const statusText = item.status === 'active' ? 'Активен' : item.status;
 
   // Используем useCallback для мемоизации обработчиков событий
   const handleEditClick = useCallback((e: React.MouseEvent) => {
@@ -197,23 +180,7 @@ const WriteOffItemDesktop: React.FC<WriteOffItemDesktopProps> = memo(({
           />
           
           <div className={styles.actionsContainer}>
-            <Chip
-              size="small"
-              label={statusText}
-              sx={{ 
-                height: '20px',
-                fontSize: '0.7rem',
-                mr: 1,
-                backgroundColor: statusColors.bg, 
-                color: statusColors.color,
-                transition: 'all var(--transition-normal)',
-                '& .MuiChip-label': {
-                  px: 1
-                }
-              }}
-            />
-            
-            <motion.div
+            <motion.div 
               className={styles.actionButtons}
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}

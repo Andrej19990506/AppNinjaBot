@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Typography from '@mui/material/Typography';
 import ListIcon from '@mui/icons-material/List';
@@ -33,48 +33,67 @@ const WriteOffListDesktop: React.FC<WriteOffListDesktopProps> = ({
 }) => {
   const activeItems = items.filter(item => !removedItems.includes(item.id));
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [showTopShadow, setShowTopShadow] = useState(false);
-  const [showBottomShadow, setShowBottomShadow] = useState(false);
   
-  // Обработчик скроллинга для управления тенями
+  // Состояния для отслеживания позиции скролла
+  const [isAtTop, setIsAtTop] = useState(true);
+  const [isAtBottom, setIsAtBottom] = useState(false);
+  
+  // Обработчик скролла для управления эффектом размытия
   const handleScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      
-      // Показываем верхнюю тень, когда не в самом верху
-      setShowTopShadow(scrollTop > 5);
-      
-      // Показываем нижнюю тень, когда не в самом низу
-      setShowBottomShadow(scrollTop + clientHeight < scrollHeight - 5);
-    }
+    if (!scrollContainerRef.current) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
+    
+    // Определяем находимся ли мы в самом верху (с небольшим допуском)
+    setIsAtTop(scrollTop <= 5);
+    
+    // Определяем находимся ли мы в самом низу (с небольшим допуском)
+    setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 5);
   };
-  
-  // Проверяем необходимость теней при первом рендеринге
+
+  // Добавляем обработчик скролла
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      const { scrollHeight, clientHeight } = scrollContainerRef.current;
-      setShowBottomShadow(scrollHeight > clientHeight);
-      
-      // Проверяем еще раз после полной загрузки компонентов
-      setTimeout(() => {
-        if (scrollContainerRef.current) {
-          const { scrollHeight, clientHeight } = scrollContainerRef.current;
-          setShowBottomShadow(scrollHeight > clientHeight);
-        }
-      }, 500);
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      // Проверяем начальное состояние
+      handleScroll();
     }
+    
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
+  // Обновляем состояние при изменении элементов
+  useEffect(() => {
+    // Небольшая задержка для корректного расчета размеров
+    setTimeout(() => {
+      handleScroll();
+    }, 100);
   }, [activeItems.length]);
   
   return (
     <div className={styles.container}>
       <div className={styles.listContainer}>
+        {/* Плавающие частицы */}
+        <div className={styles.particles}>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+          <div className={styles.particle}></div>
+        </div>
+        
         {activeItems.length > 0 ? (
           // Контейнер с прокруткой
           <div className={styles.listBorder}>
-            <div className={styles.scrollContainer} ref={scrollContainerRef} onScroll={handleScroll}>
-              {/* Тени для индикации скроллинга */}
-              <div className={`${styles.scrollShadowTop} ${showTopShadow ? styles.scrollShadowVisible : ''}`} />
-              <div className={`${styles.scrollShadowBottom} ${showBottomShadow ? styles.scrollShadowVisible : ''}`} />
+            <div 
+              className={`${styles.scrollContainer} ${isAtTop ? styles.atTop : ''} ${isAtBottom ? styles.atBottom : ''}`} 
+              ref={scrollContainerRef}
+            >
               
               <div className={styles.listBorderInner}>
                 <Grid container spacing={1} className={styles.gridContainer}>

@@ -25,7 +25,6 @@ export interface WriteOffItem {
     chat_id: string;
     user_id: string;
     created_at: string;
-    status: string;
     unitType?: 'шт' | 'гр';
     photoPath?: string;
     // Информация об авторе списания

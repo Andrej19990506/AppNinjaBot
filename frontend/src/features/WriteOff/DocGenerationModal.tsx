@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 import { motion, AnimatePresence } from 'framer-motion';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -28,6 +30,9 @@ const DocGenerationModal: React.FC<DocGenerationModalProps> = ({
     const [isSending, setIsSending] = useState(false);
     const [sendSuccess, setSendSuccess] = useState(false);
     const [sendError, setSendError] = useState<string | null>(null);
+    
+    // Получаем выбранную дату из Redux store
+    const selectedDate = useSelector((state: RootState) => state.writeOff.selectedDate);
 
     useEffect(() => {
         if (!isOpen) {
@@ -41,10 +46,19 @@ const DocGenerationModal: React.FC<DocGenerationModalProps> = ({
         setIsSending(true);
         setSendSuccess(false);
         setSendError(null);
+        
+        console.log('🔍 [DocGenerationModal] Генерация отчета:', {
+            groupId,
+            selectedDate,
+            dateType: typeof selectedDate
+        });
+        
         try {
-            await WriteOffApi.sendWriteOffReport(groupId);
+            await WriteOffApi.sendWriteOffReport(groupId, selectedDate);
             setSendSuccess(true);
+            console.log('✅ [DocGenerationModal] Отчет успешно отправлен');
         } catch (e: any) {
+            console.error('❌ [DocGenerationModal] Ошибка при отправке отчета:', e);
             setSendError(e.message || 'Не удалось отправить документ');
         } finally {
             setIsSending(false);

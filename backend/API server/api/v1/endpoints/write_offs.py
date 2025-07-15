@@ -169,7 +169,7 @@ async def create_write_off(
             
             # Создаем объект WriteOffCreate из JSON
             write_off_data = WriteOffCreate(**json_data)
-        photo_path = None
+            photo_path = None
             
         except Exception as e:
             logger.error(f"❌ [create_write_off] Ошибка парсинга JSON: {e}")
@@ -198,53 +198,53 @@ async def create_write_off(
                 )
             
             # Обрабатываем фото
-        photo_path = None
+            photo_path = None
             photo_file = form_data.get("photo")
             if photo_file and hasattr(photo_file, 'filename'):
-            # Создаем директорию для фото если не существует
-            photos_dir = Path("/app/shared/write_off_photos")
-            photos_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Генерируем уникальное имя файла
+                # Создаем директорию для фото если не существует
+                photos_dir = Path("/app/shared/write_off_photos")
+                photos_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Генерируем уникальное имя файла
                 file_extension = photo_file.filename.split('.')[-1] if '.' in photo_file.filename else 'jpg'
-            photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
+                photo_filename = f"writeoff_{group_id}_{uuid.uuid4().hex}.{file_extension}"
                 photo_path_full = photos_dir / photo_filename
-            
-            # Сохраняем файл
+                
+                # Сохраняем файл
                 with open(photo_path_full, "wb") as f:
                     content = await photo_file.read()
-                f.write(content)
-            
+                    f.write(content)
+                
                 # Сохраняем только имя файла
-            photo_path = photo_filename
+                photo_path = photo_filename
                 logger.info(f"📸 [create_write_off] Сохранено фото: {photo_filename}")
-        
+            
             # Обрабатываем дату
-        date_obj = None
+            date_obj = None
             date_str = form_data.get("date")
             if date_str:
-            try:
-                from datetime import datetime
+                try:
+                    from datetime import datetime
                     date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-            except ValueError:
-                raise HTTPException(
-                    status_code=422,
-                    detail="Неверный формат даты. Используйте YYYY-MM-DD"
-                )
-        
+                except ValueError:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Неверный формат даты. Используйте YYYY-MM-DD"
+                    )
+            
             # Создаем объект WriteOffCreate из form данных
-        write_off_data = WriteOffCreate(
+            write_off_data = WriteOffCreate(
                 user_id=int(user_id),
-            name=name,
-            reason=reason,
+                name=name,
+                reason=reason,
                 quantity=float(quantity),
                 description=form_data.get("description") or "",
                 unit_type=form_data.get("unit_type") or "шт",
                 status=form_data.get("status") or "pending",
-            photo_path=photo_path,
-            date=date_obj
-        )
-    
+                photo_path=photo_path,
+                date=date_obj
+            )
+        
         except HTTPException:
             raise
         except Exception as e:
@@ -390,16 +390,38 @@ async def delete_write_off(
 async def generate_write_off_report(
     group_id: int,
     background_tasks: BackgroundTasks,
+    date: Optional[str] = Query(None, description="Фильтр по дате в формате YYYY-MM-DD для генерации отчета"),
     db: AsyncSession = Depends(get_db_session)
 ):
     """
     Генерирует DOCX-акт списания и отправляет его в чат через бота (без скачивания).
+    Если параметр date указан, отчет будет содержать только списания за указанную дату.
     """
-    # Получаем первое списание по группе
-    write_off_result = await db.execute(
-        select(WriteOff).where(WriteOff.group_id == group_id).order_by(WriteOff.id.asc())
-    )
+    # Парсим дату если указана
+    date_filter = None
+    if date:
+        try:
+            from datetime import datetime
+            date_filter = datetime.strptime(date, "%Y-%m-%d").date()
+            logger.info(f"📅 Генерация отчета для группы {group_id} за дату: {date_filter}")
+        except ValueError:
+            logger.error(f"❌ Неверный формат даты: {date}")
+            raise HTTPException(
+                status_code=400,
+                detail="Неверный формат даты. Используйте YYYY-MM-DD"
+            )
+    else:
+        logger.info(f"📅 Генерация отчета для группы {group_id} за все даты")
+    
+    # Получаем первое списание по группе для получения данных об ответственном
+    write_off_query = select(WriteOff).where(WriteOff.group_id == group_id)
+    if date_filter:
+        write_off_query = write_off_query.where(WriteOff.date == date_filter)
+    write_off_query = write_off_query.order_by(WriteOff.id.asc())
+    
+    write_off_result = await db.execute(write_off_query)
     write_off = write_off_result.scalars().first()
+    
     responsible_first_name = None
     responsible_last_name = None
     if write_off:
@@ -410,10 +432,12 @@ async def generate_write_off_report(
         if member:
             responsible_first_name = member.first_name
             responsible_last_name = member.last_name
+    
     return await generate_and_send_write_off_report(
         group_id, db, background_tasks,
         responsible_first_name=responsible_first_name,
-        responsible_last_name=responsible_last_name
+        responsible_last_name=responsible_last_name,
+        date_filter=date_filter
     )
 
 @router.get("/{group_id}/inventory-template")

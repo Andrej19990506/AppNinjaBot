@@ -6,7 +6,7 @@ import os
 import httpx
 import logging
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 from typing import Dict, List, Optional
 from docx import Document
 from docx.shared import Pt, Cm
@@ -147,19 +147,6 @@ def create_write_off_document(data: Dict) -> io.BytesIO:
     generation_info.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     generation_info.paragraph_format.space_after = Pt(12)
     
-    # Добавляем раздел "Пояснения:"
-    explanations = doc.add_paragraph("Пояснения:")
-    explanations.runs[0].font.bold = True
-    explanations.paragraph_format.space_after = Pt(6)
-    
-    # Добавляем пояснения к списанию
-    doc.add_paragraph("Расход: замена масла во фритюре, списание теста на чистку пресса, расход муки;")
-    doc.add_paragraph("Отказ клиента: Клиент отказался, не открыл, отменили заказ, изменили готовый заказ и т.п., косяк программы с заказом;")
-    doc.add_paragraph("Брак: списывается только пицца (другая продукция на брак не списывается). Разрешено списывать 1-2 шт в день.")
-    doc.add_paragraph("Маркетинг: заказ пицц и прочего для съемки, блоггеру, для инстаграмма и т.п., пиццы для мероприятий;")
-    doc.add_paragraph("Удержание из з/п: косячно сделан заказ по вине сотрудников, испорчены продукты по вине сотрудников.")
-    doc.add_paragraph("Проработка: блюда или использование отдельных продуктов для проработки.")
-    doc.add_paragraph("Порча: : порча продуктов (плесень, сок, гниль), истечение срока годности, лом, бой (макаруны, яйца), брак поставщика (мятые коробки, треснутые контейнеры ит.д.).")
     
     # Добавляем раздел с подписями
     doc.add_paragraph("")
@@ -194,14 +181,31 @@ async def generate_and_send_write_off_report(
     db: AsyncSession,
     background_tasks: BackgroundTasks,
     responsible_first_name: str = None,
-    responsible_last_name: str = None
+    responsible_last_name: str = None,
+    date_filter: Optional[date] = None
 ):
     """
     Генерирует DOCX-акт списания по группе, собирает фотографии, сохраняет файл и отправляет всё боту через background-задачу.
+    
+    Args:
+        group_id: ID группы
+        db: Сессия БД
+        background_tasks: Фоновые задачи
+        responsible_first_name: Имя ответственного
+        responsible_last_name: Фамилия ответственного
+        date_filter: Фильтр по дате (если None - все записи)
     """
-    # 1. Получаем списания по группе
+    # 1. Получаем списания по группе с фильтром по дате
     service = WriteOffService()
-    write_offs = await service.get_write_offs_by_group(db, group_id)
+    write_offs = await service.get_write_offs_by_group(db, group_id, date_filter)
+    
+    # Логируем информацию о фильтрации
+    if date_filter:
+        logger.info(f"📅 Генерация отчета для группы {group_id} за дату: {date_filter}")
+    else:
+        logger.info(f"📅 Генерация отчета для группы {group_id} за все даты")
+    
+    logger.info(f"📋 Найдено {len(write_offs)} списаний для отчета")
 
     # 2. Получаем название группы по group_id (Telegram chat_id)
     result = await db.execute(select(Group).where(Group.group_id == int(group_id)))
@@ -239,6 +243,7 @@ async def generate_and_send_write_off_report(
                 logger.warning(f"❌ Фото не найдено: {photo_full_path}")
         else:
             logger.info(f"ℹ️ Нет фото для {w.name}")
+    
     # --- СОБИРАЕМ ФИО ОТВЕТСТВЕННОГО ---
     responsible = ""
     if responsible_first_name or responsible_last_name:
@@ -246,9 +251,13 @@ async def generate_and_send_write_off_report(
     else:
         responsible = '________________________ / _________________'
     # --- КОНЕЦ СОБИРАНИЯ ФИО ---
+    
+    # Используем дату фильтра или текущую дату для отчета
+    report_date = date_filter if date_filter else datetime.now().date()
+    
     data = {
         "chatTitle": chat_title,
-        "date": datetime.now().isoformat(),
+        "date": report_date.isoformat(),
         "items": items,
         "responsible": responsible
     }

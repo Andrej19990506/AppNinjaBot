@@ -267,8 +267,22 @@ export const WriteOffApi = {
                 return { success: true };
             });
     },
-    sendWriteOffReport: (groupId: string) => {
-        return axiosInstance.post(`/v1/write-offs/${groupId}/report`);
+    sendWriteOffReport: (groupId: string, date?: string) => {
+        console.log('🔍 [sendWriteOffReport] Отправка запроса на генерацию отчета:', {
+            groupId,
+            date,
+            dateIncluded: !!date
+        });
+        
+        // Добавляем параметр даты, если он передан
+        const params: { date?: string } = {};
+        if (date) {
+            params.date = date;
+        }
+        
+        return axiosInstance.post(`/v1/write-offs/${groupId}/report`, null, {
+            params
+        });
     },
     
     getInventoryTemplate: async (groupId: string): Promise<InventoryTemplateResponse> => {

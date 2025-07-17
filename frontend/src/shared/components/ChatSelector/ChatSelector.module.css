@@ -194,6 +194,47 @@
     border-bottom: 1px solid rgba(var(--border-rgb), 0.1);
 }
 
+.chatInfo {
+    flex: 1;
+}
+
+.chatActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.membersButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(var(--primary-rgb), 0.1);
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.membersButton:hover {
+    background: rgba(var(--primary-rgb), 0.15);
+    border-color: rgba(var(--primary-rgb), 0.3);
+    transform: translateY(-1px);
+}
+
+.membersButton:active {
+    transform: translateY(0);
+}
+
+.membersCount {
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+}
+
 .chatTitle {
     font-size: 1.25rem;
     font-weight: 700;

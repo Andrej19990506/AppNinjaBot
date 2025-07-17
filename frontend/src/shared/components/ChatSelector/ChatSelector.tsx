@@ -6,6 +6,7 @@ import PendingActions from '@mui/icons-material/PendingActions';
 import Refresh from '@mui/icons-material/Refresh';
 import AccessTime from '@mui/icons-material/AccessTime';
 import HomeIcon from '@mui/icons-material/Home';
+import People from '@mui/icons-material/People';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
 import styles from './ChatSelector.module.css';
@@ -20,6 +21,7 @@ import { selectWriteOffChat } from '@features/WriteOff/store/writeOffThunks';
 import { resetWriteOffState } from '@features/WriteOff/store/writeOffSlice';
 import { Admin } from '@/types/inventoryTypes';
 import { ChatContext } from '@/shared/store/chatSlice/chatTypes';
+import { MembersModal } from '@shared/components/MembersModal/MembersModal';
 
 
 
@@ -108,6 +110,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
     const [error, setError] = useState<string | null>(null);
     const cardsContainerRef = useRef<HTMLDivElement>(null);
     const isProcessingClickRef = useRef(false);
+    const [membersModalOpen, setMembersModalOpen] = useState(false);
+    const [selectedChatForMembers, setSelectedChatForMembers] = useState<ChatItem | null>(null);
 
     useEffect(() => {
         cardRefs.current = cardRefs.current.slice(0, chats.length);
@@ -468,6 +472,23 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                                 )}
                                             </h3>
                                         </div>
+                                        <div className={styles.chatActions}>
+                                            {/* Иконка участников */}
+                                            <button
+                                                className={styles.membersButton}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedChatForMembers(chat);
+                                                    setMembersModalOpen(true);
+                                                }}
+                                                title={`Участники (${(chat.members?.length || 0) + (chat.admins?.length || 0)})`}
+                                            >
+                                                <People className={styles.icon} />
+                                                <span className={styles.membersCount}>
+                                                    {(chat.members?.length || 0) + (chat.admins?.length || 0)}
+                                                </span>
+                                            </button>
+                                        </div>
                                     </div>
                                     
                                     {mode === 'inventory' && chat.metadata?.progress !== undefined && (
@@ -608,6 +629,33 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                     chat={selectedChatLocal}
                     onStartAction={handleStartAction}
                     mode={mode}
+                />
+            )}
+
+            {membersModalOpen && selectedChatForMembers && (
+                <MembersModal
+                    isOpen={membersModalOpen}
+                    onClose={() => {
+                        setMembersModalOpen(false);
+                        setSelectedChatForMembers(null);
+                    }}
+                    chatId={selectedChatForMembers.chat_id}
+                    chatTitle={selectedChatForMembers.chat_title}
+                    admins={selectedChatForMembers.admins}
+                    members={selectedChatForMembers.members}
+                    currentUserId={currentUser?.id}
+                    onGrantPermission={(userId, permission, duration) => {
+                        console.log('Выдать права:', { userId, permission, duration });
+                        // TODO: Реализовать API запрос
+                    }}
+                    onRevokePermission={(userId, permission) => {
+                        console.log('Отозвать права:', { userId, permission });
+                        // TODO: Реализовать API запрос
+                    }}
+                    onInviteUser={() => {
+                        console.log('Fallback для приглашения пользователя');
+                        // Основная логика приглашения через Telegram Web App API теперь в MembersModal
+                    }}
                 />
             )}
         </div>

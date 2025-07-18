@@ -16,6 +16,8 @@ from .endpoints.events import router as events_router
 
 from .endpoints.write_offs import router as write_offs_router
 
+from .endpoints.user_permissions import router as user_permissions_router
+
 api_router = APIRouter()
 
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
@@ -32,3 +34,5 @@ api_router.include_router(reserve_router, prefix="/reserves", tags=["Reserves"])
 api_router.include_router(events_router, prefix="/events", tags=["Events"])
 
 api_router.include_router(write_offs_router, prefix="/write-offs", tags=["Write-offs"])
+
+api_router.include_router(user_permissions_router, prefix="/user-permissions", tags=["User Permissions"])

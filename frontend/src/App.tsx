@@ -14,6 +14,8 @@ import './App.css';
 import './styles/base/variables.css';
 import LocationChangeListener from './shared/components/LocationChangeListener/LocationChangeListener'; 
 import { useWebSocketSync } from './shared/hooks/useWebSocketSync';
+import { usePermissionsWebSocket } from './shared/hooks/usePermissionsWebSocket';
+import { PermissionsExpiredModal } from './shared/components/PermissionsExpiredModal/PermissionsExpiredModal';
 import NotificationHandler from './shared/components/Notifications/NotificationHandler';
 import InventoryPage from './features/Inventory/pages/InventoryPage';
 import LoadingOverlay from './shared/components/LoadingOverlay/LoadingOverlay';
@@ -97,6 +99,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }, [isActuallyLoading]);
 
   useWebSocketSync();
+  const { isModalOpen, permissionsNotification, handleModalClose } = usePermissionsWebSocket();
 
   // Отладка состояний
   console.log('🔍 [App Debug] Состояния:', {
@@ -118,6 +121,16 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       )}
       {initError && (
         <TelegramAccessError error={initError} />
+      )}
+      
+      {/* Модальное окно об истечении прав */}
+      {permissionsNotification && (
+        <PermissionsExpiredModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          message={permissionsNotification.message}
+          notificationType={permissionsNotification.notification_type}
+        />
       )}
     </>
   );

@@ -7,6 +7,7 @@ from .reserve import Reserve
 from .event import Event
 from .notification import Notification
 from .write_off import WriteOff
+from .user_permission import UserPermission
 
 __all__ = [
     "Base",
@@ -18,4 +19,5 @@ __all__ = [
     "Event",
     "Notification",
     "WriteOff",
+    "UserPermission",
 ] 

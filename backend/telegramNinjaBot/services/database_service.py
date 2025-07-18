@@ -543,24 +543,40 @@ class DatabaseService:
         Returns:
             True, если пользователь найден в группе (связь существует), False в противном случае.
         """
-        logger.debug(f"[async] Проверка наличия пользователя {user_id} в группе {chat_id}")
+        logger.info(f"🔍 [is_user_in_group] Проверка наличия пользователя {user_id} в группе {chat_id}")
         
         try:
             # Преобразуем chat_id в int для поиска в таблице groups
             group_chat_id_int = int(chat_id) 
+            logger.info(f"🔍 [is_user_in_group] chat_id преобразован в int: {group_chat_id_int}")
         except (ValueError, TypeError):
-             logger.warning(f"[async] Некорректный chat_id '{chat_id}' для проверки is_user_in_group (user: {user_id})")
+             logger.warning(f"❌ [is_user_in_group] Некорректный chat_id '{chat_id}' для проверки is_user_in_group (user: {user_id})")
              return False # Некорректный ID группы - считаем, что не зарегистрирован
              
         # Преобразуем user_id в int (на всякий случай, если придет строка)
         try:
             user_id_int = int(user_id)
+            logger.info(f"🔍 [is_user_in_group] user_id преобразован в int: {user_id_int}")
         except (ValueError, TypeError):
-             logger.warning(f"[async] Некорректный user_id '{user_id}' для проверки is_user_in_group (group: {chat_id})")
+             logger.warning(f"❌ [is_user_in_group] Некорректный user_id '{user_id}' для проверки is_user_in_group (group: {chat_id})")
              return False
 
         async with self.pool.acquire() as conn:
             try:
+                # Сначала проверим, есть ли пользователь в таблице members
+                member_exists = await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM members WHERE user_id = $1)",
+                    user_id_int
+                )
+                logger.info(f"🔍 [is_user_in_group] Пользователь {user_id_int} есть в таблице members: {member_exists}")
+                
+                # Проверим, есть ли группа в таблице groups
+                group_exists = await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM groups WHERE group_id = $1)",
+                    group_chat_id_int
+                )
+                logger.info(f"🔍 [is_user_in_group] Группа {group_chat_id_int} есть в таблице groups: {group_exists}")
+                
                 # Запрос для проверки существования связи в group_members
                 # через внешние ID пользователя и группы
                 query = """
@@ -573,15 +589,73 @@ class DatabaseService:
                     );
                 """
                 exists = await conn.fetchval(query, user_id_int, group_chat_id_int)
-                logger.debug(f"[async] Результат проверки is_user_in_group ({user_id} в {chat_id}): {exists}")
+                logger.info(f"🔍 [is_user_in_group] Результат проверки связи в group_members: {exists}")
+                
+                # Дополнительная отладка - получим ID записей
+                member_id = await conn.fetchval(
+                    "SELECT id FROM members WHERE user_id = $1",
+                    user_id_int
+                )
+                logger.info(f"🔍 [is_user_in_group] ID записи пользователя в members: {member_id}")
+                
+                group_id = await conn.fetchval(
+                    "SELECT id FROM groups WHERE group_id = $1",
+                    group_chat_id_int
+                )
+                logger.info(f"🔍 [is_user_in_group] ID записи группы в groups: {group_id}")
+                
+                # Проверим связь по внутренним ID
+                if member_id and group_id:
+                    link_exists = await conn.fetchval(
+                        "SELECT EXISTS (SELECT 1 FROM group_members WHERE member_id = $1 AND group_id = $2)",
+                        member_id, group_id
+                    )
+                    logger.info(f"🔍 [is_user_in_group] Связь по внутренним ID ({member_id}, {group_id}): {link_exists}")
+                
+                logger.info(f"🔍 [is_user_in_group] ИТОГОВЫЙ РЕЗУЛЬТАТ: {exists}")
                 return bool(exists)
             
             except asyncpg.PostgresError as e:
-                logger.error(f"❌ [async] Ошибка PostgreSQL при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
+                logger.error(f"❌ [is_user_in_group] Ошибка PostgreSQL при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
                 logger.error(traceback.format_exc())
                 return False # В случае ошибки БД считаем, что не зарегистрирован
             except Exception as e:
-                logger.error(f"❌ [async] Неожиданная ошибка при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
+                logger.error(f"❌ [is_user_in_group] Неожиданная ошибка при проверке is_user_in_group ({user_id} в {chat_id}): {e}")
                 logger.error(traceback.format_exc())
                 return False # В случае другой ошибки тоже считаем, что не зарегистрирован
     # --- КОНЕЦ НОВОГО МЕТОДА ---
+    
+    async def group_exists(self, chat_id: str) -> bool:
+        """
+        Проверяет существует ли группа в БД.
+        
+        Args:
+            chat_id: ID чата Telegram (строка)
+            
+        Returns:
+            True если группа существует, False если нет
+        """
+        logger.info(f"🔍 [group_exists] Проверка существования группы {chat_id}")
+        
+        try:
+            group_chat_id_int = int(chat_id)
+            logger.info(f"🔍 [group_exists] chat_id преобразован в int: {group_chat_id_int}")
+        except (ValueError, TypeError):
+            logger.warning(f"❌ [group_exists] Некорректный chat_id '{chat_id}'")
+            return False
+            
+        async with self.pool.acquire() as conn:
+            try:
+                exists = await conn.fetchval(
+                    "SELECT EXISTS (SELECT 1 FROM groups WHERE group_id = $1)",
+                    group_chat_id_int
+                )
+                logger.info(f"🔍 [group_exists] Результат проверки группы {chat_id}: {exists}")
+                return bool(exists)
+                
+            except asyncpg.PostgresError as e:
+                logger.error(f"❌ [group_exists] Ошибка PostgreSQL при проверке существования группы {chat_id}: {e}")
+                return False
+            except Exception as e:
+                logger.error(f"❌ [group_exists] Неожиданная ошибка при проверке существования группы {chat_id}: {e}")
+                return False

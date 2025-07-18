@@ -20,6 +20,7 @@ from services.database_service import DatabaseService
 import asyncio
 import json
 from tasks.event_notification.notification_task import EventNotificationTask
+from tasks.permissions_cleanup.cleanup_task import PermissionsCleanupTask
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +89,8 @@ class TaskManager:
             'courier_shift_access': 'tasks.courier_shifts.shift_access_task:execute_job',
             'registration_open_event': 'tasks.websocket_events.registration_open_event_task:execute_job',
             'event_notification': 'tasks.event_notification.notification_task:send_notification',
-            'event_reminder': 'tasks.event_reminder.reminder_task:send_reminder'
+            'event_reminder': 'tasks.event_reminder.reminder_task:send_reminder',
+            'permissions_cleanup': 'tasks.permissions_cleanup.cleanup_task:cleanup_expired_permissions'
         }
 
         self.scheduler.add_listener(self._job_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
@@ -98,7 +100,8 @@ class TaskManager:
         self.task_classes = {
             ShiftAccessTask.TASK_TYPE: ShiftAccessTask,
             EventNotificationTask.TASK_TYPE: EventNotificationTask,
-            EventReminderTask.TASK_TYPE: EventReminderTask
+            EventReminderTask.TASK_TYPE: EventReminderTask,
+            PermissionsCleanupTask.TASK_TYPE: PermissionsCleanupTask
         }
         self.task_instances = {}
         for task_type, task_class in self.task_classes.items():
@@ -567,6 +570,9 @@ class TaskManager:
                         if len(parts) == 3:
                             pass
                         logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID напоминания")
+                    elif job_id.startswith("cleanup_permission_"):
+                        task_type = 'permissions_cleanup'
+                        logger.info(f"Слушатель: Получен task_type='{task_type}' из парсинга ID очистки прав")
                     else:
                         parts = job_id.split('_')
                         if len(parts) >= 3:
@@ -600,6 +606,8 @@ class TaskManager:
                     if notification_id:
                         logger.info(f"Слушатель: Отметка уведомления {notification_id} как выполненного...")
                         asyncio.create_task(self._mark_notification_completed(notification_id))
+                elif task_type == 'permissions_cleanup':
+                    logger.info(f"Слушатель: Задача очистки прав {job_id} успешно выполнена. Дополнительная обработка не требуется.")
                 elif task_type:
                      logger.debug(f"Слушатель: Для задачи типа '{task_type}' дополнительная обработка после успеха не требуется.")
 

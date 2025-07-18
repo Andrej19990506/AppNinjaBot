@@ -2,6 +2,7 @@ import logging
 import json
 import traceback
 import os
+from datetime import datetime
 # import aiohttp # Убедитесь, что aiohttp установлен, если используете handle_deletion_callback
 from telegram import Update, Bot, MenuButton, MenuButtonWebApp, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -75,13 +76,111 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         user = update.effective_user
         logger.info(f"Пользователь {user.full_name} ({user.id}) запустил команду /start")
 
-        # Отправляем приветственное сообщение
+        # Проверяем параметры команды /start
+        args = context.args
+        logger.info(f"🔍 Параметры команды /start: {args}")
+        
+        # Если есть параметр registry_ - обрабатываем регистрацию
+        if args and args[0].startswith('registry_'):
+            registry_param = args[0]
+            group_id = registry_param.replace('registry_', '')
+            
+            logger.info(f"🔐 Пользователь {user.id} перешел по ссылке регистрации в группу {group_id}")
+            
+            # Валидируем ID группы
+            try:
+                group_id_int = int(group_id)
+                if group_id_int >= 0:
+                    await update.message.reply_text(
+                        f"❌ *Ошибка регистрации*\n\n"
+                        f"Некорректный ID группы в ссылке.\n\n"
+                        f"Обратитесь к администратору за новой ссылкой регистрации.",
+                        parse_mode='Markdown'
+                    )
+                    return
+            except ValueError:
+                await update.message.reply_text(
+                    f"❌ *Ошибка регистрации*\n\n"
+                    f"Некорректный формат ID группы в ссылке.\n\n"
+                    f"Обратитесь к администратору за новой ссылкой регистрации.",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Получаем сервис БД из bot_data
+            db_service = context.application.bot_data.get('db_service')
+            if not db_service:
+                logger.error("DatabaseService не найден в bot_data")
+                await update.message.reply_text(
+                    "❌ Ошибка системы. Попробуйте позже."
+                )
+                return
+            
+            # Сначала проверяем существует ли группа в БД
+            group_exists = await db_service.group_exists(group_id)
+            
+            if not group_exists:
+                # Группа не существует в БД - отказываем в регистрации
+                await update.message.reply_text(
+                    f"❌ *Группа не найдена*\n\n"
+                    f"Группа с ID `{group_id}` не существует в системе.\n\n"
+                    f"📝 **Возможные причины:**\n"
+                    f"• Неправильный ID группы\n"
+                    f"• Бот не был добавлен в эту группу\n"
+                    f"• Группа была удалена из системы\n\n"
+                    f"💡 **Что делать:**\n"
+                    f"• Проверьте правильность ID группы\n"
+                    f"• Обратитесь к администратору группы\n"
+                    f"• Убедитесь, что бот добавлен в группу",
+                    parse_mode='Markdown'
+                )
+                logger.info(f"❌ Пользователь {user.id} попытался зарегистрироваться в несуществующей группе {group_id}")
+                return
+            
+            # Проверяем зарегистрирован ли пользователь уже в боте
+            is_registered = await db_service.is_user_in_group(user.id, group_id)
+            
+            if is_registered:
+                # Пользователь уже зарегистрирован в боте
+                await update.message.reply_text(
+                    f"ℹ️ *Вы уже зарегистрированы!*\n\n"
+                    f"🎯 **Группа:** `{group_id}`\n"
+                    f"👤 **Пользователь:** {user.full_name}\n"
+                    f"📱 **Username:** @{user.username or 'не указан'}\n\n"
+                    f"🚀 **Доступные функции:**\n"
+                    f"• 📦 Управление инвентарем\n"
+                    f"• 📋 Заявки на списание\n"
+                    f"• 📊 Отчеты и аналитика\n"
+                    f"• ⚡ Уведомления в реальном времени\n\n"
+                    f"Вы можете продолжать использовать все функции бота!",
+                    parse_mode='Markdown'
+                )
+                logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {group_id}")
+                return
+            
+            # Пользователь НЕ состоит в группе - отказываем в регистрации
+            await update.message.reply_text(
+                f"❌ *Регистрация не удалась*\n\n"
+                f"Вы не состоите в группе с ID `{group_id}`\n\n"
+                f"📝 **Что делать:**\n"
+                f"• Обратитесь к администратору группы\n"
+                f"• Убедитесь, что вы добавлены в нужную группу\n"
+                f"• Проверьте правильность ID группы\n\n"
+                f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+                f"🔒 **Безопасность:** Группы создаются только администраторами",
+                parse_mode='Markdown'
+            )
+            logger.info(f"❌ Пользователь {user.id} не состоит в группе {group_id}, регистрация отклонена")
+            return
+
+        # Обычное приветствие без параметров
         await update.message.reply_text(
-            f"Привет, {user.first_name}! 👋"
+            f"Привет, {user.first_name}! 👋\n\n"
+            f"Это бот для управления инвентарем и заявками на списание.\n\n"
+            f"Если у вас есть ссылка-приглашение, используйте её для регистрации.\n"
+            f"Или воспользуйтесь командой /registry с ID группы."
         )
         logger.info(f"Отправлено приветствие пользователю {user.id}")
-
-        # --- Убрали логику WebApp и кнопки меню ---
 
     except Exception as e:
         logger.error(f"Ошибка при обработке команды /start: {str(e)}")
@@ -116,3 +215,126 @@ async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logger.error(f"Ошибка при общей обработке callback (handle_all_callbacks): {str(e)}")
         # Не отвечаем на колбэк здесь, чтобы не мешать другим обработчикам 
+
+
+async def handle_registry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Обработчик команды /registry для регистрации пользователей в системе.
+    
+    Логика:
+    1. Проверяет есть ли пользователь в группе через БД
+    2. Если нет - показывает ошибку с просьбой обратиться к админу
+    3. Если есть - регистрирует в БД или уведомляет об успешной регистрации
+    """
+    try:
+        user = update.effective_user
+        message = update.effective_message
+        
+        if not user:
+            logger.warning("Команда /registry вызвана без пользователя")
+            return
+            
+        logger.info(f"🔐 Пользователь {user.full_name} (@{user.username}) запросил регистрацию")
+        
+        # Получаем параметры команды
+        args = context.args
+        if not args:
+            await message.reply_text(
+                "❌ Укажите ID группы для регистрации!\n\n"
+                "Пример: /registry -1004984919338\n\n"
+                "Или используйте ссылку регистрации из чата для автоматической регистрации."
+            )
+            return
+            
+        target_group_id = args[0]
+        logger.info(f"Пользователь {user.id} запросил регистрацию в группе: {target_group_id}")
+        
+        # Валидируем ID группы
+        try:
+            group_id_int = int(target_group_id)
+            if group_id_int >= 0:
+                await message.reply_text(
+                    "❌ Некорректный ID группы!\n\n"
+                    "ID группы должен быть отрицательным числом."
+                )
+                return
+        except ValueError:
+            await message.reply_text(
+                "❌ Некорректный формат ID группы!\n\n"
+                "Пример: /registry -1004984919338"
+            )
+            return
+            
+        # Получаем сервис БД из bot_data
+        db_service = context.application.bot_data.get('db_service')
+        if not db_service:
+            logger.error("DatabaseService не найден в bot_data")
+            await message.reply_text(
+                "❌ Ошибка системы. Попробуйте позже."
+            )
+            return
+            
+        # Сначала проверяем существует ли группа в БД
+        group_exists = await db_service.group_exists(target_group_id)
+        
+        if not group_exists:
+            # Группа не существует в БД - отказываем в регистрации
+            await message.reply_text(
+                f"❌ *Группа не найдена*\n\n"
+                f"Группа с ID `{target_group_id}` не существует в системе.\n\n"
+                f"📝 **Возможные причины:**\n"
+                f"• Неправильный ID группы\n"
+                f"• Бот не был добавлен в эту группу\n"
+                f"• Группа была удалена из системы\n\n"
+                f"💡 **Что делать:**\n"
+                f"• Проверьте правильность ID группы\n"
+                f"• Обратитесь к администратору группы\n"
+                f"• Убедитесь, что бот добавлен в группу",
+                parse_mode='Markdown'
+            )
+            logger.info(f"❌ Пользователь {user.id} попытался зарегистрироваться в несуществующей группе {target_group_id}")
+            return
+        
+        # Проверяем зарегистрирован ли пользователь уже в боте
+        is_registered = await db_service.is_user_in_group(user.id, target_group_id)
+        
+        if is_registered:
+            # Пользователь уже зарегистрирован в боте
+            await message.reply_text(
+                f"ℹ️ *Вы уже зарегистрированы!*\n\n"
+                f"🎯 **Группа:** `{target_group_id}`\n"
+                f"👤 **Пользователь:** {user.full_name}\n"
+                f"📱 **Username:** @{user.username or 'не указан'}\n\n"
+                f"🚀 **Доступные функции:**\n"
+                f"• 📦 Управление инвентарем\n"
+                f"• 📋 Заявки на списание\n"
+                f"• 📊 Отчеты и аналитика\n"
+                f"• ⚡ Уведомления в реальном времени\n\n"
+                f"Вы можете продолжать использовать все функции бота!",
+                parse_mode='Markdown'
+            )
+            logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {target_group_id}")
+            return
+            
+        # Пользователь НЕ состоит в группе - отказываем в регистрации
+        await message.reply_text(
+            f"❌ *Регистрация не удалась*\n\n"
+            f"Вы не состоите в группе с ID `{target_group_id}`\n\n"
+            f"📝 **Что делать:**\n"
+            f"• Обратитесь к администратору группы\n"
+            f"• Убедитесь, что вы добавлены в нужную группу\n"
+            f"• Проверьте правильность ID группы\n\n"
+            f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+            f"🔒 **Безопасность:** Группы создаются только администраторами",
+            parse_mode='Markdown'
+        )
+        logger.info(f"❌ Пользователь {user.id} не состоит в группе {target_group_id}, регистрация отклонена")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при обработке команды /registry: {e}")
+        logger.error(traceback.format_exc())
+        
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "❌ Произошла ошибка при регистрации. Попробуйте позже."
+            )

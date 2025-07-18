@@ -4,6 +4,7 @@ import { RootState } from '@/shared/store/store';
 import { WriteOffApi } from '@features/WriteOff/services/writeOffApi';
 import { socketService } from '@/shared/services/socketService';
 import { checkAdminRights } from '@/shared/store/adminSlice/adminThunks';
+import { userPermissionsApi } from '@/shared/api/userPermissionsApi';
 
 // Загрузка списка чатов для списания
 export const fetchWriteOffChats = createAsyncThunk(
@@ -105,20 +106,53 @@ export const selectWriteOffChat = createAsyncThunk(
             throw new Error('Чат не найден или нет доступа');
         }
         try {
-            const formattedAdmins = chat.admins.map((admin: any) => ({
-                user_id: admin.user_id,
-                first_name: admin.first_name || ''
-            }));
-            await dispatch(checkAdminRights({
-                userId: userId,
-                chatId,
-                admins: formattedAdmins,
-                context: 'writeoff'
-            })).unwrap();
+            // Сначала проверяем временные права
+            let hasAccess = false;
+            let accessType = 'none';
+            
+            try {
+                console.log('🔍 Проверка временных прав для writeoff:', { userId, chatId });
+                const permissionsResponse = await userPermissionsApi.checkPermission(
+                    userId,
+                    parseInt(chatId),
+                    'writeoff'
+                );
+                
+                if (permissionsResponse.has_permission) {
+                    hasAccess = true;
+                    accessType = 'temporary';
+                    console.log('✅ Пользователь имеет временные права на writeoff:', permissionsResponse);
+                }
+            } catch (tempError: any) {
+                console.log('ℹ️ Временные права не найдены, проверяем административные права:', tempError.message);
+            }
+            
+            // Если нет временных прав, проверяем административные
+            if (!hasAccess) {
+                const formattedAdmins = chat.admins.map((admin: any) => ({
+                    user_id: admin.user_id,
+                    first_name: admin.first_name || ''
+                }));
+                
+                await dispatch(checkAdminRights({
+                    userId: userId,
+                    chatId,
+                    admins: formattedAdmins,
+                    context: 'writeoff'
+                })).unwrap();
+                
+                hasAccess = true;
+                accessType = 'admin';
+                console.log('✅ Пользователь имеет административные права');
+            }
+            
             const writeOffsResult = await dispatch(fetchWriteOffs({ chatId, date })).unwrap();
             const writeOffs = Array.isArray(writeOffsResult)
                 ? writeOffsResult
                 : writeOffsResult.writeOffs ?? [];
+            
+            console.log(`✅ Доступ к writeoff предоставлен через ${accessType} права`);
+            
             // Возвращаем чат с актуальными списаниями
             return { ...chat, writeOffs };
         } catch (error: any) {

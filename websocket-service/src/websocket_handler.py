@@ -368,6 +368,36 @@ async def join_room(sid, data):
             await sio.emit('room_users', {'room': room, 'users': current_room_users_details}, room=sid) # Используем собранный список
             logger.info(f"📨 Отправлен список пользователей комнаты {room} клиенту {sid}")
 
+            # Автоматически подключаем к персональной комнате для уведомлений о правах
+            user_id = user_info_data.get('user_id') or user_info_data.get('userId')  # Поддерживаем оба формата
+            if user_id and '_' in room:  # Если это комната группы (содержит _)
+                try:
+                    # Извлекаем group_id из названия комнаты
+                    group_id = room.split('_')[-1]  # Берем последнюю часть после _
+                    personal_room = f"user_{user_id}_group_{group_id}"
+                    
+                    logger.info(f"🔄 Попытка подключения к персональной комнате {personal_room} для пользователя {sid}")
+                    
+                    # Подключаем к персональной комнате
+                    await sio.enter_room(sid, personal_room)
+                    logger.info(f"✅ Пользователь {sid} автоматически подключен к персональной комнате {personal_room}")
+                    
+                    # Добавляем в user_rooms
+                    if personal_room not in user_rooms[sid]:
+                        user_rooms[sid].add(personal_room)
+                        
+                    # Добавляем в room_users
+                    if personal_room not in room_users:
+                        room_users[personal_room] = set()
+                    room_users[personal_room].add(sid)
+                    
+                    logger.info(f"📝 Пользователь {sid} теперь в комнатах: {user_rooms[sid]}")
+                    
+                except Exception as personal_room_err:
+                    logger.error(f"❌ Ошибка при подключении к персональной комнате: {personal_room_err}")
+            else:
+                logger.info(f"🔍 Автоматическое подключение к персональной комнате пропущено: user_id={user_id}, room={room}")
+
             return response
             
         except Exception as e:
@@ -515,6 +545,20 @@ async def notification_handler(payload):
                 logger.info(f"🔑 Отправлено REGISTRATION_OPENED в комнату {courier_room}...")
             else:
                 logger.warning(f"⚠️ Не найден chat_id в уведомлении registration_opened: {data}")
+
+        # --- ДОБАВЛЯЕМ ОБРАБОТКУ ИЗМЕНЕНИЯ ПРАВ ПОЛЬЗОВАТЕЛЯ ---
+        elif event_type == 'user_permissions_changed':
+            user_id = data.get('user_id')
+            group_id = data.get('group_id')
+            notification_type = data.get('notification_type')
+            
+            if user_id and group_id:
+                # Отправляем уведомление конкретному пользователю в конкретной группе
+                user_room = f"user_{user_id}_group_{group_id}"
+                await sio.emit('permissions_changed', data, room=user_room)
+                logger.info(f"📝 Отправлено уведомление об изменении прав пользователю {user_id} в группе {group_id}: {notification_type}")
+            else:
+                logger.warning(f"⚠️ Не найдены user_id или group_id в уведомлении user_permissions_changed: {data}")
 
         else:
             logger.warning(f"⚠️ Неизвестный или ненужный тип уведомления: {event_type}")

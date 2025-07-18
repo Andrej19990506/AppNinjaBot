@@ -36,6 +36,7 @@ from fastapi import FastAPI, HTTPException
 from api_scheduler.schedule.routes import router as schedule_router
 from api_scheduler.schedule.availability.routes import router as availability_router
 from api_scheduler.schedule.notifications.routes import router as notification_router
+from api_scheduler.schedule.permissions import router as permissions_router
 from core.config import scheduler_settings
 from scheduler import InventoryScheduler
 from services.database_service import DatabaseService
@@ -175,3 +176,4 @@ app = FastAPI(
 app.include_router(schedule_router, prefix="/scheduler")
 app.include_router(availability_router, prefix="/scheduler")
 app.include_router(notification_router, prefix="/scheduler/notifications", tags=["Notifications"])
+app.include_router(permissions_router, prefix="/scheduler/permissions", tags=["Permissions"])

@@ -52,6 +52,17 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}' - обновление шаблона инвентаря")
                 await sio.emit(event_type, data)
                 logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено всем клиентам")
+            elif event_type == 'user_permissions_changed':
+                user_id = data.get('user_id')
+                group_id = data.get('group_id')
+                
+                if user_id and group_id:
+                    # Отправляем уведомление в персональную комнату пользователя
+                    user_room = f"user_{user_id}_group_{group_id}"
+                    await sio.emit('permissions_changed', data, room=user_room)
+                    logger.info(f"✅ Уведомление об изменении прав отправлено пользователю {user_id} в комнату {user_room}")
+                else:
+                    logger.warning(f"Получено уведомление user_permissions_changed без user_id ({user_id}) или group_id ({group_id})")
             else:
                 chat_id = data.get('chat_id')
                 if not chat_id:

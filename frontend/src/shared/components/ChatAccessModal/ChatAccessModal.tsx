@@ -8,6 +8,7 @@ import { SingleSystemNotification } from '@shared/components/Notifications/Syste
 import styles from '@shared/components/ChatAccessModal/ChatAccessModal.module.css';
 import { ChatContext } from '@shared/store/chatSlice/chatTypes';
 import { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
+import { userPermissionsApi, UserPermissionCheckResponse } from '@shared/api/userPermissionsApi';
 
 export interface ChatModalProps {
     chat?: ChatItem | null;
@@ -34,6 +35,10 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
     const [notificationType, setNotificationType] = useState<'success' | 'error'>('success');
     const [isLoading, setIsLoading] = useState(false);
     const isClosing = useRef(false);
+    
+    // Состояние для временного доступа
+    const [permissionInfo, setPermissionInfo] = useState<UserPermissionCheckResponse | null>(null);
+    const [loadingPermissions, setLoadingPermissions] = useState(false);
 
     useEffect(() => {
         let timeoutId: NodeJS.Timeout;
@@ -62,6 +67,60 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
             console.log('ChatModal: Cleanup effect');
         };
     }, [open]);
+
+    // Функция для проверки временного доступа
+    const checkUserPermissions = useCallback(async () => {
+        if (!currentUser?.user?.id || !chat?.chat_id || !mode) return;
+        
+        setLoadingPermissions(true);
+        try {
+            const permissionType = mode === 'inventory' ? 'inventory' : 
+                                 mode === 'writeoff' ? 'writeoff' : 'events';
+            
+            const response = await userPermissionsApi.checkPermission(
+                currentUser.user.id,
+                parseInt(chat.chat_id),
+                permissionType
+            );
+            
+            setPermissionInfo(response);
+        } catch (error) {
+            console.error('Ошибка проверки временного доступа:', error);
+            setPermissionInfo(null);
+        } finally {
+            setLoadingPermissions(false);
+        }
+    }, [currentUser?.user?.id, chat?.chat_id, mode]);
+
+    // Проверка временного доступа при открытии модального окна
+    useEffect(() => {
+        if (open && currentUser?.user?.id && chat?.chat_id) {
+            checkUserPermissions();
+        }
+    }, [open, checkUserPermissions]);
+
+    // Функция для форматирования времени окончания прав
+    const formatExpiryTime = useCallback((expiresAt: string) => {
+        const now = new Date();
+        const expiry = new Date(expiresAt);
+        const diff = expiry.getTime() - now.getTime();
+        
+        if (diff <= 0) {
+            return "Истекло";
+        }
+        
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (days > 0) {
+            return `${days}д ${hours}ч ${minutes}м`;
+        } else if (hours > 0) {
+            return `${hours}ч ${minutes}м`;
+        } else {
+            return `${minutes}м`;
+        }
+    }, []);
 
     const handleClose = useCallback(() => {
         console.log('ChatModal: handleClose called, isLoading:', isLoading);
@@ -118,6 +177,11 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
 
     if (!currentUser || !chat || !open) return null;
 
+    // Проверяем доступ: админ ИЛИ имеет административные права в группе ИЛИ имеет временный доступ
+    const hasAccess = currentUser?.user?.isAdmin || 
+                     (permissionInfo?.has_permission && permissionInfo?.permission_source === 'administrator') ||
+                     (permissionInfo?.has_permission && permissionInfo?.permission_source === 'temporary');
+
     const dialogContent = (
         <LazyMotion features={domAnimation}>
             <motion.div 
@@ -140,7 +204,7 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                         <h2>{chat.chat_title}</h2>
                     </div>
 
-                    {!currentUser?.user?.isAdmin ? (
+                    {!hasAccess ? (
                         <motion.div className={styles.fadeIn}>
                             <div className={styles.noAccessMessage}>
                                 <svg 
@@ -202,6 +266,34 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
                                     <p>
                                         {`Вы можете начать ${mode === 'inventory' ? 'инвентаризацию' : mode === 'writeoff' ? 'списание' : 'просмотр событий'}`}
                                     </p>
+                                    
+                                    {/* Информация о временном доступе */}
+                                    {loadingPermissions && (
+                                        <div className={styles.permissionInfo}>
+                                            <span className={styles.permissionLoader}>Проверка прав...</span>
+                                        </div>
+                                    )}
+                                    
+                                    {permissionInfo && !loadingPermissions && (
+                                        <div className={styles.permissionInfo}>
+                                            {permissionInfo.is_admin ? (
+                                                <div className={styles.adminRights}>
+                                                    <span className={styles.adminBadge}>Права Администратора</span>
+                                                </div>
+                                            ) : permissionInfo.has_permission && permissionInfo.permission_source === 'temporary' ? (
+                                                <div className={styles.temporaryRights}>
+                                                    <span className={styles.temporaryBadge}>⏰ Временный доступ</span>
+                                                    <span className={styles.expiryTime}>
+                                                        Истекают: {permissionInfo.expires_at ? formatExpiryTime(permissionInfo.expires_at) : 'Неизвестно'}
+                                                    </span>
+                                                </div>
+                                            ) : (
+                                                <div className={styles.noRights}>
+                                                    <span className={styles.noRightsBadge}>❌ Нет прав доступа</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <motion.button 
@@ -240,4 +332,4 @@ const ChatModal = forwardRef<HTMLDivElement, ChatModalProps>(({
 });
 
 const MemoizedChatModal = React.memo(ChatModal);
-export default MemoizedChatModal; 
+export default MemoizedChatModal;

@@ -92,4 +92,44 @@ async def notify_scheduler(notification_pydantic: NotificationRead, event_date: 
     except httpx.HTTPStatusError as exc:
         logger.error(f"[notify_scheduler] Ошибка от API Шедулера (HTTPStatusError {exc.response.status_code}) для уведомления {payload.get('notification_id', 'N/A')}: {exc.response.text}")
     except Exception as exc:
-        logger.exception(f"[notify_scheduler] Неизвестная ошибка при отправке уведомления {payload.get('notification_id', 'N/A')} в Шедулер") 
+        logger.exception(f"[notify_scheduler] Неизвестная ошибка при отправке уведомления {payload.get('notification_id', 'N/A')} в Шедулер")
+
+# --- Функция для планирования очистки истекших прав ---
+async def schedule_permissions_cleanup(user_id: int, group_id: int, permission_type: str, expires_at: datetime):
+    """
+    Планирует задачу очистки истекших прав в шедулере.
+    Вызывается при выдаче временных прав пользователю.
+    """
+    try:
+        scheduler_url = os.getenv("SCHEDULER_API_URL", "http://scheduler:8002")
+        endpoint_url = f"{scheduler_url}/scheduler/permissions/schedule-cleanup"
+        
+        # Создаем payload с данными для планирования
+        payload = {
+            'user_id': user_id,
+            'group_id': group_id,
+            'permission_type': permission_type,
+            'expires_at': expires_at.isoformat(),
+            'data': {
+                'user_id': user_id,
+                'group_id': group_id,
+                'permission_type': permission_type,
+                'expires_at': expires_at.isoformat()
+            }
+        }
+        
+        logger.info(f"[schedule_permissions_cleanup] Планирование очистки прав для пользователя {user_id} в группе {group_id}, тип: {permission_type}, истекает: {expires_at}")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(endpoint_url, json=payload, timeout=10.0)
+            
+            if response.status_code == 200:
+                logger.info(f"[schedule_permissions_cleanup] Задача очистки успешно запланирована в шедулере")
+                return True
+            else:
+                logger.error(f"[schedule_permissions_cleanup] Ошибка при планировании задачи очистки: {response.status_code}, {response.text}")
+                return False
+                
+    except Exception as e:
+        logger.error(f"[schedule_permissions_cleanup] Исключение при планировании задачи очистки: {e}")
+        return False 

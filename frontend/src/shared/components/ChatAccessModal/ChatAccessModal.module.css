@@ -214,4 +214,83 @@
         width: 80px;
         height: 80px;
     }
+}
+
+/* Стили для информации о временных правах */
+.permissionInfo {
+    margin-top: 16px;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: rgba(var(--primary-rgb), 0.05);
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+}
+
+.permissionLoader {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.adminRights {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.adminBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--primary-rgb), 0.1));
+    color: var(--primary-color);
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.temporaryRights {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+}
+
+.temporaryBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.15), rgba(var(--primary-rgb), 0.1));
+    color: var(--primary-color);
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+}
+
+.expiryTime {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.noRights {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.noRightsBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
+    color: #EF4444;
+    border-radius: var(--radius);
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(239, 68, 68, 0.2);
 } 

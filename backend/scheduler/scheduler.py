@@ -127,3 +127,29 @@ class InventoryScheduler:
             logger.error(f"Непредвиденная ошибка при асинхронном вызове apply_access_settings для chat_id {chat_id}: {e}")
             return False
 
+    async def schedule_permissions_cleanup(self, cleanup_data: dict):
+        """
+        Планирует одноразовую задачу очистки истекших прав на конкретное время.
+        """
+        logger.info(f"Планирование задачи очистки истекших прав на {cleanup_data.get('expires_at')}...")
+        try:
+            if hasattr(self, 'task_manager') and self.task_manager:
+                # Получаем экземпляр задачи очистки
+                cleanup_task = self.task_manager.task_instances.get('permissions_cleanup')
+                if cleanup_task:
+                    result = await cleanup_task.schedule(cleanup_data)
+                    if result:
+                        logger.info("✅ Задача очистки истекших прав успешно запланирована")
+                    else:
+                        logger.error("❌ Не удалось запланировать задачу очистки истекших прав")
+                    return result
+                else:
+                    logger.error("❌ Задача permissions_cleanup не найдена в task_instances")
+                    return False
+            else:
+                logger.error("❌ TaskManager не инициализирован!")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Ошибка при планировании задачи очистки истекших прав: {e}")
+            return False
+

@@ -27,8 +27,12 @@ from pydantic import Field # Для описания полей
 class AdminInfo(UserSimple):
     pass
 
+class MemberInfo(UserSimple):
+    pass
+
 class ChatWithAdmins(GroupRead):
     admins: List[AdminInfo] = Field(default_factory=list)
+    members: List[MemberInfo] = Field(default_factory=list)
     # Добавляем недостающие поля, которые ожидает ChatItem на фронте
     chat_id: str # Убедимся, что это строка
     metadata: Optional[Dict[str, Any]] = None # Добавим метаданные
@@ -119,12 +123,13 @@ async def read_chats_for_user(
     response_list: List[ChatWithAdmins] = []
     for group in groups:
         admins_list: List[AdminInfo] = []
+        members_list: List[MemberInfo] = []
         if group.members: # Проверяем, что участники загружены
             for gm in group.members:
                 # Проверяем роль и наличие данных участника
-                if gm.role in ['administrator', 'creator'] and gm.member:
-                    # ВРУЧНУЮ создаем словарь для AdminInfo
-                    admin_data = {
+                if gm.member:
+                    # ВРУЧНУЮ создаем словарь для участника
+                    member_data = {
                         "id": gm.member.id,
                         "user_id": gm.member.user_id,
                         "first_name": gm.member.first_name,
@@ -132,8 +137,14 @@ async def read_chats_for_user(
                         "username": gm.member.username,
                         "photo_url": gm.member.photo_url # Pydantic сам обработает None и HttpUrl
                     }
-                    # Передаем словарь в AdminInfo
-                    admins_list.append(AdminInfo(**admin_data))
+                    
+                    # Разделяем админов и обычных участников
+                    if gm.role in ['administrator', 'creator']:
+                        # Передаем словарь в AdminInfo
+                        admins_list.append(AdminInfo(**member_data))
+                    else:
+                        # Передаем словарь в MemberInfo для обычных участников
+                        members_list.append(MemberInfo(**member_data))
 
         # Формируем ответ ЯВНО, выбирая нужные поля из group
         # Убедимся, что все поля, ожидаемые ChatWithAdmins (унаследованные от GroupRead)
@@ -148,6 +159,7 @@ async def read_chats_for_user(
                 created_at=group.created_at,
                 # Поля, добавленные в GroupRead/ChatWithAdmins:
                 admins=admins_list,
+                members=members_list,
                 metadata=group.json_metadata, # Используем json_metadata из модели Group
                 slot_config=group.slot_config, # Добавляем slot_config
                 access_settings=group.access_settings # Добавляем access_settings
@@ -157,6 +169,11 @@ async def read_chats_for_user(
         )
 
     logger.info(f"[read_chats_for_user] Found {len(response_list)} chats for user_id: {user_id}")
+    
+    # Добавляем детальную информацию для отладки
+    for chat in response_list:
+        logger.info(f"[read_chats_for_user] Chat {chat.chat_id}: {len(chat.admins)} admins, {len(chat.members)} members")
+    
     return response_list
 # Можно добавить и другие ручки сюда, например, для получения одной группы по ID
 

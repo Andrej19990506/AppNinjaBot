@@ -22,7 +22,7 @@ import { resetWriteOffState } from '@features/WriteOff/store/writeOffSlice';
 import { Admin } from '@/types/inventoryTypes';
 import { ChatContext } from '@/shared/store/chatSlice/chatTypes';
 import { MembersModal } from '@shared/components/MembersModal/MembersModal';
-
+import { userPermissionsApi } from '@shared/api/userPermissionsApi';
 
 
 // Общий интерфейс для чата, который будет использоваться во всех режимах
@@ -210,6 +210,38 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         }
     }, [resetConfirmation, onResetInventory]);
 
+    const handleHomeClick = useCallback(() => {
+        // Очищаем состояние списаний при переходе на главную
+        dispatch(resetWriteOffState());
+        
+        if (onHomeClick) {
+            onHomeClick();
+        } else {
+            navigate('/');
+        }
+    }, [onHomeClick, navigate, dispatch]);
+
+            // Функция для проверки временного доступа
+    const checkTemporaryPermissions = useCallback(async (userId: number, chatId: string, mode: ChatContext): Promise<boolean> => {
+        try {
+            const permissionType = mode === 'inventory' ? 'inventory' : 
+                                 mode === 'writeoff' ? 'writeoff' : 'events';
+            
+            const response = await userPermissionsApi.checkPermission(
+                userId,
+                parseInt(chatId),
+                permissionType
+            );
+            
+                            console.log(`ChatSelector: Временный доступ для пользователя ${userId} в чате ${chatId} (${permissionType}):`, response);
+            
+            return response.has_permission;
+        } catch (error) {
+                            console.log(`ChatSelector: Ошибка проверки временного доступа:`, error);
+            return false;
+        }
+    }, []);
+
     const handleChatClick = useCallback(async (chat: ChatItem) => {
         // 1. Prevent double clicks
         if (isProcessingClickRef.current) {
@@ -234,15 +266,24 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
 
             // --- ИЗМЕНЕНИЕ: Пропускаем проверку прав для режима 'events' ---
             if (mode !== 'events') {
-                console.log(`ChatSelector: Mode is '${mode}', checking admin rights...`);
-                // 3. Check admin rights (only if mode is not 'events')
-                await dispatch(checkAdminRights({
-                    userId: currentUser.id,
-                    chatId: chat.chat_id,
-                    admins: chat.admins,
-                    context: mode
-                })).unwrap();
-                console.log(`ChatSelector: Admin rights OK for chat ${chat.chat_id}`);
+                console.log(`ChatSelector: Mode is '${mode}', checking permissions...`);
+                
+                // Сначала проверяем временный доступ
+                const hasTemporaryPermissions = await checkTemporaryPermissions(currentUser.id, chat.chat_id, mode);
+                
+                if (hasTemporaryPermissions) {
+                    console.log(`ChatSelector: Временный доступ найден для пользователя ${currentUser.id} в чате ${chat.chat_id}`);
+                } else {
+                                          console.log(`ChatSelector: Временного доступа нет, проверяем права администратора...`);
+                                          // Если временного доступа нет, проверяем права администратора
+                    await dispatch(checkAdminRights({
+                        userId: currentUser.id,
+                        chatId: chat.chat_id,
+                        admins: chat.admins,
+                        context: mode
+                    })).unwrap();
+                    console.log(`ChatSelector: Admin rights OK for chat ${chat.chat_id}`);
+                }
 
                 // 4. If rights OK, set state to show modal (for inventory/writeoff)
                 setSelectedChatLocal(chat);
@@ -294,8 +335,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         selectedChats, // Added dependency
         // setError, // Only if using component-level error state
         setSelectedChatLocal,
-        setShowModal
-        // isProcessingClickRef is a ref, not needed in deps
+        setShowModal,
+        checkTemporaryPermissions // Added dependency
     ]);
 
     const handleStartAction = useCallback(async () => {
@@ -370,17 +411,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
             console.log('ChatSelector: handleModalClose - selected chat reset');
         }
     }, [isNavigating, setShowModal, setSelectedChatLocal]);
-
-    const handleHomeClick = useCallback(() => {
-        // Очищаем состояние списаний при переходе на главную
-        dispatch(resetWriteOffState());
-        
-        if (onHomeClick) {
-            onHomeClick();
-        } else {
-            navigate('/');
-        }
-    }, [onHomeClick, navigate, dispatch]);
 
     useEffect(() => {
         if (!cardsContainerRef.current) return;
@@ -644,17 +674,54 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                     admins={selectedChatForMembers.admins}
                     members={selectedChatForMembers.members}
                     currentUserId={currentUser?.id}
-                    onGrantPermission={(userId, permission, duration) => {
-                        console.log('Выдать права:', { userId, permission, duration });
-                        // TODO: Реализовать API запрос
+                    onGrantPermission={async (userId, permission, duration) => {
+                        console.log('Открыть доступ:', { userId, permission, duration });
+                        if (!currentUser) {
+                            console.error('❌ Пользователь не авторизован');
+                            return;
+                        }
+                        try {
+                            await userPermissionsApi.grantPermission(
+                                {
+                                    user_id: userId,
+                                    group_id: parseInt(selectedChatForMembers.chat_id),
+                                    permission_type: permission,
+                                    duration_hours: duration
+                                },
+                                currentUser!.id
+                            );
+                            console.log('✅ Доступ успешно открыт');
+                            // TODO: Добавить уведомление пользователю
+                        } catch (error) {
+                            console.error('❌ Ошибка при выдаче прав:', error);
+                            // TODO: Добавить уведомление об ошибке
+                        }
                     }}
-                    onRevokePermission={(userId, permission) => {
-                        console.log('Отозвать права:', { userId, permission });
-                        // TODO: Реализовать API запрос
+                    onRevokePermission={async (userId, permission) => {
+                        console.log('Отозвать доступ:', { userId, permission });
+                        if (!currentUser) {
+                            console.error('❌ Пользователь не авторизован');
+                            return;
+                        }
+                        try {
+                            await userPermissionsApi.revokePermission(
+                                {
+                                    user_id: userId,
+                                    group_id: parseInt(selectedChatForMembers.chat_id),
+                                    permission_type: permission
+                                },
+                                currentUser!.id
+                            );
+                            console.log('✅ Доступ успешно отозван');
+                            // TODO: Добавить уведомление пользователю
+                        } catch (error) {
+                            console.error('❌ Ошибка при отзыве прав:', error);
+                            // TODO: Добавить уведомление об ошибке
+                        }
                     }}
                     onInviteUser={() => {
-                        console.log('Fallback для приглашения пользователя');
-                        // Основная логика приглашения через Telegram Web App API теперь в MembersModal
+                        console.log('Fallback для регистрации пользователя');
+                        // Основная логика регистрации через Telegram Web App API теперь в MembersModal
                     }}
                 />
             )}

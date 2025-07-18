@@ -25,7 +25,7 @@ from telegramNinjaBot.services.database_service import DatabaseService
 # Импортируем хэндлеры
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
 from telegramNinjaBot.handlers.message_handlers import MessageHandler as BotMessageHandler
-from telegramNinjaBot.handlers.common_handlers import handle_start, handle_webapp_data
+from telegramNinjaBot.handlers.common_handlers import handle_start, handle_webapp_data, handle_registry
 from telegramNinjaBot.api.routes import handle_confirmation_callback
 
 logger = logging.getLogger(__name__)
@@ -116,6 +116,10 @@ async def lifespan(app: FastAPI):
         app.state.bot_application = bot_app # Сохраняем приложение бота
         logger.info("✅ Экземпляр Telegram Application создан")
         
+        # !!! ВАЖНО: Сохраняем db_service в bot_data для обработчиков команд !!!
+        bot_app.bot_data['db_service'] = db_service
+        logger.info("✅ db_service сохранен в bot_data")
+        
         # !!! ВАЖНО: Передаем db_service в GroupHandler !!!
         # 6. Инициализация хэндлеров
         logger.info("Инициализация хэндлеров...")
@@ -132,6 +136,7 @@ async def lifespan(app: FastAPI):
         bot_app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, group_handler.handle_left_chat_member), group=0)
         # Команды
         bot_app.add_handler(CommandHandler("start", handle_start))
+        bot_app.add_handler(CommandHandler("registry", handle_registry))
         # Сообщения
         bot_app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, message_handler.handle_private_message))
         bot_app.add_handler(MessageHandler(filters.ALL & filters.ChatType.GROUP, handle_webapp_data))

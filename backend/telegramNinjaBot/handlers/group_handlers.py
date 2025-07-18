@@ -17,6 +17,8 @@ from telegramNinjaBot.services.database_service import DatabaseService
 import traceback
 import re
 from pathlib import Path
+import uuid
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,7 @@ class GroupHandler:
         self.db_service = db_service # Сохраняем db_service
         self.bot_id = None  # Инициализируем как None, получим позже
         self.photo_cache = {}  # Инициализируем кэш фотографий
+        self.excel_requests = {}  # Хранилище для запросов Excel файлов
         # --- НАЧАЛО ИЗМЕНЕНИЙ ---
         self._processed_new_member_events = set() # Множество для отслеживания обработанных добавлений участников
         self._processed_events = set() # Множество для отслеживания общих событий (например, добавление бота)
@@ -1202,6 +1205,15 @@ class GroupHandler:
                 )
             )
             logger.info("✅ Обработчик Excel документов зарегистрирован")
+            
+            # Обработчик кнопок подтверждения Excel
+            self.application.add_handler(
+                CallbackQueryHandler(
+                    self.handle_excel_confirmation_callback,
+                    pattern="^(confirm_excel|skip_excel):"
+                )
+            )
+            logger.info("✅ Обработчик кнопок подтверждения Excel зарегистрирован")
             # --- КОНЕЦ ДОБАВЛЕНИЯ ---
 
             logger.info("✅ Все обработчики групповых событий зарегистрированы")
@@ -1723,7 +1735,7 @@ class GroupHandler:
     # --- КОНЕЦ ОБРАБОТЧИКА КНОПКИ ---
 
     async def handle_excel_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обработчик Excel документов для групп инвентаризации"""
+        """Обработчик Excel документов для групп инвентаризации с двухуровневой защитой"""
         try:
             message = update.effective_message
             document = message.document
@@ -1742,6 +1754,29 @@ class GroupHandler:
                 return
             
             logger.info(f"📊 Получен Excel файл '{document.file_name}' от пользователя {user.username or user.id} в группе инвентаризации '{chat.title}'")
+            
+            # ПЕРВЫЙ УРОВЕНЬ ЗАЩИТЫ: Проверяем права администратора
+            try:
+                admins = await context.bot.get_chat_administrators(chat.id)
+                admin_ids = [admin.user.id for admin in admins]
+                
+                if user.id not in admin_ids:
+                    # Если пользователь не администратор - игнорируем файл полностью
+                    logger.warning(f"🔒 Пользователь {user.username or user.id} (ID: {user.id}) не является администратором группы '{chat.title}'. Игнорируем Excel файл.")
+                    return
+                    
+            except Exception as admin_check_error:
+                logger.error(f"❌ Ошибка проверки прав администратора: {admin_check_error}")
+                await message.reply_text(
+                    f"❌ **Ошибка проверки прав доступа**\n\n"
+                    f"Не удалось проверить права администратора.\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)",
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+                return
+            
+            logger.info(f"✅ Пользователь {user.username or user.id} является администратором группы '{chat.title}'. Продолжаем обработку.")
             
             # Валидация типа документа
             if not document.file_name.lower().endswith('.xlsx'):
@@ -1780,52 +1815,8 @@ class GroupHandler:
                 logger.warning(f"Отклонен файл '{document.file_name}' - слишком большой размер: {document.file_size} байт")
                 return
             
-            # Отправляем сообщение о начале обработки
-            processing_message = await message.reply_text(
-                f"📋 **Обрабатываю файл от бухгалтерии...**\n\n"
-                f"📁 Файл: `{document.file_name}`\n"
-                f"👤 Отправил: {user.mention_markdown()}\n"
-                f"⏳ Пожалуйста, подождите...",
-                parse_mode='Markdown'
-            )
-            
-            # Загружаем файл
-            try:
-                file = await context.bot.get_file(document.file_id)
-                
-                # Создаем временный файл
-                import tempfile
-                import uuid
-                temp_suffix = f"_{uuid.uuid4().hex[:8]}_{document.file_name}"
-                temp_file = tempfile.NamedTemporaryFile(
-                    suffix=temp_suffix,
-                    delete=False,
-                    dir="/tmp"
-                )
-                
-                # Скачиваем файл
-                await file.download_to_drive(temp_file.name)
-                temp_file.close()
-                
-                logger.info(f"📥 Файл '{document.file_name}' скачан во временную директорию: {temp_file.name}")
-                
-                # Отправляем файл в адаптер через API
-                await self._process_excel_with_adapter(temp_file.name, document.file_name, chat, user, processing_message, context)
-                
-            except Exception as download_error:
-                logger.error(f"❌ Ошибка загрузки файла '{document.file_name}': {download_error}")
-                
-                error_text = (
-                    f"❌ **Ошибка загрузки файла**\n\n"
-                    f"Не удалось загрузить файл для обработки.\n"
-                    f"Пожалуйста, попробуйте еще раз или обратитесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
-                )
-                
-                await processing_message.edit_text(
-                    error_text,
-                    parse_mode='Markdown',
-                    disable_web_page_preview=True
-                )
+            # ВТОРОЙ УРОВЕНЬ ЗАЩИТЫ: Показываем подтверждение с кнопками
+            await self._show_excel_confirmation(message, document, chat, user, context)
                 
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке Excel документа: {e}")
@@ -2236,3 +2227,245 @@ class GroupHandler:
             
         except Exception as e:
             logger.error(f"❌ Ошибка при отправке сообщения о неожиданной ошибке синхронизации: {e}")
+
+    async def _show_excel_confirmation(self, message, document, chat, user, context):
+        """Показывает подтверждение для обработки Excel файла"""
+        try:
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            import uuid
+            
+            # Генерируем уникальный ID для этого запроса
+            request_id = str(uuid.uuid4())
+            
+            # Создаем кнопки подтверждения
+            confirm_button = InlineKeyboardButton(
+                "✅ Подтвердить",
+                callback_data=f"confirm_excel:{request_id}"
+            )
+            skip_button = InlineKeyboardButton(
+                "⏭️ Пропустить",
+                callback_data=f"skip_excel:{request_id}"
+            )
+            
+            keyboard = InlineKeyboardMarkup([
+                [confirm_button, skip_button]
+            ])
+            
+            # Формируем сообщение с предупреждением
+            warning_message = (
+                f"⚠️ **ВНИМАНИЕ! Обновление шаблона инвентаризации**\n\n"
+                f"📁 **Файл:** `{document.file_name}`\n"
+                f"👤 **Отправил:** {user.mention_markdown()}\n\n"
+                f"🔄 **Последствия обработки:**\n"
+                f"• Синхронизация с базой данных\n"
+                f"• Обновление шаблонов инвентаризации\n"
+                f"• Изменение структуры данных\n\n"
+                f"❓ **Подтвердите свое действие:**\n"
+                f"✅ **Подтвердить** - обработать файл и обновить шаблоны\n"
+                f"⏭️ **Пропустить** - сохранить файл без обработки\n\n"
+                f"⏰ **Время ожидания:** 5 минут"
+            )
+            
+            # Отправляем сообщение с кнопками
+            confirmation_message = await message.reply_text(
+                warning_message,
+                parse_mode='Markdown',
+                reply_markup=keyboard
+            )
+            
+            # Очищаем старые запросы (старше 10 минут)
+            current_time = asyncio.get_event_loop().time()
+            expired_requests = [
+                req_id for req_id, req_data in self.excel_requests.items()
+                if current_time - req_data['timestamp'] > 600  # 10 минут
+            ]
+            for req_id in expired_requests:
+                del self.excel_requests[req_id]
+                logger.info(f"🗑️ Удален истекший запрос Excel: {req_id}")
+            
+            # Сохраняем информацию о запросе для обработки колбэка
+            self.excel_requests[request_id] = {
+                'document': document,
+                'chat': chat,
+                'user': user,
+                'original_message': message,
+                'confirmation_message': confirmation_message,
+                'timestamp': current_time
+            }
+            
+            logger.info(f"📝 Отправлено подтверждение для Excel файла '{document.file_name}' с ID запроса: {request_id}")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при показе подтверждения: {e}")
+            logger.error(traceback.format_exc())
+            
+            # В случае ошибки показа подтверждения, отправляем обычное сообщение об ошибке
+            await message.reply_text(
+                f"❌ **Ошибка системы подтверждения**\n\n"
+                f"Не удалось показать подтверждение для обработки файла.\n"
+                f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)",
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+
+    async def handle_excel_confirmation_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обработчик кнопок подтверждения/пропуска Excel файлов"""
+        try:
+            query = update.callback_query
+            if not query or not query.data:
+                return
+            
+            # Отвечаем на колбэк
+            await query.answer()
+            
+            # Парсим callback_data
+            if query.data.startswith("confirm_excel:"):
+                action = "confirm"
+                request_id = query.data.removeprefix("confirm_excel:")
+            elif query.data.startswith("skip_excel:"):
+                action = "skip"
+                request_id = query.data.removeprefix("skip_excel:")
+            else:
+                logger.warning(f"Получен неизвестный Excel callback_data: {query.data}")
+                return
+            
+            user = query.from_user
+            username = f"@{user.username}" if user.username else user.full_name
+            
+            # Получаем информацию из сообщения (вместо контекста)
+            chat = query.message.chat
+            
+            # Находим информацию о запросе (если есть)
+            request_data = None
+            if request_id in self.excel_requests:
+                request_data = self.excel_requests[request_id]
+                original_user = request_data['user']
+                
+                # Проверяем, что кнопку нажал тот же пользователь, который отправил файл
+                if user.id != original_user.id:
+                    await query.answer(
+                        "❌ Только пользователь, который отправил файл, может подтвердить или пропустить его обработку.",
+                        show_alert=True
+                    )
+                    return
+            
+            if action == "confirm":
+                logger.info(f"✅ Пользователь {username} подтвердил обработку Excel файла")
+                
+                if request_data:
+                    # Есть данные - можем обработать файл
+                    document = request_data['document']
+                    await query.edit_message_text(
+                        f"✅ **Подтверждено! Обрабатываю файл...**\n\n"
+                        f"📁 **Файл:** `{document.file_name}`\n"
+                        f"👤 **Подтвердил:** {username}\n"
+                        f"🔄 **Статус:** Обработка файла и синхронизация шаблонов\n\n"
+                        f"⏳ Пожалуйста, подождите...",
+                        parse_mode='Markdown'
+                    )
+                    
+                    # Обрабатываем файл
+                    await self._process_excel_file_confirmed(request_data, context)
+                else:
+                    # Нет данных - показываем что нужно обработать вручную
+                    await query.edit_message_text(
+                        f"✅ **Подтверждено!**\n\n"
+                        f"👤 **Подтвердил:** {username}\n"
+                        f"📋 **Статус:** Обработка подтверждена\n\n"
+                        f"ℹ️ Файл выше будет обработан системой автоматически.",
+                        parse_mode='Markdown'
+                    )
+                
+            elif action == "skip":
+                logger.info(f"⏭️ Пользователь {username} пропустил обработку Excel файла")
+                
+                # Просто удаляем сообщение подтверждения
+                try:
+                    await query.message.delete()
+                    logger.info(f"🗑️ Сообщение подтверждения удалено после пропуска обработки")
+                except Exception as delete_error:
+                    logger.error(f"❌ Не удалось удалить сообщение подтверждения: {delete_error}")
+                    # Если не удалось удалить, просто отвечаем на callback
+                    await query.answer("Обработка пропущена", show_alert=False)
+            
+            # Удаляем запрос из кэша (если есть)
+            if request_id in self.excel_requests:
+                del self.excel_requests[request_id]
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка в обработчике Excel подтверждения: {e}")
+            logger.error(traceback.format_exc())
+            
+            try:
+                await query.edit_message_text(
+                    f"❌ **Ошибка обработки подтверждения**\n\n"
+                    f"Произошла ошибка при обработке вашего выбора.\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)",
+                    parse_mode='Markdown'
+                )
+            except:
+                pass
+
+    async def _process_excel_file_confirmed(self, request_data: dict, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Обрабатывает подтвержденный Excel файл"""
+        try:
+            document = request_data['document']
+            chat = request_data['chat']
+            user = request_data['user']
+            confirmation_message = request_data['confirmation_message']
+            
+            # Загружаем файл
+            try:
+                file = await context.bot.get_file(document.file_id)
+                
+                # Создаем временный файл
+                import tempfile
+                import uuid
+                temp_suffix = f"_{uuid.uuid4().hex[:8]}_{document.file_name}"
+                temp_file = tempfile.NamedTemporaryFile(
+                    suffix=temp_suffix,
+                    delete=False,
+                    dir="/tmp"
+                )
+                
+                # Скачиваем файл
+                await file.download_to_drive(temp_file.name)
+                temp_file.close()
+                
+                logger.info(f"📥 Подтвержденный файл '{document.file_name}' скачан во временную директорию: {temp_file.name}")
+                
+                # Отправляем файл в адаптер через API
+                await self._process_excel_with_adapter(temp_file.name, document.file_name, chat, user, confirmation_message, context)
+                
+            except Exception as download_error:
+                logger.error(f"❌ Ошибка загрузки подтвержденного файла '{document.file_name}': {download_error}")
+                
+                error_text = (
+                    f"❌ **Ошибка загрузки файла**\n\n"
+                    f"📁 **Файл:** `{document.file_name}`\n"
+                    f"Не удалось загрузить файл для обработки.\n"
+                    f"Пожалуйста, попробуйте отправить файл заново.\n\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+                )
+                
+                await confirmation_message.edit_text(
+                    error_text,
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Ошибка при обработке подтвержденного Excel файла: {e}")
+            logger.error(traceback.format_exc())
+            
+            try:
+                await confirmation_message.edit_text(
+                    f"❌ **Ошибка обработки файла**\n\n"
+                    f"📁 **Файл:** `{document.file_name}`\n"
+                    f"Произошла ошибка при обработке подтвержденного файла.\n\n"
+                    f"🆘 При проблемах обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)",
+                    parse_mode='Markdown',
+                    disable_web_page_preview=True
+                )
+            except:
+                pass

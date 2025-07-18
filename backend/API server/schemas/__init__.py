@@ -19,6 +19,15 @@ from .event import (
 )
 # Добавляем импорт схем для списаний
 from .write_off import WriteOffBase, WriteOffCreate, WriteOffResponse
+# Добавляем импорт схем для временных прав
+from .user_permission import (
+    UserPermissionCreate,
+    UserPermissionRevoke,
+    UserPermissionResponse,
+    UserPermissionList,
+    UserPermissionCheck,
+    UserPermissionCheckResponse
+)
 
 # Можно добавить __all__, чтобы явно указать экспортируемые имена
 __all__ = [
@@ -37,4 +46,6 @@ __all__ = [
     "NotificationRead",
     "SchedulingStatus",
     "WriteOffBase", "WriteOffCreate", "WriteOffResponse",
+    "UserPermissionCreate", "UserPermissionRevoke", "UserPermissionResponse",
+    "UserPermissionList", "UserPermissionCheck", "UserPermissionCheckResponse",
 ] 

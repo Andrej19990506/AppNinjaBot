@@ -1,23 +1,22 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTheme } from '../../contexts/ThemeContext';
 import EventIcon from '@mui/icons-material/Event';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import DeleteIcon from '@mui/icons-material/Delete';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
 import RestaurantIcon from '@mui/icons-material/Restaurant';
 import DirectionsRunIcon from '@mui/icons-material/DirectionsRun';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import MenuIcon from '@mui/icons-material/Menu';
 import styles from './MainMenu.module.css';
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { RootState } from '@/shared/store/store';
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { userSlice } from '@shared/store/userSlice/userSlice';
 import { selectActiveRole } from '@shared/store/userSlice/userSelectors';
 import { setActiveRole } from '@/shared/store/userSlice/userSlice';
 import { clearEvents } from '../../store/slices/eventsSlice';
+import SideMenuPanel from './SideMenuPanel';
 
 const chefMenuItems = [
     { id: 'events', title: 'События', path: 'events', icon: EventIcon },
@@ -111,9 +110,9 @@ const menuPositions = {
 const MainMenu: React.FC = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { theme, toggleTheme } = useTheme();
     const dispatch = useAppDispatch();
     const { user } = useAppSelector((state: RootState) => state.user);
+    const [isSideMenuOpen, setIsSideMenuOpen] = useState(false);
     
     // <<< Получаем activeRole ИЗ REDUX >>>
     const activeRole = useAppSelector(selectActiveRole);
@@ -181,6 +180,16 @@ const MainMenu: React.FC = () => {
         navigate(`/${activeRole}/${path}`);
     };
 
+    const handleOpenSideMenu = () => {
+        setIsSideMenuOpen(true);
+    };
+
+    const handleCloseSideMenu = () => {
+        setIsSideMenuOpen(false);
+    };
+
+
+
     return (
         <AnimatePresence mode="wait">
             <motion.div 
@@ -191,15 +200,15 @@ const MainMenu: React.FC = () => {
             >
                 {activeRole !== 'none' ? (
                     <>
-                        <motion.div className={styles.userInfoContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                            {user?.photo_url ? (
-                                <img src={user.photo_url} alt="User" className={styles.userPhoto} />
-                            ) : (
-                                <AccountCircleIcon className={styles.userPhotoPlaceholder} />
-                            )}
-                            <span className={styles.userName}>
-                                {user?.first_name || user?.username || 'Пользователь'}
-                            </span>
+                        <motion.div className={styles.burgerMenuContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                            <motion.button 
+                                className={styles.burgerButton}
+                                onClick={handleOpenSideMenu}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                <MenuIcon />
+                            </motion.button>
                         </motion.div>
 
                         <motion.h1 
@@ -278,24 +287,7 @@ const MainMenu: React.FC = () => {
                             })}
                         </motion.div>
 
-                        <motion.div className={styles.themeToggle} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
-                            <motion.button 
-                                className={styles.themeButton} 
-                                onClick={toggleTheme}
-                                tabIndex={0}
-                                style={{
-                                    minWidth: menuPositions.button.width,
-                                    minHeight: menuPositions.button.height
-                                }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <span className={styles.icon}>
-                                    {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-                                </span>
-                                {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-                            </motion.button>
-                        </motion.div>
+
                     </>
                 ) : (
                     <>
@@ -306,17 +298,6 @@ const MainMenu: React.FC = () => {
                             animate="visible"
                             exit="exit"
                          >
-                            <motion.div className={styles.userInfoContainer} variants={noAccessContentVariants}>
-                                 {user?.photo_url ? (
-                                    <img src={user.photo_url} alt="User" className={styles.userPhoto} />
-                                ) : (
-                                    <AccountCircleIcon className={styles.userPhotoPlaceholder} />
-                                )}
-                                <span className={styles.userName}>
-                                    {user?.first_name || user?.username || 'Пользователь'}
-                                </span>
-                            </motion.div>
-
                             <motion.div variants={noAccessIconVariants}> 
                                 <LockOutlinedIcon className={styles.noAccessIcon} />
                             </motion.div>
@@ -330,32 +311,25 @@ const MainMenu: React.FC = () => {
                             </motion.p>
                        </motion.div>
                        
-                       <motion.div 
-                           className={styles.themeToggle} 
-                           variants={itemVariants} 
-                           initial="hidden" animate="visible" exit="exit"
-                           style={{ marginTop: 'auto' }} 
-                       >
-                           <motion.button 
-                               className={styles.themeButton} 
-                               onClick={toggleTheme}
-                               tabIndex={0}
-                                style={{
-                                    minWidth: menuPositions.button.width,
-                                    minHeight: menuPositions.button.height
-                                }}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
+                       <motion.div className={styles.burgerMenuContainer} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                            <motion.button 
+                                className={styles.burgerButton}
+                                onClick={handleOpenSideMenu}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
                             >
-                                <span className={styles.icon}>
-                                    {theme === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-                                </span>
-                                {theme === 'dark' ? 'Светлая тема' : 'Темная тема'}
-                           </motion.button>
-                       </motion.div>
+                                <MenuIcon />
+                            </motion.button>
+                        </motion.div>
                     </>
                 )}
             </motion.div>
+            
+            {/* Боковая панель с бургер меню */}
+            <SideMenuPanel 
+                isOpen={isSideMenuOpen}
+                onClose={handleCloseSideMenu}
+            />
         </AnimatePresence>
     );
 };

@@ -58,7 +58,7 @@ class DatabaseService:
     # === Асинхронные методы для работы с БД ===
 
     async def save_group(self, chat_id: str, chat_title: str, members: List[Dict], admins: List[Dict] = None) -> Optional[int]:
-        """Асинхронно сохраняет группу и её участников в базе данных"""
+        """Асинхронно сохраняет группу и её участников в базу данных"""
         group_type = self.determine_group_type(chat_title)
         logger.info(f"=== [async] Начинаю сохранение группы {chat_title} (ID: {chat_id}) в базу данных ===")
         logger.info(f"Тип группы: {group_type}")
@@ -659,3 +659,135 @@ class DatabaseService:
             except Exception as e:
                 logger.error(f"❌ [group_exists] Неожиданная ошибка при проверке существования группы {chat_id}: {e}")
                 return False
+
+    async def add_user_to_group(self, user_info: dict, group_id: str) -> bool:
+        """
+        Добавляет пользователя в группу вручную.
+        
+        Args:
+            user_info: Информация о пользователе (dict с полями user_id, username, etc.)
+            group_id: ID группы (строка)
+            
+        Returns:
+            True если пользователь успешно добавлен, False если произошла ошибка
+        """
+        logger.info(f"🔄 [add_user_to_group] Добавление пользователя {user_info.get('user_id')} в группу {group_id}")
+        
+        try:
+            group_chat_id_int = int(group_id)
+            user_id_int = int(user_info['user_id'])
+            logger.info(f"🔄 [add_user_to_group] Преобразованы ID: группа={group_chat_id_int}, пользователь={user_id_int}")
+        except (ValueError, TypeError) as e:
+            logger.error(f"❌ [add_user_to_group] Некорректные ID: group_id='{group_id}', user_id='{user_info.get('user_id')}': {e}")
+            return False
+            
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                try:
+                    # Шаг 1: Получаем ID группы из БД
+                    group_db_id = await conn.fetchval(
+                        "SELECT id FROM groups WHERE group_id = $1",
+                        group_chat_id_int
+                    )
+                    
+                    if not group_db_id:
+                        logger.error(f"❌ [add_user_to_group] Группа {group_id} не найдена в БД")
+                        return False
+                    
+                    logger.info(f"🔍 [add_user_to_group] ID группы в БД: {group_db_id}")
+                    
+                    # Шаг 2: Проверяем есть ли пользователь в таблице members
+                    member_db_id = await conn.fetchval(
+                        "SELECT id FROM members WHERE user_id = $1",
+                        user_id_int
+                    )
+                    
+                    if member_db_id:
+                        logger.info(f"✅ [add_user_to_group] Пользователь {user_id_int} уже есть в таблице members с ID: {member_db_id}")
+                        
+                        # Обновляем только основные поля (username может измениться)
+                        await conn.execute(
+                            """
+                            UPDATE members 
+                            SET username = $2, 
+                                first_name = $3, 
+                                last_name = $4,
+                                photo_url = COALESCE($5, photo_url)
+                            WHERE user_id = $1
+                            """,
+                            user_id_int,
+                            user_info.get('username'),
+                            user_info.get('first_name', ''),
+                            user_info.get('last_name', ''),
+                            user_info.get('photo_url')
+                        )
+                        logger.info(f"✅ [add_user_to_group] Данные пользователя {user_id_int} обновлены")
+                        
+                    else:
+                        # Пользователя нет в members - добавляем его
+                        logger.info(f"🆕 [add_user_to_group] Пользователь {user_id_int} не найден в members, добавляем...")
+                        
+                        joined_at = datetime.now()
+                        if joined_date_str := user_info.get('joined_date'):
+                            try:
+                                joined_at = datetime.fromisoformat(joined_date_str)
+                            except ValueError:
+                                logger.warning(f"[add_user_to_group] Неверный формат даты '{joined_date_str}', использую текущее время")
+                                joined_at = datetime.now()
+                        
+                        member_db_id = await conn.fetchval(
+                            """
+                            INSERT INTO members (user_id, username, first_name, last_name, is_bot, photo_url, joined_at)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                            RETURNING id
+                            """,
+                            user_id_int,
+                            user_info.get('username'),
+                            user_info.get('first_name', ''),
+                            user_info.get('last_name', ''),
+                            user_info.get('is_bot', False),
+                            user_info.get('photo_url'),
+                            joined_at
+                        )
+                        
+                        if not member_db_id:
+                            logger.error(f"❌ [add_user_to_group] Не удалось добавить пользователя {user_id_int} в таблицу members")
+                            return False
+                        
+                        logger.info(f"✅ [add_user_to_group] Пользователь {user_id_int} добавлен в members с ID: {member_db_id}")
+                    
+                    # Шаг 3: Определяем роль пользователя
+                    user_status = user_info.get('status', 'member')
+                    role = 'member'
+                    if user_status == 'administrator':
+                        role = 'administrator'
+                    elif user_status == 'creator':
+                        role = 'creator'
+                    
+                    logger.info(f"🔍 [add_user_to_group] Определенная роль: {role}")
+                    
+                    # Шаг 4: Добавляем/обновляем связь в group_members
+                    await conn.execute(
+                        """
+                        INSERT INTO group_members (group_id, member_id, role)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (group_id, member_id) DO UPDATE SET
+                            role = EXCLUDED.role
+                        """,
+                        group_db_id,
+                        member_db_id,
+                        role
+                    )
+                    
+                    logger.info(f"✅ [add_user_to_group] Связь group_members создана/обновлена с ролью: {role}")
+                    
+                    # Все операции успешны
+                    logger.info(f"✅ [add_user_to_group] Пользователь {user_id_int} успешно добавлен в группу {group_id}")
+                    return True
+                    
+                except asyncpg.PostgresError as e:
+                    logger.error(f"❌ [add_user_to_group] Ошибка PostgreSQL при добавлении пользователя {user_info.get('user_id')} в группу {group_id}: {e}")
+                    return False
+                except Exception as e:
+                    logger.error(f"❌ [add_user_to_group] Неожиданная ошибка при добавлении пользователя {user_info.get('user_id')} в группу {group_id}: {e}")
+                    return False

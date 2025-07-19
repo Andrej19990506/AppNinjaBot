@@ -9,6 +9,7 @@ from telegram.ext import ContextTypes
 from telegramNinjaBot.config.config import Config
 # Предполагаем, что json_service и deletion_requests будут доступны через context.application.state
 # Если нет, их нужно будет передавать иначе или импортировать (менее предпочтительно)
+import telegram.error
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,8 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 logger.info(f"❌ Пользователь {user.id} попытался зарегистрироваться в несуществующей группе {group_id}")
                 return
             
-            # Проверяем зарегистрирован ли пользователь уже в боте
+            # ГИБРИДНАЯ ПРОВЕРКА ЧЛЕНСТВА
+            # Шаг 1: Проверяем в базе данных
             is_registered = await db_service.is_user_in_group(user.id, group_id)
             
             if is_registered:
@@ -149,7 +151,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     f"📱 **Username:** @{user.username or 'не указан'}\n\n"
                     f"🚀 **Доступные функции:**\n"
                     f"• 📦 Управление инвентарем\n"
-                    f"• 📋 Заявки на списание\n"
+                    f"• 📋 Управление инвентарем\n"
                     f"• 📊 Отчеты и аналитика\n"
                     f"• ⚡ Уведомления в реальном времени\n\n"
                     f"Вы можете продолжать использовать все функции бота!",
@@ -158,20 +160,141 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {group_id}")
                 return
             
-            # Пользователь НЕ состоит в группе - отказываем в регистрации
-            await update.message.reply_text(
-                f"❌ *Регистрация не удалась*\n\n"
-                f"Вы не состоите в группе с ID `{group_id}`\n\n"
-                f"📝 **Что делать:**\n"
-                f"• Обратитесь к администратору группы\n"
-                f"• Убедитесь, что вы добавлены в нужную группу\n"
-                f"• Проверьте правильность ID группы\n\n"
-                f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
-                f"🔒 **Безопасность:** Группы создаются только администраторами",
-                parse_mode='Markdown'
-            )
-            logger.info(f"❌ Пользователь {user.id} не состоит в группе {group_id}, регистрация отклонена")
-            return
+            # Шаг 2: Если не найден в БД - проверяем через Telegram API
+            logger.info(f"🔄 Пользователь {user.id} не найден в БД. Проверяем через Telegram API...")
+            
+            try:
+                # Проверяем статус пользователя в группе через Telegram API
+                chat_member = await context.bot.get_chat_member(group_id, user.id)
+                
+                if chat_member.status in ['member', 'administrator', 'creator']:
+                    logger.info(f"✅ Пользователь {user.id} найден в группе {group_id} через Telegram API со статусом: {chat_member.status}")
+                    
+                    # Пользователь есть в группе, но не в БД - добавляем его вручную
+                    await update.message.reply_text(
+                        f"🔄 *Синхронизация данных...*\n\n"
+                        f"Вы состоите в группе, но данные устарели.\n"
+                        f"Добавляю вас в систему...",
+                        parse_mode='Markdown'
+                    )
+                    
+                    try:
+                        # Получаем данные о пользователе из chat_member
+                        user_photo_url = None
+                        try:
+                            user_profile_photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+                            if user_profile_photos.photos:
+                                photo_file = user_profile_photos.photos[0][-1]  # Берем наибольший размер
+                                file_info = await context.bot.get_file(photo_file.file_id)
+                                user_photo_url = f"/users-photo/user_{user.id}.jpg"
+                        except Exception as photo_error:
+                            logger.warning(f"Не удалось получить фото пользователя {user.id}: {photo_error}")
+                            user_photo_url = None
+                        
+                        # Создаем информацию о пользователе
+                        user_info = {
+                            'user_id': user.id,
+                            'username': user.username,
+                            'first_name': user.first_name or "",
+                            'last_name': user.last_name or "",
+                            'status': chat_member.status,
+                            'joined_date': datetime.now().isoformat(),
+                            'is_bot': user.is_bot,
+                            'photo_url': user_photo_url
+                        }
+                        
+                        # Добавляем пользователя в БД напрямую
+                        await db_service.add_user_to_group(user_info, group_id)
+                        
+                        # Проверяем что пользователь добавлен
+                        is_registered_after_manual_add = await db_service.is_user_in_group(user.id, group_id)
+                        
+                        if is_registered_after_manual_add:
+                            await update.message.reply_text(
+                                f"✅ *Регистрация успешна!*\n\n"
+                                f"🎯 **Группа:** `{group_id}`\n"
+                                f"👤 **Пользователь:** {user.full_name}\n"
+                                f"📱 **Username:** @{user.username or 'не указан'}\n\n"
+                                f"🚀 **Доступные функции:**\n"
+                                f"• 📦 Управление инвентарем\n"
+                                f"• 📋 Управление списаниями\n"
+                                f"Теперь вы можете использовать все функции бота!",
+                                parse_mode='Markdown'
+                            )
+                            logger.info(f"✅ Пользователь {user.id} успешно зарегистрирован вручную")
+                            return
+                        else:
+                            await update.message.reply_text(
+                                f"⚠️ *Ошибка регистрации*\n\n"
+                                f"Не удалось завершить регистрацию.\n"
+                                f"Обратитесь к администратору группы.",
+                                parse_mode='Markdown'
+                            )
+                            return
+                            
+                    except Exception as add_error:
+                        logger.error(f"❌ Ошибка при добавлении пользователя {user.id} в группу {group_id}: {add_error}")
+                        await update.message.reply_text(
+                            f"⚠️ *Ошибка регистрации*\n\n"
+                            f"Произошла ошибка при добавлении в систему.\n"
+                            f"Попробуйте позже или обратитесь к администратору.",
+                            parse_mode='Markdown'
+                        )
+                        return
+                        
+                else:
+                    # Пользователь не состоит в группе или заблокирован
+                    logger.info(f"❌ Пользователь {user.id} не состоит в группе {group_id}. Статус: {chat_member.status}")
+                    await update.message.reply_text(
+                        f"❌ *Регистрация не удалась*\n\n"
+                        f"Вы не состоите в группе с ID `{group_id}`\n\n"
+                        f"📝 **Что делать:**\n"
+                        f"• Обратитесь к администратору группы\n"
+                        f"• Убедитесь, что вы добавлены в нужную группу\n"
+                        f"• Проверьте правильность ID группы\n\n"
+                        f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+                        f"🔒 **Безопасность:** Группы создаются только администраторами",
+                        parse_mode='Markdown'
+                    )
+                    logger.info(f"❌ Пользователь {user.id} не состоит в группе {group_id}, регистрация отклонена")
+                    return
+                    
+            except telegram.error.BadRequest as e:
+                if "user not found" in str(e).lower() or "chat not found" in str(e).lower():
+                    logger.info(f"❌ Пользователь {user.id} не найден в группе {group_id}: {e}")
+                    await update.message.reply_text(
+                        f"❌ *Регистрация не удалась*\n\n"
+                        f"Вы не состоите в группе с ID `{group_id}`\n\n"
+                        f"📝 **Что делать:**\n"
+                        f"• Обратитесь к администратору группы\n"
+                        f"• Убедитесь, что вы добавлены в нужную группу\n"
+                        f"• Проверьте правильность ID группы\n\n"
+                        f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+                        f"🔒 **Безопасность:** Группы создаются только администраторами",
+                        parse_mode='Markdown'
+                    )
+                    return
+                else:
+                    # Другая ошибка API
+                    logger.error(f"❌ Ошибка Telegram API при проверке пользователя {user.id} в группе {group_id}: {e}")
+                    await update.message.reply_text(
+                        f"⚠️ *Ошибка проверки*\n\n"
+                        f"Не удалось проверить ваш статус в группе.\n"
+                        f"Попробуйте позже или обратитесь к администратору.\n\n"
+                        f"Техническая информация: {str(e)}",
+                        parse_mode='Markdown'
+                    )
+                    return
+                    
+            except Exception as e:
+                logger.error(f"❌ Неожиданная ошибка при проверке пользователя {user.id} в группе {group_id}: {e}")
+                await update.message.reply_text(
+                    f"⚠️ *Системная ошибка*\n\n"
+                    f"Произошла неожиданная ошибка при проверке.\n"
+                    f"Попробуйте позже или обратитесь к администратору.",
+                    parse_mode='Markdown'
+                )
+                return
 
         # Обычное приветствие без параметров
         await update.message.reply_text(
@@ -183,10 +306,12 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         logger.info(f"Отправлено приветствие пользователю {user.id}")
 
     except Exception as e:
-        logger.error(f"Ошибка при обработке команды /start: {str(e)}")
+        logger.error(f"❌ Ошибка в обработчике /start: {e}")
         logger.error(traceback.format_exc())
-        await update.message.reply_text(
-            "Произошла ошибка при обработке команды. Пожалуйста, попробуйте позже."
+        
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "❌ Произошла системная ошибка. Попробуйте позже."
         )
 
 
@@ -223,8 +348,9 @@ async def handle_registry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     
     Логика:
     1. Проверяет есть ли пользователь в группе через БД
-    2. Если нет - показывает ошибку с просьбой обратиться к админу
-    3. Если есть - регистрирует в БД или уведомляет об успешной регистрации
+    2. Если нет - проверяет через Telegram API
+    3. Если есть в API но нет в БД - синхронизирует данные
+    4. Если нет нигде - показывает ошибку
     """
     try:
         user = update.effective_user
@@ -295,7 +421,8 @@ async def handle_registry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             logger.info(f"❌ Пользователь {user.id} попытался зарегистрироваться в несуществующей группе {target_group_id}")
             return
         
-        # Проверяем зарегистрирован ли пользователь уже в боте
+        # ГИБРИДНАЯ ПРОВЕРКА ЧЛЕНСТВА
+        # Шаг 1: Проверяем в базе данных
         is_registered = await db_service.is_user_in_group(user.id, target_group_id)
         
         if is_registered:
@@ -307,28 +434,148 @@ async def handle_registry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 f"📱 **Username:** @{user.username or 'не указан'}\n\n"
                 f"🚀 **Доступные функции:**\n"
                 f"• 📦 Управление инвентарем\n"
-                f"• 📋 Заявки на списание\n"
-                f"• 📊 Отчеты и аналитика\n"
-                f"• ⚡ Уведомления в реальном времени\n\n"
+                f"• 📋 Управление списаниями\n"
                 f"Вы можете продолжать использовать все функции бота!",
                 parse_mode='Markdown'
             )
             logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {target_group_id}")
             return
             
-        # Пользователь НЕ состоит в группе - отказываем в регистрации
-        await message.reply_text(
-            f"❌ *Регистрация не удалась*\n\n"
-            f"Вы не состоите в группе с ID `{target_group_id}`\n\n"
-            f"📝 **Что делать:**\n"
-            f"• Обратитесь к администратору группы\n"
-            f"• Убедитесь, что вы добавлены в нужную группу\n"
-            f"• Проверьте правильность ID группы\n\n"
-            f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
-            f"🔒 **Безопасность:** Группы создаются только администраторами",
-            parse_mode='Markdown'
-        )
-        logger.info(f"❌ Пользователь {user.id} не состоит в группе {target_group_id}, регистрация отклонена")
+        # Шаг 2: Если не найден в БД - проверяем через Telegram API
+        logger.info(f"🔄 Пользователь {user.id} не найден в БД. Проверяем через Telegram API...")
+        
+        try:
+            # Проверяем статус пользователя в группе через Telegram API
+            chat_member = await context.bot.get_chat_member(target_group_id, user.id)
+            
+            if chat_member.status in ['member', 'administrator', 'creator']:
+                logger.info(f"✅ Пользователь {user.id} найден в группе {target_group_id} через Telegram API со статусом: {chat_member.status}")
+                
+                # Пользователь есть в группе, но не в БД - добавляем его вручную
+                await message.reply_text(
+                    f"🔄 *Синхронизация данных...*\n\n"
+                    f"Вы состоите в группе, но данные устарели.\n"
+                    f"Добавляю вас в систему...",
+                    parse_mode='Markdown'
+                )
+                
+                try:
+                    # Получаем данные о пользователе из chat_member
+                    user_photo_url = None
+                    try:
+                        user_profile_photos = await context.bot.get_user_profile_photos(user.id, limit=1)
+                        if user_profile_photos.photos:
+                            photo_file = user_profile_photos.photos[0][-1]  # Берем наибольший размер
+                            file_info = await context.bot.get_file(photo_file.file_id)
+                            user_photo_url = f"/users-photo/user_{user.id}.jpg"
+                    except Exception as photo_error:
+                        logger.warning(f"Не удалось получить фото пользователя {user.id}: {photo_error}")
+                        user_photo_url = None
+                    
+                    # Создаем информацию о пользователе
+                    user_info = {
+                        'user_id': user.id,
+                        'username': user.username,
+                        'first_name': user.first_name or "",
+                        'last_name': user.last_name or "",
+                        'status': chat_member.status,
+                        'joined_date': datetime.now().isoformat(),
+                        'is_bot': user.is_bot,
+                        'photo_url': user_photo_url
+                    }
+                    
+                    # Добавляем пользователя в БД напрямую
+                    await db_service.add_user_to_group(user_info, target_group_id)
+                    
+                    # Проверяем что пользователь добавлен
+                    is_registered_after_manual_add = await db_service.is_user_in_group(user.id, target_group_id)
+                    
+                    if is_registered_after_manual_add:
+                        await message.reply_text(
+                            f"✅ *Регистрация успешна!*\n\n"
+                            f"🎯 **Группа:** `{target_group_id}`\n"
+                            f"👤 **Пользователь:** {user.full_name}\n"
+                            f"📱 **Username:** @{user.username or 'не указан'}\n\n"
+                            f"🚀 **Доступные функции:**\n"
+                            f"• 📦 Управление инвентарем\n"
+                            f"• 📋 Управление списаниями\n"
+                            f"Теперь вы можете использовать все функции бота!",
+                            parse_mode='Markdown'
+                        )
+                        logger.info(f"✅ Пользователь {user.id} успешно зарегистрирован вручную")
+                        return
+                    else:
+                        await message.reply_text(
+                            f"⚠️ *Ошибка регистрации*\n\n"
+                            f"Не удалось завершить регистрацию.\n"
+                            f"Обратитесь к администратору группы.",
+                            parse_mode='Markdown'
+                        )
+                        return
+                        
+                except Exception as add_error:
+                    logger.error(f"❌ Ошибка при добавлении пользователя {user.id} в группу {target_group_id}: {add_error}")
+                    await message.reply_text(
+                        f"⚠️ *Ошибка регистрации*\n\n"
+                        f"Произошла ошибка при добавлении в систему.\n"
+                        f"Попробуйте позже или обратитесь к администратору.",
+                        parse_mode='Markdown'
+                    )
+                    return
+                    
+            else:
+                # Пользователь не состоит в группе или заблокирован
+                logger.info(f"❌ Пользователь {user.id} не состоит в группе {target_group_id}. Статус: {chat_member.status}")
+                await message.reply_text(
+                    f"❌ *Регистрация не удалась*\n\n"
+                    f"Вы не состоите в группе с ID `{target_group_id}`\n\n"
+                    f"📝 **Что делать:**\n"
+                    f"• Обратитесь к администратору группы\n"
+                    f"• Убедитесь, что вы добавлены в нужную группу\n"
+                    f"• Проверьте правильность ID группы\n\n"
+                    f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+                    f"🔒 **Безопасность:** Группы создаются только администраторами",
+                    parse_mode='Markdown'
+                )
+                logger.info(f"❌ Пользователь {user.id} не состоит в группе {target_group_id}, регистрация отклонена")
+                return
+                
+        except telegram.error.BadRequest as e:
+            if "user not found" in str(e).lower() or "chat not found" in str(e).lower():
+                logger.info(f"❌ Пользователь {user.id} не найден в группе {target_group_id}: {e}")
+                await message.reply_text(
+                    f"❌ *Регистрация не удалась*\n\n"
+                    f"Вы не состоите в группе с ID `{target_group_id}`\n\n"
+                    f"📝 **Что делать:**\n"
+                    f"• Обратитесь к администратору группы\n"
+                    f"• Убедитесь, что вы добавлены в нужную группу\n"
+                    f"• Проверьте правильность ID группы\n\n"
+                    f"💡 **Подсказка:** Только участники группы могут зарегистрироваться в боте\n\n"
+                    f"🔒 **Безопасность:** Группы создаются только администраторами",
+                    parse_mode='Markdown'
+                )
+                return
+            else:
+                # Другая ошибка API
+                logger.error(f"❌ Ошибка Telegram API при проверке пользователя {user.id} в группе {target_group_id}: {e}")
+                await message.reply_text(
+                    f"⚠️ *Ошибка проверки*\n\n"
+                    f"Не удалось проверить ваш статус в группе.\n"
+                    f"Попробуйте позже или обратитесь к администратору.\n\n"
+                    f"Техническая информация: {str(e)}",
+                    parse_mode='Markdown'
+                )
+                return
+                
+        except Exception as e:
+            logger.error(f"❌ Неожиданная ошибка при проверке пользователя {user.id} в группе {target_group_id}: {e}")
+            await message.reply_text(
+                f"⚠️ *Системная ошибка*\n\n"
+                f"Произошла неожиданная ошибка при проверке.\n"
+                f"Попробуйте позже или обратитесь к администратору.",
+                parse_mode='Markdown'
+            )
+            return
         
     except Exception as e:
         logger.error(f"❌ Ошибка при обработке команды /registry: {e}")

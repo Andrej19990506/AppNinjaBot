@@ -42,7 +42,7 @@ class WriteOffInDB(WriteOffBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class WriteOffResponse(WriteOffInDB):
     author: Optional[WriteOffAuthor] = Field(None, description="Информация об авторе списания")

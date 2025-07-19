@@ -4,6 +4,7 @@ pydantic
 python-dotenv
 sqlalchemy[asyncio]
 asyncpg
+psycopg2-binary
 pydantic-settings
 alembic
 httpx

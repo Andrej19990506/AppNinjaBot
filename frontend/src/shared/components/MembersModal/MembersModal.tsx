@@ -824,15 +824,13 @@ export const MembersModal: React.FC<MembersModalProps> = ({
                 const webApp = window.Telegram.WebApp as any;
                 
                 // Создаем прямую ссылку на бота для регистрации
-                const botUsername = 'ninja_event_bot';
+                const botUsername = 'YOUR_BOT_USERNAME'; // TODO: Заменить на реальный юзернейм бота
                 const botLink = `https://t.me/${botUsername}?start=registry_${chatId}`;
                 
                 // Создаем красивый текст для регистрации
                 const shareText = `🥷 *Регистрация в чат "${chatTitle}"*\n\n` +
                     `📦 Управление инвентарем\n` +
-                    `📋 Заявки на списание\n` +
-                    `📊 Отчеты и аналитика\n` +
-                    `⚡ Уведомления в реальном времени\n\n` +
+                    `📋 Управление инвентарем\n` +
                     `👆 Нажмите на ссылку для регистрации:`;
                 
                 // Используем нативный шаринг Telegram с красивым текстом

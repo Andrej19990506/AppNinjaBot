@@ -25,6 +25,7 @@ import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
+import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 
 
 
@@ -39,7 +40,9 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const initStartTimeRef = useRef<number | null>(null); 
   const location = useLocation();
 
-  const [showOverlay, setShowOverlay] = useState(true); 
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [showBothScreens, setShowBothScreens] = useState(false); 
 
   const isActuallyLoading = !isUserInitialized && !initError;
 
@@ -101,6 +104,35 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   useWebSocketSync();
   const { isModalOpen, permissionsNotification, handleModalClose } = usePermissionsWebSocket();
 
+  // Обработчики для TutorialMaterials
+  useEffect(() => {
+    const handleStartTransition = () => {
+      // Показываем оба экрана одновременно - материалы под панелью
+      setShowBothScreens(true);
+      setIsTutorialOpen(true);
+    };
+
+    const handleOpenTutorial = () => {
+      // Переход завершен, убираем флаг двойного показа
+      setShowBothScreens(false);
+    };
+
+    const handleCloseTutorial = () => {
+      setIsTutorialOpen(false);
+      setShowBothScreens(false);
+    };
+
+    window.addEventListener('startTutorialTransition', handleStartTransition);
+    window.addEventListener('openTutorialMaterials', handleOpenTutorial);
+    window.addEventListener('closeTutorialMaterials', handleCloseTutorial);
+
+    return () => {
+      window.removeEventListener('startTutorialTransition', handleStartTransition);
+      window.removeEventListener('openTutorialMaterials', handleOpenTutorial);
+      window.removeEventListener('closeTutorialMaterials', handleCloseTutorial);
+    };
+  }, []);
+
   // Отладка состояний
   console.log('🔍 [App Debug] Состояния:', {
     showOverlay,
@@ -117,7 +149,20 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
         // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
         (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
           ? <NoGroupAssigned user={user} />
-          : <>{children}</>
+          : (
+              <>
+                {/* Показываем главное меню если tutorial не открыт или если показываем оба */}
+                {(!isTutorialOpen || showBothScreens) && <>{children}</>}
+                
+                {/* Показываем обучающие материалы */}
+                {isTutorialOpen && (
+                  <TutorialMaterials 
+                    isOpen={true}
+                    onClose={() => setIsTutorialOpen(false)}
+                  />
+                )}
+              </>
+            )
       )}
       {initError && (
         <TelegramAccessError error={initError} />

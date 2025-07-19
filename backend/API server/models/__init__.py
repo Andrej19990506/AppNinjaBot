@@ -8,6 +8,8 @@ from .event import Event
 from .notification import Notification
 from .write_off import WriteOff
 from .user_permission import UserPermission
+from .material_comment import MaterialComment
+from .material_reaction import MaterialReaction
 
 __all__ = [
     "Base",
@@ -20,4 +22,6 @@ __all__ = [
     "Notification",
     "WriteOff",
     "UserPermission",
+    "MaterialComment",
+    "MaterialReaction",
 ] 

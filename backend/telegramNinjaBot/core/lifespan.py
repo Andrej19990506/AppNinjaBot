@@ -127,6 +127,10 @@ async def lifespan(app: FastAPI):
         message_handler = BotMessageHandler(config.DATA_DIR)
         logger.info("✅ Хэндлеры инициализированы")
 
+        # !!! ВАЖНО: Сохраняем group_handler в bot_data для функций регистрации !!!
+        bot_app.bot_data['group_handler'] = group_handler
+        logger.info("✅ group_handler сохранен в bot_data")
+
         # 7. Регистрация хэндлеров
         logger.info("=== Регистрация обработчиков Telegram ===")
         # Групповые события

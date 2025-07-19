@@ -28,6 +28,23 @@ from .user_permission import (
     UserPermissionCheck,
     UserPermissionCheckResponse
 )
+# Добавляем импорт схем для комментариев и реакций
+from .material_comment import (
+    MaterialCommentBase,
+    MaterialCommentCreate,
+    MaterialCommentUpdate,
+    MaterialCommentRead,
+    MaterialCommentsResponse,
+    CommentAuthor
+)
+from .material_reaction import (
+    MaterialReactionBase,
+    MaterialReactionCreate,
+    MaterialReactionRead,
+    MaterialReactionsResponse,
+    GroupedReaction,
+    ReactionAuthor
+)
 
 # Можно добавить __all__, чтобы явно указать экспортируемые имена
 __all__ = [
@@ -48,4 +65,8 @@ __all__ = [
     "WriteOffBase", "WriteOffCreate", "WriteOffResponse",
     "UserPermissionCreate", "UserPermissionRevoke", "UserPermissionResponse",
     "UserPermissionList", "UserPermissionCheck", "UserPermissionCheckResponse",
+    "MaterialCommentBase", "MaterialCommentCreate", "MaterialCommentUpdate", 
+    "MaterialCommentRead", "MaterialCommentsResponse", "CommentAuthor",
+    "MaterialReactionBase", "MaterialReactionCreate", "MaterialReactionRead",
+    "MaterialReactionsResponse", "GroupedReaction", "ReactionAuthor",
 ] 

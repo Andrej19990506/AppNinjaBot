@@ -1200,6 +1200,7 @@ const TutorialMaterials: React.FC<TutorialMaterialsProps> = ({ isOpen, onClose }
         top: 0, 
         left: 0 
     });
+    const [initialLoading, setInitialLoading] = useState(false);
     
     // Функция для прокрутки к низу комментариев
     const scrollToBottom = () => {
@@ -1215,7 +1216,18 @@ const TutorialMaterials: React.FC<TutorialMaterialsProps> = ({ isOpen, onClose }
         setHasMounted(true);
         // Быстрое появление
         setIsVisible(true);
-    }, []);
+        
+        // Загружаем данные для всех материалов при открытии
+        if (isOpen) {
+            const materialsToLoad = tutorialMaterials.filter(material => !materialReactions[material.id]);
+            
+            if (materialsToLoad.length > 0) {
+                setInitialLoading(true);
+                Promise.all(materialsToLoad.map(material => loadMaterialData(material.id)))
+                    .finally(() => setInitialLoading(false));
+            }
+        }
+    }, [isOpen]);
 
     // Закрытие тултипа при клике вне его или Escape
     useEffect(() => {
@@ -1492,6 +1504,16 @@ const TutorialMaterials: React.FC<TutorialMaterialsProps> = ({ isOpen, onClose }
                 </PageHeader>
 
                 <PageContent>
+                    {initialLoading && (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '20px',
+                            color: 'var(--text-secondary)',
+                            fontSize: '0.9rem'
+                        }}>
+                            Загружаем комментарии и реакции...
+                        </div>
+                    )}
                     <CardsGrid>
                         {tutorialMaterials.map((material) => {
                             const isAvailable = material.url !== "#";
@@ -1510,8 +1532,8 @@ const TutorialMaterials: React.FC<TutorialMaterialsProps> = ({ isOpen, onClose }
                             
                                                                         // Находим реакцию текущего пользователя
                                             const userReaction = currentUser ? reactions.find(r => r.userId === currentUser.id) : null;
-                                            
-                                            return (
+                            
+                            return (
                                 <TutorialCard
                                     key={material.id}
                                     $isAvailable={isAvailable}
@@ -1641,13 +1663,8 @@ const TutorialMaterials: React.FC<TutorialMaterialsProps> = ({ isOpen, onClose }
                                                     onClick={isAvailable ? () => {
                                                         console.log(`[DEBUG] Открываем комментарии для материала ${material.id}`);
                                                         setActiveCommentsModal(material.id);
-                                                        loadMaterialData(material.id).then(() => {
-                                                            console.log(`[DEBUG] Загрузка завершена для материала ${material.id}`);
-                                                            // Прокручиваем к низу после загрузки комментариев
-                                                            scrollToBottom();
-                                                        }).catch(error => {
-                                                            console.error(`[DEBUG] Ошибка загрузки для материала ${material.id}:`, error);
-                                                        });
+                                                        // Данные уже загружены, просто прокручиваем к низу
+                                                        setTimeout(() => scrollToBottom(), 100);
                                                     } : undefined}
                                                     style={{ 
                                                         cursor: isAvailable ? 'pointer' : 'default',

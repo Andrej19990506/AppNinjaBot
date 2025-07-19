@@ -495,9 +495,28 @@ const VideoPlayer = styled.video`
     min-height: 400px;
     border-radius: var(--radius);
     background: #000;
+    
+    /* Поддержка полноэкранного режима на мобильных */
+    &::-webkit-media-controls-fullscreen-button {
+        display: block !important;
+    }
+    
+    &::-webkit-media-controls {
+        display: flex !important;
+    }
 
     @media (max-width: 768px) {
         min-height: 250px;
+        
+        /* Дополнительные стили для мобильных */
+        &::-webkit-media-controls-panel {
+            display: flex !important;
+        }
+        
+        &::-webkit-media-controls-fullscreen-button {
+            display: block !important;
+            opacity: 1 !important;
+        }
     }
 `;
 
@@ -1224,6 +1243,8 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
                                         id="tutorial-video"
                                         controls 
                                         preload="metadata"
+                                        playsInline
+                                        webkit-playsinline="true"
                                         poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Crect width='1920' height='1080' fill='%23FF5F1F'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='72' font-family='Arial, sans-serif'%3E🎬 Обучающее видео%3C/text%3E%3C/svg%3E"
                                         onPlay={handleVideoPlay}
                                         onPause={handleVideoPause}

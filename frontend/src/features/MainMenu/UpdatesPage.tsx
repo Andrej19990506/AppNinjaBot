@@ -489,34 +489,17 @@ const VideoWrapper = styled.div`
     z-index: 2;
 `;
 
+
+
 const VideoPlayer = styled.video`
     width: 100%;
     height: auto;
     min-height: 400px;
     border-radius: var(--radius);
     background: #000;
-    
-    /* Поддержка полноэкранного режима на мобильных */
-    &::-webkit-media-controls-fullscreen-button {
-        display: block !important;
-    }
-    
-    &::-webkit-media-controls {
-        display: flex !important;
-    }
 
     @media (max-width: 768px) {
         min-height: 250px;
-        
-        /* Дополнительные стили для мобильных */
-        &::-webkit-media-controls-panel {
-            display: flex !important;
-        }
-        
-        &::-webkit-media-controls-fullscreen-button {
-            display: block !important;
-            opacity: 1 !important;
-        }
     }
 `;
 
@@ -763,6 +746,8 @@ interface UpdatesPageProps {
     onBack: () => void;
 }
 
+
+
 const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
     const [activeSection, setActiveSection] = useState('section-grant-access');
     const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -925,6 +910,179 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
             setPlayButtonVisible(false);
         }
     };
+
+    const handleFullscreenClick = () => {
+        console.log('🔄 handleFullscreenClick вызван');
+        
+        const video = document.getElementById('tutorial-video') as HTMLVideoElement;
+        if (!video) {
+            console.error('❌ Видео элемент не найден');
+            return;
+        }
+
+        // Проверяем, находимся ли мы в Telegram Mini App
+        const telegramWebApp = (window as any).Telegram?.WebApp;
+        if (telegramWebApp) {
+            console.log('📱 Обнаружен Telegram WebApp API');
+            console.log('🔍 Версия Bot API:', telegramWebApp.version);
+            
+            try {
+                // Фиксируем ориентацию в ландшафтную для лучшего просмотра видео
+                if (telegramWebApp.lockOrientation) {
+                    telegramWebApp.lockOrientation('landscape');
+                    console.log('📐 Ориентация зафиксирована в ландшафтную');
+                }
+                
+                // Сначала запрашиваем полноэкранный режим для WebApp
+                telegramWebApp.requestFullscreen();
+                console.log('✅ Telegram.WebApp.requestFullscreen() вызван');
+                
+                // Добавляем обработчики событий полноэкранного режима
+                telegramWebApp.onEvent('fullscreenChanged', () => {
+                    console.log('📐 fullscreenChanged событие получено');
+                    const isFullscreen = telegramWebApp.isExpanded;
+                    console.log('🔍 isExpanded:', isFullscreen);
+                    
+                    if (isFullscreen) {
+                        // Теперь можно запустить полноэкранный режим для видео
+                        setTimeout(() => {
+                            console.log('🎬 Запускаем полноэкранный режим для видео');
+                            requestVideoFullscreen(video);
+                        }, 200);
+                    }
+                });
+                
+                telegramWebApp.onEvent('fullscreenFailed', (error: any) => {
+                    console.error('❌ fullscreenFailed событие:', error);
+                    console.log('🔄 Пробуем fallback к обычному полноэкранному режиму');
+                    requestVideoFullscreen(video);
+                });
+                
+            } catch (error) {
+                console.error('❌ Ошибка при вызове Telegram.WebApp.requestFullscreen():', error);
+                // Fallback к обычному полноэкранному режиму
+                requestVideoFullscreen(video);
+            }
+        } else {
+            console.log('🌐 Обычный браузер - используем стандартный API');
+            requestVideoFullscreen(video);
+        }
+    };
+
+    const requestVideoFullscreen = (video: HTMLVideoElement) => {
+        console.log('🎥 requestVideoFullscreen вызван для видео:', video);
+        
+        try {
+            if (video.requestFullscreen) {
+                console.log('✅ Используем requestFullscreen()');
+                video.requestFullscreen();
+            } else if ((video as any).webkitRequestFullscreen) {
+                console.log('✅ Используем webkitRequestFullscreen()');
+                (video as any).webkitRequestFullscreen();
+            } else if ((video as any).msRequestFullscreen) {
+                console.log('✅ Используем msRequestFullscreen()');
+                (video as any).msRequestFullscreen();
+            } else if ((video as any).mozRequestFullScreen) {
+                console.log('✅ Используем mozRequestFullScreen()');
+                (video as any).mozRequestFullScreen();
+            } else {
+                console.error('❌ Ни один метод полноэкранного режима не поддерживается');
+            }
+        } catch (error) {
+            console.error('❌ Ошибка при запросе полноэкранного режима:', error);
+        }
+    };
+
+
+
+    // Добавляем обработчик событий полноэкранного режима
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            console.log('🎬 onFullscreenChange событие');
+            const isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+            console.log('🔍 Видео в полноэкранном режиме:', isFullscreen);
+            
+            // Проверяем состояние Telegram WebApp
+            const telegramWebApp = (window as any).Telegram?.WebApp;
+            if (telegramWebApp) {
+                console.log('📱 Telegram WebApp isExpanded:', telegramWebApp.isExpanded);
+                console.log('📱 Telegram WebApp viewportHeight:', telegramWebApp.viewportHeight);
+                console.log('📱 Telegram WebApp viewportStableHeight:', telegramWebApp.viewportStableHeight);
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+        // Логируем информацию о Telegram WebApp при загрузке
+        const telegramWebApp = (window as any).Telegram?.WebApp;
+        if (telegramWebApp) {
+            console.log('📱 Telegram WebApp обнаружен при загрузке');
+            console.log('📱 Версия:', telegramWebApp.version);
+            console.log('📱 isExpanded:', telegramWebApp.isExpanded);
+            console.log('📱 viewportHeight:', telegramWebApp.viewportHeight);
+            console.log('📱 Доступные методы:', Object.keys(telegramWebApp));
+        } else {
+            console.log('🌐 Telegram WebApp не обнаружен - обычный браузер');
+        }
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+        };
+    }, []);
+
+    // Перехватываем клики по стандартной кнопке полноэкранного режима
+    useEffect(() => {
+        const video = document.getElementById('tutorial-video') as HTMLVideoElement;
+        if (!video) return;
+
+        const handleVideoClick = (e: Event) => {
+            const target = e.target as HTMLElement;
+            
+            // Проверяем различные селекторы для кнопки полноэкранного режима
+            const isFullscreenButton = 
+                target.closest('[data-fullscreen-button]') ||
+                target.closest('.vjs-fullscreen-control') ||
+                target.closest('[aria-label*="fullscreen"]') ||
+                target.closest('[title*="fullscreen"]') ||
+                target.closest('button[data-fullscreen]') ||
+                target.closest('[aria-label*="полноэкранный"]') ||
+                target.closest('[title*="полноэкранный"]') ||
+                target.closest('button[aria-label*="fullscreen"]') ||
+                target.closest('button[title*="fullscreen"]');
+
+            if (isFullscreenButton) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🎬 Перехвачен клик по стандартной кнопке полноэкранного режима');
+                handleFullscreenClick();
+                return false;
+            }
+        };
+
+        // Добавляем обработчик на видео элемент
+        video.addEventListener('click', handleVideoClick, true);
+        
+        // Также добавляем обработчик на весь контейнер видео
+        const videoContainer = video.closest('.video-container') || video.parentElement;
+        if (videoContainer) {
+            videoContainer.addEventListener('click', handleVideoClick, true);
+        }
+
+        return () => {
+            video.removeEventListener('click', handleVideoClick, true);
+            if (videoContainer) {
+                videoContainer.removeEventListener('click', handleVideoClick, true);
+            }
+        };
+    }, []);
+
+
 
     return (
         <PageContainer data-testid="page-container">
@@ -1243,12 +1401,12 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
                                         id="tutorial-video"
                                         controls 
                                         preload="metadata"
-                                        playsInline
-                                        webkit-playsinline="true"
+                                        playsInline={false}
                                         poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Crect width='1920' height='1080' fill='%23FF5F1F'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='white' font-size='72' font-family='Arial, sans-serif'%3E🎬 Обучающее видео%3C/text%3E%3C/svg%3E"
                                         onPlay={handleVideoPlay}
                                         onPause={handleVideoPause}
                                         onEnded={handleVideoEnded}
+
                                     >
                                         <source src="AppNinjaBotTutorial.mp4" type="video/mp4" />
                                         <p>Ваш браузер не поддерживает воспроизведение видео. 
@@ -1260,6 +1418,9 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
                                             <path d="M8 5v14l11-7z"/>
                                         </PlayIcon>
                                     </PlayButtonOverlay>
+                                    
+
+
                                 </VideoWrapper>
                                 
                                 <VideoControlsInfo>

@@ -925,38 +925,78 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
         if (telegramWebApp) {
             console.log('📱 Обнаружен Telegram WebApp API');
             console.log('🔍 Версия Bot API:', telegramWebApp.version);
+            console.log('📱 isExpanded:', telegramWebApp.isExpanded);
+            console.log('📱 viewportHeight:', telegramWebApp.viewportHeight);
+            console.log('📱 platform:', telegramWebApp.platform);
+            console.log('📱 colorScheme:', telegramWebApp.colorScheme);
+            
+            // Проверяем, мобильное ли это приложение
+            const isMobile = telegramWebApp.platform === 'ios' || telegramWebApp.platform === 'android';
+            console.log('📱 Мобильное приложение:', isMobile);
             
             try {
-                // Фиксируем ориентацию в ландшафтную для лучшего просмотра видео
-                if (telegramWebApp.lockOrientation) {
-                    telegramWebApp.lockOrientation('landscape');
-                    console.log('📐 Ориентация зафиксирована в ландшафтную');
-                }
-                
-                // Сначала запрашиваем полноэкранный режим для WebApp
-                telegramWebApp.requestFullscreen();
-                console.log('✅ Telegram.WebApp.requestFullscreen() вызван');
-                
-                // Добавляем обработчики событий полноэкранного режима
-                telegramWebApp.onEvent('fullscreenChanged', () => {
-                    console.log('📐 fullscreenChanged событие получено');
-                    const isFullscreen = telegramWebApp.isExpanded;
-                    console.log('🔍 isExpanded:', isFullscreen);
+                // Для мобильных приложений сначала пробуем прямой вызов
+                if (isMobile) {
+                    console.log('📱 Мобильное приложение - пробуем прямой вызов requestFullscreen');
                     
-                    if (isFullscreen) {
-                        // Теперь можно запустить полноэкранный режим для видео
-                        setTimeout(() => {
-                            console.log('🎬 Запускаем полноэкранный режим для видео');
-                            requestVideoFullscreen(video);
-                        }, 200);
+                    // Сначала фиксируем ориентацию
+                    if (telegramWebApp.lockOrientation) {
+                        telegramWebApp.lockOrientation('landscape');
+                        console.log('📐 Ориентация зафиксирована в ландшафтную');
                     }
-                });
-                
-                telegramWebApp.onEvent('fullscreenFailed', (error: any) => {
-                    console.error('❌ fullscreenFailed событие:', error);
-                    console.log('🔄 Пробуем fallback к обычному полноэкранному режиму');
-                    requestVideoFullscreen(video);
-                });
+                    
+                    // Пробуем запросить полноэкранный режим
+                    telegramWebApp.requestFullscreen();
+                    console.log('✅ Telegram.WebApp.requestFullscreen() вызван для мобильного');
+                    
+                    // Ждем немного и проверяем результат
+                    setTimeout(() => {
+                        console.log('📱 Проверяем результат через 500ms');
+                        console.log('📱 isExpanded после запроса:', telegramWebApp.isExpanded);
+                        
+                        if (telegramWebApp.isExpanded) {
+                            console.log('🎬 WebApp развернут, запускаем полноэкранный режим для видео');
+                            requestVideoFullscreen(video);
+                        } else {
+                            console.log('⚠️ WebApp не развернулся, пробуем fallback');
+                            requestVideoFullscreen(video);
+                        }
+                    }, 500);
+                } else {
+                    // Для десктопного приложения используем события
+                    console.log('🖥️ Десктопное приложение - используем события');
+                    
+                    // Фиксируем ориентацию в ландшафтную для лучшего просмотра видео
+                    if (telegramWebApp.lockOrientation) {
+                        telegramWebApp.lockOrientation('landscape');
+                        console.log('📐 Ориентация зафиксирована в ландшафтную');
+                    }
+                    
+                    // Сначала запрашиваем полноэкранный режим для WebApp
+                    telegramWebApp.requestFullscreen();
+                    console.log('✅ Telegram.WebApp.requestFullscreen() вызван');
+                    
+                    // Добавляем обработчики событий полноэкранного режима
+                    telegramWebApp.onEvent('fullscreenChanged', () => {
+                        console.log('📐 fullscreenChanged событие получено');
+                        const isFullscreen = telegramWebApp.isExpanded;
+                        console.log('🔍 isExpanded:', isFullscreen);
+                        
+                        if (isFullscreen) {
+                            // Теперь можно запустить полноэкранный режим для видео
+                            setTimeout(() => {
+                                console.log('🎬 Запускаем полноэкранный режим для видео');
+                                requestVideoFullscreen(video);
+                            }, 200);
+                        }
+                    });
+                    
+                    telegramWebApp.onEvent('fullscreenFailed', (error: any) => {
+                        console.error('❌ fullscreenFailed событие:', error);
+                        console.log('🔄 Пробуем fallback к обычному полноэкранному режиму');
+                        requestVideoFullscreen(video);
+                    });
+                }
                 
             } catch (error) {
                 console.error('❌ Ошибка при вызове Telegram.WebApp.requestFullscreen():', error);
@@ -972,24 +1012,73 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
     const requestVideoFullscreen = (video: HTMLVideoElement) => {
         console.log('🎥 requestVideoFullscreen вызван для видео:', video);
         
+        // Проверяем, мобильное ли это устройство
+        const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        console.log('📱 Мобильное устройство (User Agent):', isMobileDevice);
+        
         try {
-            if (video.requestFullscreen) {
-                console.log('✅ Используем requestFullscreen()');
-                video.requestFullscreen();
-            } else if ((video as any).webkitRequestFullscreen) {
-                console.log('✅ Используем webkitRequestFullscreen()');
-                (video as any).webkitRequestFullscreen();
-            } else if ((video as any).msRequestFullscreen) {
-                console.log('✅ Используем msRequestFullscreen()');
-                (video as any).msRequestFullscreen();
-            } else if ((video as any).mozRequestFullScreen) {
-                console.log('✅ Используем mozRequestFullScreen()');
-                (video as any).mozRequestFullScreen();
+            // Для мобильных устройств в Telegram WebApp пробуем специальный подход
+            const telegramWebApp = (window as any).Telegram?.WebApp;
+            if (telegramWebApp && (telegramWebApp.platform === 'ios' || telegramWebApp.platform === 'android')) {
+                console.log('📱 Мобильное Telegram WebApp - пробуем специальный подход');
+                
+                // Пробуем разные методы для мобильных устройств
+                if ((video as any).webkitEnterFullscreen) {
+                    console.log('✅ Используем webkitEnterFullscreen() для iOS');
+                    (video as any).webkitEnterFullscreen();
+                } else if ((video as any).webkitRequestFullscreen) {
+                    console.log('✅ Используем webkitRequestFullscreen() для мобильного');
+                    (video as any).webkitRequestFullscreen();
+                } else if (video.requestFullscreen) {
+                    console.log('✅ Используем requestFullscreen() для мобильного');
+                    video.requestFullscreen();
+                } else {
+                    console.log('⚠️ Стандартные методы не работают, пробуем альтернативы');
+                    
+                    // Альтернативный подход для мобильных устройств
+                    video.style.position = 'fixed';
+                    video.style.top = '0';
+                    video.style.left = '0';
+                    video.style.width = '100vw';
+                    video.style.height = '100vh';
+                    video.style.zIndex = '9999';
+                    video.style.backgroundColor = '#000';
+                    console.log('🎬 Применен альтернативный полноэкранный режим для мобильного');
+                }
             } else {
-                console.error('❌ Ни один метод полноэкранного режима не поддерживается');
+                // Стандартный подход для десктопа
+                console.log('🖥️ Десктопное устройство - используем стандартные методы');
+                
+                if (video.requestFullscreen) {
+                    console.log('✅ Используем requestFullscreen()');
+                    video.requestFullscreen();
+                } else if ((video as any).webkitRequestFullscreen) {
+                    console.log('✅ Используем webkitRequestFullscreen()');
+                    (video as any).webkitRequestFullscreen();
+                } else if ((video as any).msRequestFullscreen) {
+                    console.log('✅ Используем msRequestFullscreen()');
+                    (video as any).msRequestFullscreen();
+                } else if ((video as any).mozRequestFullScreen) {
+                    console.log('✅ Используем mozRequestFullScreen()');
+                    (video as any).mozRequestFullScreen();
+                } else {
+                    console.error('❌ Ни один метод полноэкранного режима не поддерживается');
+                }
             }
         } catch (error) {
             console.error('❌ Ошибка при запросе полноэкранного режима:', error);
+            
+            // Fallback для мобильных устройств
+            if (isMobileDevice) {
+                console.log('🔄 Применяем fallback для мобильного устройства');
+                video.style.position = 'fixed';
+                video.style.top = '0';
+                video.style.left = '0';
+                video.style.width = '100vw';
+                video.style.height = '100vh';
+                video.style.zIndex = '9999';
+                video.style.backgroundColor = '#000';
+            }
         }
     };
 
@@ -1074,11 +1163,41 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
             videoContainer.addEventListener('click', handleVideoClick, true);
         }
 
+        // Добавляем обработчик для выхода из альтернативного полноэкранного режима
+        const handleEscapeKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                console.log('🔙 Escape нажат - выходим из альтернативного полноэкранного режима');
+                
+                // Восстанавливаем нормальные стили видео
+                video.style.position = '';
+                video.style.top = '';
+                video.style.left = '';
+                video.style.width = '';
+                video.style.height = '';
+                video.style.zIndex = '';
+                video.style.backgroundColor = '';
+                
+                // Также выходим из стандартного полноэкранного режима
+                if (document.fullscreenElement) {
+                    document.exitFullscreen();
+                } else if ((document as any).webkitExitFullscreen) {
+                    (document as any).webkitExitFullscreen();
+                } else if ((document as any).mozCancelFullScreen) {
+                    (document as any).mozCancelFullScreen();
+                } else if ((document as any).msExitFullscreen) {
+                    (document as any).msExitFullscreen();
+                }
+            }
+        };
+
+        document.addEventListener('keydown', handleEscapeKey);
+
         return () => {
             video.removeEventListener('click', handleVideoClick, true);
             if (videoContainer) {
                 videoContainer.removeEventListener('click', handleVideoClick, true);
             }
+            document.removeEventListener('keydown', handleEscapeKey);
         };
     }, []);
 

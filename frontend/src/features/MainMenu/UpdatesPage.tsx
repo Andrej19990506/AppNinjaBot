@@ -939,29 +939,57 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
                 if (isMobile) {
                     console.log('📱 Мобильное приложение - пробуем прямой вызов requestFullscreen');
                     
-                    // Сначала фиксируем ориентацию
-                    if (telegramWebApp.lockOrientation) {
-                        telegramWebApp.lockOrientation('landscape');
-                        console.log('📐 Ориентация зафиксирована в ландшафтную');
-                    }
-                    
-                    // Пробуем запросить полноэкранный режим
-                    telegramWebApp.requestFullscreen();
-                    console.log('✅ Telegram.WebApp.requestFullscreen() вызван для мобильного');
-                    
-                    // Ждем немного и проверяем результат
-                    setTimeout(() => {
-                        console.log('📱 Проверяем результат через 500ms');
-                        console.log('📱 isExpanded после запроса:', telegramWebApp.isExpanded);
+                    // Специальная обработка для Android
+                    if (telegramWebApp.platform === 'android') {
+                        console.log('🤖 Android платформа - применяем специальную логику');
                         
-                        if (telegramWebApp.isExpanded) {
-                            console.log('🎬 WebApp развернут, запускаем полноэкранный режим для видео');
-                            requestVideoFullscreen(video);
-                        } else {
-                            console.log('⚠️ WebApp не развернулся, пробуем fallback');
-                            requestVideoFullscreen(video);
+                        // Для Android сначала пробуем развернуть WebApp
+                        telegramWebApp.requestFullscreen();
+                        console.log('✅ Telegram.WebApp.requestFullscreen() вызван для Android');
+                        
+                        // Ждем дольше для Android, так как он медленнее
+                        setTimeout(() => {
+                            console.log('🤖 Проверяем результат Android через 1000ms');
+                            console.log('🤖 isExpanded после запроса:', telegramWebApp.isExpanded);
+                            
+                            if (telegramWebApp.isExpanded) {
+                                console.log('🎬 Android WebApp развернут, запускаем полноэкранный режим для видео');
+                                // Для Android используем специальный подход
+                                requestVideoFullscreen(video);
+                            } else {
+                                console.log('⚠️ Android WebApp не развернулся, применяем CSS fallback');
+                                // Для Android применяем CSS fallback сразу
+                                applyMobileFullscreenFallback(video);
+                            }
+                        }, 1000);
+                    } else {
+                        // Для iOS используем стандартный подход
+                        console.log('🍎 iOS платформа - используем стандартный подход');
+                        
+                        // Сначала фиксируем ориентацию
+                        if (telegramWebApp.lockOrientation) {
+                            telegramWebApp.lockOrientation('landscape');
+                            console.log('📐 Ориентация зафиксирована в ландшафтную');
                         }
-                    }, 500);
+                        
+                        // Пробуем запросить полноэкранный режим
+                        telegramWebApp.requestFullscreen();
+                        console.log('✅ Telegram.WebApp.requestFullscreen() вызван для iOS');
+                        
+                        // Ждем немного и проверяем результат
+                        setTimeout(() => {
+                            console.log('🍎 Проверяем результат iOS через 500ms');
+                            console.log('🍎 isExpanded после запроса:', telegramWebApp.isExpanded);
+                            
+                            if (telegramWebApp.isExpanded) {
+                                console.log('🎬 iOS WebApp развернут, запускаем полноэкранный режим для видео');
+                                requestVideoFullscreen(video);
+                            } else {
+                                console.log('⚠️ iOS WebApp не развернулся, пробуем fallback');
+                                requestVideoFullscreen(video);
+                            }
+                        }, 500);
+                    }
                 } else {
                     // Для десктопного приложения используем события
                     console.log('🖥️ Десктопное приложение - используем события');
@@ -1009,6 +1037,64 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
         }
     };
 
+    const applyMobileFullscreenFallback = (video: HTMLVideoElement) => {
+        console.log('📱 Применяем CSS fallback для мобильного устройства');
+        
+        // Сохраняем оригинальные стили для восстановления
+        const originalStyles = {
+            position: video.style.position,
+            top: video.style.top,
+            left: video.style.left,
+            width: video.style.width,
+            height: video.style.height,
+            zIndex: video.style.zIndex,
+            backgroundColor: video.style.backgroundColor
+        };
+        
+        // Применяем полноэкранные стили
+        video.style.position = 'fixed';
+        video.style.top = '0';
+        video.style.left = '0';
+        video.style.width = '100vw';
+        video.style.height = '100vh';
+        video.style.zIndex = '9999';
+        video.style.backgroundColor = '#000';
+        
+        // Сохраняем оригинальные стили в data-атрибутах для восстановления
+        video.setAttribute('data-original-styles', JSON.stringify(originalStyles));
+        
+        console.log('🎬 CSS fallback применен для мобильного устройства');
+        
+        // Добавляем обработчик для выхода по клику
+        const handleFallbackClick = () => {
+            console.log('🔙 Выход из CSS fallback по клику');
+            restoreOriginalStyles(video);
+            video.removeEventListener('click', handleFallbackClick);
+        };
+        
+        video.addEventListener('click', handleFallbackClick);
+    };
+
+    const restoreOriginalStyles = (video: HTMLVideoElement) => {
+        const originalStylesData = video.getAttribute('data-original-styles');
+        if (originalStylesData) {
+            try {
+                const originalStyles = JSON.parse(originalStylesData);
+                video.style.position = originalStyles.position;
+                video.style.top = originalStyles.top;
+                video.style.left = originalStyles.left;
+                video.style.width = originalStyles.width;
+                video.style.height = originalStyles.height;
+                video.style.zIndex = originalStyles.zIndex;
+                video.style.backgroundColor = originalStyles.backgroundColor;
+                video.removeAttribute('data-original-styles');
+                console.log('✅ Оригинальные стили восстановлены');
+            } catch (error) {
+                console.error('❌ Ошибка при восстановлении стилей:', error);
+            }
+        }
+    };
+
     const requestVideoFullscreen = (video: HTMLVideoElement) => {
         console.log('🎥 requestVideoFullscreen вызван для видео:', video);
         
@@ -1022,28 +1108,38 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
             if (telegramWebApp && (telegramWebApp.platform === 'ios' || telegramWebApp.platform === 'android')) {
                 console.log('📱 Мобильное Telegram WebApp - пробуем специальный подход');
                 
-                // Пробуем разные методы для мобильных устройств
-                if ((video as any).webkitEnterFullscreen) {
-                    console.log('✅ Используем webkitEnterFullscreen() для iOS');
-                    (video as any).webkitEnterFullscreen();
-                } else if ((video as any).webkitRequestFullscreen) {
-                    console.log('✅ Используем webkitRequestFullscreen() для мобильного');
-                    (video as any).webkitRequestFullscreen();
-                } else if (video.requestFullscreen) {
-                    console.log('✅ Используем requestFullscreen() для мобильного');
-                    video.requestFullscreen();
-                } else {
-                    console.log('⚠️ Стандартные методы не работают, пробуем альтернативы');
+                // Специальная обработка для Android
+                if (telegramWebApp.platform === 'android') {
+                    console.log('🤖 Android - пробуем специальные методы');
                     
-                    // Альтернативный подход для мобильных устройств
-                    video.style.position = 'fixed';
-                    video.style.top = '0';
-                    video.style.left = '0';
-                    video.style.width = '100vw';
-                    video.style.height = '100vh';
-                    video.style.zIndex = '9999';
-                    video.style.backgroundColor = '#000';
-                    console.log('🎬 Применен альтернативный полноэкранный режим для мобильного');
+                    // Для Android пробуем разные методы в определенном порядке
+                    if ((video as any).webkitRequestFullscreen) {
+                        console.log('✅ Android: используем webkitRequestFullscreen()');
+                        (video as any).webkitRequestFullscreen();
+                    } else if (video.requestFullscreen) {
+                        console.log('✅ Android: используем requestFullscreen()');
+                        video.requestFullscreen();
+                    } else {
+                        console.log('⚠️ Android: стандартные методы не работают, применяем CSS fallback');
+                        applyMobileFullscreenFallback(video);
+                    }
+                } else {
+                    // Для iOS используем стандартные методы
+                    console.log('🍎 iOS - используем стандартные методы');
+                    
+                    if ((video as any).webkitEnterFullscreen) {
+                        console.log('✅ iOS: используем webkitEnterFullscreen()');
+                        (video as any).webkitEnterFullscreen();
+                    } else if ((video as any).webkitRequestFullscreen) {
+                        console.log('✅ iOS: используем webkitRequestFullscreen()');
+                        (video as any).webkitRequestFullscreen();
+                    } else if (video.requestFullscreen) {
+                        console.log('✅ iOS: используем requestFullscreen()');
+                        video.requestFullscreen();
+                    } else {
+                        console.log('⚠️ iOS: стандартные методы не работают, применяем CSS fallback');
+                        applyMobileFullscreenFallback(video);
+                    }
                 }
             } else {
                 // Стандартный подход для десктопа
@@ -1071,13 +1167,7 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
             // Fallback для мобильных устройств
             if (isMobileDevice) {
                 console.log('🔄 Применяем fallback для мобильного устройства');
-                video.style.position = 'fixed';
-                video.style.top = '0';
-                video.style.left = '0';
-                video.style.width = '100vw';
-                video.style.height = '100vh';
-                video.style.zIndex = '9999';
-                video.style.backgroundColor = '#000';
+                applyMobileFullscreenFallback(video);
             }
         }
     };
@@ -1169,13 +1259,7 @@ const UpdatesPage: React.FC<UpdatesPageProps> = ({ onBack }) => {
                 console.log('🔙 Escape нажат - выходим из альтернативного полноэкранного режима');
                 
                 // Восстанавливаем нормальные стили видео
-                video.style.position = '';
-                video.style.top = '';
-                video.style.left = '';
-                video.style.width = '';
-                video.style.height = '';
-                video.style.zIndex = '';
-                video.style.backgroundColor = '';
+                restoreOriginalStyles(video);
                 
                 // Также выходим из стандартного полноэкранного режима
                 if (document.fullscreenElement) {

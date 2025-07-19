@@ -23,9 +23,10 @@ setup_logging()
 
 # Создание таблиц в базе данных (если они еще не созданы)
 async def create_tables():
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("Database tables checked/created.")
+    # Отключаем автоматическое создание таблиц, так как используем Alembic миграции
+    # и есть проблемы с дублированием индексов
+    logger.info("Database tables creation skipped - using Alembic migrations.")
+    pass
 
 
 redis_client = None

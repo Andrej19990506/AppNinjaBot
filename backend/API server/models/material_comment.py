@@ -9,10 +9,10 @@ class MaterialComment(Base):
     __tablename__ = "material_comments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    material_id = Column(Integer, nullable=False, index=True, comment="ID обучающего материала")
-    user_id = Column(BigInteger, ForeignKey("members.user_id"), nullable=False, index=True)
+    material_id = Column(Integer, nullable=False, comment="ID обучающего материала")
+    user_id = Column(BigInteger, ForeignKey("members.user_id"), nullable=False)
     message = Column(Text, nullable=False, comment="Текст комментария")
-    reply_to = Column(UUID(as_uuid=True), ForeignKey("material_comments.id"), nullable=True, index=True, comment="ID комментария-родителя для ответов")
+    reply_to = Column(UUID(as_uuid=True), ForeignKey("material_comments.id"), nullable=True, comment="ID комментария-родителя для ответов")
     edited = Column(Boolean, nullable=False, server_default='false', comment="Был ли комментарий отредактирован")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

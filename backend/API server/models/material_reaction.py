@@ -9,8 +9,8 @@ class MaterialReaction(Base):
     __tablename__ = "material_reactions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    material_id = Column(Integer, nullable=False, index=True, comment="ID обучающего материала")
-    user_id = Column(BigInteger, ForeignKey("members.user_id"), nullable=False, index=True)
+    material_id = Column(Integer, nullable=False, comment="ID обучающего материала")
+    user_id = Column(BigInteger, ForeignKey("members.user_id"), nullable=False)
     emoji = Column(String(10), nullable=False, comment="Эмодзи реакции (❤️, 👍, 🔥, etc.)")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

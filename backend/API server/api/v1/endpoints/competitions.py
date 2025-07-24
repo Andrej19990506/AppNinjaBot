@@ -1,5 +1,5 @@
 # backend/API server/api/v1/endpoints/competitions.py
-from fastapi import APIRouter, Depends, HTTPException, Query, status, Body
+from fastapi import APIRouter, Depends, HTTPException, Query, status, Body, Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
@@ -16,13 +16,29 @@ from sqlalchemy import and_
 
 router = APIRouter()
 
+# Простая зависимость для получения user_id из заголовка
+async def get_current_user_id(x_user_id: Optional[str] = Header(None)) -> int:
+    """Получить ID текущего пользователя из заголовка X-User-ID"""
+    if not x_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User ID header is required"
+        )
+    try:
+        return int(x_user_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid user ID format"
+        )
+
 # --- Основные эндпоинты для конкурсов ---
 
 @router.post("/", response_model=CompetitionResponse, status_code=status.HTTP_201_CREATED)
-def create_competition(
+async def create_competition(
     competition: CompetitionCreate,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Создать новый конкурс"""
     return competition_crud.create(db, competition, current_user_id)
@@ -62,11 +78,11 @@ def get_competition(competition_id: int, db: Session = Depends(get_db)):
     return competition
 
 @router.put("/{competition_id}", response_model=CompetitionResponse)
-def update_competition(
+async def update_competition(
     competition_id: int,
     competition: CompetitionUpdate,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Обновить конкурс"""
     db_competition = competition_crud.get(db, competition_id)
@@ -83,10 +99,10 @@ def update_competition(
     return updated_competition
 
 @router.delete("/{competition_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_competition(
+async def delete_competition(
     competition_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Удалить конкурс"""
     db_competition = competition_crud.get(db, competition_id)
@@ -104,10 +120,10 @@ def delete_competition(
 # --- Эндпоинты для управления статусом ---
 
 @router.post("/{competition_id}/publish", response_model=CompetitionResponse)
-def publish_competition(
+async def publish_competition(
     competition_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Опубликовать конкурс"""
     db_competition = competition_crud.get(db, competition_id)
@@ -124,10 +140,10 @@ def publish_competition(
     return published_competition
 
 @router.post("/{competition_id}/start", response_model=CompetitionResponse)
-def start_competition(
+async def start_competition(
     competition_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Запустить конкурс"""
     db_competition = competition_crud.get(db, competition_id)
@@ -144,10 +160,10 @@ def start_competition(
     return started_competition
 
 @router.post("/{competition_id}/complete", response_model=CompetitionResponse)
-def complete_competition(
+async def complete_competition(
     competition_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Завершить конкурс"""
     db_competition = competition_crud.get(db, competition_id)
@@ -199,11 +215,11 @@ def get_participants(
     )
 
 @router.delete("/{competition_id}/participants/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_participant(
+async def remove_participant(
     competition_id: int,
     user_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Удалить участника из конкурса"""
     # TODO: Проверить права доступа (участник может удалить себя, создатель может удалить любого)
@@ -236,11 +252,11 @@ def update_participant_result(
 # --- Эндпоинты для победителей ---
 
 @router.post("/{competition_id}/winners", response_model=WinnerResponse, status_code=status.HTTP_201_CREATED)
-def add_winner(
+async def add_winner(
     competition_id: int,
     winner: WinnerCreate,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Добавить победителя конкурса"""
     db_competition = competition_crud.get(db, competition_id)
@@ -248,9 +264,8 @@ def add_winner(
         raise HTTPException(status_code=404, detail="Конкурс не найден")
     
     # TODO: Проверить права доступа (только создатель может добавлять победителей)
-    # Временно отключено для тестирования
-    # if db_competition.created_by != current_user_id:
-    #     raise HTTPException(status_code=403, detail="Нет прав для добавления победителя")
+    if db_competition.created_by != current_user_id:
+        raise HTTPException(status_code=403, detail="Нет прав для добавления победителя")
     
     db_winner = competition_crud.add_winner(db, competition_id, winner)
     if not db_winner:
@@ -279,11 +294,11 @@ def get_winners(
     )
 
 @router.delete("/{competition_id}/winners/{winner_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_winner(
+async def remove_winner(
     competition_id: int,
     winner_id: int,
     db: Session = Depends(get_db),
-    current_user_id: int = Depends(lambda: 123)  # TODO: Заменить на реальную аутентификацию
+    current_user_id: int = Depends(get_current_user_id)
 ):
     """Удалить победителя из конкурса по ID победителя"""
     db_competition = competition_crud.get(db, competition_id)

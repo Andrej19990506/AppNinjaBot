@@ -1,6 +1,21 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { axiosInstance } from '@/shared/api/api';
 import { Competition, CompetitionStatus } from '@/features/Competitions/types/competition';
+import store from '@/shared/store/store';
+
+// Функция для получения заголовков с user_id
+const getAuthHeaders = () => {
+    const state = store.getState();
+    const userId = state.user?.user?.id;
+    
+    if (!userId) {
+        throw new Error('User not authenticated');
+    }
+    
+    return {
+        'X-User-ID': userId.toString()
+    };
+};
 
 interface CompetitionsState {
   competitions: Competition[];
@@ -79,7 +94,9 @@ export const updateCompetition = createAsyncThunk(
   'competitions/updateCompetition',
   async ({ id, data }: { id: number; data: any }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.put(`/v1/competitions/${id}`, data);
+      const response = await axiosInstance.put(`/v1/competitions/${id}`, data, {
+        headers: getAuthHeaders()
+      });
       return response.data;
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Не удалось обновить конкурс';
@@ -92,7 +109,9 @@ export const publishCompetition = createAsyncThunk(
   'competitions/publishCompetition',
   async (competitionId: number, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/publish`);
+      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/publish`, {}, {
+        headers: getAuthHeaders()
+      });
       return response.data;
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Не удалось опубликовать конкурс';
@@ -105,7 +124,9 @@ export const startCompetition = createAsyncThunk(
   'competitions/startCompetition',
   async (competitionId: number, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/start`);
+      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/start`, {}, {
+        headers: getAuthHeaders()
+      });
       return response.data;
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Не удалось запустить конкурс';
@@ -118,7 +139,9 @@ export const addWinner = createAsyncThunk(
   'competitions/addWinner',
   async ({ competitionId, winnerData }: { competitionId: number; winnerData: any }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/winners`, winnerData);
+      const response = await axiosInstance.post(`/v1/competitions/${competitionId}/winners`, winnerData, {
+        headers: getAuthHeaders()
+      });
       return response.data;
     } catch (error: any) {
       const message = error.response?.data?.detail || error.message || 'Не удалось добавить победителя';

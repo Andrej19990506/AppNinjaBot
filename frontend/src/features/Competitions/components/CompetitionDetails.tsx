@@ -11,6 +11,7 @@ import RichTextEditor from '@/shared/components/RichTextEditor';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateCompetition, addWinner, fetchCompetitionById, fetchCompetitions, addParticipant, publishCompetition } from '@/store/slices/competitionsSlice';
 import { AppDispatch, RootState } from '@/store';
+import store from '@/shared/store/store';
 import { addNotification } from '@/shared/store/notificationSlice/notificationSlice';
 import { NotificationTypes } from '@/shared/store/notificationSlice/notificationTypes';
 import WinnerSelectionModal from './WinnerSelectionModal';
@@ -807,7 +808,18 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
 
     const handlePublishCompetition = async () => {
         try {
-            await axiosInstance.post(`/v1/competitions/${currentCompetition.id}/publish`);
+            const state = store.getState();
+            const userId = state.user?.user?.id;
+            
+            if (!userId) {
+                throw new Error('User not authenticated');
+            }
+            
+            await axiosInstance.post(`/v1/competitions/${currentCompetition.id}/publish`, {}, {
+                headers: {
+                    'X-User-ID': userId.toString()
+                }
+            });
             dispatch(fetchCompetitionById(currentCompetition.id));
             dispatch(addNotification({
                 type: NotificationTypes.SUCCESS,

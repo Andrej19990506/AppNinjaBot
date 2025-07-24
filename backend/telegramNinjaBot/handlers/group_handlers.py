@@ -636,6 +636,16 @@ class GroupHandler:
             if group_type == "inventory":
                 await self._link_inventory_group_to_chef_groups(chat, context)
 
+            # --- ДОБАВЛЯЕМ ПРИВЕТСТВИЕ ДЛЯ ГРУППЫ КОНКУРСОВ ---
+            if chat.title and (chat.title.lower().strip() == "конкурсы" or "конкурс" in chat.title.lower()):
+                welcome_text = (
+                    "👋 Добро пожаловать в группу конкурсов!\n\n"
+                    "📹 Для участия отправьте видео (до 2 ГБ) с подписью:\n"
+                    "ФИ участника, филиал, и другую нужную информацию.\n\n"
+                    "⚠️ Видео без подписи или превышающее 2 ГБ не принимается!"
+                )
+                await context.bot.send_message(chat_id=chat.id, text=welcome_text)
+
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке добавления бота (сохранение данных): {str(e)}")
             logger.error(traceback.format_exc())
@@ -958,34 +968,20 @@ class GroupHandler:
             old_status = old_member.status if old_member else None
             new_status = new_member.status if new_member else None
 
-            # Используем f-string аккуратно, без лишних кавычек внутри
-            chat_title_safe = chat.title.replace("'", "\\\\'") # Экранируем кавычки для логов
+            chat_title_safe = chat.title.replace("'", "\\'") if chat.title else "" # Экранируем кавычки для логов
             logger.info(f"=== Обновление статуса бота в чате '{chat_title_safe}' (ID: {chat.id}) ===")
             logger.info(f"Старый статус: {old_status}, Новый статус: {new_status}")
 
-            # Получаем стандартизированный ID чата
             standardized_chat_id = await self._get_standardized_chat_id(chat.id)
-            original_chat_id = await self._get_original_chat_id(standardized_chat_id) # Используем для API и сохранения
+            original_chat_id = await self._get_original_chat_id(standardized_chat_id)
 
-            # --- НОВАЯ ЛОГИКА: Отправка приветствия и обработка добавления/изменения прав ---
+            # --- Оставляем приветствие только для курьерских групп ---
             if new_status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
-                # Бота добавили или сделали админом
-                if new_status == ChatMemberStatus.MEMBER and old_status != ChatMemberStatus.MEMBER:
-                    logger.info(f"Бота ({self.bot_id}) добавили как участника в чат '{chat_title_safe}' ({chat.id}).")
-                elif new_status == ChatMemberStatus.ADMINISTRATOR:
-                     logger.info(f"Бота ({self.bot_id}) сделали администратором в чате '{chat_title_safe}' ({chat.id}). Обновляем данные.")
-
-                # 1. Сохраняем/Обновляем данные о группе (вызываем _process_bot_added) - ДЕЛАЕМ ВСЕГДА
                 await self._process_bot_added(chat, context)
-
-                # 2. Отправляем приветственное сообщение ТОЛЬКО ПРИ ПЕРВОМ ДОБАВЛЕНИИ
-                # Проверяем, что это именно переход в статус MEMBER (не просто повышение до админа)
-                # и что предыдущий статус не был MEMBER или ADMIN (т.е. бот был добавлен, а не уже был в чате)
                 if new_status == ChatMemberStatus.MEMBER and old_status not in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
                     is_courier = self.db_service.is_group_of_type(chat.title, "courier")
                     logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам для отправки приветствия при первом добавлении: {is_courier}")
                     if is_courier:
-                        # --- Отправляем Reply кнопку (этот блок теперь внутри условия первого добавления) ---
                         reply_keyboard = ReplyKeyboardMarkup(
                             [[
                                 KeyboardButton("✅ Зарегистрироваться в боте") 
@@ -993,9 +989,7 @@ class GroupHandler:
                             resize_keyboard=True,
                             one_time_keyboard=True
                         )
-
                         try:
-                            # Отправляем сообщение с Reply кнопкой
                             logger.info(f"Попытка отправить приветственное сообщение с Reply кнопкой (первое добавление) в чат {chat.id} из handle_my_chat_member")
                             message = await context.bot.send_message(
                                 chat_id=chat.id, # Используем chat.id из объекта update
@@ -1008,50 +1002,37 @@ class GroupHandler:
                                 reply_markup=reply_keyboard
                             )
                             logger.info(f"✅ Приветственное сообщение с Reply кнопкой (первое добавление) успешно отправлено в группу {chat.title} (ID: {chat.id})")
-
                         except telegram.error.BadRequest as e:
-                             # Пробуем с original_chat_id если chat.id не сработал
-                             if "chat not found" in str(e).lower():
-                                 logger.warning(f"Не удалось отправить приветствие с chat_id={chat.id} (Chat not found), пробую original_chat_id={original_chat_id}")
-                                 try:
-                                     message = await context.bot.send_message(
-                                         chat_id=original_chat_id, 
-                                         text=(
-                                             f"👋 Приветствую участников группы {chat.title}!\n\n"
-                                             "Я помогу с записью на смены. "
-                                             "Чтобы я мог вас узнать и вы получили доступ ко всем функциям, "
-                                             "нажмите кнопку \"✅ Зарегистрироваться в боте\" ниже 👇"
-                                         ),
-                                         reply_markup=reply_keyboard
-                                     )
-                                     logger.info(f"✅ Приветственное сообщение с Reply кнопкой (первое добавление) успешно отправлено в группу {chat.title} (ID: {original_chat_id})")
-                                 except Exception as e2:
-                                     logger.error(f"❌ Ошибка при отправке приветственного сообщения с Reply кнопкой (попытка 2 с original_chat_id) в чате {original_chat_id}: {str(e2)}")
-                                     logger.error(traceback.format_exc())
-                             else:
-                                 # Другая ошибка BadRequest
-                                 logger.error(f"❌ Ошибка BadRequest при отправке приветственного сообщения с Reply кнопкой в чате {chat.id}: {str(e)}")
-                                 logger.error(traceback.format_exc())
+                            if "chat not found" in str(e).lower():
+                                logger.warning(f"Не удалось отправить приветствие с chat_id={chat.id} (Chat not found), пробую original_chat_id={original_chat_id}")
+                                try:
+                                    message = await context.bot.send_message(
+                                        chat_id=original_chat_id, 
+                                        text=(
+                                            f"👋 Приветствую участников группы {chat.title}!\n\n"
+                                            "Я помогу с записью на смены. "
+                                            "Чтобы я мог вас узнать и вы получили доступ ко всем функциям, "
+                                            "нажмите кнопку \"✅ Зарегистрироваться в боте\" ниже 👇"
+                                        ),
+                                        reply_markup=reply_keyboard
+                                    )
+                                    logger.info(f"✅ Приветственное сообщение с Reply кнопкой (первое добавление) успешно отправлено в группу {chat.title} (ID: {original_chat_id})")
+                                except Exception as e2:
+                                    logger.error(f"❌ Ошибка при отправке приветственного сообщения с Reply кнопкой (попытка 2 с original_chat_id) в чате {original_chat_id}: {str(e2)}")
+                                    logger.error(traceback.format_exc())
+                            else:
+                                logger.error(f"❌ Ошибка BadRequest при отправке приветственного сообщения с Reply кнопкой в чате {chat.id}: {str(e)}")
+                                logger.error(traceback.format_exc())
                         except Exception as e:
-                            # Любая другая ошибка
                             logger.error(f"❌ Непредвиденная ошибка при отправке приветственного сообщения с Reply кнопкой в чате {chat.id}: {str(e)}")
                             logger.error(traceback.format_exc())
-                        # --- КОНЕЦ отправки Reply кнопки ---
-                else:
-                     # Если статус изменился на ADMIN, или уже был MEMBER/ADMIN, приветствие не отправляем
-                     logger.info("Приветственное сообщение не отправляется (бот уже был в чате или повышен до админа).")
-                         
-            # --- Логика удаления ---
+                    else:
+                        logger.info("Приветственное сообщение не отправляется (бот уже был в чате или повышен до админа, либо это не курьерская группа).")
             elif new_status in [ChatMemberStatus.LEFT, ChatMemberStatus.BANNED]:
-                # Бота удалили или он сам вышел
                 logger.warning(f"Бота ({self.bot_id}) удалили (статус: {new_status}) из чата '{chat_title_safe}' ({original_chat_id}).")
-                # Удаляем всю информацию о группе
                 await self._delete_group_data(original_chat_id, chat.title)
-
-            # --- Прочие статусы ---
             else:
-                 logger.info(f"Статус бота ({self.bot_id}) в чате '{chat_title_safe}' ({chat.id}) изменен с {old_status} на {new_status}. Это изменение не требует специальных действий в handle_my_chat_member.")
-
+                logger.info(f"Статус бота ({self.bot_id}) в чате '{chat_title_safe}' ({chat.id}) изменен с {old_status} на {new_status}. Это изменение не требует специальных действий в handle_my_chat_member.")
         except Exception as e:
             chat_id_for_error = update.effective_chat.id if update.effective_chat else "Неизвестно"
             logger.error(f"❌ Ошибка в handle_my_chat_member для чата {chat_id_for_error}: {e}")
@@ -2469,3 +2450,28 @@ class GroupHandler:
                 )
             except:
                 pass
+
+    async def handle_competition_video(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        message = update.effective_message
+        chat = message.chat
+        if not chat.title or (chat.title.lower().strip() != "конкурсы" and "конкурс" not in chat.title.lower()):
+            return
+        video = message.video
+        document = message.document
+        # Проверяем обычное видео
+        if video:
+            file_size = video.file_size
+        # Проверяем видео-файл (mp4)
+        elif document and document.mime_type and document.mime_type.startswith("video/"):
+            file_size = document.file_size
+        else:
+            return
+        if file_size > 2 * 1024 * 1024 * 1024:
+            await message.reply_text("❌ Видео превышает 2 ГБ и не принимается!")
+            return
+        if not message.caption or len(message.caption.strip()) < 5:
+            await message.reply_text("❌ К видео обязательно нужно добавить подпись: ФИ участника и филиал!")
+            return
+        channel_id = str(chat.id).replace("-100", "") if str(chat.id).startswith("-100") else str(chat.id).replace("-", "")
+        link = f"https://t.me/c/{channel_id}/{message.message_id}"
+        await message.reply_text(f"✅ Видео принято! Ссылка на видео: {link}")

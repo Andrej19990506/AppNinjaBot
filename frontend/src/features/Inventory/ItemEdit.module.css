@@ -654,3 +654,34 @@
     }
 }
 /* <<< КОНЕЦ: Стили для спиннера >>> */
+
+.chartIconWrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--primary-color);
+    margin-bottom: 8px;
+    margin-left: 4px;
+    transition: color 0.2s;
+}
+.chartIconWrapper:hover {
+    color: var(--orange-light);
+}
+.chartIcon {
+    font-size: 1.2em;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    max-width: 22px;
+    max-height: 22px;
+    filter: drop-shadow(0 0 6px var(--primary-transparent));
+    display: inline-block;
+    vertical-align: middle;
+}
+.chartLabel {
+    font-size: 1em;
+    font-weight: 500;
+    opacity: 0.85;
+}

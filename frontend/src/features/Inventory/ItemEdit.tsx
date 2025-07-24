@@ -503,8 +503,24 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         </>
     );
 
+    // SVG иконка графика
+    const ChartIcon = (props: React.SVGProps<SVGSVGElement>) => (
+        <svg viewBox="0 0 24 24" fill="none" {...props}>
+            <path d="M4 18L10 12L14 16L20 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="4" cy="18" r="1.5" fill="currentColor" />
+            <circle cx="10" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="14" cy="16" r="1.5" fill="currentColor" />
+            <circle cx="20" cy="8" r="1.5" fill="currentColor" />
+        </svg>
+    );
+
     return (
         <div className={styles.container}>
+            {/* Иконка графика над карточкой сырья */}
+            <div className={styles.chartIconWrapper}>
+                <ChartIcon className={styles.chartIcon} />
+                <span className={styles.chartLabel}>График</span>
+            </div>
             {renderCards}
             
             {!item.semifinished && (

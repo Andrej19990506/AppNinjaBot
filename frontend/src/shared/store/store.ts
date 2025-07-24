@@ -16,6 +16,7 @@ import availableCouriersReducer from '@/features/courierSchedule/store/courierSl
 import eventsReducer from '@/store/slices/eventsSlice';
 import atoModalReducer from '@/store/slices/atoModalSlice';
 import socketReducer, { socketConnected, socketDisconnected } from '@/store/slices/socketSlice';
+import competitionsReducer from '@/store/slices/competitionsSlice';
 
 // --- Middleware для прослушивания событий ---
 export const listenerMiddleware = createListenerMiddleware();
@@ -88,6 +89,7 @@ const store = configureStore({
         availableCouriers: availableCouriersReducer,
         events: eventsReducer,
         atoModal: atoModalReducer,
+        competitions: competitionsReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -110,6 +112,7 @@ export type RootState = {
     availableCouriers: ReturnType<typeof availableCouriersReducer>;
     events: ReturnType<typeof eventsReducer>;
     atoModal: ReturnType<typeof atoModalReducer>;
+    competitions: ReturnType<typeof competitionsReducer>;
 };
 export type AppDispatch = typeof store.dispatch;
 

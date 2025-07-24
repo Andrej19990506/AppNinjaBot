@@ -20,6 +20,8 @@ from .endpoints.user_permissions import router as user_permissions_router
 
 from .endpoints.materials import router as materials_router
 
+from .endpoints.competitions import router as competitions_router
+
 api_router = APIRouter()
 
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
@@ -40,3 +42,5 @@ api_router.include_router(write_offs_router, prefix="/write-offs", tags=["Write-
 api_router.include_router(user_permissions_router, prefix="/user-permissions", tags=["User Permissions"])
 
 api_router.include_router(materials_router, tags=["Materials"])
+
+api_router.include_router(competitions_router, prefix="/competitions", tags=["Competitions"])

@@ -7,7 +7,9 @@ export const DrawerOverlay = styled(motion.div)`
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5); /* Полупрозрачный фон */
+    background-color: rgba(0, 0, 0, 0.6); /* Более темный фон */
+    backdrop-filter: blur(8px); /* Размытие фона */
+    -webkit-backdrop-filter: blur(8px); /* Для Safari */
     z-index: 999; /* Над остальным контентом */
 `;
 
@@ -16,10 +18,8 @@ export const DrawerContainer = styled(motion.div)`
     bottom: 0;
     left: 0;
     right: 0;
-    height: 80vh; /* Высота шторки */
+    height: 100vh; /* Полная высота экрана */
     background-color: var(--card-background); /* Фон самой шторки */
-    border-top-left-radius: var(--radius-lg);
-    border-top-right-radius: var(--radius-lg);
     box-shadow: 0px -4px 15px rgba(0, 0, 0, 0.1);
     z-index: 1000; /* Выше оверлея */
     display: flex;

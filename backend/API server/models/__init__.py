@@ -10,6 +10,7 @@ from .write_off import WriteOff
 from .user_permission import UserPermission
 from .material_comment import MaterialComment
 from .material_reaction import MaterialReaction
+from .competition import Competition, CompetitionParticipant, CompetitionWinner, CompetitionStatus
 
 __all__ = [
     "Base",
@@ -24,4 +25,8 @@ __all__ = [
     "UserPermission",
     "MaterialComment",
     "MaterialReaction",
+    "Competition",
+    "CompetitionParticipant", 
+    "CompetitionWinner",
+    "CompetitionStatus",
 ] 

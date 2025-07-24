@@ -138,6 +138,14 @@ async def lifespan(app: FastAPI):
         bot_app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, group_handler.handle_new_chat_members), group=-1)
         bot_app.add_handler(ChatMemberHandler(group_handler.handle_chat_member_update, ChatMemberHandler.CHAT_MEMBER), group=0)
         bot_app.add_handler(MessageHandler(filters.StatusUpdate.LEFT_CHAT_MEMBER, group_handler.handle_left_chat_member), group=0)
+        # --- ДОБАВЛЯЕМ ОБРАБОТЧИК ВИДЕО ДЛЯ КОНКУРСОВ ---
+        bot_app.add_handler(
+            MessageHandler(
+                (filters.VIDEO | (filters.Document.MimeType("video/mp4"))) & filters.ChatType.GROUPS,
+                group_handler.handle_competition_video
+            )
+        )
+        logger.info("✅ Обработчик видео для конкурсов зарегистрирован")
         # Команды
         bot_app.add_handler(CommandHandler("start", handle_start))
         bot_app.add_handler(CommandHandler("registry", handle_registry))

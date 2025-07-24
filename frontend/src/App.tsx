@@ -26,6 +26,7 @@ import TelegramAccessError from './shared/components/TelegramAccessError/Telegra
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
 import TutorialMaterials from './features/MainMenu/TutorialMaterials';
+import Competitions from './features/Competitions/Competitions';
 
 
 
@@ -244,6 +245,7 @@ function App() {
                 <Route path="/chef/inventory" element={<InventoryPage />} />
                 <Route path="/chef/write-off" element={<WriteOff />} />
                 <Route path="/inventory/:chatId" element={<InventoryPage />} />
+                <Route path="/competitions" element={<Competitions />} />
                 <Route path="*" element={<AutoRedirectByRole />} />
               </Routes>
             </AppInitializer>

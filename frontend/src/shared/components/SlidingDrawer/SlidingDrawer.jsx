@@ -14,7 +14,7 @@ const overlayVariants = {
 };
 
 const drawerVariants = {
-    hidden: { y: '80vh' }, // Начинаем ниже экрана (на всю высоту шторки)
+    hidden: { y: '100vh' }, // Начинаем ниже экрана (на всю высоту экрана)
     visible: { 
         y: 0, // Поднимаем до низа экрана
         transition: { 
@@ -24,7 +24,7 @@ const drawerVariants = {
         }
     },
     exit: { 
-        y: '80vh', // Опускаем обратно
+        y: '100vh', // Опускаем обратно
         transition: { duration: 0.25 } // Чуть быстрее, чем появление фона
     }
 };

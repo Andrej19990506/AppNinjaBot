@@ -398,6 +398,73 @@ async def get_slot_config(
     logger.info(f"[get_slot_config] Returning slot config for group {group_telegram_id}: {slot_config_data}")
     return SlotConfigResponse(config=slot_config_data)
 
+# --- Эндпоинт для получения участников группы ---
+class GroupMemberInfo(BaseModel):
+    id: int
+    user_id: int
+    user_name: str
+    user_position: str
+    user_department: str
+    role: str
+    photo_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+@router.get(
+    "/{group_telegram_id}/members",
+    response_model=List[GroupMemberInfo],
+    summary="Get Group Members",
+    description="Retrieves a list of all members in the specified group.",
+    tags=["Groups", "Members"]
+)
+async def get_group_members(
+    group_telegram_id: int = Path(..., description="Telegram ID of the group"),
+    db: AsyncSession = Depends(get_db_session)
+):
+    """
+    Получает список всех участников группы.
+    """
+    logger.info(f"[get_group_members] GET /groups/{group_telegram_id}/members")
+    
+    # Находим группу по telegram_id
+    group = await get_group_by_telegram_id(db, group_telegram_id)
+    if not group:
+        logger.warning(f"[get_group_members] Группа {group_telegram_id} не найдена")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+    
+    # Запрос для получения участников группы
+    members_query = (
+        select(GroupMember, Member)
+        .join(Member, GroupMember.member_id == Member.id)
+        .where(GroupMember.group_id == group.id)
+        .order_by(Member.first_name, Member.last_name)
+    )
+    
+    result = await db.execute(members_query)
+    members_data = result.all()
+    
+    # Формируем ответ
+    members_list = []
+    for group_member, member in members_data:
+        # Формируем полное имя
+        full_name = f"{member.first_name or ''} {member.last_name or ''}".strip()
+        if not full_name:
+            full_name = member.username or f"User {member.user_id}"
+        
+        members_list.append(GroupMemberInfo(
+            id=group_member.id,
+            user_id=member.user_id,
+            user_name=full_name,
+            user_position=member.first_name or "Участник",  # Можно добавить поле position в Member
+            user_department=member.last_name or "Отдел",    # Можно добавить поле department в Member
+            role=group_member.role,
+            photo_url=member.photo_url
+        ))
+    
+    logger.info(f"[get_group_members] Found {len(members_list)} members in group {group_telegram_id}")
+    return members_list
+
 # --- Модели Pydantic для обновления статуса старшего --- 
 class SeniorityUpdate(BaseModel):
     is_senior_courier: bool # Статус не может быть null при явном обновлении

@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
+import { useNavigate } from 'react-router-dom';
 import CloseIcon from '@mui/icons-material/Close';
 import SchoolIcon from '@mui/icons-material/School';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import EventIcon from '@mui/icons-material/Event';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppSelector } from '@/shared/store/hooks';
 import { RootState } from '@/shared/store/store';
@@ -216,6 +218,7 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
     isOpen, 
     onClose
 }) => {
+    const navigate = useNavigate();
     const [hasMounted, setHasMounted] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
     const { theme, toggleTheme } = useTheme();
@@ -245,6 +248,18 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
             onClose();
             // Сигнализируем что переход завершен
             window.dispatchEvent(new CustomEvent('openTutorialMaterials'));
+        }, 200);
+    };
+
+    const handleCompetitionsClick = () => {
+        // Запускаем анимацию закрытия панели
+        setInternalOpen(false);
+        
+        // Ждем завершения анимации
+        setTimeout(() => {
+            onClose();
+            // Переходим на страницу конкурсов
+            navigate('/competitions');
         }, 200);
     };
 
@@ -296,6 +311,10 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
                 <MenuOption onClick={handleTutorialClick}>
                     <OptionLabel>Обучающие материалы</OptionLabel>
                     <OptionIcon><SchoolIcon fontSize="inherit" /></OptionIcon>
+                </MenuOption>
+                <MenuOption onClick={handleCompetitionsClick}>
+                    <OptionLabel>Конкурсы</OptionLabel>
+                    <OptionIcon><EventIcon fontSize="inherit" /></OptionIcon>
                 </MenuOption>
             </PanelContent>
 

@@ -334,7 +334,7 @@ const CompetitionCard: React.FC<CompetitionCardProps> = ({ competition, onClick 
                         <WinnerAvatar style={{ background: 'var(--success-color)' }}>
                             {competition.winners[0].winner_data?.photo_url ? (
                                 <img 
-                                    src={`http://localhost:8000/api/v1/users/${competition.winners[0].user_id}/photo`}
+                                    src={`${window.APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL}/v1/users/${competition.winners[0].user_id}/photo`}
                                     alt={competition.winners[0].user_name}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                                     onError={(e) => {

@@ -17,7 +17,7 @@ import WinnerSelectionModal from './WinnerSelectionModal';
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import VictoryDescriptionModal from './VictoryDescriptionModal';
 import ParticipantsRankingModal from './ParticipantsRankingModal';
-import axios from 'axios';
+import { axiosInstance } from '@/shared/api/api';
 
 const DetailsContainer = styled.div`
     height: 100dvh;
@@ -566,12 +566,12 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
     }, []);
 
     useEffect(() => {
-        axios.get(`http://localhost:8000/api/v1/competitions/${currentCompetition.id}/participants`)
-            .then(res => {
+        axiosInstance.get(`/v1/competitions/${currentCompetition.id}/participants`)
+            .then((res: any) => {
                 console.log('Participants response:', res.data);
                 setParticipants(res.data.participants || []);
             })
-            .catch((error) => {
+            .catch((error: any) => {
                 console.error('Error fetching participants:', error);
                 setParticipants([]);
             });
@@ -807,7 +807,7 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
 
     const handlePublishCompetition = async () => {
         try {
-            await axios.post(`http://localhost:8000/api/v1/competitions/${currentCompetition.id}/publish`);
+            await axiosInstance.post(`/v1/competitions/${currentCompetition.id}/publish`);
             dispatch(fetchCompetitionById(currentCompetition.id));
             dispatch(addNotification({
                 type: NotificationTypes.SUCCESS,
@@ -904,7 +904,7 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
                                         marginBottom: 18
                                     }}>
                                         <img
-                                            src={`http://localhost:8000/api/v1/users/${userId}/photo`}
+                                            src={`${window.APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL}/v1/users/${userId}/photo`}
                                             alt={user?.first_name}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', display: 'block' }}
                                             onError={e => {
@@ -973,7 +973,7 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
                                         <WinnerAvatar>
                                             {currentCompetition.winners[0].winner_data?.photo_url ? (
                                                 <img 
-                                                    src={`http://localhost:8000/api/v1/users/${currentCompetition.winners[0].user_id}/photo`}
+                                                    src={`${window.APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL}/v1/users/${currentCompetition.winners[0].user_id}/photo`}
                                                     alt={currentCompetition.winners[0].user_name}
                                                     style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
                                                     onError={(e) => {

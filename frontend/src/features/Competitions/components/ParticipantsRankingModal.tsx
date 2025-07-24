@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import { axiosInstance } from '@/shared/api/api';
 
 interface Participant {
     id: number;
@@ -373,7 +373,7 @@ const ParticipantsRankingModal: React.FC<ParticipantsRankingModalProps> = ({
         try {
             setLoading(true);
             setError(null);
-            const response = await axios.get(`http://localhost:8000/api/v1/competitions/${competitionId}/participants`);
+            const response = await axiosInstance.get(`/v1/competitions/${competitionId}/participants`);
             console.log('Participants response:', response.data);
             console.log('Response type:', typeof response.data);
             console.log('Is array:', Array.isArray(response.data));
@@ -449,7 +449,7 @@ const ParticipantsRankingModal: React.FC<ParticipantsRankingModalProps> = ({
         if (!editResultId) return;
         setSavingResult(true);
         try {
-            await axios.patch(`http://localhost:8000/api/v1/competitions/${competitionId}/participants/${editResultId}/result`, {
+            await axiosInstance.patch(`/v1/competitions/${competitionId}/participants/${editResultId}/result`, {
                 result_score: Number(editResultValue),
                 user_id: currentUserId,
                 video_url: editResultVideoUrl
@@ -550,7 +550,7 @@ const ParticipantsRankingModal: React.FC<ParticipantsRankingModalProps> = ({
 
                                                 <Avatar>
                                                     <img
-                                                        src={`http://localhost:8000/api/v1/users/${participant.user_id}/photo`}
+                                                        src={`${window.APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL}/v1/users/${participant.user_id}/photo`}
                                                         alt={participant.user_name || 'Участник'}
                                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                                         onError={(e) => {

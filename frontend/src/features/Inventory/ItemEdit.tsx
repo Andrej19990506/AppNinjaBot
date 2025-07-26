@@ -3,7 +3,7 @@ import styles from '@features/Inventory/ItemEdit.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
 import { socketService } from '@shared/services/socketService';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { updateInventoryItem, updateProgress, fetchItemHistory } from '@/store/slices/inventorySlice';
+import { updateInventoryItem, updateProgress, fetchItemHistory, selectHistoryRecordsForItem } from '@/store/slices/inventorySlice';
 
 interface ItemEditProps {
     category: string;
@@ -15,6 +15,7 @@ interface ItemEditProps {
     onDelete?: () => void;
     onCancel?: () => void;
     onSave?: (updatedItem: InventoryItem) => void;
+    onShowAnalytics?: () => void; // Добавляем новый пропс
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
@@ -26,7 +27,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     chatId, 
     onDelete, 
     onCancel, 
-    onSave 
+    onSave, 
+    onShowAnalytics
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [_isAddingItem, _setIsAddingItem] = useState(false);
@@ -38,8 +40,12 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [isExiting, setIsExiting] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [isCardExiting, setIsCardExiting] = useState(false);
+
     const inputRef = useRef<HTMLInputElement>(null);
     const _currentTypes = ['raw', item.semifinished ? 'semifinished' : null].filter(Boolean) as ('raw' | 'semifinished')[];
+    
+    // Получаем данные истории товара из Redux
+    const historyData = useAppSelector(selectHistoryRecordsForItem(itemId));
     
     const dispatch = useAppDispatch();
     const currentInventory = useAppSelector(state => state.inventory.selectedChat?.inventory || {});
@@ -61,7 +67,11 @@ const ItemEdit: React.FC<ItemEditProps> = ({
 
     const _handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
-            const newItem = { ...item };
+            const currentTimestamp = new Date().toISOString();
+            const newItem = { 
+                ...item, 
+                lastUpdated: currentTimestamp // Добавляем timestamp для отслеживания изменений
+            };
             
             if (type === 'raw' && newItem.raw) {
                 const currentValue = newItem.raw.quantity;
@@ -82,39 +92,62 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 };
             }
 
+            // 🚨 OPTIMISTIC UPDATE с защитой от конфликтов
+            const previousItem = { ...item };
             setItem(newItem);
             
-            // Обновляем инвентарь и прогресс
-            await dispatch(updateInventoryItem({
-                chatId,
-                category,
-                itemId,
-                item: newItem
-            })).unwrap();
-
-            // Явно вызываем обновление прогресса
-            dispatch(updateProgress());
-
-            const updateData = {
-                source: 'client',
-                data: {
-                    metadata: {
-                        lastUpdated: new Date().toISOString(),
-                        chat_id: chatId
-                    },
-                    type: 'item_update',
+            try {
+                // Обновляем инвентарь и прогресс
+                const updateResult = await dispatch(updateInventoryItem({
+                    chatId,
                     category,
                     itemId,
                     item: newItem
+                })).unwrap();
+
+                // 🔄 CONFLICT RESOLUTION: проверяем что сервер вернул
+                if (updateResult && updateResult.inventory) {
+                    const serverItem = updateResult.inventory[category]?.[itemId];
+                    if (serverItem && serverItem.lastUpdated !== currentTimestamp) {
+                        console.warn(`⚠️ [Conflict] Сервер вернул другой timestamp для ${category}/${itemId}:`, {
+                            expected: currentTimestamp,
+                            server: serverItem.lastUpdated,
+                            serverItem
+                        });
+                        // Применяем данные с сервера (последняя запись побеждает)
+                        setItem(serverItem);
+                    }
                 }
-            };
 
-            socketService.emit('inventory_update', updateData);
-            onUpdate();
+                // Явно вызываем обновление прогресса
+                dispatch(updateProgress());
 
+                // ✅ Только после успешного API запроса отправляем веб-сокет
+                const updateData = {
+                    source: 'client',
+                    data: {
+                        metadata: {
+                            lastUpdated: currentTimestamp,
+                            chat_id: chatId
+                        },
+                        type: 'item_update',
+                        category,
+                        itemId,
+                        item: newItem
+                    }
+                };
+
+                socketService.emit('inventory_update', updateData);
+                onUpdate();
+
+            } catch (error) {
+                console.error('Ошибка при обновлении количества:', error);
+                // 🚨 ROLLBACK: возвращаем предыдущее состояние при ошибке
+                setItem(previousItem);
+                throw error; // Re-throw для обработки выше
+            }
         } catch (error) {
-            console.error('Ошибка при обновлении количества:', error);
-            setItem(item);
+            console.error('Критическая ошибка при обновлении:', error);
         }
     }, [chatId, category, itemId, item, dispatch, onUpdate]);
 
@@ -132,7 +165,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 semifinished: {
                     quantity: 0,
                     filled: true
-                }
+                },
+                lastUpdated: new Date().toISOString() // Добавляем timestamp
             };
 
             setItem(newItem);
@@ -176,7 +210,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
 
             const newItem: InventoryItem = {
                 ...item,
-                semifinished: undefined
+                semifinished: undefined,
+                lastUpdated: new Date().toISOString() // Добавляем timestamp
             };
 
             setItem(newItem);
@@ -214,7 +249,10 @@ const ItemEdit: React.FC<ItemEditProps> = ({
 
     const handleOutOfStock = async (type: 'raw' | 'semifinished') => {
         try {
-            const newItem = { ...item };
+            const newItem = { 
+                ...item, 
+                lastUpdated: new Date().toISOString() // Добавляем timestamp
+            };
             
             if (type === 'raw' && newItem.raw) {
                 const newOutOfStockState = !isOutOfStock;
@@ -317,7 +355,10 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             const currentQuantity = item[type]?.quantity ?? 0;
             const newQuantity = operation === 'add' ? currentQuantity + value : Math.max(0, currentQuantity - value);
 
-            const newItem = { ...item };
+            const newItem = { 
+                ...item, 
+                lastUpdated: new Date().toISOString() // Добавляем timestamp
+            };
             if (type === 'raw' && newItem.raw) {
                 newItem.raw = {
                     ...newItem.raw,
@@ -517,7 +558,11 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     return (
         <div className={styles.container}>
             {/* Иконка графика над карточкой сырья */}
-            <div className={styles.chartIconWrapper}>
+            <div 
+                className={styles.chartIconWrapper}
+                onClick={() => onShowAnalytics?.()}
+                style={{ cursor: 'pointer' }}
+            >
                 <ChartIcon className={styles.chartIcon} />
                 <span className={styles.chartLabel}>График</span>
             </div>
@@ -542,6 +587,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                     Добавить полуфабрикат
                 </button>
             )}
+
         </div>
     );
 };

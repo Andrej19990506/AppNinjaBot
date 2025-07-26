@@ -170,6 +170,16 @@ export const useInventoryWebSocketSync = () => {
         }
 
         const handleInventoryUpdated = (payload: InventoryUpdatedPayload) => {
+            // 🚨 ОТЛАДКА: логируем ВСЕ inventory события для поиска проблемы
+            console.log(`🔔 [WS DEBUG] Получено inventory событие:`, {
+                type: payload.type,
+                chat_id: payload.chat_id,
+                item_id: payload.item_id,
+                category: payload.category,
+                selectedChat: selectedInventoryChatId,
+                timestamp: new Date().toISOString()
+            });
+            
             if (!payload.chat_id || !payload.metadata) {
                 logger.error('[WS - Inventory Hook] Received incomplete event (missing chat_id or metadata)!', payload);
                 return;
@@ -189,7 +199,8 @@ export const useInventoryWebSocketSync = () => {
                                 metadata: payload.metadata,
                                 item_id: payload.item_id,
                                 category: payload.category,
-                                item: payload.item
+                                item: payload.item,
+                                timestamp: payload.metadata.lastUpdated // Передаем timestamp для проверки race conditions
                             }));
                             
                             logger.info(`[WS Sync - inventory_updated] Обновляем историю для ${payload.category}/${payload.item_id} в фоне...`);
@@ -215,7 +226,8 @@ export const useInventoryWebSocketSync = () => {
                         dispatch(receiveItemUpdate({
                             chatId: payload.chat_id,
                             type: payload.type,
-                            metadata: payload.metadata
+                            metadata: payload.metadata,
+                            timestamp: payload.metadata.lastUpdated // Передаем timestamp для проверки race conditions
                         }));
                     }
                     break;
@@ -225,7 +237,8 @@ export const useInventoryWebSocketSync = () => {
                     dispatch(receiveItemUpdate({
                         chatId: payload.chat_id,
                         type: payload.type,
-                        metadata: payload.metadata
+                        metadata: payload.metadata,
+                        timestamp: payload.metadata.lastUpdated // Передаем timestamp для проверки race conditions
                     }));
                     break;
 

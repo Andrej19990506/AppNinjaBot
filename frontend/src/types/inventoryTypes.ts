@@ -58,6 +58,7 @@ export interface InventoryItem {
     raw?: InventoryItemDetails;
     semifinished?: InventoryItemDetails;
     has_semifinished?: boolean;
+    lastUpdated?: string; // Timestamp последнего обновления для предотвращения race conditions
 }
 
 export type Inventory = Record<string, Record<string, InventoryItem>>;

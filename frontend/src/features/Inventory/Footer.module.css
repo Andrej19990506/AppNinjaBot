@@ -758,4 +758,186 @@
 
 .generateDocButtonWrapper {
     pointer-events: auto;
+}
+
+/* Стили для кнопки закрытия аналитики */
+.closeAnalyticsButton {
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--error-color, #f44336);
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.closeAnalyticsButton:hover {
+    background-color: var(--error-color-light, rgba(244, 67, 54, 0.1));
+    color: var(--error-color-dark, #d32f2f);
+}
+
+.closeAnalyticsButton .icon {
+    font-size: 24px;
+}
+
+/* === Стили для кнопки активных пользователей === */
+.activeUsersButton {
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--primary-color);
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.activeUsersButton:hover {
+    background-color: var(--primary-transparent);
+    color: var(--primary-dark);
+    transform: var(--hover-transform);
+}
+
+.activeUsersButton:active {
+    transform: var(--active-transform);
+}
+
+.activeUsersIconWrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.activeUsersButton .icon {
+    font-size: 24px;
+    transition: color var(--transition-normal);
+}
+
+.activeUsersCount {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    min-width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 2s infinite;
+    box-shadow: 0 0 0 2px var(--card-background);
+}
+
+@keyframes pulse {
+    0% { 
+        box-shadow: 0 0 0 2px var(--card-background), 0 0 0 0 var(--primary-color);
+    }
+    70% { 
+        box-shadow: 0 0 0 2px var(--card-background), 0 0 0 6px transparent;
+    }
+    100% { 
+        box-shadow: 0 0 0 2px var(--card-background), 0 0 0 0 transparent;
+    }
+}
+
+/* === Стили для кнопки завершения инвентаризации === */
+.completeButton {
+    background: linear-gradient(135deg, var(--success-color), var(--primary-dark)) !important;
+    border: 2px solid var(--success-color) !important;
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    animation: completeGlow 2s infinite;
+    position: relative;
+    overflow: hidden;
+}
+
+.completeButton::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+    transform: rotate(45deg);
+    animation: shimmer 3s infinite;
+}
+
+.completeButton:hover {
+    transform: var(--hover-transform) scale(1.1);
+    box-shadow: 0 0 20px rgba(255, 95, 31, 0.4); /* оранжевый */
+}
+
+.completeButton:active {
+    transform: var(--active-transform) scale(0.95);
+}
+
+.completeButton .icon {
+    color: var(--text-color-on-primary);
+    font-size: 24px;
+    z-index: 1;
+}
+
+@keyframes completeGlow {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 95, 31, 0.3); /* оранжевый */
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(255, 95, 31, 0.6); /* оранжевый */
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+    }
+} 
+
+/* Новый стиль для крестика, чтобы не сливался */
+.closeCompleteButton {
+    background: var(--card-background) !important;
+    border: 2px solid var(--primary-color) !important;
+    color: var(--primary-color) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    position: relative;
+    overflow: hidden;
+}
+.closeCompleteButton .icon {
+    color: var(--primary-color) !important;
+    font-size: 24px;
+    z-index: 1;
+}
+.closeCompleteButton:hover {
+    background: var(--primary-transparent) !important;
+    box-shadow: 0 0 12px rgba(255, 95, 31, 0.2);
 } 

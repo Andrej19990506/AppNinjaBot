@@ -22,6 +22,10 @@ import type { SelectedPeriod } from '@/features/courierSchedule/components/Times
 import useDeviceDetect from '@shared/hooks/useDeviceDetect';
 import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
 
+// НОВЫЕ ИМПОРТЫ для работы с курьерскими чатами
+import { fetchCourierChats } from '@features/courierSchedule/store/courierSlice/courierThunks';
+import { selectCourierChats, selectCourierChatsLoading, selectCourierChatsError } from '@features/courierSchedule/store/courierSlice/courierSelectors';
+
 const Container = styled.div`
     padding: 20px;
     max-width: 1200px;
@@ -61,13 +65,64 @@ const CourierSchedule: React.FC = () => {
     // <<< Получаем конфиг слотов из стейта >>>
     const slotConfig = useAppSelector((state) => state.shifts.slotConfig);
 
+    // НОВОЕ: получаем курьерские чаты из Redux вместо user.groups
+    const courierChats = useAppSelector(selectCourierChats);
+    const courierChatsLoading = useAppSelector(selectCourierChatsLoading);
+    const courierChatsError = useAppSelector(selectCourierChatsError);
+
     // Добавим новое состояние для хранения данных выбранного курьера
     const [selectedCourier, setSelectedCourier] = useState<any | null>(null);
     // Состояние для отображения модального окна профиля
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
-    const courierGroups = useMemo(() => user?.groups?.filter(g => g.group_type === 'courier') || [], [user?.groups]);
+    // НОВОЕ: преобразуем курьерские чаты в формат для ChatSelector (БЕЗ couriers_count)
+    const courierGroups = useMemo(() => {
+        const groups = courierChats.map(chat => {
+            // ОТЛАДКА: логируем информацию о старших курьерах
+            const seniorAdmins = chat.admins.filter(admin => admin.is_senior_courier);
+            const seniorMembers = chat.members.filter(member => member.is_senior_courier);
+            console.log(`🌟 [CourierSchedule] Чат "${chat.title}": старшие админы:`, seniorAdmins, 'старшие участники:', seniorMembers);
+            
+            return {
+                chat_id: chat.chat_id,
+                chat_title: chat.title,
+                title: chat.title,
+                group_type: chat.group_type,
+                admins: chat.admins.map(admin => ({
+                    ...admin,
+                    first_name: admin.first_name ?? null,
+                    last_name: admin.last_name ?? null,
+                    username: admin.username ?? null,
+                    photo_url: admin.photo_url ?? null,
+                    // ОБНОВЛЕНО: используем данные из API напрямую
+                    isSeniorCourier: admin.is_senior_courier || false,
+                })),
+                members: chat.members
+                    .filter(member => member.first_name) // Фильтруем записи с пустым first_name
+                    .map(member => ({
+                        user_id: member.user_id,
+                        first_name: member.first_name || 'Участник',
+                        photo_url: member.photo_url ?? undefined,
+                        // ОБНОВЛЕНО: используем данные из API напрямую
+                        isSeniorCourier: member.is_senior_courier || false,
+                    })),
+                is_senior_courier: user?.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === chat.chat_id)?.is_senior_courier || false
+            };
+        });
+        
+        console.log('🚚 [CourierSchedule] Сформированные курьерские группы:', groups);
+        return groups;
+    }, [courierChats, user?.groups]);
+
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+
+    // НОВОЕ: загружаем курьерские чаты при инициализации
+    useEffect(() => {
+        if (user?.id) {
+            console.log('🚚 [CourierSchedule] Загружаем курьерские чаты для пользователя:', user.id);
+            dispatch(fetchCourierChats({ userId: user.id }));
+        }
+    }, [dispatch, user?.id]);
 
     // Если только один курьерский чат — выбираем его автоматически
     useEffect(() => {
@@ -76,15 +131,36 @@ const CourierSchedule: React.FC = () => {
         }
     }, [courierGroups]);
 
+    // ОБНОВЛЯЕМ: courierChatId теперь берется из курьерских чатов
     const courierChatId = useMemo(() => {
+        // Сначала пробуем найти в курьерских чатах
+        const courierChat = courierChats.find(chat => chat.chat_id === selectedChatId);
+        if (courierChat) {
+            return Number(courierChat.chat_id);
+        }
+        // Fallback на старую логику если selectedChatId не установлен
         const courierGroup = user?.groups?.find(g => g.group_type === 'courier');
         return courierGroup ? Number(courierGroup.chat_id) : undefined;
-    }, [user?.groups]);
+    }, [courierChats, selectedChatId, user?.groups]);
 
+    // ОБНОВЛЯЕМ: currentCourierGroup теперь ищется в курьерских чатах
     const currentCourierGroup = useMemo(() => {
-        if (!user?.groups || !courierChatId) return null;
+        if (!courierChatId) return null;
+        
+        // Пробуем найти в курьерских чатах
+        const courierChat = courierChats.find(chat => String(chat.chat_id) === String(courierChatId));
+        if (courierChat) {
+            return {
+                ...courierChat,
+                // Добавляем поля совместимости со старым форматом
+                is_senior_courier: user?.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId))?.is_senior_courier
+            };
+        }
+        
+        // Fallback на старую логику
+        if (!user?.groups) return null;
         return user.groups.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId));
-    }, [user?.groups, courierChatId]);
+    }, [courierChats, courierChatId, user?.groups]);
 
     useEffect(() => {
         if (courierChatId) {
@@ -420,17 +496,27 @@ const CourierSchedule: React.FC = () => {
             )}
 
             {/* --- ВЫБОР ЧАТА ДЛЯ КУРЬЕРА --- */}
-            {user && courierGroups.length > 1 && !selectedChatId && (
+            {user && courierGroups.length > 1 && !selectedChatId && !courierChatsLoading && (
                 <ChatSelector
-                    chats={courierGroups.map(g => ({
-                        chat_id: g.chat_id.toString(),
-                        chat_title: g.title || `Группа ${g.chat_id}`,
-                        admins: g.admins || [],
-                    }))}
+                    chats={courierGroups}
                     mode="events"
                     title="Выберите чат для расписания курьеров"
                     onChatSelect={(ids) => setSelectedChatId(ids[0])}
                 />
+            )}
+
+            {/* Показываем загрузку пока загружаются курьерские чаты */}
+            {courierChatsLoading && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+                    <div>Загрузка курьерских чатов...</div>
+                </div>
+            )}
+
+            {/* Показываем ошибку если не удалось загрузить чаты */}
+            {courierChatsError && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem', color: 'red' }}>
+                    <div>Ошибка загрузки чатов: {courierChatsError}</div>
+                </div>
             )}
 
             {/* --- КАЛЕНДАРЬ и все связанные элементы --- */}
@@ -442,7 +528,7 @@ const CourierSchedule: React.FC = () => {
                             currentUserId={String(user.id)}
                             currentUserAvatar={user.photo_url || undefined}
                             currentUserName={`${user.first_name || ''} ${user.last_name || ''}`}
-                            isCurrentUserSenior={(user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.is_senior_courier) ?? false}
+                            isCurrentUserSenior={currentCourierGroup?.is_senior_courier ?? false}
                             onClose={() => setShowCalendar(false)} 
                             onShiftSelect={handleShiftSelect}
                             onOpenSlotSettings={(dayIndex: number) => {
@@ -496,13 +582,13 @@ const CourierSchedule: React.FC = () => {
                             error={timesheetError}
                             chatId={selectedChatId}
                             slotConfig={slotConfig}
-                            groupTitle={user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.title || 'Группа курьеров'} 
+                            groupTitle={currentCourierGroup?.title || 'Группа курьеров'} 
                             onPeriodChange={handleTimesheetPeriodChange} 
                         />
                     )}
                     <Footer 
                         onBack={handleFooterBack}
-                        showSettingsButton={(user && user.groups?.find(g => g.group_type === 'courier' && String(g.chat_id) === selectedChatId)?.is_senior_courier) ?? false}
+                        showSettingsButton={currentCourierGroup?.is_senior_courier ?? false}
                         onSettingsClick={toggleSettingsPanel}
                         showModalActions={isModalActive}
                         showModalSteps={activeModalType === 'shiftAccess'}

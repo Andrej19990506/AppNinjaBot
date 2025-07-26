@@ -1,0 +1,242 @@
+.container {
+    padding: 32px 24px 24px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Заголовок */
+.header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.successIcon {
+    color: var(--success-color);
+    font-size: 48px !important;
+    margin-bottom: 16px;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0;
+    background: linear-gradient(135deg, var(--success-color), var(--primary-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Контент */
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.messageSection {
+    text-align: center;
+    padding: 20px;
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.message {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Действия */
+.actionsSection {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sendButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: var(--text-color-on-primary);
+    border: none;
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+}
+
+.sendButton::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.sendButton:hover::before {
+    left: 100%;
+}
+
+.sendButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.newInventoryButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: var(--background-color);
+    color: var(--text-color);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.newInventoryButton:hover {
+    border-color: var(--primary-color);
+    background: var(--card-background);
+    color: var(--primary-color);
+}
+
+.buttonIcon {
+    font-size: 20px !important;
+}
+
+/* Подтверждение */
+.confirmationSection {
+    text-align: center;
+    padding: 24px;
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.confirmationTitle {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-color);
+    margin: 0 0 16px 0;
+}
+
+.confirmationText {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 0 0 24px 0;
+}
+
+.confirmationButtons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.confirmButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 140px;
+}
+
+.confirmResetButton {
+    background: linear-gradient(135deg, var(--danger-color, #e74c3c), var(--danger-dark, #c0392b));
+    color: var(--text-color-on-primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.confirmResetButton:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.cancelResetButton {
+    background: var(--background-color);
+    color: var(--text-color);
+    border: 2px solid var(--border-color);
+}
+
+.cancelResetButton:hover {
+    border-color: var(--text-secondary);
+    background: var(--card-background);
+}
+
+.confirmButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.spinner {
+    margin-right: 4px;
+}
+
+/* Адаптивность */
+@media (max-width: 480px) {
+    .container {
+        padding: 24px 16px 16px;
+    }
+    
+    .title {
+        font-size: 1.3rem;
+    }
+    
+    .sendButton,
+    .newInventoryButton {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+    }
+    
+    .confirmationButtons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .confirmButton {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+/* Анимации */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.sendButton:disabled {
+    animation: pulse 2s infinite;
+} 

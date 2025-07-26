@@ -18,6 +18,12 @@ export const selectAvailableCouriers = (state: RootState) => state.courier.avail
 export const selectAvailableCouriersLoading = (state: RootState) => state.courier.availableCouriersLoading;
 export const selectAvailableCouriersError = (state: RootState) => state.courier.availableCouriersError;
 export const selectLastFetchedChatIdForCouriers = (state: RootState) => state.courier.lastFetchedChatId;
+
+// НОВОЕ: Селекторы для курьерских чатов
+export const selectCourierChats = (state: RootState) => state.courier.courierChats;
+export const selectCourierChatsLoading = (state: RootState) => state.courier.courierChatsLoading;
+export const selectCourierChatsError = (state: RootState) => state.courier.courierChatsError;
+
 // Проверка: назначен ли курьер на дату
 export const selectIsCourierAssignedOnDate = (
     state: RootState,

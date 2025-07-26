@@ -13,6 +13,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SearchIcon from '@mui/icons-material/Search';
+import PeopleIcon from '@mui/icons-material/People';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import styled from 'styled-components';
 
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
@@ -163,6 +165,18 @@ interface FooterProps {
     onMiddleButtonClick?: () => void;
     middleButtonText?: string;
     rightElement?: React.ReactNode;
+    // Новые пропсы для аналитики
+    isAnalyticsOpen?: boolean;
+    onAnalyticsClose?: () => void;
+    // Новые пропсы для активных пользователей
+    showActiveUsersButton?: boolean;
+    onActiveUsersClick?: () => void;
+    activeUsersCount?: number;
+    isActiveUsersOpen?: boolean;
+    // Новые пропсы для завершения инвентаризации
+    showCompleteButton?: boolean;
+    onCompleteClick?: () => void;
+    isCompleteOpen?: boolean;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -199,7 +213,16 @@ const Footer: React.FC<FooterProps> = ({
     showMiddleButton,
     onMiddleButtonClick,
     middleButtonText,
-    rightElement
+    rightElement,
+    isAnalyticsOpen = false,
+    onAnalyticsClose,
+    showActiveUsersButton = false,
+    onActiveUsersClick,
+    activeUsersCount = 0,
+    isActiveUsersOpen = false,
+    showCompleteButton = false,
+    onCompleteClick,
+    isCompleteOpen = false
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -418,8 +441,8 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
         
 
-                                {/* --- НОВАЯ Кнопка Поиска для Инвентаря --- */}
-                                {showInventorySearchButton && (
+                                {/* --- НОВАЯ Кнопка Поиска для Инвентаря / Закрытия Аналитики --- */}
+                                {(showInventorySearchButton && !isAnalyticsOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${styles.searchInventoryButton}`}
                                         onClick={onInventorySearchClick}
@@ -433,7 +456,61 @@ const Footer: React.FC<FooterProps> = ({
                                         }
                                     </motion.button>
                                 )}
-                                {/* --- КОНЕЦ НОВОЙ Кнопки Поиска --- */}
+                                
+                                {/* --- Кнопка Активных Пользователей --- */}
+                                {(showActiveUsersButton && !isAnalyticsOpen) && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.activeUsersButton}`}
+                                        onClick={onActiveUsersClick}
+                                        whileHover={{ scale: 1.05, rotate: 5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title={isActiveUsersOpen ? 'Закрыть панель активных пользователей' : `Активные пользователи (${activeUsersCount})`}
+                                    >
+                                        <div className={styles.activeUsersIconWrapper}>
+                                            {isActiveUsersOpen ? (
+                                                <CloseIcon className={styles.icon} />
+                                            ) : (
+                                                <PeopleIcon className={styles.icon} />
+                                            )}
+                                            {activeUsersCount > 0 && !isActiveUsersOpen && (
+                                                <span className={styles.activeUsersCount}>
+                                                    {activeUsersCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </motion.button>
+                                )}
+                                
+                                {/* --- Кнопка Завершения Инвентаризации --- */}
+                                {(showCompleteButton && !isAnalyticsOpen) && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${isCompleteOpen ? styles.closeCompleteButton : styles.completeButton}`}
+                                        onClick={onCompleteClick}
+                                        whileHover={{ scale: 1.05, rotate: isCompleteOpen ? -5 : 5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title={isCompleteOpen ? 'Закрыть панель завершения' : 'Инвентаризация завершена!'}
+                                    >
+                                        {isCompleteOpen ? (
+                                            <CloseIcon className={styles.icon} />
+                                        ) : (
+                                            <CheckCircleIcon className={styles.icon} />
+                                        )}
+                                    </motion.button>
+                                )}
+                                
+                                {/* --- Кнопка Закрытия Аналитики --- */}
+                                {isAnalyticsOpen && onAnalyticsClose && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.closeAnalyticsButton}`}
+                                        onClick={onAnalyticsClose}
+                                        whileHover={{ scale: 1.05, rotate: -5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title="Закрыть аналитику"
+                                    >
+                                        <CloseIcon className={styles.icon} />
+                                    </motion.button>
+                                )}
+                                {/* --- КОНЕЦ Кнопок Поиска/Аналитики --- */}
                             </div>
                             
                             {rightElement && (

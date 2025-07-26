@@ -7,12 +7,12 @@ import Close from '@mui/icons-material/Close';
 import PersonAdd from '@mui/icons-material/PersonAdd';
 import Schedule from '@mui/icons-material/Schedule';
 import Security from '@mui/icons-material/Security';
+import Star from '@mui/icons-material/Star'; // НОВОЕ: иконка для старшего курьера
 import Info from '@mui/icons-material/Info';
-import AccessTime from '@mui/icons-material/AccessTime';
-import Cancel from '@mui/icons-material/Cancel';
 import SlidingDrawer from '@shared/components/SlidingDrawer/SlidingDrawer';
 import UserPermissionsDrawer from './UserPermissionsDrawer';
 import { userPermissionsApi, UserPermissionResponse } from '@shared/api/userPermissionsApi';
+import { axiosInstance } from '@shared/api/api';
 
 // Используем правильные типы из Redux
 interface Member {
@@ -22,6 +22,7 @@ interface Member {
     username?: string | null;
     photo_url?: string | null;
     isAdmin?: boolean;
+    isSeniorCourier?: boolean; // НОВОЕ: добавляем поле для старшего курьера
 }
 
 interface MembersModalProps {
@@ -35,6 +36,7 @@ interface MembersModalProps {
     onGrantPermission?: (userId: number, permission: 'inventory' | 'writeoff', duration: number) => void;
     onRevokePermission?: (userId: number, permission: 'inventory' | 'writeoff') => void;
     onInviteUser?: () => void;
+    groupType?: string; // <--- добавляем тип группы
 }
 
 // Анимации
@@ -238,11 +240,36 @@ const MemberAvatar = styled(Avatar)`
     background: var(--gradient-primary) !important;
     color: white !important;
     box-shadow: var(--shadow-sm);
+    position: relative; /* НОВОЕ: добавляем позиционирование для бейджа */
     
     ${MemberItem}:hover & {
         border-color: var(--primary-color);
         transform: scale(1.08);
         animation: ${pulseGlow} 2s infinite;
+    }
+`;
+
+// НОВОЕ: Стили для бейджа старшего курьера на аватаре
+const SeniorCourierAvatarBadge = styled.div`
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    background: #FFD700; 
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    z-index: 15;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    
+    svg {
+        width: 12px;
+        height: 12px;
+        color: white;
     }
 `;
 
@@ -303,6 +330,25 @@ const AdminBadge = styled.span`
     &:hover {
         background: rgba(16, 185, 129, 0.15);
         border-color: var(--success-color);
+        transform: translateY(-1px);
+    }
+`;
+
+const SeniorCourierBadge = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(255, 215, 0, 0.1); /* Золотистый фон как в панели смен */
+    color: #FFD700; /* Золотистый цвет текста как в панели смен */
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    transition: var(--transition-normal);
+    
+    &:hover {
+        background: rgba(255, 215, 0, 0.15);
+        border-color: #FFD700;
         transform: translateY(-1px);
     }
 `;
@@ -687,7 +733,8 @@ export const MembersModal: React.FC<MembersModalProps> = ({
     currentUserId,
     onGrantPermission,
     onRevokePermission,
-    onInviteUser
+    onInviteUser,
+    groupType = '' // <--- добавляем groupType
 }) => {
     const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
     const [selectedPermissions, setSelectedPermissions] = useState<('inventory' | 'writeoff')[]>(['inventory']);
@@ -699,12 +746,35 @@ export const MembersModal: React.FC<MembersModalProps> = ({
     const [permissionsDrawerOpen, setPermissionsDrawerOpen] = useState(false);
     const [selectedUserForPermissions, setSelectedUserForPermissions] = useState<Member | null>(null);
 
+    // Подгружаем курьеров для курьерских групп
+    const [courierMembers, setCourierMembers] = useState<Member[] | null>(null);
+    const [loadingCouriers, setLoadingCouriers] = useState(false);
+
     // Загрузка прав пользователей при открытии модального окна
     useEffect(() => {
         if (isOpen && currentUserId) {
             loadUserPermissions();
         }
     }, [isOpen, currentUserId, chatId]);
+
+    // Подгружаем курьеров для курьерских групп
+    useEffect(() => {
+        console.log('🔍 [MembersModal] useEffect для загрузки курьеров:', { isOpen, groupType, chatId });
+        if (isOpen && groupType === 'courier' && chatId) {
+            console.log('🚚 [MembersModal] Загружаем курьеров для группы:', chatId);
+            setLoadingCouriers(true);
+            axiosInstance.get(`/v1/groups/${chatId}/couriers`).then(res => {
+                console.log('✅ [MembersModal] Курьеры загружены:', res.data);
+                setCourierMembers(res.data || []);
+            }).catch(err => {
+                console.error('❌ [MembersModal] Ошибка при загрузке курьеров:', err);
+                setCourierMembers([]);
+            }).finally(() => setLoadingCouriers(false));
+        } else {
+            console.log('🔄 [MembersModal] Сбрасываем курьеров:', { isOpen, groupType, chatId });
+            setCourierMembers(null);
+        }
+    }, [isOpen, groupType, chatId]);
 
     const loadUserPermissions = useCallback(async () => {
         if (!currentUserId) return;
@@ -823,9 +893,9 @@ export const MembersModal: React.FC<MembersModalProps> = ({
             if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
                 const webApp = window.Telegram.WebApp as any;
                 
-                // Создаем прямую ссылку на бота для регистрации
-                const botUsername = 'YOUR_BOT_USERNAME'; // TODO: Заменить на реальный юзернейм бота
-                const botLink = `https://t.me/${botUsername}?start=registry_${chatId}`;
+                // ✅ БЕЗОПАСНО: Получаем ссылку с бэкенда через axios
+                const response = await axiosInstance.post(`/v1/chats/${chatId}/invite-link`);
+                const botLink = response.data.invite_link; // Безопасная ссылка с бэкенда
                 
                 // Создаем красивый текст для регистрации
                 const shareText = `🥷 *Регистрация в чат "${chatTitle}"*\n\n` +
@@ -849,7 +919,7 @@ export const MembersModal: React.FC<MembersModalProps> = ({
                     console.log('✅ [MembersModal] Открыто окно шаринга через window.open');
                 }
                 
-                console.log('✅ [MembersModal] Создана ссылка для шаринга регистрации:', shareUrl);
+                console.log('✅ [MembersModal] Создана безопасная ссылка для шаринга регистрации');
             } else {
                 // Fallback для веб-версии
                 console.log('⚠️ [MembersModal] Telegram Web App API недоступен, используем fallback');
@@ -870,10 +940,33 @@ export const MembersModal: React.FC<MembersModalProps> = ({
 
     // Объединяем админов и участников, исключая дубликаты
     const allMembers = [
-        ...admins.map(admin => ({ ...admin, isAdmin: true })),
-        ...members.filter(member => !admins.some(admin => admin.user_id === member.user_id))
-            .map(member => ({ ...member, isAdmin: false }))
+        ...admins.map(admin => ({ ...admin, isAdmin: true, isSeniorCourier: (admin as any).isSeniorCourier || false })),
+        ...((groupType === 'courier' && courierMembers !== null ? courierMembers : members)
+            .filter(member => !admins.some(admin => admin.user_id === member.user_id))
+            .map(member => ({ ...member, isAdmin: false, isSeniorCourier: (member as any).isSeniorCourier || false }))
+        )
     ];
+
+    // ОТЛАДКА: логируем данные о старших курьерах
+    useEffect(() => {
+        if (groupType === 'courier') {
+            const seniorCouriers = allMembers.filter(member => member.isSeniorCourier);
+            console.log('🌟 [MembersModal] Старшие курьеры в чате:', seniorCouriers);
+        }
+    }, [allMembers, groupType]);
+
+    // ОТЛАДКА: детальная информация о каждом участнике
+    useEffect(() => {
+        if (allMembers.length > 0) {
+            console.log('👥 [MembersModal] Все участники с деталями:', allMembers.map(member => ({
+                name: member.first_name,
+                user_id: member.user_id,
+                isAdmin: member.isAdmin,
+                isSeniorCourier: member.isSeniorCourier,
+                groupType: groupType
+            })));
+        }
+    }, [allMembers, groupType]);
 
     // Исправленная функция для fallback аватаров с правильными цветами
     const getFallbackPhotoUrl = (user: any): string => {
@@ -884,8 +977,7 @@ export const MembersModal: React.FC<MembersModalProps> = ({
     const getPhotoUrl = (user: any): string => {
         // Если есть photo_url, используем API endpoint для получения фото
         if (user.photo_url && user.user_id) {
-            const baseURL = window.APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000';
-            const photoUrl = `${baseURL}/v1/users/${user.user_id}/photo`;
+            const photoUrl = `${axiosInstance.defaults.baseURL}/v1/users/${user.user_id}/photo`;
             console.log(`📸 [MembersModal] Фото URL для пользователя ${user.user_id}:`, photoUrl);
             return photoUrl;
         }
@@ -928,85 +1020,112 @@ export const MembersModal: React.FC<MembersModalProps> = ({
 
                     <Content>
                         <ScrollableContent>
-                            <MembersList>
-                                {allMembers.map((member, index) => (
-                                    <MemberItem key={member.user_id} style={{ animationDelay: `${index * 0.05}s` }}>
-                                        <MemberInfo>
-                                            <MemberAvatar
-                                                src={getPhotoUrl(member)}
-                                                alt={member.first_name || ''}
-                                                onError={(e) => {
-                                                    const target = e.target as HTMLImageElement;
-                                                    target.onerror = null;
-                                                    // При ошибке загрузки API endpoint используем fallback
-                                                    console.log(`❌ [MembersModal] Ошибка загрузки фото для пользователя ${member.user_id}, используем fallback`);
-                                                    target.src = getFallbackPhotoUrl(member);
-                                                }}
-                                            >
-                                                {/* Показываем инициалы только если нет photo_url */}
-                                                {!member.photo_url && getInitials(member)}
-                                            </MemberAvatar>
-                                            <MemberDetails>
-                                                <MemberName>
-                                                    {member.first_name} {(member as any).last_name || ''}
-                                                    {member.user_id === currentUserId && (
-                                                        <CurrentUserBadge>вы</CurrentUserBadge>
-                                                    )}
-                                                </MemberName>
-                                                <MemberRole>
-                                                    {member.isAdmin ? (
-                                                        <AdminBadge>
-                                                            <Security fontSize="inherit" />
-                                                            Администратор
-                                                        </AdminBadge>
-                                                    ) : (
-                                                        <MemberBadge>
-                                                            Участник
-                                                        </MemberBadge>
-                                                    )}
-                                                </MemberRole>
-                                            </MemberDetails>
-                                        </MemberInfo>
-
-                                        {/* Кнопки управления доступом */}
-                                        {isCurrentUserAdmin && !member.isAdmin && member.user_id !== currentUserId && (
-                                            <MemberActions>
-                                                {(() => {
-                                                    const userPerms = getUserPermissions(member.user_id);
-                                                    const hasPermissions = userPerms.length > 0;
+                            {loadingCouriers && groupType === 'courier' ? (
+                                <LoadingIndicator>Загрузка курьеров...</LoadingIndicator>
+                            ) : (
+                                <MembersList>
+                                    {allMembers.map((member, index) => (
+                                        <MemberItem key={member.user_id} style={{ animationDelay: `${index * 0.05}s` }}>
+                                            <MemberInfo>
+                                                <div style={{ position: 'relative', display: 'inline-block' }}>
+                                                    <MemberAvatar
+                                                        src={getPhotoUrl(member)}
+                                                        alt={member.first_name || ''}
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.onerror = null;
+                                                            // При ошибке загрузки API endpoint используем fallback
+                                                            console.log(`❌ [MembersModal] Ошибка загрузки фото для пользователя ${member.user_id}, используем fallback`);
+                                                            target.src = getFallbackPhotoUrl(member);
+                                                        }}
+                                                    >
+                                                        {/* Показываем инициалы только если нет photo_url */}
+                                                        {!member.photo_url && getInitials(member)}
+                                                    </MemberAvatar>
                                                     
-                                                    if (hasPermissions) {
-                                                        return (
-                                                            <ActionButton
-                                                                onClick={() => handleOpenPermissionsDrawer(member)}
-                                                                title="Информация о доступе"
-                                                                style={{ 
-                                                                    background: 'rgba(var(--primary-rgb), 0.15)',
-                                                                    color: 'var(--primary-color)',
-                                                                    borderColor: 'rgba(var(--primary-rgb), 0.3)'
-                                                                }}
-                                                            >
-                                                                <Info fontSize="inherit" />
-                                                                Доступ ({userPerms.length})
-                                                            </ActionButton>
-                                                        );
-                                                    } else {
-                                                        return (
-                                                            <ActionButton
-                                                                onClick={() => handleGrantPermission(member.user_id)}
-                                                                title="Открыть доступ"
-                                                            >
-                                                                <Schedule fontSize="inherit" />
-                                                                Открыть доступ
-                                                            </ActionButton>
-                                                        );
-                                                    }
-                                                })()}
-                                            </MemberActions>
-                                        )}
-                                    </MemberItem>
-                                ))}
-                            </MembersList>
+                                                    {/* Бейджик старшего курьера - ВЫНЕСЕН ЗА ПРЕДЕЛЫ АВАТАРА */}
+                                                    {member.isSeniorCourier && (
+                                                        <SeniorCourierAvatarBadge>
+                                                            <Star />
+                                                        </SeniorCourierAvatarBadge>
+                                                    )}
+                                                </div>
+                                                <MemberDetails>
+                                                    <MemberName>
+                                                        {member.first_name} {(member as any).last_name || ''}
+                                                        {member.user_id === currentUserId && (
+                                                            <CurrentUserBadge>вы</CurrentUserBadge>
+                                                        )}
+                                                    </MemberName>
+                                                    <MemberRole>
+                                                        {/* Для курьерских групп НЕ показываем AdminBadge */}
+                                                        {groupType !== 'courier' && member.isAdmin ? (
+                                                            <AdminBadge>
+                                                                <Security fontSize="inherit" />
+                                                                Администратор
+                                                            </AdminBadge>
+                                                        ) : groupType === 'courier' && member.isSeniorCourier ? (
+                                                            <SeniorCourierBadge>
+                                                                <Star fontSize="inherit" />
+                                                                Старший курьер
+                                                            </SeniorCourierBadge>
+                                                        ) : (
+                                                            <MemberBadge>
+                                                                {groupType === 'courier' ? 'Курьер' : 'Участник'}
+                                                            </MemberBadge>
+                                                        )}
+                                                        
+                                                        {/* Для НЕ курьерских групп показываем SeniorCourierBadge в строке ролей */}
+                                                        {groupType !== 'courier' && member.isSeniorCourier && (
+                                                            <SeniorCourierBadge>
+                                                                <Star fontSize="inherit" />
+                                                                Старший курьер
+                                                            </SeniorCourierBadge>
+                                                        )}
+                                                    </MemberRole>
+                                                </MemberDetails>
+                                            </MemberInfo>
+
+                                            {/* Кнопки управления доступом */}
+                                            {isCurrentUserAdmin && !member.isAdmin && member.user_id !== currentUserId && (
+                                                <MemberActions>
+                                                    {(() => {
+                                                        const userPerms = getUserPermissions(member.user_id);
+                                                        const hasPermissions = userPerms.length > 0;
+                                                        
+                                                        if (hasPermissions) {
+                                                            return (
+                                                                <ActionButton
+                                                                    onClick={() => handleOpenPermissionsDrawer(member)}
+                                                                    title="Информация о доступе"
+                                                                    style={{ 
+                                                                        background: 'rgba(var(--primary-rgb), 0.15)',
+                                                                        color: 'var(--primary-color)',
+                                                                        borderColor: 'rgba(var(--primary-rgb), 0.3)'
+                                                                    }}
+                                                                >
+                                                                    <Info fontSize="inherit" />
+                                                                    Доступ ({userPerms.length})
+                                                                </ActionButton>
+                                                            );
+                                                        } else {
+                                                            return (
+                                                                <ActionButton
+                                                                    onClick={() => handleGrantPermission(member.user_id)}
+                                                                    title="Открыть доступ"
+                                                                >
+                                                                    <Schedule fontSize="inherit" />
+                                                                    Открыть доступ
+                                                                </ActionButton>
+                                                            );
+                                                        }
+                                                    })()}
+                                                </MemberActions>
+                                            )}
+                                        </MemberItem>
+                                    ))}
+                                </MembersList>
+                            )}
                         </ScrollableContent>
 
                         {/* Фиксированная форма приглашения внизу */}

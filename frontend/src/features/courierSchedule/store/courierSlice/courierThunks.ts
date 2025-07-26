@@ -5,6 +5,37 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { CourierInfo } from '@features/courierSchedule/types/courierScheduleTypes';
 import { getGroupCouriers } from '@features/courierSchedule/services/courierApi/couriersApi';
 import { usersReceived } from '@shared/store/userSlice/userSlice';
+import { axiosInstance } from '@shared/api/api';
+
+// Интерфейс для курьерских чатов (полученных через /groups/chats)
+export interface CourierChat {
+    id: number;
+    chat_id: string;
+    title: string;
+    group_type: string;
+    created_at: string;
+    admins: Array<{
+        id: number;
+        user_id: number;
+        first_name?: string;
+        last_name?: string;
+        username?: string;
+        photo_url?: string;
+        is_senior_courier?: boolean; // НОВОЕ: добавляем поле для старшего курьера
+    }>;
+    members: Array<{
+        id: number;
+        user_id: number;
+        first_name?: string;
+        last_name?: string;
+        username?: string;
+        photo_url?: string;
+        is_senior_courier?: boolean; // НОВОЕ: добавляем поле для старшего курьера
+    }>;
+    metadata?: any;
+    slot_config?: any;
+    access_settings?: any;
+}
 
 // --- Thunk: регистрация на смену ---
 export const registerForShift = createAsyncThunk<
@@ -55,6 +86,34 @@ export const fetchAvailableCouriers = createAsyncThunk<
             return couriers;
         } catch (error: any) {
             const message = error.message || 'Не удалось загрузить список курьеров.';
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// --- Thunk: загрузка курьерских чатов ---
+export const fetchCourierChats = createAsyncThunk<
+    CourierChat[],
+    { userId: number },
+    { rejectValue: string }
+>(
+    'courier/fetchCourierChats',
+    async ({ userId }, { rejectWithValue }) => {
+        try {
+            console.log('🚚 [fetchCourierChats] Загружаем курьерские чаты для пользователя:', userId);
+            
+            const response = await axiosInstance.get<CourierChat[]>('/v1/groups/chats', {
+                params: {
+                    user_id: userId,
+                    group_type: 'courier'
+                }
+            });
+            
+            console.log('✅ [fetchCourierChats] Получены курьерские чаты:', response.data);
+            return response.data;
+        } catch (error: any) {
+            console.error('❌ [fetchCourierChats] Ошибка загрузки курьерских чатов:', error);
+            const message = error.response?.data?.detail || error.message || 'Не удалось загрузить курьерские чаты';
             return rejectWithValue(message);
         }
     }

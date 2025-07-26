@@ -53,10 +53,20 @@ const joinRoom = (roomId: string) => {
     if (joinedRoomId) {
         leaveRoom();
     }
+    // 🚨 ОТЛАДКА: логируем присоединение к комнатам для отладки синхронизации
+    console.log(`🚪 [ROOM DEBUG] Присоединяемся к комнате:`, {
+        roomId,
+        userId: user.id,
+        userName: user.first_name,
+        photo_url: user.photo_url,
+        timestamp: new Date().toISOString()
+    });
+    
     socketService.joinRoom(roomId, {
         userId: user.id,
         first_name: user.first_name,
-        last_name: user.last_name
+        last_name: user.last_name,
+        photo_url: user.photo_url
     });
     joinedRoomId = roomId;
     pendingJoinRoomId = null;

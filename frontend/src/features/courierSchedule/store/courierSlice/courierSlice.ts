@@ -4,8 +4,9 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { CourierInfo } from '@features/courierSchedule/types/courierScheduleTypes';
 import { format } from 'date-fns';
-import { fetchAvailableCouriers, fetchCouriers } from '@features/courierSchedule/store/courierSlice/courierThunks';
+import { fetchAvailableCouriers, fetchCouriers, fetchCourierChats, CourierChat } from '@features/courierSchedule/store/courierSlice/courierThunks';
 import { assignCourierToShiftThunk } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
+
 interface CourierState {
     isRegistered: boolean;
     currentShift: {
@@ -22,6 +23,11 @@ interface CourierState {
     availableCouriersError: string | null;
     lastFetchedChatId: string | null;
     assignedCouriersByDate: Record<string, Record<string, boolean>>;
+    
+    // НОВОЕ: состояние для курьерских чатов
+    courierChats: CourierChat[];
+    courierChatsLoading: boolean;
+    courierChatsError: string | null;
 }
 
 const initialState: CourierState = {
@@ -37,6 +43,11 @@ const initialState: CourierState = {
     availableCouriersError: null,
     lastFetchedChatId: null,
     assignedCouriersByDate: {},
+    
+    // НОВОЕ: инициализация состояния курьерских чатов
+    courierChats: [],
+    courierChatsLoading: false,
+    courierChatsError: null,
 };
 
 const courierSlice = createSlice({
@@ -58,8 +69,33 @@ const courierSlice = createSlice({
             state.lastFetchedChatId = null;
             state.assignedCouriersByDate = {};
         },
+        // НОВОЕ: очистка курьерских чатов
+        clearCourierChats: (state) => {
+            state.courierChats = [];
+            state.courierChatsLoading = false;
+            state.courierChatsError = null;
+        },
     },
     extraReducers: (builder) => {
+        // НОВОЕ: обработка fetchCourierChats
+        builder
+            .addCase(fetchCourierChats.pending, (state) => {
+                state.courierChatsLoading = true;
+                state.courierChatsError = null;
+            })
+            .addCase(fetchCourierChats.fulfilled, (state, action) => {
+                console.log('✅ [Redux] fetchCourierChats.fulfilled payload:', action.payload);
+                state.courierChatsLoading = false;
+                state.courierChats = action.payload;
+                state.courierChatsError = null;
+            })
+            .addCase(fetchCourierChats.rejected, (state, action) => {
+                console.error('❌ [Redux] fetchCourierChats.rejected:', action.payload);
+                state.courierChatsLoading = false;
+                state.courierChatsError = action.payload ?? 'Не удалось загрузить курьерские чаты';
+                state.courierChats = [];
+            })
+            
         // --- Доступные курьеры ---
         builder
             .addCase(fetchAvailableCouriers.pending, (state, action) => {
@@ -109,5 +145,5 @@ const courierSlice = createSlice({
     },
 });
 
-export const { resetShiftRegistration, clearCouriers, clearAvailableCouriers } = courierSlice.actions;
+export const { resetShiftRegistration, clearCouriers, clearAvailableCouriers, clearCourierChats } = courierSlice.actions;
 export default courierSlice.reducer; 

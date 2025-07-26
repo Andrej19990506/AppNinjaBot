@@ -91,6 +91,7 @@ interface ItemUpdatePayload {
     category?: string;
     item?: InventoryItem; 
     type?: string;
+    timestamp?: string; // Добавляем timestamp для предотвращения race conditions
 }
 
 const initialState: InventoryState = {
@@ -560,21 +561,38 @@ const inventorySlice = createSlice({
         },
         // --- Частичное обновление из WebSocket ---
         receiveItemUpdate(state, action: PayloadAction<ItemUpdatePayload>) {
-            const { chatId, metadata, item_id, category, item } = action.payload;
+            const { chatId, metadata, item_id, category, item, timestamp } = action.payload;
             const messageType = action.payload.type || 'inventory_updated';
             const chatIndex = state.items.findIndex((chat: ChatInventory) => chat.chat_id === chatId); 
             if (chatIndex !== -1) {
                 let chatState = state.items[chatIndex];
+                
+                // 🚨 ПРОВЕРКА TIMESTAMP ДЛЯ ПРЕДОТВРАЩЕНИЯ RACE CONDITIONS
+                const incomingTimestamp = timestamp || metadata.lastUpdated;
+                const currentTimestamp = chatState.metadata?.lastUpdated;
+                
+                if (currentTimestamp && incomingTimestamp && incomingTimestamp < currentTimestamp) {
+                    console.warn(`⚠️ [Race Condition] Отклонено устаревшее обновление для чата ${chatId}:`, {
+                        incoming: incomingTimestamp,
+                        current: currentTimestamp
+                    });
+                    return; // Отклоняем устаревшее обновление
+                }
+                
+                // Атомарное обновление метаданных
                 chatState.metadata = {
                     ...chatState.metadata,
                     ...metadata,
-                    chat_id: chatId
+                    chat_id: chatId,
+                    lastUpdated: incomingTimestamp || chatState.metadata.lastUpdated
                 };
+                
                 if (metadata.progress !== undefined) {
                      chatState.metadata.progress = metadata.progress;
                  } else if (chatState.inventory) {
                      chatState.metadata.progress = calculateInventoryProgress(chatState.inventory);
                  }
+                 
                 if (item_id && category && item) {
                     if (!chatState.inventory) {
                          chatState.inventory = {};
@@ -582,7 +600,40 @@ const inventorySlice = createSlice({
                     if (!chatState.inventory[category]) {
                         chatState.inventory[category] = {};
                     }
-                    chatState.inventory[category][item_id] = item;
+                    
+                                         // 🚨 SMART CONFLICT RESOLUTION для одновременного редактирования
+                     const existingItem = chatState.inventory[category][item_id];
+                     const itemTimestamp = item.lastUpdated || incomingTimestamp;
+                     const existingItemTimestamp = existingItem?.lastUpdated;
+                     
+                     if (existingItemTimestamp && itemTimestamp) {
+                         const timeDiff = new Date(itemTimestamp).getTime() - new Date(existingItemTimestamp).getTime();
+                         
+                         // Отклоняем только если обновление ЗНАЧИТЕЛЬНО старше (>5 секунд)
+                         if (timeDiff < -5000) {
+                             console.warn(`⚠️ [Old Update] Отклонено слишком старое обновление товара ${category}/${item_id}:`, {
+                                 incoming: itemTimestamp,
+                                 existing: existingItemTimestamp,
+                                 diffMs: timeDiff
+                             });
+                             return;
+                         }
+                         
+                         // Для одновременных обновлений (разница <5 сек) - всегда принимаем
+                         if (Math.abs(timeDiff) < 5000) {
+                             console.info(`🔄 [Concurrent Update] Принято одновременное обновление товара ${category}/${item_id}:`, {
+                                 incoming: itemTimestamp,
+                                 existing: existingItemTimestamp,
+                                 diffMs: timeDiff
+                             });
+                         }
+                     }
+                    
+                    // Добавляем timestamp к товару если его нет
+                    chatState.inventory[category][item_id] = {
+                        ...item,
+                        lastUpdated: itemTimestamp
+                    };
                     chatState.metadata.progress = calculateInventoryProgress(chatState.inventory);
                 }
                 else if (messageType === 'inventory_reset') {

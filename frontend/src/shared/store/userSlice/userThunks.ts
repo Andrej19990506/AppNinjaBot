@@ -32,6 +32,9 @@ export const initializeFromTelegram = createAsyncThunk(
         if (!userId || !userDataFromWebApp) {
             return rejectWithValue('Не удалось определить ID пользователя или данные WebApp');
         }
+        // 📸 [PHOTO DEBUG] Логируем photo_url из WebApp
+        console.log(`📸 [PHOTO DEBUG] WebApp photo_url:`, userDataFromWebApp.photo_url);
+        
         let user: User = {
             id: userId,
             first_name: userDataFromWebApp.first_name || '',
@@ -49,6 +52,9 @@ export const initializeFromTelegram = createAsyncThunk(
             try {
                 const profileData = await api.user.getUserProfile(userId);
                 if (profileData) {
+                    // 📸 [PHOTO DEBUG] Логируем photo_url из API
+                    console.log(`📸 [PHOTO DEBUG] API profile photo_url:`, profileData.photo_url);
+                    
                     user = {
                         ...user,
                         id: profileData.user_id || userId,
@@ -57,8 +63,18 @@ export const initializeFromTelegram = createAsyncThunk(
                         username: profileData.username || user.username,
                         photo_url: profileData.photo_url || user.photo_url,
                     };
+                    
+                    // 📸 [PHOTO DEBUG] Финальный photo_url пользователя
+                    console.log(`📸 [PHOTO DEBUG] Final user photo_url:`, user.photo_url);
                 }
             } catch (profileError) {}
+            
+            // 📸 [PHOTO DEBUG] Итоговые данные пользователя
+            console.log(`📸 [PHOTO DEBUG] User object:`, { 
+                id: user.id, 
+                first_name: user.first_name, 
+                photo_url: user.photo_url 
+            });
         } catch (contextError) {}
         return user;
     }

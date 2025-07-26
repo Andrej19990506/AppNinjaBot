@@ -29,6 +29,7 @@ import { userPermissionsApi } from '@shared/api/userPermissionsApi';
 export interface ChatItem {
     chat_id: string;
     chat_title: string;
+    group_type?: string; // <--- добавляем тип группы
     metadata?: {
         progress?: number;
         lastUpdated?: string;
@@ -318,8 +319,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                     type: 'error'
                 });
             }
-            // Optionally set component-level error state if needed
-            // setError('Failed to process chat selection.');
         } finally {
             // 6. Reset processing flag
             isProcessingClickRef.current = false;
@@ -333,7 +332,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         setSystemNotification,
         onChatSelect, // Added dependency
         selectedChats, // Added dependency
-        // setError, // Only if using component-level error state
         setSelectedChatLocal,
         setShowModal,
         checkTemporaryPermissions // Added dependency
@@ -511,7 +509,9 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                                     setSelectedChatForMembers(chat);
                                                     setMembersModalOpen(true);
                                                 }}
-                                                title={`Участники (${(chat.members?.length || 0) + (chat.admins?.length || 0)})`}
+                                                title={`Участники (${
+                                                    (chat.members?.length || 0) + (chat.admins?.length || 0)
+                                                })`}
                                             >
                                                 <People className={styles.icon} />
                                                 <span className={styles.membersCount}>
@@ -674,6 +674,7 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                     admins={selectedChatForMembers.admins}
                     members={selectedChatForMembers.members}
                     currentUserId={currentUser?.id}
+                    groupType={selectedChatForMembers.group_type}
                     onGrantPermission={async (userId, permission, duration) => {
                         console.log('Открыть доступ:', { userId, permission, duration });
                         if (!currentUser) {

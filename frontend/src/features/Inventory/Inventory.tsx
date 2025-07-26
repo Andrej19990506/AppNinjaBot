@@ -6,7 +6,7 @@ import CategoryGrid from '@features/Inventory/CategoryGrid';
 import ItemList from '@features/Inventory/ItemList';
 import ItemHistory from '@features/Inventory/ItemHistory/ItemHistory';
 import ItemEdit from '@features/Inventory/ItemEdit';
-import InventoryCompleteDialog from '@features/Inventory/InventoryCompleteDialog';
+import { InventoryCompleteDrawer } from '@features/Inventory/components/InventoryCompleteDrawer';
 import TemplateChangesModal from '@features/Inventory/components/TemplateChangesModal';
 import Header from '@features/Inventory/Header';
 import styles from '@features/Inventory/Inventory.module.css';
@@ -18,6 +18,7 @@ import SearchResultsDropdown from '@features/Inventory/SearchResultsDropdown';
 import axios from 'axios';
 import config from '@/config';
 import { useInventoryWebSocketSync } from '@features/Inventory/hooks/useInventoryWebSocketSync';
+import { socketService } from '@shared/services/socketService';
 import styled from 'styled-components';
 
 // Импортируем необходимые хуки
@@ -25,7 +26,10 @@ import { useInventoryLoader } from '@features/Inventory/hooks/useInventoryLoader
 import { useInventoryNavigation } from '@features/Inventory/hooks/useInventoryNavigation';
 import { useInventorySearch } from '@features/Inventory/hooks/useInventorySearch';
 import { useInventoryView } from '@features/Inventory/hooks/useInventoryView';
-import { fetchChatInventory, selectCategoriesForSelectedChat} from '@/store/slices/inventorySlice';
+import { fetchChatInventory, selectCategoriesForSelectedChat, selectHistoryRecordsForItem} from '@/store/slices/inventorySlice';
+import ItemAnalytics from '@features/Inventory/components/ItemAnalytics/ItemAnalytics';
+import { ActiveUsersDrawer } from '@features/Inventory/components/ActiveUsersPanel/ActiveUsersDrawer';
+import SlidingDrawer from '@shared/components/SlidingDrawer/SlidingDrawer';
 
 // Добавляем интерфейс для преобразования ChatInventory в Chat
 interface Chat {
@@ -59,6 +63,15 @@ const Inventory: React.FC = () => {
     const [notifications, setNotifications] = useState<Array<{ id: string; type: string; message?: string; title?: string }>>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+    const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
+    const [analyticsData, setAnalyticsData] = useState<{category: string, itemId: string} | null>(null);
+    const [isActiveUsersDrawerOpen, setIsActiveUsersDrawerOpen] = useState(false);
+    const [activeUsersCount, setActiveUsersCount] = useState(0);
+    
+    // Селектор для данных истории (после инициализации analyticsData)
+    const historyData = useAppSelector(
+        analyticsData ? selectHistoryRecordsForItem(analyticsData.itemId) : () => []
+    );
     
     // --- 4. Инициализация кастомных хуков ---
     const {
@@ -154,6 +167,7 @@ const Inventory: React.FC = () => {
                         console.log('Item updated');
                     }}
                     chatId={selectedChat?.chat_id || ''}
+                    onShowAnalytics={() => handleShowAnalytics(category, itemId)}
                 />
                 
                 <ItemHistory
@@ -199,6 +213,44 @@ const Inventory: React.FC = () => {
     }, [selectedChat?.chat_id, isInventoryLoading, checkForUnviewedTemplateChanges]);
     // --- КОНЕЦ useEffect для проверки изменений шаблона ---
 
+    // --- useEffect для отслеживания активных пользователей ---
+    useEffect(() => {
+        if (!chatId) return;
+
+        const handleRoomUsers = (data: any) => {
+            if (data.room === `inventory_${chatId}`) {
+                setActiveUsersCount(data.users.length);
+            }
+        };
+
+        const handleUserJoined = (data: any) => {
+            if (data.room === `inventory_${chatId}`) {
+                setActiveUsersCount(prev => prev + 1);
+            }
+        };
+
+        const handleUserLeft = (data: any) => {
+            if (data.room === `inventory_${chatId}`) {
+                setActiveUsersCount(prev => Math.max(0, prev - 1));
+            }
+        };
+
+        // Подписываемся на события
+        const unsubscribeRoomUsers = socketService.subscribe('room_users_list', handleRoomUsers);
+        const unsubscribeUserJoined = socketService.subscribe('user_joined_room', handleUserJoined);
+        const unsubscribeUserLeft = socketService.subscribe('user_left_room', handleUserLeft);
+
+        // Запрашиваем текущий список
+        socketService.emit('get_room_users', { room: `inventory_${chatId}` });
+
+        return () => {
+            unsubscribeRoomUsers();
+            unsubscribeUserJoined();
+            unsubscribeUserLeft();
+        };
+    }, [chatId]);
+    // --- КОНЕЦ useEffect для активных пользователей ---
+
     // --- 6. Инициализация useCallback хуков ---
     const getHeaderTitle = useCallback(() => {
         const chat = inventoryItems.find(item => item.chat_id === chatId);
@@ -231,6 +283,28 @@ const Inventory: React.FC = () => {
     const handleHomeClick = useCallback(() => {
         navigate('/');
     }, [navigate]);
+
+    const handleShowAnalytics = useCallback((category: string, itemId: string) => {
+        setAnalyticsData({ category, itemId });
+        setIsAnalyticsOpen(true);
+    }, []);
+
+    const handleCloseAnalytics = useCallback(() => {
+        setIsAnalyticsOpen(false);
+        setAnalyticsData(null);
+    }, []);
+
+    const handleActiveUsersClick = useCallback(() => {
+        setIsActiveUsersDrawerOpen(prev => !prev);
+    }, []);
+
+    const handleCloseActiveUsersDrawer = useCallback(() => {
+        setIsActiveUsersDrawerOpen(false);
+    }, []);
+
+    const handleCompleteClick = useCallback(() => {
+        setShowCompleteDialog(prev => !prev);
+    }, []);
 
     // --- 7. Прочие переменные и вычисления ---
     const error = loaderError; // Теперь error берется только из loader
@@ -358,6 +432,9 @@ const Inventory: React.FC = () => {
                 hasUnreadNotifications={hasUnreadNotifications}
                 onNotificationClose={handleNotificationClose}
             />
+            
+
+            
             <div className={styles.content}>
                 {/* Контейнер для поиска, который будет позиционировать дропдаун */}
                 <SearchContainer> 
@@ -403,13 +480,28 @@ const Inventory: React.FC = () => {
                 showInventorySearchButton={true} 
                 onInventorySearchClick={handleFooterSearchClick} 
                 isSearchOpen={isSearchFocused}
+                isAnalyticsOpen={isAnalyticsOpen}
+                onAnalyticsClose={handleCloseAnalytics}
+                showActiveUsersButton={true}
+                onActiveUsersClick={handleActiveUsersClick}
+                activeUsersCount={activeUsersCount}
+                isActiveUsersOpen={isActiveUsersDrawerOpen}
+                showCompleteButton={currentChatData.metadata?.progress === 100}
+                onCompleteClick={handleCompleteClick}
+                isCompleteOpen={showCompleteDialog}
             />
-            <InventoryCompleteDialog
-                isOpen={showCompleteDialog}
-                onClose={handleCloseCompleteDialog}
-                inventoryData={currentChatData as any}
-                chatId={currentChatData.chat_id}
-            />
+                         {/* SlidingDrawer с завершением инвентаризации */}
+             <AnimatePresence>
+                 {showCompleteDialog && currentChatData.chat_id && (
+                     <SlidingDrawer onClose={handleCloseCompleteDialog}>
+                         <InventoryCompleteDrawer 
+                             inventoryData={currentChatData as any}
+                             chatId={currentChatData.chat_id}
+                             onClose={handleCloseCompleteDialog}
+                         />
+                     </SlidingDrawer>
+                 )}
+             </AnimatePresence>
             
             {/* Модальное окно с изменениями шаблона */}
             {templateChanges && (
@@ -419,6 +511,27 @@ const Inventory: React.FC = () => {
                     changes={templateChanges}
                 />
             )}
+            
+            {/* Модальное окно аналитики */}
+            {analyticsData && (
+                <ItemAnalytics
+                    itemId={analyticsData.itemId}
+                    itemName={analyticsData.itemId}
+                    category={analyticsData.category}
+                    history={historyData || []}
+                    isOpen={isAnalyticsOpen}
+                    onClose={handleCloseAnalytics}
+                />
+            )}
+            
+            {/* SlidingDrawer с активными пользователями */}
+            <AnimatePresence>
+                {isActiveUsersDrawerOpen && currentChatData.chat_id && (
+                    <SlidingDrawer onClose={handleCloseActiveUsersDrawer}>
+                        <ActiveUsersDrawer chatId={currentChatData.chat_id} />
+                    </SlidingDrawer>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

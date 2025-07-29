@@ -351,7 +351,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [recording, setRecording] = useState(false);
-    const [timer, setTimer] = useState<number>(10); // 10 секунд для быстрого тестирования
+    const [timer, setTimer] = useState<number>(300); // 5 минут для конкурса
     const [countdown, setCountdown] = useState<number | null>(null);
     const [showTimerCenter, setShowTimerCenter] = useState(false);
     const [showTimerCorner, setShowTimerCorner] = useState(false);
@@ -490,8 +490,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     // Таймер обратного отсчёта для записи
     useEffect(() => {
         let interval: NodeJS.Timeout;
-        if (recording && timer > 0) {
-            setCountdown(timer);
+        if (recording && countdown !== null && countdown > 0) {
             interval = setInterval(() => {
                 setCountdown((prev) => {
                     if (prev && prev > 1) {
@@ -504,8 +503,12 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                 });
             }, 1000);
         }
-        return () => clearInterval(interval);
-    }, [recording, timer]);
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
+    }, [recording, countdown]);
 
     // useEffect для проигрывания END.mp3 и финального отсчёта
     useEffect(() => {
@@ -530,6 +533,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
         if (!stream) return;
         setRecording(true);
         setCountdown(timer);
+        setShowTimerCorner(true);
         setHasRecorded(false);
         setAudioStarted(false);
         const mediaRecorder = new MediaRecorder(stream);
@@ -589,6 +593,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
             setCountdownAnim(false);
             chunks.length = 0; // сбрасываем видео
             setEndSoundPlayed(false);
+            setFinalCountdown(null);
         }, 300);
     };
 

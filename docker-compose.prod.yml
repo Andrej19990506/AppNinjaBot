@@ -134,7 +134,7 @@ services:
       - shared-data:/app/shared
     environment:
       - REACT_APP_API_URL=${VITE_APP_API_URL:-https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
-      - REACT_APP_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru}
+      - VITE_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru/socket.io/}
       - ENV_TYPE=${ENV_TYPE:-production}
       - REACT_APP_DEBUG=${VITE_DEBUG:-false}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}

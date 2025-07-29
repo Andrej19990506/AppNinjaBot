@@ -24,6 +24,13 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
     useEffect(() => {
         if (!chatId) return;
 
+        console.log(`🔍 [ACTIVE USERS DRAWER] Инициализация для chatId: ${chatId}`);
+        console.log(`🔍 [ACTIVE USERS DRAWER] SocketService состояние:`, {
+            isInitialized: socketService.isInitialized(),
+            isConnected: socketService.isConnected(),
+            socketId: socketService.getSocket()?.id
+        });
+
         // Функция для обработки события присоединения пользователя
         const handleUserJoined = (data: any) => {
             console.log(`👤 [ACTIVE USERS DRAWER] Пользователь присоединился:`, data);
@@ -70,6 +77,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
                 }));
                 setActiveUsers(users);
                 setIsLoading(false);
+                console.log(`✅ [ACTIVE USERS DRAWER] Установлено ${users.length} пользователей`);
             }
         };
 
@@ -79,14 +87,17 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
         const unsubscribeRoomUsers = socketService.subscribe('room_users_list', handleRoomUsers);
 
         // Запрашиваем текущий список пользователей комнаты
+        console.log(`📡 [ACTIVE USERS DRAWER] Отправляем запрос get_room_users для комнаты: inventory_${chatId}`);
         socketService.emit('get_room_users', { room: `inventory_${chatId}` });
 
         // Таймаут для отключения загрузки если сервер не ответил
         const timeout = setTimeout(() => {
+            console.log(`⏰ [ACTIVE USERS DRAWER] Таймаут получения списка пользователей`);
             setIsLoading(false);
         }, 3000);
 
         return () => {
+            console.log(`🧹 [ACTIVE USERS DRAWER] Очистка useEffect для chatId: ${chatId}`);
             unsubscribeUserJoined();
             unsubscribeUserLeft();
             unsubscribeRoomUsers();

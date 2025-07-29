@@ -23,19 +23,6 @@ from datetime import datetime
 
 router = APIRouter()
 
-# Получаем URL бота из переменной окружения
-BOT_INTERNAL_URL = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
-
-# Настройка Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME", "dzymrkr14"),
-    api_key=os.getenv("CLOUDINARY_API_KEY", "729531884973171"),
-    api_secret=os.getenv("CLOUDINARY_API_SECRET", "D8f3KJs53yr2D36mmxy6pEM9DuQ")
-)
-
-# Проверяем конфигурацию
-print(f"🔧 Cloudinary config: cloud_name={cloudinary.config().cloud_name}, api_key={cloudinary.config().api_key}")
-
 def compress_video(input_path: str, output_path: str, max_size_mb: int = 45) -> str:
     """Сжимает видео до указанного размера в МБ"""
     try:
@@ -493,10 +480,10 @@ def upload_competition_video(
             # Отправляем ссылку через бота
             cloudinary_caption = f"🎥 Видео для модерации\nПользователь: {first_name} {last_name} (ID: {user_id})\nКонкурс: {competition_id}\n\n📁 Файл загружен в Cloudinary:\n{cloudinary_link}"
             
-            bot_url = f"{BOT_INTERNAL_URL}/internal/send-message"
+            bot_url = "http://bot:8003/internal/send-message"
             payload = {
-                "chat_id": "-1004882333113",
-                "text": cloudinary_caption
+                "target_chat_id": -1004882333113,
+                "message": cloudinary_caption
             }
             
             try:

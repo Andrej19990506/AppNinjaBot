@@ -22,6 +22,8 @@ from .endpoints.materials import router as materials_router
 
 from .endpoints.competitions import router as competitions_router
 
+from .endpoints.chats import router as chats_router
+
 api_router = APIRouter()
 
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
@@ -44,3 +46,5 @@ api_router.include_router(user_permissions_router, prefix="/user-permissions", t
 api_router.include_router(materials_router, tags=["Materials"])
 
 api_router.include_router(competitions_router, prefix="/competitions", tags=["Competitions"])
+
+api_router.include_router(chats_router, prefix="/chats", tags=["Chats"])

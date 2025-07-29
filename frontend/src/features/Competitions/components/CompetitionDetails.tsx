@@ -19,6 +19,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import VictoryDescriptionModal from './VictoryDescriptionModal';
 import ParticipantsRankingModal from './ParticipantsRankingModal';
 import { axiosInstance } from '@/shared/api/api';
+import VideoRecorderModal from './VideoRecorderModal';
 
 const DetailsContainer = styled.div`
     height: 100dvh;
@@ -550,6 +551,7 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
     const [victoryModalInitial, setVictoryModalInitial] = useState('');
     const [showRankingModal, setShowRankingModal] = useState(false);
     const [participants, setParticipants] = useState<any[]>([]);
+    const [showVideoRecorder, setShowVideoRecorder] = useState(false);
 
     // Загружаем детальную информацию о конкурсе при открытии
     useEffect(() => {
@@ -1030,6 +1032,15 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
                                 </Button>
                             )
                         )}
+                        {isBoxRace && currentCompetition.status === 'active' && userIsRegistered && (
+                            <Button
+                                variant="primary"
+                                onClick={() => setShowVideoRecorder(true)}
+                                style={{ margin: '18px 0', fontSize: '1.1rem', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                            >
+                                Приступить
+                            </Button>
+                        )}
                     </HeaderContent>
                     <StatusDates>
                         <span>{formatDate(currentCompetition.start_date)} — {formatDate(currentCompetition.end_date)}</span>
@@ -1189,6 +1200,15 @@ const CompetitionDetails: React.FC<CompetitionDetailsProps> = ({ competition, on
                 createdBy={currentCompetition.created_by}
                 currentUserId={userId || 0}
             />
+            {showVideoRecorder && userId && (
+                <VideoRecorderModal
+                    onClose={() => setShowVideoRecorder(false)}
+                    userId={userId}
+                    firstName={user?.first_name || ''}
+                    lastName={user?.last_name || ''}
+                    competitionId={currentCompetition.id}
+                />
+            )}
         </>
     );
 };

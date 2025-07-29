@@ -5,9 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Request, HTTPException, status
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional, Dict, List
-import time
-import telegram
+from typing import Optional, List
 from telegram.error import BadRequest
 import random
 
@@ -21,7 +19,7 @@ from telegram.ext import ContextTypes, CallbackQueryHandler
 import httpx
 
 # Импортируем модель Pydantic
-from .models import SendMessagePayload
+from .models import SendMessagePayload, SendFilePayload, RefreshUserPayload, SendExcelReportPayload, SendWriteOffReportPayload, SendItemRequestPayload
 
 # Импортируем конфигурацию (для пути вебхука и секрета)
 from telegramNinjaBot.config.config import Config
@@ -40,44 +38,10 @@ ALLOWED_REPORTS_DIR = Path(os.getenv("SHARED_REPORTS_FOLDER", "/app/shared/inven
 ALLOWED_WRITEOFF_REPORTS_DIR = Path(os.getenv("SHARED_WRITEOFF_REPORTS_FOLDER", "/app/shared/write_off_reports"))
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
-# Модель для эндпоинта отправки файла
-class SendFilePayload(BaseModel):
-    target_chat_id: int
-    file_path: str
-    period_year: Optional[int] = None
-    period_month: Optional[int] = None # Ожидаем 1-12 от API
-    period_is_weekly: Optional[bool] = None
-    period_start_date: Optional[str] = None # YYYY-MM-DD
-    period_end_date: Optional[str] = None   # YYYY-MM-DD
-
-# Модель для эндпоинта обновления данных пользователя
-class RefreshUserPayload(BaseModel):
-    user_id: int
-
-# ---> ДОБАВЛЕНИЕ: Модель для эндпоинта отправки Excel отчета < ---
-class SendExcelReportPayload(BaseModel):
-    chat_id: str # Принимаем как строку, т.к. API отправляет строку
-    file_path: str
+# ---> ДОБАВЛЕНИЕ: Директория для видео конкурсов < ---
+ALLOWED_VIDEOS_DIR = Path("/app/shared/competition_videos")
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
-# --- Модель для отправки DOCX write-off отчёта ---
-class SendWriteOffReportPayload(BaseModel):
-    chat_id: str
-    file_path: str
-    photos: Optional[List[dict]] = []  # Массив фотографий
-    photos_count: Optional[int] = 0
-    items_count: Optional[int] = 0
-# --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ DOCX write-off отчёта ---
-
-# --- Модель для отправки запроса на добавление товара ---
-class SendItemRequestPayload(BaseModel):
-    inventory_group_id: str  # ID группы инвентаризации
-    chef_group_id: str       # ID chef группы
-    chef_group_title: str    # Название chef группы
-    item_name: str           # Название товара
-    category: str           # Категория товара
-    has_semifinished: bool  # Есть ли полуфабрикаты
-# --- КОНЕЦ МОДЕЛИ ДЛЯ ОТПРАВКИ ЗАПРОСА НА ДОБАВЛЕНИЕ ТОВАРА ---
 
 # Создаем APIRouter
 router = APIRouter()
@@ -101,6 +65,70 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
         processed_chat_id: int
         try:
             # Просто преобразуем строку в int, Telegram сам разберется с форматом
+            processed_chat_id = int(chat_id_str)
+            logger.info(f"ID чата {chat_id_str} обработан как {processed_chat_id}")
+        except ValueError:
+             logger.error(f"Не удалось преобразовать chat_id '{chat_id_str}' в число")
+             raise HTTPException(status_code=400, detail=f"Invalid chat_id format: {chat_id_str}")
+
+        # Отправляем сообщение
+        try:
+            await bot_app.bot.send_message(
+                chat_id=processed_chat_id,
+                text=payload.text,
+                parse_mode=payload.parse_mode,
+                reply_markup=payload.reply_markup if payload.reply_markup else None
+            )
+            logger.info(f"✅ Сообщение успешно отправлено в чат {chat_id_str}")
+            return {"success": True, "message": "Сообщение успешно отправлено"}
+        
+        except BadRequest as e:
+            error_message = str(e)
+            logger.warning(f"⚠️ Ошибка BadRequest при первой попытке отправки сообщения в чат {chat_id_str} ({processed_chat_id}): {error_message}")
+
+            if "chat not found" in error_message.lower() and chat_id_str.startswith("-100"):
+                try:
+                    alternative_chat_id_str = f"-{chat_id_str[4:]}"
+                    alternative_chat_id = int(alternative_chat_id_str)
+                    logger.info(f"Попытка отправить сообщение в чат {alternative_chat_id_str} (альтернативный ID)")
+                    
+                    await bot_app.bot.send_message(
+                        chat_id=alternative_chat_id,
+                        text=payload.text,
+                        parse_mode=payload.parse_mode,
+                        reply_markup=payload.reply_markup if payload.reply_markup else None
+                    )
+                    logger.info(f"✅ Сообщение успешно отправлено в альтернативный чат {alternative_chat_id_str}")
+                    return {"success": True, "message": "Сообщение успешно отправлено в альтернативный чат"}
+                except Exception as alt_e:
+                    logger.error(f"❌ Ошибка при отправке в альтернативный чат {alternative_chat_id_str}: {alt_e}")
+                    raise HTTPException(status_code=500, detail=f"Failed to send message to alternative chat: {alt_e}")
+            else:
+                raise HTTPException(status_code=400, detail=f"Failed to send message: {error_message}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Неожиданная ошибка при отправке сообщения: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+# --- Эндпоинт /internal/send-message --- 
+@router.post("/internal/send-message", tags=["Internal"], status_code=status.HTTP_200_OK)
+async def send_message_internal(payload: SendMessagePayload, request: Request):
+    """Внутренний эндпоинт для отправки сообщений через Telegram бота"""
+    logger.info("📬 Получен внутренний запрос на /internal/send-message")
+    logger.info(f"Данные payload: {payload.model_dump()}")
+    
+    try:
+        # Получаем экземпляр бота из app.state
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
+            
+        # Преобразуем формат ID чата
+        chat_id_str = payload.chat_id
+        processed_chat_id: int
+        try:
             processed_chat_id = int(chat_id_str)
             logger.info(f"ID чата {chat_id_str} обработан как {processed_chat_id}")
         except ValueError:
@@ -271,9 +299,27 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
         try:
              # resolve() нужен для обработки символических ссылок и '..'
              resolved_path = requested_path.resolve(strict=True)
-             allowed_dir_resolved = ALLOWED_FILE_DIR.resolve(strict=True)
-             if not resolved_path.is_relative_to(allowed_dir_resolved):
-                 logger.error(f"❌ Попытка доступа к файлу вне разрешенной директории: {resolved_path}")
+             
+             # Проверяем все разрешенные директории
+             allowed_dirs = [
+                 ALLOWED_FILE_DIR.resolve(strict=True),
+                 ALLOWED_REPORTS_DIR.resolve(strict=True),
+                 ALLOWED_WRITEOFF_REPORTS_DIR.resolve(strict=True),
+                 ALLOWED_VIDEOS_DIR.resolve(strict=True)
+             ]
+             
+             is_allowed = False
+             for allowed_dir in allowed_dirs:
+                 try:
+                     if resolved_path.is_relative_to(allowed_dir):
+                         is_allowed = True
+                         logger.info(f"✅ Файл {resolved_path} разрешен в директории {allowed_dir}")
+                         break
+                 except ValueError:
+                     continue
+             
+             if not is_allowed:
+                 logger.error(f"❌ Попытка доступа к файлу вне разрешенных директорий: {resolved_path}")
                  raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to the specified file path.")
         except Exception as path_resolve_err:
              logger.error(f"❌ Ошибка при проверке пути файла {requested_path}: {path_resolve_err}", exc_info=True)
@@ -282,7 +328,7 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
         logger.info(f"Путь {resolved_path} прошел валидацию. Попытка отправки документа.")
 
         # <<< НАЧАЛО ИЗМЕНЕНИЙ: Генерация подписи >>>
-        caption = "📊 Табель"
+        caption = payload.caption if hasattr(payload, 'caption') and payload.caption else "📊 Табель"
         months_ru = { 
             1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь",
             7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"
@@ -315,47 +361,95 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
         logger.info(f"Сгенерирована подпись для файла: '{caption}'")
         # <<< КОНЕЦ ИЗМЕНЕНИЙ: Генерация подписи >>>
 
-        # Отправка документа
+        # Отправка файла
         try:
             # <<< Открываем файл для чтения в бинарном режиме >>>
-            with open(resolved_path, "rb") as document_file:
+            with open(resolved_path, "rb") as file:
+                # Определяем тип файла по расширению
+                file_extension = resolved_path.suffix.lower()
+                is_video = file_extension in ['.mp4', '.avi', '.mov', '.mkv', '.webm', '.flv', '.wmv']
+                
                 try:
-                    await bot_app.bot.send_document(
-                        chat_id=processed_chat_id,
-                        document=document_file, 
-                        filename=resolved_path.name,
-                        caption=caption
-                    )
-                    logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id} с подписью.")
+                    # Проверяем размер файла
+                    file_size = os.path.getsize(resolved_path)
+                    file_size_mb = file_size / (1024 * 1024)
+                    logger.info(f"📊 Размер файла {resolved_path.name}: {file_size_mb:.2f} МБ")
+                    
+                    if is_video:
+                        if file_size_mb <= 50:  # Telegram лимит для видео
+                            # Для видео файлов используем send_video
+                            await bot_app.bot.send_video(
+                                chat_id=processed_chat_id,
+                                video=file,
+                                caption=caption,
+                                supports_streaming=True
+                            )
+                            logger.info(f"✅ Видео файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id} с подписью.")
+                        else:
+                            # Если видео слишком большое, отправляем как документ
+                            logger.warning(f"⚠️ Видео {resolved_path.name} слишком большое ({file_size_mb:.2f} МБ), отправляем как документ")
+                            await bot_app.bot.send_document(
+                                chat_id=processed_chat_id,
+                                document=file, 
+                                filename=resolved_path.name,
+                                caption=caption
+                            )
+                            logger.info(f"✅ Видео {resolved_path.name} отправлено как документ в чат {payload.target_chat_id}.")
+                    else:
+                        # Для остальных файлов используем send_document
+                        await bot_app.bot.send_document(
+                            chat_id=processed_chat_id,
+                            document=file, 
+                            filename=resolved_path.name,
+                            caption=caption
+                        )
+                        logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {payload.target_chat_id} с подписью.")
                 except Exception as send_err:
-                    logger.warning(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {processed_chat_id} (первая попытка): {send_err}")
+                    logger.warning(f"❌ Ошибка при отправке файла {resolved_path.name} в чат {processed_chat_id} (первая попытка): {send_err}")
 
                     if str(processed_chat_id).startswith('-100'): 
                         alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
                         logger.info(f"Попытка отправить в чат {alternative_chat_id} (альтернативный ID)")
-                        document_file.seek(0)  # Сбрасываем указатель файла
+                        file.seek(0)  # Сбрасываем указатель файла
                         try:
-                            await bot_app.bot.send_document(
-                                chat_id=alternative_chat_id,
-                                document=document_file,
-                                filename=resolved_path.name,
-                                caption=caption
-                            )
+                            if is_video:
+                                if file_size_mb <= 50:  # Telegram лимит для видео
+                                    await bot_app.bot.send_video(
+                                        chat_id=alternative_chat_id,
+                                        video=file,
+                                        caption=caption,
+                                        supports_streaming=True
+                                    )
+                                else:
+                                    # Если видео слишком большое, отправляем как документ
+                                    await bot_app.bot.send_document(
+                                        chat_id=alternative_chat_id,
+                                        document=file,
+                                        filename=resolved_path.name,
+                                        caption=caption
+                                    )
+                            else:
+                                await bot_app.bot.send_document(
+                                    chat_id=alternative_chat_id,
+                                    document=file,
+                                    filename=resolved_path.name,
+                                    caption=caption
+                                )
                             logger.info(f"✅ Файл {resolved_path.name} успешно отправлен в чат {alternative_chat_id} с подписью.")
                         except Exception as alt_send_err:
-                            logger.error(f"❌ Ошибка при отправке документа {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
+                            logger.error(f"❌ Ошибка при отправке файла {resolved_path.name} в чат {alternative_chat_id}: {alt_send_err}")
                             # Перевыбрасываем ошибку второй попытки
-                            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document (alt ID): {alt_send_err}")
+                            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send file (alt ID): {alt_send_err}")
                     else:
                         # Если это не группа или ошибка не связана с ID, перевыбрасываем исходную ошибку
-                         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send document: {send_err}")
+                         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send file: {send_err}")
                         
             return {"success": True, "message": "File sent successfully"}
         except HTTPException as http_exc: # Перехватываем HTTPException, чтобы не попасть в общий Exception
              raise http_exc
         except Exception as send_err: # Ошибки чтения файла или другие непредвиденные
             logger.error(f"❌ Ошибка при обработке файла {resolved_path.name} или отправке в чат {payload.target_chat_id}: {send_err}", exc_info=True)
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send document: {send_err}")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to process or send file: {send_err}")
 
     except HTTPException as http_exc:
         # Перевыбрасываем HTTP исключения (например, от валидации)
@@ -970,5 +1064,74 @@ async def send_item_request_internal(payload: SendItemRequestPayload, request: R
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 
-
-
+# --- Эндпоинт для генерации безопасных ссылок приглашения ---
+@router.post("/api/chats/{chat_id}/invite-link", tags=["Chat Management"], status_code=status.HTTP_200_OK)
+async def generate_invite_link(chat_id: str, request: Request):
+    """
+    Генерирует безопасную ссылку приглашения для чата.
+    Безопасность: ссылка генерируется на бэкенде, а не на фронте.
+    """
+    logger.info(f"🔗 Получен запрос на генерацию ссылки приглашения для чата {chat_id}")
+    
+    try:
+        # Получаем экземпляр бота из app.state
+        bot_app: Application = request.app.state.bot_application
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
+        
+        # Преобразуем ID чата в int
+        try:
+            processed_chat_id = int(chat_id)
+            logger.info(f"ID чата {chat_id} обработан как {processed_chat_id}")
+        except ValueError:
+            logger.error(f"❌ Неверный формат chat_id: {chat_id}")
+            raise HTTPException(status_code=400, detail="Invalid chat_id format")
+        
+        # Получаем информацию о боте через Telegram API
+        try:
+            bot_info = await bot_app.bot.get_me()
+            bot_username = bot_info.username
+            logger.info(f"✅ Получен username бота: {bot_username}")
+            
+            if not bot_username:
+                logger.error("❌ У бота не настроен username")
+                raise HTTPException(
+                    status_code=500, 
+                    detail="Bot username not configured. Please set username for the bot in @BotFather"
+                )
+                
+        except Exception as e:
+            logger.error(f"❌ Не удалось получить информацию о боте: {e}")
+            raise HTTPException(status_code=500, detail="Failed to get bot information")
+        
+        # Генерируем уникальный параметр для ссылки
+        import secrets
+        import hashlib
+        import time
+        
+        # Создаем уникальный токен на основе chat_id и времени
+        timestamp = int(time.time())
+        random_secret = secrets.token_hex(8)
+        token_data = f"{chat_id}_{timestamp}_{random_secret}"
+        invite_token = hashlib.sha256(token_data.encode()).hexdigest()[:16]
+        
+        # Создаем безопасную ссылку
+        invite_link = f"https://t.me/{bot_username}?start=registry_{chat_id}_{invite_token}"
+        
+        logger.info(f"✅ Сгенерирована безопасная ссылка приглашения для чата {chat_id}")
+        logger.info(f"🔗 Ссылка: {invite_link}")
+        
+        return {
+            "success": True,
+            "invite_link": invite_link,
+            "chat_id": chat_id,
+            "expires_at": timestamp + (24 * 60 * 60),  # Ссылка действительна 24 часа
+            "message": "Безопасная ссылка приглашения успешно сгенерирована"
+        }
+        
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка при генерации ссылки приглашения: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")

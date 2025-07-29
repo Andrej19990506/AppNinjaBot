@@ -14,3 +14,9 @@ redis>=5.0.0
 pandas
 python-docx
 python-multipart
+ffmpeg-python
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-python-client
+cloudinary==1.41.0

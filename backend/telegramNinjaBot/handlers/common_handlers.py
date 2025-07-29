@@ -3,6 +3,7 @@ import json
 import traceback
 import os
 from datetime import datetime
+from typing import List, Dict
 # import aiohttp # Убедитесь, что aiohttp установлен, если используете handle_deletion_callback
 from telegram import Update, Bot, MenuButton, MenuButtonWebApp, WebAppInfo, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -12,6 +13,63 @@ from telegramNinjaBot.config.config import Config
 import telegram.error
 
 logger = logging.getLogger(__name__)
+
+def get_personalized_welcome_message(group_type: str, user_role: str, user_name: str, group_name: str, is_senior_courier: bool = False) -> str:
+    """
+    Генерирует персонализированное приветственное сообщение в зависимости от типа группы и роли пользователя
+    """
+    base_message = f"ℹ️ *Вы уже зарегистрированы!*\n\n🎯 **Группа:** {group_name}\n👤 **Пользователь:** {user_name}\n"
+    
+    if group_type == "chef":
+        if user_role in ["creator", "administrator"]:
+            return (
+                f"{base_message}\n"
+                f"👨‍🍳 **Роль:** Старший повар/Управляющий\n\n"
+                f"🚀 **Доступные функции:**\n"
+                f"• 📦 Управление инвентаризацией\n"
+                f"• 📋 Управление списанием\n"
+                f"• 📊 Отчеты по кухне\n"
+                f"• ⚡ Уведомления о событиях\n"
+                f"• ⏰ Открытие временного доступа для сотрудников\n"
+                f"\n"
+                f"Вы можете управлять всеми процессами на кухне!"
+            )
+        else:
+            return (
+                f"{base_message}\n"
+                f"👨‍🍳 **Роль:** Участник группы\n\n"
+                f"🚀 **Доступные функции:**\n"
+                f"❗️ У вас ограниченный доступ. После того как Старший повар или Управляющий предоставит вам временный доступ, вы сможете управлять инвентаризацией и списанием.\n\n"
+                f"Добро пожаловать в команду кухни!"
+            )
+    
+    elif group_type == "courier":
+        if is_senior_courier:
+            return (
+                f"{base_message}\n"
+                f"🚚 **Роль:** Старший курьер\n\n"
+                f"🚀 **Доступные функции:**\n"
+                f"• 📅 Управление графиком смен\n"
+                f"• 👥 Управление курьерами\n"
+                f"• 🎯 Назначение смен\n\n"
+                f"Вы можете управлять командой курьеров!"
+            )
+        else:
+            return (
+                f"{base_message}\n"
+                f"🚚 **Роль:** Курьер\n\n"
+                f"🚀 **Доступные функции:**\n"
+                f"• 📅 Просмотр доступных и занятых смен\n"
+                f"• ➕ Запись в смены\n"
+                f"• 📝 Запись в резерв\n"
+                f"• 📊 Просмотр своих смен\n"
+                f"• ⚡ Уведомления об открытии доступа к записи в вашей группе\n"
+                f"\n"
+                f"❗️ Вы не можете самостоятельно удаляться из смены. Для отмены смены обратитесь к старшему курьеру или администратору.\n"
+                f"\n"
+                f"Добро пожаловать в команду доставки!"
+            )
+
 
 async def handle_webapp_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик данных от веб-приложения"""
@@ -84,13 +142,45 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         # Если есть параметр registry_ - обрабатываем регистрацию
         if args and args[0].startswith('registry_'):
             registry_param = args[0]
-            group_id = registry_param.replace('registry_', '')
             
-            logger.info(f"🔐 Пользователь {user.id} перешел по ссылке регистрации в группу {group_id}")
+            # Парсим параметры: registry_<chat_id>_<token>
+            # Используем более надежный способ парсинга для отрицательных ID
+            if not registry_param.startswith('registry_'):
+                logger.error(f"❌ Неверный формат параметра регистрации: {registry_param}")
+                await update.message.reply_text(
+                    f"❌ *Ошибка регистрации*\n\n"
+                    f"Некорректный формат ссылки регистрации.\n\n"
+                    f"Обратитесь к администратору за новой ссылкой регистрации.",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Убираем 'registry_' и разбиваем остальное по последнему '_'
+            param_without_prefix = registry_param[9:]  # убираем 'registry_'
+            last_underscore_index = param_without_prefix.rfind('_')
+            
+            if last_underscore_index == -1:
+                logger.error(f"❌ Неверный формат параметра регистрации: {registry_param}")
+                await update.message.reply_text(
+                    f"❌ *Ошибка регистрации*\n\n"
+                    f"Некорректный формат ссылки регистрации.\n\n"
+                    f"Обратитесь к администратору за новой ссылкой регистрации.",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Получаем group_id (все до последнего '_') и invite_token (после последнего '_')
+            group_id = param_without_prefix[:last_underscore_index]
+            invite_token = param_without_prefix[last_underscore_index + 1:]
+            
+            logger.info(f"🔐 Пользователь {user.id} перешел по ссылке регистрации в группу {group_id} с токеном {invite_token}")
+            logger.info(f"🔍 Отладочная информация: registry_param='{registry_param}', param_without_prefix='{param_without_prefix}', last_underscore_index={last_underscore_index}")
             
             # Валидируем ID группы
             try:
                 group_id_int = int(group_id)
+                # Проверяем, что это отрицательное число (группа/канал)
+                # Принимаем как обычные группы (-123456789), так и супергруппы (-100123456789)
                 if group_id_int >= 0:
                     await update.message.reply_text(
                         f"❌ *Ошибка регистрации*\n\n"
@@ -99,6 +189,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         parse_mode='Markdown'
                     )
                     return
+                logger.info(f"✅ ID группы {group_id} валиден (обычная группа или супергруппа)")
             except ValueError:
                 await update.message.reply_text(
                     f"❌ *Ошибка регистрации*\n\n"
@@ -107,6 +198,12 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     parse_mode='Markdown'
                 )
                 return
+            
+            # Валидируем токен приглашения (опционально)
+            if invite_token:
+                # Здесь можно добавить проверку токена, если нужно
+                # Например, проверить в базе данных или валидировать формат
+                logger.info(f"🔐 Токен приглашения: {invite_token}")
             
             # Получаем сервис БД из bot_data
             db_service = context.application.bot_data.get('db_service')
@@ -143,21 +240,34 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             is_registered = await db_service.is_user_in_group(user.id, group_id)
             
             if is_registered:
-                # Пользователь уже зарегистрирован в боте
+                # Получаем информацию о группе и роли пользователя
+                group_info = await db_service.get_group_info(group_id)
+                user_group_info = await db_service.get_user_group_info(user.id, group_id)
+                
+                # Определяем тип группы
+                group_type = group_info.get('group_type', 'general') if group_info else 'general'
+                
+                # Определяем роль пользователя
+                user_role = user_group_info.get('role', 'member') if user_group_info else 'member'
+                is_senior_courier = user_group_info.get('is_senior_courier', False) if user_group_info else False
+                
+                # Получаем название группы из БД или используем ID как fallback
+                group_name = group_info.get('title', f'Группа {group_id}') if group_info else f'Группа {group_id}'
+                
+                # Генерируем персонализированное сообщение
+                welcome_message = get_personalized_welcome_message(
+                    group_type=group_type,
+                    user_role=user_role,
+                    user_name=user.full_name,
+                    group_name=group_name,
+                    is_senior_courier=is_senior_courier
+                )
+                
                 await update.message.reply_text(
-                    f"ℹ️ *Вы уже зарегистрированы!*\n\n"
-                    f"🎯 **Группа:** `{group_id}`\n"
-                    f"👤 **Пользователь:** {user.full_name}\n"
-                    f"📱 **Username:** @{user.username or 'не указан'}\n\n"
-                    f"🚀 **Доступные функции:**\n"
-                    f"• 📦 Управление инвентарем\n"
-                    f"• 📋 Управление инвентарем\n"
-                    f"• 📊 Отчеты и аналитика\n"
-                    f"• ⚡ Уведомления в реальном времени\n\n"
-                    f"Вы можете продолжать использовать все функции бота!",
+                    welcome_message,
                     parse_mode='Markdown'
                 )
-                logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {group_id}")
+                logger.info(f"ℹ️ Пользователь {user.id} ({user.full_name}) уже зарегистрирован в группе {group_id} как {user_role} (тип группы: {group_type})")
                 return
             
             # Шаг 2: Если не найден в БД - проверяем через Telegram API
@@ -165,7 +275,41 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             
             try:
                 # Проверяем статус пользователя в группе через Telegram API
-                chat_member = await context.bot.get_chat_member(group_id, user.id)
+                logger.info(f"🔍 Проверяем членство пользователя {user.id} в группе {group_id} через Telegram API...")
+                
+                # Для обычных групп (не супергрупп) нужно использовать другой формат ID
+                # Сначала пробуем с префиксом -100, если не работает - без него
+                telegram_group_id = group_id
+                if not group_id.startswith('-100'):
+                    # Это обычная группа, добавляем префикс -100
+                    telegram_group_id = f"-100{group_id.lstrip('-')}"
+                    logger.info(f"🔄 Преобразуем ID обычной группы: {group_id} -> {telegram_group_id}")
+                
+                try:
+                    chat_member = await context.bot.get_chat_member(telegram_group_id, user.id)
+                    logger.info(f"✅ Успешно найдена группа с ID {telegram_group_id}")
+                except telegram.error.BadRequest as e:
+                    if "chat not found" in str(e).lower() and group_id.startswith('-100'):
+                        # Если группа с -100 не найдена, пробуем без префикса
+                        original_group_id = f"-{group_id[4:]}"  # Убираем -100, оставляем -
+                        logger.info(f"🔄 Группа с префиксом -100 не найдена, пробуем без префикса: {group_id} -> {original_group_id}")
+                        try:
+                            chat_member = await context.bot.get_chat_member(original_group_id, user.id)
+                            telegram_group_id = original_group_id
+                            logger.info(f"✅ Успешно найдена группа с ID {telegram_group_id}")
+                        except telegram.error.BadRequest as e2:
+                            logger.error(f"❌ Группа не найдена ни с префиксом -100, ни без него: {e2}")
+                            raise e2
+                    else:
+                        raise e
+                logger.info(f"📊 Результат проверки: статус пользователя {user.id} в группе {telegram_group_id} = {chat_member.status}")
+                
+                # Дополнительно получаем информацию о группе для отладки
+                try:
+                    chat_info = await context.bot.get_chat(telegram_group_id)
+                    logger.info(f"📋 Информация о группе: ID={chat_info.id}, Тип={chat_info.type}, Название={chat_info.title}")
+                except Exception as chat_info_error:
+                    logger.warning(f"⚠️ Не удалось получить информацию о группе: {chat_info_error}")
                 
                 if chat_member.status in ['member', 'administrator', 'creator']:
                     logger.info(f"✅ Пользователь {user.id} найден в группе {group_id} через Telegram API со статусом: {chat_member.status}")
@@ -210,18 +354,35 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         is_registered_after_manual_add = await db_service.is_user_in_group(user.id, group_id)
                         
                         if is_registered_after_manual_add:
+                            # Получаем информацию о группе и роли пользователя для персонализированного сообщения
+                            group_info = await db_service.get_group_info(group_id)
+                            user_group_info = await db_service.get_user_group_info(user.id, group_id)
+                            
+                            # Определяем тип группы и роль пользователя
+                            group_type = group_info.get('group_type', 'general') if group_info else 'general'
+                            user_role = user_group_info.get('role', 'member') if user_group_info else 'member'
+                            is_senior_courier = user_group_info.get('is_senior_courier', False) if user_group_info else False
+                            
+                            # Получаем название группы из БД или используем ID как fallback
+                            group_name = group_info.get('title', f'Группа {group_id}') if group_info else f'Группа {group_id}'
+                            
+                            # Генерируем персонализированное сообщение о успешной регистрации
+                            success_message = get_personalized_welcome_message(
+                                group_type=group_type,
+                                user_role=user_role,
+                                user_name=user.full_name,
+                                group_name=group_name,
+                                is_senior_courier=is_senior_courier
+                            )
+                            
+                            # Заменяем начало сообщения на "Регистрация успешна"
+                            success_message = success_message.replace("ℹ️ *Вы уже зарегистрированы!*", "✅ *Регистрация успешна!*")
+                            
                             await update.message.reply_text(
-                                f"✅ *Регистрация успешна!*\n\n"
-                                f"🎯 **Группа:** `{group_id}`\n"
-                                f"👤 **Пользователь:** {user.full_name}\n"
-                                f"📱 **Username:** @{user.username or 'не указан'}\n\n"
-                                f"🚀 **Доступные функции:**\n"
-                                f"• 📦 Управление инвентарем\n"
-                                f"• 📋 Управление списаниями\n"
-                                f"Теперь вы можете использовать все функции бота!",
+                                success_message,
                                 parse_mode='Markdown'
                             )
-                            logger.info(f"✅ Пользователь {user.id} успешно зарегистрирован вручную")
+                            logger.info(f"✅ Пользователь {user.id} успешно зарегистрирован в группе {group_id} как {user_role} (тип группы: {group_type})")
                             return
                         else:
                             await update.message.reply_text(
@@ -244,7 +405,8 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                         
                 else:
                     # Пользователь не состоит в группе или заблокирован
-                    logger.info(f"❌ Пользователь {user.id} не состоит в группе {group_id}. Статус: {chat_member.status}")
+                    logger.info(f"❌ Пользователь {user.id} не состоит в группе {telegram_group_id}. Статус: {chat_member.status}")
+                    logger.warning(f"⚠️ Возможные причины: пользователь заблокирован, покинул группу, или бот не имеет прав для проверки")
                     await update.message.reply_text(
                         f"❌ *Регистрация не удалась*\n\n"
                         f"Вы не состоите в группе с ID `{group_id}`\n\n"
@@ -260,8 +422,9 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     return
                     
             except telegram.error.BadRequest as e:
+                logger.error(f"❌ BadRequest при проверке пользователя {user.id} в группе {telegram_group_id}: {e}")
                 if "user not found" in str(e).lower() or "chat not found" in str(e).lower():
-                    logger.info(f"❌ Пользователь {user.id} не найден в группе {group_id}: {e}")
+                    logger.info(f"❌ Пользователь {user.id} не найден в группе {telegram_group_id}: {e}")
                     await update.message.reply_text(
                         f"❌ *Регистрация не удалась*\n\n"
                         f"Вы не состоите в группе с ID `{group_id}`\n\n"
@@ -276,7 +439,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     return
                 else:
                     # Другая ошибка API
-                    logger.error(f"❌ Ошибка Telegram API при проверке пользователя {user.id} в группе {group_id}: {e}")
+                    logger.error(f"❌ Ошибка Telegram API при проверке пользователя {user.id} в группе {telegram_group_id}: {e}")
                     await update.message.reply_text(
                         f"⚠️ *Ошибка проверки*\n\n"
                         f"Не удалось проверить ваш статус в группе.\n"
@@ -287,7 +450,7 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     return
                     
             except Exception as e:
-                logger.error(f"❌ Неожиданная ошибка при проверке пользователя {user.id} в группе {group_id}: {e}")
+                logger.error(f"❌ Неожиданная ошибка при проверке пользователя {user.id} в группе {telegram_group_id}: {e}")
                 await update.message.reply_text(
                     f"⚠️ *Системная ошибка*\n\n"
                     f"Произошла неожиданная ошибка при проверке.\n"
@@ -296,14 +459,114 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 )
                 return
 
-        # Обычное приветствие без параметров
-        await update.message.reply_text(
-            f"Привет, {user.first_name}! 👋\n\n"
-            f"Это бот для управления инвентарем и заявками на списание.\n\n"
-            f"Если у вас есть ссылка-приглашение, используйте её для регистрации.\n"
-            f"Или воспользуйтесь командой /registry с ID группы."
-        )
-        logger.info(f"Отправлено приветствие пользователю {user.id}")
+        # Персонализированное приветствие на основе групп пользователя
+        db_service = context.application.bot_data.get('db_service')
+        if not db_service:
+            logger.error("DatabaseService не найден в bot_data")
+            await update.message.reply_text(
+                f"Привет, {user.first_name}! 👋\n\n"
+                f"Это бот для управления инвентарем и заявками на списание.\n\n"
+                f"❌ Ошибка системы. Попробуйте позже."
+            )
+            return
+
+        # Получаем все группы пользователя
+        try:
+            user_groups = await db_service.get_user_groups(user.id)
+            logger.info(f"Найдено групп для пользователя {user.id}: {len(user_groups) if user_groups else 0}")
+            
+            if not user_groups:
+                # Пользователь не состоит ни в одной группе
+                await update.message.reply_text(
+                    f"Привет, {user.first_name}! 👋\n\n"
+                    f"🤖 Это бот для управления инвентарем, заявками на списание, управления сменами курьеров и другими задачами.\n\n"
+                    f"⚠️ **Вы не зарегистрированы ни в одной группе в системе.**\n\n"
+                    f"📞 **Для регистрации обратитесь к своему руководителю:**\n"
+                    f"• Старшему повару (для кухни)\n"
+                    f"• Старшему курьеру (для доставки)\n"
+                    f"• Администратору вашего подразделения\n\n",
+                    parse_mode='Markdown'
+                )
+                logger.info(f"Отправлено сообщение о незарегистрированности пользователю {user.id}")
+                return
+            
+            # Формируем персонализированные сообщения для каждой группы
+            welcome_messages = []
+            
+            for group_info in user_groups:
+                try:
+                    group_id = group_info.get('chat_id', 'unknown')
+                    group_name = group_info.get('title', f'Группа {group_id}')
+                    
+                    # Получаем детальную информацию о пользователе в группе
+                    user_group_info = await db_service.get_user_group_info(user.id, group_id)
+                    if not user_group_info:
+                        continue
+                    
+                    # Определяем тип группы и роль пользователя
+                    group_type = group_info.get('group_type', 'general')
+                    user_role = user_group_info.get('role', 'member')
+                    is_senior_courier = user_group_info.get('is_senior_courier', False)
+                    
+                    # Генерируем персонализированное сообщение
+                    personalized_message = get_personalized_welcome_message(
+                        group_type=group_type,
+                        user_role=user_role, 
+                        user_name=user.full_name,
+                        group_name=group_name,
+                        is_senior_courier=is_senior_courier
+                    )
+                    
+                    welcome_messages.append(personalized_message)
+                    logger.info(f"Сгенерировано приветствие для группы '{group_name}' (тип: {group_type}, роль: {user_role})")
+                    
+                except Exception as group_error:
+                    logger.error(f"Ошибка при обработке группы {group_info}: {group_error}")
+                    continue
+            
+            if welcome_messages:
+                # Объединяем все сообщения
+                if len(welcome_messages) == 1:
+                    # Одна группа - отправляем как есть
+                    final_message = welcome_messages[0]
+                else:
+                    # Несколько групп - добавляем разделители
+                    final_message = f"Привет, {user.first_name}! 👋\n\n"
+                    final_message += f"📊 **Вы зарегистрированы в {len(welcome_messages)} группах:**\n\n"
+                    
+                    # Добавляем разделители между сообщениями
+                    separator = "\n\n" + "="*40 + "\n\n"
+                    final_message += separator.join(welcome_messages)
+                
+                await update.message.reply_text(
+                    final_message,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"Отправлено персонализированное приветствие пользователю {user.id} для {len(welcome_messages)} групп")
+            else:
+                # Не удалось обработать ни одну группу
+                await update.message.reply_text(
+                    f"Привет, {user.first_name}! 👋\n\n"
+                    f"🤖 Это бот для управления инвентарем и заявками на списание.\n\n"
+                    f"⚠️ **Ошибка при загрузке данных ваших групп.**\n\n"
+                    f"Попробуйте позже или обратитесь к администратору.",
+                    parse_mode='Markdown'
+                )
+                logger.warning(f"Не удалось обработать ни одну группу для пользователя {user.id}")
+                
+        except Exception as groups_error:
+            logger.error(f"Ошибка при получении групп пользователя {user.id}: {groups_error}")
+            # Fallback к стандартному сообщению
+            await update.message.reply_text(
+                f"Привет, {user.first_name}! 👋\n\n"
+                f"🤖 Это бот для управления инвентарем и заявками на списание.\n\n"
+                f"❌ Не удалось загрузить информацию о ваших группах.\n\n"
+                f"💡 **Попробуйте:**\n"
+                f"• Воспользоваться ссылкой-приглашением\n"
+                f"• Использовать команду /registry с ID группы\n"
+                f"• Обратиться к администратору",
+                parse_mode='Markdown'
+            )
 
     except Exception as e:
         logger.error(f"❌ Ошибка в обработчике /start: {e}")

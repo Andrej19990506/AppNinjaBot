@@ -11,8 +11,6 @@ services:
       - USE_POLLING=true
       - PYTHONDONTWRITEBYTECODE=1
       - SCHEDULER_API_URL=http://scheduler:8002
-    env_file:
-      - ./backend/telegramNinjaBot/.env.dev
     ports:
       - "8003:8003"
     restart: unless-stopped

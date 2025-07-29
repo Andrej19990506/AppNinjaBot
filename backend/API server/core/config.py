@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     RETAILIQA_TOKEN: Optional[str] = os.getenv("RETAILIQA_TOKEN", "7e20cab58a5d4b06b6a55424f0127731") # Ваш токен
     RETAILIQA_API_TIMEOUT: int = int(os.getenv("RETAILIQA_API_TIMEOUT", 15)) # Таймаут в секундах
 
+    # --- Настройки Telegram Bot Service ---
+    BOT_SERVICE_URL: str = os.getenv("BOT_SERVICE_URL", "http://bot:8003") # URL сервиса бота
+
     # --- Настройки JWT (позже) ---
 
     class Config:

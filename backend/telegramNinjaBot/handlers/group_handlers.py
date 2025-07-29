@@ -110,15 +110,7 @@ class GroupHandler:
             current_members = await self._get_chat_members(chat, context)
             current_admins = await self._get_chat_admins(original_chat_id, context)
             
-            # --- НАЧАЛО ИЗМЕНЕНИЙ: Подготовка клавиатуры (ТОЛЬКО ДЛЯ КУРЬЕРОВ) ---
-            reply_markup_for_new_members = None
-            if is_courier and any(not member.is_bot for member in new_members):
-                registration_button = KeyboardButton("✅ Зарегистрироваться в боте")
-                reply_markup_for_new_members = ReplyKeyboardMarkup([[registration_button]], resize_keyboard=True, one_time_keyboard=False)
-                logger.info("Клавиатура регистрации подготовлена для новых участников в курьерской группе.")
-            elif not is_courier and any(not member.is_bot for member in new_members):
-                logger.info("Группа НЕ курьерская - клавиатура регистрации НЕ будет отправлена.")
-            # --- КОНЕЦ ИЗМЕНЕНИЙ: Подготовка клавиатуры (ТОЛЬКО ДЛЯ КУРЬЕРОВ) ---
+          
 
             # Обрабатываем каждого нового участника
             for new_member in new_members:
@@ -143,18 +135,18 @@ class GroupHandler:
                     self._processed_new_member_events.add(event_id_fallback)
                  # --- КОНЕЦ ИЗМЕНЕНИЙ (Дедупликация) ---
 
-                # --- НАЧАЛО ИЗМЕНЕНИЙ (Приветствие и клавиатура) ---
-                # Отправляем приветственное сообщение с клавиатурой
+                # --- НАЧАЛО ИЗМЕНЕНИЙ (Приветствие без клавиатуры) ---
+                # Отправляем приветственное сообщение без кнопок
                 try:
                     # Измененный текст приветствия
                     welcome_message = f"👋 Добро пожаловать в группу '{chat.title}', {new_member.mention_html()}!"
                     await context.bot.send_message(
                         chat_id=chat.id, # Используем ID из объекта чата
                         text=welcome_message,
-                        parse_mode='HTML',
-                        reply_markup=reply_markup_for_new_members # Прикрепляем клавиатуру
+                        parse_mode='HTML'
+                        # Клавиатура регистрации удалена
                     )
-                    logger.info(f"Отправлено приветствие для {new_member.username or new_member.id} в чат {chat.title} с клавиатурой регистрации")
+                    logger.info(f"Отправлено приветствие для {new_member.username or new_member.id} в чат {chat.title}")
                 except telegram.error.BadRequest as e:
                     # Попытка 2 с original_chat_id (на всякий случай)
                     if "chat not found" in str(e).lower():
@@ -163,10 +155,10 @@ class GroupHandler:
                               await context.bot.send_message(
                                    chat_id=original_chat_id,
                                    text=welcome_message, # Используем новый текст
-                                   parse_mode='HTML',
-                                   reply_markup=reply_markup_for_new_members # Прикрепляем клавиатуру
+                                   parse_mode='HTML'
+                                   # Клавиатура регистрации удалена
                               )
-                              logger.info(f"Отправлено приветствие для {new_member.username or new_member.id} в чат {chat.title} (со второй попытки с original_chat_id) с клавиатурой регистрации")
+                              logger.info(f"Отправлено приветствие для {new_member.username or new_member.id} в чат {chat.title} (со второй попытки с original_chat_id)")
                          except Exception as e2:
                               logger.error(f"Ошибка отправки приветствия для {new_member.username or new_member.id} в чат {chat.id} (попытка 2 с original_chat_id): {e2}")
                     else:
@@ -982,26 +974,18 @@ class GroupHandler:
                     is_courier = self.db_service.is_group_of_type(chat.title, "courier")
                     logger.info(f"Проверка группы '{chat.title}' на принадлежность к курьерам для отправки приветствия при первом добавлении: {is_courier}")
                     if is_courier:
-                        reply_keyboard = ReplyKeyboardMarkup(
-                            [[
-                                KeyboardButton("✅ Зарегистрироваться в боте") 
-                            ]], 
-                            resize_keyboard=True,
-                            one_time_keyboard=True
-                        )
+                        # Кнопка регистрации удалена - больше не создаем клавиатуру
                         try:
-                            logger.info(f"Попытка отправить приветственное сообщение с Reply кнопкой (первое добавление) в чат {chat.id} из handle_my_chat_member")
+                            logger.info(f"Попытка отправить приветственное сообщение (первое добавление) в чат {chat.id} из handle_my_chat_member")
                             message = await context.bot.send_message(
                                 chat_id=chat.id, # Используем chat.id из объекта update
                                 text=(
                                     f"👋 Приветствую участников группы {chat.title}!\n\n"
-                                    "Я помогу с записью на смены. "
-                                    "Чтобы я мог вас узнать и вы получили доступ ко всем функциям, "
-                                    "нажмите кнопку \"✅ Зарегистрироваться в боте\" ниже 👇"
-                                ),
-                                reply_markup=reply_keyboard
+                                    "Я помогу с записью на смены и другими задачами группы."
+                                )
+                                # Кнопка регистрации удалена
                             )
-                            logger.info(f"✅ Приветственное сообщение с Reply кнопкой (первое добавление) успешно отправлено в группу {chat.title} (ID: {chat.id})")
+                            logger.info(f"✅ Приветственное сообщение (первое добавление) успешно отправлено в группу {chat.title} (ID: {chat.id})")
                         except telegram.error.BadRequest as e:
                             if "chat not found" in str(e).lower():
                                 logger.warning(f"Не удалось отправить приветствие с chat_id={chat.id} (Chat not found), пробую original_chat_id={original_chat_id}")
@@ -1010,13 +994,11 @@ class GroupHandler:
                                         chat_id=original_chat_id, 
                                         text=(
                                             f"👋 Приветствую участников группы {chat.title}!\n\n"
-                                            "Я помогу с записью на смены. "
-                                            "Чтобы я мог вас узнать и вы получили доступ ко всем функциям, "
-                                            "нажмите кнопку \"✅ Зарегистрироваться в боте\" ниже 👇"
-                                        ),
-                                        reply_markup=reply_keyboard
+                                            "Я помогу с записью на смены и другими задачами группы."
+                                        )
+                                        # Кнопка регистрации удалена
                                     )
-                                    logger.info(f"✅ Приветственное сообщение с Reply кнопкой (первое добавление) успешно отправлено в группу {chat.title} (ID: {original_chat_id})")
+                                    logger.info(f"✅ Приветственное сообщение (первое добавление) успешно отправлено в группу {chat.title} (ID: {original_chat_id})")
                                 except Exception as e2:
                                     logger.error(f"❌ Ошибка при отправке приветственного сообщения с Reply кнопкой (попытка 2 с original_chat_id) в чате {original_chat_id}: {str(e2)}")
                                     logger.error(traceback.format_exc())
@@ -1150,14 +1132,6 @@ class GroupHandler:
             )
             logger.info("✅ Обработчик данных веб-приложения зарегистрирован")
 
-            # Регистрируем обработчик inline-кнопки "Записаться"
-            self.application.add_handler(
-                CallbackQueryHandler(
-                    self.handle_register_callback,
-                    pattern="^register_courier$"
-                )
-            )
-            logger.info("✅ Обработчик inline-кнопки 'Записаться' зарегистрирован")
             
             # Регистрируем обработчик кнопки синхронизации шаблонов
             self.application.add_handler(
@@ -1168,14 +1142,6 @@ class GroupHandler:
             )
             logger.info("✅ Обработчик кнопки синхронизации шаблонов зарегистрирован")
             
-            # --- ДОБАВЛЕН НОВЫЙ ОБРАБОТЧИК ДЛЯ КНОПКИ --- 
-            # Обработчик нажатия кнопки "Зарегистрироваться в боте"
-            register_button_text = "✅ Зарегистрироваться в боте"
-            self.application.add_handler(MessageHandler(
-                filters.TEXT & filters.ChatType.GROUPS & ~filters.COMMAND & filters.Regex(f'^{re.escape(register_button_text)}$'), 
-                self.handle_register_button_press
-            ))
-            # --- КОНЕЦ ДОБАВЛЕНИЯ ---
 
             # --- НОВЫЙ ОБРАБОТЧИК EXCEL ДОКУМЕНТОВ ---
             # Обработчик Excel файлов для групп инвентаризации
@@ -1553,167 +1519,7 @@ class GroupHandler:
             return False
     # --- КОНЕЦ МЕТОДА РЕГИСТРАЦИИ ---
 
-    # --- НОВЫЙ ОБРАБОТЧИК НАЖАТИЯ КНОПКИ РЕГИСТРАЦИИ ---
-    async def handle_register_button_press(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Обрабатывает нажатие кнопки '✅ Зарегистрироваться в боте' в группах."""
-        user = update.effective_user
-        chat = update.effective_chat
-        message = update.effective_message
-
-        if not user or not chat or not message or chat.type not in [ChatType.GROUP, ChatType.SUPERGROUP]:
-            return # Не обрабатываем, если не группа или нет пользователя/чата
-
-        # Проверяем, что это курьерская группа
-        is_courier = self.db_service.is_group_of_type(chat.title, "courier")
-        if not is_courier:
-            logger.debug(f"Сообщение '{message.text}' от {user.id} в некурьерской группе {chat.title}, игнорируем.")
-            return
-        
-        logger.info(f"Пользователь {user.id} ({user.username}) нажал кнопку регистрации в группе {chat.title} ({chat.id})")
-
-        # --- НОВАЯ ПРОВЕРКА: Пользователь уже зарегистрирован? ---
-        original_chat_id_check = await self._get_original_chat_id(await self._get_standardized_chat_id(chat.id))
-        try:
-            # !!! ПРЕДПОЛАГАЕТСЯ НАЛИЧИЕ МЕТОДА is_user_in_group В DatabaseService !!!
-            is_known = await self.db_service.is_user_in_group(user_id=user.id, chat_id=original_chat_id_check)
-        except AttributeError:
-             logger.error("Метод is_user_in_group не найден в DatabaseService! Проверка пропущена, пользователь будет зарегистрирован.")
-             is_known = False # Считаем неизвестным, если метода нет
-        except Exception as e:
-             logger.error(f"Ошибка при проверке is_user_in_group: {e}. Считаем пользователя неизвестным.")
-             is_known = False
-
-        if is_known:
-            logger.info(f"Пользователь {user.id} ({user.username}) уже зарегистрирован в группе {chat.title}. Отправляем уведомление.")
-            confirmation_text = f"✅ @{user.username}, вы уже зарегистрированы!"
-            registration_successful = True # Считаем успешным для отправки уведомления в группу
-
-            # --- НАЧАЛО ИЗМЕНЕНИЙ: Убираем отправку ЛС при повторном нажатии ---
-            # # Отправляем подтверждение в ЛС, даже если уже зарегистрирован (УДАЛЕНО)
-            # try:
-            #      await context.bot.send_message(
-            #         chat_id=user.id,
-            #         text="✅ Вы зарегистрированы! Теперь вы можете пользоваться функциями бота (например, запись на смену через меню)."
-            #         # Без reply_markup
-            #     )
-            #      logger.info(f"Повторное подтверждение регистрации отправлено пользователю {user.id} в ЛС.")
-            # except telegram.error.Forbidden:
-            #      logger.warning(f"Не удалось отправить повторное подтверждение пользователю {user.id}: Бот заблокирован или чат не начат.")
-            #      # В группу об этом сообщать не будем, т.к. основное подтверждение в группе все равно будет
-            # except Exception as e:
-            #      logger.warning(f"Не удалось отправить повторное подтверждение пользователю {user.id}: {str(e)}")
-            # --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
-        else:
-            # Пользователь не известен, регистрируем
-            confirmation_text = f"✅ @{user.username}, вы успешно зарегистрированы!"
-            # Вызов _register_user_in_group отправит подтверждение в ЛС (только при первой регистрации)
-            registration_successful = await self._register_user_in_group(user, chat, context)
-
-        # --- ОБЩАЯ ЛОГИКА ПОСЛЕ ПРОВЕРКИ/РЕГИСТРАЦИИ ---
-        if registration_successful:
-            # 2. Отправляем подтверждение в группу (текст зависит от is_known)
-            try:
-                confirmation_message = await context.bot.send_message(
-                    chat_id=chat.id,
-                    text=confirmation_text, # Используем сформированный текст
-                    # Не отвечаем на исходное сообщение, чтобы оно не подсвечивалось при удалении
-                    # reply_to_message_id=message.message_id 
-                )
-                logger.info(f"Отправлено подтверждение для {user.id} в группу {chat.id} ('{confirmation_text}')")
-
-                # 3. Удаляем исходное сообщение пользователя (нажатие кнопки) - делаем всегда
-                deleted_original = False
-                last_delete_error = None
-                original_message_id = message.message_id
-                # Получаем original_chat_id для второй попытки
-                original_chat_id_del = await self._get_original_chat_id(await self._get_standardized_chat_id(chat.id))
-
-                try:
-                    # Попытка 1: chat.id
-                    await context.bot.delete_message(chat_id=chat.id, message_id=original_message_id)
-                    deleted_original = True
-                    logger.info(f"Удалено исходное сообщение ({original_message_id}) от {user.id} (использован chat_id: {chat.id})")
-                except telegram.error.BadRequest as e:
-                    if "chat not found" in str(e).lower():
-                        last_delete_error = e
-                        logger.debug(f"delete_message (исходное) с chat_id={chat.id} не удалось (Chat not found), пробую original_chat_id={original_chat_id_del}")
-                        # Попытка 2: original_chat_id
-                        try:
-                            await context.bot.delete_message(chat_id=original_chat_id_del, message_id=original_message_id)
-                            deleted_original = True
-                            logger.info(f"Удалено исходное сообщение ({original_message_id}) от {user.id} (использован chat_id: {original_chat_id_del})")
-                        except Exception as e2:
-                            last_delete_error = e2 # Сохраняем ошибку второй попытки
-                    elif "message to delete not found" in str(e).lower():
-                        logger.warning(f"Не удалось удалить исходное сообщение ({original_message_id}) от {user.id}: Сообщение уже удалено.")
-                        deleted_original = True # Считаем успешным, если уже удалено
-                    elif "message can't be deleted" in str(e).lower():
-                        logger.warning(f"Не удалось удалить исходное сообщение ({original_message_id}) от {user.id}: Недостаточно прав.")
-                        last_delete_error = e # Сохраняем ошибку прав
-                    else:
-                        logger.error(f"Ошибка BadRequest при удалении исходного сообщения ({original_message_id}) от {user.id}: {e}")
-                        last_delete_error = e # Сохраняем другую ошибку BadRequest
-                except Exception as e:
-                    logger.error(f"Непредвиденная ошибка при удалении исходного сообщения ({original_message_id}) от {user.id}: {e}")
-                    last_delete_error = e # Сохраняем непредвиденную ошибку
-                
-                # Логируем финальную ошибку удаления, если оно не удалось
-                if not deleted_original and last_delete_error:
-                    logger.error(f"❌ Не удалось удалить исходное сообщение ({original_message_id}) от {user.id} после всех попыток. Ошибка: {last_delete_error}")
-
-                # 4. Планируем удаление подтверждающего сообщения через 3 секунды
-                # Захватываем переменные перед созданием задачи
-                confirm_message_id = confirmation_message.message_id 
-                primary_chat_id = chat.id
-                alternative_chat_id = original_chat_id_del # Используем тот же original_id, что и для удаления исходного
-
-                async def delete_confirmation_after_delay(delay: int):
-                    await asyncio.sleep(delay)
-                    deleted_confirm = False
-                    last_delete_confirm_error = None
-                    try:
-                        # Попытка 1: primary_chat_id (chat.id)
-                        await context.bot.delete_message(chat_id=primary_chat_id, message_id=confirm_message_id)
-                        deleted_confirm = True
-                        logger.info(f"Удалено подтверждающее сообщение ({confirm_message_id}) для {user.id} после задержки (использован chat_id: {primary_chat_id})")
-                    except telegram.error.BadRequest as e:
-                        if "chat not found" in str(e).lower():
-                            last_delete_confirm_error = e
-                            logger.debug(f"delete_message (подтверждение) с chat_id={primary_chat_id} не удалось (Chat not found), пробую original_chat_id={alternative_chat_id}")
-                            # Попытка 2: alternative_chat_id (original_chat_id)
-                            try:
-                                await context.bot.delete_message(chat_id=alternative_chat_id, message_id=confirm_message_id)
-                                deleted_confirm = True
-                                logger.info(f"Удалено подтверждающее сообщение ({confirm_message_id}) для {user.id} после задержки (использован chat_id: {alternative_chat_id})")
-                            except Exception as e2:
-                                last_delete_confirm_error = e2
-                        elif "message to delete not found" in str(e).lower():
-                            logger.warning(f"Не удалось удалить подтверждающее сообщение ({confirm_message_id}): Сообщение уже удалено.")
-                            deleted_confirm = True
-                        elif "message can't be deleted" in str(e).lower():
-                            logger.warning(f"Не удалось удалить подтверждающее сообщение ({confirm_message_id}): Недостаточно прав.")
-                            last_delete_confirm_error = e
-                        else:
-                            logger.error(f"Ошибка BadRequest при удалении подтверждающего сообщения ({confirm_message_id}): {e}")
-                            last_delete_confirm_error = e
-                    except Exception as e:
-                        logger.error(f"Непредвиденная ошибка при удалении подтверждающего сообщения ({confirm_message_id}): {e}")
-                        last_delete_confirm_error = e
-                    
-                    # Логируем финальную ошибку
-                    if not deleted_confirm and last_delete_confirm_error:
-                        logger.error(f"❌ Не удалось удалить подтверждающее сообщение ({confirm_message_id}) после всех попыток. Ошибка: {last_delete_confirm_error}")
-                
-                # Передаем только delay в задачу, используем захваченные переменные
-                asyncio.create_task(delete_confirmation_after_delay(3))
-
-            except Exception as e:
-                logger.error(f"Ошибка при отправке подтверждения или удалении сообщений для {user.id} в группе {chat.id}: {e}")
-                logger.error(traceback.format_exc())
-        else:
-             logger.warning(f"Регистрация пользователя {user.id} в группе {chat.id} не была полностью успешной (вероятно, не удалось отправить ЛС). Подтверждение в группу не отправлено.")
-    # --- КОНЕЦ ОБРАБОТЧИКА КНОПКИ ---
+    # Обработчик кнопки регистрации удален
 
     async def handle_excel_document(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик Excel документов для групп инвентаризации с двухуровневой защитой"""

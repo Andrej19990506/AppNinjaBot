@@ -25,10 +25,10 @@ from pydantic import Field # Для описания полей
 
 # --- НОВЫЕ СХЕМЫ для ответа /chats ---
 class AdminInfo(UserSimple):
-    pass
+    is_senior_courier: Optional[bool] = None  # НОВОЕ: добавляем поле для старшего курьера
 
 class MemberInfo(UserSimple):
-    pass
+    is_senior_courier: Optional[bool] = None  # НОВОЕ: добавляем поле для старшего курьера
 
 class ChatWithAdmins(GroupRead):
     admins: List[AdminInfo] = Field(default_factory=list)
@@ -68,114 +68,146 @@ async def read_groups(
     
     # Pydantic автоматически преобразует объекты Group в GroupRead
     return groups
+
+# --- ЭНДПОИНТ ДЛЯ ПОЛУЧЕНИЯ СПИСКА ЧАТОВ ПОЛЬЗОВАТЕЛЯ ---
 @router.get(
-    "/chats", # <--- НОВЫЙ ЭНДПОИНТ
+    "/chats", 
     response_model=List[ChatWithAdmins],
-    summary="Get List of Chats for Inventory/Actions",
-    description="Retrieves a list of chats accessible to the user for specific actions, including admins.",
-    tags=["Chats"] # Новый тег
+    summary="Получить список чатов для пользователя",
+    description="Возвращает список чатов/групп, в которых состоит пользователь, включая информацию об админах и участниках.",
+    tags=["Chats"]
 )
 async def read_chats_for_user(
-    user_id: int = Query(..., description="Telegram ID of the user requesting the chat list"),
-    group_type: Optional[str] = Query(None, description="Filter chats by group type (e.g., 'chef', 'courier')"),
+    user_id: int = Query(..., description="Telegram ID пользователя, для которого запрашивается список чатов"),
+    group_type: Optional[str] = Query(None, description="Фильтр по типу группы (например, 'chef', 'courier')"),
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Fetches a list of chats the user is a member of, including administrators for each chat.
+    ОСНОВНАЯ ФУНКЦИЯ: Получает список всех чатов/групп, в которых состоит указанный пользователь.
+    
+    АЛГОРИТМ РАБОТЫ:
+    1. По Telegram user_id находит внутренний ID пользователя в таблице members
+    2. Ищет все группы, где этот пользователь является участником
+    3. Для каждой найденной группы загружает полную информацию об участниках
+    4. Разделяет участников на админов и обычных участников
+    5. Применяет специальную логику фильтрации в зависимости от типа группы
+    6. Возвращает структурированный список с полной информацией о каждом чате
+    
+    ОСОБЕННОСТИ:
+    - Использует эффективную загрузку связанных данных (selectinload)
+    - Разная логика для курьерских и других типов групп
+    - Возвращает пустой список если пользователь не найден (вместо ошибки 404)
     """
-    logger.info(f"[read_chats_for_user] GET /chats for user_id: {user_id}")
+    logger.info(f"[read_chats_for_user] Запрос GET /chats для пользователя: {user_id}")
 
-    # 1. Найти Member ID по Telegram user_id
+    # ШАГ 1: ПОИСК ВНУТРЕННЕГО ID ПОЛЬЗОВАТЕЛЯ В СИСТЕМЕ
+    # Таблица Member содержит связку между Telegram user_id и внутренним ID системы
+    # Нам нужен внутренний ID для поиска групп через таблицу связей group_members
     member_query = select(Member.id).where(Member.user_id == user_id)
     member_result = await db.execute(member_query)
     member_id = member_result.scalar_one_or_none()
 
     if not member_id:
-        logger.warning(f"[read_chats_for_user] Member not found for user_id: {user_id}")
-        # Возвращаем пустой список, а не 404, т.к. пользователь может быть в системе,
-        # но еще не добавлен ни в одну группу через Member
+        logger.warning(f"[read_chats_for_user] Пользователь с user_id={user_id} не найден в таблице members")
+        # ВАЖНО: Возвращаем пустой список вместо ошибки 404, так как:
+        # - Пользователь может существовать в Telegram, но еще не быть зарегистрированным в нашей системе
+        # - Или быть зарегистрированным, но не состоять ни в одной группе
+        # Это позволяет фронтенду корректно обработать ситуацию "нет доступных чатов"
         return []
 
-    # 2. Найти все группы, где состоит данный member_id
-    # Используем selectinload для загрузки связанных админов (GroupMember -> Member)
-    # Загружаем все связи GroupMember для нужных групп, а затем фильтруем админов
+    # ШАГ 2: ПОИСК ВСЕХ ГРУПП, ГДЕ ПОЛЬЗОВАТЕЛЬ ЯВЛЯЕТСЯ УЧАСТНИКОМ
+    # Используем сложный запрос с JOIN и предзагрузкой связанных данных
     groups_query = (
         select(Group)
-        .join(GroupMember, Group.id == GroupMember.group_id)
-        .where(GroupMember.member_id == member_id)
+        .join(GroupMember, Group.id == GroupMember.group_id)  # JOIN с таблицей связей группа-участник
+        .where(GroupMember.member_id == member_id)            # Фильтр: только группы где состоит наш пользователь
         .options(
-            selectinload(Group.members).selectinload(GroupMember.member) # Загружаем всех участников и их Member данные
+            # КРИТИЧЕСКИ ВАЖНО: предзагружаем всех участников группы и их данные из таблицы members
+            # selectinload делает это эффективно одним дополнительным запросом вместо N+1 запросов
+            # Group.members -> GroupMember -> GroupMember.member -> Member
+            selectinload(Group.members).selectinload(GroupMember.member)
         )
-        .order_by(Group.title)
+        .order_by(Group.title)  # Сортируем группы по названию для консистентности вывода
     )
 
-    # NEW: Apply group_type filter if provided
+    # ШАГ 3: ПРИМЕНЕНИЕ ФИЛЬТРА ПО ТИПУ ГРУППЫ (ОПЦИОНАЛЬНО)
+    # Если клиент запросил только определенный тип групп (например, только курьерские)
     if group_type:
         groups_query = groups_query.where(Group.group_type == group_type)
+        logger.info(f"[read_chats_for_user] Применен фильтр по типу группы: {group_type}")
 
+    # Выполняем запрос к базе данных
     result = await db.execute(groups_query)
-    groups = result.unique().scalars().all() # unique() чтобы избежать дублей из-за JOIN
+    # unique() критически важен для устранения дубликатов, которые могут возникнуть из-за JOIN
+    groups = result.unique().scalars().all()
 
-    # <<< ДОБАВИТЬ ЛОГ ЗДЕСЬ >>>
-    logger.info(f"[read_chats_for_user] Found groups from DB query (user_id={user_id}, group_type={group_type}): {[g.group_id for g in groups]}")
-    # <<< ------------------- >>>
+    logger.info(f"[read_chats_for_user] Найдено групп в БД (user_id={user_id}, тип={group_type}): {[g.group_id for g in groups]}")
 
+    # ШАГ 4: ОБРАБОТКА КАЖДОЙ ГРУППЫ И ФОРМИРОВАНИЕ СТРУКТУРИРОВАННОГО ОТВЕТА
     response_list: List[ChatWithAdmins] = []
+    
     for group in groups:
-        admins_list: List[AdminInfo] = []
-        members_list: List[MemberInfo] = []
-        if group.members: # Проверяем, что участники загружены
-            for gm in group.members:
-                # Проверяем роль и наличие данных участника
-                if gm.member:
-                    # ВРУЧНУЮ создаем словарь для участника
+        # Создаем отдельные списки для разных типов участников
+        admins_list: List[AdminInfo] = []       # Администраторы и создатели группы
+        members_list: List[MemberInfo] = []     # Обычные участники (с особой логикой для разных типов групп)
+        
+        # Обрабатываем всех участников текущей группы
+        # Данные уже предзагружены благодаря selectinload, поэтому никаких дополнительных запросов к БД не будет
+        if group.members:
+            for group_member in group.members:
+                # Проверяем что связанные данные пользователя действительно загружены
+                if group_member.member:
+                    # Формируем базовый словарь с данными участника для создания Pydantic моделей
                     member_data = {
-                        "id": gm.member.id,
-                        "user_id": gm.member.user_id,
-                        "first_name": gm.member.first_name,
-                        "last_name": gm.member.last_name,
-                        "username": gm.member.username,
-                        "photo_url": gm.member.photo_url # Pydantic сам обработает None и HttpUrl
+                        "id": group_member.member.id,                    # Внутренний ID в системе
+                        "user_id": group_member.member.user_id,          # Telegram ID пользователя
+                        "first_name": group_member.member.first_name,    # Имя
+                        "last_name": group_member.member.last_name,      # Фамилия
+                        "username": group_member.member.username,        # Username в Telegram
+                        "photo_url": group_member.member.photo_url,      # URL фотографии профиля
+                        "is_senior_courier": group_member.is_senior_courier  # НОВОЕ: статус старшего курьера
                     }
                     
-                    # Разделяем админов и обычных участников
-                    if gm.role in ['administrator', 'creator']:
-                        # Передаем словарь в AdminInfo
+                    # КЛАССИФИКАЦИЯ УЧАСТНИКОВ ПО РОЛЯМ:
+                    if group_member.role in ['administrator', 'creator']:
+                        # Администраторы и создатели всегда попадают в список админов
                         admins_list.append(AdminInfo(**member_data))
-                    else:
-                        # Передаем словарь в MemberInfo для обычных участников
+                    
+                    # СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ РАЗНЫХ ТИПОВ ГРУПП:
+                    elif (group.group_type == 'courier' and group_member.role in ['member', 'courier']) or \
+                         (group.group_type != 'courier' and group_member.role not in ['administrator', 'creator']):
+                        # ДЛЯ КУРЬЕРСКИХ ГРУПП: добавляем в список участников только тех, кто имеет роль 'member' или 'courier'
+                        # ДЛЯ ОСТАЛЬНЫХ ТИПОВ ГРУПП: добавляем всех, кто не является администратором или создателем
+                        # Это позволяет фронтенду показывать разные списки людей для разных типов операций
                         members_list.append(MemberInfo(**member_data))
-
-        # Формируем ответ ЯВНО, выбирая нужные поля из group
-        # Убедимся, что все поля, ожидаемые ChatWithAdmins (унаследованные от GroupRead)
-        # присутствуют и имеют правильный тип
-        response_list.append(
-            ChatWithAdmins(
-                # Поля, унаследованные от GroupRead/GroupBase:
-                id=group.id, 
-                chat_id=str(group.group_id), # Преобразуем в строку
-                title=group.title,
-                group_type=group.group_type,
-                created_at=group.created_at,
-                # Поля, добавленные в GroupRead/ChatWithAdmins:
-                admins=admins_list,
-                members=members_list,
-                metadata=group.json_metadata, # Используем json_metadata из модели Group
-                slot_config=group.slot_config, # Добавляем slot_config
-                access_settings=group.access_settings # Добавляем access_settings
-                # Убедись, что is_senior_courier не нужен на уровне группы в этом ответе
-                # Если нужен, его надо как-то получить (например, из GroupMember запрашивающего?)
-            )
+        
+        # ШАГ 5: СОЗДАНИЕ ОБЪЕКТА ОТВЕТА ДЛЯ ТЕКУЩЕЙ ГРУППЫ
+        # Собираем всю информацию о группе в единый объект ответа
+        chat_response = ChatWithAdmins(
+            id=group.id,                                    # Внутренний ID группы в БД
+            chat_id=str(group.group_id),                   # Telegram ID группы (конвертируем в строку для фронтенда)
+            title=group.title,                             # Название группы/чата
+            group_type=group.group_type,                   # Тип группы (courier, chef, general, etc.)
+            created_at=group.created_at,                   # Дата создания группы в системе
+            admins=admins_list,                            # Список всех администраторов
+            members=members_list,                          # Список участников (с учетом типа группы)
+            metadata=group.json_metadata,                  # Дополнительные метаданные группы
+            slot_config=group.slot_config,                 # Конфигурация слотов для планирования смен
+            access_settings=group.access_settings          # Настройки доступа к функциям группы
         )
+        response_list.append(chat_response)
 
-    logger.info(f"[read_chats_for_user] Found {len(response_list)} chats for user_id: {user_id}")
+    # ШАГ 6: ФИНАЛЬНОЕ ЛОГИРОВАНИЕ И ОТЛАДОЧНАЯ ИНФОРМАЦИЯ
+    logger.info(f"[read_chats_for_user] Итого сформировано чатов для пользователя {user_id}: {len(response_list)}")
     
-    # Добавляем детальную информацию для отладки
+    # Выводим детальную информацию о каждом чате для помощи в отладке
     for chat in response_list:
-        logger.info(f"[read_chats_for_user] Chat {chat.chat_id}: {len(chat.admins)} admins, {len(chat.members)} members")
+        logger.info(f"[read_chats_for_user] Чат '{chat.title}' (ID: {chat.chat_id}, тип: {chat.group_type}): "
+                   f"{len(chat.admins)} админов, {len(chat.members)} участников")
     
     return response_list
-# Можно добавить и другие ручки сюда, например, для получения одной группы по ID
+
+
 
 @router.get(
     "/{group_db_id}", 
@@ -193,7 +225,6 @@ async def read_group_by_db_id(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with DB ID {group_db_id} not found")
     return group 
 
-# --- Эндпоинты настроек (перенесено из group_settings.py) --- 
 
 # Вспомогательная функция для получения группы по Telegram ID (если еще не существует)
 async def get_group_by_telegram_id(db: AsyncSession, group_telegram_id: int) -> Group | None:
@@ -299,14 +330,8 @@ async def update_group_settings(
 
     return GroupSettings(**response_data) 
 
-# Импортируем Path и типы для словарей
-# from fastapi import Path # Уже импортирован
-# from typing import Dict, Any # Уже импортирован
-# Импортируем BaseModel из Pydantic (если еще не импортирован)
 from pydantic import BaseModel
 
-# --- Модели Pydantic для Slot Config ---
-# (Лучше вынести в schemas/slot_config.py, но пока добавим сюда)
 
 class DaySlotConfig(BaseModel):
     maxDaySlots: int
@@ -314,10 +339,10 @@ class DaySlotConfig(BaseModel):
     hasSeniorSlot: Optional[bool] = False
     # Время начала и конца дневной смены
     dayShiftStartTime: Optional[str] = "10:00"  # формат "HH:mm"
-    dayShiftEndTime: Optional[str] = "18:00"    # формат "HH:mm"
+    dayShiftEndTime: Optional[str] = "23:40"    # формат "HH:mm"
     # Время начала и конца ночной смены
-    nightShiftStartTime: Optional[str] = "18:00"  # формат "HH:mm"
-    nightShiftEndTime: Optional[str] = "02:00"    # формат "HH:mm"
+    nightShiftStartTime: Optional[str] = "17:00"  # формат "HH:mm"
+    nightShiftEndTime: Optional[str] = "23:40"    # формат "HH:mm"
 
 class SlotConfigUpdate(BaseModel):
     # Ключи - это индексы дня '0'-'6'
@@ -559,19 +584,18 @@ class CourierInfo(BaseModel):
     "/{group_telegram_id}/couriers",
     response_model=List[CourierInfo],
     summary="Get All Couriers in Group",
-    description="Retrieves a list of all couriers in the specified group. Only accessible to senior couriers and group creators.",
+    description="Retrieves a list of all couriers in the specified courier group.",
     tags=["Groups", "Couriers"]
 )
 async def get_group_couriers(
     group_telegram_id: int = Path(..., description="Telegram ID of the group"),
-    requester_id: int = Query(..., description="Telegram ID of the user requesting the data"),
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Получает список всех курьеров в группе.
-    Доступно только для старших курьеров и создателей группы.
+    Получает список всех курьеров в курьерской группе.
+    Доступно для всех участников группы.
     """
-    logger.info(f"[get_group_couriers] GET /groups/{group_telegram_id}/couriers (requester: {requester_id})")
+    logger.info(f"[get_group_couriers] GET /groups/{group_telegram_id}/couriers")
     
     # Находим группу по telegram_id
     group = await get_group_by_telegram_id(db, group_telegram_id)
@@ -579,37 +603,10 @@ async def get_group_couriers(
         logger.warning(f"[get_group_couriers] Группа {group_telegram_id} не найдена")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
     
-    # Находим запрашивающего участника по user_id
-    requester_member_query = select(Member).where(Member.user_id == requester_id)
-    requester_member_result = await db.execute(requester_member_query)
-    requester_member = requester_member_result.scalars().first()
-    
-    if not requester_member:
-        logger.warning(f"[get_group_couriers] Пользователь {requester_id} не найден")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Requester not found")
-    
-    # Проверяем авторизацию - является ли запрашивающий старшим курьером или создателем группы
-    group_member_query = (
-        select(GroupMember)
-        .where(GroupMember.group_id == group.id)
-        .where(GroupMember.member_id == requester_member.id)
-    )
-    group_member_result = await db.execute(group_member_query)
-    requester_group_membership = group_member_result.scalars().first()
-    
-    if not requester_group_membership:
-        logger.warning(f"[get_group_couriers] Пользователь {requester_id} не является членом группы {group_telegram_id}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User is not a member of this group")
-    
-    # Проверяем, является ли запрашивающий старшим курьером или создателем
-    is_authorized = (
-        requester_group_membership.is_senior_courier or 
-        requester_group_membership.role == 'creator'
-    )
-    
-    if not is_authorized:
-        logger.warning(f"[get_group_couriers] Доступ запрещен для пользователя {requester_id} (не старший курьер/не создатель)")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only senior couriers and group creators can access this endpoint")
+    # Проверяем, что это курьерская группа
+    if group.group_type != 'courier':
+        logger.warning(f"[get_group_couriers] Группа {group_telegram_id} не является курьерской (тип: {group.group_type})")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="This endpoint is only available for courier groups")
     
     # Получаем всех участников группы
     # Создаем JOIN запрос, чтобы получить данные из GroupMember и Member одновременно
@@ -617,7 +614,7 @@ async def get_group_couriers(
         select(GroupMember, Member)
         .join(Member, GroupMember.member_id == Member.id)
         .where(GroupMember.group_id == group.id)
-        .where(Member.user_id != requester_id)  # Исключаем запрашивающего пользователя из результатов
+        .order_by(Member.first_name, Member.last_name)
     )
     
     couriers_result = await db.execute(couriers_query)
@@ -640,5 +637,3 @@ async def get_group_couriers(
     
     logger.info(f"[get_group_couriers] Успешно получен список курьеров для группы {group_telegram_id}: {len(couriers_list)} записей")
     return couriers_list
-
-

@@ -18,7 +18,7 @@ WORKDIR /app
 
 # Обновляем pip и устанавливаем зависимости
 COPY ./requirements.txt /app/requirements.txt
-RUN apt-get update && apt-get install -y bash curl && \
+RUN apt-get update && apt-get install -y bash curl ffmpeg && \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r /app/requirements.txt && \
     # Устанавливаем psycopg2-binary и asyncpg здесь, чтобы они были в образе

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 import functools 
@@ -128,7 +129,7 @@ async def connect(sid, environ, auth):
         user_info[sid] = { # Используем новый sid как ключ
             "sid": sid,
             "user_id": user_id, # Сохраняем user_id
-            "connection_time": str(asyncio.get_event_loop().time()),
+            "connection_time": str(time.time()),  # Используем реальный Unix timestamp
             "rooms": set(),
             "transport": environ.get('wsgi.url_scheme', 'unknown'),
             "user_info": {}, # Данные профиля добавятся при join_room
@@ -347,12 +348,26 @@ async def join_room(sid, data):
                 'room': room,
                 'user_info': user_info.get(sid, {}).get('user_info', {}), # Берем обновленную user_info
                 'sid': sid,
-                'timestamp': str(asyncio.get_event_loop().time())
+                'timestamp': str(time.time())  # Используем реальный Unix timestamp
             }
             
-            # Отправляем уведомление всем в комнате (кроме самого пользователя)
+            # 🚨 НОВЫЕ СОБЫТИЯ ДЛЯ АКТИВНЫХ ПОЛЬЗОВАТЕЛЕЙ:
+            
+            # Отправляем старое событие (сохраняем совместимость)
             await sio.emit('user_joined', response, room=room, skip_sid=sid) 
             logger.info(f"📢 Отправлено уведомление о присоединении пользователя {sid} к комнате {room}")
+            
+            # НОВОЕ: Отправляем событие user_joined_room для компонента ActiveUsersPanel
+            user_joined_event = {
+                'room': room,
+                'userId': user_info_data.get('userId') or user_info_data.get('user_id') or sid,
+                'first_name': user_info_data.get('first_name', 'Пользователь'),
+                'last_name': user_info_data.get('last_name'),
+                'photo_url': user_info_data.get('photo_url'),
+                'joinedAt': response['timestamp']
+            }
+            await sio.emit('user_joined_room', user_joined_event, room=room)
+            logger.info(f"👤 [ACTIVE USERS] Отправлено событие user_joined_room: {user_joined_event}")
             
             # Формируем список пользователей для отправки присоединившемуся
             current_room_sids = room_users.get(room, set()) # Получаем SIDы из room_users
@@ -364,9 +379,29 @@ async def join_room(sid, data):
                     'user_info': user_details
                 })
 
-            # Отправляем клиенту список пользователей в комнате
+            # Отправляем старое событие (сохраняем совместимость)
             await sio.emit('room_users', {'room': room, 'users': current_room_users_details}, room=sid) # Используем собранный список
             logger.info(f"📨 Отправлен список пользователей комнаты {room} клиенту {sid}")
+            
+            # НОВОЕ: Формируем детальный список для ActiveUsersPanel
+            room_users_for_panel = []
+            for user_sid in current_room_sids:
+                user_data = user_info.get(user_sid, {}).get('user_info', {})
+                room_users_for_panel.append({
+                    'userId': user_data.get('userId') or user_data.get('user_id') or user_sid,
+                    'first_name': user_data.get('first_name', 'Пользователь'),
+                    'last_name': user_data.get('last_name'),
+                    'photo_url': user_data.get('photo_url'),
+                    'joinedAt': user_info.get(user_sid, {}).get('connection_time', response['timestamp'])
+                })
+            
+            # Отправляем список всем в комнате (включая нового пользователя)
+            room_users_event = {
+                'room': room,
+                'users': room_users_for_panel
+            }
+            await sio.emit('room_users_list', room_users_event, room=room)
+            logger.info(f"👥 [ACTIVE USERS] Отправлен список пользователей комнаты {room}: {len(room_users_for_panel)} пользователей")
 
             # Автоматически подключаем к персональной комнате для уведомлений о правах
             user_id = user_info_data.get('user_id') or user_info_data.get('userId')  # Поддерживаем оба формата
@@ -437,7 +472,7 @@ async def leave_room(sid, room):
             user_rooms[sid].remove(room)
             logger.info(f"📝 Обновлен список комнат пользователя {sid}: {user_rooms[sid]}")
         
-        # Уведомляем остальных в комнате
+        # Уведомляем остальных в комнате (старое событие для совместимости)
         response = {
             'status': 'success',
             'room': room,
@@ -445,6 +480,40 @@ async def leave_room(sid, room):
         }
         await sio.emit('room_left', response, room=room, skip_sid=sid)
         logger.info(f"📢 Отправлено уведомление всем в комнате {room} о выходе {sid}")
+        
+        # 🚨 НОВОЕ: Отправляем событие user_left_room для компонента ActiveUsersPanel
+        user_data = user_info.get(sid, {}).get('user_info', {})
+        user_left_event = {
+            'room': room,
+            'userId': user_data.get('userId') or user_data.get('user_id') or sid,
+            'first_name': user_data.get('first_name', 'Пользователь'),
+            'last_name': user_data.get('last_name'),
+            'leftAt': datetime.now().isoformat()
+        }
+        await sio.emit('user_left_room', user_left_event, room=room)
+        logger.info(f"👤 [ACTIVE USERS] Отправлено событие user_left_room: {user_left_event}")
+        
+        # Также отправляем обновленный список пользователей в комнате
+        server_rooms = sio.manager.rooms.get('/', {})
+        room_sids = server_rooms.get(room, set())
+        room_users_for_panel = []
+        
+        for user_sid in room_sids:
+            if user_sid in user_info and user_info[user_sid].get('user_info'):
+                user_data_item = user_info[user_sid].get('user_info', {})
+                room_users_for_panel.append({
+                    'userId': user_data_item.get('userId') or user_data_item.get('user_id') or user_sid,
+                    'first_name': user_data_item.get('first_name', 'Пользователь'),
+                    'last_name': user_data_item.get('last_name'),
+                    'joinedAt': user_info[user_sid].get('connection_time', datetime.now().isoformat())
+                })
+        
+        room_users_event = {
+            'room': room,
+            'users': room_users_for_panel
+        }
+        await sio.emit('room_users_list', room_users_event, room=room)
+        logger.info(f"👥 [ACTIVE USERS] Отправлен обновленный список пользователей комнаты {room}: {len(room_users_for_panel)} пользователей")
         
         return response
         
@@ -745,6 +814,56 @@ logger.info("🔍 Проверка регистрации обработчико
 logger.info(f"📋 Зарегистрированные обработчики: {handlers}")
 logger.info(f"🎯 join_room обработчик: {'join_room' in handlers}")
 logger.info("=" * 80)
+
+@sio.event
+async def get_room_users(sid, data):
+    """Обработчик получения списка пользователей комнаты для ActiveUsersPanel"""
+    try:
+        if not isinstance(data, dict) or 'room' not in data:
+            logger.error(f"❌ [ACTIVE USERS] Неверный формат запроса: {data}")
+            return {'error': 'Invalid request format'}
+
+        room = data['room']
+        logger.info(f"🎯 [ACTIVE USERS] Получено событие: get_room_users от {sid}")
+        logger.info(f"📦 [ACTIVE USERS] Запрошена комната: {room}")
+
+        # Получаем все сиды в комнате напрямую из словаря комнат сервера
+        server_rooms = sio.manager.rooms.get('/', {})
+        room_sids = server_rooms.get(room, set())
+        logger.info(f"📊 [ACTIVE USERS] Найдены SID в комнате {room}: {room_sids}")
+
+        # Формируем список пользователей для ActiveUsersPanel
+        room_users_for_panel = []
+        for user_sid in room_sids:
+            if user_sid in user_info and user_info[user_sid].get('user_info'):
+                user_data = user_info[user_sid].get('user_info', {})
+                room_users_for_panel.append({
+                    'userId': user_data.get('userId') or user_data.get('user_id') or user_sid,
+                    'first_name': user_data.get('first_name', 'Пользователь'),
+                    'last_name': user_data.get('last_name'),
+                    'photo_url': user_data.get('photo_url'),
+                    'joinedAt': user_info[user_sid].get('connection_time', str(time.time()))
+                })
+                logger.info(f"✅ [ACTIVE USERS] Добавлен пользователь: {user_data.get('first_name', 'Пользователь')}")
+
+        response = {
+            'room': room,
+            'users': room_users_for_panel
+        }
+
+        logger.info(f"📤 [ACTIVE USERS] Подготовлен ответ: {len(room_users_for_panel)} пользователей в комнате {room}")
+
+        # Отправляем ответ только запросившему клиенту
+        await sio.emit('room_users_list', response, room=sid)
+        logger.info(f"📨 [ACTIVE USERS] Отправлен список пользователей для комнаты {room}")
+        
+        return response
+
+    except Exception as e:
+        error_msg = f"Error getting room users: {str(e)}"
+        logger.error(f"❌ [ACTIVE USERS] {error_msg}")
+        logger.exception("Полный стек ошибки:")
+        return {'error': error_msg}
 
 logger.info("✅ Все обработчики событий успешно зарегистрированы")
 

@@ -660,6 +660,106 @@ class DatabaseService:
                 logger.error(f"❌ [group_exists] Неожиданная ошибка при проверке существования группы {chat_id}: {e}")
                 return False
 
+    async def get_group_info(self, group_id: str) -> Optional[Dict]:
+        """
+        Получает информацию о группе по её ID.
+        
+        Args:
+            group_id: ID группы (строка)
+            
+        Returns:
+            Словарь с информацией о группе или None если группа не найдена
+        """
+        logger.info(f"🔍 [get_group_info] Получение информации о группе {group_id}")
+        
+        try:
+            group_chat_id_int = int(group_id)
+        except (ValueError, TypeError):
+            logger.error(f"❌ [get_group_info] Некорректный group_id '{group_id}'")
+            return None
+            
+        async with self.pool.acquire() as conn:
+            try:
+                record = await conn.fetchrow(
+                    """
+                    SELECT id, group_id, title, group_type, metadata
+                    FROM groups 
+                    WHERE group_id = $1
+                    """,
+                    group_chat_id_int
+                )
+                
+                if record:
+                    group_info = _record_to_dict(record)
+                    # Преобразуем JSON строку metadata обратно в dict
+                    if group_info and isinstance(group_info.get('metadata'), str):
+                        try:
+                            group_info['metadata'] = json.loads(group_info['metadata'])
+                        except json.JSONDecodeError:
+                            logger.warning(f"Не удалось декодировать metadata JSON для группы {group_id}")
+                            group_info['metadata'] = {}
+                    
+                    logger.info(f"✅ [get_group_info] Получена информация о группе {group_id}: {group_info.get('title')} (тип: {group_info.get('group_type')})")
+                    return group_info
+                else:
+                    logger.warning(f"❌ [get_group_info] Группа {group_id} не найдена")
+                    return None
+                    
+            except asyncpg.PostgresError as e:
+                logger.error(f"❌ [get_group_info] Ошибка PostgreSQL при получении информации о группе {group_id}: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"❌ [get_group_info] Неожиданная ошибка при получении информации о группе {group_id}: {e}")
+                return None
+
+    async def get_user_group_info(self, user_id: int, group_id: str) -> Optional[Dict]:
+        """
+        Получает информацию о пользователе в конкретной группе.
+        
+        Args:
+            user_id: ID пользователя Telegram
+            group_id: ID группы (строка)
+            
+        Returns:
+            Словарь с информацией о пользователе в группе или None если не найден
+        """
+        logger.info(f"🔍 [get_user_group_info] Получение информации о пользователе {user_id} в группе {group_id}")
+        
+        try:
+            group_chat_id_int = int(group_id)
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            logger.error(f"❌ [get_user_group_info] Некорректные ID: user_id='{user_id}', group_id='{group_id}'")
+            return None
+            
+        async with self.pool.acquire() as conn:
+            try:
+                record = await conn.fetchrow(
+                    """
+                    SELECT gm.role, gm.is_senior_courier, gm.added_at
+                    FROM group_members gm
+                    JOIN members m ON gm.member_id = m.id
+                    JOIN groups g ON gm.group_id = g.id
+                    WHERE m.user_id = $1 AND g.group_id = $2
+                    """,
+                    user_id_int, group_chat_id_int
+                )
+                
+                if record:
+                    user_group_info = _record_to_dict(record)
+                    logger.info(f"✅ [get_user_group_info] Получена информация о пользователе {user_id} в группе {group_id}: роль={user_group_info.get('role')}, старший={user_group_info.get('is_senior_courier')}")
+                    return user_group_info
+                else:
+                    logger.warning(f"❌ [get_user_group_info] Пользователь {user_id} не найден в группе {group_id}")
+                    return None
+                    
+            except asyncpg.PostgresError as e:
+                logger.error(f"❌ [get_user_group_info] Ошибка PostgreSQL при получении информации о пользователе {user_id} в группе {group_id}: {e}")
+                return None
+            except Exception as e:
+                logger.error(f"❌ [get_user_group_info] Неожиданная ошибка при получении информации о пользователе {user_id} в группе {group_id}: {e}")
+                return None
+
     async def add_user_to_group(self, user_info: dict, group_id: str) -> bool:
         """
         Добавляет пользователя в группу вручную.
@@ -705,7 +805,26 @@ class DatabaseService:
                     if member_db_id:
                         logger.info(f"✅ [add_user_to_group] Пользователь {user_id_int} уже есть в таблице members с ID: {member_db_id}")
                         
-                        # Обновляем только основные поля (username может измениться)
+                        # Проверяем текущие значения first_name и last_name
+                        current_member = await conn.fetchrow(
+                            "SELECT first_name, last_name FROM members WHERE user_id = $1",
+                            user_id_int
+                        )
+                        
+                        # Обновляем только username и photo_url, не трогаем first_name и last_name если они уже заполнены
+                        first_name_to_update = user_info.get('first_name', '')
+                        last_name_to_update = user_info.get('last_name', '')
+                        
+                        # Если поля уже заполнены, не перезаписываем их
+                        if current_member and current_member['first_name'] and current_member['first_name'].strip():
+                            first_name_to_update = current_member['first_name']
+                            logger.info(f"🔒 [add_user_to_group] Сохраняем существующий first_name: '{current_member['first_name']}'")
+                        
+                        if current_member and current_member['last_name'] and current_member['last_name'].strip():
+                            last_name_to_update = current_member['last_name']
+                            logger.info(f"🔒 [add_user_to_group] Сохраняем существующий last_name: '{current_member['last_name']}'")
+                        
+                        # Обновляем только основные поля
                         await conn.execute(
                             """
                             UPDATE members 
@@ -717,11 +836,11 @@ class DatabaseService:
                             """,
                             user_id_int,
                             user_info.get('username'),
-                            user_info.get('first_name', ''),
-                            user_info.get('last_name', ''),
+                            first_name_to_update,
+                            last_name_to_update,
                             user_info.get('photo_url')
                         )
-                        logger.info(f"✅ [add_user_to_group] Данные пользователя {user_id_int} обновлены")
+                        logger.info(f"✅ [add_user_to_group] Данные пользователя {user_id_int} обновлены (сохранены существующие first_name/last_name)")
                         
                     else:
                         # Пользователя нет в members - добавляем его
@@ -791,3 +910,61 @@ class DatabaseService:
                 except Exception as e:
                     logger.error(f"❌ [add_user_to_group] Неожиданная ошибка при добавлении пользователя {user_info.get('user_id')} в группу {group_id}: {e}")
                     return False
+
+    async def get_user_groups(self, user_id: int) -> List[Dict]:
+        """
+        Получает все группы пользователя.
+        
+        Args:
+            user_id: ID пользователя Telegram
+            
+        Returns:
+            Список словарей с информацией о группах пользователя
+        """
+        logger.info(f"🔍 [get_user_groups] Получение групп пользователя {user_id}")
+        
+        try:
+            user_id_int = int(user_id)
+        except (ValueError, TypeError):
+            logger.error(f"❌ [get_user_groups] Некорректный user_id '{user_id}'")
+            return []
+            
+        async with self.pool.acquire() as conn:
+            try:
+                records = await conn.fetch(
+                    """
+                    SELECT g.id as group_internal_id, g.group_id as chat_id, g.title, g.group_type, g.metadata
+                    FROM groups g
+                    JOIN group_members gm ON g.id = gm.group_id
+                    JOIN members m ON gm.member_id = m.id
+                    WHERE m.user_id = $1
+                    GROUP BY g.id, g.group_id, g.title, g.group_type
+                    ORDER BY g.title
+                    """,
+                    user_id_int
+                )
+                
+                if records:
+                    groups = [_record_to_dict(r) for r in records]
+                    
+                    # Преобразуем JSON строки metadata обратно в dict
+                    for group in groups:
+                        if group and isinstance(group.get('metadata'), str):
+                            try:
+                                group['metadata'] = json.loads(group['metadata'])
+                            except json.JSONDecodeError:
+                                logger.warning(f"Не удалось декодировать metadata JSON для группы {group.get('chat_id')}")
+                                group['metadata'] = {}
+                    
+                    logger.info(f"✅ [get_user_groups] Найдено {len(groups)} групп для пользователя {user_id}")
+                    return groups
+                else:
+                    logger.info(f"ℹ️ [get_user_groups] Пользователь {user_id} не состоит ни в одной группе")
+                    return []
+                    
+            except asyncpg.PostgresError as e:
+                logger.error(f"❌ [get_user_groups] Ошибка PostgreSQL при получении групп пользователя {user_id}: {e}")
+                return []
+            except Exception as e:
+                logger.error(f"❌ [get_user_groups] Неожиданная ошибка при получении групп пользователя {user_id}: {e}")
+                return []

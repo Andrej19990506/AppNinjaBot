@@ -42,14 +42,38 @@ const modalStyle: React.CSSProperties = {
 
 const closeBtnStyle: React.CSSProperties = {
     position: 'absolute',
-    top: 24,
-    right: 24,
+    bottom: 24,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'var(--card-background)',
+    border: '1.5px solid var(--primary-color)',
+    borderRadius: 'var(--radius-lg)',
+    width: 'auto',
+    height: 40,
+    fontSize: 16,
+    color: 'var(--primary-color)',
+    cursor: 'pointer',
+    zIndex: 10,
+    boxShadow: 'var(--shadow-md)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'background 0.2s',
+    opacity: 0.98,
+    padding: '0 20px',
+    marginRight: '10px',
+};
+
+const cameraSwitchBtnStyle: React.CSSProperties = {
+    position: 'absolute',
+    bottom: 24,
+    left: 'calc(60% + 80px)',
     background: 'var(--card-background)',
     border: '1.5px solid var(--primary-color)',
     borderRadius: '50%',
     width: 40,
     height: 40,
-    fontSize: 22,
+    fontSize: 18,
     color: 'var(--primary-color)',
     cursor: 'pointer',
     zIndex: 10,
@@ -137,8 +161,9 @@ const timerStyleCenter: React.CSSProperties = {
 
 const timerStyleCorner: React.CSSProperties = {
     position: 'absolute',
-    top: 24,
-    left: 24,
+    top: 45,
+    left: '50%',
+    transform: 'translateX(-50%)',
     background: 'var(--primary-color)',
     color: 'var(--text-color-on-primary)',
     borderRadius: 16,
@@ -158,30 +183,28 @@ const timerStyleCorner: React.CSSProperties = {
 
 const restartBtnStyle: React.CSSProperties = {
     position: 'absolute',
-    left: '50%',
-    bottom: 110,
-    transform: 'translateX(-50%)',
-    background: 'var(--primary-color)',
-    color: 'var(--text-color-on-primary)',
-    border: 'none',
+    bottom: 24,
+    left: 'calc(30% - 80px)', // Позиционируем слева от кнопки "Закрыть"
+    background: 'var(--card-background)',
+    border: '1.5px solid var(--primary-color)',
     borderRadius: '50%',
-    width: 56,
-    height: 56,
+    width: 40,
+    height: 40,
+    fontSize: 18,
+    color: 'var(--primary-color)',
+    cursor: 'pointer',
+    zIndex: 10,
+    boxShadow: 'var(--shadow-md)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: 'var(--shadow-md)',
-    cursor: 'pointer',
-    zIndex: 23,
-    outline: 'none',
     transition: 'background 0.2s',
     opacity: 0.98,
-    fontSize: 28,
 };
 
 const statusStyle: React.CSSProperties = {
     position: 'absolute',
-    bottom: 36,
+    top: 95,
     left: '50%',
     transform: 'translateX(-50%)',
     background: 'var(--success-background)',
@@ -193,6 +216,7 @@ const statusStyle: React.CSSProperties = {
     boxShadow: 'var(--shadow)',
     zIndex: 6,
     opacity: 0.95,
+    textAlign: 'center',
 };
 
 const resultModalStyle: React.CSSProperties = {
@@ -355,6 +379,42 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     const [finalCountdown, setFinalCountdown] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [isFrontCamera, setIsFrontCamera] = useState(true);
+
+    // Функция переключения камеры
+    const switchCamera = async () => {
+        try {
+            if (stream) {
+                // Останавливаем текущий стрим
+                stream.getTracks().forEach(track => track.stop());
+            }
+
+            // Получаем список доступных камер
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(device => device.kind === 'videoinput');
+            
+            if (videoDevices.length < 2) {
+                console.log('Доступна только одна камера');
+                return;
+            }
+
+            // Переключаем на другую камеру
+            const newFacingMode = isFrontCamera ? 'environment' : 'user';
+            const newStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: newFacingMode },
+                audio: true
+            });
+
+            setStream(newStream);
+            setIsFrontCamera(!isFrontCamera);
+
+            if (videoRef.current) {
+                videoRef.current.srcObject = newStream;
+            }
+        } catch (err) {
+            console.error('Ошибка переключения камеры:', err);
+        }
+    };
 
     useEffect(() => {
         navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -610,9 +670,16 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
         <div style={overlayStyle}>
             <div style={modalStyle}>
                 <button style={closeBtnStyle} onClick={onClose} title="Закрыть" disabled={isWelcomePlaying}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
                         <line x1="18" y1="6" x2="6" y2="18" />
                         <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    Закрыть
+                </button>
+                <button style={cameraSwitchBtnStyle} onClick={switchCamera} title="Переключить камеру">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
                     </svg>
                 </button>
                 <audio ref={audioWelcomeRef} src={welcomeAudioSrc} preload="auto" />
@@ -650,8 +717,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                             {/* Кнопка начать заново во время записи */}
                             {recording && (
                                 <button style={restartBtnStyle} onClick={handleRestartClick} title="Начать заново">
-                                    {/* Material Refresh Icon (classic) */}
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 8 8" />
                                         <polyline points="20 4 20 8 16 8" />
                                     </svg>
@@ -718,7 +784,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                             )}
                             {/* Статус */}
                             {recording && (
-                                <div style={statusStyle}>Идёт запись...</div>
+                                <div style={statusStyle}>Конкурс начался</div>
                             )}
                             {/* Модалка результата */}
                             {showResultModal && (

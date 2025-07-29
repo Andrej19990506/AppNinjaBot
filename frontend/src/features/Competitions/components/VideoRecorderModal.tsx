@@ -351,7 +351,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     const [stream, setStream] = useState<MediaStream | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [recording, setRecording] = useState(false);
-    const [timer, setTimer] = useState<number>(300); // 5 минут для конкурса
+    const [timer, setTimer] = useState(300); // 5 минут для конкурса
     const [countdown, setCountdown] = useState<number | null>(null);
     const [showTimerCenter, setShowTimerCenter] = useState(false);
     const [showTimerCorner, setShowTimerCorner] = useState(false);
@@ -378,6 +378,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     const [endSoundPlayed, setEndSoundPlayed] = useState(false);
     const [finalCountdown, setFinalCountdown] = useState<number | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [isFrontCamera, setIsFrontCamera] = useState(true);
 
@@ -564,6 +565,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
         setRecording(false);
         setCountdown(null);
         setShowTimerCorner(false);
+        setShowTimerCenter(false);
         if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             mediaRecorderRef.current.stop();
         }
@@ -594,6 +596,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
             chunks.length = 0; // сбрасываем видео
             setEndSoundPlayed(false);
             setFinalCountdown(null);
+            setUploadError(null); // сбрасываем ошибки загрузки
         }, 300);
     };
 
@@ -610,10 +613,16 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
 
     // Заготовка функции отправки видео на сервер
     const uploadVideo = async () => {
+        console.log('🚀 Начинаем загрузку видео...');
         setIsUploading(true);
+        setUploadProgress(0);
         setUploadError(null);
+        let progressInterval: NodeJS.Timeout | null = null;
+        
         try {
             const blob = new Blob(chunks, { type: 'video/webm' });
+            console.log('📁 Размер файла:', blob.size, 'байт');
+            
             const formData = new FormData();
             formData.append('video', blob, 'competition_video.webm');
             formData.append('user_id', String(userId));
@@ -621,26 +630,61 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
             formData.append('last_name', lastName);
             formData.append('competition_id', String(competitionId));
             
+            console.log('📤 Отправляем запрос на сервер...');
+            
+            // Симулируем прогресс загрузки
+            progressInterval = setInterval(() => {
+                setUploadProgress(prev => {
+                    const newProgress = prev >= 90 ? prev : prev + Math.random() * 10;
+                    console.log('📊 Прогресс загрузки:', newProgress.toFixed(1) + '%');
+                    return newProgress;
+                });
+            }, 1000);
+            
             const response = await axiosInstance.post(`/v1/competitions/${competitionId}/upload_video`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },
+                timeout: 300000, // 5 минут таймаут
+                onUploadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        console.log('📤 Реальный прогресс загрузки:', progress + '%');
+                        setUploadProgress(progress);
+                    }
+                },
             });
             
+            console.log('✅ Загрузка завершена успешно!');
+            
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
+            setUploadProgress(100);
+            
             if (response.status !== 201) throw new Error('Ошибка загрузки видео');
-            setShowResultModal(true);
+            
+            // Небольшая задержка для показа 100% прогресса
+            setTimeout(() => {
+                setShowResultModal(true);
+            }, 500);
+            
         } catch (e: any) {
+            console.error('❌ Ошибка загрузки:', e);
+            if (progressInterval) {
+                clearInterval(progressInterval);
+            }
             setUploadError(e.message || 'Ошибка загрузки');
         } finally {
+            console.log('🏁 Завершение загрузки, isUploading = false');
             setIsUploading(false);
         }
     };
 
     const handleFinishSave = () => {
         setShowFinishModal(false);
-        setTimeout(() => {
-            uploadVideo();
-        }, 200);
+        // Сразу начинаем загрузку без задержки
+        uploadVideo();
     };
     const handleFinishRetry = () => {
         setShowFinishModal(false);
@@ -650,6 +694,7 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
     };
     const handleResultRetry = () => {
         setShowResultModal(false);
+        setShowFinishModal(false);
         setTimeout(() => {
             restartRecording();
         }, 200);
@@ -715,9 +760,11 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                             {showTimerCenter && (
                                 <div style={timerStyleCenter}>5:00</div>
                             )}
-                            {/* Таймер в углу */}
-                            {showTimerCorner && (
-                                <div style={timerStyleCorner}>{formatTime(countdown)}</div>
+                            {/* Таймер в углу - показываем только во время записи */}
+                            {showTimerCorner && countdown !== null && recording && (
+                                <div style={timerStyleCorner}>
+                                    {formatTime(countdown)}
+                                </div>
                             )}
                             {/* Кнопка начать заново во время записи */}
                             {recording && (
@@ -739,7 +786,73 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                                     </div>
                                 </div>
                             )}
-                            {showFinishModal && (
+                            {/* Модалка загрузки - показываем поверх всего во время загрузки */}
+                            {isUploading && (
+                                <div style={{
+                                    position: 'fixed',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    backgroundColor: 'rgba(0,0,0,0.8)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    zIndex: 1000,
+                                }}>
+                                    <div style={{
+                                        background: 'var(--card-background)',
+                                        borderRadius: 16,
+                                        padding: '32px',
+                                        maxWidth: '400px',
+                                        width: '90%',
+                                        textAlign: 'center',
+                                        boxShadow: 'var(--shadow-lg)',
+                                    }}>
+                                        <div style={{ 
+                                            color: 'var(--primary-color)', 
+                                            fontWeight: 700, 
+                                            fontSize: 20, 
+                                            marginBottom: 24
+                                        }}>
+                                            Загрузка видео...
+                                        </div>
+                                        <div style={{
+                                            width: '100%',
+                                            height: 12,
+                                            backgroundColor: 'rgba(255,255,255,0.2)',
+                                            borderRadius: 6,
+                                            overflow: 'hidden',
+                                            marginBottom: 16
+                                        }}>
+                                            <div style={{
+                                                width: `${uploadProgress}%`,
+                                                height: '100%',
+                                                backgroundColor: 'var(--primary-color)',
+                                                borderRadius: 6,
+                                                transition: 'width 0.3s ease',
+                                                boxShadow: '0 0 12px rgba(255,255,255,0.4)'
+                                            }} />
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: 16, 
+                                            color: 'var(--text-color)', 
+                                            marginBottom: 16
+                                        }}>
+                                            {Math.round(uploadProgress)}%
+                                        </div>
+                                        <div style={{ 
+                                            fontSize: 14, 
+                                            color: 'var(--text-color)', 
+                                            opacity: 0.7
+                                        }}>
+                                            Пожалуйста, не закрывайте страницу
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {showFinishModal && !isUploading && (
                                 <div style={finishModalStyle}>
                                     <div style={{ fontSize: 26, fontWeight: 800, marginBottom: 18, color: 'var(--primary-color)' }}>
                                         Конкурс окончен!
@@ -747,21 +860,26 @@ const VideoRecorderModal: React.FC<VideoRecorderModalProps> = ({ onClose, userId
                                     <div style={{ fontSize: 20, color: 'var(--text-color)', marginBottom: 12 }}>
                                         Сохранить результат?
                                     </div>
-                                    {isUploading ? (
-                                        <div style={{ color: 'var(--primary-color)', fontWeight: 700, fontSize: 18, margin: '24px 0' }}>Загрузка видео...</div>
-                                    ) : (
-                                        <>
-                                            {uploadError && <div style={{ color: 'var(--error-color)', marginBottom: 10 }}>{uploadError}</div>}
-                                            <div style={finishBtnRow}>
-                                                <button style={finishBtn} onClick={handleFinishSave}>Сохранить результат</button>
-                                                <button style={finishBtnAlt} onClick={handleFinishRetry}>Попробовать ещё раз</button>
-                                            </div>
-                                        </>
+                                    {uploadError && (
+                                        <div style={{ 
+                                            color: 'var(--error-color)', 
+                                            marginBottom: 16,
+                                            textAlign: 'center',
+                                            fontSize: 14
+                                        }}>
+                                            {uploadError}
+                                        </div>
                                     )}
+                                    <div style={finishBtnRow}>
+                                        <button style={finishBtn} onClick={handleFinishSave}>
+                                            {uploadError ? 'Попробовать снова' : 'Сохранить результат'}
+                                        </button>
+                                        <button style={finishBtnAlt} onClick={handleFinishRetry}>Попробовать ещё раз</button>
+                                    </div>
                                 </div>
                             )}
                             {/* Кнопка старта */}
-                            {!showCountdown && !showTimerCenter && !showTimerCorner && !recording && !showResultModal && !showFinishModal && !isWelcomePlaying && (
+                            {!showCountdown && !showTimerCenter && !showTimerCorner && !recording && !showResultModal && !showFinishModal && !isWelcomePlaying && !isUploading && (
                                 <button style={startBtnStyle} onClick={handleStartClick}>
                                     Начать запись
                                 </button>

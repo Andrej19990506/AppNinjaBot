@@ -33,6 +33,7 @@ if (runtimeApiUrl) {
 // Создаем инстанс axios с базовыми настройками
 const axiosInstance = axios.create({
     baseURL: baseURL,
+    timeout: 300000, // 5 минут таймаут для больших файлов
     headers: {
         'Content-Type': 'application/json',
         // Добавляем заголовки для предотвращения кэширования

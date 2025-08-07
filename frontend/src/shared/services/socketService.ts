@@ -23,6 +23,7 @@ export type SocketEvent =
   | 'user_away'
   | 'user_back'
   | 'user_disconnected'
+  | 'user_activity_update'
   | 'REGISTRATION_OPENED';
 
 // Состояние сокета
@@ -47,9 +48,10 @@ export interface ServerToClientEvents {
   room_users_update: (data: { room: string; users: any[] }) => void;
   user_joined: (data: { room: string; user: any }) => void;
   ping: (data: { timestamp: string }) => void;
-  user_away: (data: { sid: string; user_info: any }) => void;
-  user_back: (data: { sid: string; user_info: any }) => void;
-  user_disconnected: (data: { sid: string; reason: 'manual' | 'timeout'; user_info: any }) => void;
+  user_away: (data: { sid: string; user_info: any; room: string }) => void;
+  user_back: (data: { sid: string; user_info: any; room: string }) => void;
+  user_disconnected: (data: { sid: string; reason: 'manual' | 'timeout'; user_info: any; room: string }) => void;
+  user_activity_update: (data: { sid: string; user_id: string; user_info: any; timestamp: string; activity_state: string; room: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -58,6 +60,8 @@ export interface ClientToServerEvents {
   get_room_users: (data: { room: string }) => void;
   message: (data: { text: string; room: string }) => void;
   pong: (data: { timestamp: string }) => void;
+  user_activity: (data: { timestamp: number; type: string }) => void;
+  user_inactive: (data: { timestamp: number; type: string }) => void;
 }
 
 class SocketService {
@@ -211,12 +215,14 @@ class SocketService {
     }
 
     // Добавляем обработчик ping событий
-    this.socket.on('ping', (data: { timestamp: string }) => {
-      logger.log('📍 Получен ping от сервера:', data.timestamp);
-      // Немедленно отправляем pong обратно
+    this.socket.on('ping', (data: { timestamp: string; ping_id?: number }) => {
+      logger.log('📍 Получен ping от сервера:', data);
+      // Немедленно отправляем pong обратно с дополнительной информацией
       this.socket?.emit('pong', { 
-        timestamp: data.timestamp,
-        client_time: Date.now().toString()
+        ping_timestamp: data.timestamp, // Используем ping_timestamp как ожидает сервер
+        ping_id: data.ping_id,
+        client_time: Date.now().toString(),
+        client_timestamp: new Date().toISOString()
       });
       logger.log('📍 Отправлен pong на сервер');
     });
@@ -228,6 +234,55 @@ class SocketService {
       // Например: store.dispatch(registrationOpened(data));
       // Или использовать event emitter, если store недоступен напрямую:
       // this.stateChangeEmitter.emit('registrationOpened', data);
+    });
+
+    // Добавляем обработчик user_activity_update
+    this.socket.on('user_activity_update', (data: any) => {
+      logger.info('👤 Получено событие: user_activity_update', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('user_activity_update', data);
+    });
+
+    // Добавляем обработчик user_away
+    this.socket.on('user_away', (data: any) => {
+      logger.info('👤 Получено событие: user_away', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('user_away', data);
+    });
+
+    // Добавляем обработчик user_back
+    this.socket.on('user_back', (data: any) => {
+      logger.info('👤 Получено событие: user_back', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('user_back', data);
+    });
+
+    // Добавляем обработчик room_users_list
+    this.socket.on('room_users_list', (data: any) => {
+      logger.info('👥 Получено событие: room_users_list', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('room_users_list', data);
+    });
+
+    // Добавляем обработчик user_joined_room
+    this.socket.on('user_joined_room', (data: any) => {
+      logger.info('👤 Получено событие: user_joined_room', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('user_joined_room', data);
+    });
+
+    // Добавляем обработчик user_left_room
+    this.socket.on('user_left_room', (data: any) => {
+      logger.info('👤 Получено событие: user_left_room', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('user_left_room', data);
+    });
+
+    // Добавляем обработчик connection_status
+    this.socket.on('connection_status', (data: any) => {
+      logger.info('📊 Получено событие: connection_status', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('connection_status', data);
     });
 
     // Глобальный лог всех событий
@@ -425,12 +480,14 @@ class SocketService {
       return () => { logger.warn(`[socketService] Отписка (${event}) от неинициализированного сокета`); };
     }
     logger.log(`[socketService] Подписка на событие: ${event}`);
-    this.socket.on(event, callback);
+    
+    // Используем stateChangeEmitter для подписки на события
+    this.stateChangeEmitter.on(event, callback);
     
     // Возвращаем функцию для отписки
     const unsubscribe = () => {
       logger.log(`[socketService] Отписка от события: ${event}`);
-      this.socket?.off(event, callback); // Используем off с колбэком
+      this.stateChangeEmitter.off(event, callback);
     };
     return unsubscribe;
   }
@@ -505,6 +562,31 @@ class SocketService {
 
   public getRoomUsers(room: string): void {
     this.socket?.emit('get_room_users', { room });
+  }
+
+  // Новые методы для работы с состоянием подключения
+  public getConnectionStatus(): void {
+    this.socket?.emit('get_connection_status', {});
+  }
+
+  public onConnectionStatus(callback: (status: any) => void): () => void {
+    return this.subscribe('connection_status', callback);
+  }
+
+  public onUserAway(callback: (data: any) => void): () => void {
+    return this.subscribe('user_away', callback);
+  }
+
+  public onUserBack(callback: (data: any) => void): () => void {
+    return this.subscribe('user_back', callback);
+  }
+
+  public onUserDisconnected(callback: (data: any) => void): () => void {
+    return this.subscribe('user_disconnected', callback);
+  }
+
+  public onUserActivityUpdate(callback: (data: any) => void): () => void {
+    return this.subscribe('user_activity_update', callback);
   }
 
   // Тестирование соединения

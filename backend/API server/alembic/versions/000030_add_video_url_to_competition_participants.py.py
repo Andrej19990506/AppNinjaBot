@@ -1,7 +1,7 @@
 """Add video_url to competition_participants
 
-Revision ID: 000027
-Revises: 000026
+Revision ID: 000030
+Revises: 000029
 Create Date: 2025-07-24 21:10:00.000000
 
 """

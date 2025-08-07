@@ -21,6 +21,7 @@ export interface Notification {
     isToast?: boolean;
     payload?: any;
     _isRemoved?: boolean;
+    photoUrl?: string; // URL фотографии пользователя для уведомлений активности
 }
 
 export interface NotificationState {

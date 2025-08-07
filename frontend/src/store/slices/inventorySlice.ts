@@ -216,6 +216,7 @@ interface UpdateInventoryPayload {
     category: string;
     itemId: string;
     item: InventoryItem;
+    customAction?: string; // Опциональное поле для специальных действий
 }
 
 interface UpdateInventoryResult {
@@ -233,7 +234,7 @@ export const updateInventoryItem = createAsyncThunk<
 >(
     InventoryActionTypes.UPDATE_INVENTORY,
     async (payload, { getState, rejectWithValue }) => {
-        const { chatId, category, itemId, item } = payload; 
+        const { chatId, category, itemId, item, customAction } = payload; 
         if (!itemId) {
             return rejectWithValue('Внутренняя ошибка: не указан ID товара');
         }
@@ -263,10 +264,64 @@ export const updateInventoryItem = createAsyncThunk<
                     }
                 },
                 history: {
-                    action: 'update',
-                    itemType: item?.semifinished ? 'semifinished' : 'raw',
-                    oldQuantity: currentItem?.raw?.quantity || currentItem?.semifinished?.quantity || 0,
-                    newQuantity: item?.raw?.quantity || item?.semifinished?.quantity || 0,
+                    action: (() => {
+                        // Если есть специальное действие, используем его
+                        if (customAction) {
+                            return customAction;
+                        }
+                        
+                        const oldQuantity = currentItem?.raw?.quantity || currentItem?.semifinished?.quantity || 0;
+                        const newQuantity = item?.raw?.quantity || item?.semifinished?.quantity || 0;
+                        
+                        if (oldQuantity === 0 && newQuantity > 0) {
+                            return 'add';
+                        } else if (oldQuantity > 0 && newQuantity === 0) {
+                            return 'remove';
+                        } else {
+                            return 'update';
+                        }
+                    })(),
+                    itemType: (() => {
+                        // Определяем тип на основе того, что изменилось
+                        const rawChanged = currentItem?.raw?.quantity !== item?.raw?.quantity;
+                        const semifinishedChanged = currentItem?.semifinished?.quantity !== item?.semifinished?.quantity;
+                        
+                        if (rawChanged && !semifinishedChanged) {
+                            return 'raw';
+                        } else if (semifinishedChanged && !rawChanged) {
+                            return 'semifinished';
+                        } else if (rawChanged && semifinishedChanged) {
+                            // Если изменились оба, приоритет у сырья
+                            return 'raw';
+                        } else {
+                            // По умолчанию определяем по наличию данных
+                            return item?.raw ? 'raw' : 'semifinished';
+                        }
+                    })(),
+                    oldQuantity: (() => {
+                        const rawChanged = currentItem?.raw?.quantity !== item?.raw?.quantity;
+                        const semifinishedChanged = currentItem?.semifinished?.quantity !== item?.semifinished?.quantity;
+                        
+                        if (rawChanged && !semifinishedChanged) {
+                            return currentItem?.raw?.quantity || 0;
+                        } else if (semifinishedChanged && !rawChanged) {
+                            return currentItem?.semifinished?.quantity || 0;
+                        } else {
+                            return currentItem?.raw?.quantity || currentItem?.semifinished?.quantity || 0;
+                        }
+                    })(),
+                    newQuantity: (() => {
+                        const rawChanged = currentItem?.raw?.quantity !== item?.raw?.quantity;
+                        const semifinishedChanged = currentItem?.semifinished?.quantity !== item?.semifinished?.quantity;
+                        
+                        if (rawChanged && !semifinishedChanged) {
+                            return item?.raw?.quantity || 0;
+                        } else if (semifinishedChanged && !rawChanged) {
+                            return item?.semifinished?.quantity || 0;
+                        } else {
+                            return item?.raw?.quantity || item?.semifinished?.quantity || 0;
+                        }
+                    })(),
                     category: category,
                     itemName: itemId,
                     userId: currentUser?.id
@@ -279,6 +334,58 @@ export const updateInventoryItem = createAsyncThunk<
             };
         } catch (error: any) {
             return rejectWithValue('Не удалось обновить инвентарь');
+        }
+    }
+);
+
+// Новая функция для структурных изменений (без записи в историю)
+export const updateInventoryStructure = createAsyncThunk<
+    UpdateInventoryResult,
+    UpdateInventoryPayload,
+     {
+      state: RootState;
+      rejectValue: string;
+    }
+>(
+    'inventory/updateStructure',
+    async (payload, { getState, rejectWithValue }) => {
+        const { chatId, category, itemId, item } = payload; 
+        if (!itemId) {
+            return rejectWithValue('Внутренняя ошибка: не указан ID товара');
+        }
+        const state = getState();
+        const currentUser = state.user.user;
+        const currentInventory = state.inventory.selectedChat?.inventory || {};
+        try {
+            const updatedInventory: Inventory = {
+                ...currentInventory,
+                [category]: {
+                    ...currentInventory[category],
+                    [itemId]: item
+                }
+            };
+            // --- Формируем данные для API БЕЗ истории ---
+            const inventoryData = {
+                inventory: updatedInventory,
+                metadata: {
+                    lastUpdated: new Date().toISOString(),
+                    progress: 0,
+                    chat_id: chatId,
+                    currentUser: {
+                        id: currentUser?.id,
+                        first_name: currentUser?.first_name,
+                        photo_url: currentUser?.photo_url
+                    }
+                }
+                // НЕ добавляем history для структурных изменений
+            };
+            await axiosInstance.post(`/v1/inventory/${chatId}`, inventoryData);
+            return {
+                chatId,
+                inventory: updatedInventory
+            };
+        } catch (error: any) {
+            return rejectWithValue('Не удалось обновить структуру инвентаря');
         }
     }
 );
@@ -564,19 +671,37 @@ const inventorySlice = createSlice({
             const { chatId, metadata, item_id, category, item, timestamp } = action.payload;
             const messageType = action.payload.type || 'inventory_updated';
             const chatIndex = state.items.findIndex((chat: ChatInventory) => chat.chat_id === chatId); 
+            
             if (chatIndex !== -1) {
                 let chatState = state.items[chatIndex];
                 
-                // 🚨 ПРОВЕРКА TIMESTAMP ДЛЯ ПРЕДОТВРАЩЕНИЯ RACE CONDITIONS
+                // 🚨 УЛУЧШЕННАЯ ПРОВЕРКА TIMESTAMP ДЛЯ ПРЕДОТВРАЩЕНИЯ RACE CONDITIONS
                 const incomingTimestamp = timestamp || metadata.lastUpdated;
                 const currentTimestamp = chatState.metadata?.lastUpdated;
                 
-                if (currentTimestamp && incomingTimestamp && incomingTimestamp < currentTimestamp) {
-                    console.warn(`⚠️ [Race Condition] Отклонено устаревшее обновление для чата ${chatId}:`, {
-                        incoming: incomingTimestamp,
-                        current: currentTimestamp
-                    });
-                    return; // Отклоняем устаревшее обновление
+                // Более строгая проверка timestamp
+                if (currentTimestamp && incomingTimestamp) {
+                    const incomingTime = new Date(incomingTimestamp).getTime();
+                    const currentTime = new Date(currentTimestamp).getTime();
+                    
+                    // Отклоняем обновления старше 10 секунд
+                    if (incomingTime < currentTime - 10000) {
+                        console.warn(`⚠️ [Race Condition] Отклонено устаревшее обновление для чата ${chatId}:`, {
+                            incoming: incomingTimestamp,
+                            current: currentTimestamp,
+                            diffMs: incomingTime - currentTime
+                        });
+                        return; // Отклоняем устаревшее обновление
+                    }
+                    
+                    // Логируем принятые обновления для отладки
+                    if (incomingTime > currentTime) {
+                        console.log(`✅ [WS Update] Принято новое обновление для чата ${chatId}:`, {
+                            incoming: incomingTimestamp,
+                            current: currentTimestamp,
+                            diffMs: incomingTime - currentTime
+                        });
+                    }
                 }
                 
                 // Атомарное обновление метаданных
@@ -601,33 +726,44 @@ const inventorySlice = createSlice({
                         chatState.inventory[category] = {};
                     }
                     
-                                         // 🚨 SMART CONFLICT RESOLUTION для одновременного редактирования
-                     const existingItem = chatState.inventory[category][item_id];
-                     const itemTimestamp = item.lastUpdated || incomingTimestamp;
-                     const existingItemTimestamp = existingItem?.lastUpdated;
-                     
-                     if (existingItemTimestamp && itemTimestamp) {
-                         const timeDiff = new Date(itemTimestamp).getTime() - new Date(existingItemTimestamp).getTime();
-                         
-                         // Отклоняем только если обновление ЗНАЧИТЕЛЬНО старше (>5 секунд)
-                         if (timeDiff < -5000) {
-                             console.warn(`⚠️ [Old Update] Отклонено слишком старое обновление товара ${category}/${item_id}:`, {
-                                 incoming: itemTimestamp,
-                                 existing: existingItemTimestamp,
-                                 diffMs: timeDiff
-                             });
-                             return;
-                         }
-                         
-                         // Для одновременных обновлений (разница <5 сек) - всегда принимаем
-                         if (Math.abs(timeDiff) < 5000) {
-                             console.info(`🔄 [Concurrent Update] Принято одновременное обновление товара ${category}/${item_id}:`, {
-                                 incoming: itemTimestamp,
-                                 existing: existingItemTimestamp,
-                                 diffMs: timeDiff
-                             });
-                         }
-                     }
+                    // 🚨 УЛУЧШЕННОЕ CONFLICT RESOLUTION для одновременного редактирования
+                    const existingItem = chatState.inventory[category][item_id];
+                    const itemTimestamp = item.lastUpdated || incomingTimestamp;
+                    const existingItemTimestamp = existingItem?.lastUpdated;
+                    
+                    if (existingItemTimestamp && itemTimestamp) {
+                        const itemTime = new Date(itemTimestamp).getTime();
+                        const existingTime = new Date(existingItemTimestamp).getTime();
+                        const timeDiff = itemTime - existingTime;
+                        
+                        // Отклоняем только если обновление ЗНАЧИТЕЛЬНО старше (>10 секунд)
+                        if (timeDiff < -10000) {
+                            console.warn(`⚠️ [Old Update] Отклонено слишком старое обновление товара ${category}/${item_id}:`, {
+                                incoming: itemTimestamp,
+                                existing: existingItemTimestamp,
+                                diffMs: timeDiff
+                            });
+                            return;
+                        }
+                        
+                        // Для одновременных обновлений (разница <10 сек) - принимаем более новое
+                        if (Math.abs(timeDiff) < 10000) {
+                            if (timeDiff > 0) {
+                                console.info(`🔄 [Concurrent Update] Принято более новое обновление товара ${category}/${item_id}:`, {
+                                    incoming: itemTimestamp,
+                                    existing: existingItemTimestamp,
+                                    diffMs: timeDiff
+                                });
+                            } else {
+                                console.info(`🔄 [Concurrent Update] Пропущено устаревшее обновление товара ${category}/${item_id}:`, {
+                                    incoming: itemTimestamp,
+                                    existing: existingItemTimestamp,
+                                    diffMs: timeDiff
+                                });
+                                return; // Пропускаем устаревшее обновление
+                            }
+                        }
+                    }
                     
                     // Добавляем timestamp к товару если его нет
                     chatState.inventory[category][item_id] = {
@@ -657,13 +793,16 @@ const inventorySlice = createSlice({
                         });
                     }
                 }
+                
+                // Обновляем selectedChat если это текущий чат
                 if (state.selectedChatId === chatId) {
                     state.selectedChat = { ...chatState };
                     if (item_id && category && item) {
-                        state.categories = chatState.inventory ? Object.keys(chatState.inventory) : [];
-                        if (state.selectedItem?.name === item_id) { 
-                            state.selectedItem = item;
-                        }
+                        const itemTimestamp = item.lastUpdated || incomingTimestamp;
+                        console.log(`✅ [WS Update] Обновлен товар в UI: ${category}/${item_id}`, {
+                            quantity: item.raw?.quantity || item.semifinished?.quantity,
+                            timestamp: itemTimestamp
+                        });
                     }
                 }
             }
@@ -762,6 +901,35 @@ const inventorySlice = createSlice({
                 state.isUpdatingItemId = null;
             })
             .addCase(updateInventoryItem.rejected, (state, action) => {
+                state.isUpdatingItemId = null;
+            })
+            .addCase(updateInventoryStructure.pending, (state, action) => {
+                if (action.meta.arg.itemId) { 
+                    state.isUpdatingItemId = action.meta.arg.itemId;
+                }
+            })
+            .addCase(updateInventoryStructure.fulfilled, (state, action) => {
+                const { chatId, inventory } = action.payload;
+                const chat = state.items.find(item => item.chat_id === chatId);
+                if (chat) {
+                    chat.inventory = inventory;
+                    if (state.selectedChat?.chat_id === chatId) {
+                        state.selectedChat = chat;
+                    }
+                    const progress = calculateInventoryProgress(inventory);
+                    if (chat.metadata) {
+                        chat.metadata.progress = progress;
+                    } else {
+                        chat.metadata = {
+                            progress,
+                            lastUpdated: new Date().toISOString(),
+                            chat_id: chatId
+                        };
+                    }
+                }
+                state.isUpdatingItemId = null;
+            })
+            .addCase(updateInventoryStructure.rejected, (state, action) => {
                 state.isUpdatingItemId = null;
             })
             .addCase(initializeFromTelegram.fulfilled, (state, action) => {
@@ -865,7 +1033,10 @@ export const {
 
 export const selectInventoryState = (state: RootState) => state.inventory;
 export const selectInventoryChats = (state: RootState): ChatInventory[] => state.inventory?.items || [];
-const selectSelectedChat = (state: RootState): ChatInventory | null => state.inventory?.selectedChat || null;
+export const selectSelectedChat = createSelector(
+    [selectInventoryState],
+    (inventory): ChatInventory | null => inventory?.selectedChat || null
+);
 export const selectSelectedChatId = (state: RootState): string | null => state.inventory?.selectedChatId || null;
 export const selectInventoryLoading = (state: RootState): boolean => state.inventory?.isLoading || false;
 export const selectInventoryError = (state: RootState): string | null => state.inventory?.error || null;

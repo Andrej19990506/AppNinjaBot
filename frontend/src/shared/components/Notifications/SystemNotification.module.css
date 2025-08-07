@@ -1,42 +1,47 @@
 .notificationContainer {
     position: fixed;
-    top: 90px;
-    right: 20px;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 10000;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    max-width: 400px;
+    gap: 12px;
+    max-width: 480px;
     min-height: 80px;
     pointer-events: none;
+    width: 100%;
+    padding: 0 20px;
 }
 
 .notificationContainer > * {
     pointer-events: auto;
-    position: absolute;
-    top: 0;
-    right: 0;
+    position: relative;
     width: 100%;
 }
 
 .notification {
     display: flex;
     align-items: center;
-    padding: 14px 16px;
-    border-radius: var(--radius);
+    padding: 16px 20px;
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
-    background-color: var(--card-background);
+    background: var(--card-background);
     color: var(--text-color);
     min-width: 320px;
-    max-width: 400px;
-    border-left-width: 5px;
-    border-left-style: solid;
+    max-width: 480px;
+    width: 100%;
+    border: 1px solid var(--border-color);
     cursor: grab;
     position: relative;
     overflow: hidden;
-    will-change: transform;
+    will-change: transform, opacity, filter;
     transform: translateZ(0);
-    transition: box-shadow 0.3s ease;
+    transition: all var(--transition-normal);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transform-style: preserve-3d;
+    perspective: 1000px;
 }
 
 .notification:active {
@@ -45,51 +50,81 @@
 
 .notification.dragging {
     cursor: grabbing;
-    box-shadow: var(--shadow-xl);
+    box-shadow: var(--shadow-lg), 0 0 0 2px var(--primary-color), 0 20px 40px rgba(0, 0, 0, 0.2);
+    transform: scale(1.02) translateZ(0) rotateZ(1deg);
+    filter: brightness(1.05) contrast(1.1);
 }
 
 .iconContainer {
     display: flex;
     align-items: center;
-    margin-right: 12px;
+    justify-content: center;
+    margin-right: 16px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.userPhoto {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--border-color);
+    background: var(--background-color);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-normal);
+}
+
+/* Hover эффекты для фото убраны - используем только Framer Motion */
+
+.icon {
+    width: 28px;
+    height: 28px;
+    color: var(--text-color);
+    transition: all var(--transition-normal);
 }
 
 .content {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .title {
     font-weight: 600;
-    margin-bottom: 4px;
+    font-size: 0.95rem;
+    margin: 0;
     color: var(--text-color);
+    line-height: 1.4;
 }
 
 .message {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.5;
     word-wrap: break-word;
     color: var(--text-secondary);
+    margin: 0;
 }
 
 /* Стили для подсказки свайпа */
 .swipeHint {
     position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 10px;
+    top: 50%;
+    right: 16px;
+    transform: translateY(-50%);
     display: flex;
     align-items: center;
     font-size: 0.75rem;
-    color: var(--text-tertiary);
+    color: var(--text-secondary);
     opacity: 0;
-    transform: translateX(10px);
-    transition: all 0.3s ease;
+    transition: all var(--transition-normal);
+    pointer-events: none;
 }
 
 .notification:hover .swipeHint {
-    opacity: 0.7;
-    transform: translateX(0);
+    opacity: 0.6;
 }
 
 .dragging .swipeHint {
@@ -97,23 +132,51 @@
 }
 
 /* Добавляем свечение при перетаскивании */
-.notification::after {
+.notification::before {
     content: '';
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.2), transparent 70%);
+    background: linear-gradient(135deg, 
+        rgba(255, 95, 31, 0.1), 
+        rgba(255, 139, 89, 0.05), 
+        transparent 70%);
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity var(--transition-normal);
+    border-radius: inherit;
 }
 
-.notification.dragging::after {
+.notification.dragging::before {
     opacity: 1;
+}
+
+/* Градиентная полоска слева */
+.gradientBorder {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+    z-index: 1;
+}
+
+/* Убираем старый ::after псевдоэлемент */
+.notification::after {
+    display: none;
 }
 
 /* Notification types */
 .success {
-    border-left-color: var(--success-color);
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, 
+        var(--card-background) 0%, 
+        rgba(16, 185, 129, 0.05) 100%);
+}
+
+.success::after {
+    background: linear-gradient(180deg, var(--success-color), var(--success-dark));
 }
 
 .success .icon {
@@ -121,7 +184,14 @@
 }
 
 .error {
-    border-left-color: var(--error-color);
+    border-color: var(--error-color);
+    background: linear-gradient(135deg, 
+        var(--card-background) 0%, 
+        rgba(239, 68, 68, 0.05) 100%);
+}
+
+.error::after {
+    background: linear-gradient(180deg, var(--error-color), var(--danger-dark));
 }
 
 .error .icon {
@@ -129,7 +199,14 @@
 }
 
 .warning {
-    border-left-color: var(--warning-color);
+    border-color: var(--warning-color);
+    background: linear-gradient(135deg, 
+        var(--card-background) 0%, 
+        rgba(245, 158, 11, 0.05) 100%);
+}
+
+.warning::after {
+    background: linear-gradient(180deg, var(--warning-color), var(--warning-dark));
 }
 
 .warning .icon {
@@ -137,64 +214,138 @@
 }
 
 .info {
-    border-left-color: var(--primary-color);
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, 
+        var(--card-background) 0%, 
+        var(--primary-transparent) 100%);
+}
+
+.info::after {
+    background: var(--gradient-primary);
 }
 
 .info .icon {
     color: var(--primary-color);
 }
 
+/* CSS анимации убраны - используем только Framer Motion */
+
+/* Hover эффекты - убираем transform, так как он конфликтует с Framer Motion */
+.notification:hover {
+    box-shadow: var(--shadow-lg), 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Hover эффекты убраны - используем только Framer Motion */
+
 /* Медиа-запросы */
 @media (max-width: 768px) {
     .notificationContainer {
-        right: 10px;
+        top: 16px;
+        padding: 0 16px;
+        gap: 10px;
     }
     
     .notification {
         min-width: auto;
-        width: calc(100% - 32px);
-        padding: 14px 20px;
+        width: 100%;
+        padding: 14px 16px;
         border-radius: var(--radius);
     }
 
+    .iconContainer {
+        margin-right: 12px;
+    }
+
+    .userPhoto {
+        width: 36px;
+        height: 36px;
+    }
+
     .icon {
-        font-size: 1.25rem !important;
+        width: 24px;
+        height: 24px;
+    }
+
+    .title {
+        font-size: 0.9rem;
     }
 
     .message {
-        font-size: 0.95rem;
+        font-size: 0.85rem;
     }
     
     .swipeHint {
-        opacity: 0.5;
-        transform: translateX(0);
+        right: 12px;
+        font-size: 0.7rem;
     }
 }
 
 @media (max-width: 480px) {
     .notificationContainer {
-        right: 5px;
+        top: 12px;
+        padding: 0 12px;
+        gap: 8px;
     }
     
     .notification {
-        padding: 12px 16px;
-        width: calc(100% - 24px);
+        padding: 12px 14px;
+        border-radius: var(--radius);
+    }
+
+    .iconContainer {
+        margin-right: 10px;
+    }
+
+    .userPhoto {
+        width: 32px;
+        height: 32px;
     }
 
     .icon {
-        font-size: 1.1rem !important;
+        width: 20px;
+        height: 20px;
+    }
+
+    .title {
+        font-size: 0.85rem;
     }
 
     .message {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
 }
 
 /* Поддержка iPhone с челкой */
 @supports (padding: max(0px)) {
-    .notification {
-        padding-top: max(16px, env(safe-area-inset-top));
-        padding-left: max(24px, env(safe-area-inset-left));
-        padding-right: max(24px, env(safe-area-inset-right));
+    .notificationContainer {
+        top: max(20px, env(safe-area-inset-top) + 10px);
     }
+    
+    .notification {
+        padding-left: max(20px, env(safe-area-inset-left) + 16px);
+        padding-right: max(20px, env(safe-area-inset-right) + 16px);
+    }
+}
+
+/* Темная тема - дополнительные стили */
+[data-theme="dark"] .notification {
+    background: rgba(30, 30, 30, 0.95);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .notification:hover {
+    background: rgba(40, 40, 40, 0.95);
+    border-color: var(--primary-color);
+}
+
+[data-theme="dark"] .userPhoto {
+    border-color: var(--border-color);
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .userPhoto:hover {
+    border-color: var(--primary-color);
+    background: var(--gray-700);
 } 

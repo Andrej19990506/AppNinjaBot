@@ -258,17 +258,67 @@
     line-height: 1.4;
 }
 
-/* === Бейдж статуса === */
-.statusBadge {
-    background: var(--success-background);
-    color: var(--success-color);
-    padding: 4px 8px;
+/* === Действия пользователя === */
+.userActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.connectionStatusButton {
+    background: var(--success-color);
+    color: white;
+    border: none;
     border-radius: var(--radius-sm);
+    padding: 8px 12px;
     font-size: 11px;
     font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    flex-shrink: 0;
+    min-width: 90px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.connectionStatusButton:hover {
+    transform: var(--hover-transform);
+    box-shadow: var(--shadow-md);
+}
+
+.connectionStatusButton:active {
+    transform: translateY(1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.statusIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse-status 2s infinite;
+}
+
+@keyframes pulse-status {
+    0% { 
+        opacity: 1;
+    }
+    50% { 
+        opacity: 0.7;
+    }
+    100% { 
+        opacity: 1;
+    }
+}
+
+.statusText {
+    font-weight: 600;
+    letter-spacing: 0.3px;
 }
 
 /* === Адаптив === */
@@ -308,6 +358,17 @@
     .onlineIndicator {
         width: 10px;
         height: 10px;
+    }
+
+    .connectionStatusButton {
+        padding: 6px 10px;
+        font-size: 10px;
+        min-width: 80px;
+        gap: 4px;
+    }
+    
+    .statusText {
+        display: none; /* Скрываем текст на мобильных, оставляем только иконку */
     }
 }
 

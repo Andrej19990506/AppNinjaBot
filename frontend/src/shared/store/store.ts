@@ -11,6 +11,7 @@ import shiftsReducer from '@features/courierSchedule/store/shiftsSlice/shiftsSli
 import reservesReducer from '@features/courierSchedule/store/reservesSlice/reservesSlice';
 import { socketService, SocketState as ServiceSocketState } from '@shared/services/socketService';
 import { routeChanged } from '@/store/actions';
+import { inventoryNotificationService } from '@shared/services/inventoryNotificationService';
 import chatReducer from '@/shared/store/chatSlice/chatSlice';
 import availableCouriersReducer from '@/features/courierSchedule/store/courierSlice/courierSlice';
 import eventsReducer from '@/store/slices/eventsSlice';
@@ -25,6 +26,9 @@ export const listenerMiddleware = createListenerMiddleware();
 let joinedRoomId: string | null = null; // ID текущей комнаты
 let pendingJoinRoomId: string | null = null; // Комната, в которую нужно войти после переподключения
 let currentPathname: string | null = null; // Текущий маршрут
+let lastJoinRoomTime: number = 0;
+let joinRoomCooldown: number = 2000; // 2 секунды между попытками подключения к комнате
+let unsubscribeSocketConnect: (() => void) | null = null;
 
 // --- Хелперы для работы с комнатами ---
 const COURIER_ROUTE = '/courier/courier-schedule';
@@ -37,7 +41,7 @@ const findCourierChatId = (state: RootState | null): string | undefined => {
     return state.user?.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
 };
 
-// Войти в комнату по roomId
+// Войти в комнату с защитой от частых переподключений
 const joinRoom = (roomId: string) => {
     const state = store?.getState();
     if (!state) {
@@ -47,19 +51,40 @@ const joinRoom = (roomId: string) => {
     if (!user) {
         throw new Error('[Store:RoomLogic] Попытка войти в комнату без данных пользователя!');
     }
-    if (joinedRoomId === roomId) {
+    
+    // Проверяем подключение WebSocket
+    if (!socketService.isConnected()) {
+        console.log(`🔌 [ROOM DEBUG] WebSocket не подключен, откладываем подключение к комнате: ${roomId}`);
+        pendingJoinRoomId = roomId;
         return;
     }
+    
+    // Проверяем, не пытаемся ли мы подключиться к той же комнате
+    if (joinedRoomId === roomId) {
+        console.log(`🚪 [ROOM DEBUG] Уже подключены к комнате: ${roomId}`);
+        return;
+    }
+    
+    // Проверяем cooldown для предотвращения частых переподключений
+    const now = Date.now();
+    if (now - lastJoinRoomTime < joinRoomCooldown) {
+        console.log(`⏳ [ROOM DEBUG] Cooldown активен, пропускаем подключение к комнате: ${roomId}`);
+        return;
+    }
+    
+    // Выходим из предыдущей комнаты
     if (joinedRoomId) {
         leaveRoom();
     }
+    
     // 🚨 ОТЛАДКА: логируем присоединение к комнатам для отладки синхронизации
     console.log(`🚪 [ROOM DEBUG] Присоединяемся к комнате:`, {
         roomId,
         userId: user.id,
         userName: user.first_name,
         photo_url: user.photo_url,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        previousRoom: joinedRoomId
     });
     
     socketService.joinRoom(roomId, {
@@ -68,18 +93,25 @@ const joinRoom = (roomId: string) => {
         last_name: user.last_name,
         photo_url: user.photo_url
     });
+    
     joinedRoomId = roomId;
     pendingJoinRoomId = null;
+    lastJoinRoomTime = now;
 };
 
 // Выйти из текущей комнаты
 const leaveRoom = () => {
     if (joinedRoomId) {
-        const leavingRoomId = joinedRoomId;
-        joinedRoomId = null;
-        if (socketService.isInitialized() && socketService.isConnected()) {
-            socketService.leaveRoom(leavingRoomId);
+        // Проверяем подключение WebSocket
+        if (!socketService.isConnected()) {
+            console.log(`🔌 [ROOM DEBUG] WebSocket не подключен, пропускаем выход из комнаты: ${joinedRoomId}`);
+            joinedRoomId = null;
+            return;
         }
+        
+        console.log(`🚪 [ROOM DEBUG] Выходим из комнаты: ${joinedRoomId}`);
+        socketService.leaveRoom(joinedRoomId);
+        joinedRoomId = null;
     }
 };
 
@@ -126,15 +158,18 @@ export type RootState = {
 };
 export type AppDispatch = typeof store.dispatch;
 
-let unsubscribeSocketConnect: (() => void) | null = null;
 let domainUnsubscribeFunctions: (() => void)[] = [];
 
 // --- Подписка на доменные события (оставлено для расширения) ---
 const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) => {
     unsubscribeDomainEvents(); 
     domainUnsubscribeFunctions = [];
+    
+    // Инициализируем сервис уведомлений о входе/выходе пользователей из инвентаризации
+    inventoryNotificationService.init();
+    
     // Здесь можно добавить подписки на события (например, смены, резервы и т.д.)
-    };
+};
 
     // --- Отписка от доменных событий ---
     const unsubscribeDomainEvents = () => {
@@ -146,6 +181,9 @@ const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) =>
         }
     });
     domainUnsubscribeFunctions = [];
+    
+    // Уничтожаем сервис уведомлений о входе/выходе пользователей
+    inventoryNotificationService.destroy();
 };
 
 // --- Обработчик подключения сокета ---
@@ -304,10 +342,12 @@ listenerMiddleware.startListening({
                 leaveRoom(); 
             }
             if (newTargetRoomName) {
-                if (isConnected) {
+                // Проверяем реальное состояние WebSocket подключения
+                if (socketService.isConnected()) {
                     console.log('[DEBUG] Попытка joinRoom для курьеров:', newTargetRoomName);
                     joinRoom(newTargetRoomName); 
                 } else {
+                    console.log('[DEBUG] WebSocket не подключен, откладываем joinRoom:', newTargetRoomName);
                     pendingJoinRoomId = newTargetRoomName; 
                 }
             } else {

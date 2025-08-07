@@ -15,8 +15,12 @@ import './styles/base/variables.css';
 import LocationChangeListener from './shared/components/LocationChangeListener/LocationChangeListener'; 
 import { useWebSocketSync } from './shared/hooks/useWebSocketSync';
 import { usePermissionsWebSocket } from './shared/hooks/usePermissionsWebSocket';
+import { useWebSocketConnection } from './shared/hooks/useWebSocketConnection';
+import { useActivityNotifications } from './shared/hooks/useActivityNotifications';
+import { useAwayState } from './shared/hooks/useAwayState';
 import { PermissionsExpiredModal } from './shared/components/PermissionsExpiredModal/PermissionsExpiredModal';
-import NotificationHandler from './shared/components/Notifications/NotificationHandler';
+import  NotificationHandler from './shared/components/Notifications/NotificationHandler';
+import AwayOverlay from './shared/components/AwayOverlay/AwayOverlay';
 import InventoryPage from './features/Inventory/pages/InventoryPage';
 import LoadingOverlay from './shared/components/LoadingOverlay/LoadingOverlay';
 import EventList from './features/Events/EventList';
@@ -104,6 +108,9 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   useWebSocketSync();
   const { isModalOpen, permissionsNotification, handleModalClose } = usePermissionsWebSocket();
+  useWebSocketConnection(); // Инициализация WebSocket
+  useActivityNotifications(); // Глобальные уведомления активности
+  const { isAwayOverlayVisible, handleContinueWork } = useAwayState(); // Управление заставкой отсутствия
 
   // Обработчики для TutorialMaterials
   useEffect(() => {
@@ -140,8 +147,14 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     initError,
     isUserInitialized,
     user: user ? { id: user.id, groups: user.groups } : null,
-    hasGroups: user?.groups ? user.groups.length : 0
+    hasGroups: user?.groups ? user.groups.length : 0,
+    isAwayOverlayVisible // Добавляем состояние заставки отсутствия
   });
+
+  // Отладка состояния заставки отсутствия
+  useEffect(() => {
+    console.log('🔍 [App Debug] isAwayOverlayVisible изменился:', isAwayOverlayVisible);
+  }, [isAwayOverlayVisible]);
 
   return (
     <>
@@ -178,6 +191,12 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
           notificationType={permissionsNotification.notification_type}
         />
       )}
+      
+      {/* Заставка отсутствия */}
+      <AwayOverlay 
+        isVisible={isAwayOverlayVisible}
+        onContinue={handleContinueWork}
+      />
     </>
   );
 };

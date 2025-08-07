@@ -30,7 +30,10 @@ USER_INACTIVITY_TIMEOUT = int(os.getenv('USER_INACTIVITY_TIMEOUT', 1800)) # 30 �
 # Глобальные хранилища
 user_info = defaultdict(lambda: {'last_activity': datetime.utcnow(), 'rooms': set(), 'is_away': False})
 user_rooms = defaultdict(set) 
-room_users = defaultdict(set) 
+room_users = defaultdict(set)
+
+# Словарь для отслеживания времени последних событий активности (для предотвращения гонки условий)
+last_activity_events = {} 
 
 # Префиксы для комнат
 COURIER_ROOM_PREFIX = 'couriers_'
@@ -56,10 +59,12 @@ async def connect_error(sid, data):
 # Добавляем константы для пинг-понга
 PING_INTERVAL = 25  # интервал отправки пинга в секундах
 PING_TIMEOUT = 10   # время ожидания понга в секундах
+CONNECTION_TIMEOUT = 60  # время после которого считаем соединение потерянным
 
 # Словарь для хранения таймеров пинг-понга
 ping_timers = {}
 pong_waiting = {}
+connection_states = {}  # Новый словарь для отслеживания состояния подключения
 
 # Словарь для хранения информации о пользователях {sid: user_data}
 user_info: Dict[str, Dict[str, Any]] = {}
@@ -69,7 +74,20 @@ user_rooms: Dict[str, Set[str]] = {}
 room_users: Dict[str, Set[str]] = defaultdict(set)
 # --- Новый словарь для связи userId -> sid --- 
 user_id_to_sid: Dict[str, str] = {}
-# -------------------------------------------
+
+# Новые константы для отслеживания состояния
+CONNECTION_STATES = {
+    'ACTIVE': 'active',      # Пользователь активен и отвечает на пинги
+    'AWAY': 'away',          # Пользователь не отвечает на пинги, но соединение может восстановиться
+    'DISCONNECTED': 'disconnected',  # Пользователь явно отключился
+    'TIMEOUT': 'timeout'     # Соединение потеряно по таймауту
+}
+
+# Константы для отслеживания активности пользователя
+USER_ACTIVITY_STATES = {
+    'ACTIVE': 'active',      # Пользователь активно использует приложение
+    'INACTIVE': 'inactive'   # Пользователь неактивен (не использует приложение)
+}
 
 def debug_handler(func):
     @functools.wraps(func)
@@ -134,7 +152,22 @@ async def connect(sid, environ, auth):
             "transport": environ.get('wsgi.url_scheme', 'unknown'),
             "user_info": {}, # Данные профиля добавятся при join_room
             "last_activity": asyncio.get_event_loop().time(),
-            "connection_state": "active"
+            "connection_state": CONNECTION_STATES['ACTIVE'],
+            "user_activity_state": USER_ACTIVITY_STATES['ACTIVE'],
+            "last_user_activity": time.time(),
+            "last_ping_time": None,
+            "last_pong_time": None,
+            "ping_count": 0,
+            "missed_pongs": 0
+        }
+        
+        # Инициализируем состояние подключения
+        connection_states[sid] = {
+            'state': CONNECTION_STATES['ACTIVE'],
+            'connected_at': time.time(),
+            'last_activity': time.time(),
+            'ping_history': [],
+            'connection_quality': 'good'
         }
         logger.info(f"📝 Сохранена/обновлена информация о пользователе: {user_info[sid]}")
         
@@ -159,6 +192,10 @@ async def connect(sid, environ, auth):
             'timestamp': user_info[sid]['connection_time']
         }, room='global', skip_sid=sid)
         
+        # Запускаем пинг-понг для нового клиента
+        ping_timers[sid] = asyncio.create_task(start_ping(sid))
+        logger.info(f"🔄 [PING] Запущен пинг-понг для клиента {sid}")
+        
         return True
     except Exception as e:
         logger.error(f"❌ Ошибка при подключении (User ID: {user_id}, SID: {sid}): {e}")
@@ -178,12 +215,32 @@ async def connect(sid, environ, auth):
 async def disconnect(sid):
     """Обработчик отключения клиента"""
     try:
-        logger.info(f"Client disconnected: {sid}")
+        logger.info(f"🔌 [CONNECTION] Клиент отключился: {sid}")
         
-        # Проверяем причину отключения
+        # Получаем информацию о пользователе перед удалением
+        user_data = user_info.get(sid, {}).get('user_info', {})
+        user_id = user_info.get(sid, {}).get('user_id')
+        
+        # Определяем причину отключения
         disconnect_reason = "manual"
-        if sid in pong_waiting and pong_waiting[sid]:
-            disconnect_reason = "timeout"
+        connection_quality = "unknown"
+        
+        if sid in connection_states:
+            conn_state = connection_states[sid]
+            if conn_state['state'] == CONNECTION_STATES['TIMEOUT']:
+                disconnect_reason = "timeout"
+            elif conn_state['state'] == CONNECTION_STATES['AWAY']:
+                disconnect_reason = "away"
+            connection_quality = conn_state.get('connection_quality', 'unknown')
+        
+        # Проверяем историю пингов для определения качества соединения
+        if sid in user_info:
+            missed_pongs = user_info[sid].get('missed_pongs', 0)
+            ping_count = user_info[sid].get('ping_count', 0)
+            
+            if ping_count > 0:
+                success_rate = ((ping_count - missed_pongs) / ping_count) * 100
+                logger.info(f"📊 [CONNECTION] Статистика соединения для {sid}: успешность пингов {success_rate:.1f}%")
         
         # Очищаем таймеры
         if sid in ping_timers:
@@ -192,102 +249,231 @@ async def disconnect(sid):
         if sid in pong_waiting:
             del pong_waiting[sid]
         
-        # Отправляем уведомление о причине отключения
+        # Отправляем детальное уведомление о причине отключения
         if sid in user_rooms:
             for room in user_rooms[sid].copy():
-                await sio.emit('user_disconnected', {
+                disconnect_event = {
                     'sid': sid,
+                    'user_id': user_id,
                     'reason': disconnect_reason,
-                    'user_info': user_info.get(sid, {}).get('user_info', {}),
-                    'timestamp': str(asyncio.get_event_loop().time())
-                }, room=room)
+                    'connection_quality': connection_quality,
+                    'user_info': user_data,
+                    'timestamp': str(time.time()),
+                    'connection_duration': time.time() - connection_states.get(sid, {}).get('connected_at', time.time()),
+                    'room': room  # Добавляем информацию о комнате
+                }
+                await sio.emit('user_disconnected', disconnect_event, room=room)
+                logger.info(f"📢 [CONNECTION] Отправлено уведомление об отключении в комнату {room}: {disconnect_reason}")
         
         # Удаляем пользователя из всех комнат
         if sid in user_rooms:
             rooms_to_leave = user_rooms[sid].copy()
             for room in rooms_to_leave:
-                await leave_room(sid, room) # leave_room теперь не трогает БД
+                await leave_room(sid, room)
             del user_rooms[sid]
-        
-
         
         # Удаляем информацию о пользователе
         if sid in user_info:
             del user_info[sid]
         
+        # Удаляем состояние подключения
+        if sid in connection_states:
+            del connection_states[sid]
+        
+        # Удаляем маппинг userId -> sid
+        if user_id and user_id_to_sid.get(user_id) == sid:
+            del user_id_to_sid[user_id]
+        
+        # Очищаем данные о событиях активности
+        if sid in last_activity_events:
+            del last_activity_events[sid]
+        
         if connected_clients:
             connected_clients.dec()
             logger.info(f"📊 Уменьшен счетчик подключенных клиентов")
             
+        logger.info(f"✅ [CONNECTION] Полная очистка данных для отключенного клиента {sid}")
+            
     except Exception as e:
-        logger.error(f"Error in disconnect handler: {e}")
-        logger.exception("Full error stack:")
+        logger.error(f"❌ [CONNECTION] Ошибка в обработчике отключения для {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
 
 async def start_ping(sid):
-    """Запускает периодическую отправку пингов клиенту"""
+    """Запускает периодическую отправку пингов клиенту с улучшенным отслеживанием состояния"""
     try:
-        while sid in active_users:
+        consecutive_timeouts = 0
+        max_consecutive_timeouts = 3  # Максимальное количество последовательных таймаутов
+        
+        while sid in user_info and user_info[sid].get('connection_state') != CONNECTION_STATES['DISCONNECTED']:
             await asyncio.sleep(PING_INTERVAL)
-            if sid not in active_users:
+            
+            # Проверяем, что пользователь все еще подключен
+            if sid not in user_info:
+                logger.info(f"🔍 [PING] Пользователь {sid} больше не в user_info, прекращаем пинг")
                 break
                 
-            logger.debug(f"📤 Отправка пинга клиенту {sid}")
+            # Проверяем состояние подключения
+            if user_info[sid].get('connection_state') == CONNECTION_STATES['DISCONNECTED']:
+                logger.info(f"🔍 [PING] Пользователь {sid} отключен, прекращаем пинг")
+                break
+                
+            logger.debug(f"📤 [PING] Отправка пинга клиенту {sid}")
+            
+            # Обновляем статистику пингов
+            if sid in user_info:
+                user_info[sid]['ping_count'] += 1
+                user_info[sid]['last_ping_time'] = time.time()
+            
             pong_waiting[sid] = True
             
             try:
-                await sio.emit('ping', {'timestamp': str(asyncio.get_event_loop().time())}, room=sid)
+                ping_data = {
+                    'timestamp': str(time.time()),
+                    'ping_id': user_info[sid].get('ping_count', 0)
+                }
+                await sio.emit('ping', ping_data, room=sid)
                 
                 # Ждем PING_TIMEOUT секунд ответа
                 await asyncio.sleep(PING_TIMEOUT)
                 
-                # Если по-прежнему ждем понг, значит таймаут
+                # Проверяем, получили ли мы понг
                 if sid in pong_waiting and pong_waiting[sid]:
-                    logger.warning(f"⚠️ Таймаут пинга для клиента {sid}")
-                    # Отмечаем состояние как "away"
+                    consecutive_timeouts += 1
+                    logger.warning(f"⚠️ [PING] Таймаут пинга для клиента {sid} (попытка {consecutive_timeouts}/{max_consecutive_timeouts})")
+                    
+                    # Обновляем статистику пропущенных понгов
                     if sid in user_info:
-                        user_info[sid]['connection_state'] = 'away'
-                        # Уведомляем всех в комнатах пользователя
+                        user_info[sid]['missed_pongs'] += 1
+                    
+                    # Обновляем состояние подключения
+                    if sid in connection_states:
+                        connection_states[sid]['state'] = CONNECTION_STATES['AWAY']
+                        connection_states[sid]['last_activity'] = time.time()
+                    
+                    if sid in user_info:
+                        user_info[sid]['connection_state'] = CONNECTION_STATES['AWAY']
+                        
+                        # Уведомляем всех в комнатах пользователя о том, что он "away"
                         for room in user_rooms.get(sid, set()):
-                            await sio.emit('user_away', {
+                            away_event = {
                                 'sid': sid,
+                                'user_id': user_info[sid].get('user_id'),
                                 'user_info': user_info[sid].get('user_info', {}),
-                                'timestamp': str(asyncio.get_event_loop().time())
-                            }, room=room)
+                                'timestamp': str(time.time()),
+                                'consecutive_timeouts': consecutive_timeouts,
+                                'room': room  # Добавляем информацию о комнате
+                            }
+                            await sio.emit('user_away', away_event, room=room)
+                            logger.info(f"📢 [PING] Отправлено уведомление user_away в комнату {room}")
+                    
+                    # Если слишком много последовательных таймаутов, считаем соединение потерянным
+                    if consecutive_timeouts >= max_consecutive_timeouts:
+                        logger.error(f"🚨 [PING] Слишком много таймаутов для клиента {sid}, считаем соединение потерянным")
+                        
+                        if sid in connection_states:
+                            connection_states[sid]['state'] = CONNECTION_STATES['TIMEOUT']
+                        
+                        if sid in user_info:
+                            user_info[sid]['connection_state'] = CONNECTION_STATES['TIMEOUT']
+                        
+                        # Принудительно отключаем клиента
+                        await sio.disconnect(sid)
+                        break
+                else:
+                    # Понг получен, сбрасываем счетчик таймаутов
+                    consecutive_timeouts = 0
+                    
+                    # Обновляем состояние подключения
+                    if sid in connection_states:
+                        connection_states[sid]['state'] = CONNECTION_STATES['ACTIVE']
+                        connection_states[sid]['last_activity'] = time.time()
+                    
+                    if sid in user_info:
+                        user_info[sid]['connection_state'] = CONNECTION_STATES['ACTIVE']
+                    
+                    logger.debug(f"✅ [PING] Понг получен от клиента {sid}")
                     
             except Exception as e:
-                logger.error(f"Error sending ping to {sid}: {e}")
+                logger.error(f"❌ [PING] Ошибка отправки пинга клиенту {sid}: {e}")
+                consecutive_timeouts += 1
                 
     except Exception as e:
-        logger.error(f"Error in ping loop for {sid}: {e}")
+        logger.error(f"❌ [PING] Ошибка в цикле пинга для {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
     finally:
         if sid in ping_timers:
             del ping_timers[sid]
+        logger.info(f"🏁 [PING] Завершен цикл пинга для клиента {sid}")
 
 @sio.event
 async def pong(sid, data):
-    """Обработчик получения понга от клиента"""
+    """Обработчик получения понга от клиента с улучшенным отслеживанием состояния"""
     try:
+        logger.debug(f"📥 [PONG] Получен понг от клиента {sid}")
+        
+        # Сбрасываем ожидание понга
         if sid in pong_waiting:
             pong_waiting[sid] = False
             
+        # Обновляем информацию о пользователе
         if sid in user_info:
-            user_info[sid]['last_activity'] = asyncio.get_event_loop().time()
+            current_time = time.time()
+            user_info[sid]['last_activity'] = current_time
+            user_info[sid]['last_pong_time'] = current_time
             
-            # Если пользователь был away и вернулся
-            if user_info[sid].get('connection_state') == 'away':
-                user_info[sid]['connection_state'] = 'active'
-                # Уведомляем всех в комнатах пользователя
+            # Вычисляем время отклика (если есть данные о пинге)
+            if data and isinstance(data, dict) and 'ping_timestamp' in data:
+                ping_time = float(data['ping_timestamp'])
+                response_time = current_time - ping_time
+                logger.debug(f"⏱️ [PONG] Время отклика для {sid}: {response_time:.3f}с")
+                
+                # Обновляем качество соединения
+                if sid in connection_states:
+                    if response_time < 0.1:
+                        connection_states[sid]['connection_quality'] = 'excellent'
+                    elif response_time < 0.5:
+                        connection_states[sid]['connection_quality'] = 'good'
+                    elif response_time < 1.0:
+                        connection_states[sid]['connection_quality'] = 'fair'
+                    else:
+                        connection_states[sid]['connection_quality'] = 'poor'
+            
+            # Проверяем, был ли пользователь в состоянии "away" и вернулся
+            previous_state = user_info[sid].get('connection_state')
+            if previous_state == CONNECTION_STATES['AWAY']:
+                logger.info(f"🔄 [PONG] Пользователь {sid} вернулся из состояния 'away'")
+                
+                # Обновляем состояние подключения
+                user_info[sid]['connection_state'] = CONNECTION_STATES['ACTIVE']
+                
+                if sid in connection_states:
+                    connection_states[sid]['state'] = CONNECTION_STATES['ACTIVE']
+                    connection_states[sid]['last_activity'] = current_time
+                
+                # Уведомляем всех в комнатах пользователя о возвращении
                 for room in user_rooms.get(sid, set()):
-                    await sio.emit('user_back', {
+                    back_event = {
                         'sid': sid,
+                        'user_id': user_info[sid].get('user_id'),
                         'user_info': user_info[sid].get('user_info', {}),
-                        'timestamp': str(asyncio.get_event_loop().time())
-                    }, room=room)
-                    
-        logger.debug(f"📥 Получен понг от клиента {sid}")
+                        'timestamp': str(current_time),
+                        'previous_state': previous_state,
+                        'connection_quality': connection_states.get(sid, {}).get('connection_quality', 'unknown'),
+                        'room': room  # Добавляем информацию о комнате
+                    }
+                    await sio.emit('user_back', back_event, room=room)
+                    logger.info(f"📢 [PONG] Отправлено уведомление user_back в комнату {room}")
+            
+            # Логируем статистику соединения
+            ping_count = user_info[sid].get('ping_count', 0)
+            missed_pongs = user_info[sid].get('missed_pongs', 0)
+            if ping_count > 0:
+                success_rate = ((ping_count - missed_pongs) / ping_count) * 100
+                logger.debug(f"📊 [PONG] Статистика соединения для {sid}: {success_rate:.1f}% успешных пингов")
         
     except Exception as e:
-        logger.error(f"Error handling pong from {sid}: {e}")
+        logger.error(f"❌ [PONG] Ошибка обработки понга от {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
 
 @sio.event
 async def join_room(sid, data):
@@ -796,13 +982,54 @@ async def shift_update(sid, data):
         }, room=sid)
         return None
 
+async def check_connection_health():
+    """Периодическая проверка состояния всех подключений"""
+    try:
+        while True:
+            await asyncio.sleep(60)  # Проверяем каждую минуту
+            
+            current_time = time.time()
+            active_connections = 0
+            away_connections = 0
+            timeout_connections = 0
+            
+            for sid, user_data in user_info.items():
+                connection_state = user_data.get('connection_state', 'unknown')
+                last_activity = user_data.get('last_activity', 0)
+                
+                if connection_state == CONNECTION_STATES['ACTIVE']:
+                    active_connections += 1
+                elif connection_state == CONNECTION_STATES['AWAY']:
+                    away_connections += 1
+                elif connection_state == CONNECTION_STATES['TIMEOUT']:
+                    timeout_connections += 1
+                
+                # Проверяем, не нужно ли обновить состояние
+                if connection_state == CONNECTION_STATES['AWAY']:
+                    time_since_activity = current_time - last_activity
+                    if time_since_activity > CONNECTION_TIMEOUT:
+                        logger.warning(f"⚠️ [HEALTH] Пользователь {sid} переведен в состояние timeout (неактивен {time_since_activity:.1f}с)")
+                        user_data['connection_state'] = CONNECTION_STATES['TIMEOUT']
+                        if sid in connection_states:
+                            connection_states[sid]['state'] = CONNECTION_STATES['TIMEOUT']
+            
+            logger.info(f"📊 [HEALTH] Статистика подключений: активных={active_connections}, away={away_connections}, timeout={timeout_connections}")
+            
+    except Exception as e:
+        logger.error(f"❌ [HEALTH] Ошибка в проверке состояния подключений: {e}")
+        logger.exception("Полный стек ошибки:")
+
 # Запускаем фоновую задачу прослушивания уведомлений при старте
 @sio.event
 async def startup():
     logger.info("🚀 WebSocket Server Startup Event")
-    # Убираем init_db
+    # Запускаем слушатель уведомлений
     asyncio.create_task(start_notification_listener())
     logger.info("✅ Notification listener task created")
+    
+    # Запускаем проверку состояния подключений
+    asyncio.create_task(check_connection_health())
+    logger.info("✅ Connection health check task created")
 
 # Регистрируем обработчики явно
 logger.info("🔄 Начинаем регистрацию обработчиков Socket.IO")
@@ -832,19 +1059,35 @@ async def get_room_users(sid, data):
         room_sids = server_rooms.get(room, set())
         logger.info(f"📊 [ACTIVE USERS] Найдены SID в комнате {room}: {room_sids}")
 
-        # Формируем список пользователей для ActiveUsersPanel
+        # Формируем список пользователей для ActiveUsersPanel с информацией о состоянии подключения
         room_users_for_panel = []
         for user_sid in room_sids:
             if user_sid in user_info and user_info[user_sid].get('user_info'):
                 user_data = user_info[user_sid].get('user_info', {})
+                
+                # Получаем информацию о состоянии подключения
+                connection_state = user_info[user_sid].get('connection_state', 'unknown')
+                connection_quality = connection_states.get(user_sid, {}).get('connection_quality', 'unknown')
+                last_activity = user_info[user_sid].get('last_activity', 0)
+                
+                # Получаем информацию об активности пользователя
+                user_activity_state = user_info[user_sid].get('user_activity_state', USER_ACTIVITY_STATES['ACTIVE'])
+                last_user_activity = user_info[user_sid].get('last_user_activity', 0)
+                
                 room_users_for_panel.append({
                     'userId': user_data.get('userId') or user_data.get('user_id') or user_sid,
                     'first_name': user_data.get('first_name', 'Пользователь'),
                     'last_name': user_data.get('last_name'),
                     'photo_url': user_data.get('photo_url'),
-                    'joinedAt': user_info[user_sid].get('connection_time', str(time.time()))
+                    'joinedAt': user_info[user_sid].get('connection_time', str(time.time())),
+                    'connection_state': connection_state,
+                    'connection_quality': connection_quality,
+                    'last_activity': last_activity,
+                    'user_activity_state': user_activity_state,
+                    'last_user_activity': last_user_activity,
+                    'is_active': connection_state == CONNECTION_STATES['ACTIVE'] and user_activity_state == USER_ACTIVITY_STATES['ACTIVE']
                 })
-                logger.info(f"✅ [ACTIVE USERS] Добавлен пользователь: {user_data.get('first_name', 'Пользователь')}")
+                logger.info(f"✅ [ACTIVE USERS] Добавлен пользователь: {user_data.get('first_name', 'Пользователь')} (состояние: {connection_state})")
 
         response = {
             'room': room,
@@ -864,6 +1107,147 @@ async def get_room_users(sid, data):
         logger.error(f"❌ [ACTIVE USERS] {error_msg}")
         logger.exception("Полный стек ошибки:")
         return {'error': error_msg}
+
+@sio.event
+async def get_connection_status(sid, data):
+    """Обработчик запроса информации о состоянии подключения"""
+    try:
+        logger.info(f"🔍 [CONNECTION] Запрос состояния подключения от {sid}")
+        
+        if sid not in user_info:
+            return {'error': 'User not found'}
+        
+        user_data = user_info[sid]
+        conn_state = connection_states.get(sid, {})
+        
+        # Вычисляем время подключения
+        connected_at = conn_state.get('connected_at', 0)
+        connection_duration = time.time() - connected_at if connected_at > 0 else 0
+        
+        # Вычисляем статистику пингов
+        ping_count = user_data.get('ping_count', 0)
+        missed_pongs = user_data.get('missed_pongs', 0)
+        success_rate = ((ping_count - missed_pongs) / ping_count * 100) if ping_count > 0 else 100
+        
+        status_info = {
+            'sid': sid,
+            'user_id': user_data.get('user_id'),
+            'connection_state': user_data.get('connection_state', 'unknown'),
+            'connection_quality': conn_state.get('connection_quality', 'unknown'),
+            'connection_duration': connection_duration,
+            'last_activity': user_data.get('last_activity', 0),
+            'last_ping_time': user_data.get('last_ping_time'),
+            'last_pong_time': user_data.get('last_pong_time'),
+            'user_activity_state': user_data.get('user_activity_state', USER_ACTIVITY_STATES['ACTIVE']),
+            'last_user_activity': user_data.get('last_user_activity', 0),
+            'ping_statistics': {
+                'total_pings': ping_count,
+                'missed_pongs': missed_pongs,
+                'success_rate': success_rate
+            },
+            'rooms': list(user_rooms.get(sid, set())),
+            'timestamp': str(time.time())
+        }
+        
+        logger.info(f"📊 [CONNECTION] Отправлена информация о состоянии подключения для {sid}: {status_info['connection_state']}")
+        await sio.emit('connection_status', status_info, room=sid)
+        
+        return status_info
+        
+    except Exception as e:
+        logger.error(f"❌ [CONNECTION] Ошибка получения состояния подключения для {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
+        return {'error': str(e)}
+
+@sio.event
+async def user_activity(sid, data):
+    """Обработчик события активности пользователя"""
+    try:
+        logger.info(f"👤 [ACTIVITY] Пользователь {sid} активен: {data}")
+        
+        if sid in user_info:
+            current_time = time.time()
+            previous_state = user_info[sid].get('user_activity_state', USER_ACTIVITY_STATES['INACTIVE'])
+            
+            # Проверяем минимальный интервал между событиями (1 секунда)
+            last_event_time = last_activity_events.get(sid, 0)
+            if current_time - last_event_time < 1.0:
+                logger.debug(f"👤 [ACTIVITY] Слишком частое событие активности для {sid}, пропускаем")
+                return
+            
+            # Проверяем, изменилось ли состояние
+            if previous_state != USER_ACTIVITY_STATES['ACTIVE']:
+                user_info[sid]['user_activity_state'] = USER_ACTIVITY_STATES['ACTIVE']
+                user_info[sid]['last_user_activity'] = current_time
+                
+                # Обновляем время последнего события
+                last_activity_events[sid] = current_time
+                
+                # Уведомляем всех в комнатах пользователя о том, что он активен
+                for room in user_rooms.get(sid, set()):
+                    activity_event = {
+                        'sid': sid,
+                        'user_id': user_info[sid].get('user_id'),
+                        'user_info': user_info[sid].get('user_info', {}),
+                        'timestamp': str(current_time),
+                        'activity_state': USER_ACTIVITY_STATES['ACTIVE'],
+                        'room': room  # Добавляем информацию о комнате
+                    }
+                    await sio.emit('user_activity_update', activity_event, room=room)
+                    logger.info(f"📢 [ACTIVITY] Отправлено уведомление user_activity_update в комнату {room}")
+            else:
+                # Просто обновляем время последней активности без отправки события
+                user_info[sid]['last_user_activity'] = current_time
+                logger.debug(f"👤 [ACTIVITY] Пользователь {sid} уже активен, обновляем только время активности")
+        
+    except Exception as e:
+        logger.error(f"❌ [ACTIVITY] Ошибка обработки события активности для {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
+
+@sio.event
+async def user_inactive(sid, data):
+    """Обработчик события неактивности пользователя"""
+    try:
+        logger.info(f"😴 [ACTIVITY] Пользователь {sid} неактивен: {data}")
+        
+        if sid in user_info:
+            current_time = time.time()
+            previous_state = user_info[sid].get('user_activity_state', USER_ACTIVITY_STATES['ACTIVE'])
+            
+            # Проверяем минимальный интервал между событиями (1 секунда)
+            last_event_time = last_activity_events.get(sid, 0)
+            if current_time - last_event_time < 1.0:
+                logger.debug(f"😴 [ACTIVITY] Слишком частое событие неактивности для {sid}, пропускаем")
+                return
+            
+            # Проверяем, изменилось ли состояние
+            if previous_state != USER_ACTIVITY_STATES['INACTIVE']:
+                user_info[sid]['user_activity_state'] = USER_ACTIVITY_STATES['INACTIVE']
+                user_info[sid]['last_user_activity'] = current_time
+                
+                # Обновляем время последнего события
+                last_activity_events[sid] = current_time
+                
+                # Уведомляем всех в комнатах пользователя о том, что он неактивен
+                for room in user_rooms.get(sid, set()):
+                    inactive_event = {
+                        'sid': sid,
+                        'user_id': user_info[sid].get('user_id'),
+                        'user_info': user_info[sid].get('user_info', {}),
+                        'timestamp': str(current_time),
+                        'activity_state': USER_ACTIVITY_STATES['INACTIVE'],
+                        'room': room  # Добавляем информацию о комнате
+                    }
+                    await sio.emit('user_activity_update', inactive_event, room=room)
+                    logger.info(f"📢 [ACTIVITY] Отправлено уведомление user_activity_update в комнату {room}")
+            else:
+                # Просто обновляем время последней активности без отправки события
+                user_info[sid]['last_user_activity'] = current_time
+                logger.debug(f"😴 [ACTIVITY] Пользователь {sid} уже неактивен, обновляем только время активности")
+        
+    except Exception as e:
+        logger.error(f"❌ [ACTIVITY] Ошибка обработки события неактивности для {sid}: {e}")
+        logger.exception("Полный стек ошибки:")
 
 logger.info("✅ Все обработчики событий успешно зарегистрированы")
 

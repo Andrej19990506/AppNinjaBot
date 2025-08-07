@@ -1,5 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { socketService } from '@shared/services/socketService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../../../store';
+import { socketService } from '../../../../shared/services/socketService';
+import { ConnectionStatusPanel } from '../../../../shared/components/ConnectionStatusPanel';
+import SlidingDrawer from '../../../../shared/components/SlidingDrawer/SlidingDrawer';
 import styles from './ActiveUsersDrawer.module.css';
 import PeopleIcon from '@mui/icons-material/People';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
@@ -11,6 +15,10 @@ interface ActiveUser {
     last_name?: string;
     photo_url?: string;
     joinedAt: string;
+    connection_state?: 'active' | 'away' | 'disconnected' | 'timeout';
+    connection_quality?: 'excellent' | 'good' | 'fair' | 'poor';
+    user_activity_state?: 'active' | 'inactive';
+    last_user_activity?: number;
 }
 
 interface ActiveUsersDrawerProps {
@@ -20,6 +28,7 @@ interface ActiveUsersDrawerProps {
 export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) => {
     const [activeUsers, setActiveUsers] = useState<ActiveUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [showConnectionStatus, setShowConnectionStatus] = useState(false);
 
     useEffect(() => {
         if (!chatId) return;
@@ -41,7 +50,11 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
                     first_name: data.first_name || 'Пользователь',
                     last_name: data.last_name,
                     photo_url: data.photo_url,
-                    joinedAt: new Date().toISOString()
+                    joinedAt: new Date().toISOString(),
+                    connection_state: data.connection_state || 'active',
+                    connection_quality: data.connection_quality || 'good',
+                    user_activity_state: data.user_activity_state || 'active',
+                    last_user_activity: data.last_user_activity || Date.now()
                 };
 
                 setActiveUsers(prev => {
@@ -73,7 +86,11 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
                     first_name: user.first_name || 'Пользователь',
                     last_name: user.last_name,
                     photo_url: user.photo_url,
-                    joinedAt: user.joinedAt || new Date().toISOString()
+                    joinedAt: user.joinedAt || new Date().toISOString(),
+                    connection_state: user.connection_state || 'active',
+                    connection_quality: user.connection_quality || 'good',
+                    user_activity_state: user.user_activity_state || 'active',
+                    last_user_activity: user.last_user_activity || Date.now()
                 }));
                 setActiveUsers(users);
                 setIsLoading(false);
@@ -81,10 +98,44 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             }
         };
 
+        // Функция для обработки обновления активности пользователя
+        const handleUserActivityUpdate = (data: any) => {
+            console.log(`🔔 [ACTIVE USERS DRAWER] Получено событие user_activity_update:`, data);
+            
+            if (data.room === `inventory_${chatId}` || data.room?.includes(`inventory_${chatId}`)) {
+                const userId = data.user_id || data.userId;
+                const activityState = data.activity_state || data.user_activity_state || 'active';
+                const userName = data.first_name || data.user_info?.first_name || userId;
+                
+
+                setActiveUsers(prev => prev.map(user => {
+                    if (user.userId === userId) {
+                        // Проверяем, изменилось ли состояние активности
+                        if (user.user_activity_state === activityState) {
+                            // Состояние не изменилось, обновляем только время
+                            return {
+                                ...user,
+                                last_user_activity: data.timestamp ? new Date(data.timestamp).getTime() : Date.now()
+                            };
+                        } else {
+                            // Состояние изменилось, обновляем все
+                            return {
+                                ...user,
+                                user_activity_state: activityState,
+                                last_user_activity: data.timestamp ? new Date(data.timestamp).getTime() : Date.now()
+                            };
+                        }
+                    }
+                    return user;
+                }));
+            }
+        };
+
         // Подписываемся на события
         const unsubscribeUserJoined = socketService.subscribe('user_joined_room', handleUserJoined);
         const unsubscribeUserLeft = socketService.subscribe('user_left_room', handleUserLeft);  
         const unsubscribeRoomUsers = socketService.subscribe('room_users_list', handleRoomUsers);
+        const unsubscribeUserActivity = socketService.onUserActivityUpdate(handleUserActivityUpdate);
 
         // Запрашиваем текущий список пользователей комнаты
         console.log(`📡 [ACTIVE USERS DRAWER] Отправляем запрос get_room_users для комнаты: inventory_${chatId}`);
@@ -101,6 +152,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             unsubscribeUserJoined();
             unsubscribeUserLeft();
             unsubscribeRoomUsers();
+            unsubscribeUserActivity();
             clearTimeout(timeout);
         };
     }, [chatId]);
@@ -156,7 +208,88 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
         return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&size=48&background=FF5F1F&color=fff&bold=true&font-size=0.5`;
     };
 
+    const getConnectionStateColor = (user: ActiveUser) => {
+        // Приоритет: сначала проверяем активность пользователя, потом техническое соединение
+        if (user.user_activity_state === 'inactive') {
+            return '#FF9800'; // Оранжевый для "отошел"
+        }
+        
+        switch (user.connection_state) {
+            case 'active':
+                return '#4CAF50';
+            case 'away':
+                return '#FF9800';
+            case 'timeout':
+                return '#F44336';
+            case 'disconnected':
+                return '#9E9E9E';
+            default:
+                return '#757575';
+        }
+    };
 
+    const getConnectionStateText = (user: ActiveUser) => {
+        // Приоритет: сначала проверяем активность пользователя, потом техническое соединение
+        if (user.user_activity_state === 'inactive') {
+            return 'Отошел';
+        }
+        
+        switch (user.connection_state) {
+            case 'active':
+                return 'Активен';
+            case 'away':
+                return 'Неактивен';
+            case 'timeout':
+                return 'Таймаут';
+            case 'disconnected':
+                return 'Отключен';
+            default:
+                return 'Неизвестно';
+        }
+    };
+
+    const getConnectionStateIcon = (state: string) => {
+        switch (state) {
+            case 'active':
+                return (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <circle cx="4" cy="4" r="3" fill="currentColor"/>
+                    </svg>
+                );
+            case 'away':
+                return (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <circle cx="4" cy="4" r="3" fill="currentColor"/>
+                    </svg>
+                );
+            case 'timeout':
+                return (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <circle cx="4" cy="4" r="3" fill="currentColor"/>
+                    </svg>
+                );
+            case 'disconnected':
+                return (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <circle cx="4" cy="4" r="3" fill="currentColor"/>
+                    </svg>
+                );
+            default:
+                return (
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
+                        <circle cx="4" cy="4" r="3" fill="currentColor"/>
+                    </svg>
+                );
+        }
+    };
+
+    const handleConnectionStatusClick = () => {
+        setShowConnectionStatus(true);
+    };
+
+    const handleCloseConnectionStatus = () => {
+        setShowConnectionStatus(false);
+    };
 
     return (
         <div className={styles.container}>
@@ -173,7 +306,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
                 </div>
             </div>
 
-            {/* Список пользователей */}
+            {/* Контент */}
             <div className={styles.content}>
                 {isLoading ? (
                     <div className={styles.loadingContainer}>
@@ -231,14 +364,35 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
                                     </div>
                                 </div>
                                 
-                                <div className={styles.statusBadge}>
-                                    Онлайн
+                                <div className={styles.userActions}>
+                                    <button
+                                        className={styles.connectionStatusButton}
+                                        onClick={handleConnectionStatusClick}
+                                        style={{
+                                            backgroundColor: getConnectionStateColor(user),
+                                            color: 'white'
+                                        }}
+                                    >
+                                        <span className={styles.statusIcon}>
+                                            {getConnectionStateIcon(user.connection_state || 'active')}
+                                        </span>
+                                        <span className={styles.statusText}>
+                                            {getConnectionStateText(user)}
+                                        </span>
+                                    </button>
                                 </div>
                             </motion.div>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* SlidingDrawer с состоянием подключения */}
+            {showConnectionStatus && (
+                <SlidingDrawer onClose={handleCloseConnectionStatus}>
+                    <ConnectionStatusPanel />
+                </SlidingDrawer>
+            )}
         </div>
     );
 }; 

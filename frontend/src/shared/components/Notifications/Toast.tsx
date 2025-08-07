@@ -25,10 +25,19 @@ const slideIn = keyframes`
   }
 `;
 
-const StyledTooltip = styled.div<{ type: 'info' | 'success' | 'error' }>`
-  position: fixed;
-  top: 20px;
-  right: 20px;
+const slideOut = keyframes`
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+`;
+
+const StyledTooltip = styled.div<{ type: 'info' | 'success' | 'error'; isVisible: boolean }>`
+  position: relative;
   padding: 12px 20px;
   border-radius: 8px;
   color: white;
@@ -36,7 +45,7 @@ const StyledTooltip = styled.div<{ type: 'info' | 'success' | 'error' }>`
   display: flex;
   align-items: center;
   gap: 10px;
-  animation: ${slideIn} 0.3s ease-out;
+  animation: ${({ isVisible }) => isVisible ? slideIn : slideOut} 0.3s ease-out;
   z-index: 1000;
   max-width: 300px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -44,6 +53,8 @@ const StyledTooltip = styled.div<{ type: 'info' | 'success' | 'error' }>`
     type === 'info' ? '#3498db' : 
     type === 'success' ? '#2ecc71' : 
     '#e74c3c'};
+  pointer-events: auto;
+  margin-bottom: 10px;
 `;
 
 const TooltipMessage = styled.span`
@@ -74,27 +85,33 @@ const TooltipContainerStyled = styled.div`
   flex-direction: column;
   gap: 10px;
   padding: 20px;
-  pointer-events: none;
+  z-index: 9999;
+  pointer-events: auto;
 `;
 
-const Tooltip: React.FC<TooltipProps> = ({ message, type, duration = 3000, onClose }) => {
+const Tooltip: React.FC<TooltipProps> = ({ message, type, duration = 5000, onClose }) => {
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-      onClose?.();
+      setTimeout(() => {
+        onClose?.();
+      }, 300); // Ждем завершения анимации исчезновения
     }, duration);
 
     return () => clearTimeout(timer);
   }, [duration, onClose]);
 
-  if (!isVisible) return null;
-
   return (
-    <StyledTooltip type={type}>
+    <StyledTooltip type={type} isVisible={isVisible}>
       <TooltipMessage>{message}</TooltipMessage>
-      <CloseButton onClick={() => setIsVisible(false)}>×</CloseButton>
+      <CloseButton onClick={() => {
+        setIsVisible(false);
+        setTimeout(() => {
+          onClose?.();
+        }, 300);
+      }}>×</CloseButton>
     </StyledTooltip>
   );
 };
@@ -126,21 +143,26 @@ class TooltipManager {
   }
 
   show(message: string, type: 'info' | 'success' | 'error') {
+    console.log('🔔 [TooltipManager] Показываем уведомление:', { message, type });
+    
     const tooltip: TooltipState = {
       message,
       type,
       isVisible: true
     };
     this.tooltips.push(tooltip);
+    console.log('🔔 [TooltipManager] Добавлено уведомление в список. Всего уведомлений:', this.tooltips.length);
     this.notify();
 
     setTimeout(() => {
       this.tooltips = this.tooltips.filter(t => t !== tooltip);
+      console.log('🔔 [TooltipManager] Удалено уведомление из списка. Осталось:', this.tooltips.length);
       this.notify();
-    }, 3000);
+    }, 5000); // Увеличиваем с 3000 до 5000 мс
   }
 
   clear() {
+    console.log('🔔 [TooltipManager] Очищаем все уведомления');
     this.tooltips = [];
     this.notify();
   }
@@ -151,9 +173,16 @@ export const TooltipContainer: React.FC = () => {
   const [tooltips, setTooltips] = useState<TooltipState[]>([]);
 
   useEffect(() => {
+    console.log('🔔 [TooltipContainer] Компонент инициализирован');
     const manager = TooltipManager.getInstance();
-    return manager.subscribe(setTooltips);
+    const unsubscribe = manager.subscribe((newTooltips) => {
+      console.log('🔔 [TooltipContainer] Получены новые уведомления:', newTooltips);
+      setTooltips(newTooltips);
+    });
+    return unsubscribe;
   }, []);
+
+  console.log('🔔 [TooltipContainer] Рендерим компонент с уведомлениями:', tooltips);
 
   return (
     <TooltipContainerStyled>

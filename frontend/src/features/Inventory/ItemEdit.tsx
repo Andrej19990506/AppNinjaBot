@@ -3,7 +3,7 @@ import styles from '@features/Inventory/ItemEdit.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
 import { socketService } from '@shared/services/socketService';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { updateInventoryItem, updateProgress, fetchItemHistory, selectHistoryRecordsForItem } from '@/store/slices/inventorySlice';
+import { updateInventoryItem, updateInventoryStructure, updateProgress, fetchItemHistory, selectHistoryRecordsForItem } from '@/store/slices/inventorySlice';
 
 interface ItemEditProps {
     category: string;
@@ -16,6 +16,7 @@ interface ItemEditProps {
     onCancel?: () => void;
     onSave?: (updatedItem: InventoryItem) => void;
     onShowAnalytics?: () => void; // Добавляем новый пропс
+    onOutOfStockConfirm?: (category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => void; // Новый пропс для подтверждения с коллбэком
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
@@ -28,7 +29,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     onDelete, 
     onCancel, 
     onSave, 
-    onShowAnalytics
+    onShowAnalytics,
+    onOutOfStockConfirm
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [_isAddingItem, _setIsAddingItem] = useState(false);
@@ -170,7 +172,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             };
 
             setItem(newItem);
-            await dispatch(updateInventoryItem({
+            await dispatch(updateInventoryStructure({
                 chatId,
                 category,
                 itemId,
@@ -215,7 +217,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             };
 
             setItem(newItem);
-            await dispatch(updateInventoryItem({
+            await dispatch(updateInventoryStructure({
                 chatId,
                 category,
                 itemId,
@@ -248,10 +250,23 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     };
 
     const handleOutOfStock = async (type: 'raw' | 'semifinished') => {
+        // Если товар уже помечен как "нет в наличии", сразу восстанавливаем
+        if (isOutOfStock) {
+            await confirmOutOfStock(type);
+            return;
+        }
+        
+        // Иначе показываем подтверждение через родительский компонент
+        if (onOutOfStockConfirm) {
+            onOutOfStockConfirm(category, itemId, itemId, type, () => confirmOutOfStock(type));
+        }
+    };
+
+    const confirmOutOfStock = async (type: 'raw' | 'semifinished') => {
         try {
             const newItem = { 
                 ...item, 
-                lastUpdated: new Date().toISOString() // Добавляем timestamp
+                lastUpdated: new Date().toISOString()
             };
             
             if (type === 'raw' && newItem.raw) {
@@ -265,27 +280,40 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                         isOutOfStock: true,
                         filled: true
                     };
-
-                    if (newItem.semifinished) {
-                        newItem.semifinished = undefined;
-                    }
+                    // Полуфабрикат не трогаем - он может существовать независимо от сырья
                 } else {
                     newItem.raw = {
                         ...newItem.raw,
-                        quantity: 1,
+                        quantity: 0,
                         isOutOfStock: false,
-                        filled: true
+                        filled: false
                     };
                 }
             }
 
             setItem(newItem);
-            await dispatch(updateInventoryItem({
-                chatId,
-                category,
-                itemId,
-                item: newItem
-            })).unwrap();
+            
+            // Создаем специальный payload для случая "нет в наличии"
+            const isMarkingOutOfStock = type === 'raw' && !isOutOfStock && newItem.raw?.isOutOfStock;
+            
+            if (isMarkingOutOfStock) {
+                // Используем специальный action для пометки "нет в наличии"
+                await dispatch(updateInventoryItem({
+                    chatId,
+                    category,
+                    itemId,
+                    item: newItem,
+                    customAction: 'out_of_stock' // Добавляем специальный флаг
+                })).unwrap();
+            } else {
+                // Обычное обновление
+                await dispatch(updateInventoryItem({
+                    chatId,
+                    category,
+                    itemId,
+                    item: newItem
+                })).unwrap();
+            }
 
             const updateData = {
                 source: 'client',

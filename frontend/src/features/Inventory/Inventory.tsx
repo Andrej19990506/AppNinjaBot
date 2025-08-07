@@ -6,6 +6,7 @@ import CategoryGrid from '@features/Inventory/CategoryGrid';
 import ItemList from '@features/Inventory/ItemList';
 import ItemHistory from '@features/Inventory/ItemHistory/ItemHistory';
 import ItemEdit from '@features/Inventory/ItemEdit';
+import OutOfStockConfirmModal from '@features/Inventory/OutOfStockConfirmModal';
 import { InventoryCompleteDrawer } from '@features/Inventory/components/InventoryCompleteDrawer';
 import TemplateChangesModal from '@features/Inventory/components/TemplateChangesModal';
 import Header from '@features/Inventory/Header';
@@ -26,10 +27,13 @@ import { useInventoryLoader } from '@features/Inventory/hooks/useInventoryLoader
 import { useInventoryNavigation } from '@features/Inventory/hooks/useInventoryNavigation';
 import { useInventorySearch } from '@features/Inventory/hooks/useInventorySearch';
 import { useInventoryView } from '@features/Inventory/hooks/useInventoryView';
+import { useUserActivity } from '@shared/hooks/useUserActivity';
 import { fetchChatInventory, selectCategoriesForSelectedChat, selectHistoryRecordsForItem} from '@/store/slices/inventorySlice';
 import ItemAnalytics from '@features/Inventory/components/ItemAnalytics/ItemAnalytics';
 import { ActiveUsersDrawer } from '@features/Inventory/components/ActiveUsersPanel/ActiveUsersDrawer';
 import SlidingDrawer from '@shared/components/SlidingDrawer/SlidingDrawer';
+import { ConnectionStatusPanel } from '@shared/components/ConnectionStatusPanel';
+import { inventoryNotificationService } from '@shared/services/inventoryNotificationService';
 
 // Добавляем интерфейс для преобразования ChatInventory в Chat
 interface Chat {
@@ -67,10 +71,18 @@ const Inventory: React.FC = () => {
     const [analyticsData, setAnalyticsData] = useState<{category: string, itemId: string} | null>(null);
     const [isActiveUsersDrawerOpen, setIsActiveUsersDrawerOpen] = useState(false);
     const [activeUsersCount, setActiveUsersCount] = useState(0);
+    const [showOutOfStockConfirm, setShowOutOfStockConfirm] = useState(false);
+    const [pendingOutOfStockData, setPendingOutOfStockData] = useState<{
+        category: string;
+        itemId: string;
+        itemName: string;
+        type: 'raw' | 'semifinished';
+        onConfirm: () => void;
+    } | null>(null);
     
     // Селектор для данных истории (после инициализации analyticsData)
-    const historyData = useAppSelector(
-        analyticsData ? selectHistoryRecordsForItem(analyticsData.itemId) : () => []
+    const historyData = useAppSelector(state => 
+        analyticsData ? selectHistoryRecordsForItem(analyticsData.itemId)(state) : []
     );
     
     // --- 4. Инициализация кастомных хуков ---
@@ -92,7 +104,7 @@ const Inventory: React.FC = () => {
         handleBack
     } = useInventoryNavigation({
         onNavigate: (category, item) => {
-            console.log('Navigation:', { category, item });
+            // Navigation callback
         }
     });
     
@@ -103,6 +115,9 @@ const Inventory: React.FC = () => {
         closeChangesModal,
         checkForUnviewedTemplateChanges
     } = useInventoryWebSocketSync(); 
+
+    // Хук для отслеживания активности пользователя (30 секунд неактивности)
+    const userActivity = useUserActivity(30000);
     
     const {
         searchQuery,
@@ -113,72 +128,27 @@ const Inventory: React.FC = () => {
         handleSearch,
         handleClearSearch,
         handleSearchFocusChange,
-        handleSearchResultSelect,
+        handleSearchResultSelect: handleSearchResultSelectFromHook,
         handleHistoryItemSelect
     } = useInventorySearch({
         inventory: selectedChat?.inventory,
         onSelectResult: (category, itemId) => {
             handleCategorySelect(category);
             handleItemSelect(itemId);
-            handleSearchFocusChange(false);
+            // handleSearchFocusChange будет доступен после вызова useInventorySearch
         }
     });
     
-    const { 
-        currentView, 
-        hasValidInventory
-    } = useInventoryView({
-        selectedCategory,
-        selectedItem,
-        inventory: selectedChat?.inventory || {},
-        searchActive: false,
-        isLoading: isInventoryLoading,
-        renderCategories: () => (
-            <CategoryGrid
-                key="categories"
-                categories={categories as string[]}
-                onSelect={handleCategorySelect}
-                inventory={selectedChat?.inventory || {}}
-                selectedCategory={selectedCategory}
-            />
-        ),
-        renderItems: (category) => (
-            <ItemList
-                key={`items-${category}`}
-                category={category}
-                items={selectedChat?.inventory?.[category] || {}}
-                onSelect={handleItemSelect}
-                chatId={selectedChat?.chat_id || ''}
-                searchQuery={searchQuery}
-                searchResults={searchResults}
-                onSearchResultSelect={(cat, item) => {
-                    handleSearchResultSelect(cat, item);
-                }}
-            />
-        ),
-        renderItemDetail: (category, itemId) => (
-            <motion.div>
-                <ItemEdit
-                    category={category}
-                    itemId={itemId}
-                    item={selectedChat?.inventory?.[category]?.[itemId] || {} as InventoryItem}
-                    onClose={handleBack}
-                    onUpdate={() => {
-                        console.log('Item updated');
-                    }}
-                    chatId={selectedChat?.chat_id || ''}
-                    onShowAnalytics={() => handleShowAnalytics(category, itemId)}
-                />
-                
-                <ItemHistory
-                    itemId={itemId}
-                    itemName={itemId}
-                    category={category}
-                    className={styles.itemHistory}
-                />
-            </motion.div>
-        )
-    });
+    // Мемоизируем callback для onSelectResult после получения handleSearchFocusChange
+    const handleSearchResultSelect = useCallback((category: string, itemId: string) => {
+        handleCategorySelect(category);
+        handleItemSelect(itemId);
+        handleSearchFocusChange(false);
+    }, [handleCategorySelect, handleItemSelect, handleSearchFocusChange]);
+    
+    // Placeholder for useInventoryView - will be moved after function definitions
+    let currentView: () => JSX.Element;
+    let hasValidInventory: () => boolean;
 
     // --- 5. Инициализация useEffect хуков ---
     useEffect(() => {
@@ -201,7 +171,7 @@ const Inventory: React.FC = () => {
                 handleBack(); // Вызываем возврат к списку товаров
             }
         }
-    }, [selectedItem, selectedCategory, selectedChat?.inventory, handleBack]); // Зависим от выбранного товара/категории и состояния инвентаря
+    }, [selectedItem, selectedCategory, selectedChat?.chat_id, handleBack]); // Используем chat_id вместо inventory
     // --- КОНЕЦ НОВОГО useEffect ---
 
     // --- useEffect для проверки непросмотренных изменений шаблона при загрузке ---
@@ -213,6 +183,41 @@ const Inventory: React.FC = () => {
     }, [selectedChat?.chat_id, isInventoryLoading, checkForUnviewedTemplateChanges]);
     // --- КОНЕЦ useEffect для проверки изменений шаблона ---
 
+    // --- useEffect для отладки WebSocket соединения ---
+    useEffect(() => {
+        if (!chatId) return;
+
+        const roomName = `inventory_${chatId}`;
+        
+        // Функция для проверки состояния WebSocket соединения
+        const checkWebSocketStatus = () => {
+            const isConnected = socketService.isConnected();
+            console.log(`🔌 [WebSocket Debug] Состояние соединения:`, {
+                isConnected,
+                roomName,
+                chatId,
+                timestamp: new Date().toISOString()
+            });
+            
+            if (isConnected) {
+                // Запрашиваем информацию о комнате
+                socketService.emit('get_room_users', { room: roomName });
+            } else {
+                console.warn(`⚠️ [WebSocket Debug] WebSocket не подключен для комнаты ${roomName}`);
+            }
+        };
+
+        // Проверяем состояние при монтировании
+        checkWebSocketStatus();
+        
+        // Проверяем каждые 30 секунд
+        const interval = setInterval(checkWebSocketStatus, 30000);
+        
+        return () => {
+            clearInterval(interval);
+        };
+    }, [chatId]);
+
     // --- useEffect для отслеживания активных пользователей ---
     useEffect(() => {
         if (!chatId) return;
@@ -220,19 +225,36 @@ const Inventory: React.FC = () => {
         const handleRoomUsers = (data: any) => {
             if (data.room === `inventory_${chatId}`) {
                 setActiveUsersCount(data.users.length);
+                console.log(`👥 [Inventory] Активных пользователей в комнате: ${data.users.length}`, data.users);
             }
         };
 
         const handleUserJoined = (data: any) => {
             if (data.room === `inventory_${chatId}`) {
                 setActiveUsersCount(prev => prev + 1);
+                console.log(`👤 [Inventory] Пользователь присоединился: ${data.first_name} (${data.userId})`);
             }
         };
 
         const handleUserLeft = (data: any) => {
             if (data.room === `inventory_${chatId}`) {
                 setActiveUsersCount(prev => Math.max(0, prev - 1));
+                console.log(`👤 [Inventory] Пользователь покинул: ${data.first_name} (${data.userId})`);
             }
+        };
+
+        // Проверяем подключение к WebSocket комнате
+        const checkWebSocketConnection = () => {
+            const roomName = `inventory_${chatId}`;
+            console.log(`🔍 [Inventory] Проверяем подключение к комнате: ${roomName}`);
+            
+            // Запрашиваем текущий список пользователей
+            socketService.emit('get_room_users', { room: roomName });
+            
+            // Проверяем через 2 секунды еще раз для надежности
+            setTimeout(() => {
+                socketService.emit('get_room_users', { room: roomName });
+            }, 2000);
         };
 
         // Подписываемся на события
@@ -240,13 +262,17 @@ const Inventory: React.FC = () => {
         const unsubscribeUserJoined = socketService.subscribe('user_joined_room', handleUserJoined);
         const unsubscribeUserLeft = socketService.subscribe('user_left_room', handleUserLeft);
 
-        // Запрашиваем текущий список
-        socketService.emit('get_room_users', { room: `inventory_${chatId}` });
+        // Инициализируем сервис уведомлений о входе/выходе пользователей
+        inventoryNotificationService.init();
+
+        // Проверяем подключение при монтировании
+        checkWebSocketConnection();
 
         return () => {
             unsubscribeRoomUsers();
             unsubscribeUserJoined();
             unsubscribeUserLeft();
+            inventoryNotificationService.destroy();
         };
     }, [chatId]);
     // --- КОНЕЦ useEffect для активных пользователей ---
@@ -294,6 +320,30 @@ const Inventory: React.FC = () => {
         setAnalyticsData(null);
     }, []);
 
+    // Функции для управления модальным окном подтверждения "Нет в наличии"
+    const handleOutOfStockConfirm = useCallback((category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => {
+        setPendingOutOfStockData({ category, itemId, itemName, type, onConfirm });
+        setShowOutOfStockConfirm(true);
+    }, []);
+
+    const handleOutOfStockConfirmCancel = useCallback(() => {
+        setShowOutOfStockConfirm(false);
+        setPendingOutOfStockData(null);
+    }, []);
+
+    const handleOutOfStockConfirmSubmit = useCallback(() => {
+        if (!pendingOutOfStockData) return;
+        
+        console.log('Подтверждено пометить товар как "нет в наличии":', pendingOutOfStockData);
+        
+        // Вызываем реальное действие
+        pendingOutOfStockData.onConfirm();
+        
+        // Закрываем модальное окно
+        setShowOutOfStockConfirm(false);
+        setPendingOutOfStockData(null);
+    }, [pendingOutOfStockData]);
+
     const handleActiveUsersClick = useCallback(() => {
         setIsActiveUsersDrawerOpen(prev => !prev);
     }, []);
@@ -306,7 +356,69 @@ const Inventory: React.FC = () => {
         setShowCompleteDialog(prev => !prev);
     }, []);
 
-    // --- 7. Прочие переменные и вычисления ---
+    // --- 7. Инициализация useInventoryView после всех функций ---
+    const { 
+        currentView: currentViewFromHook, 
+        hasValidInventory: hasValidInventoryFromHook
+    } = useInventoryView({
+        selectedCategory,
+        selectedItem,
+        inventory: selectedChat?.inventory || {},
+        searchActive: false,
+        isLoading: isInventoryLoading,
+        renderCategories: useCallback(() => (
+            <CategoryGrid
+                key="categories"
+                categories={categories as string[]}
+                onSelect={handleCategorySelect}
+                inventory={selectedChat?.inventory || {}}
+                selectedCategory={selectedCategory}
+            />
+        ), [categories, handleCategorySelect, selectedChat?.inventory, selectedCategory]),
+        renderItems: useCallback((category) => (
+            <ItemList
+                key={`items-${category}`}
+                category={category}
+                items={selectedChat?.inventory?.[category] || {}}
+                onSelect={handleItemSelect}
+                chatId={selectedChat?.chat_id || ''}
+                searchQuery={searchQuery}
+                searchResults={searchResults}
+                onSearchResultSelect={(cat, item) => {
+                    handleSearchResultSelect(cat, item);
+                }}
+            />
+        ), [selectedChat?.inventory, selectedChat?.chat_id, handleItemSelect, searchQuery, searchResults, handleSearchResultSelect]),
+        renderItemDetail: useCallback((category, itemId) => (
+            <motion.div>
+                <ItemEdit
+                    category={category}
+                    itemId={itemId}
+                    item={selectedChat?.inventory?.[category]?.[itemId] || {} as InventoryItem}
+                    onClose={handleBack}
+                    onUpdate={() => {
+                        console.log('Item updated');
+                    }}
+                    chatId={selectedChat?.chat_id || ''}
+                    onShowAnalytics={() => handleShowAnalytics(category, itemId)}
+                    onOutOfStockConfirm={handleOutOfStockConfirm}
+                />
+                
+                <ItemHistory
+                    itemId={itemId}
+                    itemName={itemId}
+                    category={category}
+                    className={styles.itemHistory}
+                />
+            </motion.div>
+        ), [selectedChat?.inventory, selectedChat?.chat_id, handleBack, handleShowAnalytics, handleOutOfStockConfirm])
+    });
+
+    // Assign the values to the variables declared earlier
+    currentView = currentViewFromHook;
+    hasValidInventory = hasValidInventoryFromHook;
+
+    // --- 8. Прочие переменные и вычисления ---
     const error = loaderError; // Теперь error берется только из loader
 
     const memoizedChats = useMemo(() => {
@@ -408,9 +520,8 @@ const Inventory: React.FC = () => {
     // --- 9. Финальный рендеринг (детали инвентаря) --- 
     // Сюда мы попадаем, только если: chatId есть, загрузка завершена, ошибки нет,
     // currentChatData НАЙДЕН в inventoryItems, и hasValidInventory = true.
-    console.log(`[Inventory] Рендерим ПОЛНЫЕ детали инвентаря для chatId: ${chatId}, найденный чат: ${currentChatData.chat_id}`);
     
-    if (!hasValidInventory) {
+    if (!hasValidInventory()) {
         console.log(`[Inventory] Показываем заглушку: Чат ${currentChatData.chat_id} найден, но hasValidInventory=false (возможно, пустой инвентарь?).`);
         return <div className={styles.container}><p>Инвентарь для чата "{currentChatData.chat_title}" пуст или еще обрабатывается...</p></div>;
     }
@@ -532,6 +643,14 @@ const Inventory: React.FC = () => {
                     </SlidingDrawer>
                 )}
             </AnimatePresence>
+
+            {/* Модальное окно подтверждения "Нет в наличии" */}
+            <OutOfStockConfirmModal
+                isOpen={showOutOfStockConfirm}
+                itemName={pendingOutOfStockData?.itemName || ''}
+                onConfirm={handleOutOfStockConfirmSubmit}
+                onCancel={handleOutOfStockConfirmCancel}
+            />
         </div>
     );
 };

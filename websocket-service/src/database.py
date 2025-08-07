@@ -39,7 +39,6 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
 
             event_type = data.get('type')
             
-          
             if not event_type:
                 logger.warning("Получено уведомление без 'type' в payload.")
                 return
@@ -52,17 +51,6 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}' - обновление шаблона инвентаря")
                 await sio.emit(event_type, data)
                 logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено всем клиентам")
-            elif event_type == 'user_permissions_changed':
-                user_id = data.get('user_id')
-                group_id = data.get('group_id')
-                
-                if user_id and group_id:
-                    # Отправляем уведомление в персональную комнату пользователя
-                    user_room = f"user_{user_id}_group_{group_id}"
-                    await sio.emit('permissions_changed', data, room=user_room)
-                    logger.info(f"✅ Уведомление об изменении прав отправлено пользователю {user_id} в комнату {user_room}")
-                else:
-                    logger.warning(f"Получено уведомление user_permissions_changed без user_id ({user_id}) или group_id ({group_id})")
             else:
                 chat_id = data.get('chat_id')
                 if not chat_id:
@@ -78,10 +66,23 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                     logger.warning(f"Неизвестный тип события '{event_type}' для отправки в комнату.")
                     return 
 
+                # 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: проверяем количество пользователей в комнате
+                try:
+                    room_users_count = len(sio.rooms.get(room_name, set()))
+                    logger.info(f"📊 Пользователей в комнате '{room_name}': {room_users_count}")
+                    
+                    if room_users_count == 0:
+                        logger.warning(f"⚠️ Комната '{room_name}' пуста! Событие '{event_type}' не будет доставлено.")
+                        # Для inventory событий логируем дополнительную информацию
+                        if event_type in ['inventory_updated', 'inventory_reset']:
+                            logger.error(f"🚨 КРИТИЧЕСКАЯ ОШИБКА: Нет пользователей в комнате инвентаря {room_name} для события {event_type}")
+                            logger.error(f"📋 Данные события: {data}")
+                except Exception as room_check_error:
+                    logger.error(f"Ошибка при проверке комнаты {room_name}: {room_check_error}")
+
                 logger.info(f"Отправка события '{event_type}' в комнату '{room_name}'")
                 await sio.emit(event_type, data, room=room_name)
                 logger.info(f"✅ Событие '{event_type}' успешно отправлено в комнату '{room_name}'")
-
 
         except json.JSONDecodeError:
             logger.error(f"Ошибка декодирования JSON из payload: {payload}")

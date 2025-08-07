@@ -43,7 +43,8 @@ export const useWebSocketConnection = () => {
     return () => {
       logger.log(`🧹 [WebSocketHook] Очистка главного useEffect (размонтирование?). UserID: ${stringUserId}`);
       unsubscribeStateChange();
-      socketService.disconnect();
+      // Не отключаем сокет при размонтировании, так как он может использоваться другими компонентами
+      // socketService.disconnect();
     };
   }, [stringUserId]);
 

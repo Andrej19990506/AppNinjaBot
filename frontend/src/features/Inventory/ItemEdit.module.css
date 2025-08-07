@@ -265,7 +265,7 @@
     padding: 0 16px;
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
-    background: var(--background-color);
+    background: var(--orange-dark);
     color: var(--text-secondary);
     font-size: 14px;
     font-weight: 500;

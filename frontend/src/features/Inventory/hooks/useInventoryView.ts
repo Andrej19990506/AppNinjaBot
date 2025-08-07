@@ -92,11 +92,6 @@ export function useInventoryView({
     }
     // Если не грузится — валидно, если есть хотя бы одна категория
     const isValid = hasCategories();
-    console.log('🔍 Проверка валидности инвентаря (упрощенная):', {
-      isLoading,
-      hasCategories: hasCategories(),
-      isValid,
-    });
     return isValid;
   }, [isLoading, hasCategories]);
   

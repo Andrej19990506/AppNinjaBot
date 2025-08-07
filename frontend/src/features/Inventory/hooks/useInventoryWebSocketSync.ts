@@ -134,6 +134,28 @@ export const useInventoryWebSocketSync = () => {
         }
     }, [dispatch, markChangesViewed, setTemplateChanges, setIsChangesModalOpen]);
 
+    // --- useEffect для принудительной синхронизации при переподключении ---
+    useEffect(() => {
+        if (!selectedInventoryChatId) return;
+
+        const handleSocketReconnect = () => {
+            logger.info(`[WS Sync] Обнаружено переподключение WebSocket для чата ${selectedInventoryChatId}`);
+            
+            // Принудительно синхронизируем данные после переподключения
+            setTimeout(() => {
+                logger.info(`[WS Sync] Выполняем принудительную синхронизацию для чата ${selectedInventoryChatId}`);
+                dispatch(fetchChatInventory(selectedInventoryChatId));
+            }, 1000); // Задержка 1 секунда для стабилизации соединения
+        };
+
+        // Подписываемся на события переподключения
+        const unsubscribeConnect = socketService.subscribe('connect', handleSocketReconnect);
+        
+        return () => {
+            unsubscribeConnect();
+        };
+    }, [selectedInventoryChatId, dispatch]);
+
     useEffect(() => {
         logger.log(`[useInventoryWebSocketSync] Effect RUN. selectedInventoryChatId: ${selectedInventoryChatId}`);
 
@@ -177,7 +199,8 @@ export const useInventoryWebSocketSync = () => {
                 item_id: payload.item_id,
                 category: payload.category,
                 selectedChat: selectedInventoryChatId,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                payloadTimestamp: payload.metadata?.lastUpdated
             });
             
             if (!payload.chat_id || !payload.metadata) {
@@ -193,6 +216,16 @@ export const useInventoryWebSocketSync = () => {
                     if (isCurrentChat) {
                         if (payload.item_id && payload.category && payload.item) {
                             logger.info(`[WS Sync - inventory_updated] Обновляем конкретный товар: ${payload.category}/${payload.item_id}`);
+                            
+                            // Добавляем дополнительную проверку timestamp перед диспатчем
+                            const currentTime = new Date().getTime();
+                            const payloadTime = new Date(payload.metadata.lastUpdated).getTime();
+                            
+                            if (payloadTime < currentTime - 30000) { // 30 секунд
+                                logger.warn(`[WS Sync] Получено очень старое событие (${currentTime - payloadTime}ms), пропускаем`);
+                                return;
+                            }
+                            
                             dispatch(receiveItemUpdate({
                                 chatId: payload.chat_id,
                                 type: payload.type,

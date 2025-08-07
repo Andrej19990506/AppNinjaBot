@@ -501,16 +501,18 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
     }, [history]);
 
     // Форматирование действия
-    const formatAction = (action: string, type: string): string => {
-        const itemType = type === 'raw' ? 'сырья' : 'полуфабриката';
+    const formatAction = (action: string, type: string, isMobile: boolean = false): string => {
+        const itemType = type === 'raw' ? (isMobile ? 'сырье' : 'сырья') : (isMobile ? 'п/ф' : 'полуфабриката');
         
         switch (action) {
             case 'add':
-                return `добавил(а) ${itemType}`;
+                return isMobile ? `добавил ${itemType}` : `добавил(а) ${itemType}`;
             case 'remove':
-                return `убрал(а) ${itemType}`;
+                return isMobile ? `убрал ${itemType}` : `убрал(а) ${itemType}`;
             case 'update':
-                return `изменил(а) количество ${itemType}`;
+                return isMobile ? `изменил ${itemType}` : `изменил(а) количество ${itemType}`;
+            case 'out_of_stock':
+                return isMobile ? `отметил ${itemType} как нет в наличии` : `отметил(а) ${itemType} как нет в наличии`;
             default:
                 return action;
         }
@@ -662,7 +664,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                                     </div>
                                                     <div className={styles.actionInfo}>
                                                         <span className={`${styles.action} ${styles[record.action]}`}>
-                                                            {formatAction(record.action, record.type)}
+                                                            {formatAction(record.action, record.type, isMobile)}
                                                         </span>
                                                         <span className={styles.quantity}>
                                                             {Math.abs((record.new_quantity ?? 0) - (record.old_quantity ?? 0))}
@@ -823,7 +825,7 @@ const ItemHistory: React.FC<ItemHistoryProps> = ({ itemId, itemName, category, c
                                             </div>
                                             <div className={styles.actionInfo}>
                                                 <span className={`${styles.action} ${styles[record.action]}`}>
-                                                    {formatAction(record.action, record.type)}
+                                                    {formatAction(record.action, record.type, isMobile)}
                                                 </span>
                                                 <span className={styles.quantity}>
                                                     {Math.abs((record.new_quantity ?? 0) - (record.old_quantity ?? 0))}

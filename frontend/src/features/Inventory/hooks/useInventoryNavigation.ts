@@ -2,7 +2,7 @@
 // Хук для управления навигацией по инвентарю: выбор категории, товара, возврат назад.
 // Удобен для экранов с вложенной структурой (категории → товары → детали).
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useAppDispatch } from '@/shared/store/hooks';
 
 interface UseInventoryNavigationProps {
@@ -20,12 +20,14 @@ export function useInventoryNavigation({
   // Локальное состояние выбранной категории и товара
   const [selectedCategory, setSelectedCategory] = useState<string | null>(initialCategory);
   const [selectedItem, setSelectedItem] = useState<string | null>(initialItem);
+  
+  // Используем ref для отслеживания текущей категории без перерендеров
+  const currentCategoryRef = useRef<string | null>(initialCategory);
 
   /**
    * Выбор категории: обновляет выбранную категорию и сбрасывает выбранный товар
    */
   const handleCategorySelect = useCallback((category: string) => {
-    console.log('Category selected:', category);
     setSelectedCategory(category);
     setSelectedItem(null);
     
@@ -41,16 +43,15 @@ export function useInventoryNavigation({
    * Выбор товара: обновляет выбранный товар
    */
   const handleItemSelect = useCallback((itemId: string) => {
-    console.log('Item selected:', itemId);
     setSelectedItem(itemId);
     
     // Устанавливаем выбранный товар в Redux
     dispatch({ type: 'inventory/setSelectedItem', payload: itemId });
     
     if (onNavigate) {
-      onNavigate(selectedCategory, itemId);
+      onNavigate(currentCategoryRef.current, itemId);
     }
-  }, [dispatch, selectedCategory, onNavigate]);
+  }, [dispatch, onNavigate]);
 
   /**
    * Навигация назад: от товара к категории, от категории к списку категорий
@@ -65,6 +66,7 @@ export function useInventoryNavigation({
       }
     } else if (selectedCategory) {
       setSelectedCategory(null);
+      currentCategoryRef.current = null;
       
       if (onNavigate) {
         onNavigate(null, null);
@@ -77,6 +79,7 @@ export function useInventoryNavigation({
    */
   const setNavigation = useCallback((category: string | null, item: string | null) => {
     setSelectedCategory(category);
+    currentCategoryRef.current = category;
     setSelectedItem(item);
     
     if (item) {

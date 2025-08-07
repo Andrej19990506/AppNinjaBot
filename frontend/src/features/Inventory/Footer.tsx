@@ -233,9 +233,6 @@ const Footer: React.FC<FooterProps> = ({
     const isShiftDialogOpen = useAppSelector(selectIsShiftDialogOpen);
     const shiftDialogMode = useAppSelector(selectShiftDialogMode);
 
-    // <<< ДОБАВЛЯЕМ ЛОГ >>>
-    console.log('[Footer] Rendering. isShiftDialogOpen from Redux:', isShiftDialogOpen);
-
     // Проверяем переполнение текста
     useEffect(() => {
         const checkOverflow = () => {
@@ -297,7 +294,6 @@ const Footer: React.FC<FooterProps> = ({
                         <motion.button
                             className={`${styles.iconButton} ${(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? styles.modalBackButton : styles.modalCancelButton}`}
                             onClick={(event) => {
-                                console.log("[Footer] Нажата кнопка Закрыть/Отмена в модальном окне");
                                 event.stopPropagation();
                                 if (showModalSteps && modalCurrentStep && modalCurrentStep > 1) {
                                     onModalBack && onModalBack();
@@ -327,7 +323,6 @@ const Footer: React.FC<FooterProps> = ({
                                     variant="outlined"
                                     color="primary"
                                     onClick={(event) => {
-                                        console.log("[Footer] Нажата средняя кнопка в модальном окне");
                                         event.stopPropagation();
                                         onMiddleButtonClick();
                                     }}
@@ -342,7 +337,6 @@ const Footer: React.FC<FooterProps> = ({
                         <motion.button
                             className={`${styles.iconButton} ${(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? styles.modalNextButton : styles.modalSaveButton} ${((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? styles.disabled : ''}`}
                             onClick={(event) => {
-                                console.log("[Footer] Нажата кнопка Далее/Сохранить в модальном окне");
                                 event.stopPropagation();
                                 if (showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) {
                                     onModalNext && onModalNext();

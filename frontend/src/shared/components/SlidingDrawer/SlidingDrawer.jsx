@@ -9,7 +9,7 @@ import {
 // Анимации
 const overlayVariants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { duration: 0.3 } },
+    visible: { opacity: 1, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
     exit: { opacity: 0, transition: { duration: 0.3, delay: 0.1 } } // Небольшая задержка перед исчезновением фона
 };
 
@@ -19,13 +19,19 @@ const drawerVariants = {
         y: 0, // Поднимаем до низа экрана
         transition: { 
             type: 'spring', // Пружинная анимация
-            damping: 25, // Упругость (меньше = более упругий)
-            stiffness: 150 // Жесткость (выше = быстрее)
+            damping: 30, // Упругость (меньше = более упругий)
+            stiffness: 200, // Жесткость (выше = быстрее)
+            duration: 0.6
         }
     },
     exit: { 
         y: '100vh', // Опускаем обратно
-        transition: { duration: 0.25 } // Чуть быстрее, чем появление фона
+        transition: { 
+            type: 'spring',
+            damping: 25,
+            stiffness: 300,
+            duration: 0.4
+        }
     }
 };
 
@@ -37,14 +43,14 @@ const SlidingDrawer = ({ children, onClose }) => {
     const y = useMotionValue(0);
     
     // Прозрачность оверлея в зависимости от позиции перетаскивания
-    const overlayOpacity = useTransform(y, [0, 300], [1, 0.5]);
+    const overlayOpacity = useTransform(y, [0, 300], [1, 0.3]);
     
     // Референс на контейнер для вычисления высоты
     const drawerRef = useRef(null);
     
     // Обработчик окончания перетаскивания
     const handleDragEnd = (event, info) => {
-        const threshold = 150; // Порог для закрытия шторки (в пикселях)
+        const threshold = 200; // Увеличиваем порог для закрытия шторки (в пикселях)
         
         // Если перетащили вниз больше порогового значения, закрываем шторку
         if (info.offset.y > threshold) {
@@ -76,8 +82,8 @@ const SlidingDrawer = ({ children, onClose }) => {
                 animate="visible"
                 exit="exit"
                 drag="y" // Разрешаем перетаскивание по оси Y
-                dragConstraints={{ top: 0, bottom: 500 }} /* ИЗМЕНЕНО: Позволяем тащить вниз на 500px */
-                dragElastic={0.2} // Эластичность перетаскивания
+                dragConstraints={{ top: 0, bottom: 600 }} /* Увеличиваем лимит перетаскивания */
+                dragElastic={0.1} // Уменьшаем эластичность для более контролируемого перетаскивания
                 onDragStart={() => setIsDragging(true)}
                 onDragEnd={handleDragEnd}
                 style={{ y }} // Привязываем позицию Y к значению из useMotionValue

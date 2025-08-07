@@ -7,6 +7,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import InfoIcon from '@mui/icons-material/Info';
 import WarningIcon from '@mui/icons-material/Warning';
 import styles from '@shared/components/Notifications/SystemNotification.module.css';
+import { soundService } from '@shared/services/soundService';
 
 export interface NotificationItem {
     id?: string;
@@ -15,6 +16,7 @@ export interface NotificationItem {
     title?: string;
     duration?: number;
     autoHideDuration?: number;
+    photoUrl?: string; // URL фотографии пользователя
 }
 
 // Экспортируем интерфейс для упрощенного использования компонента с одним уведомлением
@@ -42,6 +44,9 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
     // Запоминаем последнее колличество уведомлений для отслеживания изменений
     const prevNotificationsLengthRef = useRef(0);
     
+    // Отслеживаем уведомления с воспроизведенным звуком
+    const playedSoundNotificationsRef = useRef(new Set());
+    
     const getIcon = (type: NotificationTypes) => {
         switch (type) {
             case NotificationTypes.SUCCESS:
@@ -55,52 +60,82 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
         }
     };
 
+    const getGlowColor = (type: NotificationTypes) => {
+        switch (type) {
+            case NotificationTypes.SUCCESS:
+                return "rgba(16, 185, 129, 0.5)";
+            case NotificationTypes.ERROR:
+                return "rgba(239, 68, 68, 0.5)";
+            case NotificationTypes.WARNING:
+                return "rgba(245, 158, 11, 0.5)";
+            default:
+                return "rgba(255, 95, 31, 0.5)";
+        }
+    };
+
     // Обновляем активное уведомление, когда список уведомлений изменяется
     useEffect(() => {
         console.log("[SystemNotification] Проверка уведомлений:", 
             { 
                 count: notifications.length, 
                 prevCount: prevNotificationsLengthRef.current,
-                notifications: notifications.map(n => ({ id: n.id, message: n.message }))
+                notifications: notifications.map(n => ({ 
+                    id: n.id, 
+                    message: n.message, 
+                    isToast: n.isToast,
+                    type: n.type 
+                }))
             }
         );
         
-        // Если длина списка уведомлений изменилась
-        if (notifications.length !== prevNotificationsLengthRef.current) {
-            console.log("[SystemNotification] Изменение количества уведомлений");
+        // Если есть новые уведомления
+        if (notifications.length > 0) {
+            // Получаем последнее уведомление
+            const latestNotification = notifications[notifications.length - 1];
             
-            // Если есть новые уведомления
-            if (notifications.length > 0) {
-                // Получаем последнее уведомление
-                const latestNotification = notifications[notifications.length - 1];
+            console.log("[SystemNotification] Последнее уведомление:", {
+                id: latestNotification.id,
+                message: latestNotification.message,
+                isToast: latestNotification.isToast,
+                type: latestNotification.type,
+                wasProcessed: processedNotificationsRef.current.has(latestNotification.id)
+            });
+            
+            // Проверяем, был ли ID этого уведомления уже обработан
+            if (latestNotification && latestNotification.id && 
+                !processedNotificationsRef.current.has(latestNotification.id)) {
                 
-                // Проверяем, был ли ID этого уведомления уже обработан
-                if (latestNotification && latestNotification.id && 
-                    !processedNotificationsRef.current.has(latestNotification.id)) {
-                    
-                    console.log("[SystemNotification] Установка нового уведомления:", latestNotification.id);
-                    
-                    // Добавляем ID в список обработанных
-                    processedNotificationsRef.current.add(latestNotification.id);
-                    
-                    // Устанавливаем новое активное уведомление
-                    setCurrentNotification(latestNotification);
+                console.log("[SystemNotification] Установка нового уведомления:", latestNotification.id);
+                
+                // Добавляем ID в список обработанных
+                processedNotificationsRef.current.add(latestNotification.id);
+                
+                // НЕМЕДЛЕННО заменяем текущее уведомление новым (даже если старое еще показывается)
+                setCurrentNotification(latestNotification);
+                
+                // Воспроизводим звук для новых уведомлений (кроме тех, что уже имеют звук)
+                if (!playedSoundNotificationsRef.current.has(latestNotification.id)) {
+                    soundService.playNotificationSound();
+                    // Помечаем, что звук уже воспроизведен для этого уведомления
+                    playedSoundNotificationsRef.current.add(latestNotification.id);
                 }
             } else {
-                // Если уведомлений нет, сбрасываем активное
-                console.log("[SystemNotification] Сброс активного уведомления (нет уведомлений)");
-                setCurrentNotification(null);
+                console.log("[SystemNotification] Уведомление уже обработано или не имеет ID");
             }
-            
-            // Обновляем сохраненную длину списка
-            prevNotificationsLengthRef.current = notifications.length;
+        } else {
+            // Если уведомлений нет, сбрасываем активное
+            console.log("[SystemNotification] Сброс активного уведомления (нет уведомлений)");
+            setCurrentNotification(null);
         }
+        
+        // Обновляем сохраненную длину списка
+        prevNotificationsLengthRef.current = notifications.length;
     }, [notifications]);
 
     // Обработчик свайпа
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo, id: string) => {
-        if (info.offset.x > 100) { // Если свайп вправо более 100px
-            console.log("[SystemNotification] Свайп для удаления:", id);
+        if (Math.abs(info.offset.x) > 80) { // Если свайп в любую сторону более 80px
+            console.log("[SystemNotification] Свайп для удаления:", id, "offset:", info.offset.x);
             handleNotificationClose(id);
         }
     };
@@ -109,7 +144,7 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
     useEffect(() => {
         if (!currentNotification || !currentNotification.id) return;
         
-        const duration = currentNotification.duration || currentNotification.autoHideDuration || 7000;
+        const duration = currentNotification.duration || currentNotification.autoHideDuration || 4000;
         console.log("[SystemNotification] Установка таймера для:", currentNotification.id, "Длительность:", duration);
         
         const timer = setTimeout(() => {
@@ -133,6 +168,9 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
             setCurrentNotification(null);
         }
         
+        // Удаляем из отслеживания воспроизведенного звука
+        playedSoundNotificationsRef.current.delete(id);
+        
         // Вызываем родительский onClose
         onClose(id);
     };
@@ -152,20 +190,108 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
                     <motion.div
                         key={`notification-${currentNotification.id}`}
                         layout
-                        initial={{ opacity: 0, x: -50, height: 'auto' }}
-                        animate={{ opacity: 1, x: 0, height: 'auto' }}
-                        exit={{ opacity: 0, x: 200, height: 0, marginBottom: 0 }}
+                        initial={{ 
+                            opacity: 0, 
+                            y: -120, 
+                            scale: 0.8,
+                            rotateX: -15,
+                            filter: "blur(4px)"
+                        }}
+                        animate={{ 
+                            opacity: 1, 
+                            y: 0, 
+                            scale: 1,
+                            rotateX: 0,
+                            filter: "blur(0px)"
+                        }}
+                        exit={{ 
+                            opacity: 0, 
+                            y: -120, 
+                            scale: 0.8,
+                            rotateX: -15,
+                            filter: "blur(4px)"
+                        }}
                         className={`${styles.notification} ${styles[currentNotification.type]}`}
                         drag="x"
-                        dragConstraints={{ left: 0, right: 300 }}
-                        dragElastic={0.7}
+                        dragConstraints={{ left: -100, right: 100 }}
+                        dragElastic={0.8}
                         onDragEnd={(event, info) => handleDragEnd(event, info, currentNotification.id)}
                         transition={{
-                            layout: { type: "spring", bounce: 0.2, duration: 0.3 }
+                            type: "spring",
+                            stiffness: 200,
+                            damping: 25,
+                            mass: 0.8,
+                            duration: 0.6
+                        }}
+                        whileHover={{ 
+                            y: -4,
+                            scale: 1.02,
+                            transition: { 
+                                type: "spring",
+                                stiffness: 400,
+                                damping: 20,
+                                duration: 0.3
+                            }
+                        }}
+                        whileTap={{ 
+                            scale: 0.98,
+                            transition: { duration: 0.1 }
+                        }}
+                        style={{
+                            boxShadow: "var(--shadow-lg)"
                         }}
                     >
+                        {/* Анимированная градиентная полоска */}
+                        <motion.div
+                            className={styles.gradientBorder}
+                            animate={{
+                                boxShadow: [
+                                    `0 0 10px ${getGlowColor(currentNotification.type)}`,
+                                    `0 0 20px ${getGlowColor(currentNotification.type)}`,
+                                    `0 0 10px ${getGlowColor(currentNotification.type)}`
+                                ]
+                            }}
+                            transition={{
+                                duration: 2,
+                                repeat: Infinity,
+                                ease: "easeInOut"
+                            }}
+                        />
                         <div className={styles.iconContainer}>
-                            {getIcon(currentNotification.type)}
+                            {console.log('[SystemNotification] Рендеринг уведомления с photoUrl:', currentNotification.photoUrl)}
+                            {currentNotification.photoUrl ? (
+                                <motion.img 
+                                    src={currentNotification.photoUrl} 
+                                    alt="User" 
+                                    className={styles.userPhoto}
+                                    whileHover={{
+                                        scale: 1.05,
+                                        rotateY: 5,
+                                        filter: "brightness(1.1) contrast(1.05)",
+                                        transition: { duration: 0.2 }
+                                    }}
+                                    onError={(e) => {
+                                        console.log('[SystemNotification] Ошибка загрузки фото:', currentNotification.photoUrl);
+                                        // Если фото не загрузилось, показываем иконку по умолчанию
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextSibling.style.display = 'block';
+                                    }}
+                                    onLoad={() => {
+                                        console.log('[SystemNotification] Фото успешно загружено:', currentNotification.photoUrl);
+                                    }}
+                                />
+                            ) : null}
+                            <motion.div 
+                                style={{ display: currentNotification.photoUrl ? 'none' : 'block' }}
+                                whileHover={{
+                                    scale: 1.1,
+                                    rotateY: 10,
+                                    filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))",
+                                    transition: { duration: 0.2 }
+                                }}
+                            >
+                                {getIcon(currentNotification.type)}
+                            </motion.div>
                         </div>
                         <div className={styles.content}>
                             {currentNotification.title && (
@@ -174,7 +300,7 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
                             <div className={styles.message}>{currentNotification.message}</div>
                         </div>
                         <div className={styles.swipeHint}>
-                            <span>Свайп вправо</span>
+                            <span>Свайп для закрытия</span>
                         </div>
                     </motion.div>
                 )}
@@ -188,7 +314,7 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
     type, 
     message, 
     title,
-    duration = 5000,
+    duration = 4000,
     onClose
 }) => {
     const [isDragging, setIsDragging] = useState(false);
@@ -206,6 +332,19 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
         }
     };
 
+    const getGlowColorByType = (notificationType: string) => {
+        switch (notificationType) {
+            case 'success':
+                return "rgba(16, 185, 129, 0.5)";
+            case 'error':
+                return "rgba(239, 68, 68, 0.5)";
+            case 'warning':
+                return "rgba(245, 158, 11, 0.5)";
+            default:
+                return "rgba(255, 95, 31, 0.5)";
+        }
+    };
+
     const notificationType = type === 'success' 
         ? NotificationTypes.SUCCESS 
         : type === 'error' 
@@ -216,7 +355,7 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
 
     // Обработчик свайпа
     const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-        if (info.offset.x > 100) { // Если свайп вправо более 100px
+        if (Math.abs(info.offset.x) > 80) { // Если свайп в любую сторону более 80px
             if (onClose) {
                 onClose();
             }
@@ -229,25 +368,93 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
                 <motion.div
                     key="single-notification"
                     layout
-                    initial={{ opacity: 0, x: -50, height: 'auto' }}
-                    animate={{ opacity: 1, x: 0, height: 'auto' }}
-                    exit={{ opacity: 0, x: 200, height: 0 }}
+                    initial={{ 
+                        opacity: 0, 
+                        y: -120, 
+                        scale: 0.8,
+                        rotateX: -15,
+                        filter: "blur(4px)"
+                    }}
+                    animate={{ 
+                        opacity: 1, 
+                        y: 0, 
+                        scale: 1,
+                        rotateX: 0,
+                        filter: "blur(0px)"
+                    }}
+                    exit={{ 
+                        opacity: 0, 
+                        y: -120, 
+                        scale: 0.8,
+                        rotateX: -15,
+                        filter: "blur(4px)"
+                    }}
                     className={`${styles.notification} ${styles[notificationType]} ${isDragging ? styles.dragging : ''}`}
                     drag="x"
-                    dragConstraints={{ left: 0, right: 300 }}
-                    dragElastic={0.7}
+                    dragConstraints={{ left: -100, right: 100 }}
+                    dragElastic={0.8}
                     onDragStart={() => setIsDragging(true)}
                     onDragEnd={(event, info) => {
                         setIsDragging(false);
                         handleDragEnd(event, info);
                     }}
-                    whileDrag={{ scale: 0.98 }}
+                    whileDrag={{ 
+                        scale: 0.96,
+                        rotateZ: 2,
+                        transition: { duration: 0.1 }
+                    }}
+                    whileHover={{ 
+                        y: -4,
+                        scale: 1.02,
+                        transition: { 
+                            type: "spring",
+                            stiffness: 400,
+                            damping: 20,
+                            duration: 0.3
+                        }
+                    }}
+                    whileTap={{ 
+                        scale: 0.98,
+                        transition: { duration: 0.1 }
+                    }}
                     transition={{
-                        layout: { type: "spring", bounce: 0.2, duration: 0.3 }
+                        type: "spring",
+                        stiffness: 200,
+                        damping: 25,
+                        mass: 0.8,
+                        duration: 0.6
+                    }}
+                    style={{
+                        boxShadow: "var(--shadow-lg)"
                     }}
                 >
+                    {/* Анимированная градиентная полоска */}
+                    <motion.div
+                        className={styles.gradientBorder}
+                        animate={{
+                            boxShadow: [
+                                `0 0 10px ${getGlowColorByType(type)}`,
+                                `0 0 20px ${getGlowColorByType(type)}`,
+                                `0 0 10px ${getGlowColorByType(type)}`
+                            ]
+                        }}
+                        transition={{
+                            duration: 2,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                        }}
+                    />
                     <div className={styles.iconContainer}>
-                        {getIconByType(type)}
+                        <motion.div
+                            whileHover={{
+                                scale: 1.1,
+                                rotateY: 10,
+                                filter: "drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2))",
+                                transition: { duration: 0.2 }
+                            }}
+                        >
+                            {getIconByType(type)}
+                        </motion.div>
                     </div>
                     <div className={styles.content}>
                         {title && (
@@ -255,9 +462,9 @@ export const SingleSystemNotification: React.FC<SingleNotificationProps> = ({
                         )}
                         <div className={styles.message}>{message}</div>
                     </div>
-                    <div className={styles.swipeHint}>
-                        <span>Свайп вправо</span>
-                    </div>
+                                         <div className={styles.swipeHint}>
+                         <span>Свайп для закрытия</span>
+                     </div>
                 </motion.div>
             </AnimatePresence>
         </div>

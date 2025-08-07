@@ -24,7 +24,6 @@ export const useInventoryLoader = ({ chatId, currentUserId, role }: UseInventory
 
   // Основная функция загрузки инвентаря (общий или по чату)
   const loadInventoryData = useCallback(async (forceReload = false) => {
-    console.log('🔄 [loadInventoryData] Запуск загрузки данных:', { chatId, currentUserId, forceReload });
     setIsLoading(true);
     setError(null);
     setLoadingProgress(0);
@@ -32,7 +31,6 @@ export const useInventoryLoader = ({ chatId, currentUserId, role }: UseInventory
     try {
         if (!currentUserId) {
             // Без userId не грузим ничего
-            console.warn('⚠️ [loadInventoryData] Отсутствует ID пользователя, загрузка прервана.');
             setIsLoading(false);
             return;
         }
@@ -41,12 +39,11 @@ export const useInventoryLoader = ({ chatId, currentUserId, role }: UseInventory
         
         if (chatId) {
             // Если указан chatId — грузим инвентарь конкретного чата
-            console.log('📥 [loadInventoryData] Загрузка данных для конкретного чата:', chatId);
             
             // Для красоты прогресса — имитация загрузки
             const progressInterval = setInterval(() => {
                 setLoadingProgress(prev => Math.min(prev + 15, 80)); 
-            }, 200);
+            }, 500); // Увеличиваем интервал с 200ms до 500ms
             
             // Загружаем данные чата
             const resultAction = await dispatch(fetchChatInventory(chatId));
@@ -61,49 +58,35 @@ export const useInventoryLoader = ({ chatId, currentUserId, role }: UseInventory
             setLoadingProgress(100);
         } else {
             // Если chatId нет — грузим общий список чатов пользователя
-            console.log('[loadInventoryData] chatId не указан. Проверяем userId и role для загрузки списка.');
             if (currentUserId && role) { 
-                console.log('🔄 [loadInventoryData] Загрузка общего списка чатов... (userId: ', currentUserId, ', role: ', role, ')');
                 await dispatch(fetchInventory({ userId: currentUserId, role }));
-                console.log('✅ [loadInventoryData] Общий список чатов загружен.');
-            } else {
-                 console.warn(`[loadInventoryData] Пропуск fetchInventory: currentUserId=${currentUserId}, role=${role}`);
             }
         }
-
-        console.log('✅ [loadInventoryData] Логика загрузки данных успешно завершена.');
     } catch (err: any) {
         // Обработка ошибок загрузки
-        console.error('❌ [loadInventoryData] Ошибка при загрузке данных:', err);
         setError(err instanceof Error ? err.message : 'Произошла ошибка при загрузке данных');
         setLoadingProgress(100);
     } finally {
         // Короткая задержка для плавности UI
         await new Promise(resolve => setTimeout(resolve, 300)); 
         setIsLoading(false);
-        console.log('🏁 [loadInventoryData] Состояние isLoading установлено в false.');
     }
   }, [dispatch, chatId, currentUserId, role]);
 
   // Эффект для инициализации и перезагрузки при смене chatId и role
   useEffect(() => {
-    console.log(`🔄 [useEffect/init] Запуск эффекта. chatId: ${chatId}, currentUserId: ${currentUserId}, role: ${role}`);
-    
     // Грузим только если есть userId и (chatId или role)
     if (currentUserId && (chatId || role)) { 
-      console.log(`🚀 [useEffect/init] Вызов loadInventoryData (chatId: ${chatId ? chatId : 'отсутствует'}, role: ${role})...`);
       loadInventoryData(); 
     } else {
         // Если не хватает данных — не грузим, сразу снимаем isLoading
-        console.warn(`⚠️ [useEffect/init] Пропуск вызова loadInventoryData: currentUserId=${currentUserId}, chatId=${chatId}, role=${role}. Не хватает либо chatId, либо role.`);
         if (!chatId && !role) {
             setIsLoading(false); 
-            console.log('🏁 [useEffect/init] Установлен isLoading=false, так как нет chatId и role.')
         }
     }
     
     return () => {
-      console.log('🧹 [useEffect/init] Очистка эффекта инициализации.');
+      // Очистка эффекта инициализации.
     };
   }, [loadInventoryData, currentUserId, chatId, role]);
   

@@ -63,8 +63,6 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
     setIsSearching(true);
     setSearchQuery(query);
     
-    console.log('🔍 Начинаем поиск по запросу:', query);
-    
     // Небольшая задержка для UX (имитация поиска)
     setTimeout(() => {
       const normalizedQuery = normalizeString(query);
@@ -78,7 +76,6 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
           // Поиск в названии товара
           if (normalizeString(itemId).includes(normalizedQuery)) {
             matches.push({ field: 'name', value: itemId });
-            console.log(`✅ Найдено совпадение в названии: "${itemId}" в категории "${category}"`);
           }
           
           // Поиск в описании товара, если оно есть
@@ -86,7 +83,6 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
             const description = item.raw.description as string;
             if (normalizeString(description).includes(normalizedQuery)) {
               matches.push({ field: 'description', value: description });
-              console.log(`✅ Найдено совпадение в описании товара "${itemId}"`);
             }
           }
           
@@ -102,22 +98,12 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
         });
       });
       
-      console.log(`🔎 Результаты поиска: найдено ${results.length} совпадений`);
-      if (results.length > 0) {
-        console.log('📋 Первый результат:', {
-          category: results[0].category,
-          itemId: results[0].itemId,
-          matches: results[0].matches
-        });
-      }
-      
       setSearchResults(results);
       setIsSearching(false);
       
       // Добавляем запрос в историю поиска, если его там еще нет и есть результаты
       if (results.length > 0 && !searchHistory.includes(query)) {
         setSearchHistory(prev => [query, ...prev].slice(0, 5)); // Ограничиваем историю 5 элементами
-        console.log('📝 Запрос добавлен в историю поиска');
       }
     }, 300);
   }, [inventory, searchHistory]);
@@ -130,17 +116,11 @@ export function useInventorySearch({ inventory, onSelectResult }: UseInventorySe
   
   // Обработка фокуса поиска (для UI)
   const handleSearchFocusChange = useCallback((isFocused: boolean) => {
-    console.log(`🔍 Изменение состояния фокуса поиска: ${isFocused ? 'в фокусе' : 'не в фокусе'}`);
     setIsSearchFocused(isFocused);
-    if (!isFocused && searchQuery) { 
-      console.log('🔍 Фокус снят, но запрос остался, результаты для дропдауна должны сохраниться');
-    }
-  }, [searchQuery]);
+  }, []);
   
   // Выбор результата поиска (переход к товару)
   const handleSearchResultSelect = useCallback((category: string, itemId: string) => {
-    console.log(`🔍 Выбран результат поиска: ${itemId} в категории ${category}`);
-    
     if (onSelectResult) {
       onSelectResult(category, itemId);
     }

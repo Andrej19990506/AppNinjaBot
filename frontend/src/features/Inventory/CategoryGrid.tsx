@@ -1,7 +1,10 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
 import styles from './CategoryGrid.module.css';
+import { socketService } from '@shared/services/socketService';
+import { logger } from '@shared/utils/logger';
 import { Inventory } from '@/types/inventoryTypes';
 
 interface CategoryGridProps {
@@ -13,6 +16,153 @@ interface CategoryGridProps {
 
 const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inventory, selectedCategory }) => {
     const gridRef = useRef<HTMLDivElement>(null);
+    const [focusingUsers, setFocusingUsers] = useState<Record<string, { userId: string | number; firstName?: string; category?: string; photoUrl?: string }[]>>({});
+    type TooltipState = { key: string; text?: string; name?: string; category?: string; x: number; y: number; sticky?: boolean } | null;
+    const [tooltip, setTooltip] = useState<TooltipState>(null);
+    const hideTimerRef = useRef<number | null>(null);
+    const autoCloseTimerRef = useRef<number | null>(null);
+    const lastTouchTsRef = useRef<number>(0);
+    const openTouchTsRef = useRef<number>(0);
+    // Слушаем фокус категории и отображаем аватарки
+    useEffect(() => {
+        const unsub = socketService.onCategoryFocusUpdate((data: any) => {
+            const { chat_id, category, focusing, user_info } = data || {};
+            if (!category) return;
+            const baseURL = (window as any).APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+            const uid = user_info?.userId || user_info?.user_id;
+            const firstName = user_info?.first_name || user_info?.firstName;
+            const apiBase = baseURL?.includes('/api') ? baseURL : `${baseURL}/api`;
+            const photo = uid ? `${apiBase}/v1/users/${uid}/photo` : undefined;
+            setFocusingUsers(prev => {
+                const list = prev[category] ? [...prev[category]] : [];
+                const existsIdx = list.findIndex(u => String(u.userId) === String(uid));
+                if (focusing) {
+                    if (existsIdx === -1 && uid) list.push({ userId: uid, firstName, category, photoUrl: photo });
+                } else {
+                    if (existsIdx !== -1) list.splice(existsIdx, 1);
+                }
+                return { ...prev, [category]: list };
+            });
+        });
+        return () => unsub();
+    }, []);
+
+    // Хелперы для показа тултипа через портал
+    const cancelHide = () => {
+        if (hideTimerRef.current) {
+            clearTimeout(hideTimerRef.current);
+            hideTimerRef.current = null;
+        }
+    };
+
+    const scheduleHide = () => {
+        cancelHide();
+        // Если закреплен (sticky), не скрываем по уходу курсора
+        if (tooltip?.sticky) return;
+        // Во время мобильного автозакрытия не прячем по mouseleave
+        if (autoCloseTimerRef.current) { console.debug('[CategoryGrid] scheduleHide ignored (autoClose active)'); return; }
+        // Если недавно открывали тачем — игнорируем
+        if (openTouchTsRef.current && Date.now() - openTouchTsRef.current < 3200) {
+            console.debug('[CategoryGrid] scheduleHide ignored (touch window active)');
+            return;
+        }
+        // logger.debug('[CategoryGrid] scheduleHide start (1000ms)');
+        hideTimerRef.current = window.setTimeout(() => {
+            // logger.debug('[CategoryGrid] scheduleHide fired');
+            setTooltip(prev => (prev?.sticky ? prev : null));
+        }, 1000);
+    };
+
+    const showTooltip = (key: string, text: string, el: HTMLElement, name?: string, categoryName?: string) => {
+        const rect = el.getBoundingClientRect();
+        setTooltip({ key, text, name, category: categoryName, x: rect.left + rect.width / 2, y: rect.top - 8, sticky: false });
+    };
+    const hideTooltip = () => {
+        // logger.info('[CategoryGrid] Tooltip close by hideTooltip');
+        setTooltip(null);
+    };
+    const toggleTooltip = (key: string, text: string, el: HTMLElement, name?: string, categoryName?: string) => {
+        setTooltip(prev => {
+            // Клик по той же аватарке — снимаем закрепление и скрываем
+            if (prev?.key === key && prev?.sticky) return null;
+            const rect = el.getBoundingClientRect();
+            // Устанавливаем закрепленный тултип (клик-режим)
+            return { key, text, name, category: categoryName, x: rect.left + rect.width / 2, y: rect.top - 8, sticky: true };
+        });
+    };
+
+    const startAutoClose = (ms: number) => {
+        if (autoCloseTimerRef.current) {
+            clearTimeout(autoCloseTimerRef.current);
+            autoCloseTimerRef.current = null;
+        }
+        autoCloseTimerRef.current = window.setTimeout(() => {
+            // Минимальная гарантия отображения 2.5 сек при мобильном тапе
+            const sinceOpen = Date.now() - openTouchTsRef.current;
+            if (openTouchTsRef.current && sinceOpen < 2500) {
+                const rest = 2500 - sinceOpen;
+                console.debug('[CategoryGrid] autoClose postpone', { rest });
+                autoCloseTimerRef.current = window.setTimeout(() => setTooltip(prev => (prev?.sticky ? prev : null)), rest);
+                return;
+            }
+            setTooltip(prev => (prev?.sticky ? prev : null));
+        }, ms);
+        console.debug('[CategoryGrid] autoClose set', { ms });
+    };
+
+    useEffect(() => {
+        const onScrollOrResize = () => {
+            // Во время мобильного автозакрытия не прячем от скролла/resize
+            if (autoCloseTimerRef.current) {
+                // logger.debug('[CategoryGrid] scroll/resize ignored (autoClose active)');
+                return;
+            }
+            // logger.info('[CategoryGrid] Tooltip close by scroll/resize');
+            setTooltip(prev => (prev?.sticky ? prev : null));
+        };
+        window.addEventListener('scroll', onScrollOrResize, true);
+        window.addEventListener('resize', onScrollOrResize);
+        return () => {
+            window.removeEventListener('scroll', onScrollOrResize, true);
+            window.removeEventListener('resize', onScrollOrResize);
+        };
+    }, []);
+
+    // Закрытие незакрепленного тултипа по тапу вне (мобилки)
+    useEffect(() => {
+        if (!tooltip || tooltip.sticky) return;
+        const onDocTouch = (e: TouchEvent) => {
+            const target = e.target as HTMLElement;
+            // Проверяем путь события: пропускаем, если тап внутри тултипа или аватарки
+            const path = (e.composedPath ? e.composedPath() : []) as (EventTarget & { dataset?: DOMStringMap })[];
+            const touchesTooltip = path.some((el) => (el as HTMLElement)?.dataset?.tooltipPortal === '1');
+            const touchesAvatar = path.some((el) => (el as HTMLElement)?.dataset?.avatar === '1');
+            if (touchesTooltip || touchesAvatar) return;
+            if (autoCloseTimerRef.current) {
+                clearTimeout(autoCloseTimerRef.current);
+                autoCloseTimerRef.current = null;
+            }
+            // logger.info('[CategoryGrid] Tooltip close by touchOutside');
+            setTooltip(null);
+        };
+        document.addEventListener('touchstart', onDocTouch as any, { passive: true } as any);
+        return () => {
+            document.removeEventListener('touchstart', onDocTouch as any);
+        };
+    }, [tooltip]);
+
+    // Закрытие закрепленного тултипа по клику вне/ESC
+    useEffect(() => {
+        if (!tooltip?.sticky) return;
+        const handleDocClick = () => { setTooltip(null); };
+        const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setTooltip(null); } };
+        document.addEventListener('click', handleDocClick);
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('click', handleDocClick);
+            document.removeEventListener('keydown', handleKey);
+        };
+    }, [tooltip?.sticky]);
     const controls = useAnimation();
     
     // Эффект для анимации при монтировании
@@ -214,6 +364,60 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                 layout
                             >
                                 <h3 className={styles.title}>{category}</h3>
+                                {focusingUsers[category]?.length ? (
+                                    <div className={styles.categoryUsersFooter}>
+                                        {focusingUsers[category].map(u => {
+                                            const key = `${category}_${String(u.userId)}`;
+                                            const text = `${u.firstName ?? 'Сотрудник'} работает с категорией ${category}`;
+                                            const isVisible = tooltip?.key === key;
+                                            return (
+                                                <div key={key} className={styles.avatarWrapper} data-avatar="1"
+                                                     onPointerEnter={(e) => { 
+                                                         if ((e as any).pointerType === 'touch') return; 
+                                                         cancelHide(); 
+                                                         showTooltip(key, text, e.currentTarget as HTMLElement, u.firstName ?? 'Сотрудник', category); 
+                                                     }}
+                                                     onPointerLeave={(e) => {
+                                                         if ((e as any).pointerType === 'touch') { console.debug('[CategoryGrid] pointerLeave ignored (touch)'); return; }
+                                                         scheduleHide();
+                                                     }}
+                                                     onClick={(e) => { 
+                                                         e.stopPropagation(); 
+                                                         // Игнорируем click, если только что был touch (мобильный Tap генерит click)
+                                                         if (Date.now() - lastTouchTsRef.current < 500) return;
+                                                         toggleTooltip(key, text, e.currentTarget as HTMLElement, u.firstName ?? 'Сотрудник', category); 
+                                                     }}
+                                                     onMouseDown={(e) => { e.stopPropagation(); }}
+                                                      onTouchStart={(e) => { 
+                                                          e.stopPropagation();
+                                                          // e.preventDefault(); // избегаем ошибки внутри passive listener
+                                                          lastTouchTsRef.current = Date.now();
+                                                          openTouchTsRef.current = lastTouchTsRef.current;
+                                                          cancelHide();
+                                                          showTooltip(key, text, e.currentTarget as HTMLElement, u.firstName ?? 'Сотрудник', category);
+                                                          startAutoClose(3000);
+                                                      }}>
+                                                    <img src={u.photoUrl}
+                                                         className={styles.categoryUserAvatar}
+                                                         alt={text}
+                                                          data-avatar="1"
+                                                          onClick={(e) => e.stopPropagation()}
+                                                          onMouseDown={(e) => e.stopPropagation()}
+                                                          onTouchStart={(e) => { 
+                                                              e.stopPropagation();
+                                                              // e.preventDefault(); // избегаем ошибки внутри passive listener
+                                                              lastTouchTsRef.current = Date.now();
+                                                              openTouchTsRef.current = lastTouchTsRef.current;
+                                                              cancelHide();
+                                                              const wrapper = (e.currentTarget as HTMLElement).parentElement as HTMLElement;
+                                                              showTooltip(key, text, wrapper, u.firstName ?? 'Сотрудник', category);
+                                                              startAutoClose(3000);
+                                                          }} />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : null}
                                 {isFilled && (
                                     <motion.div 
                                         className={styles.checkmark}
@@ -247,8 +451,71 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                     })}
                 </AnimatePresence>
             </motion.div>
+            {tooltip && (
+                <TooltipPortal text={tooltip.text} x={tooltip.x} y={tooltip.y}
+                               name={tooltip.name} category={tooltip.category}
+                               onPointerEnter={cancelHide}
+                               onPointerLeave={scheduleHide}
+                               onClickInside={() => cancelHide()} />
+            )}
         </motion.div>
     );
 };
 
 export default CategoryGrid; 
+
+// Портальный тултип для аватарок
+const TooltipPortal: React.FC<{ text?: string; name?: string; category?: string; x: number; y: number; onPointerEnter?: () => void; onPointerLeave?: () => void; onClickInside?: () => void }>
+  = ({ text, name, category, x, y, onPointerEnter, onPointerLeave, onClickInside }) => {
+    const portalRoot = typeof document !== 'undefined' ? document.body : null;
+    if (!portalRoot) return null;
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      top: y - 8,
+      left: x,
+      transform: 'translate(-50%, -100%)',
+      background: 'var(--card-bg, #1f1f1f)',
+      color: 'var(--text-primary, #fff)',
+      padding: 0,
+      borderRadius: 10,
+      fontSize: 12,
+      lineHeight: 1.25,
+      width: 180,
+      whiteSpace: 'normal',
+      wordBreak: 'break-word',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+      zIndex: 9999
+    };
+    const arrowStyle: React.CSSProperties = {
+      position: 'absolute',
+      top: '100%',
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 0,
+      height: 0,
+      borderLeft: '6px solid transparent',
+      borderRight: '6px solid transparent',
+      borderBottom: '6px solid var(--card-bg, #1f1f1f)'
+    } as React.CSSProperties;
+    const headerStyle: React.CSSProperties = {
+      display: 'flex', alignItems: 'center', gap: 8,
+      background: 'rgba(var(--primary-rgb), 0.12)',
+      borderTopLeftRadius: 10, borderTopRightRadius: 10,
+      padding: '8px 10px', color: 'var(--text-primary, #fff)'
+    };
+    const dotStyle: React.CSSProperties = { width: 8, height: 8, borderRadius: '50%', background: 'rgb(var(--primary-rgb))' };
+    const bodyStyle: React.CSSProperties = { padding: '8px 10px', color: 'var(--text-secondary, #ddd)' };
+    return createPortal(
+      <div style={style}
+           onClick={(e) => { e.stopPropagation(); onClickInside?.(); }}
+           onMouseDown={(e) => e.stopPropagation()}
+           onPointerEnter={onPointerEnter}
+           onPointerLeave={onPointerLeave}
+           data-tooltip-portal="1">
+        <div style={headerStyle}><span style={dotStyle} /> {name ?? 'Сотрудник'}</div>
+        <div style={bodyStyle}>{text ?? (category ? `Работает с категорией ${category}` : '')}</div>
+        <div style={arrowStyle} />
+      </div>,
+      portalRoot
+    );
+};

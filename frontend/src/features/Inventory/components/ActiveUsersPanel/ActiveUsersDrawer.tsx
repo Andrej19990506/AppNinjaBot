@@ -40,26 +40,34 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             socketId: socketService.getSocket()?.id
         });
 
+        const getUid = (obj: any): string => {
+            return String(
+                obj?.userId ?? obj?.user_id ?? obj?.id ?? obj?.uid ?? obj?.tg_id ?? obj?.sid ?? ''
+            );
+        };
+
+        const toActiveUser = (src: any): ActiveUser => ({
+            userId: getUid(src),
+            first_name: src.first_name || src.user_info?.first_name || 'Пользователь',
+            last_name: src.last_name || src.user_info?.last_name,
+            photo_url: src.photo_url,
+            joinedAt: src.joinedAt || new Date().toISOString(),
+            connection_state: src.connection_state || 'active',
+            connection_quality: src.connection_quality || 'good',
+            user_activity_state: src.user_activity_state || 'active',
+            last_user_activity: src.last_user_activity || Date.now()
+        });
+
         // Функция для обработки события присоединения пользователя
         const handleUserJoined = (data: any) => {
             console.log(`👤 [ACTIVE USERS DRAWER] Пользователь присоединился:`, data);
             
             if (data.room === `inventory_${chatId}`) {
-                const newUser: ActiveUser = {
-                    userId: data.userId,
-                    first_name: data.first_name || 'Пользователь',
-                    last_name: data.last_name,
-                    photo_url: data.photo_url,
-                    joinedAt: new Date().toISOString(),
-                    connection_state: data.connection_state || 'active',
-                    connection_quality: data.connection_quality || 'good',
-                    user_activity_state: data.user_activity_state || 'active',
-                    last_user_activity: data.last_user_activity || Date.now()
-                };
+                const newUser = toActiveUser(data);
 
                 setActiveUsers(prev => {
                     // Проверяем что пользователь еще не в списке
-                    if (prev.find(user => user.userId === data.userId)) {
+                    if (prev.find(user => user.userId === newUser.userId)) {
                         return prev;
                     }
                     return [...prev, newUser];
@@ -81,17 +89,12 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             console.log(`👥 [ACTIVE USERS DRAWER] Список пользователей комнаты:`, data);
             
             if (data.room === `inventory_${chatId}`) {
-                const users: ActiveUser[] = data.users.map((user: any) => ({
-                    userId: user.userId,
-                    first_name: user.first_name || 'Пользователь',
-                    last_name: user.last_name,
-                    photo_url: user.photo_url,
-                    joinedAt: user.joinedAt || new Date().toISOString(),
-                    connection_state: user.connection_state || 'active',
-                    connection_quality: user.connection_quality || 'good',
-                    user_activity_state: user.user_activity_state || 'active',
-                    last_user_activity: user.last_user_activity || Date.now()
-                }));
+                const map = new Map<string, ActiveUser>();
+                (data.users || []).forEach((u: any) => {
+                    const au = toActiveUser(u);
+                    if (!map.has(au.userId)) map.set(au.userId, au);
+                });
+                const users = Array.from(map.values());
                 setActiveUsers(users);
                 setIsLoading(false);
                 console.log(`✅ [ACTIVE USERS DRAWER] Установлено ${users.length} пользователей`);
@@ -103,7 +106,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             console.log(`🔔 [ACTIVE USERS DRAWER] Получено событие user_activity_update:`, data);
             
             if (data.room === `inventory_${chatId}` || data.room?.includes(`inventory_${chatId}`)) {
-                const userId = data.user_id || data.userId;
+                const userId = getUid(data);
                 const activityState = data.activity_state || data.user_activity_state || 'active';
                 const userName = data.first_name || data.user_info?.first_name || userId;
                 
@@ -131,7 +134,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
             }
         };
 
-        // Подписываемся на события
+        // Подписываемся на события (не даем дублироваться через stateChangeEmitter)
         const unsubscribeUserJoined = socketService.subscribe('user_joined_room', handleUserJoined);
         const unsubscribeUserLeft = socketService.subscribe('user_left_room', handleUserLeft);  
         const unsubscribeRoomUsers = socketService.subscribe('room_users_list', handleRoomUsers);
@@ -139,6 +142,7 @@ export const ActiveUsersDrawer: React.FC<ActiveUsersDrawerProps> = ({ chatId }) 
 
         // Запрашиваем текущий список пользователей комнаты
         console.log(`📡 [ACTIVE USERS DRAWER] Отправляем запрос get_room_users для комнаты: inventory_${chatId}`);
+        setActiveUsers([]); // сброс перед первичной загрузкой, чтобы не копились дубли
         socketService.emit('get_room_users', { room: `inventory_${chatId}` });
 
         // Таймаут для отключения загрузки если сервер не ответил

@@ -33,6 +33,29 @@ export const useInventoryWebSocketSync = () => {
     const dispatch = useDispatch<AppDispatch>();
     const selectedInventoryChatId = useSelector(selectSelectedChatId);
     
+    // 🚨 ОТЛАДКА: логируем состояние хука
+    console.log(`🔔 [useInventoryWebSocketSync] Хук инициализирован:`, {
+        selectedInventoryChatId,
+        timestamp: new Date().toISOString()
+    });
+    
+    // 🚨 ГЛОБАЛЬНЫЙ ОТЛАДОЧНЫЙ ОБРАБОТЧИК для всех inventory_updated событий
+    useEffect(() => {
+        const globalHandler = (payload: any) => {
+            console.log(`🔔 [GLOBAL DEBUG] Получено inventory_updated событие:`, {
+                payload,
+                selectedInventoryChatId,
+                timestamp: new Date().toISOString()
+            });
+        };
+        
+        const unsubscribe = socketService.subscribe('inventory_updated', globalHandler);
+        
+        return () => {
+            unsubscribe();
+        };
+    }, []); // Убираем зависимость от selectedInventoryChatId
+    
     // Состояние для модального окна с изменениями
     const [templateChanges, setTemplateChanges] = useState<TemplateChanges | null>(null);
     const [isChangesModalOpen, setIsChangesModalOpen] = useState(false);
@@ -198,9 +221,18 @@ export const useInventoryWebSocketSync = () => {
                 chat_id: payload.chat_id,
                 item_id: payload.item_id,
                 category: payload.category,
+                hasItem: !!payload.item,
+                itemKeys: payload.item ? Object.keys(payload.item) : null,
                 selectedChat: selectedInventoryChatId,
                 timestamp: new Date().toISOString(),
                 payloadTimestamp: payload.metadata?.lastUpdated
+            });
+            
+            // 🚨 ДОПОЛНИТЕЛЬНАЯ ОТЛАДКА: проверяем, что функция действительно вызывается
+            console.log(`🔔 [WS DEBUG] handleInventoryUpdated ВЫЗВАНА!`, {
+                functionName: 'handleInventoryUpdated',
+                payloadType: payload.type,
+                timestamp: new Date().toISOString()
             });
             
             if (!payload.chat_id || !payload.metadata) {
@@ -219,11 +251,35 @@ export const useInventoryWebSocketSync = () => {
                             
                             // Добавляем дополнительную проверку timestamp перед диспатчем
                             const currentTime = new Date().getTime();
-                            const payloadTime = new Date(payload.metadata.lastUpdated).getTime();
+                            let payloadTime: number;
                             
-                            if (payloadTime < currentTime - 30000) { // 30 секунд
-                                logger.warn(`[WS Sync] Получено очень старое событие (${currentTime - payloadTime}ms), пропускаем`);
-                                return;
+                            // Проверяем формат timestamp
+                            if (typeof payload.metadata.lastUpdated === 'string') {
+                                // Парсим ISO 8601 строку (например: "2025-08-07T02:06:06.607Z")
+                                const parsedDate = new Date(payload.metadata.lastUpdated);
+                                if (isNaN(parsedDate.getTime())) {
+                                    logger.warn(`[WS Sync] Не удалось распарсить timestamp: ${payload.metadata.lastUpdated}, пропускаем проверку`);
+                                    payloadTime = currentTime; // Пропускаем проверку
+                                } else {
+                                    payloadTime = parsedDate.getTime();
+                                }
+                            } else if (typeof payload.metadata.lastUpdated === 'number') {
+                                payloadTime = payload.metadata.lastUpdated;
+                            } else {
+                                logger.warn(`[WS Sync] Неизвестный формат timestamp: ${payload.metadata.lastUpdated}, пропускаем проверку`);
+                                payloadTime = currentTime; // Пропускаем проверку
+                            }
+                            
+                            // ИСПРАВЛЕНИЕ: Сравниваем абсолютные значения времени, а не разность
+                            // Если payload время больше текущего времени, это означает, что событие из будущего (невозможно)
+                            // Если разность больше 30 секунд в любую сторону, это подозрительно
+                            const timeDiff = Math.abs(currentTime - payloadTime);
+                            logger.info(`[WS Sync] Проверка timestamp: current=${new Date(currentTime).toISOString()}, payload=${new Date(payloadTime).toISOString()}, abs_diff=${timeDiff}ms`);
+                            
+                            // Увеличиваем допустимый интервал до 30 секунд (30000ms)
+                            if (timeDiff > 30000) { // 30 секунд
+                                logger.warn(`[WS Sync] Получено событие с подозрительным timestamp (разность ${timeDiff}ms), но все равно обрабатываем`);
+                                // НЕ возвращаем return, а продолжаем обработку
                             }
                             
                             dispatch(receiveItemUpdate({
@@ -246,6 +302,7 @@ export const useInventoryWebSocketSync = () => {
                             }));
                         } else {
                             logger.info(`[WS Sync - inventory_updated] Событие без деталей товара для ТЕКУЩЕГО чата. Перезапрашиваем весь инвентарь для ${payload.chat_id}...`);
+                            console.log(`🔄 [WS Sync] Перезагружаем весь инвентарь для чата ${payload.chat_id} из-за отсутствия данных товара`);
                             dispatch(fetchChatInventory(payload.chat_id));
                         }
                         
@@ -395,8 +452,27 @@ export const useInventoryWebSocketSync = () => {
 
         logger.log(`[useInventoryWebSocketSync] Подписка на 'inventory_updated', 'inventory_reset' и 'template_updated' для selectedChatId: ${selectedInventoryChatId}`);
         
+        // 🚨 ОТЛАДКА: логируем подписку на события
+        console.log(`🔔 [useInventoryWebSocketSync] Подписываемся на WebSocket события:`, {
+            selectedInventoryChatId,
+            socketConnected: socketService.isConnected(),
+            timestamp: new Date().toISOString()
+        });
+        
+        // 🚨 ДОПОЛНИТЕЛЬНАЯ ОТЛАДКА: проверяем, что обработчики определены
+        console.log(`🔔 [useInventoryWebSocketSync] Обработчики определены:`, {
+            handleInventoryUpdated: typeof handleInventoryUpdated,
+            handleTemplateUpdated: typeof handleTemplateUpdated,
+            timestamp: new Date().toISOString()
+        });
+        
+        console.log(`🔔 [useInventoryWebSocketSync] Подписываемся на inventory_updated...`);
         const unsubscribeInventoryUpdate = socketService.subscribe('inventory_updated', handleInventoryUpdated);
+        console.log(`🔔 [useInventoryWebSocketSync] Подписка на inventory_updated создана:`, typeof unsubscribeInventoryUpdate);
+        
+        console.log(`🔔 [useInventoryWebSocketSync] Подписываемся на template_updated...`);
         const unsubscribeTemplateUpdate = socketService.subscribe('template_updated', handleTemplateUpdated);
+        console.log(`🔔 [useInventoryWebSocketSync] Подписка на template_updated создана:`, typeof unsubscribeTemplateUpdate);
 
         return () => {
             logger.log(`[useInventoryWebSocketSync] Cleanup. Отписка от всех событий для selectedChatId: ${selectedInventoryChatId}.`);

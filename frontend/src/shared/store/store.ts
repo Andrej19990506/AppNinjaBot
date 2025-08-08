@@ -41,8 +41,8 @@ const findCourierChatId = (state: RootState | null): string | undefined => {
     return state.user?.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
 };
 
-// Войти в комнату с защитой от частых переподключений
-const joinRoom = (roomId: string) => {
+// Войти в комнату с защитой от частых переподключений и ретраями
+const joinRoom = async (roomId: string) => {
     const state = store?.getState();
     if (!state) {
         throw new Error('[Store:RoomLogic] Попытка войти в комнату без инициализированного store!');
@@ -87,12 +87,35 @@ const joinRoom = (roomId: string) => {
         previousRoom: joinedRoomId
     });
     
-    socketService.joinRoom(roomId, {
-        userId: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        photo_url: user.photo_url
-    });
+    // Ретраи входа в комнату с backoff (200ms, 600ms, 1200ms)
+    const maxAttempts = 3;
+    const baseDelay = 200;
+    let ok = false;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        ok = await socketService.joinRoom(roomId, {
+            userId: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            photo_url: user.photo_url
+        });
+        if (ok) break;
+        const delay = baseDelay * Math.pow(3, attempt - 1);
+        console.log(`[ROOM DEBUG] joinRoom retry ${attempt}/${maxAttempts} in ${delay}ms`);
+        await new Promise(res => setTimeout(res, delay));
+    }
+    if (ok) {
+        try {
+            const selectedChatId = store.getState().inventory.selectedChatId || (roomId.startsWith('inventory_') ? roomId.replace('inventory_', '') : null);
+            if (selectedChatId) {
+                // После успешного входа подтягиваем актуальные данные
+                // @ts-ignore lazy import to avoid circular
+                const { fetchChatInventory } = await import('@/store/slices/inventorySlice');
+                store.dispatch<any>(fetchChatInventory(selectedChatId));
+            }
+        } catch (e) {
+            // noop
+        }
+    }
     
     joinedRoomId = roomId;
     pendingJoinRoomId = null;
@@ -168,7 +191,6 @@ const setupSubscriptions = (dispatch: AppDispatch, getState: () => RootState) =>
     // Инициализируем сервис уведомлений о входе/выходе пользователей из инвентаризации
     inventoryNotificationService.init();
     
-    // Здесь можно добавить подписки на события (например, смены, резервы и т.д.)
 };
 
     // --- Отписка от доменных событий ---
@@ -257,10 +279,10 @@ listenerMiddleware.startListening({
 // 2. Слушатель подключения сокета -> подписки на события и вход в комнату
 listenerMiddleware.startListening({
     actionCreator: socketConnected,
-    effect: (action, listenerApi) => {
+    effect: async (action, listenerApi) => {
         setupSubscriptions(listenerApi.dispatch as AppDispatch, listenerApi.getState as () => RootState);
         if (pendingJoinRoomId) {
-            joinRoom(pendingJoinRoomId);
+            await joinRoom(pendingJoinRoomId);
         } else if (currentPathname) {
             const state = listenerApi.getState() as RootState;
             let determinedRoomName: string | null = null;
@@ -279,7 +301,7 @@ listenerMiddleware.startListening({
                 if (joinedRoomId) {
                    leaveRoom();
                 }
-                joinRoom(determinedRoomName);
+                await joinRoom(determinedRoomName);
             }
         }
     }
@@ -319,7 +341,7 @@ listenerMiddleware.startListening({
 // 4. Реакция на изменение маршрута
 listenerMiddleware.startListening({
     actionCreator: routeChanged,
-    effect: (action, listenerApi) => {
+    effect: async (action, listenerApi) => {
         const newPath = action.payload;
         const state = listenerApi.getState() as RootState;
         const previousPath = currentPathname;
@@ -345,7 +367,7 @@ listenerMiddleware.startListening({
                 // Проверяем реальное состояние WebSocket подключения
                 if (socketService.isConnected()) {
                     console.log('[DEBUG] Попытка joinRoom для курьеров:', newTargetRoomName);
-                    joinRoom(newTargetRoomName); 
+                    await joinRoom(newTargetRoomName); 
                 } else {
                     console.log('[DEBUG] WebSocket не подключен, откладываем joinRoom:', newTargetRoomName);
                     pendingJoinRoomId = newTargetRoomName; 

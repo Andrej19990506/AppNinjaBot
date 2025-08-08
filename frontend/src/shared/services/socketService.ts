@@ -24,7 +24,10 @@ export type SocketEvent =
   | 'user_back'
   | 'user_disconnected'
   | 'user_activity_update'
-  | 'REGISTRATION_OPENED';
+  | 'REGISTRATION_OPENED'
+  | 'inventory_updated'
+  | 'inventory_reset'
+  | 'template_updated';
 
 // Состояние сокета
 export interface SocketState {
@@ -52,6 +55,10 @@ export interface ServerToClientEvents {
   user_back: (data: { sid: string; user_info: any; room: string }) => void;
   user_disconnected: (data: { sid: string; reason: 'manual' | 'timeout'; user_info: any; room: string }) => void;
   user_activity_update: (data: { sid: string; user_id: string; user_info: any; timestamp: string; activity_state: string; room: string }) => void;
+  inventory_updated: (data: any) => void;
+  inventory_reset: (data: any) => void;
+  template_updated: (data: any) => void;
+  item_editing_update: (data: { chat_id: string; category: string; item_id: string; editing: boolean; sid: string; user_info?: any; timestamp: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -62,6 +69,7 @@ export interface ClientToServerEvents {
   pong: (data: { timestamp: string }) => void;
   user_activity: (data: { timestamp: number; type: string }) => void;
   user_inactive: (data: { timestamp: number; type: string }) => void;
+  item_editing: (data: { chat_id: string; category: string; item_id: string; editing: boolean; user_info?: any }) => void;
 }
 
 class SocketService {
@@ -77,6 +85,28 @@ class SocketService {
   private maxReconnectAttempts = 5;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private lastUsedUrl = 'ws://localhost:8001';
+
+  // Дедупликация событий по event_id
+  private processedEvents: Map<string, number> = new Map();
+  private static EVENT_TTL_MS = 120000; // 2 минуты
+  private static MAX_EVENTS = 5000;
+
+  private shouldProcessEvent(eventId?: string): boolean {
+    if (!eventId) return true;
+    const now = Date.now();
+    // cleanup
+    this.processedEvents.forEach((ts, id) => {
+      if (now - ts > SocketService.EVENT_TTL_MS) {
+        this.processedEvents.delete(id);
+      }
+    });
+    if (this.processedEvents.size > SocketService.MAX_EVENTS) {
+      this.processedEvents.clear();
+    }
+    if (this.processedEvents.has(eventId)) return false;
+    this.processedEvents.set(eventId, now);
+    return true;
+  }
 
   // Эмиттер для событий изменения состояния
   private stateChangeEmitter = new EventEmitter();
@@ -163,6 +193,11 @@ class SocketService {
   // Настройка обработчиков событий
   private setupEventHandlers(): void {
     if (!this.socket) return;
+    // Событие индикатора редактирования
+    this.socket.on('item_editing_update', (data: any) => {
+      logger.info('✏️ Получено событие: item_editing_update', data);
+      this.stateChangeEmitter.emit('item_editing_update', data);
+    });
 
     this.socket.on('connect', this.handleConnect);
     this.socket.on('disconnect', this.handleDisconnect);
@@ -257,6 +292,12 @@ class SocketService {
       this.stateChangeEmitter.emit('user_back', data);
     });
 
+    // Индикатор фокуса категории
+    this.socket.on('category_focus_update', (data: any) => {
+      logger.info('📂 Получено событие: category_focus_update', data);
+      this.stateChangeEmitter.emit('category_focus_update', data);
+    });
+
     // Добавляем обработчик room_users_list
     this.socket.on('room_users_list', (data: any) => {
       logger.info('👥 Получено событие: room_users_list', data);
@@ -285,10 +326,49 @@ class SocketService {
       this.stateChangeEmitter.emit('connection_status', data);
     });
 
+    // Добавляем обработчик inventory_updated c дедупликацией
+    this.socket.on('inventory_updated', (data: any) => {
+      logger.info('📦 Получено событие: inventory_updated', data);
+      if (!this.shouldProcessEvent(data?.event_id)) {
+        logger.info('🧹 Дубликат inventory_updated отброшен:', data?.event_id);
+        return;
+      }
+      this.stateChangeEmitter.emit('inventory_updated', data);
+    });
+
+    // Добавляем обработчик inventory_reset c дедупликацией
+    this.socket.on('inventory_reset', (data: any) => {
+      logger.info('🔄 Получено событие: inventory_reset', data);
+      if (!this.shouldProcessEvent(data?.event_id)) {
+        logger.info('🧹 Дубликат inventory_reset отброшен:', data?.event_id);
+        return;
+      }
+      this.stateChangeEmitter.emit('inventory_reset', data);
+    });
+
+    // Добавляем обработчик template_updated
+    this.socket.on('template_updated', (data: any) => {
+      logger.info('📝 Получено событие: template_updated', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('template_updated', data);
+    });
+
     // Глобальный лог всех событий
     this.socket.onAny((event, ...args) => {
       logger.log(`[SOCKET][onAny] Событие: ${event}`, ...args);
     });
+  }
+
+  // Подписка на фокус категории
+  public onCategoryFocusUpdate(callback: (data: any) => void): () => void {
+    if (!this.socket) {
+      logger.warn('[socketService] Подписка category_focus_update до инициализации сокета');
+    }
+    const handler = (data: any) => callback(data);
+    this.stateChangeEmitter.on('category_focus_update', handler);
+    return () => {
+      this.stateChangeEmitter.off('category_focus_update', handler);
+    };
   }
 
   // Новый метод для настройки обработчиков Engine.IO
@@ -587,6 +667,11 @@ class SocketService {
 
   public onUserActivityUpdate(callback: (data: any) => void): () => void {
     return this.subscribe('user_activity_update', callback);
+  }
+
+  // Подписка на индикатор редактирования
+  public onItemEditingUpdate(callback: (data: any) => void): () => void {
+    return this.subscribe('item_editing_update', callback);
   }
 
   // Тестирование соединения

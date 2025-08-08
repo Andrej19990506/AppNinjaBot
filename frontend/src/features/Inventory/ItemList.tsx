@@ -7,6 +7,7 @@ import { requestAddItemThroughBot } from './services/inventoryApi';
 import { addNotification } from '@shared/store/notificationSlice/notificationSlice';
 import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform, animate } from 'framer-motion';
+import { socketService } from '@shared/services/socketService';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import CircularProgress from '@mui/material/CircularProgress';
 import AddIcon from '@mui/icons-material/Add';
@@ -500,6 +501,19 @@ const ItemList: React.FC<ItemListProps> = ({
                                 result => result.itemId === itemId
                             );
                             const isPressing = pressingItemId === itemId;
+                            const [isEditing, setIsEditing] = useState(false);
+                            const [editorAvatar, setEditorAvatar] = useState<string | null>(null);
+
+                            useEffect(() => {
+                                const unsubscribe = socketService.onItemEditingUpdate((data: any) => {
+                                    if (data?.chat_id !== chatId) return;
+                                    if (data?.category !== category) return;
+                                    if (data?.item_id !== itemId) return;
+                                    setIsEditing(Boolean(data?.editing));
+                                    setEditorAvatar(data?.user_info?.photo_url || null);
+                                });
+                                return () => unsubscribe();
+                            }, [chatId, category, itemId]);
                             
                             return (
                                 <motion.div
@@ -540,6 +554,15 @@ const ItemList: React.FC<ItemListProps> = ({
                                                 damping: 30
                                             }}
                                         />
+                                    )}
+
+                                    {/* Индикатор редактирования */}
+                                    {isEditing && (
+                                        <div className={styles.editingBadge}>
+                                            <span className={styles.editingDot} />
+                                            <span>Редактирует</span>
+                                            {editorAvatar && <img className={styles.editingAvatar} src={editorAvatar} alt="editor" />}
+                                        </div>
                                     )}
                                     
                                     {status === 'outOfStock' && (

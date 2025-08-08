@@ -183,6 +183,21 @@ const Inventory: React.FC = () => {
     }, [selectedChat?.chat_id, isInventoryLoading, checkForUnviewedTemplateChanges]);
     // --- КОНЕЦ useEffect для проверки изменений шаблона ---
 
+    // Отправляем фокус категории при выборе/снятии
+    useEffect(() => {
+        if (!selectedChat?.chat_id) return;
+        if (selectedCategory) {
+            const user = (window as any).Telegram?.WebApp?.initDataUnsafe?.user;
+            const userInfo = user ? { userId: user.id, first_name: user.first_name } : undefined;
+            socketService.emit('category_focus', { chat_id: selectedChat.chat_id, category: selectedCategory, focusing: true, user_info: userInfo });
+        }
+        return () => {
+            if (selectedChat?.chat_id && selectedCategory) {
+                socketService.emit('category_focus', { chat_id: selectedChat.chat_id, category: selectedCategory, focusing: false });
+            }
+        };
+    }, [selectedChat?.chat_id, selectedCategory]);
+
     // --- useEffect для отладки WebSocket соединения ---
     useEffect(() => {
         if (!chatId) return;

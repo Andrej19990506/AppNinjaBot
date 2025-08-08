@@ -1249,6 +1249,55 @@ async def user_inactive(sid, data):
         logger.error(f"❌ [ACTIVITY] Ошибка обработки события неактивности для {sid}: {e}")
         logger.exception("Полный стек ошибки:")
 
+@sio.on('item_editing')
+async def handle_item_editing(sid, data):
+    """Броадкаст статуса редактирования товара внутри комнат инвентаря.
+    data: { chat_id: str, category: str, item_id: str, editing: bool, user_info?: any }
+    """
+    try:
+        chat_id = str(data.get('chat_id'))
+        category = data.get('category')
+        item_id = data.get('item_id')
+        is_editing = bool(data.get('editing'))
+        room = f"inventory_{chat_id}"
+        event = {
+            'chat_id': chat_id,
+            'category': category,
+            'item_id': item_id,
+            'editing': is_editing,
+            'sid': sid,
+            'user_info': user_info.get(sid, {}).get('user_info', {}),
+            'timestamp': str(time.time())
+        }
+        await sio.emit('item_editing_update', event, room=room, skip_sid=None)
+        logger.info(f"✏️ [EDIT] item_editing_update -> {room} {category}/{item_id} editing={is_editing}")
+    except Exception as e:
+        logger.error(f"❌ [EDIT] Ошибка обработки item_editing: {e}")
+
+# --- Category focus indicator ---
+@sio.on('category_focus')
+async def handle_category_focus(sid, data):
+    """Броадкаст статуса работы в категории.
+    data: { chat_id: str, category: str, focusing: bool, user_info?: any }
+    """
+    try:
+        chat_id = str(data.get('chat_id'))
+        category = data.get('category')
+        focusing = bool(data.get('focusing'))
+        room = f"inventory_{chat_id}"
+        event = {
+            'chat_id': chat_id,
+            'category': category,
+            'focusing': focusing,
+            'sid': sid,
+            'user_info': user_info.get(sid, {}).get('user_info', {}),
+            'timestamp': str(time.time())
+        }
+        await sio.emit('category_focus_update', event, room=room, skip_sid=None)
+        logger.info(f"📂 [CATEGORY] category_focus_update -> {room} {category} focusing={focusing}")
+    except Exception as e:
+        logger.error(f"❌ [CATEGORY] Ошибка обработки category_focus: {e}")
+
 logger.info("✅ Все обработчики событий успешно зарегистрированы")
 
 

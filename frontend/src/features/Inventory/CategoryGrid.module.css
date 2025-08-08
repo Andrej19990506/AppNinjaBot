@@ -97,6 +97,64 @@
     );
 }
 
+/* Футер карточки категории: сотрудники в работе */
+.categoryUsersFooter {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 10px;
+    min-height: 24px;
+}
+
+.avatarWrapper {
+    position: relative;
+    display: inline-flex;
+}
+
+.categoryUserAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(var(--primary-rgb), 0.35);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    cursor: pointer;
+}
+
+.tooltip {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(var(--primary-rgb), 0.95);
+    color: #fff;
+    padding: 6px 8px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.tooltip::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(var(--primary-rgb), 0.95) transparent transparent transparent;
+}
+
+.tooltipVisible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(-2px);
+}
+
 /* Добавляем отступ для последнего элемента */
 .grid > .item:last-child {
     margin-bottom: 15px;

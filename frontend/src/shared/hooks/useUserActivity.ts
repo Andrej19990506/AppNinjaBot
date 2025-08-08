@@ -7,7 +7,7 @@ export interface UserActivityState {
   timeSinceLastActivity: number;
 }
 
-export const useUserActivity = (inactivityTimeout: number = 30000) => {
+export const useUserActivity = (inactivityTimeout: number = 120000) => {
   const [activityState, setActivityState] = useState<UserActivityState>({
     isActive: true,
     lastActivityTime: Date.now(),
@@ -18,6 +18,7 @@ export const useUserActivity = (inactivityTimeout: number = 30000) => {
   const lastActivityTimeRef = useRef(Date.now());
   const isActiveRef = useRef(true);
   const lastEventSentRef = useRef<{ type: 'active' | 'inactive'; timestamp: number } | null>(null);
+  const pendingAwayTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Функция для обновления активности с дебаунсингом
   const updateActivity = useCallback(() => {
@@ -83,7 +84,7 @@ export const useUserActivity = (inactivityTimeout: number = 30000) => {
       }, 100); // Дебаунсинг 100ms
     };
 
-    // Обработчик изменения видимости страницы с дебаунсингом
+    // Обработчик изменения видимости страницы с отложенным переводом в неактивность
     let visibilityTimeout: NodeJS.Timeout | null = null;
     const handleVisibilityChange = () => {
       if (visibilityTimeout) {
@@ -91,18 +92,22 @@ export const useUserActivity = (inactivityTimeout: number = 30000) => {
       }
       visibilityTimeout = setTimeout(() => {
         if (document.hidden) {
-          // Страница скрыта - считаем неактивным
-          isActiveRef.current = false;
-          setActivityState(prev => ({
-            ...prev,
-            isActive: false
-          }));
-          sendInactiveState();
+          // Страница скрыта — НЕ уходим в неактив сразу. Ждём 60 секунд.
+          if (pendingAwayTimerRef.current) clearTimeout(pendingAwayTimerRef.current);
+          pendingAwayTimerRef.current = setTimeout(() => {
+            isActiveRef.current = false;
+            setActivityState(prev => ({ ...prev, isActive: false }));
+            sendInactiveState();
+          }, 60000);
         } else {
-          // Страница снова видна - считаем активным
+          // Страница снова видна — отменяем отложенный уход и считаем активным
+          if (pendingAwayTimerRef.current) {
+            clearTimeout(pendingAwayTimerRef.current);
+            pendingAwayTimerRef.current = null;
+          }
           updateActivity();
         }
-      }, 500); // Дебаунсинг 500ms
+      }, 300); // Небольшой дебаунс на смену видимости
     };
 
     // Обработчик фокуса окна с дебаунсингом
@@ -112,24 +117,30 @@ export const useUserActivity = (inactivityTimeout: number = 30000) => {
         clearTimeout(focusTimeout);
       }
       focusTimeout = setTimeout(() => {
+        // Возврат фокуса — отменяем отложенный уход
+        if (pendingAwayTimerRef.current) {
+          clearTimeout(pendingAwayTimerRef.current);
+          pendingAwayTimerRef.current = null;
+        }
         updateActivity();
       }, 200); // Дебаунсинг 200ms
     };
 
-    // Обработчик потери фокуса окна с дебаунсингом
+    // Обработчик потери фокуса окна с отложенным переводом в неактивность
     let blurTimeout: NodeJS.Timeout | null = null;
     const handleBlur = () => {
       if (blurTimeout) {
         clearTimeout(blurTimeout);
       }
       blurTimeout = setTimeout(() => {
-        isActiveRef.current = false;
-        setActivityState(prev => ({
-          ...prev,
-          isActive: false
-        }));
-        sendInactiveState();
-      }, 1000); // Дебаунсинг 1 секунда
+        // Не считаем «ушёл» мгновенно — ждём 60 секунд, если не вернулся
+        if (pendingAwayTimerRef.current) clearTimeout(pendingAwayTimerRef.current);
+        pendingAwayTimerRef.current = setTimeout(() => {
+          isActiveRef.current = false;
+          setActivityState(prev => ({ ...prev, isActive: false }));
+          sendInactiveState();
+        }, 60000);
+      }, 300); // Небольшой дебаунс blur
     };
 
     // Добавляем обработчики событий
@@ -196,6 +207,7 @@ export const useUserActivity = (inactivityTimeout: number = 30000) => {
       if (visibilityTimeout) clearTimeout(visibilityTimeout);
       if (focusTimeout) clearTimeout(focusTimeout);
       if (blurTimeout) clearTimeout(blurTimeout);
+      if (pendingAwayTimerRef.current) clearTimeout(pendingAwayTimerRef.current);
     };
   }, [inactivityTimeout, updateActivity, sendInactiveState]); // Убрали проблемные зависимости
 

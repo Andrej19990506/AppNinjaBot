@@ -50,6 +50,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const historyData = useAppSelector(selectHistoryRecordsForItem(itemId));
     
     const dispatch = useAppDispatch();
+    const currentUser = useAppSelector(state => state.user.user);
     const currentInventory = useAppSelector(state => state.inventory.selectedChat?.inventory || {});
 
     useEffect(() => {
@@ -66,6 +67,34 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         }, 100);
         return () => clearTimeout(timer);
     }, []);
+
+    // --- Индикатор редактирования: при открытии/закрытии модалки шлём статус ---
+    useEffect(() => {
+        const userInfo = currentUser ? {
+            userId: currentUser.id,
+            first_name: currentUser.first_name,
+            photo_url: currentUser.photo_url
+        } : undefined;
+        try {
+            socketService.emit('item_editing', {
+                chat_id: chatId,
+                category,
+                item_id: itemId,
+                editing: true,
+                user_info: userInfo
+            });
+        } catch {}
+        return () => {
+            try {
+                socketService.emit('item_editing', {
+                    chat_id: chatId,
+                    category,
+                    item_id: itemId,
+                    editing: false
+                });
+            } catch {}
+        };
+    }, [chatId, category, itemId, currentUser]);
 
     const _handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
@@ -166,7 +195,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 ...item,
                 semifinished: {
                     quantity: 0,
-                    filled: true
+                    filled: false // Структура добавлена, но количество не внесено -> не считаем в прогресс
                 },
                 lastUpdated: new Date().toISOString() // Добавляем timestamp
             };

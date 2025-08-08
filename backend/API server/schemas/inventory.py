@@ -31,3 +31,9 @@ class InventoryUpdatePayload(BaseModel):
     metadata: Optional[Dict[str, Any]] = None # Опциональные метаданные (может обновляться и отдельно)
     # Добавляем поле history, так как оно передается с фронта
     history: Optional[Dict[str, Any]] = None 
+
+# Модель для точечного обновления одного товара
+class InventoryItemUpdatePayload(BaseModel):
+    item: Dict[str, Any]
+    metadata: Optional[Dict[str, Any]] = None
+    history: Optional[Dict[str, Any]] = None

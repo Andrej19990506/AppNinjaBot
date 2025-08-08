@@ -287,7 +287,8 @@ export const updateInventoryItem = createAsyncThunk<
                 },
                 history: historyPayload
             };
-            const response = await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(category)}/${encodeURIComponent(itemId)}`, payloadToSend);
+            const url = `${config.API_URL}/inventory/${chatId}/items/${encodeURIComponent(category)}/${encodeURIComponent(itemId)}`;
+            const response = await axios.put(url, payloadToSend);
             // Ожидаем, что бэкенд вернёт { inventory, metadata, item?, category?, item_id? }
             const data = response.data as any;
             const serverInventory: Inventory = data?.inventory || {
@@ -337,7 +338,8 @@ export const updateInventoryStructure = createAsyncThunk<
                     }
                 }
             };
-            await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(category)}/${encodeURIComponent(itemId)}`, payloadToSend);
+            const url = `${config.API_URL}/inventory/${chatId}/items/${encodeURIComponent(category)}/${encodeURIComponent(itemId)}`;
+            await axios.put(url, payloadToSend);
             const updatedInventory: Inventory = {
                 ...currentInventory,
                 [category]: {

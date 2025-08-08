@@ -337,7 +337,7 @@ export const updateInventoryStructure = createAsyncThunk<
                     }
                 }
             };
-            await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(category)}/${encodeURIComponent(itemId)}`, payloadToSend);
+            await axiosInstance.put(`/v1/inventory/${chatId}/items/${category}/${itemId}`, payloadToSend);
             const updatedInventory: Inventory = {
                 ...currentInventory,
                 [category]: {

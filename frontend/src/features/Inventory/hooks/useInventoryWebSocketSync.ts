@@ -247,7 +247,9 @@ export const useInventoryWebSocketSync = () => {
                 case 'inventory_updated':
                     if (isCurrentChat) {
                         if (payload.item_id && payload.category && payload.item) {
-                            logger.info(`[WS Sync - inventory_updated] Обновляем конкретный товар: ${payload.category}/${payload.item_id}`);
+                            // Декодируем для отображения в логах
+                            const decodedForLog = `${decodeURIComponent(payload.category)}/${decodeURIComponent(payload.item_id)}`;
+                            logger.info(`[WS Sync - inventory_updated] Обновляем конкретный товар: ${decodedForLog}`);
                             
                             // Добавляем дополнительную проверку timestamp перед диспатчем
                             const currentTime = new Date().getTime();
@@ -282,22 +284,28 @@ export const useInventoryWebSocketSync = () => {
                                 // НЕ возвращаем return, а продолжаем обработку
                             }
                             
+                            // Декодируем URL-кодированные параметры для корректного обновления UI
+                            const decodedItemId = decodeURIComponent(payload.item_id);
+                            const decodedCategory = decodeURIComponent(payload.category);
+                            
+                            logger.info(`[WS Sync - inventory_updated] Декодированные параметры: ${decodedCategory}/${decodedItemId} (было: ${payload.category}/${payload.item_id})`);
+                            
                             dispatch(receiveItemUpdate({
                                 chatId: payload.chat_id,
                                 type: payload.type,
                                 metadata: payload.metadata,
-                                item_id: payload.item_id,
-                                category: payload.category,
+                                item_id: decodedItemId,
+                                category: decodedCategory,
                                 item: payload.item,
                                 timestamp: payload.metadata.lastUpdated // Передаем timestamp для проверки race conditions
                             }));
                             
-                            logger.info(`[WS Sync - inventory_updated] Обновляем историю для ${payload.category}/${payload.item_id} в фоне...`);
+                            logger.info(`[WS Sync - inventory_updated] Обновляем историю для ${decodedCategory}/${decodedItemId} в фоне...`);
                             dispatch(fetchItemHistory({
                                 chatId: selectedInventoryChatId,
-                                itemId: payload.item_id, 
-                                category: payload.category,
-                                itemName: payload.item_id, 
+                                itemId: decodedItemId, 
+                                category: decodedCategory,
+                                itemName: decodedItemId, 
                                 background: true 
                             }));
                         } else {

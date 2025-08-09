@@ -867,7 +867,21 @@ const inventorySlice = createSlice({
                 state.error = null;
             })
             .addCase(fetchChatInventory.fulfilled, (state, action: PayloadAction<InventoryData & { chatId: string }>) => {
-                const { chatId, inventory, metadata, chat_title, admins } = action.payload;
+                const { chatId, metadata, chat_title, admins } = action.payload;
+                
+                // Декодируем ключи инвентаря для корректного отображения в UI
+                const decodedInventory: Record<string, Record<string, any>> = {};
+                Object.entries(action.payload.inventory || {}).forEach(([encodedCategory, items]) => {
+                    const decodedCategory = decodeURIComponent(encodedCategory);
+                    decodedInventory[decodedCategory] = {};
+                    
+                    Object.entries(items as Record<string, any>).forEach(([encodedItemId, item]) => {
+                        const decodedItemId = decodeURIComponent(encodedItemId);
+                        decodedInventory[decodedCategory][decodedItemId] = item;
+                    });
+                });
+                
+                const inventory = decodedInventory;
                 const calculatedProgress = calculateInventoryProgress(inventory);
                 const chatIndex = state.items.findIndex(chat => chat.chat_id === chatId);
                 const finalMetadata: InventoryMetadata = { 

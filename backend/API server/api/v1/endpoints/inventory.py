@@ -337,8 +337,45 @@ async def read_inventory_for_chat(
             "chat_id": chat_id # Убеждаемся, что chat_id присутствует
         })
         
+        # Декодируем ключи инвентаря перед отправкой фронтенду
+        from urllib.parse import unquote
+        decoded_inventory_data = {}
+        
+        if final_inventory_data:
+            for category_key, category_items in final_inventory_data.items():
+                # Декодируем имя категории
+                try:
+                    decoded_category = unquote(category_key)
+                    # Проверяем, нужно ли декодировать еще раз (двойное кодирование)
+                    if decoded_category.count('%') > 0:
+                        decoded_category = unquote(decoded_category)
+                except Exception:
+                    decoded_category = category_key  # Fallback к оригинальному
+                
+                decoded_inventory_data[decoded_category] = {}
+                
+                if isinstance(category_items, dict):
+                    for item_key, item_data in category_items.items():
+                        # Декодируем имя товара
+                        try:
+                            decoded_item = unquote(item_key)
+                            # Проверяем, нужно ли декодировать еще раз
+                            if decoded_item.count('%') > 0:
+                                decoded_item = unquote(decoded_item)
+                        except Exception:
+                            decoded_item = item_key  # Fallback к оригинальному
+                        
+                        decoded_inventory_data[decoded_category][decoded_item] = item_data
+                else:
+                    # На случай, если category_items не словарь
+                    decoded_inventory_data[decoded_category] = category_items
+                    
+            logger.info(f"[read_inventory_for_chat] Decoded inventory keys for frontend for chat_id: {chat_id}")
+        else:
+            decoded_inventory_data = final_inventory_data
+
         response_dict = {
-            "inventory": final_inventory_data,
+            "inventory": decoded_inventory_data,
             "metadata": full_metadata, # Используем ПОЛНЫЕ метаданные
             "chat_title": group.title,
             "admins": admins_list_of_dicts
@@ -596,14 +633,21 @@ async def update_inventory_for_chat(
             
             # Если было обновление конкретного товара, добавляем его данные
             if item_id_for_notify and category_for_notify:
+                # Декодируем параметры для WebSocket (на случай если они пришли закодированными)
+                from urllib.parse import unquote
+                decoded_item_id_for_notify = unquote(item_id_for_notify)
+                decoded_category_for_notify = unquote(category_for_notify)
+                
+                logger.info(f"[update_inventory_for_chat] WebSocket params: category={category_for_notify} -> {decoded_category_for_notify}, item_id={item_id_for_notify} -> {decoded_item_id_for_notify}")
+                
                 # Получаем обновленный объект item из сохраненного инвентаря
                 updated_item_object = updated_inventory_for_response.get(category_for_notify, {}).get(item_id_for_notify)
                 
                 if updated_item_object:
-                    notify_payload_dict["item_id"] = item_id_for_notify
-                    notify_payload_dict["category"] = category_for_notify
+                    notify_payload_dict["item_id"] = decoded_item_id_for_notify
+                    notify_payload_dict["category"] = decoded_category_for_notify
                     notify_payload_dict["item"] = updated_item_object # <-- Отправляем сам объект товара
-                    logger.info(f"Adding item object to NOTIFY payload: item_id={item_id_for_notify}, category={category_for_notify}")
+                    logger.info(f"Adding item object to NOTIFY payload: item_id={decoded_item_id_for_notify}, category={decoded_category_for_notify}")
                 else:
                      logger.warning(f"Could not find updated item {category_for_notify}/{item_id_for_notify} in saved inventory for NOTIFY payload.")
                      # Если не нашли, НЕ добавляем item_id/category, чтобы фронтенд обновил только метаданные
@@ -2403,12 +2447,19 @@ async def update_inventory_item_point(
 
     # Отправляем NOTIFY
     try:
+        # Декодируем параметры для WebSocket (на случай если FastAPI не декодировал полностью)
+        from urllib.parse import unquote
+        decoded_item_id = unquote(item_id)
+        decoded_category = unquote(category)
+        
+        logger.info(f"[update_inventory_item_point] WebSocket params: category={category} -> {decoded_category}, item_id={item_id} -> {decoded_item_id}")
+        
         notify_payload = {
             "type": "inventory_updated",
             "chat_id": str(chat_id),
             "metadata": updated_metadata_for_response,
-            "item_id": item_id,
-            "category": category,
+            "item_id": decoded_item_id,
+            "category": decoded_category,
             "item": { **payload.item, **({"lastUpdated": updated_metadata_for_response.get("lastUpdated")} if isinstance(payload.item, dict) else {}) }
         }
         try:

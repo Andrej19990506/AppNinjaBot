@@ -892,15 +892,45 @@ const inventorySlice = createSlice({
                 
                 // Декодируем ключи инвентаря для корректного отображения в UI
                 const decodedInventory: Record<string, Record<string, any>> = {};
-                Object.entries(action.payload.inventory || {}).forEach(([encodedCategory, items]) => {
-                    const decodedCategory = decodeURIComponent(encodedCategory);
+                let decodingApplied = false;
+                
+                Object.entries(action.payload.inventory || {}).forEach(([category, items]) => {
+                    // Пытаемся декодировать категорию
+                    let decodedCategory = category;
+                    try {
+                        const decoded = decodeURIComponent(category);
+                        if (decoded !== category) {
+                            decodedCategory = decoded;
+                            decodingApplied = true;
+                            console.log(`🔧 [Cleanup] Декодирована категория: ${category} -> ${decodedCategory}`);
+                        }
+                    } catch (e) {
+                        // Остаемся с оригинальным именем
+                    }
+                    
                     decodedInventory[decodedCategory] = {};
                     
-                    Object.entries(items as Record<string, any>).forEach(([encodedItemId, item]) => {
-                        const decodedItemId = decodeURIComponent(encodedItemId);
+                    Object.entries(items as Record<string, any>).forEach(([itemId, item]) => {
+                        // Пытаемся декодировать имя товара
+                        let decodedItemId = itemId;
+                        try {
+                            const decoded = decodeURIComponent(itemId);
+                            if (decoded !== itemId) {
+                                decodedItemId = decoded;
+                                decodingApplied = true;
+                                console.log(`🔧 [Cleanup] Декодирован товар: ${itemId} -> ${decodedItemId}`);
+                            }
+                        } catch (e) {
+                            // Остаемся с оригинальным именем
+                        }
+                        
                         decodedInventory[decodedCategory][decodedItemId] = item;
                     });
                 });
+                
+                if (decodingApplied) {
+                    console.log(`🧹 [Cleanup] Полная очистка закодированных ключей для чата ${chatId} завершена`);
+                }
                 
                 const inventory = decodedInventory;
                 const calculatedProgress = calculateInventoryProgress(inventory);

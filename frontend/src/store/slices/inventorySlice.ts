@@ -288,9 +288,34 @@ export const updateInventoryItem = createAsyncThunk<
                 history: historyPayload
             };
             // Декодируем параметры чтобы избежать двойного кодирования
-            const decodedCategory = decodeURIComponent(category);
-            const decodedItemId = decodeURIComponent(itemId);
-            const response = await axiosInstance.put(`/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`, payloadToSend);
+            // Пробуем декодировать несколько раз на случай многократного кодирования
+            let decodedCategory = category;
+            let decodedItemId = itemId;
+            try {
+                decodedCategory = decodeURIComponent(category);
+                decodedItemId = decodeURIComponent(itemId);
+                // Проверяем, не нужно ли декодировать еще раз
+                if (decodedCategory.includes('%') || decodedItemId.includes('%')) {
+                    decodedCategory = decodeURIComponent(decodedCategory);
+                    decodedItemId = decodeURIComponent(decodedItemId);
+                }
+            } catch (e) {
+                console.warn('Ошибка декодирования URL параметров:', e);
+                decodedCategory = category;
+                decodedItemId = itemId;
+            }
+            console.log('🔍 [updateInventoryItem] URL params:', {
+                original_category: category,
+                original_itemId: itemId,
+                decoded_category: decodedCategory,
+                decoded_itemId: decodedItemId,
+                final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
+            });
+            const response = await axiosInstance({
+                method: 'PUT',
+                url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`,
+                data: payloadToSend
+            });
             // Ожидаем, что бэкенд вернёт { inventory, metadata, item?, category?, item_id? }
             const data = response.data as any;
             const serverInventory: Inventory = data?.inventory || {
@@ -341,9 +366,34 @@ export const updateInventoryStructure = createAsyncThunk<
                 }
             };
             // Декодируем параметры чтобы избежать двойного кодирования
-            const decodedCategory = decodeURIComponent(category);
-            const decodedItemId = decodeURIComponent(itemId);
-            await axiosInstance.put(`/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`, payloadToSend);
+            // Пробуем декодировать несколько раз на случай многократного кодирования
+            let decodedCategory = category;
+            let decodedItemId = itemId;
+            try {
+                decodedCategory = decodeURIComponent(category);
+                decodedItemId = decodeURIComponent(itemId);
+                // Проверяем, не нужно ли декодировать еще раз
+                if (decodedCategory.includes('%') || decodedItemId.includes('%')) {
+                    decodedCategory = decodeURIComponent(decodedCategory);
+                    decodedItemId = decodeURIComponent(decodedItemId);
+                }
+            } catch (e) {
+                console.warn('Ошибка декодирования URL параметров:', e);
+                decodedCategory = category;
+                decodedItemId = itemId;
+            }
+            console.log('🔍 [updateInventoryStructure] URL params:', {
+                original_category: category,
+                original_itemId: itemId,
+                decoded_category: decodedCategory,
+                decoded_itemId: decodedItemId,
+                final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
+            });
+            await axiosInstance({
+                method: 'PUT',
+                url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`,
+                data: payloadToSend
+            });
             const updatedInventory: Inventory = {
                 ...currentInventory,
                 [category]: {

@@ -198,14 +198,14 @@ http {
         # Покрывает: /api/*, /v1/*, /couriers/*, /users/* и любые другие API пути
         location ~* ^/(api|v1|couriers|users|shifts|reserves|groups|inventory|write-offs)(/.*)?$ {
 
-            # Для URL начинающихся с /v1/ добавляем /api префикс, сохраняя оригинальный путь
-            set $final_uri $uri;
-            if ($uri ~ ^/v1/(.*)$) {
-                set $final_uri /api$uri;
+            # Для URL начинающихся с /v1/ добавляем /api префикс, сохраняя исходное кодирование
+            set $final_uri $request_uri;
+            if ($request_uri ~ ^/v1/(.*)$) {
+                set $final_uri /api/v1/$1;
             }
             
-            # Проксируем с исправленным URI
-            proxy_pass http://server:8000$final_uri$is_args$args;
+            # Проксируем с исправленным URI, сохраняя исходное кодирование
+            proxy_pass http://server:8000$final_uri;
 
             # АНТИ-КЭШ ЗАГОЛОВКИ ДЛЯ ВСЕХ API
             add_header Cache-Control "no-cache, no-store, must-revalidate" always;
@@ -453,14 +453,14 @@ http {
 
         # API endpoints для localhost (дублируем из основного сервера)
         location ~ ^/(api|v1|couriers|users|shifts|reserves|groups|inventory|write-offs)(/.*)?$ {
-            # Для URL начинающихся с /v1/ добавляем /api префикс, сохраняя оригинальный путь
-            set $final_uri $uri;
-            if ($uri ~ ^/v1/(.*)$) {
-                set $final_uri /api$uri;
+            # Для URL начинающихся с /v1/ добавляем /api префикс, сохраняя исходное кодирование
+            set $final_uri $request_uri;
+            if ($request_uri ~ ^/v1/(.*)$) {
+                set $final_uri /api/v1/$1;
             }
             
-            # Проксируем с исправленным URI
-            proxy_pass http://server:8000$final_uri$is_args$args;
+            # Проксируем с исправленным URI, сохраняя исходное кодирование
+            proxy_pass http://server:8000$final_uri;
 
             # АНТИ-КЭШ ЗАГОЛОВКИ ДЛЯ ВСЕХ API
             add_header Cache-Control "no-cache, no-store, must-revalidate" always;

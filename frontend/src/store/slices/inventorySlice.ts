@@ -311,11 +311,8 @@ export const updateInventoryItem = createAsyncThunk<
                 decoded_itemId: decodedItemId,
                 final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
             });
-            const response = await axiosInstance({
-                method: 'PUT',
-                url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`,
-                data: payloadToSend
-            });
+            // Возвращаемся к стандартному подходу с правильным кодированием
+            const response = await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`, payloadToSend);
             // Ожидаем, что бэкенд вернёт { inventory, metadata, item?, category?, item_id? }
             const data = response.data as any;
             const serverInventory: Inventory = data?.inventory || {
@@ -389,11 +386,8 @@ export const updateInventoryStructure = createAsyncThunk<
                 decoded_itemId: decodedItemId,
                 final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
             });
-            await axiosInstance({
-                method: 'PUT',
-                url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`,
-                data: payloadToSend
-            });
+            // Возвращаемся к стандартному подходу с правильным кодированием
+            await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`, payloadToSend);
             const updatedInventory: Inventory = {
                 ...currentInventory,
                 [category]: {

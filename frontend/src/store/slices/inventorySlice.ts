@@ -821,9 +821,13 @@ const inventorySlice = createSlice({
                     // Не обновляем inventory здесь - это сделает компонент через useEffect
                 }
                 
-                // Обновляем selectedChat если это текущий чат
+                // Обновляем selectedChat если это текущий чат - КРИТИЧНО для перерендера UI!
                 if (state.selectedChatId === chatId) {
-                    state.selectedChat = { ...chatState };
+                    // Делаем глубокую копию для trigger перерендера React компонентов
+                    state.selectedChat = { 
+                        ...chatState,
+                        inventory: { ...chatState.inventory } // Создаем новую ссылку на inventory объект
+                    };
                     if (item_id && category && item) {
                         const itemTimestamp = item.lastUpdated || incomingTimestamp;
                         console.log(`✅ [WS Update] Обновлен товар в UI: ${category}/${item_id}`, {

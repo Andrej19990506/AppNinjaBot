@@ -758,12 +758,33 @@ const inventorySlice = createSlice({
                     if (!chatState.inventory) {
                          chatState.inventory = {};
                     }
-                    if (!chatState.inventory[category]) {
-                        chatState.inventory[category] = {};
+                    
+                    // Декодируем ключи для обеспечения консистентности
+                    const decodedCategory = category;  // уже декодирован в WebSocket handler
+                    const decodedItemId = item_id;     // уже декодирован в WebSocket handler
+                    
+                    // Удаляем возможные закодированные дубликаты
+                    const encodedCategory = encodeURIComponent(decodedCategory);
+                    const encodedItemId = encodeURIComponent(decodedItemId);
+                    
+                    if (chatState.inventory[encodedCategory]) {
+                        if (chatState.inventory[encodedCategory][encodedItemId]) {
+                            console.log(`🧹 [Cleanup] Удаляем закодированный дубликат товара: ${encodedCategory}/${encodedItemId}`);
+                            delete chatState.inventory[encodedCategory][encodedItemId];
+                        }
+                        // Если категория стала пустой, удаляем ее
+                        if (Object.keys(chatState.inventory[encodedCategory]).length === 0) {
+                            console.log(`🧹 [Cleanup] Удаляем пустую закодированную категорию: ${encodedCategory}`);
+                            delete chatState.inventory[encodedCategory];
+                        }
+                    }
+                    
+                    if (!chatState.inventory[decodedCategory]) {
+                        chatState.inventory[decodedCategory] = {};
                     }
                     
                     // 🚨 УЛУЧШЕННОЕ CONFLICT RESOLUTION для одновременного редактирования
-                    const existingItem = chatState.inventory[category][item_id];
+                    const existingItem = chatState.inventory[decodedCategory][decodedItemId];
                     const itemTimestamp = item.lastUpdated || incomingTimestamp;
                     const existingItemTimestamp = existingItem?.lastUpdated;
                     
@@ -772,14 +793,14 @@ const inventorySlice = createSlice({
                         const existingTime = new Date(existingItemTimestamp).getTime();
                         // Отклоняем только явно старое обновление
                         if (itemTime < existingTime) {
-                            console.info(`🔄 [Concurrent Update] Пропущено устаревшее обновление товара ${category}/${item_id}:`, {
+                            console.info(`🔄 [Concurrent Update] Пропущено устаревшее обновление товара ${decodedCategory}/${decodedItemId}:`, {
                                 incoming: itemTimestamp,
                                 existing: existingItemTimestamp,
                                 diffMs: existingTime - itemTime
                             });
                             return;
                         }
-                        console.info(`🔄 [Concurrent Update] Принято новое/равное обновление товара ${category}/${item_id}:`, {
+                        console.info(`🔄 [Concurrent Update] Принято новое/равное обновление товара ${decodedCategory}/${decodedItemId}:`, {
                             incoming: itemTimestamp,
                             existing: existingItemTimestamp,
                             diffMs: itemTime - existingTime
@@ -787,7 +808,7 @@ const inventorySlice = createSlice({
                     }
                     
                     // Добавляем timestamp к товару если его нет
-                    chatState.inventory[category][item_id] = {
+                    chatState.inventory[decodedCategory][decodedItemId] = {
                         ...item,
                         lastUpdated: itemTimestamp
                     };

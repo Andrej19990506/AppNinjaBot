@@ -2508,8 +2508,41 @@ async def update_inventory_item_point(
                     "photo_url": str(admin.photo_url) if admin.photo_url else None
                 })
 
+        # Декодируем ключи инвентаря перед отправкой фронтенду (симметрично GET эндпоинту)
+        from urllib.parse import unquote
+        decoded_inventory_for_response: dict[str, dict] = {}
+        try:
+            if isinstance(updated_inventory_for_response, dict):
+                for category_key, items in updated_inventory_for_response.items():
+                    try:
+                        decoded_category_key = unquote(category_key)
+                        if '%' in decoded_category_key:
+                            decoded_category_key = unquote(decoded_category_key)
+                    except Exception:
+                        decoded_category_key = category_key
+
+                    decoded_inventory_for_response[decoded_category_key] = {}
+
+                    if isinstance(items, dict):
+                        for item_key, item_value in items.items():
+                            try:
+                                decoded_item_key = unquote(item_key)
+                                if '%' in decoded_item_key:
+                                    decoded_item_key = unquote(decoded_item_key)
+                            except Exception:
+                                decoded_item_key = item_key
+
+                            decoded_inventory_for_response[decoded_category_key][decoded_item_key] = item_value
+                    else:
+                        decoded_inventory_for_response[decoded_category_key] = items
+            else:
+                decoded_inventory_for_response = updated_inventory_for_response
+        except Exception:
+            # В случае любой ошибки декодирования возвращаем как есть
+            decoded_inventory_for_response = updated_inventory_for_response
+
         return {
-            "inventory": updated_inventory_for_response,
+            "inventory": decoded_inventory_for_response,
             "metadata": updated_metadata_for_response,
             "chat_title": group_title_for_response or str(chat_id),
             "admins": admins_list_of_dicts

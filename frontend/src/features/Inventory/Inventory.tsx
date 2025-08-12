@@ -116,8 +116,8 @@ const Inventory: React.FC = () => {
         checkForUnviewedTemplateChanges
     } = useInventoryWebSocketSync(); 
 
-    // Хук для отслеживания активности пользователя (30 секунд неактивности)
-    const userActivity = useUserActivity(30000);
+    // Хук для отслеживания активности пользователя (2.5 минуты неактивности, 3 минуты для скрытия/потери фокуса)
+    const userActivity = useUserActivity(150000); // 2.5 минуты (150 секунд)
     
     const {
         searchQuery,
@@ -388,8 +388,9 @@ const Inventory: React.FC = () => {
                 onSelect={handleCategorySelect}
                 inventory={selectedChat?.inventory || {}}
                 selectedCategory={selectedCategory}
+                chatId={selectedChat?.chat_id || ''}
             />
-        ), [categories, handleCategorySelect, selectedChat?.inventory, selectedCategory]),
+        ), [categories, handleCategorySelect, selectedChat?.inventory, selectedCategory, selectedChat?.chat_id]),
         renderItems: useCallback((category) => (
             <ItemList
                 key={`items-${category}`}

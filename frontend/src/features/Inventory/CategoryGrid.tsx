@@ -12,40 +12,149 @@ interface CategoryGridProps {
     onSelect: (category: string) => void;
     inventory: Inventory;
     selectedCategory: string | null;
+    chatId: string;
 }
 
-const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inventory, selectedCategory }) => {
+const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inventory, selectedCategory, chatId }) => {
     const gridRef = useRef<HTMLDivElement>(null);
-    const [focusingUsers, setFocusingUsers] = useState<Record<string, { userId: string | number; firstName?: string; category?: string; photoUrl?: string }[]>>({});
+    const [focusingUsers, setFocusingUsers] = useState<Record<string, Array<{ userId: string; firstName: string; category: string; photoUrl?: string }>>>({});
     type TooltipState = { key: string; text?: string; name?: string; category?: string; x: number; y: number; sticky?: boolean } | null;
     const [tooltip, setTooltip] = useState<TooltipState>(null);
     const hideTimerRef = useRef<number | null>(null);
     const autoCloseTimerRef = useRef<number | null>(null);
     const lastTouchTsRef = useRef<number>(0);
     const openTouchTsRef = useRef<number>(0);
+    
     // Слушаем фокус категории и отображаем аватарки
     useEffect(() => {
         const unsub = socketService.onCategoryFocusUpdate((data: any) => {
             const { chat_id, category, focusing, user_info } = data || {};
             if (!category) return;
+            
             const baseURL = (window as any).APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
             const uid = user_info?.userId || user_info?.user_id;
             const firstName = user_info?.first_name || user_info?.firstName;
             const apiBase = baseURL?.includes('/api') ? baseURL : `${baseURL}/api`;
             const photo = uid ? `${apiBase}/v1/users/${uid}/photo` : undefined;
+            
+            console.log('🔍 [CategoryGrid] Получено событие category_focus_update:', { category, focusing, uid, firstName });
+            
             setFocusingUsers(prev => {
                 const list = prev[category] ? [...prev[category]] : [];
                 const existsIdx = list.findIndex(u => String(u.userId) === String(uid));
+                
                 if (focusing) {
-                    if (existsIdx === -1 && uid) list.push({ userId: uid, firstName, category, photoUrl: photo });
+                    // Пользователь вошел в категорию
+                    if (existsIdx === -1 && uid) {
+                        console.log('🔍 [CategoryGrid] Добавляем пользователя в категорию:', { category, uid, firstName });
+                        list.push({ userId: uid, firstName, category, photoUrl: photo });
+                    } else if (existsIdx !== -1) {
+                        console.log('🔍 [CategoryGrid] Пользователь уже в категории, обновляем информацию:', { category, uid, firstName });
+                        // Обновляем информацию о пользователе
+                        list[existsIdx] = { userId: uid, firstName, category, photoUrl: photo };
+                    }
                 } else {
-                    if (existsIdx !== -1) list.splice(existsIdx, 1);
+                    // Пользователь вышел из категории
+                    if (existsIdx !== -1) {
+                        console.log('🔍 [CategoryGrid] Убираем пользователя из категории:', { category, uid, firstName });
+                        list.splice(existsIdx, 1);
+                        
+                        // 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Логируем сколько пользователей осталось в категории
+                        console.log('🔍 [CategoryGrid] В категории', category, 'осталось пользователей:', list.length);
+                    }
                 }
-                return { ...prev, [category]: list };
+                
+                const newState = { ...prev, [category]: list };
+                console.log('🔍 [CategoryGrid] Новое состояние focusingUsers для категории', category, ':', list);
+                return newState;
             });
         });
         return () => unsub();
     }, []);
+
+    // 🔧 НОВОЕ: Запрашиваем текущие статусы сотрудников по категориям при инициализации
+    useEffect(() => {
+        if (!chatId) {
+            console.log('🔍 [CategoryGrid] ChatId не передан, пропускаем запрос статусов');
+            return;
+        }
+
+        console.log('🔍 [CategoryGrid] Запрашиваем текущие статусы сотрудников для chatId:', chatId);
+        
+        // Запрашиваем текущий список пользователей в комнате инвентаризации
+        socketService.emit('get_room_users', { room: `inventory_${chatId}` });
+        
+        // Обрабатываем ответ с текущими пользователями
+        const handleRoomUsers = (data: any) => {
+            if (data.room === `inventory_${chatId}`) {
+                console.log('🔍 [CategoryGrid] Получен список пользователей комнаты:', data.users);
+                
+                // Группируем пользователей по категориям (если у них есть информация о текущей категории)
+                const usersByCategory: Record<string, Array<{ userId: string; firstName: string; category: string; photoUrl?: string }>> = {};
+                
+                data.users.forEach((user: any) => {
+                    // Если у пользователя есть информация о текущей категории
+                    if (user.current_category) {
+                        const category = user.current_category;
+                        const baseURL = (window as any).APP_CONFIG?.API_URL || import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+                        const apiBase = baseURL?.includes('/api') ? baseURL : `${baseURL}/api`;
+                        const photo = user.userId ? `${apiBase}/v1/users/${user.userId}/photo` : undefined;
+                        
+                        if (!usersByCategory[category]) {
+                            usersByCategory[category] = [];
+                        }
+                        
+                        const userInfo = {
+                            userId: user.userId || user.user_id || user.sid,
+                            firstName: user.first_name || 'Сотрудник',
+                            category: category,
+                            photoUrl: photo
+                        };
+                        
+                        // Проверяем, нет ли уже такого пользователя в категории
+                        const existingUserIndex = usersByCategory[category].findIndex(u => String(u.userId) === String(userInfo.userId));
+                        if (existingUserIndex === -1) {
+                            usersByCategory[category].push(userInfo);
+                            console.log('🔍 [CategoryGrid] Добавлен пользователь в категорию:', { category, userInfo });
+                        } else {
+                            // Обновляем информацию о существующем пользователе
+                            usersByCategory[category][existingUserIndex] = userInfo;
+                            console.log('🔍 [CategoryGrid] Обновлен пользователь в категории:', { category, userInfo });
+                        }
+                    }
+                });
+                
+                console.log('🔍 [CategoryGrid] Сгруппированные пользователи по категориям:', usersByCategory);
+                
+                // 🔧 НОВОЕ: Обновляем состояние, сохраняя существующих пользователей
+                setFocusingUsers(prev => {
+                    const newState = { ...prev };
+                    
+                    // Обновляем только те категории, для которых получили данные
+                    Object.keys(usersByCategory).forEach(category => {
+                        newState[category] = usersByCategory[category];
+                    });
+                    
+                    console.log('🔍 [CategoryGrid] Обновленное состояние focusingUsers:', newState);
+                    return newState;
+                });
+            }
+        };
+        
+        // Подписываемся на ответ
+        const unsubscribe = socketService.subscribe('room_users_list', handleRoomUsers);
+        
+        // Повторный запрос через 2 секунды для надежности
+        const retryTimeout = setTimeout(() => {
+            console.log('🔍 [CategoryGrid] Повторный запрос статусов сотрудников');
+            socketService.emit('get_room_users', { room: `inventory_${chatId}` });
+        }, 2000);
+        
+        return () => {
+            unsubscribe();
+            clearTimeout(retryTimeout);
+        };
+    }, [chatId]);
 
     // Хелперы для показа тултипа через портал
     const cancelHide = () => {

@@ -274,6 +274,9 @@ async def disconnect(sid):
         
         # Удаляем информацию о пользователе
         if sid in user_info:
+            # 🔧 НОВОЕ: Очищаем информацию о текущей категории пользователя
+            if 'current_category' in user_info[sid]:
+                logger.info(f"📂 [CATEGORY] Очищаем текущую категорию для отключившегося пользователя {sid}")
             del user_info[sid]
         
         # Удаляем состояние подключения
@@ -573,12 +576,16 @@ async def join_room(sid, data):
             room_users_for_panel = []
             for user_sid in current_room_sids:
                 user_data = user_info.get(user_sid, {}).get('user_info', {})
+                # 🔧 НОВОЕ: Добавляем информацию о текущей категории пользователя
+                current_category = user_info.get(user_sid, {}).get('current_category')
+                
                 room_users_for_panel.append({
                     'userId': user_data.get('userId') or user_data.get('user_id') or user_sid,
                     'first_name': user_data.get('first_name', 'Пользователь'),
                     'last_name': user_data.get('last_name'),
                     'photo_url': user_data.get('photo_url'),
-                    'joinedAt': user_info.get(user_sid, {}).get('connection_time', response['timestamp'])
+                    'joinedAt': user_info.get(user_sid, {}).get('connection_time', response['timestamp']),
+                    'current_category': current_category  # 🔧 НОВОЕ: Текущая категория пользователя
                 })
             
             # Отправляем список всем в комнате (включая нового пользователя)
@@ -687,11 +694,15 @@ async def leave_room(sid, room):
         for user_sid in room_sids:
             if user_sid in user_info and user_info[user_sid].get('user_info'):
                 user_data_item = user_info[user_sid].get('user_info', {})
+                # 🔧 НОВОЕ: Добавляем информацию о текущей категории пользователя
+                current_category = user_info.get(user_sid, {}).get('current_category')
+                
                 room_users_for_panel.append({
                     'userId': user_data_item.get('userId') or user_data_item.get('user_id') or user_sid,
                     'first_name': user_data_item.get('first_name', 'Пользователь'),
                     'last_name': user_data_item.get('last_name'),
-                    'joinedAt': user_info[user_sid].get('connection_time', datetime.now().isoformat())
+                    'joinedAt': user_info[user_sid].get('connection_time', datetime.now().isoformat()),
+                    'current_category': current_category  # 🔧 НОВОЕ: Текущая категория пользователя
                 })
         
         room_users_event = {
@@ -872,7 +883,8 @@ async def get_room_users(sid, data):
                 user_data = {
                     'sid': user_sid,
                     **user_info[user_sid].get('user_info', {}),
-                    'connection_time': user_info[user_sid].get('connection_time')
+                    'connection_time': user_info[user_sid].get('connection_time'),
+                    'current_category': user_info[user_sid].get('current_category')  # 🔧 НОВОЕ: Текущая категория пользователя
                 }
                 room_users.append(user_data)
                 logger.info(f"✅ Добавлен пользователь: {user_data}")
@@ -1074,6 +1086,9 @@ async def get_room_users(sid, data):
                 user_activity_state = user_info[user_sid].get('user_activity_state', USER_ACTIVITY_STATES['ACTIVE'])
                 last_user_activity = user_info[user_sid].get('last_user_activity', 0)
                 
+                # 🔧 НОВОЕ: Добавляем информацию о текущей категории пользователя
+                current_category = user_info[user_sid].get('current_category')
+                
                 room_users_for_panel.append({
                     'userId': user_data.get('userId') or user_data.get('user_id') or user_sid,
                     'first_name': user_data.get('first_name', 'Пользователь'),
@@ -1085,9 +1100,10 @@ async def get_room_users(sid, data):
                     'last_activity': last_activity,
                     'user_activity_state': user_activity_state,
                     'last_user_activity': last_user_activity,
-                    'is_active': connection_state == CONNECTION_STATES['ACTIVE'] and user_activity_state == USER_ACTIVITY_STATES['ACTIVE']
+                    'is_active': connection_state == CONNECTION_STATES['ACTIVE'] and user_activity_state == USER_ACTIVITY_STATES['ACTIVE'],
+                    'current_category': current_category  # 🔧 НОВОЕ: Текущая категория пользователя
                 })
-                logger.info(f"✅ [ACTIVE USERS] Добавлен пользователь: {user_data.get('first_name', 'Пользователь')} (состояние: {connection_state})")
+                logger.info(f"✅ [ACTIVE USERS] Добавлен пользователь: {user_data.get('first_name', 'Пользователь')} (состояние: {connection_state}, категория: {current_category})")
 
         response = {
             'room': room,
@@ -1285,6 +1301,30 @@ async def handle_category_focus(sid, data):
         category = data.get('category')
         focusing = bool(data.get('focusing'))
         room = f"inventory_{chat_id}"
+        
+        # 🔧 НОВОЕ: Сохраняем информацию о текущей категории пользователя
+        if sid in user_info:
+            if focusing:
+                # Пользователь вошел в категорию
+                user_info[sid]['current_category'] = category
+                logger.info(f"📂 [CATEGORY] Пользователь {sid} вошел в категорию: {category}")
+            else:
+                # Пользователь вышел из категории
+                if 'current_category' in user_info[sid]:
+                    previous_category = user_info[sid]['current_category']
+                    del user_info[sid]['current_category']
+                    logger.info(f"📂 [CATEGORY] Пользователь {sid} вышел из категории: {previous_category}")
+                    
+                    # 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Проверяем, сколько пользователей осталось в этой категории
+                    users_in_category = 0
+                    for user_sid, user_data in user_info.items():
+                        if user_data.get('current_category') == previous_category:
+                            users_in_category += 1
+                    
+                    logger.info(f"📂 [CATEGORY] В категории {previous_category} осталось пользователей: {users_in_category}")
+                else:
+                    logger.info(f"📂 [CATEGORY] Пользователь {sid} вышел из категории: {category} (не было сохранено)")
+        
         event = {
             'chat_id': chat_id,
             'category': category,

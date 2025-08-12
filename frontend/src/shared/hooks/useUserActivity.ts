@@ -7,7 +7,7 @@ export interface UserActivityState {
   timeSinceLastActivity: number;
 }
 
-export const useUserActivity = (inactivityTimeout: number = 120000) => {
+export const useUserActivity = (inactivityTimeout: number = 150000) => {
   const [activityState, setActivityState] = useState<UserActivityState>({
     isActive: true,
     lastActivityTime: Date.now(),
@@ -92,13 +92,13 @@ export const useUserActivity = (inactivityTimeout: number = 120000) => {
       }
       visibilityTimeout = setTimeout(() => {
         if (document.hidden) {
-          // Страница скрыта — НЕ уходим в неактив сразу. Ждём 60 секунд.
+          // Страница скрыта — НЕ уходим в неактив сразу. Ждём 3 минуты.
           if (pendingAwayTimerRef.current) clearTimeout(pendingAwayTimerRef.current);
           pendingAwayTimerRef.current = setTimeout(() => {
             isActiveRef.current = false;
             setActivityState(prev => ({ ...prev, isActive: false }));
             sendInactiveState();
-          }, 60000);
+          }, 180000); // 3 минуты (180 секунд)
         } else {
           // Страница снова видна — отменяем отложенный уход и считаем активным
           if (pendingAwayTimerRef.current) {
@@ -133,13 +133,13 @@ export const useUserActivity = (inactivityTimeout: number = 120000) => {
         clearTimeout(blurTimeout);
       }
       blurTimeout = setTimeout(() => {
-        // Не считаем «ушёл» мгновенно — ждём 60 секунд, если не вернулся
+        // Не считаем «ушёл» мгновенно — ждём 3 минуты, если не вернулся
         if (pendingAwayTimerRef.current) clearTimeout(pendingAwayTimerRef.current);
         pendingAwayTimerRef.current = setTimeout(() => {
           isActiveRef.current = false;
           setActivityState(prev => ({ ...prev, isActive: false }));
           sendInactiveState();
-        }, 60000);
+        }, 180000); // 3 минуты (180 секунд)
       }, 300); // Небольшой дебаунс blur
     };
 

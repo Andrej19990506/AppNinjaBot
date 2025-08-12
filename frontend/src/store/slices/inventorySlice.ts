@@ -304,25 +304,30 @@ export const updateInventoryItem = createAsyncThunk<
                 decodedCategory = category;
                 decodedItemId = itemId;
             }
-            console.log('🔍 [updateInventoryItem] URL params:', {
-                original_category: category,
-                original_itemId: itemId,
-                decoded_category: decodedCategory,
-                decoded_itemId: decodedItemId,
-                final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
-            });
-            // Возвращаемся к стандартному подходу с правильным кодированием
-            const response = await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`, payloadToSend);
+            console.log('🔍 [updateInventoryItem] Обновляем товар:', { decodedCategory, decodedItemId });
+            // Используем правильный эндпоинт с категорией и именем товара
+            const url = `/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`;
+            console.log('🔍 [updateInventoryItem] Отправляем PUT запрос:', url);
+            const response: any = await axiosInstance.put(url, payloadToSend);
             // Ожидаем, что бэкенд вернёт { inventory, metadata, item?, category?, item_id? }
             const data = response.data as any;
-            const serverInventory: Inventory = data?.inventory || {
-                ...currentInventory,
-                [category]: {
-                    ...currentInventory[category],
-                    [itemId]: item
-                }
-            };
-            return { chatId, inventory: serverInventory };
+            console.log('🔍 [updateInventoryItem] Ответ от сервера:', data);
+            
+            // Проверяем, что сервер вернул правильный инвентарь
+            if (data?.inventory && typeof data.inventory === 'object') {
+                console.log('🔍 [updateInventoryItem] Сервер вернул инвентарь:', data.inventory);
+                return { chatId, inventory: data.inventory };
+            } else {
+                console.warn('⚠️ [updateInventoryItem] Сервер не вернул инвентарь, используем локальный fallback');
+                const serverInventory: Inventory = {
+                    ...currentInventory,
+                    [category]: {
+                        ...currentInventory[category],
+                        [itemId]: item
+                    }
+                };
+                return { chatId, inventory: serverInventory };
+            }
         } catch (error: any) {
             return rejectWithValue('Не удалось обновить инвентарь');
         }
@@ -348,7 +353,7 @@ export const updateInventoryStructure = createAsyncThunk<
         const currentUser = state.user.user;
         const currentInventory = state.inventory.selectedChat?.inventory || {};
         try {
-            // --- Точечный PUT без истории ---
+            // --- Точечный PUT без истории (by-uuid если есть) ---
             const payloadToSend = {
                 item: item,
                 metadata: {
@@ -379,15 +384,10 @@ export const updateInventoryStructure = createAsyncThunk<
                 decodedCategory = category;
                 decodedItemId = itemId;
             }
-            console.log('🔍 [updateInventoryStructure] URL params:', {
-                original_category: category,
-                original_itemId: itemId,
-                decoded_category: decodedCategory,
-                decoded_itemId: decodedItemId,
-                final_url: `/v1/inventory/${chatId}/items/${decodedCategory}/${decodedItemId}`
-            });
-            // Возвращаемся к стандартному подходу с правильным кодированием
-            await axiosInstance.put(`/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`, payloadToSend);
+            // Используем правильный эндпоинт с категорией и именем товара
+            const url = `/v1/inventory/${chatId}/items/${encodeURIComponent(decodedCategory)}/${encodeURIComponent(decodedItemId)}`;
+            console.log('🔍 [updateInventoryStructure] Отправляем PUT запрос:', url);
+            await axiosInstance.put(url, payloadToSend);
             const updatedInventory: Inventory = {
                 ...currentInventory,
                 [category]: {
@@ -560,6 +560,28 @@ const inventorySlice = createSlice({
                 const oldData = state.items[chatIndex];
                 if (data.type === 'item_update' && data.category && data.itemId && data.item) {
                     const updatedInventory = JSON.parse(JSON.stringify(oldData.inventory || {}));
+                    // --- Консолидация по uuid при локальном обновлении (без WS) ---
+                    try {
+                        const incomingUuid = (data.item as any)?.uuid;
+                        if (incomingUuid) {
+                            Object.keys(updatedInventory || {}).forEach((catKey) => {
+                                const categoryItems = updatedInventory[catKey] || {};
+                                Object.keys(categoryItems).forEach((itemKey) => {
+                                    const existing = categoryItems[itemKey];
+                                    if (existing && typeof existing === 'object' && (existing as any).uuid === incomingUuid) {
+                                        if (catKey !== data.category || itemKey !== data.itemId) {
+                                            delete updatedInventory[catKey][itemKey];
+                                        }
+                                    }
+                                });
+                                if (Object.keys(updatedInventory[catKey] || {}).length === 0) {
+                                    delete updatedInventory[catKey];
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[updateInventoryData] UUID consolidation failed:', e);
+                    }
                     if (!updatedInventory[data.category]) {
                         updatedInventory[data.category] = {};
                     }
@@ -760,9 +782,79 @@ const inventorySlice = createSlice({
                     }
                     
                     // Декодируем ключи для обеспечения консистентности
-                    const decodedCategory = category;  // уже декодирован в WebSocket handler
-                    const decodedItemId = item_id;     // уже декодирован в WebSocket handler
+                    let decodedCategory = category;  // уже декодирован в WebSocket handler
+                    let decodedItemId = item_id;     // уже декодирован в WebSocket handler
+
+                    // --- Маппинг by-uuid -> реальные ключи (категория/имя) ---
+                    try {
+                        const incomingUuid: string | undefined = (item as any)?.uuid || (typeof item_id === 'string' && item_id.match(/^[0-9a-fA-F-]{36}$/) ? item_id : undefined);
+                        const looksLikeByUuid = decodedCategory === 'by-uuid' || decodedCategory === 'uuid' || decodedCategory === 'by_uuid';
+                        if (incomingUuid && looksLikeByUuid && chatState.inventory) {
+                            let foundCategory: string | null = null;
+                            let foundItemId: string | null = null;
+                            Object.keys(chatState.inventory).some((catKey) => {
+                                const categoryItems = chatState.inventory![catKey] || {} as Record<string, any>;
+                                const matchKey = Object.keys(categoryItems).find((itemKey) => {
+                                    const existing = categoryItems[itemKey];
+                                    return existing && typeof existing === 'object' && (existing as any).uuid === incomingUuid;
+                                });
+                                if (matchKey) {
+                                    foundCategory = catKey;
+                                    foundItemId = matchKey;
+                                    return true;
+                                }
+                                return false;
+                            });
+                            if (foundCategory && foundItemId) {
+                                console.log(`🔁 [WS Map] Разрешили by-uuid -> ${foundCategory}/${foundItemId} для uuid=${incomingUuid}`);
+                                decodedCategory = foundCategory;
+                                decodedItemId = foundItemId;
+                            } else {
+                                // 🚨 ИСПРАВЛЕНИЕ: Если товар не найден в локальном состоянии, 
+                                // используем данные из самого товара или создаем временные ключи
+                                if (item && typeof item === 'object') {
+                                    const itemName = (item as any).name || `Item-${incomingUuid.slice(0, 8)}`;
+                                    const itemCategory = (item as any).category || 'Новая категория';
+                                    
+                                    console.log(`⚠️ [WS Map] Товар не найден в локальном состоянии. Создаем временные ключи: ${itemCategory}/${itemName} для uuid=${incomingUuid}`);
+                                    
+                                    decodedCategory = itemCategory;
+                                    decodedItemId = itemName;
+                                } else {
+                                    console.warn(`⚠️ [WS Map] Не удалось найти товар по uuid=${incomingUuid} и нет данных товара. Пропускаем создание ключа 'by-uuid'.`);
+                                    // Не создаём запись с ключами by-uuid/uuid, просто выйдем (метаданные уже обновлены)
+                                    return;
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[receiveItemUpdate] by-uuid mapping failed:', e);
+                    }
                     
+                    // --- Консолидация по uuid при событии WS ---
+                    try {
+                        const incomingUuid = (item as any)?.uuid;
+                        if (incomingUuid && chatState.inventory) {
+                            Object.keys(chatState.inventory).forEach((catKey) => {
+                                const categoryItems = chatState.inventory![catKey] || {} as Record<string, any>;
+                                Object.keys(categoryItems).forEach((itemKey) => {
+                                    const existing = categoryItems[itemKey];
+                                    if (existing && typeof existing === 'object' && (existing as any).uuid === incomingUuid) {
+                                        if (catKey !== decodedCategory || itemKey !== decodedItemId) {
+                                            console.log(`🧹 [UUID Consolidation] Перенос: ${catKey}/${itemKey} -> ${decodedCategory}/${decodedItemId}`);
+                                            delete chatState.inventory![catKey][itemKey];
+                                        }
+                                    }
+                                });
+                                if (Object.keys(chatState.inventory![catKey] || {}).length === 0) {
+                                    delete chatState.inventory![catKey];
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('[receiveItemUpdate] UUID consolidation failed:', e);
+                    }
+
                     // Удаляем возможные закодированные дубликаты
                     const encodedCategory = encodeURIComponent(decodedCategory);
                     const encodedItemId = encodeURIComponent(decodedItemId);
@@ -808,6 +900,14 @@ const inventorySlice = createSlice({
                     }
                     
                     // Добавляем timestamp к товару если его нет
+                    // 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Убеждаемся что товар не сохраняется с ключами by-uuid
+                    if (decodedCategory === 'by-uuid' || decodedCategory === 'uuid' || decodedCategory === 'by_uuid') {
+                        console.error(`🚨 [CRITICAL] Попытка сохранить товар с ключом by-uuid: ${decodedCategory}/${decodedItemId}`);
+                        console.error(`🚨 [CRITICAL] Это означает, что бэкенд все еще создает категорию 'by-uuid'!`);
+                        console.error(`🚨 [CRITICAL] Payload:`, action.payload);
+                        return; // Не сохраняем товар с некорректными ключами
+                    }
+                    
                     chatState.inventory[decodedCategory][decodedItemId] = {
                         ...item,
                         lastUpdated: itemTimestamp

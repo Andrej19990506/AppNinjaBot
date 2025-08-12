@@ -122,6 +122,56 @@ class AdminInfo(UserSimple):
 
 # --- ЭНДПОИНТЫ ИНВЕНТАРЯ ---
 
+def ensure_uuid_for_inventory_items(inventory: Dict[str, Any] | None) -> Dict[str, Any]:
+    """Добавляет uuid и name каждому товару в инвентаре (по категориям).
+    Возвращает НОВУЮ копию словаря с внесенными полями.
+    """
+    if not isinstance(inventory, dict):
+        return {}
+    
+    normalized: Dict[str, Any] = json.loads(json.dumps(inventory))
+    
+    for category_key, items in list(normalized.items()):
+        # 🚨 ПРОВЕРКА: Убеждаемся что категория не является by-uuid
+        if category_key in ['by-uuid', 'uuid', 'by_uuid']:
+            logger.warning(f"[ensure_uuid_for_inventory_items] Обнаружена некорректная категория: {category_key}. Пропускаем.")
+            continue
+            
+        if not isinstance(items, dict):
+            # не словарь товаров — пропускаем
+            continue
+            
+        for item_key, item_payload in list(items.items()):
+            # 🚨 ПРОВЕРКА: Убеждаемся что ключ товара не является by-uuid
+            if item_key in ['by-uuid', 'uuid', 'by_uuid']:
+                logger.warning(f"[ensure_uuid_for_inventory_items] Обнаружен некорректный ключ товара: {category_key}/{item_key}. Пропускаем.")
+                continue
+                
+            if not isinstance(item_payload, dict):
+                # приводим к словарю
+                item_payload = {"value": item_payload}
+                normalized[category_key][item_key] = item_payload
+                
+            # name
+            if not item_payload.get("name"):
+                item_payload["name"] = str(item_key)
+                
+            # uuid
+            if not item_payload.get("uuid"):
+                item_payload["uuid"] = str(uuid.uuid4())
+                logger.debug(f"[ensure_uuid_for_inventory_items] Добавлен UUID для товара {category_key}/{item_key}: {item_payload['uuid']}")
+            else:
+                # Проверяем что UUID валидный
+                try:
+                    uuid.UUID(item_payload["uuid"])
+                    logger.debug(f"[ensure_uuid_for_inventory_items] Товар {category_key}/{item_key} уже имеет валидный UUID: {item_payload['uuid']}")
+                except ValueError:
+                    logger.warning(f"[ensure_uuid_for_inventory_items] Товар {category_key}/{item_key} имеет некорректный UUID: {item_payload['uuid']}. Генерируем новый.")
+                    item_payload["uuid"] = str(uuid.uuid4())
+                    
+    return normalized
+
+
 @router.get(
     "/template",
     response_model=Dict[str, Any], # Возвращаем просто словарь JSON
@@ -143,8 +193,10 @@ async def get_inventory_template():
     try:
         with open(template_path, 'r', encoding='utf-8') as f:
             template_data = json.load(f)
-        logger.info(f"[get_inventory_template] Template loaded successfully.")
-        return template_data
+        # Нормализуем: добавим uuid/name каждому товару
+        template_with_ids = ensure_uuid_for_inventory_items(template_data)
+        logger.info(f"[get_inventory_template] Template loaded successfully and normalized with UUIDs.")
+        return template_with_ids
     except json.JSONDecodeError as e:
         logger.error(f"[get_inventory_template] Error decoding JSON template file: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error reading inventory template file.")
@@ -238,7 +290,8 @@ async def read_inventory_for_chat(
                           # Получаем группу еще раз для обновления
                           group_to_update = await update_db.get(Group, group.id)
                           if group_to_update:
-                              group_to_update.json_inventory = base_inventory
+                              # гарантия uuid/name для сохранения
+                              group_to_update.json_inventory = ensure_uuid_for_inventory_items(base_inventory)
                               await update_db.flush()
                               logger.info(f"[read_inventory_for_chat] Saved template to DB for chat {chat_id}")
                           else:
@@ -298,6 +351,27 @@ async def read_inventory_for_chat(
 
         # Используем результат слияния (base_inventory) для ответа
         final_inventory_data = base_inventory
+        
+        # 🚨 ДОПОЛНИТЕЛЬНАЯ ОЧИСТКА: Удаляем некорректные ключи by-uuid
+        if isinstance(final_inventory_data, dict):
+            # Удаляем некорректные категории
+            for invalid_key in ['by-uuid', 'uuid', 'by_uuid']:
+                if invalid_key in final_inventory_data:
+                    logger.warning(f"[read_inventory_for_chat] Удаляем некорректную категорию: {invalid_key}")
+                    del final_inventory_data[invalid_key]
+            
+            # Удаляем некорректные ключи товаров
+            for category_key, items in list(final_inventory_data.items()):
+                if isinstance(items, dict):
+                    for invalid_key in ['by-uuid', 'uuid', 'by_uuid']:
+                        if invalid_key in items:
+                            logger.warning(f"[read_inventory_for_chat] Удаляем некорректный ключ товара: {category_key}/{invalid_key}")
+                            del items[invalid_key]
+                    
+                    # Если категория стала пустой, удаляем её
+                    if not items:
+                        logger.info(f"[read_inventory_for_chat] Удаляем пустую категорию: {category_key}")
+                        del final_inventory_data[category_key]
 
         # Получаем метаданные и админов как раньше
         metadata = group.json_metadata or {}
@@ -339,6 +413,7 @@ async def read_inventory_for_chat(
         
         # Декодируем ключи инвентаря перед отправкой фронтенду
         from urllib.parse import unquote
+        import uuid as _uuid
         decoded_inventory_data = {}
         
         if final_inventory_data:
@@ -351,23 +426,40 @@ async def read_inventory_for_chat(
                         decoded_category = unquote(decoded_category)
                 except Exception:
                     decoded_category = category_key  # Fallback к оригинальному
-                
-                decoded_inventory_data[decoded_category] = {}
+                # Инициализируем только если нет, чтобы не перезатирать при коллизии декодирования
+                if decoded_category not in decoded_inventory_data or not isinstance(decoded_inventory_data[decoded_category], dict):
+                    decoded_inventory_data[decoded_category] = {}
                 
                 if isinstance(category_items, dict):
                     for item_key, item_data in category_items.items():
-                        # Декодируем имя товара
+                        # Если ключ похож на UUID, используем отображаемое имя из данных и добавим поле uuid в объект
+                        use_key = None
+                        item_obj = item_data if isinstance(item_data, dict) else {"value": item_data}
+                        is_uuid_key = False
                         try:
-                            decoded_item = unquote(item_key)
-                            # Проверяем, нужно ли декодировать еще раз
-                            if decoded_item.count('%') > 0:
-                                decoded_item = unquote(decoded_item)
+                            _uuid.UUID(str(item_key))
+                            is_uuid_key = True
                         except Exception:
-                            decoded_item = item_key  # Fallback к оригинальному
-                        
-                        decoded_inventory_data[decoded_category][decoded_item] = item_data
+                            is_uuid_key = False
+
+                        if is_uuid_key:
+                            # UUID-ключ: отображаем по имени, а uuid возвращаем полем
+                            display_name = item_obj.get('name') or str(item_key)
+                            use_key = str(display_name)
+                            item_obj = {**item_obj, "uuid": str(item_key)}
+                        else:
+                            # Не UUID: пробуем декодировать как раньше
+                            try:
+                                decoded_item = unquote(item_key)
+                                if decoded_item.count('%') > 0:
+                                    decoded_item = unquote(decoded_item)
+                                use_key = decoded_item
+                            except Exception:
+                                use_key = item_key
+
+                        decoded_inventory_data[decoded_category][use_key] = item_obj
                 else:
-                    # На случай, если category_items не словарь
+                    # Если category_items не словарь, просто сохраняем/перекрываем
                     decoded_inventory_data[decoded_category] = category_items
                     
             logger.info(f"[read_inventory_for_chat] Decoded inventory keys for frontend for chat_id: {chat_id}")
@@ -2317,6 +2409,7 @@ async def update_inventory_item_point(
     redis_client: redis.Redis = Depends(get_redis_client)
 ):
     logger.info(f"[update_inventory_item_point] PUT /inventory/{chat_id}/items/{category}/{item_id}")
+    logger.info(f"[update_inventory_item_point] Raw params: category='{category}', item_id='{item_id}'")
     try:
         group_telegram_id = int(chat_id)
     except ValueError:
@@ -2348,13 +2441,117 @@ async def update_inventory_item_point(
                 previous_item_snapshot = json.loads(json.dumps(current_inventory[category][item_id]))
 
             # Обновляем один товар (проставляем серверный timestamp)
+            # КАНОНИКАЛИЗАЦИЯ КЛЮЧЕЙ: декодируем category/item_id перед записью, чтобы в БД хранились Unicode-ключи
+            from urllib.parse import unquote
+            try:
+                decoded_category_key = unquote(category)
+                if '%' in decoded_category_key:
+                    decoded_category_key = unquote(decoded_category_key)
+            except Exception:
+                decoded_category_key = category
+
+            try:
+                decoded_item_key = unquote(item_id)
+                if '%' in decoded_item_key:
+                    decoded_item_key = unquote(decoded_item_key)
+            except Exception:
+                decoded_item_key = item_id
+
+            # 🚨 ЗАЩИТА: Не позволяем создавать категорию "by-uuid"
+            if decoded_category_key in ['by-uuid', 'uuid', 'by_uuid']:
+                logger.error(f"[update_inventory_item_point] Попытка создать категорию 'by-uuid': {category}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, 
+                    detail="Invalid category: 'by-uuid' is not allowed"
+                )
+
+            # 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Ищем товар по UUID во всех категориях
+            # чтобы убедиться, что мы обновляем товар в правильной категории
+            if isinstance(payload.item, dict) and payload.item.get('uuid'):
+                item_uuid = payload.item['uuid']
+                logger.info(f"[update_inventory_item_point] Ищем товар с UUID {item_uuid} во всех категориях")
+                
+                found_in_category = None
+                found_item_key = None
+                
+                for cat_key, cat_items in current_inventory.items():
+                    if isinstance(cat_items, dict):
+                        for item_key, item_value in cat_items.items():
+                            if isinstance(item_value, dict) and item_value.get('uuid') == item_uuid:
+                                found_in_category = cat_key
+                                found_item_key = item_key
+                                logger.info(f"[update_inventory_item_point] Найден товар с UUID {item_uuid} в категории {cat_key}/{item_key}")
+                                break
+                        if found_in_category:
+                            break
+                
+                # Если товар найден в другой категории, используем её
+                if found_in_category and found_in_category != decoded_category_key:
+                    logger.warning(f"[update_inventory_item_point] Товар с UUID {item_uuid} найден в категории {found_in_category}, но запрос пришел для {decoded_category_key}")
+                    # 🔧 ИСПРАВЛЕНИЕ: Переключаемся на найденную категорию
+                    logger.info(f"[update_inventory_item_point] Переключаемся на найденную категорию: {found_in_category}")
+                    decoded_category_key = found_in_category
+                    decoded_item_key = found_item_key
+                    
+                    # 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Убеждаемся, что найденная категория не "by-uuid"
+                    if found_in_category in ['by-uuid', 'uuid', 'by_uuid']:
+                        logger.error(f"[update_inventory_item_point] КРИТИЧЕСКАЯ ОШИБКА: Товар найден в категории 'by-uuid': {found_in_category}")
+                        raise HTTPException(
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                            detail="Critical error: item found in 'by-uuid' category"
+                        )
+
+            logger.info(f"[update_inventory_item_point] Decoded params: category='{decoded_category_key}', item_id='{decoded_item_key}'")
+
             new_inventory = json.loads(json.dumps(current_inventory))
-            if category not in new_inventory or not isinstance(new_inventory.get(category), dict):
-                new_inventory[category] = {}
+            if decoded_category_key not in new_inventory or not isinstance(new_inventory.get(decoded_category_key), dict):
+                new_inventory[decoded_category_key] = {}
+
+            # Разрешаем item по uuid или по имени (обратная совместимость)
+            target_item_key = None
+            existing_uuid_for_item = None
+            try:
+                # Если в категории уже есть элементы, ищем по uuid
+                for existing_key, existing_value in new_inventory.get(decoded_category_key, {}).items():
+                    if isinstance(existing_value, dict):
+                        existing_uuid = existing_value.get('uuid')
+                        if existing_uuid and str(existing_uuid) == decoded_item_key:
+                            target_item_key = existing_key
+                            existing_uuid_for_item = existing_uuid
+                            logger.info(f"[update_inventory_item_point] Найден товар по UUID: {existing_key} -> {existing_uuid}")
+                            break
+                # Если не нашли по uuid, пробуем прямое совпадение имени ключа
+                if target_item_key is None and decoded_item_key in new_inventory.get(decoded_category_key, {}):
+                    target_item_key = decoded_item_key
+                    if isinstance(new_inventory[decoded_category_key][target_item_key], dict):
+                        existing_uuid_for_item = new_inventory[decoded_category_key][target_item_key].get('uuid')
+                        logger.info(f"[update_inventory_item_point] Найден товар по имени: {target_item_key}")
+            except Exception as e:
+                logger.warning(f"[update_inventory_item_point] Ошибка поиска товара: {e}")
+                pass
             server_now = datetime.now(timezone.utc).isoformat()
             if isinstance(payload.item, dict):
                 payload.item["lastUpdated"] = server_now
-            new_inventory[category][item_id] = payload.item
+                # Гарантируем uuid в объекте товара
+                if not payload.item.get('uuid'):
+                    from uuid import uuid4
+                    payload.item['uuid'] = existing_uuid_for_item or str(uuid4())
+                # Гарантируем name в объекте товара для отображения
+                if not payload.item.get('name'):
+                    payload.item['name'] = target_item_key or decoded_item_key
+            # Пишем по найденному ключу, иначе по имени из пути (обратная совместимость)
+            write_key = target_item_key or decoded_item_key
+            logger.info(f"[update_inventory_item_point] Записываем товар: {decoded_category_key}/{write_key}")
+            
+            # 🔍 ФИНАЛЬНАЯ ПРОВЕРКА: Убеждаемся, что мы не создаем категорию "by-uuid"
+            if decoded_category_key in ['by-uuid', 'uuid', 'by_uuid']:
+                logger.error(f"[update_inventory_item_point] КРИТИЧЕСКАЯ ОШИБКА: Попытка записать товар в категорию 'by-uuid': {decoded_category_key}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                    detail="Critical error: cannot write to 'by-uuid' category"
+                )
+            
+            new_inventory[decoded_category_key][write_key] = payload.item
             group.json_inventory = new_inventory
             updated_inventory_for_response = group.json_inventory
 
@@ -2428,8 +2625,8 @@ async def update_inventory_item_point(
 
                     history_record = InventoryHistory(
                         group_id=group.id,
-                        category=category,
-                        item_name=item_id,
+                        category=decoded_category_key,
+                        item_name=decoded_item_key,
                         action=action,
                         type=item_type,
                         old_quantity=old_q,
@@ -2454,13 +2651,22 @@ async def update_inventory_item_point(
         
         logger.info(f"[update_inventory_item_point] WebSocket params: category={category} -> {decoded_category}, item_id={item_id} -> {decoded_item_id}")
         
+        # 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Убеждаемся, что WebSocket событие не содержит "by-uuid"
+        if decoded_category in ['by-uuid', 'uuid', 'by_uuid']:
+            logger.error(f"[update_inventory_item_point] КРИТИЧЕСКАЯ ОШИБКА: Попытка отправить WebSocket событие с категорией 'by-uuid': {decoded_category}")
+            logger.error(f"[update_inventory_item_point] Это означает, что товар был сохранен в неправильной категории!")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+                detail="Critical error: item saved in invalid category"
+            )
+
         notify_payload = {
             "type": "inventory_updated",
             "chat_id": str(chat_id),
             "metadata": updated_metadata_for_response,
             "item_id": decoded_item_id,
             "category": decoded_category,
-            "item": { **payload.item, **({"lastUpdated": updated_metadata_for_response.get("lastUpdated")} if isinstance(payload.item, dict) else {}) }
+            "item": { **payload.item, **({"lastUpdated": updated_metadata_for_response.get("lastUpdated"), "category": decoded_category} if isinstance(payload.item, dict) else {"category": decoded_category}) }
         }
         try:
             notify_payload["event_id"] = str(uuid.uuid4())
@@ -2549,6 +2755,257 @@ async def update_inventory_item_point(
         }
     except Exception as e:
         logger.error(f"[update_inventory_item_point] Failed to build response: {e}")
+        return {
+            "inventory": updated_inventory_for_response,
+            "metadata": updated_metadata_for_response,
+            "chat_title": group_title_for_response or str(chat_id),
+            "admins": []
+        }
+
+
+# --- НОВЫЙ ЭНДПОИНТ: точечное обновление по UUID ---
+@router.put(
+    "/{chat_id}/items/by-uuid/{item_uuid}",
+    summary="Update single inventory item by UUID",
+    description="Updates a single item inside inventory JSON by its UUID. Safer addressing independent of name.",
+    tags=["Inventory"]
+)
+async def update_inventory_item_by_uuid(
+    payload: InventoryItemUpdatePayload,
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    item_uuid: str = Path(..., description="UUID of the inventory item"),
+    db: AsyncSession = Depends(get_db_session),
+    redis_client: redis.Redis = Depends(get_redis_client)
+):
+    logger.info(f"[update_inventory_item_by_uuid] PUT /inventory/{chat_id}/items/by-uuid/{item_uuid}")
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+
+    updated_inventory_for_response: Dict[str, Any] = {}
+    updated_metadata_for_response: Dict[str, Any] = {}
+    group_title_for_response: str | None = None
+    saved_group_id: int | None = None
+    previous_item_snapshot: Dict[str, Any] | None = None
+
+    try:
+        async with db.begin():
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+
+            if not group:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+            if group.group_type != 'chef':
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups of type 'chef'")
+
+            saved_group_id = group.id
+            group_title_for_response = group.title
+
+            current_inventory = group.json_inventory or {}
+            # Находим товар по uuid во всех категориях
+            found_category_key: str | None = None
+            found_item_key: str | None = None
+            for cat_key, cat_items in (current_inventory or {}).items():
+                # 🚨 ПРОВЕРКА: Пропускаем некорректные категории
+                if cat_key in ['by-uuid', 'uuid', 'by_uuid']:
+                    logger.warning(f"[update_inventory_item_by_uuid] Пропускаем некорректную категорию: {cat_key}")
+                    continue
+                    
+                if not isinstance(cat_items, dict):
+                    continue
+                for k, v in cat_items.items():
+                    # 🚨 ПРОВЕРКА: Пропускаем некорректные ключи товаров
+                    if k in ['by-uuid', 'uuid', 'by_uuid']:
+                        logger.warning(f"[update_inventory_item_by_uuid] Пропускаем некорректный ключ товара: {cat_key}/{k}")
+                        continue
+                        
+                    if isinstance(v, dict) and str(v.get('uuid') or '') == str(item_uuid):
+                        found_category_key = cat_key
+                        found_item_key = k
+                        previous_item_snapshot = json.loads(json.dumps(v))
+                        break
+                if found_item_key is not None:
+                    break
+
+            if found_category_key is None or found_item_key is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Item with uuid {item_uuid} not found")
+
+            # 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Убеждаемся что найденные ключи корректны
+            if found_category_key in ['by-uuid', 'uuid', 'by_uuid'] or found_item_key in ['by-uuid', 'uuid', 'by_uuid']:
+                logger.error(f"[update_inventory_item_by_uuid] КРИТИЧЕСКАЯ ОШИБКА: Найден товар с некорректными ключами: {found_category_key}/{found_item_key}")
+                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Found item with invalid keys")
+
+            # Готовим новую копию инвентаря
+            new_inventory = json.loads(json.dumps(current_inventory))
+            server_now = datetime.now(timezone.utc).isoformat()
+
+            # Обновляем объект товара
+            if isinstance(payload.item, dict):
+                payload.item["lastUpdated"] = server_now
+                payload.item['uuid'] = str(item_uuid)
+                if not payload.item.get('name'):
+                    payload.item['name'] = found_item_key
+
+            # РENAME: если передано новое name, перемещаем ключ
+            new_name_key = payload.item.get('name') if isinstance(payload.item, dict) else None
+            write_key = found_item_key
+            if isinstance(new_name_key, str) and new_name_key.strip() and new_name_key != found_item_key:
+                # не потерять существующие данные, удаляем старый ключ
+                del new_inventory[found_category_key][found_item_key]
+                write_key = new_name_key
+                if write_key not in new_inventory[found_category_key]:
+                    new_inventory[found_category_key][write_key] = {}
+
+            new_inventory[found_category_key][write_key] = payload.item
+            group.json_inventory = new_inventory
+            updated_inventory_for_response = group.json_inventory
+
+            # Пересчитываем прогресс
+            calculated_progress = calculate_inventory_progress_py(new_inventory)
+
+            # Метаданные версия/время
+            existing_metadata = group.json_metadata or {}
+            try:
+                current_version = int(existing_metadata.get("version", 0))
+            except Exception:
+                current_version = 0
+            updated_metadata = {
+                **existing_metadata,
+                "progress": calculated_progress,
+                "lastUpdated": server_now,
+                "chat_id": chat_id,
+                "version": current_version + 1
+            }
+            group.json_metadata = updated_metadata
+            updated_metadata_for_response = group.json_metadata
+
+            # История
+            if payload.history and isinstance(payload.history, dict):
+                history_data = payload.history
+                item_type = history_data.get('itemType')
+                if item_type not in ['raw', 'semifinished']:
+                    if isinstance(payload.item, dict):
+                        if payload.item.get('raw'):
+                            item_type = 'raw'
+                        elif payload.item.get('semifinished'):
+                            item_type = 'semifinished'
+                if item_type is None:
+                    item_type = 'raw'
+
+                def _q(obj: Dict[str, Any] | None, kind: str) -> float:
+                    if not isinstance(obj, dict):
+                        return 0.0
+                    node = obj.get(kind)
+                    if isinstance(node, dict):
+                        try:
+                            return float(node.get('quantity') or 0)
+                        except Exception:
+                            return 0.0
+                    return 0.0
+
+                old_q = history_data.get('oldQuantity') if 'oldQuantity' in history_data else _q(previous_item_snapshot, item_type)
+                new_q = history_data.get('newQuantity') if 'newQuantity' in history_data else _q(payload.item, item_type)
+                action = history_data.get('action') or ('add' if old_q == 0 and new_q > 0 else ('remove' if old_q > 0 and new_q == 0 else 'update'))
+
+                author_member_id = history_data.get('authorMemberId')
+                member_db_id = None
+                if author_member_id:
+                    member_query = select(Member.id).where(Member.user_id == author_member_id)
+                    member_result = await db.execute(member_query)
+                    member_db_id = member_result.scalar_one_or_none()
+
+                history_record = InventoryHistory(
+                    group_id=group.id,
+                    category=found_category_key,
+                    item_name=write_key,
+                    action=action,
+                    type=item_type,
+                    old_quantity=old_q,
+                    new_quantity=new_q,
+                    author_id=member_db_id
+                )
+                db.add(history_record)
+
+        logger.info(f"[update_inventory_item_by_uuid] DB transaction committed for chat_id: {chat_id}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[update_inventory_item_by_uuid] Error during DB transaction for chat_id: {chat_id}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not update inventory item by uuid")
+
+    # NOTIFY
+    try:
+        notify_payload = {
+            "type": "inventory_updated",
+            "chat_id": str(chat_id),
+            "metadata": updated_metadata_for_response,
+            "item_id": found_item_key,
+            "item_uuid": str(item_uuid),
+            "category": found_category_key,
+            "item": { **payload.item, **({"lastUpdated": updated_metadata_for_response.get("lastUpdated"), "category": found_category_key} if isinstance(payload.item, dict) else {"category": found_category_key}) }
+        }
+        try:
+            notify_payload["event_id"] = str(uuid.uuid4())
+        except Exception:
+            pass
+        notify_payload_json = json.dumps(notify_payload, default=str)
+        escaped_payload = notify_payload_json.replace("'", "''")
+        async with AsyncSession(async_engine) as notify_db:
+            sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+            await notify_db.execute(sql_command)
+            await notify_db.commit()
+        logger.info(f"[update_inventory_item_by_uuid] WebSocket params: category={found_category_key} -> {found_category_key}, item_id={found_item_key} -> {found_item_key}")
+        logger.info(f"[update_inventory_item_by_uuid] Sent NOTIFY to websocket_channel for chat_id={chat_id}")
+    except Exception as e:
+        logger.error(f"[update_inventory_item_by_uuid] Failed to send NOTIFY: {e}")
+
+    # Инвалидация кэша
+    try:
+        if redis_client:
+            await redis_client.delete(f"inventory:{chat_id}")
+            logger.info(f"[update_inventory_item_by_uuid] Invalidated cache inventory:{chat_id}")
+    except Exception as e:
+        logger.error(f"[update_inventory_item_by_uuid] Failed to invalidate cache for chat {chat_id}: {e}")
+
+    # Ответ
+    try:
+        # Декодируем ключи перед отправкой (как в другом эндпоинте)
+        from urllib.parse import unquote
+        decoded_inventory: dict[str, dict] = {}
+        src = updated_inventory_for_response
+        if isinstance(src, dict):
+            for cat_key, items in src.items():
+                try:
+                    dcat = unquote(cat_key)
+                    if '%' in dcat:
+                        dcat = unquote(dcat)
+                except Exception:
+                    dcat = cat_key
+                if dcat not in decoded_inventory:
+                    decoded_inventory[dcat] = {}
+                if isinstance(items, dict):
+                    for item_key, item_val in items.items():
+                        try:
+                            ditem = unquote(item_key)
+                            if '%' in ditem:
+                                ditem = unquote(ditem)
+                        except Exception:
+                            ditem = item_key
+                        decoded_inventory[dcat][ditem] = item_val
+                else:
+                    decoded_inventory[dcat] = items
+        else:
+            decoded_inventory = src
+
+        return {
+            "inventory": decoded_inventory,
+            "metadata": updated_metadata_for_response,
+            "chat_title": group_title_for_response or str(chat_id),
+            "admins": []
+        }
+    except Exception:
         return {
             "inventory": updated_inventory_for_response,
             "metadata": updated_metadata_for_response,

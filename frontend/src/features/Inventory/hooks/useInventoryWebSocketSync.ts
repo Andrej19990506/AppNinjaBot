@@ -285,18 +285,49 @@ export const useInventoryWebSocketSync = () => {
                             }
                             
                             // Декодируем URL-кодированные параметры для корректного обновления UI
-                            const decodedItemId = decodeURIComponent(payload.item_id);
-                            const decodedCategory = decodeURIComponent(payload.category);
+                            let decodedItemId = decodeURIComponent(payload.item_id);
+                            let decodedCategory = decodeURIComponent(payload.category);
+                            
+                            // 🚨 ИСПРАВЛЕНИЕ: Специальная обработка для случаев by-uuid/uuid
+                            if (decodedCategory === 'by-uuid' || decodedCategory === 'uuid' || decodedCategory === 'by_uuid') {
+                                // Если категория пришла как by-uuid, пытаемся извлечь реальные данные из item
+                                if (payload.item && typeof payload.item === 'object') {
+                                    const itemName = (payload.item as any).name;
+                                    const itemCategory = (payload.item as any).category;
+                                    
+                                    if (itemName && itemCategory) {
+                                        decodedItemId = itemName;
+                                        decodedCategory = itemCategory;
+                                        logger.info(`🔁 [WS Decode] by-uuid -> ${decodedCategory}/${decodedItemId} (извлечено из item)`);
+                                    } else {
+                                        // Если нет name/category в item, используем UUID как временный ключ
+                                        const itemUuid = (payload as any).item_uuid || (payload.item as any)?.uuid;
+                                        if (itemUuid) {
+                                            decodedItemId = `Item-${itemUuid.slice(0, 8)}`;
+                                            decodedCategory = 'Новая категория';
+                                            logger.info(`⚠️ [WS Decode] by-uuid -> ${decodedCategory}/${decodedItemId} (временные ключи)`);
+                                        }
+                                    }
+                                }
+                            }
                             
                             logger.info(`[WS Sync - inventory_updated] Декодированные параметры: ${decodedCategory}/${decodedItemId} (было: ${payload.category}/${payload.item_id})`);
                             
+                            // 🔍 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Убеждаемся, что категория не "by-uuid"
+                            if (decodedCategory === 'by-uuid' || decodedCategory === 'uuid' || decodedCategory === 'by_uuid') {
+                                logger.error(`🚨 [WS Sync] КРИТИЧЕСКАЯ ОШИБКА: Получена категория 'by-uuid' в WebSocket событии!`);
+                                logger.error(`🚨 [WS Sync] Это означает, что бэкенд все еще создает категорию 'by-uuid'`);
+                                logger.error(`🚨 [WS Sync] Payload:`, payload);
+                            }
+                            
+                            const itemUuid = (payload as any).item_uuid || (payload.item as any)?.uuid || null;
                             dispatch(receiveItemUpdate({
                                 chatId: payload.chat_id,
                                 type: payload.type,
                                 metadata: payload.metadata,
                                 item_id: decodedItemId,
                                 category: decodedCategory,
-                                item: payload.item,
+                                item: itemUuid ? { ...(payload.item as any), uuid: itemUuid } : payload.item,
                                 timestamp: payload.metadata.lastUpdated // Передаем timestamp для проверки race conditions
                             }));
                             

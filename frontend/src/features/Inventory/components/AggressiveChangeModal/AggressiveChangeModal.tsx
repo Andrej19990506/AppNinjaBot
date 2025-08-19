@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
-import CloseIcon from '@mui/icons-material/Close';
 import styles from './AggressiveChangeModal.module.css';
 
 interface AggressiveChangeModalProps {
@@ -13,10 +12,7 @@ interface AggressiveChangeModalProps {
     onEdit: () => void;
     itemName: string;
     category: string;
-    oldQuantity: number;
     newQuantity: number;
-    changePercent: number;
-    changeType: 'increase' | 'decrease';
     averageDailyAmount?: number;
     dailyChangesCount?: number;
     totalHistoryAmount?: number;
@@ -29,18 +25,12 @@ const AggressiveChangeModal: React.FC<AggressiveChangeModalProps> = ({
     onEdit,
     itemName,
     category,
-    oldQuantity,
     newQuantity,
-    changePercent,
-    changeType,
     averageDailyAmount,
     dailyChangesCount,
     totalHistoryAmount
 }) => {
     if (!isOpen) return null;
-
-    const isIncrease = changeType === 'increase';
-    const changeAmount = Math.abs(newQuantity - oldQuantity);
 
     return (
         <AnimatePresence>
@@ -59,15 +49,6 @@ const AggressiveChangeModal: React.FC<AggressiveChangeModalProps> = ({
                     transition={{ type: "spring", damping: 25, stiffness: 300 }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <motion.button
-                        className={styles.closeButton}
-                        onClick={onClose}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                    >
-                        <CloseIcon />
-                    </motion.button>
-
                     <div className={styles.warningHeader}>
                         <div className={styles.warningIconWrapper}>
                             <WarningIcon className={styles.warningIcon} />
@@ -90,31 +71,28 @@ const AggressiveChangeModal: React.FC<AggressiveChangeModalProps> = ({
                             <span className={styles.changeValue}>{category}</span>
                         </div>
                         <div className={styles.changeRow}>
-                            <span className={styles.changeLabel}>Было:</span>
-                            <span className={styles.changeValue}>{oldQuantity}</span>
-                        </div>
-                        <div className={styles.changeRow}>
-                            <span className={styles.changeLabel}>Стало:</span>
+                            <span className={styles.changeLabel}>Новое значение:</span>
                             <span className={styles.changeValue}>{newQuantity}</span>
-                        </div>
-                        <div className={styles.changeRow}>
-                            <span className={styles.changeLabel}>Изменение:</span>
-                            <span className={`${styles.changeValue} ${isIncrease ? styles.increase : styles.decrease}`}>
-                                {isIncrease ? '+' : '-'}{changeAmount} ({changePercent.toFixed(1)}%)
-                            </span>
                         </div>
                         {averageDailyAmount && (
                             <>
                                 <div className={styles.changeRow}>
-                                    <span className={styles.changeLabel}>Среднее за день:</span>
+                                    <span className={styles.changeLabel}>Среднее дневное изменение:</span>
                                     <span className={styles.changeValue}>{averageDailyAmount}</span>
+                                </div>
+                                <div className={styles.changeRow}>
+                                    <span className={styles.changeLabel}>Отклонение от среднего:</span>
+                                    <span className={`${styles.changeValue} ${styles.warning}`}>
+                                        {Math.abs(newQuantity - averageDailyAmount).toFixed(1)} 
+                                        ({((Math.abs(newQuantity - averageDailyAmount) / averageDailyAmount) * 100).toFixed(1)}%)
+                                    </span>
                                 </div>
                                 <div className={styles.changeRow}>
                                     <span className={styles.changeLabel}>Дней в истории:</span>
                                     <span className={styles.changeValue}>{dailyChangesCount}</span>
                                 </div>
                                 <div className={styles.changeRow}>
-                                    <span className={styles.changeLabel}>Общий объем:</span>
+                                    <span className={styles.changeLabel}>Общий объем изменений:</span>
                                     <span className={styles.changeValue}>{totalHistoryAmount}</span>
                                 </div>
                             </>
@@ -123,7 +101,7 @@ const AggressiveChangeModal: React.FC<AggressiveChangeModalProps> = ({
 
                     <div className={styles.warningText}>
                         <p className={styles.warningMessage}>
-                            <strong>Внимание!</strong> Изменение превышает 40% от предыдущего значения.
+                            <strong>Внимание!</strong> Новое значение отклоняется от общего среднего значения.
                             Рекомендуется перепроверить корректность введенных данных.
                         </p>
                         <p className={styles.warningHint}>

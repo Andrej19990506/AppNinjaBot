@@ -5,7 +5,7 @@
     right: 0;
     background: var(--color-background);
     border-top: 1px solid var(--gray-200);
-    padding: 12px 0;
+    padding: 27px 0;
     z-index: 1051;
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(10px);
@@ -133,14 +133,14 @@
 .backButton {
     display: flex;
     align-items: center;
-    background: var(--color-background);
-    border: 1px solid var(--gray-200);
+    background: var(--orange-primary);
+    border: 2px solid var(--orange-primary);
     border-radius: 20px;
     height: 40px;
     padding: 0 16px;
     cursor: pointer;
     transition: all 0.3s ease;
-    color: var(--color-text);
+    color: white;
     overflow: hidden;
     gap: 8px;
     justify-content: center;
@@ -148,6 +148,7 @@
     min-width: 120px;
     max-width: 200px;
     width: 100%;
+    box-shadow: 0 4px 12px rgba(255, 95, 31, 0.3);
 }
 
 .chatButtonEmpty {
@@ -202,21 +203,22 @@
 }
 
 .backButton:hover {
-    background-color: var(--gray-100);
+    background-color: var(--orange-dark);
+    border-color: var(--orange-dark);
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 6px 16px rgba(255, 95, 31, 0.4);
 }
 
 .backButton:active {
     transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(255, 95, 31, 0.3);
 }
 
 .backArrow {
     font-size: 18px;
     font-weight: bold;
     margin-right: 4px;
-    color: var(--orange-primary);
+    color: white;
 }
 
 .textContainer {
@@ -225,6 +227,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
     max-width: 120px;
+    color: white;
 }
 
 .scrollingText {

@@ -165,6 +165,9 @@ interface FooterProps {
     onMiddleButtonClick?: () => void;
     middleButtonText?: string;
     rightElement?: React.ReactNode;
+    // Новые пропсы для аналитики
+    isAnalyticsOpen?: boolean;
+    onAnalyticsClose?: () => void;
     // Новые пропсы для активных пользователей
     showActiveUsersButton?: boolean;
     onActiveUsersClick?: () => void;
@@ -211,6 +214,8 @@ const Footer: React.FC<FooterProps> = ({
     onMiddleButtonClick,
     middleButtonText,
     rightElement,
+    isAnalyticsOpen = false,
+    onAnalyticsClose,
     showActiveUsersButton = false,
     onActiveUsersClick,
     activeUsersCount = 0,
@@ -362,23 +367,25 @@ const Footer: React.FC<FooterProps> = ({
                     <>
                         {/* --- Левая часть --- */}
                         <div className={styles.leftSide}> 
-                            {/* Кнопка Домой */} 
-                            <motion.button 
-                                className={styles.iconButton} 
-                                onClick={() => navigate('/')} 
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                            >
-                                 <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                                 </svg>
-                            </motion.button>
+                            {/* Кнопка Домой - показываем только в списке категорий */}
+                            {!selectedCategory && !selectedItem && (
+                                <motion.button 
+                                    className={styles.iconButton} 
+                                    onClick={() => navigate('/')} 
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                     <svg className={styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                     </svg>
+                                </motion.button>
+                            )}
                         </div>
 
                         {/* --- Центральная часть --- */}
                         <div className={styles.centerSide}>
                             {/* <<< Кнопка Назад >>> */}
-                            {(selectedCategory || selectedItem) && (
+                            {(selectedCategory || selectedItem) && !isSearchOpen && !isActiveUsersOpen && (
                                 <motion.button
                                     className={styles.backButton}
                                     onClick={onBack}
@@ -398,7 +405,7 @@ const Footer: React.FC<FooterProps> = ({
                             )}
                             
                             {/* <<< Кнопка Смены/Резерв >>> */}
-                            {isShiftDialogOpen && (
+                            {isShiftDialogOpen && !isSearchOpen && !isActiveUsersOpen && (
                                 <motion.button
                                     className={styles.shiftModeButton} 
                                     onClick={handleShiftModeToggle} 
@@ -431,7 +438,7 @@ const Footer: React.FC<FooterProps> = ({
         
 
                                 {/* --- НОВАЯ Кнопка Поиска для Инвентаря / Закрытия Аналитики --- */}
-                                {(showInventorySearchButton && !isActiveUsersOpen) && (
+                                {(showInventorySearchButton && !isAnalyticsOpen && !isActiveUsersOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${styles.searchInventoryButton}`}
                                         onClick={onInventorySearchClick}
@@ -447,7 +454,7 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Активных Пользователей --- */}
-                                {(showActiveUsersButton && !isActiveUsersOpen) && (
+                                {(showActiveUsersButton && !isAnalyticsOpen && !isSearchOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${styles.activeUsersButton}`}
                                         onClick={onActiveUsersClick}
@@ -471,7 +478,7 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Завершения Инвентаризации --- */}
-                                {(showCompleteButton && !isActiveUsersOpen) && (
+                                {(showCompleteButton && !isAnalyticsOpen && !isSearchOpen && !isActiveUsersOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${isCompleteOpen ? styles.closeCompleteButton : styles.completeButton}`}
                                         onClick={onCompleteClick}
@@ -488,7 +495,17 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Закрытия Аналитики --- */}
-                                {/* Убираем кнопку закрытия аналитики */}
+                                {isAnalyticsOpen && onAnalyticsClose && (
+                                    <motion.button
+                                        className={`${styles.iconButton} ${styles.closeAnalyticsButton}`}
+                                        onClick={onAnalyticsClose}
+                                        whileHover={{ scale: 1.05, rotate: -5 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        title="Закрыть аналитику"
+                                    >
+                                        <CloseIcon className={styles.icon} />
+                                    </motion.button>
+                                )}
                                 {/* --- КОНЕЦ Кнопок Поиска/Аналитики --- */}
                             </div>
                             

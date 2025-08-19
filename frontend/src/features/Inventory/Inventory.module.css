@@ -6,12 +6,42 @@
     overflow: hidden;
     position: relative;
     background: var(--background-color);
+    padding-bottom: 100px; /* Отступ для футера */
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров в основном контейнере */
+.container::-webkit-scrollbar,
+.container::-webkit-scrollbar-track,
+.container::-webkit-scrollbar-thumb,
+.container::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 .content {
     flex-grow: 1;
     position: relative;
     transition: padding-top 0.3s ease;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров в контенте */
+.content::-webkit-scrollbar,
+.content::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 .mainSection {
@@ -27,7 +57,22 @@
     overflow: visible;
     max-height: 70vh;
     overflow-y: auto;
-    bottom: 55px;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    bottom: 100px; /* Отступ от футера */
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров */
+.mainSection::-webkit-scrollbar,
+.mainSection::-webkit-scrollbar-track,
+.mainSection::-webkit-scrollbar-thumb,
+.mainSection::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 .mainSection > *:last-child {
@@ -84,6 +129,22 @@
     transition: var(--transition-normal);
     min-height: calc(100vh - var(--header-height) - 280px);
     overflow: hidden;
+    margin-bottom: 100px; /* Отступ для футера */
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров */
+.itemEditContainer::-webkit-scrollbar,
+.itemEditContainer::-webkit-scrollbar-track,
+.itemEditContainer::-webkit-scrollbar-thumb,
+.itemEditContainer::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 .itemEditContainer::before {
@@ -232,9 +293,28 @@
 :global(.CategoryGrid_grid__j65fG) {
     flex: 1; /* Возвращаем flex: 1 */
     overflow-y: auto !important;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
     padding-right: 10px;
     min-height: 0; 
     max-height: 60vh; 
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров в списках */
+:global(.ItemList_list__EL7Vr)::-webkit-scrollbar,
+:global(.ItemList_list__EL7Vr)::-webkit-scrollbar-track,
+:global(.ItemList_list__EL7Vr)::-webkit-scrollbar-thumb,
+:global(.ItemList_list__EL7Vr)::-webkit-scrollbar-corner,
+:global(.CategoryGrid_grid__j65fG)::-webkit-scrollbar,
+:global(.CategoryGrid_grid__j65fG)::-webkit-scrollbar-track,
+:global(.CategoryGrid_grid__j65fG)::-webkit-scrollbar-thumb,
+:global(.CategoryGrid_grid__j65fG)::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }
 
 /* Стили для контейнера поиска */
@@ -283,7 +363,15 @@
 /* Специальные стили для ItemList внутри mainSection */
 .mainSection :global(.ItemList_list__EL7Vr) {
     overflow-y: auto !important;
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
     max-height: 55vh; /* Ограничиваем высоту для активации скролла */
+    scrollbar-width: none; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none; /* Скрываем тулбар скролла для IE/Edge */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров в ItemList внутри mainSection */
+.mainSection :global(.ItemList_list__EL7Vr)::-webkit-scrollbar {
+    display: none;
 }
 
 /* Стиль для сдвига контента, когда поиск активен */
@@ -340,4 +428,23 @@
     .contentShifted {
         padding-top: 20px; 
     }
+}
+
+/* Стили для области просмотра */
+.viewArea {
+    overflow-x: hidden; /* Убираем горизонтальный скролл */
+    scrollbar-width: none !important; /* Скрываем тулбар скролла для Firefox */
+    -ms-overflow-style: none !important; /* Скрываем тулбар скролла для IE/Edge */
+    -webkit-scrollbar: none !important; /* Скрываем тулбар скролла для WebKit */
+}
+
+/* Скрываем тулбар скролла для WebKit браузеров в viewArea */
+.viewArea::-webkit-scrollbar,
+.viewArea::-webkit-scrollbar-track,
+.viewArea::-webkit-scrollbar-thumb,
+.viewArea::-webkit-scrollbar-corner {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
 }

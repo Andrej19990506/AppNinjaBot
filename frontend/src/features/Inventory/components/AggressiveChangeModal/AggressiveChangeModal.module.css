@@ -121,6 +121,11 @@
     color: var(--error-color);
 }
 
+.changeValue.warning {
+    color: var(--warning-color);
+    font-weight: 700;
+}
+
 /* Текст предупреждения */
 .warningText {
     color: var(--text-secondary);

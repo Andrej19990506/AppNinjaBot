@@ -718,10 +718,7 @@ const Inventory: React.FC = () => {
                     onEdit={handleAggressiveChangeEdit}
                     itemName={aggressiveChangeData.itemName}
                     category={aggressiveChangeData.category}
-                    oldQuantity={aggressiveChangeData.oldQuantity}
                     newQuantity={aggressiveChangeData.newQuantity}
-                    changePercent={aggressiveChangeData.changePercent}
-                    changeType={aggressiveChangeData.changeType}
                 />
             )}
         </div>

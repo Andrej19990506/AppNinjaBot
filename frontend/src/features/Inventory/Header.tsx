@@ -4,62 +4,9 @@ import { animate } from 'framer-motion';
 import styles from './Header.module.css';
 import ChatNotification from './ChatNotification';
 
-// SVG иконки
-const StatusIcons = {
-    not_started: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    early: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    in_progress: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M7.76 16.24L4.93 19.07M19.07 4.93L16.24 7.76" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    quarter: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M9 12L11 14L15 10" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    half: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    almost_done: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M9 12L11 14L15 10" 
-                  stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    ),
-    completed: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
-                  fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-    )
-};
 
-const TimerIcon = (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-        <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-);
+
+
 
 interface HeaderProps {
     title: string;
@@ -178,33 +125,6 @@ const Header: React.FC<HeaderProps> = ({
         }
     }, [startTime, progress]);
 
-    // Определяем статус инвентаризации с учетом времени работы
-    const inventoryStatus = useMemo(() => {
-        if (progress === 0) return 'not_started';
-        if (progress === 100) return 'completed';
-        
-        // Если прошло больше часа, показываем "в процессе" вместо "начальный этап"
-        if (timerDisplay && timerDisplay.includes(':')) {
-            const parts = timerDisplay.split(':');
-            if (parts.length === 3) { // формат ЧЧ:ММ:СС
-                const hours = parseInt(parts[0]);
-                if (hours >= 1) {
-                    if (progress < 25) return 'in_progress';
-                    if (progress < 50) return 'quarter';
-                    if (progress < 75) return 'half';
-                    if (progress < 100) return 'almost_done';
-                }
-            }
-        }
-        
-        // Стандартная логика для коротких промежутков времени
-        if (progress < 25) return 'early';
-        if (progress < 50) return 'quarter';
-        if (progress < 75) return 'half';
-        if (progress < 100) return 'almost_done';
-        return 'completed';
-    }, [progress, timerDisplay]);
-
     const getDisplayTitle = () => {
         if (isInitialContext) return title;
         return title;
@@ -222,37 +142,14 @@ const Header: React.FC<HeaderProps> = ({
         return () => controls.stop();
     }, [progress]);
 
-    // Получаем цвет прогресса в зависимости от статуса
+    // Получаем цвет прогресса
     const getProgressColor = () => {
-        switch (inventoryStatus) {
-            case 'not_started': return 'var(--text-secondary)';
-            case 'early': return 'var(--warning-color)';
-            case 'in_progress': return 'var(--info-color)';
-            case 'quarter': return 'var(--info-color)';
-            case 'half': return 'var(--primary-color)';
-            case 'almost_done': return 'var(--success-color)';
-            case 'completed': return 'var(--success-color)';
-            default: return 'var(--primary-color)';
-        }
-    };
-
-    // Получаем иконку статуса
-    const getStatusIcon = () => {
-        return StatusIcons[inventoryStatus] || StatusIcons.not_started;
-    };
-
-    // Получаем текст статуса
-    const getStatusText = () => {
-        switch (inventoryStatus) {
-            case 'not_started': return 'Инвентаризация не начата';
-            case 'early': return 'Начальный этап';
-            case 'in_progress': return 'В процессе';
-            case 'quarter': return 'Четверть пути';
-            case 'half': return 'Половина пути';
-            case 'almost_done': return 'Почти готово';
-            case 'completed': return 'Инвентаризация завершена';
-            default: return 'В процессе';
-        }
+        if (progress === 0) return 'var(--text-secondary)';
+        if (progress === 100) return 'var(--success-color)';
+        if (progress < 25) return 'var(--warning-color)';
+        if (progress < 50) return 'var(--info-color)';
+        if (progress < 75) return 'var(--primary-color)';
+        return 'var(--success-color)';
     };
 
     return (
@@ -274,25 +171,6 @@ const Header: React.FC<HeaderProps> = ({
                     >
                         {getDisplayTitle()}
                     </motion.h2>
-                    
-                    {/* Статус инвентаризации */}
-                    <motion.div 
-                        className={styles.statusBadge}
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 0.4 }}
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                    >
-                        <motion.span 
-                            className={styles.statusIcon}
-                            animate={{ rotate: [0, 360] }}
-                            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                        >
-                            {getStatusIcon()}
-                        </motion.span>
-                        <span className={styles.statusText}>{getStatusText()}</span>
-                    </motion.div>
                 </div>
 
                 {/* Уведомления - показываем только если есть уведомления */}

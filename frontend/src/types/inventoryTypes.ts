@@ -76,6 +76,7 @@ export interface InventoryMetadata {
     lastUpdated: string;
     progress: number;
     chat_id: string;
+    start_time?: string; // Время начала инвентаризации (когда прогресс стал > 0)
     lastTemplateUpdate?: {
         timestamp: string;
         changes: {

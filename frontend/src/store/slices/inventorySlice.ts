@@ -605,7 +605,11 @@ const inventorySlice = createSlice({
                         metadata: {
                             ...oldData.metadata,
                             lastUpdated: new Date().toISOString(),
-                            progress: calculateInventoryProgress(updatedInventory)
+                            progress: calculateInventoryProgress(updatedInventory),
+                            // 🔧 НОВОЕ: Автоматически устанавливаем start_time если прогресс стал > 0
+                            ...(calculateInventoryProgress(updatedInventory) > 0 && !oldData.metadata?.start_time && {
+                                start_time: new Date().toISOString()
+                            })
                         }
                     };
                     state.items[chatIndex] = updatedChat;
@@ -672,23 +676,36 @@ const inventorySlice = createSlice({
             if (state.selectedChat?.inventory) {
                 const progress = calculateInventoryProgress(state.selectedChat.inventory);
                 if (state.selectedChat.metadata) {
+                    // 🔧 НОВОЕ: Автоматически устанавливаем start_time когда прогресс становится > 0
+                    if (progress > 0 && !state.selectedChat.metadata.start_time) {
+                        state.selectedChat.metadata.start_time = new Date().toISOString();
+                        console.log('🔍 [updateProgress] Установлено время начала инвентаризации:', state.selectedChat.metadata.start_time);
+                    }
                     state.selectedChat.metadata.progress = progress;
                 } else {
                     state.selectedChat.metadata = {
                         progress,
                         lastUpdated: new Date().toISOString(),
-                        chat_id: state.selectedChat.chat_id
+                        chat_id: state.selectedChat.chat_id,
+                        // 🔧 НОВОЕ: Устанавливаем start_time если прогресс > 0
+                        ...(progress > 0 && { start_time: new Date().toISOString() })
                     };
                 }
                 const chatIndex = state.items.findIndex(chat => chat.chat_id === state.selectedChat?.chat_id);
                 if (chatIndex !== -1) {
                     if (state.items[chatIndex].metadata) {
+                        // 🔧 НОВОЕ: Также обновляем start_time в основном списке
+                        if (progress > 0 && !state.items[chatIndex].metadata.start_time) {
+                            state.items[chatIndex].metadata.start_time = new Date().toISOString();
+                        }
                         state.items[chatIndex].metadata.progress = progress;
                     } else {
                         state.items[chatIndex].metadata = {
                             progress,
                             lastUpdated: new Date().toISOString(),
-                            chat_id: state.selectedChat.chat_id
+                            chat_id: state.items[chatIndex].chat_id,
+                            // 🔧 НОВОЕ: Устанавливаем start_time если прогресс > 0
+                            ...(progress > 0 && { start_time: new Date().toISOString() })
                         };
                     }
                 }
@@ -908,11 +925,21 @@ const inventorySlice = createSlice({
                         return; // Не сохраняем товар с некорректными ключами
                     }
                     
+                    // Обновляем товар
                     chatState.inventory[decodedCategory][decodedItemId] = {
                         ...item,
                         lastUpdated: itemTimestamp
                     };
-                    chatState.metadata.progress = calculateInventoryProgress(chatState.inventory);
+                    
+                    // 🔧 НОВОЕ: Обновляем прогресс и автоматически устанавливаем start_time
+                    const newProgress = calculateInventoryProgress(chatState.inventory);
+                    chatState.metadata.progress = newProgress;
+                    
+                    // Автоматически устанавливаем start_time когда прогресс становится > 0
+                    if (newProgress > 0 && !chatState.metadata.start_time) {
+                        chatState.metadata.start_time = new Date().toISOString();
+                        console.log('🔍 [WS Update] Установлено время начала инвентаризации:', chatState.metadata.start_time);
+                    }
                 }
                 else if (messageType === 'inventory_reset') {
                     if (chatState.inventory) {
@@ -933,6 +960,13 @@ const inventorySlice = createSlice({
                                 });
                             }
                         });
+                    }
+                    
+                    // 🔧 НОВОЕ: Сбрасываем прогресс и время начала при сбросе инвентаризации
+                    chatState.metadata.progress = 0;
+                    if (chatState.metadata.start_time) {
+                        delete chatState.metadata.start_time;
+                        console.log('🔍 [WS Update] Сброшено время начала инвентаризации при сбросе');
                     }
                 }
                 else {
@@ -1116,12 +1150,19 @@ const inventorySlice = createSlice({
                     }
                     const progress = calculateInventoryProgress(inventory);
                     if (chat.metadata) {
+                        // 🔧 НОВОЕ: Автоматически устанавливаем start_time если прогресс стал > 0
+                        if (progress > 0 && !chat.metadata.start_time) {
+                            chat.metadata.start_time = new Date().toISOString();
+                            console.log('🔍 [updateInventoryStructure] Установлено время начала инвентаризации:', chat.metadata.start_time);
+                        }
                         chat.metadata.progress = progress;
                     } else {
                         chat.metadata = {
                             progress,
                             lastUpdated: new Date().toISOString(),
-                            chat_id: chatId
+                            chat_id: chatId,
+                            // 🔧 НОВОЕ: Устанавливаем start_time если прогресс > 0
+                            ...(progress > 0 && { start_time: new Date().toISOString() })
                         };
                     }
                 }

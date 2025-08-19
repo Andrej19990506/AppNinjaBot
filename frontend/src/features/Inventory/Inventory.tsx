@@ -9,6 +9,7 @@ import ItemEdit from '@features/Inventory/ItemEdit';
 import OutOfStockConfirmModal from '@features/Inventory/OutOfStockConfirmModal';
 import { InventoryCompleteDrawer } from '@features/Inventory/components/InventoryCompleteDrawer';
 import TemplateChangesModal from '@features/Inventory/components/TemplateChangesModal';
+import AggressiveChangeModal from '@features/Inventory/components/AggressiveChangeModal/AggressiveChangeModal';
 import Header from '@features/Inventory/Header';
 import styles from '@features/Inventory/Inventory.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
@@ -29,7 +30,6 @@ import { useInventorySearch } from '@features/Inventory/hooks/useInventorySearch
 import { useInventoryView } from '@features/Inventory/hooks/useInventoryView';
 import { useUserActivity } from '@shared/hooks/useUserActivity';
 import { fetchChatInventory, selectCategoriesForSelectedChat, selectHistoryRecordsForItem} from '@/store/slices/inventorySlice';
-import ItemAnalytics from '@features/Inventory/components/ItemAnalytics/ItemAnalytics';
 import { ActiveUsersDrawer } from '@features/Inventory/components/ActiveUsersPanel/ActiveUsersDrawer';
 import SlidingDrawer from '@shared/components/SlidingDrawer/SlidingDrawer';
 import { ConnectionStatusPanel } from '@shared/components/ConnectionStatusPanel';
@@ -67,8 +67,6 @@ const Inventory: React.FC = () => {
     const [notifications, setNotifications] = useState<Array<{ id: string; type: string; message?: string; title?: string }>>([]);
     const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
     const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-    const [isAnalyticsOpen, setIsAnalyticsOpen] = useState(false);
-    const [analyticsData, setAnalyticsData] = useState<{category: string, itemId: string} | null>(null);
     const [isActiveUsersDrawerOpen, setIsActiveUsersDrawerOpen] = useState(false);
     const [activeUsersCount, setActiveUsersCount] = useState(0);
     const [showOutOfStockConfirm, setShowOutOfStockConfirm] = useState(false);
@@ -80,11 +78,24 @@ const Inventory: React.FC = () => {
         onConfirm: () => void;
     } | null>(null);
     
-    // Селектор для данных истории (после инициализации analyticsData)
-    const historyData = useAppSelector(state => 
-        analyticsData ? selectHistoryRecordsForItem(analyticsData.itemId)(state) : []
-    );
-    
+    // Состояние для модального окна агрессивных изменений
+    const [showAggressiveChangeModal, setShowAggressiveChangeModal] = useState(false);
+    const [aggressiveChangeData, setAggressiveChangeData] = useState<{
+        category: string;
+        itemId: string;
+        itemName: string;
+        oldQuantity: number;
+        newQuantity: number;
+        changePercent: number;
+        changeType: 'increase' | 'decrease';
+        averageDailyAmount?: number;
+        dailyChangesCount?: number;
+        totalHistoryAmount?: number;
+        onConfirm: () => void;
+        onEdit: () => void;
+    } | null>(null);
+  
+ 
     // --- 4. Инициализация кастомных хуков ---
     const {
         isLoading: isInventoryLoading,
@@ -325,15 +336,6 @@ const Inventory: React.FC = () => {
         navigate('/');
     }, [navigate]);
 
-    const handleShowAnalytics = useCallback((category: string, itemId: string) => {
-        setAnalyticsData({ category, itemId });
-        setIsAnalyticsOpen(true);
-    }, []);
-
-    const handleCloseAnalytics = useCallback(() => {
-        setIsAnalyticsOpen(false);
-        setAnalyticsData(null);
-    }, []);
 
     // Функции для управления модальным окном подтверждения "Нет в наличии"
     const handleOutOfStockConfirm = useCallback((category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => {
@@ -370,6 +372,59 @@ const Inventory: React.FC = () => {
     const handleCompleteClick = useCallback(() => {
         setShowCompleteDialog(prev => !prev);
     }, []);
+
+    // Функции для управления модальным окном агрессивных изменений
+    const handleAggressiveChange = useCallback((
+        category: string, 
+        itemId: string, 
+        itemName: string, 
+        oldQuantity: number, 
+        newQuantity: number, 
+        changePercent: number, 
+        changeType: 'increase' | 'decrease',
+        onConfirm: () => void,
+        onEdit: () => void,
+        averageDailyAmount?: number,
+        dailyChangesCount?: number,
+        totalHistoryAmount?: number
+    ) => {
+        setAggressiveChangeData({
+            category,
+            itemId,
+            itemName,
+            oldQuantity,
+            newQuantity,
+            changePercent,
+            changeType,
+            onConfirm,
+            onEdit,
+            averageDailyAmount,
+            dailyChangesCount,
+            totalHistoryAmount
+        });
+        setShowAggressiveChangeModal(true);
+    }, []);
+
+    const handleAggressiveChangeClose = useCallback(() => {
+        setShowAggressiveChangeModal(false);
+        setAggressiveChangeData(null);
+    }, []);
+
+    const handleAggressiveChangeConfirm = useCallback(() => {
+        if (aggressiveChangeData) {
+            aggressiveChangeData.onConfirm();
+            setShowAggressiveChangeModal(false);
+            setAggressiveChangeData(null);
+        }
+    }, [aggressiveChangeData]);
+
+    const handleAggressiveChangeEdit = useCallback(() => {
+        if (aggressiveChangeData) {
+            aggressiveChangeData.onEdit();
+            setShowAggressiveChangeModal(false);
+            setAggressiveChangeData(null);
+        }
+    }, [aggressiveChangeData]);
 
     // --- 7. Инициализация useInventoryView после всех функций ---
     const { 
@@ -416,8 +471,8 @@ const Inventory: React.FC = () => {
                         console.log('Item updated');
                     }}
                     chatId={selectedChat?.chat_id || ''}
-                    onShowAnalytics={() => handleShowAnalytics(category, itemId)}
                     onOutOfStockConfirm={handleOutOfStockConfirm}
+                    onAggressiveChange={handleAggressiveChange}
                 />
                 
                 <ItemHistory
@@ -427,7 +482,7 @@ const Inventory: React.FC = () => {
                     className={styles.itemHistory}
                 />
             </motion.div>
-        ), [selectedChat?.inventory, selectedChat?.chat_id, handleBack, handleShowAnalytics, handleOutOfStockConfirm])
+        ), [selectedChat?.inventory, selectedChat?.chat_id, handleBack, handleOutOfStockConfirm, handleAggressiveChange])
     });
 
     // Assign the values to the variables declared earlier
@@ -558,6 +613,7 @@ const Inventory: React.FC = () => {
                 notifications={notifications}
                 hasUnreadNotifications={hasUnreadNotifications}
                 onNotificationClose={handleNotificationClose}
+                startTime={currentChatData.metadata?.start_time}
             />
             
 
@@ -607,8 +663,6 @@ const Inventory: React.FC = () => {
                 showInventorySearchButton={true} 
                 onInventorySearchClick={handleFooterSearchClick} 
                 isSearchOpen={isSearchFocused}
-                isAnalyticsOpen={isAnalyticsOpen}
-                onAnalyticsClose={handleCloseAnalytics}
                 showActiveUsersButton={true}
                 onActiveUsersClick={handleActiveUsersClick}
                 activeUsersCount={activeUsersCount}
@@ -639,19 +693,6 @@ const Inventory: React.FC = () => {
                 />
             )}
             
-            {/* Модальное окно аналитики */}
-            {analyticsData && (
-                <ItemAnalytics
-                    itemId={analyticsData.itemId}
-                    itemName={analyticsData.itemId}
-                    category={analyticsData.category}
-                    history={historyData || []}
-                    isOpen={isAnalyticsOpen}
-                    onClose={handleCloseAnalytics}
-                />
-            )}
-            
-            {/* SlidingDrawer с активными пользователями */}
             <AnimatePresence>
                 {isActiveUsersDrawerOpen && currentChatData.chat_id && (
                     <SlidingDrawer onClose={handleCloseActiveUsersDrawer}>
@@ -667,6 +708,22 @@ const Inventory: React.FC = () => {
                 onConfirm={handleOutOfStockConfirmSubmit}
                 onCancel={handleOutOfStockConfirmCancel}
             />
+
+            {/* Модальное окно агрессивных изменений */}
+            {aggressiveChangeData && (
+                <AggressiveChangeModal
+                    isOpen={showAggressiveChangeModal}
+                    onClose={handleAggressiveChangeClose}
+                    onConfirm={handleAggressiveChangeConfirm}
+                    onEdit={handleAggressiveChangeEdit}
+                    itemName={aggressiveChangeData.itemName}
+                    category={aggressiveChangeData.category}
+                    oldQuantity={aggressiveChangeData.oldQuantity}
+                    newQuantity={aggressiveChangeData.newQuantity}
+                    changePercent={aggressiveChangeData.changePercent}
+                    changeType={aggressiveChangeData.changeType}
+                />
+            )}
         </div>
     );
 };

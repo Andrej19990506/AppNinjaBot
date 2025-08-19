@@ -15,8 +15,21 @@ interface ItemEditProps {
     onDelete?: () => void;
     onCancel?: () => void;
     onSave?: (updatedItem: InventoryItem) => void;
-    onShowAnalytics?: () => void; // Добавляем новый пропс
-    onOutOfStockConfirm?: (category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => void; // Новый пропс для подтверждения с коллбэком
+    onOutOfStockConfirm?: (category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => void;
+    onAggressiveChange?: (
+        category: string, 
+        itemId: string, 
+        itemName: string, 
+        oldQuantity: number, 
+        newQuantity: number, 
+        changePercent: number, 
+        changeType: 'increase' | 'decrease',
+        onConfirm: () => void,
+        onEdit: () => void,
+        averageDailyAmount?: number,
+        dailyChangesCount?: number,
+        totalHistoryAmount?: number
+    ) => void;
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
@@ -29,8 +42,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     onDelete, 
     onCancel, 
     onSave, 
-    onShowAnalytics,
-    onOutOfStockConfirm
+    onOutOfStockConfirm,
+    onAggressiveChange
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [_isAddingItem, _setIsAddingItem] = useState(false);
@@ -43,11 +56,105 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [isVisible, setIsVisible] = useState(false);
     const [isCardExiting, setIsCardExiting] = useState(false);
 
+    // Интерфейс для данных агрессивного изменения
+    interface AggressiveChangeData {
+        oldQuantity: number;
+        newQuantity: number;
+        changeAmount: number;
+        changePercent: number;
+        changeType: 'increase' | 'decrease';
+        averageDailyAmount: number;
+        dailyChangesCount: number;
+        totalHistoryAmount: number;
+    }
+
     const inputRef = useRef<HTMLInputElement>(null);
     const _currentTypes = ['raw', item.semifinished ? 'semifinished' : null].filter(Boolean) as ('raw' | 'semifinished')[];
     
     // Получаем данные истории товара из Redux
     const historyData = useAppSelector(selectHistoryRecordsForItem(itemId));
+    
+    // Функция для анализа агрессивных изменений на основе истории по дням
+    const analyzeAggressiveChange = useCallback((type: 'raw' | 'semifinished', newQuantity: number): AggressiveChangeData | null => {
+        console.log('🔍 [AggressiveChange] Анализируем изменения для:', { type, newQuantity, historyDataLength: historyData?.length });
+        
+        if (!historyData || historyData.length === 0) {
+            console.log('⚠️ [AggressiveChange] История пуста, пропускаем анализ');
+            return null;
+        }
+        
+        const currentQuantity = item[type]?.quantity ?? 0;
+        
+        // ИСПРАВЛЕНИЕ: Находим последнее значение из истории для сравнения
+        const lastHistoryRecord = historyData
+            .filter(record => record.type === type && record.new_quantity !== null)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        
+        if (!lastHistoryRecord || lastHistoryRecord.new_quantity === null) {
+            console.log('⚠️ [AggressiveChange] Нет предыдущего значения в истории, пропускаем анализ');
+            return null;
+        }
+        
+        const previousQuantity = lastHistoryRecord.new_quantity;
+        const changeAmount = Math.abs(newQuantity - previousQuantity);
+        
+        console.log('📊 [AggressiveChange] Текущие данные:', { 
+            currentQuantity, 
+            previousQuantity, 
+            newQuantity, 
+            changeAmount 
+        });
+        
+        // Группируем изменения по дням и суммируем их
+        const dailyChanges = new Map<string, number>();
+        
+        historyData.forEach(record => {
+            if (record.type === type && record.old_quantity !== null && record.new_quantity !== null) {
+                const date = new Date(record.timestamp).toDateString(); // Группируем по дню
+                const dayChange = Math.abs(record.new_quantity - record.old_quantity);
+                const previousAmount = dailyChanges.get(date) || 0;
+                dailyChanges.set(date, previousAmount + dayChange);
+                console.log('📅 [AggressiveChange] Запись истории:', { date, oldQuantity: record.old_quantity, newQuantity: record.new_quantity, dayChange });
+            }
+        });
+        
+        console.log('📈 [AggressiveChange] Дневные изменения:', Object.fromEntries(dailyChanges));
+        
+        // Вычисляем среднее значение за все предыдущие дни
+        if (dailyChanges.size === 0) {
+            console.log('⚠️ [AggressiveChange] Нет дневных изменений, пропускаем анализ');
+            return null;
+        }
+        
+        const totalAmount = Array.from(dailyChanges.values()).reduce((sum, amount) => sum + amount, 0);
+        const averageDailyAmount = totalAmount / dailyChanges.size;
+        
+        console.log('📊 [AggressiveChange] Статистика:', { totalAmount, averageDailyAmount, dailyChangesCount: dailyChanges.size });
+        
+        // ИСПРАВЛЕНИЕ: Сравниваем изменение с предыдущим значением со средним дневным изменением
+        const changePercent = (changeAmount / averageDailyAmount) * 100;
+        const isAggressiveChange = changePercent > 40;
+        
+        console.log('⚖️ [AggressiveChange] Результат анализа:', { changePercent, isAggressiveChange, threshold: 40 });
+        
+        if (isAggressiveChange) {
+            const result: AggressiveChangeData = {
+                oldQuantity: previousQuantity, // ИСПРАВЛЕНИЕ: используем предыдущее значение
+                newQuantity,
+                changeAmount,
+                changePercent,
+                changeType: newQuantity > previousQuantity ? 'increase' : 'decrease',
+                averageDailyAmount: Math.round(averageDailyAmount),
+                dailyChangesCount: dailyChanges.size,
+                totalHistoryAmount: totalAmount
+            };
+            console.log('🚨 [AggressiveChange] Обнаружено агрессивное изменение:', result);
+            return result;
+        }
+        
+        console.log('✅ [AggressiveChange] Изменение в пределах нормы');
+        return null;
+    }, [historyData, item]);
     
     const dispatch = useAppDispatch();
     const currentUser = useAppSelector(state => state.user.user);
@@ -99,88 +206,42 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const _handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
             const currentTimestamp = new Date().toISOString();
-            const newItem = { 
-                ...item, 
-                lastUpdated: currentTimestamp // Добавляем timestamp для отслеживания изменений
-            };
+            const currentQuantity = item[type]?.quantity ?? 0;
+            const newQuantity = action === 'increment' ? currentQuantity + 1 : Math.max(0, currentQuantity - 1);
             
-            if (type === 'raw' && newItem.raw) {
-                const currentValue = newItem.raw.quantity;
-                const newValue = action === 'increment' ? currentValue + 1 : Math.max(0, currentValue - 1);
-                newItem.raw = {
-                    ...newItem.raw,
-                    quantity: newValue,
-                    filled: newValue > 0,
-                    isOutOfStock: newItem.raw.isOutOfStock
-                };
-            } else if (type === 'semifinished' && newItem.semifinished) {
-                const currentValue = newItem.semifinished.quantity;
-                const newValue = action === 'increment' ? currentValue + 1 : Math.max(0, currentValue - 1);
-                newItem.semifinished = {
-                    ...newItem.semifinished,
-                    quantity: newValue,
-                    filled: newValue > 0
-                };
-            }
+            // Проверяем на агрессивные изменения на основе истории
+            const aggressiveChangeData = analyzeAggressiveChange(type, newQuantity);
 
-            // 🚨 OPTIMISTIC UPDATE с защитой от конфликтов
-            const previousItem = { ...item };
-            setItem(newItem);
-            
-            try {
-                // Обновляем инвентарь и прогресс
-                const updateResult = await dispatch(updateInventoryItem({
-                    chatId,
+            if (aggressiveChangeData && onAggressiveChange) {
+                // Показываем модальное окно подтверждения
+                onAggressiveChange(
                     category,
                     itemId,
-                    item: newItem
-                })).unwrap();
-
-                // 🔄 CONFLICT RESOLUTION: проверяем что сервер вернул
-                if (updateResult && updateResult.inventory) {
-                    const serverItem = updateResult.inventory[category]?.[itemId];
-                    if (serverItem && serverItem.lastUpdated !== currentTimestamp) {
-                        console.warn(`⚠️ [Conflict] Сервер вернул другой timestamp для ${category}/${itemId}:`, {
-                            expected: currentTimestamp,
-                            server: serverItem.lastUpdated,
-                            serverItem
-                        });
-                        // Применяем данные с сервера (последняя запись побеждает)
-                        setItem(serverItem);
-                    }
-                }
-
-                // Явно вызываем обновление прогресса
-                dispatch(updateProgress());
-
-                // ✅ Только после успешного API запроса отправляем веб-сокет
-                const updateData = {
-                    source: 'client',
-                    data: {
-                        metadata: {
-                            lastUpdated: currentTimestamp,
-                            chat_id: chatId
-                        },
-                        type: 'item_update',
-                        category,
-                        itemId,
-                        item: newItem
-                    }
-                };
-
-                socketService.emit('inventory_update', updateData);
-                onUpdate();
-
-            } catch (error) {
-                console.error('Ошибка при обновлении количества:', error);
-                // 🚨 ROLLBACK: возвращаем предыдущее состояние при ошибке
-                setItem(previousItem);
-                throw error; // Re-throw для обработки выше
+                    itemId, // itemName
+                    aggressiveChangeData.oldQuantity,
+                    aggressiveChangeData.newQuantity,
+                    aggressiveChangeData.changePercent,
+                    aggressiveChangeData.changeType,
+                    // onConfirm - выполняем обновление
+                    async () => {
+                        await performQuantityChangeUpdate(type, newQuantity, currentTimestamp);
+                    },
+                    // onEdit - ничего не делаем, пользователь может использовать поле ввода
+                    () => {},
+                    aggressiveChangeData.averageDailyAmount,
+                    aggressiveChangeData.dailyChangesCount,
+                    aggressiveChangeData.totalHistoryAmount
+                );
+                return;
             }
+
+            // Если нет агрессивных изменений, выполняем обновление сразу
+            await performQuantityChangeUpdate(type, newQuantity, currentTimestamp);
+
         } catch (error) {
             console.error('Критическая ошибка при обновлении:', error);
         }
-    }, [chatId, category, itemId, item, dispatch, onUpdate]);
+    }, [chatId, category, itemId, item, dispatch, onUpdate, onAggressiveChange]);
 
     const handleAddSemifinished = async () => {
         try {
@@ -406,78 +467,188 @@ const ItemEdit: React.FC<ItemEditProps> = ({
 
         try {
             setIsLoading(true);
-            // <<< УДАЛЯЕМ ЗАДЕРЖКУ >>>
-            // await new Promise(resolve => setTimeout(resolve, 4000)); 
 
             const currentQuantity = item[type]?.quantity ?? 0;
             const newQuantity = operation === 'add' ? currentQuantity + value : Math.max(0, currentQuantity - value);
 
-            const newItem = { 
-                ...item, 
-                lastUpdated: new Date().toISOString() // Добавляем timestamp
-            };
-            if (type === 'raw' && newItem.raw) {
-                newItem.raw = {
-                    ...newItem.raw,
-                    quantity: newQuantity,
-                    filled: newQuantity > 0,
-                    isOutOfStock: false // Сбрасываем isOutOfStock при ручном вводе
-                };
-            } else if (type === 'semifinished' && newItem.semifinished) {
-                newItem.semifinished = {
-                    ...newItem.semifinished,
-                    quantity: newQuantity,
-                    filled: newQuantity > 0
-                };
+            // Проверяем на агрессивные изменения на основе истории
+            const aggressiveChangeData = analyzeAggressiveChange(type, newQuantity);
+
+            if (aggressiveChangeData && onAggressiveChange) {
+                // Показываем модальное окно подтверждения
+                onAggressiveChange(
+                    category,
+                    itemId,
+                    itemId, // itemName
+                    aggressiveChangeData.oldQuantity,
+                    aggressiveChangeData.newQuantity,
+                    aggressiveChangeData.changePercent,
+                    aggressiveChangeData.changeType,
+                    // onConfirm - выполняем обновление
+                    async () => {
+                        await performQuantityUpdate(type, newQuantity);
+                    },
+                    // onEdit - закрываем модальное окно и возвращаемся к редактированию
+                    () => {
+                        setCurrentActiveItem(null);
+                        setCurrentInputValue('');
+                    },
+                    aggressiveChangeData.averageDailyAmount,
+                    aggressiveChangeData.dailyChangesCount,
+                    aggressiveChangeData.totalHistoryAmount
+                );
+                return;
             }
 
-            setItem(newItem); // Обновляем локальное состояние
-            
-            // Обновляем инвентарь и ждем завершения
-            await dispatch(updateInventoryItem({
-                chatId,
+            // Если нет агрессивных изменений, выполняем обновление сразу
+            await performQuantityUpdate(type, newQuantity);
+
+        } catch (error) {
+            console.error('Ошибка при обновлении количества:', error);
+            console.error('Не удалось обновить товар');
+        } finally {
+            setIsLoading(false);
+            setCurrentActiveItem(null);
+            setCurrentInputValue('');
+        }
+    };
+
+    // Выносим логику обновления количества в отдельную функцию
+    const performQuantityUpdate = async (type: 'raw' | 'semifinished', newQuantity: number) => {
+        const newItem = { 
+            ...item, 
+            lastUpdated: new Date().toISOString()
+        };
+        
+        if (type === 'raw' && newItem.raw) {
+            newItem.raw = {
+                ...newItem.raw,
+                quantity: newQuantity,
+                filled: newQuantity > 0,
+                isOutOfStock: false
+            };
+        } else if (type === 'semifinished' && newItem.semifinished) {
+            newItem.semifinished = {
+                ...newItem.semifinished,
+                quantity: newQuantity,
+                filled: newQuantity > 0
+            };
+        }
+
+        setItem(newItem);
+        
+        // Обновляем инвентарь и ждем завершения
+        await dispatch(updateInventoryItem({
+            chatId,
+            category,
+            itemId: itemId,
+            item: newItem
+        })).unwrap();
+
+        // Обновляем историю после успешного сохранения
+        dispatch(fetchItemHistory({
+            chatId: chatId,
+            category: category,
+            itemId: itemId,
+            itemName: itemId
+        }));
+
+        // Явно вызываем обновление прогресса
+        dispatch(updateProgress());
+
+        const updateData = {
+            source: 'client',
+            data: {
+                metadata: {
+                    lastUpdated: new Date().toISOString(),
+                    chat_id: chatId
+                },
+                type: 'item_update',
                 category,
                 itemId: itemId,
                 item: newItem
+            }
+        };
+
+        socketService.emit('inventory_update', updateData);
+        onUpdate();
+    };
+
+    // Выносим логику обновления количества для кнопок +/- в отдельную функцию
+    const performQuantityChangeUpdate = async (type: 'raw' | 'semifinished', newQuantity: number, timestamp: string) => {
+        const newItem = { 
+            ...item, 
+            lastUpdated: timestamp
+        };
+        
+        if (type === 'raw' && newItem.raw) {
+            newItem.raw = {
+                ...newItem.raw,
+                quantity: newQuantity,
+                filled: newQuantity > 0,
+                isOutOfStock: newItem.raw.isOutOfStock
+            };
+        } else if (type === 'semifinished' && newItem.semifinished) {
+            newItem.semifinished = {
+                ...newItem.semifinished,
+                quantity: newQuantity,
+                filled: newQuantity > 0
+            };
+        }
+
+        // 🚨 OPTIMISTIC UPDATE с защитой от конфликтов
+        const previousItem = { ...item };
+        setItem(newItem);
+        
+        try {
+            // Обновляем инвентарь и прогресс
+            const updateResult = await dispatch(updateInventoryItem({
+                chatId,
+                category,
+                itemId,
+                item: newItem
             })).unwrap();
 
-            // <<< ОБНОВЛЯЕМ ИСТОРИЮ ПОСЛЕ УСПЕШНОГО СОХРАНЕНИЯ >>>
-            dispatch(fetchItemHistory({
-                chatId: chatId,
-                category: category,
-                itemId: itemId,
-                itemName: itemId
-            }));
+            // 🔄 CONFLICT RESOLUTION: проверяем что сервер вернул
+            if (updateResult && updateResult.inventory) {
+                const serverItem = updateResult.inventory[category]?.[itemId];
+                if (serverItem && serverItem.lastUpdated !== timestamp) {
+                    console.warn(`⚠️ [Conflict] Сервер вернул другой timestamp для ${category}/${itemId}:`, {
+                        expected: timestamp,
+                        server: serverItem.lastUpdated,
+                        serverItem
+                    });
+                    // Применяем данные с сервера (последняя запись побеждает)
+                    setItem(serverItem);
+                }
+            }
 
             // Явно вызываем обновление прогресса
             dispatch(updateProgress());
 
+            // ✅ Только после успешного API запроса отправляем веб-сокет
             const updateData = {
                 source: 'client',
                 data: {
                     metadata: {
-                        lastUpdated: new Date().toISOString(),
+                        lastUpdated: timestamp,
                         chat_id: chatId
                     },
                     type: 'item_update',
                     category,
-                    itemId: itemId,
+                    itemId,
                     item: newItem
                 }
             };
 
             socketService.emit('inventory_update', updateData);
-            onUpdate(); // Вызываем коллбэк обновления
+            onUpdate();
 
         } catch (error) {
             console.error('Ошибка при обновлении количества:', error);
-            // В случае ошибки можно откатить локальное состояние
-            // setItem(initialItem); 
-            setError('Не удалось обновить товар');
-        } finally {
-            setIsLoading(false);
-            setCurrentActiveItem(null);
-            setCurrentInputValue('');
+            // 🚨 ROLLBACK: возвращаем предыдущее состояние при ошибке
+            setItem(previousItem);
+            throw error; // Re-throw для обработки выше
         }
     };
 
@@ -601,28 +772,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         </>
     );
 
-    // SVG иконка графика
-    const ChartIcon = (props: React.SVGProps<SVGSVGElement>) => (
-        <svg viewBox="0 0 24 24" fill="none" {...props}>
-            <path d="M4 18L10 12L14 16L20 8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            <circle cx="4" cy="18" r="1.5" fill="currentColor" />
-            <circle cx="10" cy="12" r="1.5" fill="currentColor" />
-            <circle cx="14" cy="16" r="1.5" fill="currentColor" />
-            <circle cx="20" cy="8" r="1.5" fill="currentColor" />
-        </svg>
-    );
-
     return (
-        <div className={styles.container}>
-            {/* Иконка графика над карточкой сырья */}
-            <div 
-                className={styles.chartIconWrapper}
-                onClick={() => onShowAnalytics?.()}
-                style={{ cursor: 'pointer' }}
-            >
-                <ChartIcon className={styles.chartIcon} />
-                <span className={styles.chartLabel}>График</span>
-            </div>
+        <div className={styles.container}>         
             {renderCards}
             
             {!item.semifinished && (

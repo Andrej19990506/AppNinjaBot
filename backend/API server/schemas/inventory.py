@@ -14,6 +14,7 @@ class InventoryMetadata(BaseModel):
     lastUpdated: Optional[str] = None
     progress: int = 0
     chat_id: str # Строковый ID чата
+    start_time: Optional[str] = None # Время начала инвентаризации (когда прогресс стал > 0)
 
 # Основная модель ответа для GET /inventory/{chat_id}
 class InventoryData(BaseModel):

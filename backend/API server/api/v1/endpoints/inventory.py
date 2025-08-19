@@ -98,6 +98,36 @@ def calculate_inventory_progress_py(inventory: Dict[str, Any] | None) -> int:
     # logger.debug(f"Calculated progress: {progress}% ({filled_items}/{total_items})") # Optional debug log
     return progress
 
+# 🔧 НОВАЯ ФУНКЦИЯ: Обновляет метаданные инвентаря с автоматической установкой start_time
+def update_inventory_metadata(metadata: Dict[str, Any], new_progress: int) -> Dict[str, Any]:
+    """
+    Обновляет метаданные инвентаря, автоматически устанавливая start_time когда прогресс становится > 0
+    
+    Args:
+        metadata: Текущие метаданные
+        new_progress: Новый прогресс
+        
+    Returns:
+        Обновленные метаданные
+    """
+    updated_metadata = metadata.copy() if metadata else {}
+    
+    # Обновляем прогресс
+    updated_metadata['progress'] = new_progress
+    updated_metadata['lastUpdated'] = datetime.now(timezone.utc).isoformat()
+    
+    # 🔧 НОВОЕ: Автоматически устанавливаем start_time когда прогресс становится > 0
+    if new_progress > 0 and 'start_time' not in updated_metadata:
+        updated_metadata['start_time'] = datetime.now(timezone.utc).isoformat()
+        logger.info(f"🔍 [update_inventory_metadata] Установлено время начала инвентаризации: {updated_metadata['start_time']}")
+    
+    # 🔧 НОВОЕ: Сбрасываем start_time когда прогресс становится 0 (сброс инвентаризации)
+    elif new_progress == 0 and 'start_time' in updated_metadata:
+        del updated_metadata['start_time']
+        logger.info(f"🔍 [update_inventory_metadata] Сброшено время начала инвентаризации при сбросе")
+    
+    return updated_metadata
+
 def _deep_merge_inventory_preserving_existing(base: Dict[str, Any] | None, incoming: Dict[str, Any] | None) -> Dict[str, Any]:
     """Безопасный мёрдж по категориям/товарам: не удаляет отсутствующие позиции из базы."""
     if not isinstance(base, dict):
@@ -378,6 +408,10 @@ async def read_inventory_for_chat(
         last_updated = metadata.get("lastUpdated")
         # Важно: Пересчитываем прогресс на основе финального инвентаря (base_inventory)
         progress = calculate_inventory_progress_py(final_inventory_data)
+        
+        # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+        updated_metadata = update_inventory_metadata(metadata, progress)
+        updated_metadata["chat_id"] = chat_id
 
         admins_query = (
             select(Member)
@@ -402,19 +436,19 @@ async def read_inventory_for_chat(
             }
             admins_list_of_dicts.append(admin_data)
 
-        # Формируем ответ, используя final_inventory_data и пересчитанный progress
-        # Важно: сохраняем ВСЕ поля из метаданных, включая lastTemplateUpdate
-        full_metadata = group.json_metadata or {}
-        full_metadata.update({
-            "lastUpdated": last_updated, # Обновляем время последнего обновления
-            "progress": progress, # Обновляем пересчитанный прогресс
-            "chat_id": chat_id # Убеждаемся, что chat_id присутствует
-        })
-        
         # Декодируем ключи инвентаря перед отправкой фронтенду
         from urllib.parse import unquote
         import uuid as _uuid
         decoded_inventory_data = {}
+        
+        # Формируем ответ, используя final_inventory_data и пересчитанный progress
+        # 🔧 НОВОЕ: Используем обновленные метаданные с start_time
+        response_dict = {
+            "inventory": decoded_inventory_data,
+            "metadata": updated_metadata, # Используем обновленные метаданные с start_time
+            "chat_title": group.title,
+            "admins": admins_list_of_dicts
+        }
         
         if final_inventory_data:
             for category_key, category_items in final_inventory_data.items():
@@ -465,13 +499,6 @@ async def read_inventory_for_chat(
             logger.info(f"[read_inventory_for_chat] Decoded inventory keys for frontend for chat_id: {chat_id}")
         else:
             decoded_inventory_data = final_inventory_data
-
-        response_dict = {
-            "inventory": decoded_inventory_data,
-            "metadata": full_metadata, # Используем ПОЛНЫЕ метаданные
-            "chat_title": group.title,
-            "admins": admins_list_of_dicts
-        }
 
         logger.info(f"[read_inventory_for_chat] Successfully retrieved and merged inventory for chat_id: {chat_id}")
         
@@ -1284,11 +1311,11 @@ async def delete_inventory_item(
             metadata = group.json_metadata or {}
             if deleted_from_inventory:
                 new_progress = calculate_inventory_progress_py(group.json_inventory)
-                metadata['progress'] = new_progress
-                metadata['lastUpdated'] = datetime.now().isoformat()
+                # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+                metadata = update_inventory_metadata(metadata, new_progress)
                 group.json_metadata = metadata
                 flag_modified(group, "json_metadata")
-                logger.info(f"[delete_inventory_item] Metadata updated for chat {chat_id}: progress={new_progress}, lastUpdated set.")
+                logger.info(f"[delete_inventory_item] Metadata updated for chat {chat_id}: progress={new_progress}, start_time={metadata.get('start_time', 'not_set')}")
             
             updated_metadata_for_notify = metadata # Сохраняем метаданные для отправки в NOTIFY
 
@@ -1611,17 +1638,13 @@ async def reset_inventory_for_chat(
 
             # 4. Обновляем метаданные
             existing_metadata = group.json_metadata or {}
-            # Создаем новый объект метаданных для корректного отслеживания изменений ORM
-            updated_metadata = {
-                **existing_metadata,  # Копируем существующие метаданные
-                'progress': 0,
-                'lastUpdated': datetime.now().isoformat(),
-                'chat_id': chat_id
-            }
+            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической очистки start_time
+            updated_metadata = update_inventory_metadata(existing_metadata, 0)
+            updated_metadata['chat_id'] = chat_id  # Добавляем chat_id
             group.json_metadata = updated_metadata
             flag_modified(group, "json_metadata")
             updated_metadata_for_notify = updated_metadata # Сохраняем для NOTIFY
-            logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0, lastUpdated set.")
+            logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0, start_time cleared")
 
         # Транзакция успешно завершена (commit)
         logger.info(f"[reset_inventory_for_chat] DB transaction committed for chat_id: {chat_id} after reset.")
@@ -2111,7 +2134,9 @@ async def sync_chat_with_template(
             group.json_metadata = {}
         group.json_metadata["lastUpdated"] = now
         group.json_metadata["lastSynced"] = now
-        group.json_metadata["progress"] = calculate_inventory_progress_py(updated_inventory)
+        # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+        new_progress = calculate_inventory_progress_py(updated_inventory)
+        group.json_metadata = update_inventory_metadata(group.json_metadata, new_progress)
         flag_modified(group, "json_metadata")
         
         await db.commit()
@@ -2301,7 +2326,9 @@ async def sync_all_groups_with_template(db: AsyncSession) -> Dict[str, Any]:
                         group.json_metadata = {}
                     group.json_metadata["lastUpdated"] = now
                     group.json_metadata["lastSynced"] = now
-                    group.json_metadata["progress"] = calculate_inventory_progress_py(updated_inventory)
+                    # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+                    new_progress = calculate_inventory_progress_py(updated_inventory)
+                    group.json_metadata = update_inventory_metadata(group.json_metadata, new_progress)
                     
                     # 🆕 ДОБАВЛЯЕМ ИНФОРМАЦИЮ О ПОСЛЕДНИХ ИЗМЕНЕНИЯХ ДЛЯ УВЕДОМЛЕНИЙ
                     group.json_metadata["lastTemplateUpdate"] = {
@@ -2565,13 +2592,12 @@ async def update_inventory_item_point(
                 current_version = int(existing_metadata.get("version", 0))
             except Exception:
                 current_version = 0
-            updated_metadata = {
-                **existing_metadata,
-                "progress": calculated_progress,
-                "lastUpdated": server_now,
-                "chat_id": chat_id,
-                "version": current_version + 1
-            }
+            
+            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+            updated_metadata = update_inventory_metadata(existing_metadata, calculated_progress)
+            updated_metadata["chat_id"] = chat_id
+            updated_metadata["version"] = current_version + 1
+            
             group.json_metadata = updated_metadata
             updated_metadata_for_response = group.json_metadata
 
@@ -2871,13 +2897,11 @@ async def update_inventory_item_by_uuid(
                 current_version = int(existing_metadata.get("version", 0))
             except Exception:
                 current_version = 0
-            updated_metadata = {
-                **existing_metadata,
-                "progress": calculated_progress,
-                "lastUpdated": server_now,
-                "chat_id": chat_id,
-                "version": current_version + 1
-            }
+            
+            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+            updated_metadata = update_inventory_metadata(existing_metadata, calculated_progress)
+            updated_metadata["chat_id"] = chat_id
+            updated_metadata["version"] = current_version + 1
             group.json_metadata = updated_metadata
             updated_metadata_for_response = group.json_metadata
 

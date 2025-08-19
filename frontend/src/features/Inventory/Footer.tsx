@@ -165,9 +165,6 @@ interface FooterProps {
     onMiddleButtonClick?: () => void;
     middleButtonText?: string;
     rightElement?: React.ReactNode;
-    // Новые пропсы для аналитики
-    isAnalyticsOpen?: boolean;
-    onAnalyticsClose?: () => void;
     // Новые пропсы для активных пользователей
     showActiveUsersButton?: boolean;
     onActiveUsersClick?: () => void;
@@ -214,8 +211,6 @@ const Footer: React.FC<FooterProps> = ({
     onMiddleButtonClick,
     middleButtonText,
     rightElement,
-    isAnalyticsOpen = false,
-    onAnalyticsClose,
     showActiveUsersButton = false,
     onActiveUsersClick,
     activeUsersCount = 0,
@@ -436,7 +431,7 @@ const Footer: React.FC<FooterProps> = ({
         
 
                                 {/* --- НОВАЯ Кнопка Поиска для Инвентаря / Закрытия Аналитики --- */}
-                                {(showInventorySearchButton && !isAnalyticsOpen) && (
+                                {(showInventorySearchButton && !isActiveUsersOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${styles.searchInventoryButton}`}
                                         onClick={onInventorySearchClick}
@@ -452,7 +447,7 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Активных Пользователей --- */}
-                                {(showActiveUsersButton && !isAnalyticsOpen) && (
+                                {(showActiveUsersButton && !isActiveUsersOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${styles.activeUsersButton}`}
                                         onClick={onActiveUsersClick}
@@ -476,7 +471,7 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Завершения Инвентаризации --- */}
-                                {(showCompleteButton && !isAnalyticsOpen) && (
+                                {(showCompleteButton && !isActiveUsersOpen) && (
                                     <motion.button
                                         className={`${styles.iconButton} ${isCompleteOpen ? styles.closeCompleteButton : styles.completeButton}`}
                                         onClick={onCompleteClick}
@@ -493,17 +488,7 @@ const Footer: React.FC<FooterProps> = ({
                                 )}
                                 
                                 {/* --- Кнопка Закрытия Аналитики --- */}
-                                {isAnalyticsOpen && onAnalyticsClose && (
-                                    <motion.button
-                                        className={`${styles.iconButton} ${styles.closeAnalyticsButton}`}
-                                        onClick={onAnalyticsClose}
-                                        whileHover={{ scale: 1.05, rotate: -5 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        title="Закрыть аналитику"
-                                    >
-                                        <CloseIcon className={styles.icon} />
-                                    </motion.button>
-                                )}
+                                {/* Убираем кнопку закрытия аналитики */}
                                 {/* --- КОНЕЦ Кнопок Поиска/Аналитики --- */}
                             </div>
                             

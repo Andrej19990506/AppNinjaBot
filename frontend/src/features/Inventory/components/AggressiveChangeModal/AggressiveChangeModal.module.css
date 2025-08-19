@@ -1,0 +1,378 @@
+/* Модальное окно агрессивных изменений - брендовый дизайн */
+
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.modalContent {
+    background: var(--card-background);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-xl);
+    border: 2px solid var(--primary-color);
+    position: relative;
+}
+
+/* Заголовок с предупреждением */
+.warningHeader {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid rgba(255, 95, 31, 0.2);
+}
+
+.warningIconWrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 24px rgba(255, 95, 31, 0.3);
+    flex-shrink: 0;
+}
+
+.warningIcon {
+    font-size: 28px !important;
+    color: white !important;
+}
+
+.headerText {
+    flex: 1;
+    min-width: 0;
+}
+
+.title {
+    margin: 0 0 6px 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-color);
+    line-height: 1.2;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+/* Детали изменений */
+.changeDetails {
+    background: rgba(255, 95, 31, 0.08);
+    border: 1px solid rgba(255, 95, 31, 0.2);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.changeRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 12px;
+}
+
+.changeRow:last-child {
+    margin-bottom: 0;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 95, 31, 0.2);
+    font-weight: 600;
+}
+
+.changeLabel {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.changeValue {
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 1rem;
+    text-align: right;
+    word-break: break-word;
+}
+
+.changeValue.increase {
+    color: var(--success-color);
+}
+
+.changeValue.decrease {
+    color: var(--error-color);
+}
+
+/* Текст предупреждения */
+.warningText {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 20px;
+}
+
+.warningMessage {
+    margin: 0 0 12px 0;
+}
+
+.warningMessage strong {
+    color: var(--primary-color);
+}
+
+.warningHint {
+    margin: 0;
+    font-style: italic;
+    color: var(--text-secondary);
+}
+
+/* Кнопки действий */
+.actionButtons {
+    display: flex;
+    gap: 12px;
+}
+
+.button {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all var(--transition-normal);
+    color: var(--text-color-on-primary);
+    min-height: 44px;
+}
+
+.buttonPrimary {
+    background: var(--success-color);
+}
+
+.buttonPrimary:hover {
+    background: var(--success-dark);
+    transform: var(--hover-transform);
+}
+
+.buttonSecondary {
+    background: var(--primary-color);
+}
+
+.buttonSecondary:hover {
+    background: var(--primary-dark);
+    transform: var(--hover-transform);
+}
+
+.buttonIcon {
+    font-size: 18px !important;
+}
+
+/* Кнопка закрытия */
+.closeButton {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 95, 31, 0.1);
+    color: var(--primary-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-normal);
+    flex-shrink: 0;
+}
+
+.closeButton:hover {
+    background: rgba(255, 95, 31, 0.2);
+    transform: scale(1.1);
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .modalOverlay {
+        padding: 12px;
+    }
+    
+    .modalContent {
+        padding: 20px;
+        max-height: 85vh;
+    }
+    
+    .warningHeader {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .warningIconWrapper {
+        width: 48px;
+        height: 48px;
+    }
+    
+    .warningIcon {
+        font-size: 24px !important;
+    }
+    
+    .title {
+        font-size: 1.1rem;
+    }
+    
+    .subtitle {
+        font-size: 0.85rem;
+    }
+    
+    .changeDetails {
+        padding: 14px;
+        margin-bottom: 16px;
+    }
+    
+    .actionButtons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .button {
+        padding: 14px 20px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .modalOverlay {
+        padding: 8px;
+    }
+    
+    .modalContent {
+        padding: 16px;
+        max-height: 80vh;
+        border-radius: var(--radius);
+    }
+    
+    .warningHeader {
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+    }
+    
+    .warningIconWrapper {
+        width: 44px;
+        height: 44px;
+    }
+    
+    .warningIcon {
+        font-size: 22px !important;
+    }
+    
+    .title {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    
+    .subtitle {
+        font-size: 0.8rem;
+    }
+    
+    .changeDetails {
+        padding: 12px;
+        margin-bottom: 14px;
+    }
+    
+    .changeRow {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+    
+    .changeRow:last-child {
+        padding-top: 8px;
+        margin-bottom: 0;
+    }
+    
+    .changeLabel {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    
+    .changeValue {
+        font-size: 0.9rem;
+        text-align: left;
+        font-weight: 700;
+    }
+    
+    .warningText {
+        font-size: 0.8rem;
+        margin-bottom: 16px;
+    }
+    
+    .warningMessage {
+        margin-bottom: 8px;
+    }
+    
+    .button {
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        min-height: 40px;
+    }
+    
+    .closeButton {
+        top: 12px;
+        right: 12px;
+        width: 32px;
+        height: 32px;
+    }
+}
+
+@media (max-width: 360px) {
+    .modalOverlay {
+        padding: 4px;
+    }
+    
+    .modalContent {
+        padding: 14px;
+        max-height: 75vh;
+    }
+    
+    .title {
+        font-size: 0.95rem;
+    }
+    
+    .subtitle {
+        font-size: 0.75rem;
+    }
+    
+    .changeDetails {
+        padding: 10px;
+    }
+    
+    .button {
+        padding: 10px 14px;
+        font-size: 0.8rem;
+        min-height: 36px;
+    }
+}

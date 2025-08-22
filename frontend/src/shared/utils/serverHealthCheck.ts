@@ -3,7 +3,7 @@
  */
 
 // Проверяем доступность основного API, а не health endpoint
-const SERVER_HEALTH_ENDPOINT = '/api/v1/users/1/context'; // Эндпоинт для проверки основного API
+const SERVER_HEALTH_ENDPOINT = '/v1/users/1/context'; // Эндпоинт для проверки основного API
 const TIMEOUT_MS = 5000; // 5 секунд таймаут
 
 export interface ServerHealthStatus {

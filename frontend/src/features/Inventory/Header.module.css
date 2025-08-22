@@ -22,8 +22,34 @@
         0 8px 16px rgba(0, 0, 0, 0.06),
         inset 0 1px 0 rgba(255, 255, 255, 0.8);
     box-sizing: border-box;
-    transition: all 0.3s ease;
+    transition: all 0.5s ease;
     position: relative; /* Для абсолютного позиционирования часов */
+    overflow: hidden; /* Для анимации сворачивания */
+}
+
+/* Свернутое состояние хедера */
+.header.collapsed {
+    padding: 20px 16px;
+    gap: 16px;
+    min-width: 80px;
+    max-width: 80px;
+    align-items: center;
+    justify-content: center;
+}
+
+.header.collapsed .headerTop,
+.header.collapsed .progressSection {
+    display: none;
+}
+
+.header.collapsed .simpleTimer {
+    position: static;
+    transform: rotate(90deg);
+    margin: 0;
+    min-width: 60px;
+    height: 40px;
+    font-size: 0.9rem;
+    padding: 4px 8px;
 }
 
 .header:hover {
@@ -32,6 +58,88 @@
         0 20px 40px rgba(0, 0, 0, 0.15),
         0 12px 24px rgba(0, 0, 0, 0.08),
         inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+.header.collapsed:hover {
+    transform: translateY(-1px);
+    box-shadow: 
+        0 12px 24px rgba(0, 0, 0, 0.12),
+        0 6px 12px rgba(0, 0, 0, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Кнопка разворачивания */
+.expandButton {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(
+        135deg,
+        rgba(255, 95, 31, 0.95),
+        rgba(255, 95, 31, 0.85)
+    );
+    border: 2px solid rgba(255, 95, 31, 0.3);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 
+        0 8px 20px rgba(255, 95, 31, 0.3),
+        0 4px 8px rgba(255, 95, 31, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.expandButton:hover {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 95, 31, 1),
+        rgba(255, 95, 31, 0.9)
+    );
+    border-color: rgba(255, 95, 31, 0.5);
+    box-shadow: 
+        0 12px 28px rgba(255, 95, 31, 0.4),
+        0 6px 12px rgba(255, 95, 31, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.expandButton:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Темная тема для кнопки разворачивания */
+[data-theme="dark"] .expandButton {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 95, 31, 0.9),
+        rgba(255, 95, 31, 0.8)
+    );
+    border-color: rgba(255, 95, 31, 0.4);
+    box-shadow: 
+        0 8px 20px rgba(255, 95, 31, 0.4),
+        0 4px 8px rgba(255, 95, 31, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .expandButton:hover {
+    background: linear-gradient(
+        135deg,
+        rgba(255, 95, 31, 1),
+        rgba(255, 95, 31, 0.95)
+    );
+    border-color: rgba(255, 95, 31, 0.6);
+    box-shadow: 
+        0 12px 28px rgba(255, 95, 31, 0.5),
+        0 6px 12px rgba(255, 95, 31, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .headerTop {
@@ -345,6 +453,15 @@
         inset 0 1px 0 rgba(255, 95, 31, 0.25);
 }
 
+[data-theme="dark"] .header.collapsed {
+    background: linear-gradient(
+        135deg,
+        rgba(30, 30, 30, 0.9),
+        rgba(25, 25, 25, 0.85)
+    );
+    border-color: rgba(255, 95, 31, 0.25);
+}
+
 [data-theme="dark"] .progress {
     background: linear-gradient(
         90deg,
@@ -385,6 +502,26 @@
         border-radius: 20px;
     }
 
+    .header.collapsed {
+        padding: 16px 12px;
+        gap: 12px;
+        min-width: 60px;
+        max-width: 60px;
+    }
+
+    .header.collapsed .simpleTimer {
+        min-width: 50px;
+        height: 36px;
+        font-size: 0.8rem;
+        padding: 3px 6px;
+    }
+
+    .expandButton {
+        left: 16px;
+        width: 44px;
+        height: 44px;
+    }
+
     .headerTop {
         flex-direction: column;
         gap: 18px;
@@ -408,8 +545,6 @@
         width: 5px;
         height: 28px;
     }
-
-
 
     .progressSection {
         gap: 18px;
@@ -442,6 +577,26 @@
         border-radius: 16px;
     }
 
+    .header.collapsed {
+        padding: 12px 8px;
+        gap: 8px;
+        min-width: 50px;
+        max-width: 50px;
+    }
+
+    .header.collapsed .simpleTimer {
+        min-width: 40px;
+        height: 32px;
+        font-size: 0.7rem;
+        padding: 2px 4px;
+    }
+
+    .expandButton {
+        left: 12px;
+        width: 40px;
+        height: 40px;
+    }
+
     .headerTitle {
         font-size: 1.25rem;
         padding-left: 20px;
@@ -451,8 +606,6 @@
         width: 4px;
         height: 24px;
     }
-
-
 
     .progress {
         height: 18px;

@@ -77,17 +77,51 @@ def build_detailed_violations(items: List[RetailiQAReportItem], latest_insp_date
     return detailed_violations
 
 
-def calculate_score(items: list) -> dict:
+def calculate_score(items: list, total_check_items: int = None) -> dict:
     """
     Считает процент выполнения, штрафные баллы и максимум баллов по списку RetailiQAReportItem.
+    
+    Логика расчета:
+    1. Максимум баллов = 100 (стандарт RetailiQA)
+    2. Штрафные баллы = сумма task_sum всех нарушений
+    3. Процент = ((максимум - штраф) / максимум) * 100
+    
+    Параметры:
+        items: список нарушений
+        total_check_items: общее количество пунктов в проверке (для логирования)
     """
-    total_possible_points = 100  # По бизнес-логике всегда 100
-    total_penalty_points = sum(item.task_sum for item in items if hasattr(item, 'task_sum') and item.task_sum is not None)
-    score_percentage = max(0, total_possible_points - total_penalty_points)
+    if not items:
+        return {
+            "max_points": 100,
+            "penalty_points": 0,
+            "score_percentage": 100
+        }
+    
+    # Считаем штрафные баллы
+    total_penalty_points = sum(
+        item.task_sum for item in items 
+        if hasattr(item, 'task_sum') and item.task_sum is not None and item.task_sum > 0
+    )
+    
+    # Для RetailiQA ВСЕГДА используется фиксированный максимум 100 баллов
+    # Это стандарт системы, независимо от количества пунктов в проверке
+    total_possible_points = 100
+    
+    # Считаем процент выполнения
+    score_percentage = max(0, ((total_possible_points - total_penalty_points) / total_possible_points) * 100)
+    
+    # Логируем для отладки
+    logging.info(f"[calculate_score] Всего нарушений: {len(items)}")
+    logging.info(f"[calculate_score] Штрафные баллы: {total_penalty_points}")
+    logging.info(f"[calculate_score] Максимум баллов: {total_possible_points} (стандарт RetailiQA)")
+    logging.info(f"[calculate_score] Процент выполнения (до округления): {score_percentage}")
+    logging.info(f"[calculate_score] Процент выполнения (после округления): {int(score_percentage)}")
+    logging.info(f"[calculate_score] Общее количество пунктов в проверке: {total_check_items}")
+    
     return {
         "max_points": total_possible_points,
         "penalty_points": total_penalty_points,
-        "score_percentage": score_percentage
+        "score_percentage": int(score_percentage)  # Округляем вниз до целых, как в RetailiQA
     }
 
 

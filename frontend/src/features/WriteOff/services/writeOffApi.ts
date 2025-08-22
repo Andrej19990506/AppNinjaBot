@@ -305,4 +305,30 @@ export const WriteOffApi = {
             };
         }
     },
+
+    updateProductExpiry: async (groupId: string, productName: string, expiryDate: string, warningDays: number): Promise<{ success: boolean; error?: string }> => {
+        try {
+            console.log('🔄 [WriteOffApi] Обновление срока годности для товара:', {
+                groupId,
+                productName,
+                expiryDate,
+                warningDays
+            });
+            
+            const response = await axiosInstance.post(`/v1/write-offs/${groupId}/update-expiry`, {
+                product_name: productName,
+                expiry_date: expiryDate,
+                warning_days: warningDays
+            });
+            
+            console.log('✅ [WriteOffApi] Срок годности обновлен:', response.data);
+            return { success: true };
+        } catch (error: any) {
+            console.error('❌ [WriteOffApi] Ошибка обновления срока годности:', error);
+            return {
+                success: false,
+                error: error.response?.data?.detail || error.message || 'Ошибка обновления срока годности'
+            };
+        }
+    },
 };

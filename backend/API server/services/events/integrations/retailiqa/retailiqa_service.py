@@ -248,7 +248,7 @@ class RetailiQAService:
                 processed_events.append(event_obj)
                 logger.info(f"Событие {event_obj.id} создано или обновлено через sync_event_with_report.")
             except Exception as e:
-                logger.error(f"Ошибка при создании/обновлении события через sync_event_with_report: {e}", exc_info=True)
+                logger.error("Ошибка при создании/обновлении события через sync_event_with_report: {error}".format(error=e), exc_info=True)
                 await db.rollback()
                 return processed_events
 
@@ -325,7 +325,10 @@ class RetailiQAService:
             logger.error(f"RetailiQA Service HTTPException: {e.detail}", exc_info=True)
             raise e
         except Exception as e:
-            logger.error(f"Непредвиденная ошибка во время обработки отчетов RetailiQA: {type(e).__name__} - {str(e)}", exc_info=True)
+            logger.error("Непредвиденная ошибка во время обработки отчетов RetailiQA: {error_type} - {error_msg}".format(
+                error_type=type(e).__name__,
+                error_msg=str(e)
+            ), exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"An unexpected error occurred in process_new_reports: {type(e).__name__} - {str(e)}"

@@ -3,193 +3,257 @@
     "Соус греческий": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Картофельные шарики ветчина с сыром (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус сливочно-чесночный": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сырные палочки П.Ф": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Омлетная смесь (Меланж) (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Гренки чесночные": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Морс брусничный (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сырные шарики П.Ф": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сыр сборный (Гауда и Моцарелла)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Тесто (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Куринное филе маринованное": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Жареное куриное филе": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус Тар-тар": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Картофель дольки св/м (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бульон куринный": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Наггетсы куриные (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Луковые кольца (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус томатный (кетчуп+чеснок)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сухарики на цезарь п.ф": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Картофель пай": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус классический": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Замес на \"Солянку Злодейскую\"": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Замес на \"Жюльен\"": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Масло конфи": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Морковь на чефан": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус дижонский": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Капуста на чефан": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Говядина на чефан": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус цезарь": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Свекла на чефан (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Солянка суп (гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Картофель фри (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -197,73 +261,97 @@
     "Соус Чили сладкий (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соевый соус (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус Мутти (гр.) (5000 гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сок лимона (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус Барбекю (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус Чили (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Горчица дижонская (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус Терияки (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус грибной (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соус сырный (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Томатный соус (кетчуп) (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Майонез (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -271,37 +359,49 @@
     "Масло растительное (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Маринад для курицы гриль (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Заправка для моркови (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Томатная паста (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Масло фритюрное (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Пасто Том Ям - Том Кха (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -309,43 +409,57 @@
     "Перец черный горошек (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бульон сухой куриный (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Приправа рыбная сухая (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Паприка (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Специи (перец черный молотый + лавровый лист) (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бульон грибной (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Орегано (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -353,49 +467,65 @@
     "Морс брусн. 1 л (шт)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Черноголовка кола 0,5л": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Черноголовка вода питьевая не газированная 0,5л. (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Черноголовка кола 2л": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Морс брусн. 0.5 л (шт)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Лёд (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Вода БонАква 1л. (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Черноголовка Лимонад  2л": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -403,61 +533,81 @@
     "Сахар (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Яйцо куриное (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Хлеб для Цезаря (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Мука (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Панировочные сухари (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Уксус (гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Хлеб бородинский (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Краситель розовый / голубой (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Соль (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Уксус винный (гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -465,175 +615,233 @@
     "Стакан для фри (Джуниор) (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Коробка д/снеков (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан шейкер для лимонада (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бутылка 0,65 л.(шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка к контейнеру для салатов/закусок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка к коробка для кусочка": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка к чашке для супа (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Трубочка черная (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Набор приборов 1 (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан для наггетсов (Джуниор) (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Коробка для Фрай- бокса (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бутылка 0,45 л. (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бутылка 1 л (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Коробка д/пиццы (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Каробка для Джуниор (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка для стакана шейкера лимонад (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка к контейнеру для кусочка (шт)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Контейнер для салатов/закусок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Контейнер для десертов (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Контейнер для кусочка (шт)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Коробка д/пиццы маленькая (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Пакет для мини кальцоне (шт)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан бумажнаый  D185мм Желтый (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Контейнер для соуса (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Набор приборов 2 (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Набор приборов 4 (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чашка для супа (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Тарелка бумажная десертная D185мм Желтая (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бутылка 0,5 л (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -641,91 +849,121 @@
     "Грудка варено копчёная (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Говядина (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Креветка тигровая (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сервелат (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Бекон (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Салями (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крылья куриные (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Набор для бульона (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Пепперони (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крылья куриные (маринованные) (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Фарш (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Форель (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Ветчина (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сосиски (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Филе куриное (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -733,133 +971,177 @@
     "Укроп (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Маслины (гр.) (3100 гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Помидоры (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Лимон (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Огурец маринованный (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Шампиньоны свежие (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Перец халапеньо (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Огурцы (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Груша (гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Лук (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Брусника (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Лайм (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Свекла (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Компотная смесь (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Мята (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Капуста (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Ананасы   (3100 гр)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Картофель  (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Перец Болгарский (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чеснок (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Помидоры черри (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Салат листовой (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -867,133 +1149,177 @@
     "RJ - 0.33 Вишнёвый сок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Малина (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Салфетка бумажная в индивидуальной упаковке (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Ваниль  (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Мохито (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка ПС80 с питейником (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан бумажный крафт 250/280мл (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Droppy Лесной орех (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Кофе нат.жар в зернах (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Мандарин (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "RJ - 0.33 Гранатовый сок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан бумажный кофейный 200мл 80мм желтый KF200  (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Дыня (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Перечная мята (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Крышка ПС90 с питейником (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "RJ - 0.33 Апельсиновый сок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Стакан бумажный крафт 350/430мл (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Droppy Ваниль (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Droppy Карамель (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Арбуз  (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "RJ - 0.33 Яблочный сок (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сироп Лаванда  (мл.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -1001,67 +1327,89 @@
     "Сыр Чеддер (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Морковь (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Фета (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Пармезан (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сметана (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Молоко (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сыр Моцарелла (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сливки (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сыр Дор Блю (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Меланж (Омлетная смесь) (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Сыр Гауда (гр.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   },
@@ -1069,31 +1417,41 @@
     "Макаруны (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чизкейк шоколад (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чизкейк Фисташковый (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чизкейк \"Малиновый вихрь\" (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     },
     "Чизкейк New York (шт.)": {
       "raw": {
         "quantity": 0,
-        "filled": false
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null
       }
     }
   }

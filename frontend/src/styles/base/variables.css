@@ -31,7 +31,7 @@
     --border-color: #e0e0e0;
     --error-color: #e74c3c;
     --error-background: rgb(231 76 60 / 10%);
-    --success-color: #2ecc71;
+    --success-color: #FF5F1F;
     --success-background: rgb(46 204 113 / 10%);
     --card-background-transparent: rgba(255, 255, 255, 0.85);
 
@@ -72,13 +72,9 @@
 
     --navigation-height: 60px;
 
-    /* Новые переменные */
-    --success-color: #10B981;
+    /* Дополнительные цвета */
     --warning-color: #F59E0B;
-    --error-color: #EF4444;
-    --success-background: rgba(16, 185, 129, 0.1);
     --warning-background: rgba(245, 158, 11, 0.1);
-    --error-background: rgba(239, 68, 68, 0.1);
 
     --card-background-transparent: rgba(30, 30, 30, 0.85);
 
@@ -91,7 +87,7 @@
     /* <<< КОНЕЦ ДОБАВЛЕННЫХ ПЕРЕМЕННЫХ >>> */
 
     /* --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ВТОРИЧНЫХ/ОПАСНЫХ КНОПОК --- */
-    --danger-color: #e74c3c; /* Уже был, оставляем для справки */
+    --danger-color: var(--orange-dark); /* Оранжевый цвет для опасных кнопок */
     --danger-dark: #c0392b; /* Темно-красный для hover/active опасных кнопок */
     --button-secondary-bg: #6c757d; /* Фон вторичной/отменяющей кнопки */
     --button-secondary-text: #ffffff; /* Текст на вторичной кнопке */
@@ -165,7 +161,7 @@
     /* <<< КОНЕЦ ДОБАВЛЕННЫХ ПЕРЕМЕННЫХ >>> */
 
     /* --- ПЕРЕОПРЕДЕЛЕНИЕ ДЛЯ ВТОРИЧНЫХ/ОПАСНЫХ КНОПОК (ТЕМНАЯ ТЕМА) --- */
-    --danger-color: #EF4444; /* Уже был */
+    --danger-color: var(--orange-dark); /* Оранжевый цвет для опасных кнопок */
     --danger-dark: #b83728; /* Немного другой оттенок темно-красного для темной темы */
     --button-secondary-bg: #4A4A4A; /* Темно-серый фон вторичной кнопки */
     --button-secondary-text: #E0E0E0; /* Светлый текст на вторичной кнопке */

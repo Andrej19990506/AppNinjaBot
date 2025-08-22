@@ -188,11 +188,22 @@ const ItemList: React.FC<ItemListProps> = ({
             const aStatus = getItemStatus(a);
             const bStatus = getItemStatus(b);
             
-            // Если один из элементов заполнен, а другой нет
-            if (aStatus === 'filled' && !bStatus) return 1;
-            if (!aStatus && bStatus === 'filled') return -1;
+            // Приоритет сортировки: empty > filled > outOfStock
             
-            // Если оба элемента имеют одинаковый статус, сортируем по алфавиту
+            // Если один из элементов "нет в наличии", он идет в конец
+            if (aStatus === 'outOfStock' && bStatus !== 'outOfStock') return 1;
+            if (aStatus !== 'outOfStock' && bStatus === 'outOfStock') return -1;
+            
+            // Если оба элемента "нет в наличии", сортируем по алфавиту
+            if (aStatus === 'outOfStock' && bStatus === 'outOfStock') {
+                return a.id.localeCompare(b.id);
+            }
+            
+            // Если один из элементов пустой, а другой заполнен (но не "нет в наличии")
+            if (aStatus === '' && bStatus === 'filled') return -1;
+            if (aStatus === 'filled' && bStatus === '') return 1;
+            
+            // Если оба элемента имеют одинаковый статус (filled или empty), сортируем по алфавиту
             return a.id.localeCompare(b.id);
         });
     

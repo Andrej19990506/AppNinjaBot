@@ -53,7 +53,7 @@
 .collapsedControls {
     position: fixed;
     left: 50%;
-    top: 5%;
+    top: 10%;
     transform: translateX(-50%) translateY(-50%);
     display: flex;
     flex-direction: row;

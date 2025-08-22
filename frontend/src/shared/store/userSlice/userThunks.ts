@@ -118,7 +118,12 @@ export const initializeFromTelegram = createAsyncThunk(
                         contextError.message.includes('ERR_CONNECTION_REFUSED')) {
                             throw contextError; // Пробрасываем ошибку сервера
                         }
-                    console.warn('[initializeFromTelegram] Контекст недоступен, используем базовые данные');
+                    // 404 и другие 4xx ошибки - это не ошибки сервера
+                    if (contextError.message.includes('404')) {
+                        console.warn('[initializeFromTelegram] Пользователь не найден (404), используем базовые данные');
+                    } else {
+                        console.warn('[initializeFromTelegram] Контекст недоступен, используем базовые данные');
+                    }
                 }
             }
             

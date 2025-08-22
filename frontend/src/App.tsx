@@ -62,7 +62,8 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     initError.includes('Failed to fetch: сервер недоступен') ||
     initError.includes('Критическая ошибка проверки сервера') ||
     initError.includes('Network Error') ||
-    initError.includes('ERR_CONNECTION_REFUSED')
+    initError.includes('ERR_CONNECTION_REFUSED') ||
+    initError.includes('HTTP 5') // Ошибки сервера 5xx
   );
 
   // Восстанавливаем роль из URL при старте
@@ -282,7 +283,8 @@ const AutoRedirectByRole = () => {
     initError.includes('Failed to fetch: сервер недоступен') ||
     initError.includes('Критическая ошибка проверки сервера') ||
     initError.includes('Network Error') ||
-    initError.includes('ERR_CONNECTION_REFUSED')
+    initError.includes('ERR_CONNECTION_REFUSED') ||
+    initError.includes('HTTP 5') // Ошибки сервера 5xx
   );
   
   if (isServerError) {

@@ -2,8 +2,8 @@
  * Утилита для проверки доступности сервера
  */
 
-// Проверяем доступность основного API, а не health endpoint
-const SERVER_HEALTH_ENDPOINT = '/v1/users/1/context'; // Эндпоинт для проверки основного API
+// Проверяем доступность основного API через health endpoint
+const SERVER_HEALTH_ENDPOINT = '/health'; // Эндпоинт для проверки здоровья сервера
 const TIMEOUT_MS = 5000; // 5 секунд таймаут
 
 export interface ServerHealthStatus {
@@ -40,10 +40,20 @@ export const checkServerHealth = async (): Promise<ServerHealthStatus> => {
         responseTime,
       };
     } else {
-      return {
-        isAvailable: false,
-        error: `HTTP ${response.status}: ${response.statusText}`,
-      };
+      // 404 - это не ошибка сервера, а нормальный ответ API
+      // Ошибки сервера начинаются с 5xx
+      if (response.status >= 500) {
+        return {
+          isAvailable: false,
+          error: `HTTP ${response.status}: ${response.statusText}`,
+        };
+      } else {
+        // 4xx ошибки (включая 404) означают, что сервер работает, но ресурс не найден
+        return {
+          isAvailable: true,
+          responseTime: Date.now() - startTime,
+        };
+      }
     }
   } catch (error: any) {
     const responseTime = Date.now() - startTime;

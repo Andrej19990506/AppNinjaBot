@@ -5,7 +5,7 @@ import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import { ThemeProvider as CustomThemeProvider } from './contexts/ThemeContext'; 
 import { theme } from './styles/themes/theme';
 import store from './shared/store/store'; 
-import { initializeFromTelegram} from '@shared/store/userSlice/userThunks';
+import { initializeFromTelegram, checkServerHealthThunk } from '@shared/store/userSlice/userThunks';
 import { selectIsUserInitialized, selectUserInitializationError } from '@shared/store/userSlice/userSelectors';
 import { useAppDispatch } from './shared/store/hooks';
 import MainMenu from './features/MainMenu/MainMenu';
@@ -29,6 +29,7 @@ import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
+import ServerErrorModal from './shared/components/ServerErrorModal/ServerErrorModal';
 import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
 
@@ -47,9 +48,22 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const [showOverlay, setShowOverlay] = useState(true);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
-  const [showBothScreens, setShowBothScreens] = useState(false); 
+  const [showBothScreens, setShowBothScreens] = useState(false);
+  const [showServerError, setShowServerError] = useState(false);
+  const [serverChecked, setServerChecked] = useState(false); 
 
   const isActuallyLoading = !isUserInitialized && !initError;
+
+  // Определяем тип ошибки
+  const isServerError = initError && (
+    initError.includes('Сервер недоступен') ||
+    initError.includes('Timeout: сервер не отвечает') ||
+    initError.includes('Network Error: сервер недоступен') ||
+    initError.includes('Failed to fetch: сервер недоступен') ||
+    initError.includes('Критическая ошибка проверки сервера') ||
+    initError.includes('Network Error') ||
+    initError.includes('ERR_CONNECTION_REFUSED')
+  );
 
   // Восстанавливаем роль из URL при старте
   useEffect(() => {
@@ -82,13 +96,30 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       initStarted.current = true;
       initStartTimeRef.current = Date.now(); 
       setShowOverlay(true); 
-      dispatch(initializeFromTelegram()).unwrap()
+      
+      // Сначала проверяем доступность сервера
+      dispatch(checkServerHealthThunk()).unwrap()
+        .then((serverStatus) => {
+          console.log('✅ [App] Сервер доступен, продолжаем инициализацию пользователя');
+          setServerChecked(true);
+          // Теперь инициализируем пользователя
+          return dispatch(initializeFromTelegram()).unwrap();
+        })
         .then((initResult) => {
+          console.log('✅ [App] Пользователь успешно инициализирован');
         })
         .catch((error) => {
+          console.error('❌ [App] Ошибка инициализации:', error);
         });
     }
   }, [dispatch, isUserInitialized, initError]);
+
+  // Показываем модальное окно ошибки сервера при соответствующих ошибках
+  useEffect(() => {
+    if (isServerError) {
+      setShowServerError(true);
+    }
+  }, [isServerError]);
 
   useEffect(() => {
     if (!isActuallyLoading && initStartTimeRef.current) {
@@ -148,7 +179,10 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     isUserInitialized,
     user: user ? { id: user.id, groups: user.groups } : null,
     hasGroups: user?.groups ? user.groups.length : 0,
-    isAwayOverlayVisible // Добавляем состояние заставки отсутствия
+    isAwayOverlayVisible, // Добавляем состояние заставки отсутствия
+    isServerError,
+    showServerError,
+    serverChecked
   });
 
   // Отладка состояния заставки отсутствия
@@ -159,28 +193,59 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return (
     <>
         <LoadingOverlay isLoading={showOverlay} /> 
-      {!showOverlay && !initError && (
-        // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
-        (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
-          ? <NoGroupAssigned user={user} />
-          : (
-              <>
-                {/* Показываем главное меню если tutorial не открыт или если показываем оба */}
-                {(!isTutorialOpen || showBothScreens) && <>{children}</>}
-                
-                {/* Показываем обучающие материалы */}
-                {isTutorialOpen && (
-                  <TutorialMaterials 
-                    isOpen={true}
-                    onClose={() => setIsTutorialOpen(false)}
-                  />
-                )}
-              </>
-            )
-      )}
-      {initError && (
+             {!showOverlay && !initError && !isServerError && (
+         // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
+         (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
+           ? <NoGroupAssigned user={user} />
+           : (
+               <>
+                 {/* Показываем главное меню если tutorial не открыт или если показываем оба */}
+                 {(!isTutorialOpen || showBothScreens) && <>{children}</>}
+                 
+                 {/* Показываем обучающие материалы */}
+                 {isTutorialOpen && (
+                   <TutorialMaterials 
+                     isOpen={true}
+                     onClose={() => setIsTutorialOpen(false)}
+                   />
+                 )}
+               </>
+             )
+       )}
+      
+             {/* Показываем NoGroupAssigned только если нет ошибок сервера */}
+       {!showOverlay && initError && !isServerError && (
+         <NoGroupAssigned user={user} />
+       )}
+      {initError && !isServerError && (
         <TelegramAccessError error={initError} />
       )}
+      
+             {/* Модальное окно ошибки сервера */}
+       {console.log('🔍 [ServerErrorModal Debug]', { showServerError, isServerError, isOpen: Boolean(showServerError && isServerError) })}
+       <ServerErrorModal
+         isOpen={Boolean(showServerError && isServerError)}
+         onClose={() => setShowServerError(false)}
+                 onRetry={() => {
+           setShowServerError(false);
+           setServerChecked(false);
+           initStarted.current = false;
+           // Повторно запускаем весь процесс инициализации
+           dispatch(checkServerHealthThunk()).unwrap()
+             .then((serverStatus) => {
+               console.log('✅ [App] Сервер доступен, продолжаем инициализацию пользователя');
+               setServerChecked(true);
+               return dispatch(initializeFromTelegram()).unwrap();
+             })
+             .then((initResult) => {
+               console.log('✅ [App] Пользователь успешно инициализирован');
+             })
+             .catch((error) => {
+               console.error('❌ [App] Ошибка при повторной попытке:', error);
+             });
+         }}
+        error={initError || undefined}
+      />
       
       {/* Модальное окно об истечении прав */}
       {permissionsNotification && (
@@ -204,8 +269,26 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // --- Автоматический редирект по ролям ---
 const AutoRedirectByRole = () => {
   const user = store.getState().user.user;
+  const initError = store.getState().user.error;
   
   console.log('🔍 [AutoRedirectByRole] Пользователь:', user);
+  console.log('🔍 [AutoRedirectByRole] Ошибка инициализации:', initError);
+  
+  // Если есть ошибка сервера, не показываем NoGroupAssigned
+  const isServerError = initError && (
+    initError.includes('Сервер недоступен') ||
+    initError.includes('Timeout: сервер не отвечает') ||
+    initError.includes('Network Error: сервер недоступен') ||
+    initError.includes('Failed to fetch: сервер недоступен') ||
+    initError.includes('Критическая ошибка проверки сервера') ||
+    initError.includes('Network Error') ||
+    initError.includes('ERR_CONNECTION_REFUSED')
+  );
+  
+  if (isServerError) {
+    console.log('🔍 [AutoRedirectByRole] Обнаружена ошибка сервера, пропускаем редирект');
+    return null; // Возвращаем null, чтобы не показывать NoGroupAssigned
+  }
   
   if (Array.isArray(user?.groups)) {
     // Фильтруем только рабочие группы (chef и courier), исключаем технические группы

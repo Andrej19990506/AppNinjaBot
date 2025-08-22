@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { animate } from 'framer-motion';
 import styles from './Header.module.css';
-import ChatNotification from './ChatNotification';
+
 
 
 
@@ -172,15 +172,6 @@ const Header: React.FC<HeaderProps> = ({
                         {getDisplayTitle()}
                     </motion.h2>
                 </div>
-
-                {/* Уведомления - показываем только если есть уведомления */}
-                {isInitialContext && notifications.length > 0 && (
-                    <ChatNotification 
-                        notification={notifications[0]}
-                        onClose={() => onNotificationClose(notifications[0].id)}
-                        hasUnread={hasUnreadNotifications}
-                    />
-                )}
             </div>
 
             {/* Простые часы с абсолютным позиционированием */}

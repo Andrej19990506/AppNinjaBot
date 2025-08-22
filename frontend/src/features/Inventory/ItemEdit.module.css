@@ -383,8 +383,6 @@
     }
 
     .outOfStockButton {
-        background: rgba(var(--error-rgb), 0.1);
-        color: var(--error-color);
         font-weight: 600;
     }
 
@@ -597,67 +595,6 @@
     display: none;
 }
 
-/* Стилизуем кнопку "Нет в наличии"/"Восстановить" */
-.outOfStockButton {
-    height: 40px;
-    padding: 0 16px;
-    border-radius: var(--radius);
-    border: 1px solid var(--border-color);
-    background: var(--background-color);
-    color: var(--text-secondary);
-    font-size: 14px;
-    font-weight: 500;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition-normal);
-    white-space: nowrap;
-}
-
-.outOfStockButton:hover {
-    background: var(--error-color);
-    color: white;
-    border-color: var(--error-color);
-}
-
-.outOfStockButton.active {
-    background: var(--error-color);
-    color: white;
-    border-color: var(--error-color);
-}
-
-.testButton {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    padding: 12px 24px;
-    background: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    transition: all 0.2s ease;
-}
-
-.testButton:hover {
-    background: var(--primary-color-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-}
-
-[data-theme="dark"] .testButton {
-    background: var(--primary-color-dark);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-[data-theme="dark"] .testButton:hover {
-    background: var(--primary-color-dark-hover);
-}
 
 /* <<< НАЧАЛО: Стили для спиннера >>> */
 .spinner {

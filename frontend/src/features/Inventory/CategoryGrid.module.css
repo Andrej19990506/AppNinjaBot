@@ -2,15 +2,9 @@
     height: 70vh;
     overflow: hidden;
     position: relative;
-    padding: 16px;
-    contain: content;
     display: flex;
     flex-direction: column;
-    touch-action: manipulation;
-    -webkit-overflow-scrolling: touch;
-    transform: translate3d(0, 0, 0);
-    will-change: transform;
-    -webkit-tap-highlight-color: transparent;
+    justify-content: center;
 }
 
 .grid {
@@ -21,19 +15,9 @@
     grid-gap: 16px;
     overflow-x: auto;
     overflow-y: hidden;
-    scroll-behavior: auto;
-    -webkit-overflow-scrolling: touch;
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
     padding-bottom: 16px;
-    scrollbar-width: thin;
     height: calc(100% - 20px);
     max-height: 70vh;
-    contain: layout style paint;
-    touch-action: pan-x;
-    overscroll-behavior-x: contain;
 }
 
 /* Стили для Swiper */
@@ -67,17 +51,13 @@
 /* Стили для элементов внутри Swiper */
 .item {
     position: relative;
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
     padding: 24px;
-    background: rgba(var(--card-rgb), 0.9);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(var(--border-rgb), 0.5);
+    background: rgba(var(--card-rgb), 0.95);
+    backdrop-filter: blur(15px);
+    border: 2px solid rgba(var(--border-rgb), 0.3);
     border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -85,16 +65,87 @@
     width: 100%;
     height: 100%;
     user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-    contain: layout style paint;
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.15),
+        0 2px 8px rgba(var(--primary-rgb), 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
     overflow: hidden;
-    /* Добавляем градиент для улучшения визуального восприятия */
+    /* Улучшенный градиент для более выделенного вида */
     background: linear-gradient(
-        135deg,
-        rgba(var(--card-rgb), 0.95) 0%,
-        rgba(var(--card-rgb), 0.9) 100%
+        145deg,
+        rgba(var(--card-rgb), 0.98) 0%,
+        rgba(var(--card-rgb), 0.92) 50%,
+        rgba(var(--card-rgb), 0.88) 100%
     );
+}
+
+/* Индикатор прогресса категории */
+.progressIndicator {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: linear-gradient(145deg, 
+        rgba(var(--primary-rgb), 0.95) 0%, 
+        rgba(var(--primary-rgb), 0.85) 100%
+    );
+    color: #fff;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    backdrop-filter: blur(8px);
+    box-shadow: 
+        0 2px 8px rgba(0, 0, 0, 0.15),
+        0 0 0 1px rgba(var(--primary-rgb), 0.2);
+    z-index: 2;
+    transition: all 0.3s ease;
+    animation: progressFadeIn 0.5s ease-out;
+}
+
+.progressIndicator.filled {
+    box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.3);
+}
+
+.progressIndicator.completed {
+    box-shadow: 
+        0 2px 8px rgba(var(--success-rgb), 0.4),
+        0 0 0 2px rgba(var(--success-rgb), 0.3);
+    animation: successPulse 2s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 6px;
+    border-radius: 50%;
+}
+
+.item:hover .progressIndicator {
+    transform: scale(1.05);
+    background: linear-gradient(145deg, 
+        rgba(var(--primary-rgb), 1) 0%, 
+        rgba(var(--primary-rgb), 0.9) 100%
+    );
+    box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.2),
+        0 0 0 2px rgba(var(--primary-rgb), 0.3);
+}
+
+.item:hover .progressIndicator.filled {
+    box-shadow: 0 4px 12px rgba(var(--success-rgb), 0.4);
+}
+
+.item:hover .progressIndicator.completed {
+    background: linear-gradient(145deg, 
+        rgba(var(--success-rgb), 1) 0%, 
+        rgba(var(--success-rgb), 0.95) 50%, 
+        rgba(var(--success-rgb), 0.9) 100%
+    );
+    box-shadow: 
+        0 6px 20px rgba(var(--success-rgb), 0.7),
+        0 0 0 3px rgba(var(--success-rgb), 0.6);
+    transform: scale(1.15);
+    animation: none;
 }
 
 /* Футер карточки категории: сотрудники в работе */
@@ -155,55 +206,43 @@
     transform: translateX(-50%) translateY(-2px);
 }
 
-/* Добавляем отступ для последнего элемента */
-.grid > .item:last-child {
-    margin-bottom: 15px;
-}
 
-/* Стилизация скроллбара */
+/* Базовые стили скроллбара */
 .grid::-webkit-scrollbar {
-    height: 6px;
-    width: 6px;
+    height: 8px;
+    width: 8px;
 }
 
 .grid::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 3px;
+    background: transparent;
 }
 
 .grid::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 3px;
-    transition: background 0.2s ease;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
 }
 
 .grid::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.3);
 }
 
-/* Добавляем поддержку плавной прокрутки для Safari */
+/* Базовые стили для Safari */
 @supports (-webkit-overflow-scrolling: touch) {
     .grid {
-        -webkit-overflow-scrolling: touch;
-        transition: none; /* Safari уже обеспечивает свои анимации */
+        /* Базовые стили для Safari */
     }
 }
 
 /* Оптимизация для мобильных устройств */
 @media (max-width: 768px) {
     .grid {
-        -webkit-overflow-scrolling: touch;
         padding-bottom: 12px;
         grid-gap: 12px;
         grid-auto-columns: 200px;
         grid-template-rows: repeat(auto-fill, minmax(100px, 1fr));
-        touch-action: pan-x;
-        overscroll-behavior: auto;
-        scroll-snap-type: none;
     }
 
     .item {
-        scroll-snap-align: start;
         min-width: unset;
         height: auto;
     }
@@ -215,17 +254,25 @@
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.3), transparent);
-    opacity: 0.2;
+    opacity: 1;
     transition: opacity 0.3s ease;
     z-index: 0;
     pointer-events: none;
 }
 
 .item:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
-    border-color: rgba(var(--primary-rgb), 0.5);
+    transform: translateY(-6px) scale(1.02);
+    box-shadow: 
+        0 12px 35px rgba(0, 0, 0, 0.2),
+        0 6px 18px rgba(var(--primary-rgb), 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: rgba(var(--primary-rgb), 0.6);
+    background: linear-gradient(
+        145deg,
+        rgba(var(--card-rgb), 0.98) 0%,
+        rgba(var(--primary-rgb), 0.15) 50%,
+        rgba(var(--card-rgb), 0.95) 100%
+    );
 }
 
 .item:hover::before {
@@ -256,66 +303,34 @@
 
 .item.filled {
     border-color: rgba(var(--success-rgb), 0.6);
-    background: rgba(var(--success-rgb), 0.1);
-    /* Улучшенный градиент для заполненных элементов */
-    background: linear-gradient(
-        135deg,
-        rgba(var(--success-rgb), 0.15) 0%,
-        rgba(var(--success-rgb), 0.05) 100%
-    );
-    box-shadow: 0 6px 16px rgba(var(--success-rgb), 0.15);
+    box-shadow: 
+        0 8px 25px rgba(0, 0, 0, 0.15),
+        0 2px 8px rgba(var(--success-rgb), 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .item.filled::before {
-    background: linear-gradient(135deg, rgba(var(--success-rgb), 0.35), transparent);
-    opacity: 0.25;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.8), transparent);
+    /* Убираем специальный псевдоэлемент для заполненных элементов */
 }
 
+
+
 .item.filled:hover {
-    background: linear-gradient(
-        135deg,
-        rgba(var(--success-rgb), 0.2) 0%,
-        rgba(var(--success-rgb), 0.08) 100%
-    );
-    box-shadow: 0 10px 28px rgba(var(--success-rgb), 0.2);
+    border-color: rgba(var(--success-rgb), 0.8);
+    box-shadow: 
+        0 12px 35px rgba(0, 0, 0, 0.2),
+        0 4px 12px rgba(var(--success-rgb), 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .item.filled:hover::before {
-    opacity: 0.4;
+    opacity: 0.5;
+    background: linear-gradient(135deg, rgba(var(--success-rgb), 0.4), transparent);
 }
 
-.item.filled .title {
-    color: var(--success-color);
-    text-shadow: 0 1px 3px rgba(var(--success-rgb), 0.2);
-}
 
-.checkmark {
-    width: 36px;
-    height: 36px;
-    color: var(--success-color);
-    flex-shrink: 0;
-    position: relative;
-    z-index: 1;
-    background: rgba(var(--success-rgb), 0.15);
-    border-radius: 50%;
-    padding: 8px;
-    transition: all 0.3s ease;
-    margin-top: 16px;
-    box-shadow: 0 2px 8px rgba(var(--success-rgb), 0.2);
-}
-
-.item:hover .checkmark {
-    transform: scale(1.1) rotate(5deg);
-    background: rgba(var(--success-rgb), 0.25);
-    box-shadow: 0 4px 12px rgba(var(--success-rgb), 0.3);
-}
-
-.checkmark svg {
-    width: 100%;
-    height: 100%;
-    stroke: currentColor;
-    stroke-width: 2.5;
-}
+/* Стили для галочки убраны, так как теперь она интегрирована в индикатор прогресса */
 
 .placeholder {
     height: 100%;
@@ -354,6 +369,34 @@
     }
 }
 
+@keyframes successPulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+        box-shadow: 
+            0 2px 8px rgba(var(--success-rgb), 0.4),
+            0 0 0 2px rgba(var(--success-rgb), 0.3);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.08);
+        box-shadow: 
+            0 4px 16px rgba(var(--success-rgb), 0.6),
+            0 0 0 3px rgba(var(--success-rgb), 0.5);
+    }
+}
+
+@keyframes progressFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.8) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
 /* Tablet styles */
 @media (max-width: 1024px) {
     .container {
@@ -382,23 +425,33 @@
 
     .grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-        gap: 16px;
+        gap: 4px;
     }
 
     .item {
         padding: 20px 24px;
         min-height: 80px;
+        border-width: 1.5px;
+        backdrop-filter: blur(12px);
     }
 
     .title {
         font-size: 1.1rem;
     }
 
-    .checkmark {
-        width: 24px;
-        height: 24px;
-        margin-left: 16px;
-        padding: 5px;
+    /* Стили для галочки убраны */
+
+    .progressIndicator {
+        top: 8px;
+        right: 8px;
+        padding: 3px 6px;
+        font-size: 0.7rem;
+    }
+
+    .progressIndicator.completed {
+        min-width: 28px;
+        height: 28px;
+        padding: 4px;
     }
 }
 
@@ -410,38 +463,55 @@
 
     .item {
         padding: 16px;
+        border-width: 1px;
+        backdrop-filter: blur(10px);
     }
 
     .title {
         font-size: 1rem;
     }
     
-    .checkmark {
-        width: 28px;
-        height: 28px;
-        padding: 6px;
-        margin-top: 12px;
+    /* Стили для галочки убраны */
+
+    .progressIndicator {
+        top: 6px;
+        right: 6px;
+        padding: 2px 5px;
+        font-size: 0.65rem;
+    }
+
+    .progressIndicator.completed {
+        min-width: 24px;
+        height: 24px;
+        padding: 3px;
     }
 }
 
 /* Touch device optimizations */
 @media (hover: none) {
     .item {
-        transition: transform 0.2s ease;
+        transition: transform 0.3s ease, background 0.3s ease;
     }
 
     .item:active {
-        transform: scale(0.96);
-        background: rgba(var(--primary-rgb), 0.1);
+        transform: scale(0.95);
+        background: linear-gradient(
+            145deg,
+            rgba(var(--primary-rgb), 0.25) 0%,
+            rgba(var(--card-rgb), 0.95) 100%
+        );
     }
 
     .item.filled:active {
-        background: rgba(var(--success-rgb), 0.15);
+        background: linear-gradient(
+            145deg,
+            rgba(var(--success-rgb), 0.5) 0%,
+            rgba(var(--success-rgb), 0.3) 100%
+        );
+        transform: scale(0.95);
     }
 
-    .item:active .checkmark {
-        transform: scale(0.9);
-    }
+    /* Стили для галочки убраны */
 }
 
 /* Dark mode enhancements */
@@ -475,10 +545,7 @@
         background: var(--background);
     }
 
-    .checkmark {
-        background: var(--success-color);
-        color: var(--background);
-    }
+    /* Стили для галочки убраны */
 }
 
 /* Очень маленькие мобильные устройства (iPhone SE и т.д.) */
@@ -505,39 +572,30 @@
         letter-spacing: 0.3px;
     }
     
-    .checkmark {
-        width: 20px;
+    /* Стили для галочки убраны */
+
+    .progressIndicator {
+        top: 4px;
+        right: 4px;
+        padding: 2px 4px;
+        font-size: 0.6rem;
+    }
+
+    .progressIndicator.completed {
+        min-width: 20px;
         height: 20px;
-        padding: 4px;
-        margin-top: 8px;
+        padding: 2px;
     }
 }
 
 /* Специальные медиа-запросы для мобильных сенсорных устройств */
 @media (pointer: coarse) {
     .grid {
-        /* Разрешаем все жесты прокрутки */
-        touch-action: manipulation;
-        /* Обеспечиваем полное взаимодействие с контейнером */
-        -webkit-user-select: none;
+        /* Базовые стили для сенсорных устройств */
         user-select: none;
-        /* Принудительное ускорение от GPU */
-        -webkit-transform: translate3d(0, 0, 0);
-        transform: translate3d(0, 0, 0);
-        
-        /* Улучшения плавности */
-        scroll-snap-type: none;
-        /* Доп. оптимизации для iOS */
-        -webkit-overflow-scrolling: touch;
-        /* Следим только за необходимыми свойствами */
-        will-change: scroll-position, transform;
     }
     
-    /* Оптимизируем хватание и свайп */
     .container {
-        touch-action: manipulation;
-        -webkit-user-select: none;
         user-select: none;
-        -webkit-tap-highlight-color: transparent;
     }
 }

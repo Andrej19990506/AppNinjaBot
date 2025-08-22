@@ -9,6 +9,18 @@ export const useAwayState = () => {
   const [isSocketReady, setIsSocketReady] = useState(false);
   const user = useSelector(selectUser);
   const listenersSetupRef = useRef(false);
+  const initError = useSelector((state: any) => state.user.error);
+  
+  // Проверяем, есть ли ошибка сервера
+  const isServerError = initError && (
+    initError.includes('Сервер недоступен') ||
+    initError.includes('Timeout: сервер не отвечает') ||
+    initError.includes('Network Error: сервер недоступен') ||
+    initError.includes('Failed to fetch: сервер недоступен') ||
+    initError.includes('Критическая ошибка проверки сервера') ||
+    initError.includes('Network Error') ||
+    initError.includes('ERR_CONNECTION_REFUSED')
+  );
 
   const handleContinueWork = useCallback(() => {
     console.log('🔔 [useAwayState] Пользователь нажал "Продолжить работу"');
@@ -49,10 +61,17 @@ export const useAwayState = () => {
 
   // Слушаем события отсутствия от WebSocket
   useEffect(() => {
+    // Не подключаемся к WebSocket при ошибках сервера
+    if (isServerError) {
+      console.log('🔔 [useAwayState] Обнаружена ошибка сервера, пропускаем подключение WebSocket');
+      return;
+    }
+    
     console.log('🔔 [useAwayState] useEffect для слушателей запущен', {
       isSocketReady,
       user: user ? { id: user.id, name: user.first_name } : null,
-      listenersSetup: listenersSetupRef.current
+      listenersSetup: listenersSetupRef.current,
+      isServerError
     });
 
     if (!isSocketReady || !user || listenersSetupRef.current) {

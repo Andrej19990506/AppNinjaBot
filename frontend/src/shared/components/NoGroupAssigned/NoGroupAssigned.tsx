@@ -153,7 +153,7 @@ const NoGroupAssigned: React.FC<NoGroupAssignedProps> = ({ user }) => {
           <div style={{ color: '#888', fontSize: '1rem', marginBottom: 4, textAlign: 'center' }}>
             Если вы считаете, что это ошибка — обратитесь в техподдержку:
           </div>
-          <SupportLink href="https://t.me/+HU1WcpcswddlNjI6" target="_blank" rel="noopener noreferrer">
+          <SupportLink href="https://t.me/+Sc8qu36mX-IwM2My" target="_blank" rel="noopener noreferrer">
             <TelegramIcon />
             NinjaPizzaBot Тех. Поддержка
           </SupportLink>

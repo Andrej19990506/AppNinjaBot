@@ -15,9 +15,27 @@ export const useWebSocketConnection = () => {
 
   const userId = useAppSelector((state) => state.user.user?.id);
   const stringUserId = userId ? String(userId) : undefined;
+  const initError = useAppSelector((state) => state.user.error);
+  
+  // Проверяем, есть ли ошибка сервера
+  const isServerError = initError && (
+    initError.includes('Сервер недоступен') ||
+    initError.includes('Timeout: сервер не отвечает') ||
+    initError.includes('Network Error: сервер недоступен') ||
+    initError.includes('Failed to fetch: сервер недоступен') ||
+    initError.includes('Критическая ошибка проверки сервера') ||
+    initError.includes('Network Error') ||
+    initError.includes('ERR_CONNECTION_REFUSED')
+  );
 
   useEffect(() => {
-    logger.log(`🚀 [WebSocketHook] Главный useEffect. UserID: ${stringUserId}`);
+    logger.log(`🚀 [WebSocketHook] Главный useEffect. UserID: ${stringUserId}, isServerError: ${isServerError}`);
+
+    // Не подключаемся к WebSocket при ошибках сервера
+    if (isServerError) {
+      logger.log(`❌ [WebSocketHook] Обнаружена ошибка сервера, пропускаем подключение WebSocket`);
+      return;
+    }
 
     if (stringUserId && !socketService.isInitialized()) {
       logger.log(`✨ [WebSocketHook] UserID есть (${stringUserId}), сокет не инициализирован. Вызов init()...`);

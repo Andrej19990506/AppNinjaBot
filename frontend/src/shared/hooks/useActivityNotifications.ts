@@ -15,6 +15,24 @@ export const useActivityNotifications = () => {
   const lastActivityTimeRef = useRef<{ [userId: string]: number }>({});
   
   useEffect(() => {
+    // Проверяем, есть ли ошибка сервера
+    const state = store.getState();
+    const initError = state.user.error;
+    const isServerError = initError && (
+      initError.includes('Сервер недоступен') ||
+      initError.includes('Timeout: сервер не отвечает') ||
+      initError.includes('Network Error: сервер недоступен') ||
+      initError.includes('Failed to fetch: сервер недоступен') ||
+      initError.includes('Критическая ошибка проверки сервера') ||
+      initError.includes('Network Error') ||
+      initError.includes('ERR_CONNECTION_REFUSED')
+    );
+    
+    if (isServerError) {
+      console.log('🔔 [useActivityNotifications] Обнаружена ошибка сервера, пропускаем инициализацию WebSocket');
+      return;
+    }
+    
     console.log('🔔 [useActivityNotifications] Инициализация глобальных уведомлений активности');
     console.log('🔔 [useActivityNotifications] SocketService состояние:', {
       isInitialized: socketService.isInitialized(),

@@ -2,7 +2,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RootState } from '@shared/store/store';
 import { AdminRights, User } from '@/types/user';
-import { initializeFromTelegram } from './userThunks';
+import { initializeFromTelegram, checkServerHealthThunk } from './userThunks';
 import { updateUserProfileThunk } from './userThunks';
 import { updateSeniorityStatus } from './userThunks';
 
@@ -116,6 +116,21 @@ const userSlice = createSlice({
     },
     extraReducers: (builder) => {
         builder
+            .addCase(checkServerHealthThunk.fulfilled, (state, action) => {
+                // Сервер доступен, очищаем ошибки
+                state.error = null;
+                state.loading = false;
+            })
+            .addCase(checkServerHealthThunk.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(checkServerHealthThunk.rejected, (state, action) => {
+                // Ошибка проверки сервера
+                state.error = (action.payload as string) || 'Ошибка проверки сервера';
+                state.isInitialized = false;
+                state.loading = false;
+            })
             .addCase(initializeFromTelegram.fulfilled, (state, action) => {
                 state.user = action.payload;
                 state.isInitialized = true;

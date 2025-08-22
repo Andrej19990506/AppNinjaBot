@@ -382,6 +382,37 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
         });
     }, [inventory]);
 
+    // Подсчитываем прогресс заполнения категории
+    const getCategoryProgress = useCallback((category: string) => {
+        const items = inventory[category] || {};
+        const totalItems = Object.keys(items).length;
+        
+        if (totalItems === 0) return { filled: 0, total: 0 };
+        
+        const filledItems = Object.values(items).filter(item => {
+            // Если товар помечен как "нет в наличии", он считается заполненным
+            if (item.raw?.isOutOfStock) {
+                return true;
+            }
+
+            // Проверяем заполненность сырья (должно быть filled === true ИЛИ quantity > 0)
+            const isRawFilled = item.raw?.filled === true || (item.raw?.quantity ?? 0) > 0;
+            
+            // Проверяем наличие и заполненность полуфабриката
+            const hasSemifinished = Boolean(item.semifinished);
+            const isSemifinishedFilled = hasSemifinished ? 
+                (item.semifinished?.filled === true || (item.semifinished?.quantity ?? 0) > 0) : 
+                true;
+            
+            // Товар считается заполненным если:
+            // - сырье заполнено (filled === true ИЛИ quantity > 0) И
+            // - (либо нет полуфабриката, либо полуфабрикат тоже заполнен)
+            return isRawFilled && (!hasSemifinished || isSemifinishedFilled);
+        }).length;
+        
+        return { filled: filledItems, total: totalItems };
+    }, [inventory]);
+
     if (!categories.length) {
         return (
             <motion.div 
@@ -458,6 +489,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                 <AnimatePresence mode="sync">
                     {sortedCategories.map((category, index) => {
                         const isFilled = isCategoryFilled(category);
+                        const progress = getCategoryProgress(category);
                         return (
                             <motion.div
                                 key={category}
@@ -472,6 +504,59 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                 whileTap={{ scale: 0.98 }}
                                 layout
                             >
+                                {/* Индикатор прогресса */}
+                                {progress.total > 0 && (
+                                    <motion.div 
+                                        className={`${styles.progressIndicator} ${isFilled ? styles.completed : ''}`}
+                                        initial={{ opacity: 0, scale: 0.8, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        transition={{
+                                            duration: 0.5,
+                                            delay: 0.1 + index * 0.05,
+                                            type: "spring",
+                                            stiffness: 300,
+                                            damping: 25
+                                        }}
+                                    >
+                                        {isFilled ? (
+                                            <motion.div
+                                                initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                                                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                                                transition={{
+                                                    type: "spring",
+                                                    stiffness: 500,
+                                                    damping: 30,
+                                                    delay: 0.2 + index * 0.05
+                                                }}
+                                                whileHover={{ 
+                                                    scale: 1.2, 
+                                                    rotate: 5,
+                                                    transition: { duration: 0.2 }
+                                                }}
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" style={{ width: '18px', height: '18px' }}>
+                                                    <motion.path 
+                                                        d="M20 7L9 18L4 13"
+                                                        stroke="white"
+                                                        strokeWidth="3"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        initial={{ pathLength: 0 }}
+                                                        animate={{ pathLength: 1 }}
+                                                        transition={{ 
+                                                            duration: 0.6,
+                                                            delay: 0.3 + index * 0.05,
+                                                            ease: "easeOut"
+                                                        }}
+                                                    />
+                                                </svg>
+                                            </motion.div>
+                                        ) : (
+                                            `${progress.filled} из ${progress.total}`
+                                        )}
+                                    </motion.div>
+                                )}
+                                
                                 <h3 className={styles.title}>{category}</h3>
                                 {focusingUsers[category]?.length ? (
                                     <div className={styles.categoryUsersFooter}>
@@ -527,34 +612,7 @@ const CategoryGrid: React.FC<CategoryGridProps> = ({ categories, onSelect, inven
                                         })}
                                     </div>
                                 ) : null}
-                                {isFilled && (
-                                    <motion.div 
-                                        className={styles.checkmark}
-                                        initial={{ scale: 0, rotate: -180 }}
-                                        animate={{ scale: 1, rotate: 0 }}
-                                        transition={{
-                                            type: "spring",
-                                            stiffness: 500,
-                                            damping: 30,
-                                            delay: 0.1 + index * 0.05
-                                        }}
-                                    >
-                                        <svg viewBox="0 0 24 24" fill="none">
-                                            <motion.path 
-                                                d="M20 7L9 18L4 13"
-                                                strokeWidth="2.5"
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                initial={{ pathLength: 0 }}
-                                                animate={{ pathLength: 1 }}
-                                                transition={{ 
-                                                    duration: 0.5,
-                                                    delay: 0.2 + index * 0.05
-                                                }}
-                                            />
-                                        </svg>
-                                    </motion.div>
-                                )}
+                                {/* Галочка теперь интегрирована в индикатор прогресса */}
                             </motion.div>
                         );
                     })}

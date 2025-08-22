@@ -1,6 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { animate } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
 import styles from './Header.module.css';
 
 interface HeaderProps {
@@ -16,6 +14,7 @@ interface HeaderProps {
     onNotificationClose: (id: string) => void;
     isInitialContext?: boolean;
     startTime?: string; // Время начала инвентаризации
+    isEditing?: boolean; // Флаг режима редактирования
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -25,33 +24,74 @@ const Header: React.FC<HeaderProps> = ({
     hasUnreadNotifications,
     onNotificationClose,
     isInitialContext = false,
-    startTime
+    startTime,
+    isEditing = false
 }) => {
     const [animatedProgress, setAnimatedProgress] = useState(progress);
     const [timerDisplay, setTimerDisplay] = useState<string>('');
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
 
-    // Автоматическое сворачивание через 10 секунд
+    // Автоматическое сворачивание через 15 секунд (только если не в режиме редактирования)
     useEffect(() => {
+        console.log('🔍 [Header] isEditing:', isEditing);
+        
+        // Если пользователь в режиме редактирования, не сворачиваем автоматически
+        if (isEditing) {
+            console.log('🔍 [Header] В режиме редактирования - отключаем автоматическое сворачивание');
+            return;
+        }
+
+        console.log('🔍 [Header] Не в режиме редактирования - включаем автоматическое сворачивание через 15 секунд');
         const collapseTimer = setTimeout(() => {
             setIsCollapsed(true);
             setShowExpandButton(true);
-        }, 10000);
+        }, 15000);
 
         return () => clearTimeout(collapseTimer);
-    }, []);
+    }, [isEditing]);
+
+    // Автоматическое разворачивание хедера при входе в режим редактирования
+    useEffect(() => {
+        if (isEditing && isCollapsed) {
+            console.log('🔍 [Header] Вход в режим редактирования - автоматически разворачиваем хедер');
+            setIsCollapsed(false);
+            setShowExpandButton(false);
+        }
+    }, [isEditing, isCollapsed]);
+
+    // Автоматическое сворачивание хедера при выходе из режима редактирования
+    useEffect(() => {
+        if (!isEditing && !isCollapsed) {
+            console.log('🔍 [Header] Выход из режима редактирования - автоматически сворачиваем хедер');
+            setIsCollapsed(true);
+            setShowExpandButton(true);
+        }
+    }, [isEditing]);
+
+    // Функция ручного сворачивания хедера
+    const handleCollapse = () => {
+        console.log('🔍 [Header] Ручное сворачивание хедера, isEditing:', isEditing);
+        setIsCollapsed(true);
+        setShowExpandButton(true);
+    };
 
     // Функция разворачивания хедера
     const handleExpand = () => {
+        console.log('🔍 [Header] Разворачиваем хедер, isEditing:', isEditing);
         setIsCollapsed(false);
         setShowExpandButton(false);
         
-        // Через 10 секунд снова сворачиваем
-        setTimeout(() => {
-            setIsCollapsed(true);
-            setShowExpandButton(true);
-        }, 10000);
+        // Через 10 секунд снова сворачиваем (только если не в режиме редактирования)
+        if (!isEditing) {
+            console.log('🔍 [Header] Не в режиме редактирования - планируем сворачивание через 10 секунд');
+            setTimeout(() => {
+                setIsCollapsed(true);
+                setShowExpandButton(true);
+            }, 10000);
+        } else {
+            console.log('🔍 [Header] В режиме редактирования - не планируем автоматическое сворачивание');
+        }
     };
 
     // Обновляем таймер каждую секунду без перерендера всего компонента
@@ -151,14 +191,31 @@ const Header: React.FC<HeaderProps> = ({
 
     // Анимация прогресса
     useEffect(() => {
-        const controls = animate(animatedProgress, progress, {
-            duration: 1.5,
-            ease: "easeInOut",
-            onUpdate: (latest) => {
-                setAnimatedProgress(Math.round(latest));
-            }
-        });
-        return () => controls.stop();
+        const animateProgress = () => {
+            const startTime = Date.now();
+            const duration = 1500;
+            const startProgress = animatedProgress;
+            const targetProgress = progress;
+            
+            const animate = () => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Плавная функция анимации
+                const easeProgress = 1 - Math.pow(1 - progress, 3);
+                const currentProgress = startProgress + (targetProgress - startProgress) * easeProgress;
+                
+                setAnimatedProgress(Math.round(currentProgress));
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                }
+            };
+            
+            requestAnimationFrame(animate);
+        };
+        
+        animateProgress();
     }, [progress]);
 
     // Получаем цвет прогресса
@@ -174,164 +231,109 @@ const Header: React.FC<HeaderProps> = ({
     return (
         <>
             {/* Основной хедер */}
-            <motion.div 
+            <div 
                 className={`${styles.header} ${isCollapsed ? styles.collapsed : ''}`}
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ 
-                    opacity: 1, 
-                    y: 0,
-                    x: isCollapsed ? -300 : 0,
-                    width: isCollapsed ? 80 : 'auto'
-                }}
-                transition={{ 
-                    duration: 0.5, 
-                    ease: "easeInOut",
-                    delay: isCollapsed ? 0 : 0.2
-                }}
             >
+                {/* Кнопка сворачивания хедера (скрыта в режиме редактирования) */}
+                {!isCollapsed && !isEditing && (
+                    <button
+                        className={styles.collapseButton}
+                        onClick={handleCollapse}
+                        title="Свернуть хедер"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M19 13H5V11H19V13Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                )}
+
                 {/* Верхняя секция с заголовком и статусом */}
                 <div className={styles.headerTop}>
                     <div className={styles.titleSection}>
-                        <motion.h2 
+                        <h2 
                             className={styles.headerTitle}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ 
-                                opacity: isCollapsed ? 0 : 1, 
-                                x: isCollapsed ? -50 : 0,
-                                scale: isCollapsed ? 0.8 : 1
-                            }}
-                            transition={{ 
-                                delay: isCollapsed ? 0 : 0.3,
-                                duration: 0.3
-                            }}
                             data-text={getDisplayTitle()}
                         >
                             {getDisplayTitle()}
-                        </motion.h2>
+                        </h2>
                     </div>
                 </div>
 
-                {/* Простые часы с абсолютным позиционированием */}
-                <AnimatePresence>
-                    {timerDisplay && !isCollapsed && (
-                        <motion.div 
-                            className={styles.simpleTimer}
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.3 }}
-                        >
-                            {timerDisplay}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+
 
                 {/* Секция с прогрессом и таймером */}
                 <div className={styles.progressSection}>
                     {/* Прогресс бар */}
-                    <motion.div 
-                        className={styles.progress}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ 
-                            opacity: isCollapsed ? 0 : 1, 
-                            y: isCollapsed ? 20 : 0,
-                            scale: isCollapsed ? 0.8 : 1
-                        }}
-                        transition={{ 
-                            delay: isCollapsed ? 0 : 0.5,
-                            duration: 0.3
-                        }}
-                    >
-                        <motion.div 
+                    <div className={styles.progress}>
+                        <div 
                             className={styles.progressBar}
-                            initial={false}
-                            animate={{ 
+                            style={{
                                 width: `${progress}%`,
                                 backgroundColor: getProgressColor()
                             }}
-                            transition={{ duration: 1.5, ease: "easeInOut" }}
                         />
                         
                         {/* Анимированные элементы прогресса */}
                         <div className={styles.progressOverlay}>
-                            <motion.div 
-                                className={styles.progressShine}
-                                animate={{ 
-                                    x: ['-100%', '100%'],
-                                    opacity: [0, 1, 0]
-                                }}
-                                transition={{ 
-                                    duration: 2, 
-                                    repeat: Infinity, 
-                                    ease: "easeInOut" 
-                                }}
-                            />
+                            <div className={styles.progressShine} />
                         </div>
 
                         {/* Текст прогресса */}
                         <div className={styles.progressTextContainer}>
-                            <motion.span
-                                className={styles.progressText}
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ 
-                                    opacity: isCollapsed ? 0 : 1, 
-                                    scale: isCollapsed ? 0.8 : 1
-                                }}
-                                transition={{ 
-                                    delay: isCollapsed ? 0 : 0.6, 
-                                    duration: 0.3 
-                                }}
-                            >
+                            <span className={styles.progressText}>
                                 {animatedProgress}%
-                            </motion.span>
+                            </span>
                         </div>
-                    </motion.div>
+                    </div>
 
                     {/* Таймер работы */}
-                    <AnimatePresence>
-                        {timerDisplay && !isCollapsed && (
-                            <motion.div 
-                                className={styles.timerContainer}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: 20 }}
-                                transition={{ duration: 0.3 }}
-                            >
-                                <div className={styles.timerIcon}>
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-                                        <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2"/>
-                                    </svg>
-                                </div>
-                                <div className={styles.timerContent}>
-                                    <div className={styles.timerLabel}>Время работы</div>
-                                    <div className={styles.timerValue}>{timerDisplay}</div>
-                                </div>
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                    {timerDisplay && !isCollapsed && (
+                        <div className={styles.timerContainer}>
+                            <div className={styles.timerIcon}>
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                                    <polyline points="12,6 12,12 16,14" stroke="currentColor" strokeWidth="2"/>
+                                </svg>
+                            </div>
+                            <div className={styles.timerContent}>
+                                <div className={styles.timerLabel}>Время работы</div>
+                                <div className={styles.timerValue}>{timerDisplay}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </motion.div>
+                
 
-            {/* Кнопка разворачивания */}
-            <AnimatePresence>
-                {showExpandButton && (
-                    <motion.button
-                        className={styles.expandButton}
+            </div>
+
+
+
+            {/* Элементы слева от экрана для свернутого состояния */}
+            {isCollapsed && (
+                <div className={styles.collapsedControls}>
+                    {/* Иконка прогресса */}
+                    <div className={styles.collapsedProgressIcon}>
+                        {animatedProgress}%
+                    </div>
+                    
+                    {/* Простые часы */}
+                    {timerDisplay && (
+                        <div className={styles.collapsedTimer}>
+                            {timerDisplay}
+                        </div>
+                    )}
+                    
+                    {/* Кнопка разворачивания */}
+                    <button
+                        className={styles.collapsedExpandButton}
                         onClick={handleExpand}
-                        initial={{ opacity: 0, scale: 0.8, x: -50 }}
-                        animate={{ opacity: 1, scale: 1, x: 0 }}
-                        exit={{ opacity: 0, scale: 0.8, x: -50 }}
-                        transition={{ duration: 0.3 }}
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.95 }}
                     >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
                             <path d="M9 18L15 12L9 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
-                    </motion.button>
-                )}
-            </AnimatePresence>
+                    </button>
+                </div>
+            )}
         </>
     );
 };

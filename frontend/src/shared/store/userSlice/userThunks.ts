@@ -23,7 +23,13 @@ export const checkServerHealthThunk = createAsyncThunk(
             console.log('✅ [checkServerHealthThunk] Сервер доступен, время ответа:', serverStatus.responseTime, 'ms');
             return serverStatus;
         } catch (error: any) {
-            console.error('💀 [checkServerHealthThunk] Критическая ошибка проверки сервера:', error);
+            console.error('💀 [checkServerHealthThunk] Критическая ошибка проверки сервера:', {
+                error: error.message || error,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            });
             return rejectWithValue('Критическая ошибка проверки сервера');
         }
     }
@@ -129,7 +135,13 @@ export const initializeFromTelegram = createAsyncThunk(
             
             return user;
         } catch (error: any) {
-            console.error('[initializeFromTelegram] Общая ошибка:', error);
+            console.error('[initializeFromTelegram] Общая ошибка:', {
+                error: error.message || error,
+                stack: error.stack,
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            });
             // Теперь мы знаем, что сервер доступен, поэтому это ошибка данных
             return rejectWithValue(error.message || 'Неизвестная ошибка инициализации');
         }

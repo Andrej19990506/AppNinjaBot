@@ -32,6 +32,7 @@ import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned
 import ServerErrorModal from './shared/components/ServerErrorModal/ServerErrorModal';
 import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
+import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
 
 
 
@@ -186,6 +187,20 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     serverChecked
   });
 
+  // Детальное логирование ошибок для отладки
+  React.useEffect(() => {
+    if (initError) {
+      console.error('🚨 [App] Обнаружена ошибка инициализации:', {
+        error: initError,
+        isServerError,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        user: user ? { id: user.id, groups: user.groups?.length || 0 } : null
+      });
+    }
+  }, [initError, isServerError, user]);
+
   // Отладка состояния заставки отсутствия
   useEffect(() => {
     console.log('🔍 [App Debug] isAwayOverlayVisible изменился:', isAwayOverlayVisible);
@@ -227,7 +242,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
        <ServerErrorModal
          isOpen={Boolean(showServerError && isServerError)}
          onClose={() => setShowServerError(false)}
-                 onRetry={() => {
+         onRetry={() => {
            setShowServerError(false);
            setServerChecked(false);
            initStarted.current = false;
@@ -245,8 +260,8 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
                console.error('❌ [App] Ошибка при повторной попытке:', error);
              });
          }}
-        error={initError || undefined}
-      />
+         error={initError || undefined}
+       />
       
       {/* Модальное окно об истечении прав */}
       {permissionsNotification && (
@@ -324,6 +339,16 @@ const AutoRedirectByRole = () => {
 };
 
 function App() {
+  // Инициализируем глобальные обработчики ошибок
+  React.useEffect(() => {
+    initializeGlobalErrorHandlers();
+    
+    return () => {
+      // Очистка при размонтировании
+      cleanupGlobalErrorHandlers();
+    };
+  }, []);
+
   return (
     <Provider store={store}>
       <CustomThemeProvider>

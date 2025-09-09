@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import styled, { keyframes } from 'styled-components';
+import { collectErrorReport, formatErrorReport, copyErrorReportToClipboard, saveErrorReportToStorage, ErrorReport } from '@shared/utils/errorReporter';
 
 // Анимации
 const fadeIn = keyframes`
@@ -150,6 +151,32 @@ const ExclamationMark = styled.div`
   animation: ${shake} 0.5s ease-in-out 0.5s;
 `;
 
+const ErrorIcon = styled.div`
+  color: white;
+  font-size: 36px;
+  font-weight: 900;
+  line-height: 1;
+  z-index: 2;
+  position: relative;
+  animation: ${shake} 0.5s ease-in-out 0.5s;
+`;
+
+// Функция для получения иконки в зависимости от типа ошибки
+const getErrorIcon = (errorType: ErrorType) => {
+  switch (errorType) {
+    case 'network':
+      return '📡';
+    case 'server':
+      return '⚠️';
+    case 'config':
+      return '⚙️';
+    case 'data':
+      return '📊';
+    default:
+      return '!';
+  }
+};
+
 const Title = styled.h2`
   color: var(--primary-color);
   font-size: 2rem;
@@ -227,64 +254,6 @@ const ActionsContainer = styled.div`
   }
 `;
 
-const Button = styled.button`
-  background: var(--gradient-primary);
-  color: var(--text-color-on-primary);
-  border: none;
-  padding: 16px 28px;
-  border-radius: var(--radius-lg);
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition-slow);
-  min-height: 56px;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.025em;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left 0.5s;
-  }
-  
-  &:hover {
-    background: var(--primary-dark);
-    transform: var(--hover-transform);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  &:hover::before {
-    left: 100%;
-  }
-  
-  &:active {
-    transform: var(--active-transform);
-  }
-  
-  @media (max-width: 768px) {
-    padding: 18px 24px;
-    min-height: 60px;
-    font-size: 1.15rem;
-  }
-`;
-
-const SecondaryButton = styled(Button)`
-  background: var(--gray-50);
-  color: var(--text-color);
-  border: 2px solid var(--border-color);
-  
-  &:hover {
-    background: var(--card-background);
-    color: var(--text-color);
-    box-shadow: var(--shadow-lg);
-  }
-`;
 
 const SupportLink = styled.a`
   display: inline-flex;
@@ -315,6 +284,58 @@ const SupportLink = styled.a`
   }
 `;
 
+const TechnicalButton = styled.button`
+  background: var(--gray-100);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  margin: 8px 4px;
+  
+  &:hover {
+    background: var(--gray-200);
+    border-color: var(--primary-color);
+  }
+`;
+
+const CopyButton = styled(TechnicalButton)`
+  background: var(--success-color);
+  color: white;
+  border-color: var(--success-color);
+  
+  &:hover {
+    background: var(--success-dark);
+    border-color: var(--success-dark);
+  }
+`;
+
+const TechnicalDetailsContainer = styled.div`
+  background: var(--gray-50);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin: 16px 0;
+  max-height: 300px;
+  overflow-y: auto;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+`;
+
+const SuccessMessage = styled.div`
+  color: var(--success-color);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-top: 8px;
+  text-align: center;
+`;
+
 const TelegramIcon = styled.div`
   width: 22px;
   height: 22px;
@@ -339,24 +360,164 @@ interface ServerErrorModalProps {
   error?: string;
 }
 
+// Типы ошибок для лучшей классификации
+type ErrorType = 'network' | 'server' | 'data' | 'config' | 'unknown';
+
+interface ErrorDetails {
+  type: ErrorType;
+  title: string;
+  message: string;
+  technicalDetails: string;
+  suggestedActions: string[];
+}
+
+// Функция для анализа и классификации ошибок
+const analyzeError = (error: string | undefined): ErrorDetails => {
+  if (!error) {
+    return {
+      type: 'unknown',
+      title: 'Неизвестная ошибка',
+      message: 'Произошла неизвестная ошибка при инициализации приложения.',
+      technicalDetails: 'Ошибка не определена',
+      suggestedActions: ['Обратитесь в техническую поддержку']
+    };
+  }
+
+  const errorLower = error.toLowerCase();
+  
+  // Сетевые ошибки
+  if (errorLower.includes('network error') || 
+      errorLower.includes('failed to fetch') || 
+      errorLower.includes('connection refused') ||
+      errorLower.includes('timeout') ||
+      errorLower.includes('сервер недоступен')) {
+    return {
+      type: 'network',
+      title: 'Проблема с подключением',
+      message: 'Не удается подключиться к серверу. Проверьте интернет-соединение.',
+      technicalDetails: error,
+      suggestedActions: [
+        'Проверьте интернет-соединение',
+        'Если проблема повторяется, обратитесь в поддержку'
+      ]
+    };
+  }
+  
+  // Ошибки сервера (5xx)
+  if (errorLower.includes('http 5') || 
+      errorLower.includes('500') || 
+      errorLower.includes('502') || 
+      errorLower.includes('503') ||
+      errorLower.includes('критическая ошибка проверки сервера')) {
+    return {
+      type: 'server',
+      title: 'Ошибка сервера',
+      message: 'На сервере произошла техническая ошибка. Мы работаем над исправлением.',
+      technicalDetails: error,
+      suggestedActions: [
+        'Попробуйте через несколько минут',
+        'Обратитесь в техническую поддержку'
+      ]
+    };
+  }
+  
+  // Ошибки данных/конфигурации
+  if (errorLower.includes('настройки группы не настроены') ||
+      errorLower.includes('группа не найдена') ||
+      errorLower.includes('пользователь не найден')) {
+    return {
+      type: 'config',
+      title: 'Проблема с настройками',
+      message: 'Обнаружена проблема с настройками вашего аккаунта или группы.',
+      technicalDetails: error,
+      suggestedActions: [
+        'Обратитесь к администратору для настройки параметров',
+        'Свяжитесь с технической поддержкой'
+      ]
+    };
+  }
+  
+  // Ошибки данных
+  if (errorLower.includes('ошибка инициализации') ||
+      errorLower.includes('данные пользователя') ||
+      errorLower.includes('профиль недоступен')) {
+    return {
+      type: 'data',
+      title: 'Ошибка данных',
+      message: 'Не удалось загрузить данные пользователя или группы.',
+      technicalDetails: error,
+      suggestedActions: [
+        'Проверьте подключение к интернету',
+        'Обратитесь в техническую поддержку'
+      ]
+    };
+  }
+  
+  // Неизвестная ошибка
+  return {
+    type: 'unknown',
+    title: 'Неизвестная ошибка',
+    message: 'Произошла неожиданная ошибка при инициализации приложения.',
+    technicalDetails: error,
+    suggestedActions: [
+      'Обратитесь в техническую поддержку с описанием проблемы'
+    ]
+  };
+};
+
 const ServerErrorModal: React.FC<ServerErrorModalProps> = ({ 
   isOpen, 
   onClose, 
   onRetry, 
   error 
 }) => {
+  const [errorReport, setErrorReport] = useState<ErrorReport | null>(null);
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  // Анализируем ошибку
+  const errorDetails = analyzeError(error);
+  
+  // Собираем детальный отчет об ошибке
+  React.useEffect(() => {
+    if (isOpen && error) {
+      const report = collectErrorReport(
+        new Error(error),
+        {
+          user: null, // Можно передать из props если нужно
+          reduxState: null, // Можно передать из props если нужно
+        }
+      );
+      
+      setErrorReport(report);
+      saveErrorReportToStorage(report);
+      
+      console.error('🚨 [ServerErrorModal] Детальный отчет об ошибке:', report);
+    }
+  }, [isOpen, error]);
+
   if (!isOpen) return null;
 
 
-
-  const handleRefresh = () => {
-    window.location.reload();
-  };
 
   const handleSupportClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     window.open('https://t.me/+Sc8qu36mX-IwM2My', '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyErrorReport = async () => {
+    if (!errorReport) return;
+    
+    const success = await copyErrorReportToClipboard(errorReport);
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 3000);
+    }
+  };
+
+  const handleToggleTechnicalDetails = () => {
+    setShowTechnicalDetails(!showTechnicalDetails);
   };
 
   return (
@@ -365,42 +526,76 @@ const ServerErrorModal: React.FC<ServerErrorModalProps> = ({
         <IconContainer>
           <CriticalErrorIcon>
             <IconCircle>
-              <ExclamationMark>!</ExclamationMark>
+              <ErrorIcon>{getErrorIcon(errorDetails.type)}</ErrorIcon>
             </IconCircle>
           </CriticalErrorIcon>
         </IconContainer>
         
-        <Title>Критическая ошибка</Title>
+        <Title>{errorDetails.title}</Title>
         
         <Message>
-          Произошла серьезная ошибка на нашей стороне.<br />
-          Попробуйте перезапустить приложение.
+          {errorDetails.message}
         </Message>
         
-        {error && (
+        {/* Рекомендуемые действия */}
+        {errorDetails.suggestedActions.length > 0 && (
           <ErrorDetails>
-            <strong>Детали ошибки</strong>
-            <span>{error}</span>
+            <strong>Рекомендуемые действия:</strong>
+            <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+              {errorDetails.suggestedActions.map((action, index) => (
+                <li key={index} style={{ marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                  {action}
+                </li>
+              ))}
+            </ul>
           </ErrorDetails>
         )}
         
+        {/* Технические детали */}
+        {errorDetails.technicalDetails && (
+          <ErrorDetails>
+            <strong>Технические детали ошибки:</strong>
+            <span>{errorDetails.technicalDetails}</span>
+          </ErrorDetails>
+        )}
+
+        {/* Кнопки для работы с отчетом об ошибке */}
+        {errorReport && (
+          <div style={{ textAlign: 'center', margin: '16px 0' }}>
+            <TechnicalButton onClick={handleToggleTechnicalDetails}>
+              {showTechnicalDetails ? 'Скрыть' : 'Показать'} детальную информацию
+            </TechnicalButton>
+            <CopyButton onClick={handleCopyErrorReport}>
+              📋 Копировать отчет об ошибке
+            </CopyButton>
+            {copySuccess && (
+              <SuccessMessage>
+                ✅ Отчет скопирован в буфер обмена!
+              </SuccessMessage>
+            )}
+          </div>
+        )}
+
+        {/* Детальная техническая информация */}
+        {showTechnicalDetails && errorReport && (
+          <TechnicalDetailsContainer>
+            {formatErrorReport(errorReport)}
+          </TechnicalDetailsContainer>
+        )}
+        
         <ActionsContainer>
-          
-          <SecondaryButton onClick={handleRefresh}>
-            Перезапустить приложение
-          </SecondaryButton>
-          
-                     <SupportLink 
-             href="https://t.me/+Sc8qu36mX-IwM2My" 
-             target="_blank" 
-             rel="noopener noreferrer"
-             onClick={handleSupportClick}
-           >
-             <TelegramIcon>
-               <TelegramIconSVG />
-             </TelegramIcon>
-             NinjaPizzaBot Тех. Поддержка
-           </SupportLink>
+          {/* Кнопка поддержки - показываем всегда */}
+          <SupportLink 
+            href="https://t.me/+Sc8qu36mX-IwM2My" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            onClick={handleSupportClick}
+          >
+            <TelegramIcon>
+              <TelegramIconSVG />
+            </TelegramIcon>
+            NinjaPizzaBot Тех. Поддержка
+          </SupportLink>
         </ActionsContainer>
       </Modal>
     </Container>

@@ -112,8 +112,12 @@ class ActivityNotificationService {
       
       console.log('🔔 [ActivityNotificationService] Уведомление успешно отправлено через Redux');
       
-      // Воспроизводим звук уведомления
-      soundService.playNotificationSound();
+      // Воспроизводим звук уведомления в зависимости от типа
+      if (notificationType === NotificationTypes.SUCCESS) {
+        soundService.playSuccessSound();
+      } else {
+        soundService.playNotificationSound();
+      }
     } catch (error) {
       console.error('❌ [ActivityNotificationService] Ошибка при показе уведомления:', error);
     }

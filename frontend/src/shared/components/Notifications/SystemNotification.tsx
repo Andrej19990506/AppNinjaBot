@@ -115,7 +115,14 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
                 
                 // Воспроизводим звук для новых уведомлений (кроме тех, что уже имеют звук)
                 if (!playedSoundNotificationsRef.current.has(latestNotification.id)) {
-                    soundService.playNotificationSound();
+                    // Воспроизводим разные звуки в зависимости от типа уведомления
+                    if (latestNotification.type === NotificationTypes.SUCCESS) {
+                        soundService.playSuccessSound();
+                    } else if (latestNotification.type === NotificationTypes.ERROR) {
+                        soundService.playErrorSound();
+                    } else {
+                        soundService.playNotificationSound();
+                    }
                     // Помечаем, что звук уже воспроизведен для этого уведомления
                     playedSoundNotificationsRef.current.add(latestNotification.id);
                 }

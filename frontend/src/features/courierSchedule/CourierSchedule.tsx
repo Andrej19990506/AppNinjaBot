@@ -221,6 +221,7 @@ const CourierSchedule: React.FC = () => {
                 chatId: selectedChatId
             })).unwrap();
 
+            // Показываем подтверждение ТОЛЬКО если запрос прошел успешно
             dispatch(addNotification({
                 type: NotificationTypes.SUCCESS,
                 message: 'Смена успешно забронирована'
@@ -230,17 +231,27 @@ const CourierSchedule: React.FC = () => {
             
             let errorMessage = 'Не удалось забронировать смену';
             
-            try {
-                const errorData = JSON.parse(error.message.split('Failed to book shift: ')[1]);
-                errorMessage = errorData.error || errorMessage;
-            } catch {
-                errorMessage = error.message || errorMessage;
+            // Специальная обработка для ошибки настроек группы
+            if (error.message && error.message.includes('Настройки группы не настроены')) {
+                errorMessage = 'Настройки группы не настроены. Обратитесь к администратору для настройки параметров смен.';
+                // Показываем модальное окно настроек
+                setShowShiftAccessSettings(true);
+            } else {
+                try {
+                    const errorData = JSON.parse(error.message.split('Failed to book shift: ')[1]);
+                    errorMessage = errorData.error || errorMessage;
+                } catch {
+                    errorMessage = error.message || errorMessage;
+                }
             }
 
             dispatch(addNotification({
                 type: NotificationTypes.ERROR,
                 message: errorMessage
             }));
+            
+            // Пробрасываем ошибку дальше, чтобы ShiftConfirmationDialog мог её обработать
+            throw error;
         }
     };
 

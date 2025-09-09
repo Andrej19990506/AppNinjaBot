@@ -11,7 +11,7 @@ interface ShiftConfirmationDialogProps {
         slotIndex: number;
         existingShiftId?: string;
     } | null;
-    onConfirm: () => void;
+    onConfirm: () => Promise<void>; // Изменено на Promise для обработки ошибок
     onCancel: () => void;
     isOpen: boolean;
     userName?: string;
@@ -146,19 +146,19 @@ const UserAvatar = styled.div`
     }
 `;
 
-const SuccessIcon = styled.div`
+const StatusIcon = styled.div<{ isSuccess?: boolean }>`
     position: absolute;
     bottom: -8px;
     right: -8px;
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: var(--primary-color);
+    background: ${props => props.isSuccess ? 'var(--primary-color)' : 'var(--error-color)'};
     display: flex;
     align-items: center;
     justify-content: center;
     border: 3px solid var(--card-background);
-    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
+    box-shadow: 0 2px 8px ${props => props.isSuccess ? 'rgba(var(--primary-rgb), 0.3)' : 'rgba(var(--error-rgb), 0.3)'};
     z-index: 2;
     
     svg {
@@ -169,7 +169,7 @@ const SuccessIcon = styled.div`
     }
 `;
 
-const SuccessMessage = styled.div`
+const StatusMessage = styled.div<{ isSuccess?: boolean }>`
     text-align: center;
     margin-bottom: 24px;
     animation: ${fadeIn} 0.3s ease-out 0.2s both;
@@ -181,7 +181,7 @@ const SuccessMessage = styled.div`
         font-size: 1.5rem;
         font-weight: 600;
         margin: 0 0 12px 0;
-        background: var(--gradient-primary);
+        background: ${props => props.isSuccess ? 'var(--gradient-primary)' : 'var(--error-color)'};
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
@@ -194,7 +194,7 @@ const SuccessMessage = styled.div`
         white-space: pre-line;
         
         strong {
-            color: var(--primary-color);
+            color: ${props => props.isSuccess ? 'var(--primary-color)' : 'var(--error-color)'};
             font-weight: 500;
         }
     }
@@ -393,7 +393,7 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
     userName,
     userAvatar
 }) => {
-    const [showSuccess, setShowSuccess] = useState(false);
+    const [status, setStatus] = useState<'confirming' | 'success' | 'error'>('confirming');
     const [isLoading, setIsLoading] = useState(false);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -402,13 +402,46 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
     const handleConfirm = async () => {
         setIsLoading(true);
         setErrorMsg(null);
+        setStatus('confirming');
+        
         try {
             await onConfirm();
-            setShowSuccess(true);
+            setStatus('success');
         } catch (err: any) {
-            console.error('[ShiftConfirmationDialog] Error during onConfirm:', err);
-            setErrorMsg(err?.message || 'Произошла неизвестная ошибка');
-            setShowSuccess(false);
+            console.error('[ShiftConfirmationDialog] Error during onConfirm:', {
+                error: err,
+                message: err?.message,
+                errorType: typeof err,
+                errorKeys: err ? Object.keys(err) : null,
+                stack: err?.stack
+            });
+            
+            let errorMessage = 'Произошла неизвестная ошибка';
+            
+            // Обрабатываем разные типы ошибок
+            if (err?.message) {
+                if (err.message.includes('Настройки группы не настроены')) {
+                    errorMessage = 'Настройки группы не настроены. Обратитесь к администратору для настройки параметров смен.';
+                } else if (err.message.includes('Слот уже занят')) {
+                    errorMessage = 'Слот уже занят другим курьером.';
+                } else if (err.message.includes('максимальное количество смен')) {
+                    errorMessage = 'Вы уже записаны на максимальное количество смен.';
+                } else if (err.message.includes('Неверные данные')) {
+                    errorMessage = 'Неверные данные для бронирования смены.';
+                } else if (err.message.includes('запись на эту смену сейчас недоступна')) {
+                    errorMessage = 'Запись на эту смену сейчас недоступна.';
+                } else {
+                    // Используем оригинальное сообщение об ошибке
+                    errorMessage = err.message;
+                }
+            } else if (err?.error) {
+                errorMessage = err.error;
+            } else if (typeof err === 'string') {
+                errorMessage = err;
+            }
+            
+            setErrorMsg(errorMessage);
+            setStatus('error');
         } finally {
             setIsLoading(false);
         }
@@ -416,20 +449,20 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
 
     const handleCancel = () => {
         setErrorMsg(null);
-        setShowSuccess(false);
+        setStatus('confirming');
         onCancel();
     };
 
-    const handleSuccessClose = () => {
+    const handleStatusClose = () => {
         setErrorMsg(null);
-        setShowSuccess(false);
+        setStatus('confirming');
         onCancel();
     };
 
     return (
         <ConfirmationContainer>
             <ConfirmationCard>
-                {showSuccess ? (
+                {status === 'success' ? (
                     <SuccessOverlay>
                         <UserAvatar>
                             <img 
@@ -446,7 +479,7 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
                                 }}
                                 style={{ opacity: userAvatar ? '0' : '1' }}
                             />
-                            <SuccessIcon>
+                            <StatusIcon isSuccess={true}>
                                 <svg viewBox="0 0 24 24" fill="none">
                                     <path 
                                         d="M20 6L9 17l-5-5" 
@@ -454,9 +487,9 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
                                         strokeLinejoin="round"
                                     />
                                 </svg>
-                            </SuccessIcon>
+                            </StatusIcon>
                         </UserAvatar>
-                        <SuccessMessage>
+                        <StatusMessage isSuccess={true}>
                             <h3>Запись подтверждена!</h3>
                             <p>
                                 {userName ? `${userName}, вы` : 'Вы'} успешно записались на{' '}
@@ -464,12 +497,54 @@ const ShiftConfirmationDialog: React.FC<ShiftConfirmationDialogProps> = ({
                                 {'\n'}
                                 {format(date, 'd MMMM yyyy', { locale: ru })}
                             </p>
-                        </SuccessMessage>
-                        <ConfirmButton onClick={handleSuccessClose} disabled={isLoading}>
+                        </StatusMessage>
+                        <ConfirmButton onClick={handleStatusClose} disabled={isLoading}>
                             <svg viewBox="0 0 24 24" fill="none">
                                 <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             OK
+                        </ConfirmButton>
+                    </SuccessOverlay>
+                ) : status === 'error' ? (
+                    <SuccessOverlay>
+                        <UserAvatar>
+                            <img 
+                                src={userAvatar || defaultAvatar} 
+                                alt={userName || 'Пользователь'}
+                                onError={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.src = defaultAvatar;
+                                    img.style.opacity = '1';
+                                }}
+                                onLoad={(e) => {
+                                    const img = e.target as HTMLImageElement;
+                                    img.style.opacity = '1';
+                                }}
+                                style={{ opacity: userAvatar ? '0' : '1' }}
+                            />
+                            <StatusIcon isSuccess={false}>
+                                <svg viewBox="0 0 24 24" fill="none">
+                                    <path 
+                                        d="M18 6L6 18M6 6l12 12" 
+                                        strokeLinecap="round" 
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                            </StatusIcon>
+                        </UserAvatar>
+                        <StatusMessage isSuccess={false}>
+                            <h3>Ошибка записи!</h3>
+                            <p>
+                                {errorMsg || 'Не удалось записаться на смену'}
+                                {'\n'}
+                                {format(date, 'd MMMM yyyy', { locale: ru })}
+                            </p>
+                        </StatusMessage>
+                        <ConfirmButton onClick={handleStatusClose} disabled={isLoading}>
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Понятно
                         </ConfirmButton>
                     </SuccessOverlay>
                 ) : (

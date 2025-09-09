@@ -604,11 +604,11 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setLoadingType(shiftType);
         setLoadingSlot(slotIndex);
         
-        let bookingSuccess = false; 
         try {
             await onSlotSelect(shiftType, slotIndex);
-
         } catch (error) {
+            // Пробрасываем ошибку дальше, чтобы ShiftConfirmationDialog мог её обработать
+            throw error;
         } finally {
             setLoadingType(null);
             setLoadingSlot(null);

@@ -69,6 +69,10 @@ export const bookShift = async (data: BookShiftApiData): Promise<ApiShift> => {
         throw new Error(validationErrors);
       }
       if (status === 400) {
+        // Специальная обработка для ошибки настроек группы
+        if (detail && detail.includes('Настройки группы не настроены')) {
+          throw new Error(detail); // Передаем оригинальное сообщение об ошибке
+        }
         throw new Error(detail || 'Ошибка данных запроса для бронирования смены.');
       }
       if (status === 403) {
@@ -111,7 +115,7 @@ export const getShiftAccessSettings = async (chatId: string | number): Promise<A
       const status = axiosError.response?.status;
       const detail = axiosError.response?.data?.detail;
       if (status === 404) {
-        throw new Error(detail || 'Группа не найдена или настройки для нее не установлены.');
+        throw new Error('SETTINGS_NOT_CONFIGURED: ' + (detail || 'Группа не найдена или настройки для нее не установлены.'));
       }
       if (status === 403) {
         throw new Error(detail || 'У вас нет прав для просмотра настроек.');

@@ -178,6 +178,13 @@ async def create_shift(
         logger.info(f"[DEBUG][Create Shift] Существующий резерв: id={r.id}, member_id={r.member_id}, date={r.date} (type: {type(r.date)})")
 
     # --- Шаг 3.1: Логика удаления старых смен при allowMultipleShifts=False ---
+    if group.access_settings is None:
+        logger.error(f"[Create Shift] Group {group.group_id} has no access_settings configured. Cannot create shift.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Настройки группы не настроены. Обратитесь к администратору для настройки параметров смен."
+        )
+    
     allow_multiple = group.access_settings.get('allowMultipleShifts', True)
     if not allow_multiple:
         stmt_find_existing = (
@@ -866,6 +873,13 @@ async def assign_shift_by_senior(
             )
 
         # 6. Обработать существующие смены НАЗНАЧАЕМОГО курьера (если allowMultipleShifts=false)
+        if group.access_settings is None:
+            logger.error(f"[Assign Shift] Group {group.group_id} has no access_settings configured. Cannot assign shift.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Настройки группы не настроены. Обратитесь к администратору для настройки параметров смен."
+            )
+        
         allow_multiple = group.access_settings.get('allowMultipleShifts', True)
         if not allow_multiple:
             logger.info(f"[Assign Shift] allowMultipleShifts is False. Checking existing shifts for target member {target_member.id} on {date_obj}...")

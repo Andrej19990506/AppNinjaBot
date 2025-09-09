@@ -1,6 +1,6 @@
 .notificationContainer {
     position: fixed;
-    top: 20px;
+    top: 60px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10000;
@@ -240,7 +240,7 @@
 /* Медиа-запросы */
 @media (max-width: 768px) {
     .notificationContainer {
-        top: 16px;
+        top: 50px;
         padding: 0 16px;
         gap: 10px;
     }
@@ -282,7 +282,7 @@
 
 @media (max-width: 480px) {
     .notificationContainer {
-        top: 12px;
+        top: 45px;
         padding: 0 12px;
         gap: 8px;
     }
@@ -318,7 +318,7 @@
 /* Поддержка iPhone с челкой */
 @supports (padding: max(0px)) {
     .notificationContainer {
-        top: max(20px, env(safe-area-inset-top) + 10px);
+        top: max(60px, env(safe-area-inset-top) + 50px);
     }
     
     .notification {

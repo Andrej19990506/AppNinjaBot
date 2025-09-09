@@ -99,6 +99,7 @@ const shiftsSlice = createSlice({
             })
             .addCase(bookShift.fulfilled, (state, action) => {
                 state.loading = false;
+                state.error = null; // Очищаем ошибку при успешном выполнении
                 const shift = action.payload;
                 const index = state.shifts.findIndex(s => s.id === shift.id);
                 if (index !== -1) {
@@ -109,7 +110,12 @@ const shiftsSlice = createSlice({
             })
             .addCase(bookShift.rejected, (state, action) => {
                 state.loading = false;
-                state.error = action.payload || 'Не удалось забронировать смену';
+                // Не показываем ошибку в общем error для ошибок настроек группы
+                if (action.payload && action.payload.includes('Настройки группы не настроены')) {
+                    state.error = null; // Не показываем красный фон
+                } else {
+                    state.error = action.payload || 'Не удалось забронировать смену';
+                }
             })
             .addCase(cancelShift.pending, (state) => {
                 state.loading = true;

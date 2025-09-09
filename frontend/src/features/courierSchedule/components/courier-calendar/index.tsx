@@ -279,7 +279,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
             {!combinedError && <LoadingOverlay isVisible={combinedIsLoading} />}
 
 
-            {combinedError && (
+            {combinedError && !combinedError.includes('Настройки группы не настроены') && (
                 <div style={{ 
                     position: 'absolute', 
                     top: 0, left: 0, right: 0, bottom: 0, 

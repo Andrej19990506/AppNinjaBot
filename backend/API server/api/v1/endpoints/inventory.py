@@ -22,7 +22,7 @@ from models.group import Group
 from models.member import Member # Для поиска админов и автора истории
 from models.group_member import GroupMember # Для поиска админов
 from models.inventory_history import InventoryHistory # Для истории
-from schemas.inventory import InventoryData, InventoryUpdatePayload, InventoryItemUpdatePayload # Схемы для POST/GET и точечный PUT
+from schemas.inventory import InventoryData, InventoryUpdatePayload, InventoryItemUpdatePayload, AddItemNotesPayload # Схемы для POST/GET и точечный PUT
 from schemas.user import UserSimple # Для информации об админах
 # Добавим импорт Pydantic для полей админов
 from pydantic import Field, BaseModel
@@ -338,45 +338,36 @@ async def read_inventory_for_chat(
              # Важно: если инвентарь НЕ пустой, работаем с его копией, чтобы не изменить в БД
              base_inventory = json.loads(json.dumps(group.json_inventory))
 
-        # 3. Получаем специфичные добавления для группы
-        group_additions = group.json_inventory_additions or {}
+        # 3. Получаем заметки к товарам для группы
+        group_notes = group.json_inventory_notes or {}
 
-        # 4. Сливаем добавления в базовый инвентарь
-        if group_additions:
-            logger.info(f"[read_inventory_for_chat] Merging {len(group_additions)} group-specific additions for chat {chat_id}")
-            for category, items in group_additions.items():
+        # 4. Применяем заметки к товарам в базовом инвентаре
+        if group_notes:
+            logger.info(f"[read_inventory_for_chat] Applying {len(group_notes)} item notes for chat {chat_id}")
+            for category, items in group_notes.items():
                 if not isinstance(items, dict):
-                     logger.warning(f"[read_inventory_for_chat] Invalid format in json_inventory_additions for category '{category}' in chat {chat_id}. Skipping.")
+                     logger.warning(f"[read_inventory_for_chat] Invalid format in json_inventory_notes for category '{category}' in chat {chat_id}. Skipping.")
                      continue
                  
                 if category not in base_inventory:
-                    base_inventory[category] = {}
-                    logger.debug(f"[read_inventory_for_chat] Added new category '{category}' from additions.")
+                    logger.debug(f"[read_inventory_for_chat] Category '{category}' not found in base inventory, skipping notes.")
+                    continue
                 
-                for item_name, item_data in items.items():
-                     if not isinstance(item_data, dict):
-                         logger.warning(f"[read_inventory_for_chat] Invalid item data format for item '{item_name}' in category '{category}' additions. Skipping.")
+                for item_name, notes_data in items.items():
+                     if not isinstance(notes_data, dict):
+                         logger.warning(f"[read_inventory_for_chat] Invalid notes data format for item '{item_name}' in category '{category}'. Skipping.")
                          continue
                      
-                     # Проверяем, существует ли товар с таким именем в базовом инвентаре этой категории
-                     if item_name not in base_inventory[category]:
-                          # Создаем стандартную структуру товара
-                          new_item = {
-                              "name": item_name,
-                              "raw": {"quantity": 0, "filled": False, "isOutOfStock": False},
-                              "itemType": "raw" # По умолчанию
-                          }
-                          # Добавляем semifinished, если указано в item_data ('has_semifinished')
-                          if item_data.get('has_semifinished') is True:
-                              new_item["semifinished"] = {"quantity": 0, "filled": False}
-                              new_item["itemType"] = "both"
-                          
-                          base_inventory[category][item_name] = new_item
-                          logger.debug(f"[read_inventory_for_chat] Added new item '{item_name}' to category '{category}' from additions.")
+                     # Если товар есть в базовом инвентаре, применяем заметки
+                     if item_name in base_inventory[category]:
+                         logger.debug(f"[read_inventory_for_chat] Applying notes to item '{item_name}' in category '{category}'.")
+                         # Применяем заметки к сырью и полуфабрикатам
+                         if 'raw' in base_inventory[category][item_name] and 'notes' in notes_data.get('raw', {}):
+                             base_inventory[category][item_name]['raw']['notes'] = notes_data['raw']['notes']
+                         if 'semifinished' in base_inventory[category][item_name] and 'notes' in notes_data.get('semifinished', {}):
+                             base_inventory[category][item_name]['semifinished']['notes'] = notes_data['semifinished']['notes']
                      else:
-                          # Если товар уже есть, можно логировать или ничего не делать
-                          # logger.debug(f"[read_inventory_for_chat] Item '{item_name}' in category '{category}' already exists in base inventory. Skipping addition.")
-                          pass 
+                         logger.debug(f"[read_inventory_for_chat] Item '{item_name}' not found in base inventory, skipping notes.") 
         # ---> КОНЕЦ НОВОЙ ЛОГИКИ <--- 
 
         # Используем результат слияния (base_inventory) для ответа
@@ -949,35 +940,52 @@ class AddItemPayload(BaseModel):
     has_semifinished: bool = Field(False, description="Does the item have a semifinished component?")
 # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
-# ---> ДОБАВЛЕНИЕ: Новый эндпоинт для добавления товара в json_inventory_additions <---
+# ---> ПЕРЕИМЕНОВАНО: Эндпоинт для добавления заметок к товару <---
 @router.post(
-    "/{chat_id}/items",
+    "/{chat_id}/items/notes",
     status_code=status.HTTP_201_CREATED,
-    summary="Add a Custom Inventory Item Definition",
-    description="Adds the definition of a new custom item to the group-specific additions (`json_inventory_additions`). This does not add the item to the main inventory directly, but defines it for future merging.",
-    tags=["Inventory", "Custom Items"]
+    summary="Add Item Notes",
+    description="Adds notes for an inventory item to the group-specific notes storage (`json_inventory_notes`). Notes persist across inventory template resets.",
+    tags=["Inventory", "Item Notes"]
 )
-async def add_custom_inventory_item(
-    payload: AddItemPayload,
+async def add_item_notes(
+    payload: AddItemNotesPayload,
     chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
     # TODO: Добавить зависимость для проверки прав администратора
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    Adds a custom item definition to the group's specific additions.
+    Adds notes for an inventory item to the group's notes storage.
+    Notes persist across inventory template resets.
     """
-    logger.info(f"[add_custom_inventory_item] POST /inventory/{chat_id}/items for item: {payload.category}/{payload.item_name}")
+    logger.info(f"[add_item_notes] POST /inventory/{chat_id}/items/notes for item: {payload.category}/{payload.item_name}")
+    logger.info(f"[add_item_notes] Payload received: {payload}")
 
     try:
         group_telegram_id = int(chat_id)
+        logger.info(f"[add_item_notes] Parsed group_telegram_id: {group_telegram_id}")
     except ValueError:
-        logger.error(f"[add_custom_inventory_item] Invalid chat_id format: {chat_id}")
+        logger.error(f"[add_item_notes] Invalid chat_id format: {chat_id}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
 
     # Проверка категории и имени на пустоту
     if not payload.category or not payload.item_name:
-         logger.error(f"[add_custom_inventory_item] Category or item_name is empty for chat_id {chat_id}. Category: '{payload.category}', ItemName: '{payload.item_name}'")
+         logger.error(f"[add_item_notes] Category or item_name is empty for chat_id {chat_id}. Category: '{payload.category}', ItemName: '{payload.item_name}'")
          raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Category and item name cannot be empty.")
+
+    # Проверяем, что есть хотя бы одно поле заметок (пустые строки считаются удалением)
+    has_raw_field = payload.raw_notes is not None
+    has_semifinished_field = payload.semifinished_notes is not None
+    
+    if not has_raw_field and not has_semifinished_field:
+         logger.error(f"[add_item_notes] No notes fields provided for chat_id {chat_id}. At least one field (raw_notes or semifinished_notes) is required.")
+         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one field (raw_notes or semifinished_notes) is required.")
+    
+    # Определяем, есть ли непустые заметки
+    has_raw_notes = has_raw_field and payload.raw_notes.strip() != ""
+    has_semifinished_notes = has_semifinished_field and payload.semifinished_notes.strip() != ""
+
+    logger.info(f"[add_item_notes] Processing notes: raw_notes='{payload.raw_notes}', semifinished_notes='{payload.semifinished_notes}'")
 
     try:
         async with db.begin(): # Используем транзакцию
@@ -987,120 +995,126 @@ async def add_custom_inventory_item(
             group = group_result.scalar_one_or_none()
 
             if not group:
-                logger.warning(f"[add_custom_inventory_item] Group not found for chat_id: {chat_id}")
-                # Откат транзакции произойдет автоматически при выходе из блока `async with` из-за исключения
+                logger.warning(f"[add_item_notes] Group not found for chat_id: {chat_id}")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-            if group.group_type != 'chef':
-                logger.warning(f"[add_custom_inventory_item] Add item denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Custom items can only be added to groups of type 'chef'")
-
-            # TODO: Проверка прав доступа пользователя (что он админ группы)
-
-            # ---> НАЧАЛО ИЗМЕНЕНИЯ: Проверка на существование в базовом инвентаре <---
-            base_inventory = group.json_inventory
-            if not base_inventory:
-                 logger.info(f"[add_custom_inventory_item] Base inventory is empty for chat {chat_id}, loading template for check.")
-                 try:
-                     base_inventory = await get_inventory_template() # Загружаем шаблон только для проверки
-                 except HTTPException as e:
-                     # Если шаблон не найден, считаем, что базовый инвентарь пуст, и позволяем добавление
-                     logger.warning(f"[add_custom_inventory_item] Template not found while checking for existing item: {e.detail}. Allowing addition.")
-                     base_inventory = {}
-                 except Exception as e:
-                     logger.exception(f"[add_custom_inventory_item] Error loading template for check. Allowing addition.")
-                     base_inventory = {}
-            
-            # Проверяем, существует ли товар в базовом инвентаре
-            if base_inventory and \
-               payload.category in base_inventory and \
-               isinstance(base_inventory[payload.category], dict) and \
-               payload.item_name in base_inventory[payload.category]:
-                logger.warning(f"[add_custom_inventory_item] Item '{payload.item_name}' already exists in base inventory category '{payload.category}' for chat {chat_id}. Rejecting request.")
+            # Проверяем, что товар существует в базовом инвентаре
+            if not group.json_inventory or not isinstance(group.json_inventory, dict):
+                logger.warning(f"[add_item_notes] No inventory found for chat {chat_id}")
                 raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT, 
-                    detail=f"Item '{payload.item_name}' already exists in category '{payload.category}' in the base inventory."
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Inventory not found for this group"
                 )
-            # ---> КОНЕЦ ИЗМЕНЕНИЯ < ---
-
-            # Загружаем или инициализируем json_inventory_additions
-            additions = group.json_inventory_additions or {}
             
-            # ---> ДОБАВЛЕНИЕ: Проверка на существование в additions <---
-            if payload.category in additions and \
-               isinstance(additions[payload.category], dict) and \
-               payload.item_name in additions[payload.category]:
-                logger.warning(f"[add_custom_inventory_item] Item definition '{payload.item_name}' already exists in additions category '{payload.category}' for chat {chat_id}. Rejecting request.")
+            if payload.category not in group.json_inventory or \
+               not isinstance(group.json_inventory[payload.category], dict) or \
+               payload.item_name not in group.json_inventory[payload.category]:
+                logger.warning(f"[add_item_notes] Item '{payload.item_name}' not found in category '{payload.category}' for chat {chat_id}")
                 raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT, 
-                    detail=f"Item definition '{payload.item_name}' already exists in category '{payload.category}' additions for this group."
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Item '{payload.item_name}' not found in category '{payload.category}'"
                 )
-            # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
 
+            # Загружаем или инициализируем json_inventory_notes
+            notes = group.json_inventory_notes or {}
+            logger.info(f"[add_item_notes] Current notes structure: {notes}")
+            
             # Обеспечиваем существование категории
-            if payload.category not in additions:
-                additions[payload.category] = {}
-                logger.info(f"[add_custom_inventory_item] Category '{payload.category}' not found in additions for chat {chat_id}, creating it.")
-            elif not isinstance(additions[payload.category], dict):
-                 logger.warning(f"[add_custom_inventory_item] Existing data for category '{payload.category}' in additions for chat {chat_id} is not a dict. Overwriting with a new dict.")
-                 additions[payload.category] = {}
+            if payload.category not in notes:
+                notes[payload.category] = {}
+                logger.info(f"[add_item_notes] Category '{payload.category}' not found in notes for chat {chat_id}, creating it.")
+            elif not isinstance(notes[payload.category], dict):
+                 logger.warning(f"[add_item_notes] Existing data for category '{payload.category}' in notes for chat {chat_id} is not a dict. Overwriting with a new dict.")
+                 notes[payload.category] = {}
 
-            # Добавляем или обновляем определение товара
-            item_definition = {"has_semifinished": payload.has_semifinished}
-            additions[payload.category][payload.item_name] = item_definition
-            logger.info(f"[add_custom_inventory_item] Added/Updated item '{payload.item_name}' in category '{payload.category}' additions for chat {chat_id}. Definition: {item_definition}")
-
-            # Сохраняем обновленные additions
-            group.json_inventory_additions = additions
-            # ---> ЯВНО ПОМЕЧАЕМ ПОЛЕ КАК ИЗМЕНЕННОЕ < ---
-            flag_modified(group, "json_inventory_additions")
-            # ------------------------------------------
-            # Не нужно вызывать db.add(group), т.к. он уже отслеживается сессией
-            # Не нужно вызывать db.flush() здесь, т.к. commit в конце блока `async with` сделает это
+            # Создаем структуру заметок
+            item_notes = {}
+            if has_raw_notes:
+                item_notes['raw'] = {'notes': payload.raw_notes}
+                logger.info(f"[add_item_notes] Adding raw notes: '{payload.raw_notes}'")
+            elif has_raw_field:
+                # raw_notes передан, но пустой - удаляем заметки для raw
+                logger.info(f"[add_item_notes] Removing raw notes (empty string provided)")
+                
+            if has_semifinished_notes:
+                item_notes['semifinished'] = {'notes': payload.semifinished_notes}
+                logger.info(f"[add_item_notes] Adding semifinished notes: '{payload.semifinished_notes}'")
+            elif has_semifinished_field:
+                # semifinished_notes передан, но пустой - удаляем заметки для semifinished
+                logger.info(f"[add_item_notes] Removing semifinished notes (empty string provided)")
             
-            # ---> ДОБАВЛЕНИЕ: Сохраняем метаданные для NOTIFY < ---
-            current_metadata = group.json_metadata or {}
-            # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+            logger.info(f"[add_item_notes] Created item_notes structure: {item_notes}")
+            
+            # Добавляем, обновляем или удаляем заметки товара
+            if item_notes:
+                # Есть заметки для сохранения
+                notes[payload.category][payload.item_name] = item_notes
+                logger.info(f"[add_item_notes] Added/Updated notes for item '{payload.item_name}' in category '{payload.category}' for chat {chat_id}. Notes: {item_notes}")
+            else:
+                # Нет заметок для сохранения - удаляем запись о товаре
+                if payload.item_name in notes[payload.category]:
+                    del notes[payload.category][payload.item_name]
+                    logger.info(f"[add_item_notes] Removed notes for item '{payload.item_name}' in category '{payload.category}' for chat {chat_id}")
+                else:
+                    logger.info(f"[add_item_notes] No notes to remove for item '{payload.item_name}' in category '{payload.category}' for chat {chat_id}")
+                
+                # Если категория стала пустой, удаляем её тоже
+                if not notes[payload.category]:
+                    del notes[payload.category]
+                    logger.info(f"[add_item_notes] Removed empty category '{payload.category}' for chat {chat_id}")
+            
+            logger.info(f"[add_item_notes] Updated notes structure: {notes}")
+
+            # Сохраняем обновленные заметки
+            group.json_inventory_notes = notes
+            flag_modified(group, "json_inventory_notes")
+            logger.info(f"[add_item_notes] Marked json_inventory_notes as modified for group {group.id}")
             
         # Транзакция успешно завершена (commit)
-        logger.info(f"[add_custom_inventory_item] Successfully updated json_inventory_additions for chat_id: {chat_id}")
+        logger.info(f"[add_item_notes] Successfully updated json_inventory_notes for chat_id: {chat_id}")
+        logger.info(f"[add_item_notes] Final notes structure after commit: {group.json_inventory_notes}")
         
-        # ---> ДОБАВЛЕНИЕ: Отправка уведомления NOTIFY < ---
+        # Отправка уведомления NOTIFY
         try:
             pg_channel_name = "websocket_channel"
             notify_payload_dict = {
                 "type": "inventory_updated", 
                 "chat_id": str(chat_id),
-                "metadata": current_metadata, # Отправляем текущие метаданные
-                # Не отправляем item_id/category при добавлении определения
+                "metadata": group.json_metadata or {},
             }
-            notify_payload_json = json.dumps(notify_payload_dict, default=str)
-            escaped_payload = notify_payload_json.replace("'", "''")
-
-            # Проверка длины
-            if len(escaped_payload) >= 7900:
-                 logger.warning(f"NOTIFY payload for item definition addition in chat_id {chat_id} is too long ({len(escaped_payload)} bytes). Sending minimal.")
-                 minimal_payload_dict = {"type": "inventory_updated", "chat_id": str(chat_id), "metadata": current_metadata}
-                 escaped_payload = json.dumps(minimal_payload_dict, default=str).replace("'", "''")
-
-            async with AsyncSession(async_engine) as notify_db:
-                sql_command = text(f"NOTIFY {pg_channel_name}, '{escaped_payload}'")
-                await notify_db.execute(sql_command)
-                await notify_db.commit() 
-                logger.info(f"Successfully sent item definition addition NOTIFY to channel '{pg_channel_name}' for chat_id: {chat_id}. Payload length: {len(escaped_payload)}")
-
+            notify_payload_json = json.dumps(notify_payload_dict)
+            logger.info(f"[add_item_notes] Sending NOTIFY to channel '{pg_channel_name}' with payload: {notify_payload_json}")
+            
+            # Выполняем NOTIFY через SQL (используем f-string для избежания проблем с параметрами)
+            notify_query = text(f"NOTIFY {pg_channel_name}, '{notify_payload_json}'")
+            await db.execute(notify_query)
+            logger.info(f"[add_item_notes] NOTIFY sent successfully for chat {chat_id}")
         except Exception as notify_error:
-            logger.error(f"Failed to send PostgreSQL NOTIFY after item definition addition for chat_id {chat_id}: {notify_error}", exc_info=True)
-        # ---> КОНЕЦ ДОБАВЛЕНИЯ < ---
+            logger.error(f"[add_item_notes] Failed to send NOTIFY for chat {chat_id}: {notify_error}")
 
-        return {"message": f"Item '{payload.item_name}' definition added/updated in group additions successfully."}
+        # Определяем тип операции для сообщения
+        if item_notes:
+            operation = "updated"
+        else:
+            operation = "removed"
+            
+        return {
+            "status": "success",
+            "message": f"Notes for item '{payload.item_name}' successfully {operation} in category '{payload.category}'",
+            "item": {
+                "category": payload.category,
+                "item_name": payload.item_name,
+                "raw_notes": payload.raw_notes,
+                "semifinished_notes": payload.semifinished_notes
+            }
+        }
 
     except HTTPException as http_exc:
         # Откат транзакции уже произошел (или произойдет при выходе из `async with`)
-        logger.error(f"[add_custom_inventory_item] HTTP Exception occurred: {http_exc.detail}")
+        logger.error(f"[add_item_notes] HTTP Exception occurred: {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        logger.exception(f"[add_custom_inventory_item] Unexpected error adding custom item for chat_id: {chat_id}: {str(e)}")
+        logger.exception(f"[add_item_notes] Unexpected error adding notes for chat_id: {chat_id}: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred.")
 
 
@@ -1215,7 +1229,7 @@ async def request_item_addition_through_bot(
     "/{chat_id}/items",
     status_code=status.HTTP_200_OK,
     summary="Delete Inventory Item",
-    description="Deletes an item from both the main inventory (`json_inventory`) and the custom additions (`json_inventory_additions`) for the group. Updates metadata if deleted from main inventory.",
+    description="Deletes an item from both the main inventory (`json_inventory`) and the notes storage (`json_inventory_notes`) for the group. Updates metadata if deleted from main inventory.",
     tags=["Inventory", "Custom Items"]
 )
 async def delete_inventory_item(
@@ -1241,7 +1255,7 @@ async def delete_inventory_item(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
 
     deleted_from_inventory = False
-    deleted_from_additions = False
+    deleted_from_notes = False
     updated_metadata_for_notify = {} # Инициализируем для отправки NOTIFY
 
     try:
@@ -1280,27 +1294,27 @@ async def delete_inventory_item(
             else:
                 logger.info(f"[delete_inventory_item] Item '{item_name_decoded}' in category '{category_decoded}' not found in main inventory for chat {chat_id}.")
 
-            # 2. Попытка удаления из добавлений (json_inventory_additions)
-            additions = group.json_inventory_additions
-            if additions and isinstance(additions, dict) and \
-               category_decoded in additions and isinstance(additions[category_decoded], dict) and \
-               item_name_decoded in additions[category_decoded]:
+            # 2. Попытка удаления из заметок (json_inventory_notes)
+            notes = group.json_inventory_notes
+            if notes and isinstance(notes, dict) and \
+               category_decoded in notes and isinstance(notes[category_decoded], dict) and \
+               item_name_decoded in notes[category_decoded]:
                
-                logger.info(f"[delete_inventory_item] Deleting definition '{item_name_decoded}' from category '{category_decoded}' in additions for chat {chat_id}.")
-                del additions[category_decoded][item_name_decoded]
+                logger.info(f"[delete_inventory_item] Deleting notes for item '{item_name_decoded}' from category '{category_decoded}' in notes for chat {chat_id}.")
+                del notes[category_decoded][item_name_decoded]
                 # Опционально: удалить пустую категорию
-                if not additions[category_decoded]:
-                    logger.info(f"[delete_inventory_item] Category '{category_decoded}' became empty in additions, removing it.")
-                    del additions[category_decoded]
+                if not notes[category_decoded]:
+                    logger.info(f"[delete_inventory_item] Category '{category_decoded}' became empty in notes, removing it.")
+                    del notes[category_decoded]
 
-                group.json_inventory_additions = additions
-                flag_modified(group, "json_inventory_additions")
-                deleted_from_additions = True
+                group.json_inventory_notes = notes
+                flag_modified(group, "json_inventory_notes")
+                deleted_from_notes = True
             else:
-                 logger.info(f"[delete_inventory_item] Item definition '{item_name_decoded}' in category '{category_decoded}' not found in additions for chat {chat_id}.")
+                 logger.info(f"[delete_inventory_item] Notes for item '{item_name_decoded}' in category '{category_decoded}' not found in notes for chat {chat_id}.")
 
             # 3. Проверка, было ли что-то удалено
-            if not deleted_from_inventory and not deleted_from_additions:
+            if not deleted_from_inventory and not deleted_from_notes:
                 logger.warning(f"[delete_inventory_item] Item '{item_name_decoded}' in category '{category_decoded}' not found anywhere for chat {chat_id}. Raising 404.")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, 
@@ -1320,7 +1334,7 @@ async def delete_inventory_item(
             updated_metadata_for_notify = metadata # Сохраняем метаданные для отправки в NOTIFY
 
         # Транзакция успешно завершена (commit)
-        logger.info(f"[delete_inventory_item] DB transaction committed for chat_id: {chat_id} after deleting '{item_name_decoded}'.")
+        logger.info(f"[delete_inventory_item] DB transaction committed for chat_id: {chat_id} after deleting '{item_name_decoded}'. Deleted from inventory: {deleted_from_inventory}, from notes: {deleted_from_notes}")
 
     except HTTPException as http_exc:
         # Откат транзакции произойдет
@@ -1421,28 +1435,25 @@ async def trigger_excel_generation(
              # Работаем с копией
              base_inventory = json.loads(json.dumps(group.json_inventory))
 
-        # 3. Получаем и сливаем добавления
-        group_additions = group.json_inventory_additions or {}
-        if group_additions:
-            logger.info(f"[trigger_excel_generation] Merging additions for Excel generation for chat {chat_id}")
-            for category, items in group_additions.items():
+        # 3. Получаем и применяем заметки
+        group_notes = group.json_inventory_notes or {}
+        if group_notes:
+            logger.info(f"[trigger_excel_generation] Applying notes for Excel generation for chat {chat_id}")
+            for category, items in group_notes.items():
                 if not isinstance(items, dict): continue
-                if category not in base_inventory: base_inventory[category] = {}
-                for item_name, item_data in items.items():
-                    if not isinstance(item_data, dict): continue
-                    if item_name not in base_inventory[category]:
-                         new_item = {
-                             "name": item_name,
-                             "raw": {"quantity": 0, "filled": False, "isOutOfStock": False},
-                             "itemType": "raw"
-                         }
-                         if item_data.get('has_semifinished') is True:
-                             new_item["semifinished"] = {"quantity": 0, "filled": False}
-                             new_item["itemType"] = "both"
-                         base_inventory[category][item_name] = new_item
+                if category not in base_inventory: continue
+                for item_name, notes_data in items.items():
+                    if not isinstance(notes_data, dict): continue
+                    if item_name not in base_inventory[category]: continue
+                    
+                    # Применяем заметки к существующему товару
+                    if 'raw' in base_inventory[category][item_name] and 'notes' in notes_data.get('raw', {}):
+                        base_inventory[category][item_name]['raw']['notes'] = notes_data['raw']['notes']
+                    if 'semifinished' in base_inventory[category][item_name] and 'notes' in notes_data.get('semifinished', {}):
+                        base_inventory[category][item_name]['semifinished']['notes'] = notes_data['semifinished']['notes']
         
         final_inventory_data = base_inventory # Инвентарь для Excel
-        # ---> КОНЕЦ ЛОГИКИ СЛИЯНИЯ <---
+        # ---> КОНЕЦ ЛОГИКИ ПРИМЕНЕНИЯ ЗАМЕТОК <---
 
         inventory_metadata = group.json_metadata or {} # Используем актуальные метаданные из БД
         group_title = group.title

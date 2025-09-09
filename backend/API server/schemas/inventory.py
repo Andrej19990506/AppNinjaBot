@@ -38,3 +38,10 @@ class InventoryItemUpdatePayload(BaseModel):
     item: Dict[str, Any]
     metadata: Optional[Dict[str, Any]] = None
     history: Optional[Dict[str, Any]] = None
+
+# Модель для добавления заметок к товару
+class AddItemNotesPayload(BaseModel):
+    item_name: str = Field(..., description="Название товара")
+    category: str = Field(..., description="Категория товара")
+    raw_notes: Optional[str] = Field(None, description="Заметки для сырья")
+    semifinished_notes: Optional[str] = Field(None, description="Заметки для полуфабрикатов")

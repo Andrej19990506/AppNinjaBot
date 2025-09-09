@@ -34,8 +34,8 @@ class Group(Base):
     # <<< ДОБАВЛЯЕМ ПОЛЕ ДЛЯ ДАННЫХ ИНВЕНТАРЯ >>>
     json_inventory = Column(JSON, nullable=True, comment='Stores the actual inventory data as JSON')
 
-    # <<< ДОБАВЛЕНО: Поле для дополнительных кастомных товаров группы >>>
-    json_inventory_additions = Column(JSON, nullable=True, comment='Stores group-specific item additions/definitions')
+    # <<< ПЕРЕИМЕНОВАНО: Поле для заметок к товарам инвентаря >>>
+    json_inventory_notes = Column(JSON, nullable=True, comment='Stores item notes that persist across inventory template resets')
 
     # НОВОЕ ПОЛЕ ДЛЯ ИНТЕГРАЦИИ С RETAILIQA
     retailiqa_object_name = Column(String(255), nullable=True, comment='Имя объекта из RetailiQA для данной группы')

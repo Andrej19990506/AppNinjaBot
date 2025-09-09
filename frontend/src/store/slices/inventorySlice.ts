@@ -532,6 +532,34 @@ export const addInventoryItem = createAsyncThunk<
     }
 );
 
+// Thunk для сохранения заметок к товару
+export const saveItemNotes = createAsyncThunk<
+    { success: boolean; message: string },
+    { chatId: string; category: string; itemName: string; rawNotes?: string; semifinishedNotes?: string },
+    { rejectValue: string }
+>(
+    'inventory/saveItemNotes',
+    async ({ chatId, category, itemName, rawNotes, semifinishedNotes }, { rejectWithValue }) => {
+        try {
+            console.log('🔄 [saveItemNotes] Saving notes via Redux thunk:', { chatId, category, itemName, rawNotes, semifinishedNotes });
+            
+            const response = await axiosInstance.post(`/v1/inventory/${chatId}/items/notes`, {
+                category,
+                item_name: itemName,
+                raw_notes: rawNotes,
+                semifinished_notes: semifinishedNotes
+            });
+            
+            console.log('✅ [saveItemNotes] Notes saved successfully:', response.data);
+            return { success: true, message: response.data.message || 'Заметки сохранены' };
+        } catch (error: any) {
+            console.error('❌ [saveItemNotes] Error saving notes:', error);
+            const message = error.response?.data?.detail || error.message || 'Не удалось сохранить заметки';
+            return rejectWithValue(message);
+        }
+    }
+);
+
 const inventorySlice = createSlice({
     name: 'inventory',
     initialState,
@@ -1251,6 +1279,17 @@ const inventorySlice = createSlice({
             })
             .addCase(addInventoryItem.rejected, (state, action) => {
                 state.error = action.error.message || "Не удалось добавить товар";
+            })
+            .addCase(saveItemNotes.pending, (state) => {
+                // Можно добавить индикатор загрузки для заметок
+            })
+            .addCase(saveItemNotes.fulfilled, (state, action) => {
+                console.log('✅ [saveItemNotes] Notes saved successfully in Redux:', action.payload);
+                // Заметки сохраняются на сервере, локальное состояние обновляется в компоненте
+            })
+            .addCase(saveItemNotes.rejected, (state, action) => {
+                console.error('❌ [saveItemNotes] Error saving notes in Redux:', action.payload);
+                state.error = action.payload || "Не удалось сохранить заметки";
             });
     }
 });

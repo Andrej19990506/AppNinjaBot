@@ -7,12 +7,15 @@
     border-radius: 24px 24px 0 0;
     box-shadow: var(--shadow);
     padding: 24px;
-    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 100px); /* Увеличиваем отступ для футера */
+    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 120px); /* Увеличиваем отступ для футера */
     z-index: 15;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    height: auto;
-    max-height: 50vh;
+    min-height: 200px;
+    height: auto; /* Позволяем контейнеру адаптироваться */
+    max-height: 60vh; /* Базовая высота */
+    display: flex; /* Добавляем flexbox */
+    flex-direction: column; /* Вертикальное расположение */
     overflow-y: auto;
     overflow-x: hidden; /* Убираем горизонтальный скролл */
     -webkit-overflow-scrolling: touch;
@@ -20,6 +23,20 @@
     will-change: transform;
     scrollbar-width: none; /* Скрываем тулбар скролла для Firefox */
     -ms-overflow-style: none; /* Скрываем тулбар скролла для IE/Edge */
+    transition: max-height 0.3s ease; /* Добавляем анимацию изменения высоты */
+}
+
+/* Класс для активного состояния когда открыто модальное окно заметок */
+.container.modalOpen {
+    max-height: 80vh; /* Увеличиваем высоту при открытом модальном окне */
+}
+
+/* Дополнительный контейнер для условного рендеринга */
+.contentContainer {
+    flex: 1; /* Занимает оставшееся пространство */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Предотвращаем переполнение */
 }
 
 /* Скрываем тулбар скролла для WebKit браузеров */
@@ -45,6 +62,7 @@
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    flex-shrink: 0; /* Не сжимаем карточки товаров */
 }
 
 .item.visible {
@@ -320,14 +338,18 @@
 
 @media (max-width: 768px) {
     .container {
-        max-height: 45vh;
+        max-height: 60vh;
         padding: 16px;
-        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 100px);
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 120px);
         z-index: 10;
-        margin-bottom: 0;
+        margin-bottom: 80px;
         overflow-x: hidden; /* Убираем горизонтальный скролл */
         scrollbar-width: none; /* Скрываем тулбар скролла для Firefox */
         -ms-overflow-style: none; /* Скрываем тулбар скролла для IE/Edge */
+    }
+    
+    .container.modalOpen {
+        max-height: 80vh; /* Увеличиваем высоту при открытом модальном окне */
     }
 
     .container::-webkit-scrollbar {
@@ -398,12 +420,16 @@
 
 @media (max-width: 480px) {
     .container {
-        max-height: 40vh;
+        max-height: 60vh;
         padding: 14px;
-        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 100px);
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 120px);
         overflow-x: hidden; /* Убираем горизонтальный скролл */
         scrollbar-width: none; /* Скрываем тулбар скролла для Firefox */
         -ms-overflow-style: none; /* Скрываем тулбар скролла для IE/Edge */
+    }
+    
+    .container.modalOpen {
+        max-height: 80vh; /* Увеличиваем высоту при открытом модальном окне */
     }
 
     .container::-webkit-scrollbar {
@@ -452,7 +478,7 @@
     width: 100%;
     padding: 16px;
     margin-top: 16px;
-    margin-bottom: 10px; /* Увеличиваем отступ снизу для футера */
+    margin-bottom: 20px; /* Увеличиваем отступ снизу для футера */
     background: var(--background-color);
     border: 2px dashed var(--orange-primary);
     border-radius: var(--radius);
@@ -466,6 +492,7 @@
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.2s ease-out, transform 0.2s ease-out, background-color 0.2s ease, color 0.2s ease, border 0.2s ease;
+    flex-shrink: 0; /* Не сжимаем кнопку добавления полуфабриката */
 }
 
 .addSemifinishedButton.visible {
@@ -643,4 +670,187 @@
     font-size: 1em;
     font-weight: 500;
     opacity: 0.85;
+}
+
+/* Стили для секции заметок */
+.notesSection {
+    margin-bottom: 16px;
+    padding: 16px;
+    background: var(--card-background);
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+    flex: 1; /* Растягиваем секцию заметок */
+    display: flex;
+    flex-direction: column;
+}
+
+.notesSection.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notesHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.notesLabel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+.notesLabel svg {
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.notesButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notesButton:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px var(--primary-transparent);
+}
+
+.notesButton svg {
+    flex-shrink: 0;
+}
+
+.notesDisplay {
+    margin-top: 8px;
+    padding: 12px;
+    background: var(--background-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    flex: 1; /* Растягиваем отображение заметок */
+    overflow-y: auto; /* Добавляем скролл при необходимости */
+}
+
+.notesContent {
+    color: var(--text-color);
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    flex: 1; /* Растягиваем контент заметок */
+    overflow-y: auto; /* Добавляем скролл при необходимости */
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .container {
+        padding: 12px;
+    }
+    
+    .notesSection {
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+    
+    .notesHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .notesButton {
+        width: 100%;
+        justify-content: center;
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    .item {
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .buttons {
+        gap: 8px;
+    }
+    
+    .button {
+        min-width: 44px;
+        height: 44px;
+        font-size: 18px;
+    }
+    
+    .outOfStockButton {
+        padding: 12px 16px;
+        font-size: 14px;
+        min-height: 44px;
+    }
+    
+    .addSemifinishedButton {
+        padding: 16px;
+        font-size: 14px;
+        min-height: 48px;
+        margin-bottom: 20px; /* Увеличиваем отступ снизу для футера */
+    }
+    
+    .plusIcon {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .notesSection {
+        padding: 10px;
+    }
+    
+    .notesButton {
+        padding: 10px;
+        font-size: 13px;
+    }
+    
+    .item {
+        padding: 10px;
+    }
+    
+    .label {
+        font-size: 12px;
+    }
+    
+    .value {
+        font-size: 24px;
+    }
+    
+    .button {
+        min-width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+    
+    .outOfStockButton {
+        padding: 10px 12px;
+        font-size: 13px;
+        min-height: 40px;
+    }
+    
+    .addSemifinishedButton {
+        margin-bottom: 20px; /* Увеличиваем отступ снизу для футера */
+    }
 }

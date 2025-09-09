@@ -613,7 +613,6 @@ const Inventory: React.FC = () => {
                 notifications={notifications}
                 hasUnreadNotifications={hasUnreadNotifications}
                 onNotificationClose={handleNotificationClose}
-                startTime={currentChatData.metadata?.start_time}
                 isEditing={!!selectedItem} // true когда редактируется товар
             />
             

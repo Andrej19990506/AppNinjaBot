@@ -3,7 +3,8 @@ import styles from '@features/Inventory/ItemEdit.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
 import { socketService } from '@shared/services/socketService';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { updateInventoryItem, updateInventoryStructure, updateProgress, fetchItemHistory, selectHistoryRecordsForItem } from '@/store/slices/inventorySlice';
+import { updateInventoryItem, updateInventoryStructure, updateProgress, fetchItemHistory, selectHistoryRecordsForItem, saveItemNotes } from '@/store/slices/inventorySlice';
+import NotesModal from '@features/Inventory/components/NotesModal';
 
 interface ItemEditProps {
     category: string;
@@ -55,6 +56,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [isExiting, setIsExiting] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [isCardExiting, setIsCardExiting] = useState(false);
+    const [notes, setNotes] = useState(item.raw?.notes || item.semifinished?.notes || '');
+    const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
 
     // Интерфейс для данных агрессивного изменения
     interface AggressiveChangeData {
@@ -165,6 +168,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         if (currentItem && JSON.stringify(currentItem) !== JSON.stringify(item)) {
             setItem(currentItem);
             setIsOutOfStock(currentItem.raw?.isOutOfStock || false);
+            setNotes(currentItem.raw?.notes || currentItem.semifinished?.notes || '');
         }
     }, [currentInventory, category, itemId, item]);
 
@@ -256,7 +260,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 ...item,
                 semifinished: {
                     quantity: 0,
-                    filled: false // Структура добавлена, но количество не внесено -> не считаем в прогресс
+                    filled: false, // Структура добавлена, но количество не внесено -> не считаем в прогресс
+                    notes: ''
                 },
                 lastUpdated: new Date().toISOString() // Добавляем timestamp
             };
@@ -368,7 +373,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                         ...newItem.raw,
                         quantity: 0,
                         isOutOfStock: true,
-                        filled: true
+                        filled: true,
+                        notes: newItem.raw.notes || ''
                     };
                     // Полуфабрикат не трогаем - он может существовать независимо от сырья
                 } else {
@@ -376,7 +382,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                         ...newItem.raw,
                         quantity: 0,
                         isOutOfStock: false,
-                        filled: false
+                        filled: false,
+                        notes: newItem.raw.notes || ''
                     };
                 }
             }
@@ -452,6 +459,62 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         e.target.select();
     };
 
+    const handleNotesSave = async (newNotes: string) => {
+        setNotes(newNotes);
+        
+        try {
+            // Определяем, для какого типа товара сохраняем заметки
+            const rawNotes = item.raw ? newNotes : undefined;
+            const semifinishedNotes = item.semifinished ? newNotes : undefined;
+            
+            console.log('🔄 Prepared notes - rawNotes:', rawNotes, 'semifinishedNotes:', semifinishedNotes);
+            
+            // Используем Redux thunk для сохранения заметок
+            const result = await dispatch(saveItemNotes({
+                chatId,
+                category,
+                itemName: itemId,
+                rawNotes,
+                semifinishedNotes
+            })).unwrap();
+            
+            
+            // Обновляем локальное состояние
+            const newItem = { 
+                ...item, 
+                lastUpdated: new Date().toISOString()
+            };
+            
+            // Обновляем заметки для обоих типов товаров
+            if (newItem.raw) {
+                newItem.raw = {
+                    ...newItem.raw,
+                    notes: newNotes
+                };
+            }
+            if (newItem.semifinished) {
+                newItem.semifinished = {
+                    ...newItem.semifinished,
+                    notes: newNotes
+                };
+            }
+
+            setItem(newItem);
+            onUpdate();
+        } catch (error) {
+            console.error('❌ Ошибка при сохранении заметок:', error);
+        }
+    };
+
+    const handleNotesDelete = async () => {
+        console.log('🗑️ handleNotesDelete called - deleting notes');
+        await handleNotesSave('');
+    };
+
+    const handleOpenNotesModal = () => {
+        setIsNotesModalOpen(true);
+    };
+
     const handleSubmit = async () => {
         if (!currentActiveItem) return;
 
@@ -525,13 +588,15 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 ...newItem.raw,
                 quantity: newQuantity,
                 filled: newQuantity > 0,
-                isOutOfStock: false
+                isOutOfStock: false,
+                notes: newItem.raw.notes || ''
             };
         } else if (type === 'semifinished' && newItem.semifinished) {
             newItem.semifinished = {
                 ...newItem.semifinished,
                 quantity: newQuantity,
-                filled: newQuantity > 0
+                filled: newQuantity > 0,
+                notes: newItem.semifinished.notes || ''
             };
         }
 
@@ -586,13 +651,15 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 ...newItem.raw,
                 quantity: newQuantity,
                 filled: newQuantity > 0,
-                isOutOfStock: newItem.raw.isOutOfStock
+                isOutOfStock: newItem.raw.isOutOfStock,
+                notes: newItem.raw.notes || ''
             };
         } else if (type === 'semifinished' && newItem.semifinished) {
             newItem.semifinished = {
                 ...newItem.semifinished,
                 quantity: newQuantity,
-                filled: newQuantity > 0
+                filled: newQuantity > 0,
+                notes: newItem.semifinished.notes || ''
             };
         }
 
@@ -773,29 +840,89 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     );
 
     return (
-        <div className={styles.container}>         
-            {renderCards}
-            
-            {!item.semifinished && (
-                <button
-                    className={`${styles.addSemifinishedButton} ${isVisible ? styles.visible : ''} ${isExiting ? styles.exit : ''}`}
-                    onClick={handleAddSemifinished}
-                    disabled={isLoading}
-                >
-                    <div className={styles.plusIcon}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path
-                                d="M12 5v14M5 12h14"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
+        <div className={`${styles.container} ${isNotesModalOpen ? styles.modalOpen : ''}`}>
+            {/* Секция заметок */}
+            <div className={`${styles.notesSection} ${isVisible ? styles.visible : ''}`}>
+                <div className={styles.notesHeader}>
+                    <div className={styles.notesLabel}>
+                        <svg 
+                            width="16" 
+                            height="16" 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                        >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14,2 14,8 20,8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10,9 9,9 8,9"/>
                         </svg>
+                        Заметки
                     </div>
-                    Добавить полуфабрикат
-                </button>
-            )}
-
+                    <button 
+                        className={styles.notesButton}
+                        onClick={handleOpenNotesModal}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        {notes ? 'Редактировать' : 'Добавить'}
+                    </button>
+                </div>
+                
+                {notes && (
+                    <div className={styles.notesDisplay}>
+                        <div className={styles.notesContent}>
+                            {notes}
+                        </div>
+                    </div>
+                )}
+            </div>
+            
+            {/* Дополнительный контейнер для условного рендеринга */}
+            <div className={styles.contentContainer}>
+                {isNotesModalOpen ? (
+                    /* Модальное окно заметок */
+                    <NotesModal
+                        isOpen={isNotesModalOpen}
+                        onClose={() => setIsNotesModalOpen(false)}
+                        notes={notes}
+                        onSave={handleNotesSave}
+                        onDelete={handleNotesDelete}
+                        itemName={itemId}
+                    />
+                ) : (
+                    /* Карточки товаров */
+                    <>
+                        {renderCards}
+                        
+                        {!item.semifinished && (
+                            <button
+                                className={`${styles.addSemifinishedButton} ${isVisible ? styles.visible : ''} ${isExiting ? styles.exit : ''}`}
+                                onClick={handleAddSemifinished}
+                                disabled={isLoading}
+                            >
+                                <div className={styles.plusIcon}>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                        <path
+                                            d="M12 5v14M5 12h14"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                        />
+                                    </svg>
+                                </div>
+                                Добавить полуфабрикат
+                            </button>
+                        )}
+                    </>
+                )}
+            </div>
         </div>
     );
 };

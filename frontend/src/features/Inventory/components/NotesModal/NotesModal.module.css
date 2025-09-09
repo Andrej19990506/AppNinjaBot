@@ -1,0 +1,362 @@
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+}
+
+.modal {
+    background: var(--card-background);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    width: 100%;
+    max-width: 100%;
+    height: 100%; /* Занимает всю высоту контейнера */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--background-color);
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+
+.title svg {
+    color: var(--primary-color);
+    flex-shrink: 0;
+}
+
+.closeButton {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.closeButton:hover {
+    background: var(--hover-background);
+    color: var(--text-color);
+}
+
+.content {
+    padding: 24px 24px 0 24px; /* Убираем нижний отступ */
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.itemName {
+    margin-bottom: 16px;
+    padding: 12px;
+    background: var(--background-color);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    font-size: 14px;
+}
+
+.textareaContainer {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.textarea {
+    width: 100%;
+    min-height: 150px; /* Минимальная высота */
+    flex: 1; /* Растягиваем textarea на всю доступную высоту */
+    padding: 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--background-color);
+    color: var(--text-color);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    line-height: 1.5;
+    overflow-y: auto; /* Добавляем скролл при необходимости */
+}
+
+.textarea:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-transparent);
+}
+
+.textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+}
+
+.characterCount {
+    position: absolute;
+    bottom: 8px;
+    right: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--card-background);
+    padding: 2px 6px;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-top: 1px solid var(--border-color);
+    background: var(--background-color);
+    gap: 12px;
+}
+
+.leftButtons {
+    display: flex;
+    gap: 8px;
+}
+
+.rightButtons {
+    display: flex;
+    gap: 8px;
+}
+
+.deleteButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    background: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.deleteButton:hover:not(:disabled) {
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+.deleteButton:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.cancelButton {
+    padding: 10px 20px;
+    background: var(--background-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+    background: var(--hover-background);
+    border-color: var(--text-secondary);
+}
+
+.saveButton {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.7;
+}
+
+.saveButton:hover:not(:disabled) {
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px var(--primary-transparent);
+}
+
+.saveButton:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* Анимации */
+.overlay {
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .overlay {
+        padding: 10px;
+        align-items: flex-end;
+    }
+    
+    .modal {
+        height: 100%;
+        border-radius: 16px;
+        animation: slideUpMobile 0.3s ease-out;
+    }
+    
+    .header {
+        padding: 16px 20px;
+        position: sticky;
+        top: 0;
+        background: var(--card-background);
+        z-index: 1;
+    }
+    
+    .content {
+        padding: 20px 20px 0 20px; /* Убираем нижний отступ */
+        max-height: calc(100% - 120px); /* Адаптируем под контейнер */
+        overflow-y: auto;
+        flex: 1; /* Занимаем доступное пространство */
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .footer {
+        padding: 16px 20px;
+        background: var(--card-background);
+        border-top: 1px solid var(--border-color);
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .leftButtons,
+    .rightButtons {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .deleteButton,
+    .cancelButton,
+    .saveButton {
+        flex: 1;
+        justify-content: center;
+        min-height: 44px;
+        font-size: 16px;
+    }
+    
+    .textarea {
+        font-size: 16px; /* Предотвращает зум на iOS */
+        min-height: 100px;
+    }
+    
+    .title {
+        font-size: 16px;
+    }
+    
+    .itemName {
+        font-size: 13px;
+        padding: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .overlay {
+        padding: 0;
+    }
+    
+    .modal {
+        height: 100%;
+        border-radius: 16px;
+        width: 100%;
+    }
+    
+    .header,
+    .footer {
+        padding: 16px;
+    }
+    
+    .content {
+        padding: 16px 16px 0 16px; /* Убираем нижний отступ */
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+    
+    .textarea {
+        min-height: 80px;
+    }
+}
+
+@keyframes slideUpMobile {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

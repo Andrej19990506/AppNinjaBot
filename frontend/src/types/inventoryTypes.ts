@@ -49,6 +49,7 @@ export interface InventoryItemDetails {
     quantity: number;
     filled: boolean;
     isOutOfStock?: boolean;
+    notes?: string;
 }
 
 export interface InventoryItem {

@@ -5,7 +5,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Картофельные шарики ветчина с сыром (гр.)": {
@@ -13,7 +14,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус сливочно-чесночный": {
@@ -21,7 +23,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сырные палочки П.Ф": {
@@ -29,7 +32,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Омлетная смесь (Меланж) (гр.)": {
@@ -37,7 +41,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Гренки чесночные": {
@@ -45,7 +50,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Морс брусничный (мл.)": {
@@ -53,7 +59,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сырные шарики П.Ф": {
@@ -61,7 +68,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сыр сборный (Гауда и Моцарелла)": {
@@ -69,7 +77,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Тесто (гр.)": {
@@ -77,7 +86,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Куринное филе маринованное": {
@@ -85,7 +95,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Жареное куриное филе": {
@@ -93,7 +104,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус Тар-тар": {
@@ -101,7 +113,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Картофель дольки св/м (гр.)": {
@@ -109,7 +122,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бульон куринный": {
@@ -117,7 +131,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Наггетсы куриные (гр.)": {
@@ -125,7 +140,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Луковые кольца (гр.)": {
@@ -133,7 +149,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус томатный (кетчуп+чеснок)": {
@@ -141,7 +158,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сухарики на цезарь п.ф": {
@@ -149,7 +167,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Картофель пай": {
@@ -157,7 +176,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус классический": {
@@ -165,7 +185,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Замес на \"Солянку Злодейскую\"": {
@@ -173,7 +194,17 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Замес на \"Грибная\"": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Замес на \"Жюльен\"": {
@@ -181,7 +212,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Масло конфи": {
@@ -189,7 +221,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Морковь на чефан": {
@@ -197,7 +230,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус дижонский": {
@@ -205,7 +239,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Капуста на чефан": {
@@ -213,7 +248,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Говядина на чефан": {
@@ -221,7 +257,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус цезарь": {
@@ -229,7 +266,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Свекла на чефан (гр.)": {
@@ -237,7 +275,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Солянка суп (гр)": {
@@ -245,7 +284,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Картофель фри (гр.)": {
@@ -253,7 +293,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -263,7 +304,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соевый соус (гр.)": {
@@ -271,7 +313,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус Мутти (гр.) (5000 гр)": {
@@ -279,7 +322,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сок лимона (гр.)": {
@@ -287,7 +331,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус Барбекю (гр.)": {
@@ -295,7 +340,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус Чили (гр.)": {
@@ -303,7 +349,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Горчица дижонская (гр.)": {
@@ -311,7 +358,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус Терияки (гр.)": {
@@ -319,7 +367,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус грибной (гр.)": {
@@ -327,7 +376,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соус сырный (гр.)": {
@@ -335,7 +385,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Томатный соус (кетчуп) (гр.)": {
@@ -343,7 +394,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Майонез (гр.)": {
@@ -351,7 +403,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -361,7 +414,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Маринад для курицы гриль (гр.)": {
@@ -369,7 +423,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Заправка для моркови (гр.)": {
@@ -377,7 +432,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Томатная паста (гр.)": {
@@ -385,7 +441,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Масло фритюрное (гр.)": {
@@ -393,7 +450,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Пасто Том Ям - Том Кха (гр.)": {
@@ -401,7 +459,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -411,7 +470,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бульон сухой куриный (гр.)": {
@@ -419,7 +479,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Приправа рыбная сухая (гр.)": {
@@ -427,7 +488,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Паприка (гр.)": {
@@ -435,7 +497,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Специи (перец черный молотый + лавровый лист) (гр.)": {
@@ -443,7 +506,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бульон грибной (гр.)": {
@@ -451,7 +515,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Орегано (гр.)": {
@@ -459,7 +524,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -469,7 +535,26 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Дикий апельсин и кодзу 0.5 ПЭТ (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Лимон. лайм и лемонграсс 0.5 ПЭТ (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Черноголовка кола 0,5л": {
@@ -477,7 +562,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Черноголовка вода питьевая не газированная 0,5л. (шт.)": {
@@ -485,7 +571,35 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Чай в пакетиках (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Холодный чай зеленый Мята-лайм 0.5 ПЭТ (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Холодный чай черный Лимон-лайм 0.5 ПЭТ (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Черноголовка кола 2л": {
@@ -493,7 +607,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Морс брусн. 0.5 л (шт)": {
@@ -501,7 +616,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Лёд (гр.)": {
@@ -509,7 +625,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Вода БонАква 1л. (гр.)": {
@@ -517,7 +634,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Черноголовка Лимонад  2л": {
@@ -525,7 +643,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -535,7 +654,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Яйцо куриное (шт.)": {
@@ -543,7 +663,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Хлеб для Цезаря (гр.)": {
@@ -551,7 +672,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Мука (гр.)": {
@@ -559,7 +681,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Панировочные сухари (гр.)": {
@@ -567,7 +690,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Уксус (гр)": {
@@ -575,7 +699,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Хлеб бородинский (гр.)": {
@@ -583,7 +708,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Краситель розовый / голубой (мл.)": {
@@ -591,7 +717,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Соль (гр.)": {
@@ -599,7 +726,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Уксус винный (гр)": {
@@ -607,7 +735,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -617,7 +746,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Коробка д/снеков (шт.)": {
@@ -625,7 +755,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан шейкер для лимонада (шт.)": {
@@ -633,7 +764,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бутылка 0,65 л.(шт.)": {
@@ -641,7 +773,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка к контейнеру для салатов/закусок (шт.)": {
@@ -649,7 +782,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка к коробка для кусочка": {
@@ -657,7 +791,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка к чашке для супа (шт.)": {
@@ -665,7 +800,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Трубочка черная (шт.)": {
@@ -673,7 +809,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Набор приборов 1 (шт.)": {
@@ -681,7 +818,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан для наггетсов (Джуниор) (шт.)": {
@@ -689,7 +827,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Коробка для Фрай- бокса (шт.)": {
@@ -697,7 +836,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бутылка 0,45 л. (шт.)": {
@@ -705,7 +845,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бутылка 1 л (шт.)": {
@@ -713,7 +854,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Коробка д/пиццы (шт.)": {
@@ -721,7 +863,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Каробка для Джуниор (шт.)": {
@@ -729,7 +872,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка для стакана шейкера лимонад (шт.)": {
@@ -737,7 +881,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка к контейнеру для кусочка (шт)": {
@@ -745,7 +890,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Контейнер для салатов/закусок (шт.)": {
@@ -753,7 +899,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Контейнер для десертов (шт.)": {
@@ -761,7 +908,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Контейнер для кусочка (шт)": {
@@ -769,7 +917,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Коробка д/пиццы маленькая (шт.)": {
@@ -777,7 +926,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Пакет для мини кальцоне (шт)": {
@@ -785,7 +935,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан бумажнаый  D185мм Желтый (шт.)": {
@@ -793,7 +944,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Контейнер для соуса (шт.)": {
@@ -801,7 +953,17 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Контейнер для пончиков (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Набор приборов 2 (шт.)": {
@@ -809,7 +971,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Набор приборов 4 (шт.)": {
@@ -817,7 +980,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чашка для супа (шт.)": {
@@ -825,7 +989,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Тарелка бумажная десертная D185мм Желтая (шт.)": {
@@ -833,7 +998,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бутылка 0,5 л (шт.)": {
@@ -841,7 +1007,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -851,7 +1018,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Говядина (гр.)": {
@@ -859,7 +1027,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Креветка тигровая (шт.)": {
@@ -867,7 +1036,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сервелат (гр.)": {
@@ -875,7 +1045,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Бекон (гр.)": {
@@ -883,7 +1054,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Салями (гр.)": {
@@ -891,7 +1063,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крылья куриные (гр.)": {
@@ -899,7 +1072,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Набор для бульона (гр.)": {
@@ -907,7 +1081,17 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Охотничьи колбаски (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Пепперони (гр.)": {
@@ -915,7 +1099,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крылья куриные (маринованные) (гр.)": {
@@ -923,7 +1108,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Фарш (гр.)": {
@@ -931,7 +1117,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Форель (гр.)": {
@@ -939,7 +1126,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Ветчина (гр.)": {
@@ -947,7 +1135,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сосиски (гр.)": {
@@ -955,7 +1144,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Филе куриное (гр.)": {
@@ -963,7 +1153,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -973,7 +1164,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Маслины (гр.) (3100 гр)": {
@@ -981,7 +1173,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Помидоры (гр.)": {
@@ -989,7 +1182,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Лимон (гр.)": {
@@ -997,7 +1191,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Огурец маринованный (гр.)": {
@@ -1005,7 +1200,17 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Вешенки (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Шампиньоны свежие (гр.)": {
@@ -1013,7 +1218,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Перец халапеньо (гр.)": {
@@ -1021,7 +1227,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Огурцы (гр.)": {
@@ -1029,7 +1236,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Груша (гр)": {
@@ -1037,7 +1245,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Лук (гр.)": {
@@ -1045,7 +1254,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Брусника (гр.)": {
@@ -1053,7 +1263,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Лайм (гр.)": {
@@ -1061,7 +1272,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Свекла (гр.)": {
@@ -1069,7 +1281,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Компотная смесь (гр.)": {
@@ -1077,7 +1290,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Мята (гр.)": {
@@ -1085,7 +1299,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Капуста (гр.)": {
@@ -1093,7 +1308,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Ананасы   (3100 гр)": {
@@ -1101,7 +1317,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Картофель  (гр.)": {
@@ -1109,7 +1326,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Перец Болгарский (гр.)": {
@@ -1117,7 +1335,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чеснок (гр.)": {
@@ -1125,7 +1344,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Помидоры черри (гр.)": {
@@ -1133,7 +1353,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Салат листовой (гр.)": {
@@ -1141,7 +1362,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -1151,7 +1373,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Малина (мл.)": {
@@ -1159,7 +1382,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Салфетка бумажная в индивидуальной упаковке (шт.)": {
@@ -1167,7 +1391,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Ваниль  (мл.)": {
@@ -1175,7 +1400,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Мохито (мл.)": {
@@ -1183,7 +1409,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка ПС80 с питейником (шт.)": {
@@ -1191,7 +1418,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан бумажный крафт 250/280мл (шт.)": {
@@ -1199,7 +1427,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Droppy Лесной орех (мл.)": {
@@ -1207,7 +1436,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Кофе нат.жар в зернах (гр.)": {
@@ -1215,7 +1445,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Мандарин (мл.)": {
@@ -1223,7 +1454,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "RJ - 0.33 Гранатовый сок (шт.)": {
@@ -1231,7 +1463,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан бумажный кофейный 200мл 80мм желтый KF200  (шт.)": {
@@ -1239,7 +1472,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Дыня (мл.)": {
@@ -1247,7 +1481,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Перечная мята (мл.)": {
@@ -1255,7 +1490,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Крышка ПС90 с питейником (шт.)": {
@@ -1263,7 +1499,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "RJ - 0.33 Апельсиновый сок (шт.)": {
@@ -1271,7 +1508,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Стакан бумажный крафт 350/430мл (шт.)": {
@@ -1279,7 +1517,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Droppy Ваниль (мл.)": {
@@ -1287,7 +1526,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Droppy Карамель (мл.)": {
@@ -1295,7 +1535,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Арбуз  (мл.)": {
@@ -1303,7 +1544,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "RJ - 0.33 Яблочный сок (шт.)": {
@@ -1311,7 +1553,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сироп Лаванда  (мл.)": {
@@ -1319,7 +1562,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -1329,7 +1573,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Морковь (гр.)": {
@@ -1337,7 +1582,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Фета (гр.)": {
@@ -1345,7 +1591,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Пармезан (гр.)": {
@@ -1353,7 +1600,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сметана (гр.)": {
@@ -1361,7 +1609,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Молоко (гр.)": {
@@ -1369,7 +1618,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сыр Моцарелла (гр.)": {
@@ -1377,7 +1627,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сливки (гр.)": {
@@ -1385,7 +1636,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сыр Дор Блю (гр.)": {
@@ -1393,7 +1645,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Меланж (Омлетная смесь) (гр.)": {
@@ -1401,7 +1654,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Сыр Гауда (гр.)": {
@@ -1409,7 +1663,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   },
@@ -1419,7 +1674,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чизкейк шоколад (шт.)": {
@@ -1427,7 +1683,44 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Мороженое Клубника (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Мороженое Манго (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Мороженое Меренга печенье (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Мороженое Сникерс (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чизкейк Фисташковый (шт.)": {
@@ -1435,7 +1728,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чизкейк \"Малиновый вихрь\" (шт.)": {
@@ -1443,7 +1737,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     },
     "Чизкейк New York (шт.)": {
@@ -1451,7 +1746,8 @@
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
-        "warning_days": null
+        "warning_days": null,
+        "notes": ""
       }
     }
   }

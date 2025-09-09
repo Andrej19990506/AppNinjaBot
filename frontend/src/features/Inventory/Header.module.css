@@ -43,6 +43,11 @@
     transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Полное скрытие хедера при редактировании */
+.header.hidden {
+    display: none;
+}
+
 .header.collapsed .headerTop,
 .header.collapsed .progressSection {
     display: none;

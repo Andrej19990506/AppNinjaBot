@@ -31,6 +31,7 @@ interface ItemEditProps {
         dailyChangesCount?: number,
         totalHistoryAmount?: number
     ) => void;
+    onEditingStateChange?: (isEditing: boolean) => void;
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
@@ -44,7 +45,8 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     onCancel, 
     onSave, 
     onOutOfStockConfirm,
-    onAggressiveChange
+    onAggressiveChange,
+    onEditingStateChange
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [_isAddingItem, _setIsAddingItem] = useState(false);
@@ -58,6 +60,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [isCardExiting, setIsCardExiting] = useState(false);
     const [notes, setNotes] = useState(item.raw?.notes || item.semifinished?.notes || '');
     const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
 
     // Интерфейс для данных агрессивного изменения
     interface AggressiveChangeData {
@@ -206,6 +209,23 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             } catch {}
         };
     }, [chatId, category, itemId, currentUser]);
+
+    // --- Отслеживание состояния редактирования для скрытия хедера ---
+    useEffect(() => {
+        const isCurrentlyEditing = isNotesModalOpen || currentActiveItem !== null;
+        console.log('🔍 [ItemEdit] Состояние редактирования изменилось:', {
+            isNotesModalOpen,
+            currentActiveItem,
+            isCurrentlyEditing,
+            hasOnEditingStateChange: !!onEditingStateChange
+        });
+        setIsEditing(isCurrentlyEditing);
+        
+        // Уведомляем родительский компонент об изменении состояния редактирования
+        if (onEditingStateChange) {
+            onEditingStateChange(isCurrentlyEditing);
+        }
+    }, [isNotesModalOpen, currentActiveItem, onEditingStateChange]);
 
     const _handleQuantityChange = useCallback(async (type: 'raw' | 'semifinished', action: 'increment' | 'decrement') => {
         try {
@@ -437,12 +457,14 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     };
 
     const handlePlusClick = (type: 'raw' | 'semifinished') => {
+        console.log('🔍 [ItemEdit] Нажата кнопка + для типа:', type);
         setCurrentActiveItem({ type, operation: 'add' });
         setCurrentInputValue('');
         setTimeout(() => inputRef.current?.focus(), 0);
     };
 
     const handleMinusClick = (type: 'raw' | 'semifinished') => {
+        console.log('🔍 [ItemEdit] Нажата кнопка - для типа:', type);
         setCurrentActiveItem({ type, operation: 'subtract' });
         setCurrentInputValue('');
         setTimeout(() => inputRef.current?.focus(), 0);
@@ -512,6 +534,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     };
 
     const handleOpenNotesModal = () => {
+        console.log('🔍 [ItemEdit] Открываем модалку заметок');
         setIsNotesModalOpen(true);
     };
 

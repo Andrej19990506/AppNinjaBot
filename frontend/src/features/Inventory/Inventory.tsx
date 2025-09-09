@@ -80,6 +80,7 @@ const Inventory: React.FC = () => {
     
     // Состояние для модального окна агрессивных изменений
     const [showAggressiveChangeModal, setShowAggressiveChangeModal] = useState(false);
+    const [isItemEditing, setIsItemEditing] = useState(false);
     const [aggressiveChangeData, setAggressiveChangeData] = useState<{
         category: string;
         itemId: string;
@@ -375,12 +376,12 @@ const Inventory: React.FC = () => {
 
     // Функции для управления модальным окном агрессивных изменений
     const handleAggressiveChange = useCallback((
-        category: string, 
-        itemId: string, 
-        itemName: string, 
-        oldQuantity: number, 
-        newQuantity: number, 
-        changePercent: number, 
+        category: string,
+        itemId: string,
+        itemName: string,
+        oldQuantity: number,
+        newQuantity: number,
+        changePercent: number,
         changeType: 'increase' | 'decrease',
         onConfirm: () => void,
         onEdit: () => void,
@@ -403,6 +404,12 @@ const Inventory: React.FC = () => {
             totalHistoryAmount
         });
         setShowAggressiveChangeModal(true);
+    }, []);
+
+    // Обработчик изменения состояния редактирования
+    const handleEditingStateChange = useCallback((isEditing: boolean) => {
+        console.log('🔍 [Inventory] handleEditingStateChange вызван:', { isEditing });
+        setIsItemEditing(isEditing);
     }, []);
 
     const handleAggressiveChangeClose = useCallback(() => {
@@ -473,6 +480,7 @@ const Inventory: React.FC = () => {
                     chatId={selectedChat?.chat_id || ''}
                     onOutOfStockConfirm={handleOutOfStockConfirm}
                     onAggressiveChange={handleAggressiveChange}
+                    onEditingStateChange={handleEditingStateChange}
                 />
                 
                 <ItemHistory
@@ -613,8 +621,14 @@ const Inventory: React.FC = () => {
                 notifications={notifications}
                 hasUnreadNotifications={hasUnreadNotifications}
                 onNotificationClose={handleNotificationClose}
-                isEditing={!!selectedItem} // true когда редактируется товар
+                isEditing={isItemEditing} // true только при активном редактировании (модалка заметок или ввод количества)
+                isItemView={!!selectedItem} // true когда находимся в ItemEdit (хедер должен быть развернут)
             />
+            {console.log('🔍 [Inventory] Header рендерится с isEditing:', {
+                selectedItem: !!selectedItem,
+                isItemEditing,
+                finalIsEditing: isItemEditing
+            })}
             
 
             

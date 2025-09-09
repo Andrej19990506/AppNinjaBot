@@ -14,6 +14,7 @@ interface HeaderProps {
     onNotificationClose: (id: string) => void;
     isInitialContext?: boolean;
     isEditing?: boolean; // Флаг режима редактирования
+    isItemView?: boolean; // Флаг просмотра товара (хедер должен быть развернут)
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -23,48 +24,49 @@ const Header: React.FC<HeaderProps> = ({
     hasUnreadNotifications,
     onNotificationClose,
     isInitialContext = false,
-    isEditing = false
+    isEditing = false,
+    isItemView = false
 }) => {
     const [animatedProgress, setAnimatedProgress] = useState(progress);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
 
-    // Автоматическое сворачивание через 15 секунд (только если не в режиме редактирования)
+    // Автоматическое сворачивание через 15 секунд (только если не в режиме редактирования и не в ItemEdit)
     useEffect(() => {
-        console.log('🔍 [Header] isEditing:', isEditing);
+        console.log('🔍 [Header] isEditing:', isEditing, 'isItemView:', isItemView);
         
-        // Если пользователь в режиме редактирования, не сворачиваем автоматически
-        if (isEditing) {
-            console.log('🔍 [Header] В режиме редактирования - отключаем автоматическое сворачивание');
+        // Если пользователь в режиме редактирования или в ItemEdit, не сворачиваем автоматически
+        if (isEditing || isItemView) {
+            console.log('🔍 [Header] В режиме редактирования или в ItemEdit - отключаем автоматическое сворачивание');
             return;
         }
 
-        console.log('🔍 [Header] Не в режиме редактирования - включаем автоматическое сворачивание через 15 секунд');
+        console.log('🔍 [Header] Не в режиме редактирования и не в ItemEdit - включаем автоматическое сворачивание через 15 секунд');
         const collapseTimer = setTimeout(() => {
             setIsCollapsed(true);
             setShowExpandButton(true);
         }, 15000);
 
         return () => clearTimeout(collapseTimer);
-    }, [isEditing]);
+    }, [isEditing, isItemView]);
 
-    // Автоматическое разворачивание хедера при входе в режим редактирования
+    // Автоматическое разворачивание хедера при входе в режим редактирования или в ItemEdit
     useEffect(() => {
-        if (isEditing && isCollapsed) {
-            console.log('🔍 [Header] Вход в режим редактирования - автоматически разворачиваем хедер');
+        if ((isEditing || isItemView) && isCollapsed) {
+            console.log('🔍 [Header] Вход в режим редактирования или в ItemEdit - автоматически разворачиваем хедер');
             setIsCollapsed(false);
             setShowExpandButton(false);
         }
-    }, [isEditing, isCollapsed]);
+    }, [isEditing, isItemView, isCollapsed]);
 
-    // Автоматическое сворачивание хедера при выходе из режима редактирования
+    // Автоматическое сворачивание хедера при выходе из режима редактирования (только если не в ItemEdit)
     useEffect(() => {
-        if (!isEditing && !isCollapsed) {
-            console.log('🔍 [Header] Выход из режима редактирования - автоматически сворачиваем хедер');
+        if (!isEditing && !isItemView && !isCollapsed) {
+            console.log('🔍 [Header] Выход из режима редактирования и не в ItemEdit - автоматически сворачиваем хедер');
             setIsCollapsed(true);
             setShowExpandButton(true);
         }
-    }, [isEditing]);
+    }, [isEditing, isItemView]);
 
     // Функция ручного сворачивания хедера
     const handleCollapse = () => {
@@ -79,15 +81,15 @@ const Header: React.FC<HeaderProps> = ({
         setIsCollapsed(false);
         setShowExpandButton(false);
         
-        // Через 10 секунд снова сворачиваем (только если не в режиме редактирования)
-        if (!isEditing) {
-            console.log('🔍 [Header] Не в режиме редактирования - планируем сворачивание через 10 секунд');
+        // Через 10 секунд снова сворачиваем (только если не в режиме редактирования и не в ItemEdit)
+        if (!isEditing && !isItemView) {
+            console.log('🔍 [Header] Не в режиме редактирования и не в ItemEdit - планируем сворачивание через 10 секунд');
             setTimeout(() => {
                 setIsCollapsed(true);
                 setShowExpandButton(true);
             }, 10000);
         } else {
-            console.log('🔍 [Header] В режиме редактирования - не планируем автоматическое сворачивание');
+            console.log('🔍 [Header] В режиме редактирования или в ItemEdit - не планируем автоматическое сворачивание');
         }
     };
 
@@ -140,10 +142,10 @@ const Header: React.FC<HeaderProps> = ({
         <>
             {/* Основной хедер */}
             <div 
-                className={`${styles.header} ${isCollapsed ? styles.collapsed : ''}`}
+                className={`${styles.header} ${isEditing ? styles.hidden : (isCollapsed ? styles.collapsed : '')}`}
             >
-                {/* Кнопка сворачивания хедера (скрыта в режиме редактирования) */}
-                {!isCollapsed && !isEditing && (
+                {/* Кнопка сворачивания хедера (скрыта в режиме редактирования и в ItemEdit) */}
+                {!isCollapsed && !isEditing && !isItemView && (
                     <button
                         className={styles.collapseButton}
                         onClick={handleCollapse}

@@ -254,6 +254,28 @@
     }
 }
 
+/* Адаптация под виртуальную клавиатуру */
+.modal.keyboardOpen {
+    height: 100vh;
+    max-height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1001;
+}
+
+.modal.keyboardOpen .content {
+    max-height: calc(100vh - 140px); /* Учитываем высоту header и footer */
+    overflow-y: auto;
+}
+
+.modal.keyboardOpen .textarea {
+    min-height: 120px;
+    max-height: calc(100vh - 200px);
+}
+
 /* Адаптивность */
 @media (max-width: 768px) {
     .overlay {
@@ -310,6 +332,36 @@
     .textarea {
         font-size: 16px; /* Предотвращает зум на iOS */
         min-height: 100px;
+    }
+    
+    /* Адаптация под клавиатуру на мобильных */
+    .modal.keyboardOpen {
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+    
+    .modal.keyboardOpen .content {
+        max-height: calc(100vh - 120px);
+        padding: 16px 20px 0 20px;
+    }
+    
+    .modal.keyboardOpen .textarea {
+        min-height: 80px;
+        max-height: calc(100vh - 180px);
+        font-size: 16px;
+    }
+    
+    .modal.keyboardOpen .footer {
+        position: sticky;
+        bottom: 0;
+        background: var(--card-background);
+        border-top: 1px solid var(--border-color);
     }
     
     .title {

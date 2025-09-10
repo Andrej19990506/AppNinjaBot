@@ -5,7 +5,7 @@
     right: 0;
     background: var(--color-background);
     border-top: 1px solid var(--gray-200);
-    padding: 27px 0;
+    padding: 12px 0 15px 0;
     z-index: 1051;
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(10px);
@@ -33,6 +33,14 @@
 .footer.disconnected::before {
     opacity: 1;
     background: var(--red-500);
+}
+
+/* Скрытие футера при открытой клавиатуре */
+.footer.hidden {
+    transform: translateY(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.3s ease, opacity 0.3s ease;
 }
 
 .container {
@@ -71,17 +79,22 @@
 .modalCancelButton,
 .modalNextButton,
 .modalSaveButton {
-    background: transparent;
-    border: none;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--icon-color);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
 }
 
 .iconButton:hover:not(.disabled),
@@ -89,7 +102,10 @@
 .modalCancelButton:hover:not(.disabled),
 .modalNextButton:hover:not(.disabled),
 .modalSaveButton:hover:not(.disabled) {
-    background-color: var(--hover-background);
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.15), rgba(255, 95, 31, 0.05));
+    border-color: rgba(255, 95, 31, 0.3);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 }
 
 .iconButton .icon,
@@ -97,28 +113,87 @@
 .modalCancelButton .icon,
 .modalNextButton .icon,
 .modalSaveButton .icon {
-    font-size: 24px;
+    font-size: 22px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.iconButton:hover .icon,
+.modalBackButton:hover .icon,
+.modalCancelButton:hover .icon,
+.modalNextButton:hover .icon,
+.modalSaveButton:hover .icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 /* Стили для заблокированных кнопок */
 .disabled {
     opacity: 0.4;
     cursor: not-allowed;
-    background-color: transparent !important;
+    background: linear-gradient(135deg, rgba(128, 128, 128, 0.1), rgba(128, 128, 128, 0.05)) !important;
+    border-color: rgba(128, 128, 128, 0.2) !important;
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Эффект свечения для активных кнопок */
+.iconButton:not(.disabled):active,
+.modalBackButton:not(.disabled):active,
+.modalCancelButton:not(.disabled):active,
+.modalNextButton:not(.disabled):active,
+.modalSaveButton:not(.disabled):active {
+    transform: translateY(0) scale(0.95);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Специфичные цвета иконок для кнопок модалки */
+.modalCancelButton {
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(244, 67, 54, 0.05));
+    border-color: rgba(244, 67, 54, 0.2);
+}
+
 .modalCancelButton .icon {
     color: var(--danger-color);
+}
+
+.modalCancelButton:hover:not(.disabled) {
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(244, 67, 54, 0.1));
+    border-color: rgba(244, 67, 54, 0.4);
+    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.2);
+}
+
+.modalSaveButton {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(76, 175, 80, 0.05));
+    border-color: rgba(76, 175, 80, 0.2);
 }
 
 .modalSaveButton:not(.disabled) .icon {
     color: var(--success-color);
 }
 
+.modalSaveButton:hover:not(.disabled) {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
+    border-color: rgba(76, 175, 80, 0.4);
+    box-shadow: 0 8px 25px rgba(76, 175, 80, 0.2);
+}
+
+.modalBackButton,
+.modalNextButton {
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.1), rgba(255, 95, 31, 0.05));
+    border-color: rgba(255, 95, 31, 0.2);
+}
+
 .modalBackButton .icon,
 .modalNextButton:not(.disabled) .icon {
     color: var(--primary-color);
+}
+
+.modalBackButton:hover:not(.disabled),
+.modalNextButton:hover:not(.disabled) {
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0.1));
+    border-color: rgba(255, 95, 31, 0.4);
+    box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 }
 
 .chatButton {
@@ -765,48 +840,69 @@
 
 /* Стили для кнопки закрытия аналитики */
 .closeAnalyticsButton {
-    background: transparent;
-    border: none;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(244, 67, 54, 0.05));
+    border: 1px solid rgba(244, 67, 54, 0.2);
+    border-radius: 16px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--error-color, #f44336);
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
 }
 
 .closeAnalyticsButton:hover {
-    background-color: var(--error-color-light, rgba(244, 67, 54, 0.1));
+    background: linear-gradient(135deg, rgba(244, 67, 54, 0.2), rgba(244, 67, 54, 0.1));
+    border-color: rgba(244, 67, 54, 0.4);
     color: var(--error-color-dark, #d32f2f);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(244, 67, 54, 0.2);
 }
 
 .closeAnalyticsButton .icon {
-    font-size: 24px;
+    font-size: 22px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.closeAnalyticsButton:hover .icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 /* === Стили для кнопки активных пользователей === */
 .activeUsersButton {
-    background: transparent;
-    border: none;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.1), rgba(255, 95, 31, 0.05));
+    border: 1px solid rgba(255, 95, 31, 0.2);
+    border-radius: 16px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: var(--primary-color);
-    transition: all var(--transition-normal);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .activeUsersButton:hover {
-    background-color: var(--primary-transparent);
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0.1));
+    border-color: rgba(255, 95, 31, 0.4);
     color: var(--primary-dark);
-    transform: var(--hover-transform);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 }
 
 .activeUsersButton:active {
@@ -821,8 +917,14 @@
 }
 
 .activeUsersButton .icon {
-    font-size: 24px;
-    transition: color var(--transition-normal);
+    font-size: 22px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.activeUsersButton:hover .icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 .activeUsersCount {
@@ -860,17 +962,20 @@
 .completeButton {
     background: linear-gradient(135deg, var(--success-color), var(--primary-dark)) !important;
     border: 2px solid var(--success-color) !important;
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    border-radius: 16px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     animation: completeGlow 2s infinite;
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .completeButton::before {
@@ -896,8 +1001,15 @@
 
 .completeButton .icon {
     color: var(--text-color-on-primary);
-    font-size: 24px;
+    font-size: 22px;
     z-index: 1;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.completeButton:hover .icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 
 @keyframes completeGlow {
@@ -920,27 +1032,38 @@
 
 /* Новый стиль для крестика, чтобы не сливался */
 .closeCompleteButton {
-    background: var(--card-background) !important;
-    border: 2px solid var(--primary-color) !important;
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.1), rgba(255, 95, 31, 0.05)) !important;
+    border: 1px solid rgba(255, 95, 31, 0.2) !important;
     color: var(--primary-color) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    border-radius: 50%;
-    width: 44px;
-    height: 44px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 .closeCompleteButton .icon {
     color: var(--primary-color) !important;
-    font-size: 24px;
+    font-size: 22px;
     z-index: 1;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.closeCompleteButton:hover .icon {
+    transform: scale(1.1);
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
 .closeCompleteButton:hover {
-    background: var(--primary-transparent) !important;
-    box-shadow: 0 0 12px rgba(255, 95, 31, 0.2);
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0.1)) !important;
+    border-color: rgba(255, 95, 31, 0.4) !important;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 } 

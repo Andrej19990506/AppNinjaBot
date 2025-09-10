@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 // @ts-ignore // Игнорируем ошибку TS2307 для @dnd-kit/core
 import { useDroppable } from '@dnd-kit/core';
@@ -10,6 +10,7 @@ import defaultAvatar from '@shared/assets/images/Ninja.jpg';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import IconButton from '@mui/material/IconButton';
+import { styled as muiStyled } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { CourierInfo } from '@features/courierSchedule/types/courierScheduleTypes';
@@ -48,32 +49,38 @@ const DropZoneContainer = styled(motion.div)<{
   flex: 1;
   align-items: center;
   justify-content: center;
-  padding: 12px;
-  margin: 0 4px 24px 4px;
-  border: 2px ${props => 
-    props.$isProcessing ? 'dashed var(--error-color)' :
-    props.$isConfirming ? 'solid transparent' :
-    props.$isAwaitingConfirmation ? 'dashed var(--orange-primary)' :
-    props.$isOver ? 'solid var(--error-color)' : 'dashed var(--error-color)'
-  };
-  background-color: ${props => 
+  padding: 16px;
+  margin: 0 8px 24px 8px;
+  border: 2px solid ${props => 
+    props.$isProcessing ? 'var(--error-color)' :
     props.$isConfirming ? 'transparent' :
-    props.$isAwaitingConfirmation ? 'var(--primary-transparent)' :
-    props.$isOver && !props.$isProcessing && !props.$isAwaitingConfirmation ? 'var(--error-background)' : 'transparent'
+    props.$isAwaitingConfirmation ? 'var(--orange-primary)' :
+    props.$isOver ? 'var(--orange-light)' : 'var(--border-color)'
+  };
+  background: ${props => 
+    props.$isConfirming ? 'transparent' :
+    props.$isAwaitingConfirmation ? 'linear-gradient(135deg, var(--card-background) 0%, rgba(255, 95, 31, 0.08) 100%)' : 
+    'linear-gradient(135deg, var(--card-background) 0%, rgba(255, 95, 31, 0.03) 100%)'
   };
   color: ${props => 
     props.$isProcessing ? 'var(--error-color)' :
-    props.$isAwaitingConfirmation ? 'var(--orange-dark)' :
-    'var(--error-color)'
+    props.$isAwaitingConfirmation ? 'var(--text-color)' :
+    'var(--text-secondary)'
   };
-  transition: background-color 0.2s, border-color 0.2s, color 0.2s, opacity 0.2s;
-  border-radius: var(--radius-md, 6px);
-  min-height: 48px;
+  transition: all var(--transition-normal);
+  border-radius: var(--radius-lg);
+  min-height: 56px;
   box-sizing: border-box;
   text-align: center;
   cursor: ${props => (props.$isProcessing || props.$isConfirming || props.$isAwaitingConfirmation) ? 'default' : 'grabbing'};
-  opacity: ${props => (props.$isProcessing || props.$isAwaitingConfirmation) ? 0.9 : 1};
+  opacity: ${props => (props.$isProcessing || props.$isAwaitingConfirmation) ? 0.95 : 1};
   overflow: hidden;
+  box-shadow: none;
+  
+  &:hover {
+    transform: ${props => (props.$isProcessing || props.$isConfirming || props.$isAwaitingConfirmation) ? 'none' : 'translateY(-2px)'};
+    box-shadow: none;
+  }
 `;
 
 const ContentWrapper = styled(motion.div)`
@@ -90,28 +97,58 @@ const AwaitingConfirmationContent = styled(Box)`
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    gap: 6px;
+    gap: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--card-background) 0%, rgba(255, 95, 31, 0.12) 100%);
+    border-radius: var(--radius-lg);
+    border: 2px solid var(--orange-primary);
+    box-shadow: var(--shadow-lg);
+    backdrop-filter: blur(10px);
+    position: relative;
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 95, 31, 0.05) 0%, transparent 50%);
+        border-radius: var(--radius-lg);
+        pointer-events: none;
+    }
 `;
 
 const ConfirmationText = styled(Typography)`
-    font-size: 0.85em;
+    font-size: 1.04em;
+    font-weight: 600;
     flex-grow: 1;
     text-align: left;
-    margin-left: 4px;
-    margin-right: 4px;
+    margin-left: 10px;
+    margin-right: 10px;
+    color: var(--text-color);
+    line-height: 1.5;
+    letter-spacing: 0.2px;
+    word-break: break-word;
+    hyphens: auto;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 `;
 
 const ConfirmationActions = styled(Box)`
     display: flex;
     align-items: center;
+    gap: 8px;
+    z-index: 1;
 `;
 
 const DefaultContent = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     svg {
         margin-right: 6px;
+        font-size: 18px;
     }
     span {
         font-size: 0.9em;
@@ -125,12 +162,117 @@ const ProcessingOrConfirmationContent = styled.div`
     gap: 8px;
 `;
 
-const SmallAvatar = styled.img`
-    width: 24px;
-    height: 24px;
+const SuccessCheckContent = styled(motion.div)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    position: relative;
+    width: auto;
+    max-width: none;
+`;
+
+const SuccessCheckIcon = styled(motion.div)`
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--orange-primary) 0%, var(--orange-light) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(255, 95, 31, 0.3);
+    border: 2px solid var(--orange-primary);
+    z-index: 1;
+    position: relative;
+    flex-shrink: 0;
+`;
+
+const SuccessAvatar = styled.img`
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
     object-fit: cover;
+    border: 2px solid var(--orange-primary);
+    box-shadow: 0 4px 12px rgba(255, 95, 31, 0.2);
+    z-index: 1;
+    position: relative;
+    flex-shrink: 0;
 `;
+
+const SmallAvatar = styled.img`
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--orange-primary);
+    box-shadow: var(--shadow-md);
+    z-index: 1;
+    transition: all var(--transition-normal);
+    
+    &:hover {
+        transform: scale(1.06);
+        box-shadow: var(--shadow-lg);
+    }
+`;
+
+const StyledConfirmButton = muiStyled(IconButton)(({ theme }) => ({
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '2px solid var(--orange-primary)',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    color: 'var(--orange-primary)',
+    transition: 'all var(--transition-normal)',
+    boxShadow: 'var(--shadow-md)',
+    zIndex: 2,
+    backdropFilter: 'blur(10px)',
+
+    '& svg': {
+        fontSize: '20px',
+        filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2))',
+    },
+
+    '&:hover': {
+        background: 'var(--orange-primary)',
+        color: 'white',
+        transform: 'scale(1.05)',
+        boxShadow: 'var(--shadow-lg)',
+    },
+
+    '&:active': {
+        transform: 'scale(0.95)',
+    }
+}));
+
+const StyledCancelButton = muiStyled(IconButton)(({ theme }) => ({
+    background: 'linear-gradient(135deg, var(--error-color) 0%, #f44336 100%)',
+    border: '2px solid var(--error-color)',
+    borderRadius: '50%',
+    width: '40px',
+    height: '40px',
+    color: 'white',
+    transition: 'all var(--transition-normal)',
+    boxShadow: 'var(--shadow-md)',
+    zIndex: 2,
+
+    '& svg': {
+        fontSize: '20px',
+        filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25))',
+    },
+
+    '&:hover': {
+        background: 'linear-gradient(135deg, #f44336 0%, var(--error-color) 100%)',
+        transform: 'scale(1.05)',
+        boxShadow: 'var(--shadow-lg)',
+    },
+
+    '&:active': {
+        transform: 'scale(0.95)',
+    }
+}));
 
 export const DELETE_DROP_ZONE_ID = 'delete-drop-zone';
 
@@ -145,6 +287,8 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
     onCancel,
     confirmationType,
 }) => {
+  const [showSuccessCheck, setShowSuccessCheck] = useState(false);
+  
   const { setNodeRef } = useDroppable({
     id: DELETE_DROP_ZONE_ID,
     disabled: isProcessing || isConfirming,
@@ -152,6 +296,20 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
       type: 'delete-zone' 
     }
   });
+
+  // Показываем галочку на 2 секунды после подтверждения
+  useEffect(() => {
+    if (isConfirming) {
+      setShowSuccessCheck(true);
+      const timer = setTimeout(() => {
+        setShowSuccessCheck(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    } else {
+      // Сбрасываем состояние при смене других состояний
+      setShowSuccessCheck(false);
+    }
+  }, [isConfirming]);
 
   const contentVariants = {
       initial: { opacity: 0, scale: 0.7 },
@@ -175,7 +333,8 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
   };
   const displayInfo = getDisplayInfo(confirmationDataSource);
   const displayProcessingOrWaitingData = (isAwaitingConfirmation || isProcessing) ? confirmationDataSource : null;
-  const displayConfirmedData = isConfirming ? courierData : null; 
+  const displayConfirmedData = isConfirming ? courierData : null;
+
 
   return (
     <DropZoneContainer 
@@ -201,19 +360,47 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
                             {confirmationType === 'assignment' ? 'Назначить' : 'Удалить'} <strong>{displayInfo.name}</strong>?
                         </ConfirmationText>
                         <ConfirmationActions>
-                            <IconButton onClick={onConfirm} size="small" color="success" aria-label={confirmationType === 'assignment' ? "Подтвердить назначение" : "Подтвердить удаление"}>
+                            <StyledConfirmButton onClick={onConfirm} aria-label={confirmationType === 'assignment' ? "Подтвердить назначение" : "Подтвердить удаление"}>
                                 <CheckIcon />
-                            </IconButton>
-                            <IconButton onClick={onCancel} size="small" color="error" aria-label={confirmationType === 'assignment' ? "Отменить назначение" : "Отменить удаление"}>
+                            </StyledConfirmButton>
+                            <StyledCancelButton onClick={onCancel} aria-label={confirmationType === 'assignment' ? "Отменить назначение" : "Отменить удаление"}>
                                 <CloseIcon />
-                            </IconButton>
+                            </StyledCancelButton>
                         </ConfirmationActions>
                     </AwaitingConfirmationContent>
                 </ContentWrapper>
             )
-            : (isProcessing || isConfirming) && (displayProcessingOrWaitingData || displayConfirmedData) ? (
+            : showSuccessCheck ? (
+                <ContentWrapper
+                    key="success-check"
+                    variants={contentVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                >
+                    <SuccessCheckContent>
+                        <SuccessCheckIcon
+                            initial={{ scale: 0, rotate: -180 }}
+                            animate={{ scale: 1, rotate: 0 }}
+                            transition={{ 
+                                type: "spring", 
+                                stiffness: 200, 
+                                damping: 15,
+                                duration: 0.6 
+                            }}
+                        >
+                            <CheckIcon style={{ fontSize: '24px', color: 'white' }} />
+                        </SuccessCheckIcon>
+                        <SuccessAvatar 
+                            src={courierData?.avatar || defaultAvatar} 
+                            alt={courierData?.name || 'Курьер'}
+                        />
+                    </SuccessCheckContent>
+                </ContentWrapper>
+            )
+            : isProcessing && (displayProcessingOrWaitingData || displayConfirmedData) ? (
                  <ContentWrapper
-                    key="processing-confirming"
+                    key="processing"
                     variants={contentVariants}
                     initial="initial"
                     animate="animate"
@@ -221,15 +408,10 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
                  >
                     <ProcessingOrConfirmationContent>
                          <SmallAvatar 
-                            src={(isProcessing ? displayInfo.avatar : displayConfirmedData?.avatar) || defaultAvatar} 
-                            alt={(isProcessing ? displayInfo.name : displayConfirmedData?.name) || 'Курьер'} 
+                            src={displayInfo.avatar || defaultAvatar} 
+                            alt={displayInfo.name || 'Курьер'} 
                          />
-                         {isProcessing && (
-                             <CircularProgress size={24} color="inherit" />
-                         )}
-                         {isConfirming && (
-                             <CheckCircleIcon />
-                         )}
+                         <CircularProgress size={24} color="inherit" />
                     </ProcessingOrConfirmationContent>
                  </ContentWrapper>
             )

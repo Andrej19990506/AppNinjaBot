@@ -510,6 +510,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [isOverReserveZoneManually, setIsOverReserveZoneManually] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [confirmedDeletedCourier, setConfirmedDeletedCourier] = useState<ConfirmedCourierInfo | null>(null);
+    const [confirmationActionType, setConfirmationActionType] = useState<'assignment' | 'delete'>('delete');
     const [isConfirmingReserve, setIsConfirmingReserve] = useState(false);
     const [confirmedReserveCourier, setConfirmedReserveCourier] = useState<ConfirmedCourierInfo | null>(null);
     const [isProcessingDelete, setIsProcessingDelete] = useState(false);
@@ -962,11 +963,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 showNotification(NotificationTypes.SUCCESS, `Курьер ${courier.name || ''} удален со смены.`);
             }
             setConfirmedDeletedCourier(courier); 
+            setConfirmationActionType('delete');
             setIsConfirmingDelete(true); 
 
             setTimeout(() => {
                 setIsConfirmingDelete(false);
                 setConfirmedDeletedCourier(null);
+                setConfirmationActionType('delete');
                 setProcessingShiftId(null); // Сброс после таймера
                 setTempCourierData(null);   // Сброс после таймера
             }, 2000);
@@ -1307,10 +1310,27 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     `Курьер ${courier.first_name || ''} ${courier.last_name || ''} назначен на ${shiftType === 'day' ? 'дневной' : 'ночной'} слот ${slotIndex + 1}.`
                 );
             }
+            
+            // Устанавливаем состояние подтверждения для показа галочки
+            setConfirmedDeletedCourier({
+                id: courier.id,
+                name: `${courier.first_name || ''} ${courier.last_name || ''}`.trim() || 'Курьер',
+                avatar: courier.photo_url || null
+            });
+            setConfirmationActionType('assignment');
+            setIsConfirmingDelete(true);
+            
             // Напрямую запрашиваем обновление смен из Redux
             if (chatId) {
                 dispatch(fetchShifts({ chatId: Number(chatId) }));
             }
+            
+            // Автоматически сбрасываем состояние через 2 секунды
+            setTimeout(() => {
+                setIsConfirmingDelete(false);
+                setConfirmedDeletedCourier(null);
+                setConfirmationActionType('delete');
+            }, 2000);
             
         } catch (error: any) {
             if (showNotification) {
@@ -1672,7 +1692,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                     isAwaitingConfirmation={isAwaitingDeleteOrAssign} // Передаем флаг ожидания
                                     onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
                                     onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
-                                    confirmationType={isAwaitingAssignmentConfirmation ? 'assignment' : 'delete'}
+                                    confirmationType={confirmationActionType}
                                 />
                             )}
                             {renderReserveZone && ( 

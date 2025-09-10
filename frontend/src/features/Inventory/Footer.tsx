@@ -226,6 +226,7 @@ const Footer: React.FC<FooterProps> = ({
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
+    const [isKeyboardOpen, setIsKeyboardOpen] = useState(false);
     const textRef = useRef<HTMLDivElement>(null);
     
     // <<< ИЗМЕНЕНИЕ: Получаем состояние из Redux >>>
@@ -247,6 +248,41 @@ const Footer: React.FC<FooterProps> = ({
         return () => window.removeEventListener('resize', checkOverflow);
     }, [selectedCategory, selectedItem]);
 
+    // Отслеживаем виртуальную клавиатуру
+    useEffect(() => {
+        const checkKeyboard = () => {
+            // Используем visualViewport если доступен, иначе fallback на window.innerHeight
+            const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+            const screenHeight = window.screen.height;
+            
+            // Клавиатура открыта, если viewport значительно меньше экрана
+            const keyboardThreshold = 0.7; // 70% от высоты экрана
+            const isKeyboardVisible = viewportHeight < screenHeight * keyboardThreshold;
+            
+            console.log('🔍 [Footer] Keyboard check:', {
+                viewportHeight,
+                screenHeight,
+                keyboardThreshold: screenHeight * keyboardThreshold,
+                isKeyboardVisible
+            });
+            
+            setIsKeyboardOpen(isKeyboardVisible);
+        };
+
+        // Проверяем при загрузке
+        checkKeyboard();
+
+        // Слушаем изменения viewport
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', checkKeyboard);
+            return () => window.visualViewport?.removeEventListener('resize', checkKeyboard);
+        } else {
+            // Fallback для браузеров без visualViewport
+            window.addEventListener('resize', checkKeyboard);
+            return () => window.removeEventListener('resize', checkKeyboard);
+        }
+    }, []);
+
     // <<< ИЗМЕНЕНИЕ: Возвращаем тип event, но используем стандартный MouseEvent >>>
     const handleShiftModeToggle = (event: React.MouseEvent) => { 
         event.stopPropagation(); // <<< ОСТАВЛЯЕМ ОСТАНОВКУ ВСПЛЫТИЯ
@@ -256,9 +292,9 @@ const Footer: React.FC<FooterProps> = ({
     return (
         <motion.div 
             id="app-footer"
-            className={styles.footer}
+            className={`${styles.footer} ${isKeyboardOpen ? styles.hidden : ''}`}
             initial={{ y: 100 }}
-            animate={{ y: 0 }}
+            animate={{ y: isKeyboardOpen ? 100 : 0 }}
             exit={{ y: 100 }}
         >
             <div className={`${styles.container} ${showModalActions ? styles.modalActionsActive : ''}`}>

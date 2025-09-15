@@ -357,26 +357,28 @@ function App() {
             <LocationChangeListener /> 
             <AppInitializer>
               <NotificationHandler />
-              <Routes>
-                <Route path="/courier" element={
-                  <ProtectedRoute requiredGroup="courier">
-                    <MainMenu />
-                  </ProtectedRoute>
-                } />
-                <Route path="/chef" element={
-                  <ProtectedRoute requiredGroup="chef">
-                    <MainMenu />
-                  </ProtectedRoute>
-                } />
-                <Route path="/courier/events" element={<EventList />} />
-                <Route path="/courier/courier-schedule" element={<CourierSchedule />} />
-                <Route path="/chef/events" element={<EventList />} />
-                <Route path="/chef/inventory" element={<InventoryPage />} />
-                <Route path="/chef/write-off" element={<WriteOff />} />
-                <Route path="/inventory/:chatId" element={<InventoryPage />} />
-                <Route path="/competitions" element={<Competitions />} />
-                <Route path="*" element={<AutoRedirectByRole />} />
-              </Routes>
+              <div className="app">
+                <Routes>
+                  <Route path="/courier" element={
+                    <ProtectedRoute requiredGroup="courier">
+                      <MainMenu />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/chef" element={
+                    <ProtectedRoute requiredGroup="chef">
+                      <MainMenu />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/courier/events" element={<EventList />} />
+                  <Route path="/courier/courier-schedule" element={<CourierSchedule />} />
+                  <Route path="/chef/events" element={<EventList />} />
+                  <Route path="/chef/inventory" element={<InventoryPage />} />
+                  <Route path="/chef/write-off" element={<WriteOff />} />
+                  <Route path="/inventory/:chatId" element={<InventoryPage />} />
+                  <Route path="/competitions" element={<Competitions />} />
+                  <Route path="*" element={<AutoRedirectByRole />} />
+                </Routes>
+              </div>
             </AppInitializer>
           </Router>
         </MuiThemeProvider>

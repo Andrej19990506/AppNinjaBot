@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useState, useEffect } from 'react';
+import React, { forwardRef, useRef, useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useSelector } from 'react-redux';
@@ -141,7 +141,7 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // --- Новый способ получения доступных курьеров ---
-    const couriers = Object.values(usersById).map(user => ({
+    const couriers = useMemo(() => Object.values(usersById).map(user => ({
         id: user.id,
         user_id: user.id,
         first_name: user.first_name || '',
@@ -150,13 +150,16 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
         is_senior_courier: (user as any).is_senior_courier ?? null,
         role: (user as any).role ?? null,
         username: user.username || null,
-    }));
+    })), [usersById]);
 
     // --- Фильтрация: исключаем всех, кто уже в смене (день или ночь) на эту дату ---
     const dateString = date ? format(date, 'yyyy-MM-dd') : '';
     const shifts = useSelector((state: RootState) => selectShiftsByDate(state, dateString));
-    const assignedUserIds = shifts.map(shift => String(shift.userId));
-    const availableCouriers = couriers.filter(courier => !assignedUserIds.includes(String(courier.user_id)));
+    const assignedUserIds = useMemo(() => shifts.map(shift => String(shift.userId)), [shifts]);
+    const availableCouriers = useMemo(() => 
+        couriers.filter(courier => !assignedUserIds.includes(String(courier.user_id))), 
+        [couriers, assignedUserIds]
+    );
     const error = null;      // Ошибки тоже не будет
 
     // ---загрузки курьеров ---
@@ -169,8 +172,15 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
 
     // Обработчик клика по иконке курьера
     const handleCourierClick = (courier: CourierInfo) => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [CouriersPanel handleCourierClick] Клик по курьеру:', courier.first_name, courier.last_name, 'onCourierSelect:', !!onCourierSelect);
+        }
         if (onCourierSelect) {
             onCourierSelect(courier, shiftType, slotIndex);
+        } else {
+            if (process.env.NODE_ENV === 'development') {
+                console.log('🔍 [CouriersPanel handleCourierClick] onCourierSelect не передан, ничего не делаем');
+            }
         }
     };
 
@@ -185,7 +195,12 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
                 transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
                 onDoubleClick={(e) => e.preventDefault()}
             >
-                <CloseHandle onClick={onClose} title="Закрыть панель">
+                <CloseHandle onClick={() => {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('🔍 [CouriersPanel] Клик по кнопке закрытия панели');
+                    }
+                    onClose();
+                }} title="Закрыть панель">
                     <DownArrow />
                 </CloseHandle>
 
@@ -197,7 +212,14 @@ const CouriersPanel = forwardRef<HTMLDivElement, CouriersPanelProps>((
                             <motion.div
                                 layout
                                 key={courier.user_id}
-                                onClick={() => !isLoading && handleCourierClick(courier)}
+                                onClick={() => {
+                                    if (process.env.NODE_ENV === 'development') {
+                                        console.log('🔍 [CouriersPanel] Клик по курьеру в motion.div:', courier.first_name, courier.last_name);
+                                    }
+                                    if (!isLoading) {
+                                        handleCourierClick(courier);
+                                    }
+                                }}
                                 initial={false}
                                 animate={
                                     isLoading

@@ -3,9 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>AppNinjaBot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      (function initViewportInset() {
+        function updateBottomInset() {
+          try {
+            var vv = window.visualViewport;
+            var inset = 0;
+            if (vv) {
+              // Свободное место снизу = высота layout viewport минус высота visual viewport минус смещение сверху
+              var layoutH = document.documentElement.clientHeight;
+              inset = Math.max(0, Math.round(layoutH - vv.height - vv.offsetTop));
+            }
+            // Если visualViewport недоступен — пробуем fallback
+            if (!window.visualViewport) {
+              var ih = window.innerHeight;
+              var avail = screen && (screen.availHeight || screen.height) || ih;
+              inset = Math.max(0, Math.round(avail - ih));
+            }
+            document.documentElement.style.setProperty('--device-bottom-inset', inset + 'px');
+          } catch (e) {
+            // no-op
+          }
+        }
+        updateBottomInset();
+        if (window.visualViewport) {
+          visualViewport.addEventListener('resize', updateBottomInset);
+          visualViewport.addEventListener('scroll', updateBottomInset);
+        }
+        window.addEventListener('orientationchange', function(){ setTimeout(updateBottomInset, 300); });
+        window.addEventListener('resize', updateBottomInset);
+      })();
+    </script>
     <!-- Диагностика и retry загрузки config.js -->
     <script>
         window.configLoadStart = Date.now();

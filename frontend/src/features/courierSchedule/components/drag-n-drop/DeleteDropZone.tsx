@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-// @ts-ignore // Игнорируем ошибку TS2307 для @dnd-kit/core
 import { useDroppable } from '@dnd-kit/core';
 import DeleteIcon from '@mui/icons-material/DeleteOutline';
-import CheckCircleIcon from '@mui/icons-material/CheckCircleOutline';
 import CircularProgress from '@mui/material/CircularProgress';
 import { motion, AnimatePresence } from 'framer-motion';
 import defaultAvatar from '@shared/assets/images/Ninja.jpg';
 import CheckIcon from '@mui/icons-material/Check';
-import CloseIcon from '@mui/icons-material/Close';
-import IconButton from '@mui/material/IconButton';
-import { styled as muiStyled } from '@mui/material/styles';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { CourierInfo } from '@features/courierSchedule/types/courierScheduleTypes';
@@ -81,6 +76,19 @@ const DropZoneContainer = styled(motion.div)<{
     transform: ${props => (props.$isProcessing || props.$isConfirming || props.$isAwaitingConfirmation) ? 'none' : 'translateY(-2px)'};
     box-shadow: none;
   }
+  
+  /* Мобильная адаптация */
+  @media (max-width: 768px) {
+    margin: 0 4px 16px 4px;
+    padding: 12px;
+    min-height: 48px;
+  }
+  
+  @media (max-width: 480px) {
+    margin: 0 2px 12px 2px;
+    padding: 8px;
+    min-height: 44px;
+  }
 `;
 
 const ContentWrapper = styled(motion.div)`
@@ -117,6 +125,19 @@ const AwaitingConfirmationContent = styled(Box)`
         border-radius: var(--radius-lg);
         pointer-events: none;
     }
+    
+    /* Мобильная адаптация */
+    @media (max-width: 768px) {
+        flex-direction: column;
+        gap: 16px;
+        padding: 16px;
+        text-align: center;
+    }
+    
+    @media (max-width: 480px) {
+        padding: 12px;
+        gap: 12px;
+    }
 `;
 
 const ConfirmationText = styled(Typography)`
@@ -132,14 +153,21 @@ const ConfirmationText = styled(Typography)`
     word-break: break-word;
     hyphens: auto;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    
+    /* Мобильная адаптация */
+    @media (max-width: 768px) {
+        text-align: center;
+        margin: 0;
+        font-size: 0.95em;
+        line-height: 1.4;
+    }
+    
+    @media (max-width: 480px) {
+        font-size: 0.9em;
+        line-height: 1.3;
+    }
 `;
 
-const ConfirmationActions = styled(Box)`
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 1;
-`;
 
 const DefaultContent = styled.div`
     display: flex;
@@ -218,61 +246,9 @@ const SmallAvatar = styled.img`
     }
 `;
 
-const StyledConfirmButton = muiStyled(IconButton)(({ theme }) => ({
-    background: 'rgba(255, 255, 255, 0.1)',
-    border: '2px solid var(--orange-primary)',
-    borderRadius: '50%',
-    width: '40px',
-    height: '40px',
-    color: 'var(--orange-primary)',
-    transition: 'all var(--transition-normal)',
-    boxShadow: 'var(--shadow-md)',
-    zIndex: 2,
-    backdropFilter: 'blur(10px)',
 
-    '& svg': {
-        fontSize: '20px',
-        filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2))',
-    },
 
-    '&:hover': {
-        background: 'var(--orange-primary)',
-        color: 'white',
-        transform: 'scale(1.05)',
-        boxShadow: 'var(--shadow-lg)',
-    },
 
-    '&:active': {
-        transform: 'scale(0.95)',
-    }
-}));
-
-const StyledCancelButton = muiStyled(IconButton)(({ theme }) => ({
-    background: 'linear-gradient(135deg, var(--error-color) 0%, #f44336 100%)',
-    border: '2px solid var(--error-color)',
-    borderRadius: '50%',
-    width: '40px',
-    height: '40px',
-    color: 'white',
-    transition: 'all var(--transition-normal)',
-    boxShadow: 'var(--shadow-md)',
-    zIndex: 2,
-
-    '& svg': {
-        fontSize: '20px',
-        filter: 'drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25))',
-    },
-
-    '&:hover': {
-        background: 'linear-gradient(135deg, #f44336 0%, var(--error-color) 100%)',
-        transform: 'scale(1.05)',
-        boxShadow: 'var(--shadow-lg)',
-    },
-
-    '&:active': {
-        transform: 'scale(0.95)',
-    }
-}));
 
 export const DELETE_DROP_ZONE_ID = 'delete-drop-zone';
 
@@ -283,8 +259,6 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
     courierData, 
     confirmationDataSource, 
     isAwaitingConfirmation,
-    onConfirm,
-    onCancel,
     confirmationType,
 }) => {
   const [showSuccessCheck, setShowSuccessCheck] = useState(false);
@@ -359,14 +333,6 @@ const DeleteDropZone: React.FC<DeleteDropZoneProps> = ({
                         <ConfirmationText variant="body2">
                             {confirmationType === 'assignment' ? 'Назначить' : 'Удалить'} <strong>{displayInfo.name}</strong>?
                         </ConfirmationText>
-                        <ConfirmationActions>
-                            <StyledConfirmButton onClick={onConfirm} aria-label={confirmationType === 'assignment' ? "Подтвердить назначение" : "Подтвердить удаление"}>
-                                <CheckIcon />
-                            </StyledConfirmButton>
-                            <StyledCancelButton onClick={onCancel} aria-label={confirmationType === 'assignment' ? "Отменить назначение" : "Отменить удаление"}>
-                                <CloseIcon />
-                            </StyledCancelButton>
-                        </ConfirmationActions>
                     </AwaitingConfirmationContent>
                 </ContentWrapper>
             )

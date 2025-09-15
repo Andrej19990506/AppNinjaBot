@@ -5,7 +5,8 @@
     right: 0;
     background: var(--color-background);
     border-top: 1px solid var(--gray-200);
-    padding: 12px 0 15px 0;
+    /* Компактный паддинг + безопасная зона снизу для устройств с жестями/кнопками */
+    padding: 8px 0 calc(10px + max(env(safe-area-inset-bottom, 0px), var(--device-bottom-inset, 0px))) 0;
     z-index: 1051;
     box-shadow: var(--shadow-lg);
     backdrop-filter: blur(10px);
@@ -49,10 +50,10 @@
     align-items: center;
     max-width: 800px;
     margin: 0 auto;
-    padding: 0 16px;
+    padding: 0 12px;
     position: relative;
     width: 100%;
-    height: 30px;
+    /* Убираем фиксированную высоту для большей гибкости */
 }
 
 /* Стили для режима кнопок модального окна */
@@ -68,7 +69,7 @@
 
 .stepIndicatorText {
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 500;
     white-space: nowrap;
 }
@@ -81,9 +82,9 @@
 .modalSaveButton {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 16px;
-    width: 48px;
-    height: 48px;
+    border-radius: 14px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -113,7 +114,7 @@
 .modalCancelButton .icon,
 .modalNextButton .icon,
 .modalSaveButton .icon {
-    font-size: 22px;
+    font-size: 20px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
@@ -211,8 +212,8 @@
     background: var(--orange-primary);
     border: 2px solid var(--orange-primary);
     border-radius: 20px;
-    height: 40px;
-    padding: 0 16px;
+    height: 36px;
+    padding: 0 12px;
     cursor: pointer;
     transition: all 0.3s ease;
     color: white;
@@ -343,8 +344,8 @@
 }
 
 .chatAvatar {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     background: var(--gradient-primary);
     color: white;
     border-radius: 50%;
@@ -481,7 +482,7 @@
 
 /* Добавляем отступ снизу для контента, чтобы он не перекрывался футером */
 :global(.app) {
-    padding-bottom: calc(44px + 24px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(44px + 24px + max(env(safe-area-inset-bottom, 0px), var(--device-bottom-inset, 0px)));
 }
 
 @media (min-width: 768px) {
@@ -499,8 +500,8 @@
     color: white;
     border: none;
     border-radius: var(--radius-lg) !important;
-    padding: 8px 24px !important;
-    font-size: 14px !important;
+    padding: 6px 18px !important;
+    font-size: 13px !important;
     font-weight: 600 !important;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -509,7 +510,7 @@
     position: relative;
     margin: 0 auto;
     min-width: 130px;
-    height: 40px;
+    height: 36px;
     letter-spacing: 0.3px !important;
     text-transform: none !important;
     overflow: hidden !important; /* Для рипл-эффекта */
@@ -683,7 +684,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+    gap: 8px;
     position: absolute;
     left: 50%;
     transform: translateX(-50%);
@@ -842,9 +843,9 @@
 .closeAnalyticsButton {
     background: linear-gradient(135deg, rgba(244, 67, 54, 0.1), rgba(244, 67, 54, 0.05));
     border: 1px solid rgba(244, 67, 54, 0.2);
-    border-radius: 16px;
-    width: 48px;
-    height: 48px;
+    border-radius: 14px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -867,7 +868,7 @@
 }
 
 .closeAnalyticsButton .icon {
-    font-size: 22px;
+    font-size: 20px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
@@ -881,9 +882,9 @@
 .activeUsersButton {
     background: linear-gradient(135deg, rgba(255, 95, 31, 0.1), rgba(255, 95, 31, 0.05));
     border: 1px solid rgba(255, 95, 31, 0.2);
-    border-radius: 16px;
-    width: 48px;
-    height: 48px;
+    border-radius: 14px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -917,7 +918,7 @@
 }
 
 .activeUsersButton .icon {
-    font-size: 22px;
+    font-size: 20px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
@@ -962,9 +963,9 @@
 .completeButton {
     background: linear-gradient(135deg, var(--success-color), var(--primary-dark)) !important;
     border: 2px solid var(--success-color) !important;
-    border-radius: 16px;
-    width: 48px;
-    height: 48px;
+    border-radius: 14px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1001,7 +1002,7 @@
 
 .completeButton .icon {
     color: var(--text-color-on-primary);
-    font-size: 22px;
+    font-size: 20px;
     z-index: 1;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
@@ -1036,9 +1037,9 @@
     border: 1px solid rgba(255, 95, 31, 0.2) !important;
     color: var(--primary-color) !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border-radius: 16px;
-    width: 48px;
-    height: 48px;
+    border-radius: 14px;
+    width: 40px;
+    height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1051,7 +1052,7 @@
 }
 .closeCompleteButton .icon {
     color: var(--primary-color) !important;
-    font-size: 22px;
+    font-size: 20px;
     z-index: 1;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));

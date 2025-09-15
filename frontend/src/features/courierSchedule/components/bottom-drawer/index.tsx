@@ -233,11 +233,13 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
       // Проверяем клик на элементах тултипа или профиля
       const tooltipElement = document.querySelector('[data-tooltip-portal="true"]');
       const profileButtonElement = document.querySelector('[data-profile-button="true"]');
+      const confirmationModalElement = document.querySelector('[data-confirmation-modal="true"]');
       const isClickInsideTooltip = tooltipElement && tooltipElement.contains(targetElement);
       const isClickOnProfileButton = profileButtonElement && profileButtonElement.contains(targetElement);
+      const isClickInsideConfirmationModal = confirmationModalElement && confirmationModalElement.contains(targetElement);
       
-      // Не закрываем, если клик внутри тултипа или на кнопке профиля
-      if (isClickInsideTooltip || isClickOnProfileButton) {
+      // Не закрываем, если клик внутри тултипа, на кнопке профиля или в модальном окне подтверждения
+      if (isClickInsideTooltip || isClickOnProfileButton || isClickInsideConfirmationModal) {
         return;
       }
       
@@ -274,6 +276,10 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
 
   // Блокируем закрытие при клике на оверлей, если включен специальный атрибут
   const handleOverlayClick = (e: React.MouseEvent) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 [BottomDrawer handleOverlayClick] Клик по фону, target:', e.target);
+    }
+    
     // Проверяем, был ли клик на кнопку профиля
     const target = e.target as HTMLElement;
     const isProfileButton = target.id === 'open-profile-button' || 
@@ -281,6 +287,9 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
                            target.closest('[data-profile-button="true"]');
     
     if (isProfileButton) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [BottomDrawer handleOverlayClick] Клик по кнопке профиля, блокируем');
+      }
       e.stopPropagation();
       e.preventDefault();
       return;
@@ -291,11 +300,28 @@ const BottomDrawer: React.FC<BottomDrawerProps> = ({
     const profileBtn = document.querySelector('[data-profile-button="true"]');
     
     if (tooltipElement || profileBtn) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [BottomDrawer handleOverlayClick] Найдены тултипы или профильные элементы, блокируем');
+      }
       e.stopPropagation();
       e.preventDefault();
       return;
     }
     
+    // Проверяем, был ли клик по модальному окну подтверждения
+    const confirmationModal = target.closest('[data-confirmation-modal="true"]');
+    if (confirmationModal) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 [BottomDrawer handleOverlayClick] Клик по модальному окну подтверждения, блокируем');
+      }
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 [BottomDrawer handleOverlayClick] Закрываем диалог');
+    }
     handleClose();
   };
 

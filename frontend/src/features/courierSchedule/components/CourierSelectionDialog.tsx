@@ -15,6 +15,7 @@ import Alert from '@mui/material/Alert';
 import CourierDragAvatar from '@/features/courierSchedule/components/drag-n-drop/CourierDragAvatar';
 import DeleteDropZone, { DELETE_DROP_ZONE_ID } from '@/features/courierSchedule/components/drag-n-drop/DeleteDropZone';
 import ReserveDropZone, { RESERVE_DROP_ZONE_ID } from '@/features/courierSchedule/components/drag-n-drop/ReserveDropZone';
+import ConfirmationModal from './ConfirmationModal';
 import {updateShiftSlot } from '@features/courierSchedule/services/courierApi';
 import CourierProfile from '@/features/courierSchedule/components/courier-profile/CourierProfile';
 import { refreshCourierProfileFromTelegram } from '@features/courierSchedule/services/courierApi';
@@ -509,7 +510,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [isOverDeleteZoneManually, setIsOverDeleteZoneManually] = useState(false);
     const [isOverReserveZoneManually, setIsOverReserveZoneManually] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
+    const [isConfirmingAssignment, setIsConfirmingAssignment] = useState(false);
     const [confirmedDeletedCourier, setConfirmedDeletedCourier] = useState<ConfirmedCourierInfo | null>(null);
+    const [confirmedAssignedCourier, setConfirmedAssignedCourier] = useState<ConfirmedCourierInfo | null>(null);
     const [confirmationActionType, setConfirmationActionType] = useState<'assignment' | 'delete'>('delete');
     const [isConfirmingReserve, setIsConfirmingReserve] = useState(false);
     const [confirmedReserveCourier, setConfirmedReserveCourier] = useState<ConfirmedCourierInfo | null>(null);
@@ -549,6 +552,14 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     // <<< ВОЗВРАЩАЕМ СОСТОЯНИЯ ДЛЯ ПАНЕЛИ >>>
     const [isCouriersPanelOpen, setIsCouriersPanelOpen] = useState(false);
+    
+    // Добавляем обертку для логирования изменений состояния панели
+    const setIsCouriersPanelOpenWithLogging = useCallback((value: boolean) => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [setIsCouriersPanelOpen] Изменяем состояние панели на:', value, new Error().stack);
+        }
+        setIsCouriersPanelOpen(value);
+    }, []);
     const [panelTargetShiftType, setPanelTargetShiftType] = useState<ShiftType | null>(null);
     const [panelTargetSlotIndex, setPanelTargetSlotIndex] = useState<number | null>(null);
 
@@ -875,6 +886,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     shiftType: targetShiftType,
                     slotIndex: targetSlotIndex,
                 });
+                setConfirmationActionType('assignment');
                 setIsAwaitingAssignmentConfirmation(true);
 
                 // <<< Сбрасываем состояние перетаскивания СРАЗУ >>>
@@ -1137,8 +1149,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const isWorkingOnReserve = isProcessingReserve || isConfirmingReserve || isReserveAwaitingConfirmation;
     const isAnyZoneWorking = isWorkingOnDeleteOrAssign || isWorkingOnReserve;
 
-    const showZonesContainer = isDraggingShift || isAnyZoneWorking;
-    const renderDeleteZone = (isDraggingShift && !isAnyZoneWorking) || isWorkingOnDeleteOrAssign;
+    const showZonesContainer = isDraggingShift || isProcessingDelete || isProcessingReserve || (confirmationActionType === 'assignment' ? isConfirmingAssignment : isConfirmingDelete) || isConfirmingReserve;
+    const renderDeleteZone = (isDraggingShift && !isAnyZoneWorking) || isProcessingDelete || (confirmationActionType === 'assignment' ? isConfirmingAssignment : isConfirmingDelete);
     const renderReserveZone = (isDraggingShift && !isAnyZoneWorking) || isWorkingOnReserve;
 
     const deleteConfirmationDataSource = isWorkingOnDeleteOrAssign ? getConfirmationDataSource() : null;
@@ -1164,7 +1176,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         }
         
         if (isCouriersPanelOpen) {
-            setIsCouriersPanelOpen(false);
+            setIsCouriersPanelOpenWithLogging(false);
             setPanelTargetShiftType(null);
             setPanelTargetSlotIndex(null);
         }
@@ -1182,7 +1194,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setIsConfirmationOpen, 
         setPendingAction, 
         isCouriersPanelOpen, 
-        setIsCouriersPanelOpen,
+        setIsCouriersPanelOpenWithLogging,
         setPanelTargetShiftType,
         setPanelTargetSlotIndex,
         setIsDraggingGlobally,
@@ -1260,16 +1272,19 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         // <<< Конец проверки >>>
         setPanelTargetShiftType(shiftType);
         setPanelTargetSlotIndex(slotIndex);
-        setIsCouriersPanelOpen(true);
+        setIsCouriersPanelOpenWithLogging(true);
         
         // Явно отключаем свайп при открытии панели курьеров
         setIsSwipeEnabled(false);
         
-    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpen, setIsSwipeEnabled]); // Добавляем setIsSwipeEnabled в зависимости
+    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpenWithLogging, setIsSwipeEnabled]); // Добавляем setIsSwipeEnabled в зависимости
 
     // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ЗАКРЫТИЯ ПАНЕЛИ >>>
     const handleCloseCouriersPanel = useCallback(() => {
-        setIsCouriersPanelOpen(false);
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [handleCloseCouriersPanel] Закрываем панель курьеров');
+        }
+        setIsCouriersPanelOpenWithLogging(false);
         setPanelTargetShiftType(null); // Сбрасываем цель при закрытии
         setPanelTargetSlotIndex(null); // Сбрасываем цель при закрытии
 
@@ -1277,10 +1292,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         if (!isDraggingGlobally) {
             setIsSwipeEnabled(true);
         }
-    }, [setIsCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, isDraggingGlobally, setIsSwipeEnabled]); // Добавляем зависимости
+    }, [setIsCouriersPanelOpenWithLogging, setPanelTargetShiftType, setPanelTargetSlotIndex, isDraggingGlobally, setIsSwipeEnabled]); // Добавляем зависимости
 
     // <<< НОВЫЙ ОБРАБОТЧИК: Подтверждение назначения курьера >>>
     const handleConfirmAssignment = useCallback(async () => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [handleConfirmAssignment] Начинаем назначение курьера, панель открыта:', isCouriersPanelOpen);
+        }
         if (!assignmentToConfirmData || !chatId || !date) {
             setIsAwaitingAssignmentConfirmation(false);
             setAssignmentToConfirmData(null);
@@ -1312,13 +1330,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             }
             
             // Устанавливаем состояние подтверждения для показа галочки
-            setConfirmedDeletedCourier({
-                id: courier.id,
+            setConfirmedAssignedCourier({
+                id: String(courier.id),
                 name: `${courier.first_name || ''} ${courier.last_name || ''}`.trim() || 'Курьер',
                 avatar: courier.photo_url || null
             });
             setConfirmationActionType('assignment');
-            setIsConfirmingDelete(true);
+            setIsConfirmingAssignment(true);
             
             // Напрямую запрашиваем обновление смен из Redux
             if (chatId) {
@@ -1327,8 +1345,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             
             // Автоматически сбрасываем состояние через 2 секунды
             setTimeout(() => {
-                setIsConfirmingDelete(false);
-                setConfirmedDeletedCourier(null);
+                setIsConfirmingAssignment(false);
+                setConfirmedAssignedCourier(null);
                 setConfirmationActionType('delete');
             }, 2000);
             
@@ -1351,17 +1369,33 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             setInternalIsBookingLoading(false);
             // Включаем свайп снова
             setIsSwipeEnabled(true);
+            
+            if (process.env.NODE_ENV === 'development') {
+                console.log('🔍 [handleConfirmAssignment] Завершили назначение, панель должна остаться открытой');
+            }
         }
     }, [assignmentToConfirmData, chatId, date, currentUserId, dispatch, showNotification]);
 
     // <<< НОВЫЙ ОБРАБОТЧИК: Отмена назначения курьера >>>
     const handleCancelAssignment = useCallback(() => {
-        // Включаем свайп снова
-        setIsSwipeEnabled(true);
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [handleCancelAssignment] Отменяем назначение, панель открыта:', isCouriersPanelOpen);
+        }
+        // Сбрасываем состояния подтверждения
         setIsAwaitingAssignmentConfirmation(false);
         setAssignmentToConfirmData(null);
+        setConfirmationActionType('delete'); // Сбрасываем тип подтверждения
         setIsDraggingGlobally(false); // Сбрасываем и флаг перетаскивания
-    }, []);
+        
+        // Включаем свайп только если панель курьеров НЕ открыта
+        if (!isCouriersPanelOpen) {
+            setIsSwipeEnabled(true);
+        }
+        
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [handleCancelAssignment] Завершили отмену, панель должна остаться открытой');
+        }
+    }, [isCouriersPanelOpen]);
 
     // Добавляем состояния для свайпа
     const [swipeInfo, setSwipeInfo] = useState<SwipeInfo>({
@@ -1419,9 +1453,12 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     // Добавляем функцию для сброса всех активных состояний при свайпе
     const resetAllActiveStates = useCallback(() => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [resetAllActiveStates] Сбрасываем все активные состояния, панель открыта:', isCouriersPanelOpen);
+        }
         // Сбрасываем состояние панели курьеров
         if (isCouriersPanelOpen) {
-            setIsCouriersPanelOpen(false);
+            setIsCouriersPanelOpenWithLogging(false);
             setPanelTargetShiftType(null);
             setPanelTargetSlotIndex(null);
         }
@@ -1452,7 +1489,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         
     }, [
         isCouriersPanelOpen, 
-        setIsCouriersPanelOpen,
+        setIsCouriersPanelOpenWithLogging,
         setPanelTargetShiftType,
         setPanelTargetSlotIndex,
         isConfirmationOpen,
@@ -1564,6 +1601,9 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     // Добавляем эффект для отключения свайпа при открытой панели курьеров
     useEffect(() => {
+        if (process.env.NODE_ENV === 'development') {
+            console.log('🔍 [useEffect isCouriersPanelOpen] Панель курьеров изменилась:', isCouriersPanelOpen);
+        }
         if (isCouriersPanelOpen) {
             setIsSwipeEnabled(false);
         } else if (!isDraggingGlobally) {
@@ -1581,6 +1621,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     }, [isOpen, date]);
 
     return (
+        <>
         <DndContext 
             sensors={sensors} 
             onDragStart={handleDragStart}
@@ -1686,12 +1727,12 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 <DeleteDropZone 
                                     isOver={isOverDeleteZone}
                                     isProcessing={isProcessingDelete}
-                                    isConfirming={isConfirmingDelete}
-                                    courierData={confirmedDeletedCourier} // Для галочки успеха
+                                    isConfirming={confirmationActionType === 'assignment' ? isConfirmingAssignment : isConfirmingDelete}
+                                    courierData={confirmationActionType === 'assignment' ? confirmedAssignedCourier : confirmedDeletedCourier} // Для галочки успеха
                                     confirmationDataSource={deleteConfirmationDataSource} // Передаем общие данные
-                                    isAwaitingConfirmation={isAwaitingDeleteOrAssign} // Передаем флаг ожидания
-                                    onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete} 
-                                    onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
+                                    isAwaitingConfirmation={false} // Отключаем встроенное подтверждение
+                                    onConfirm={() => {}} // Пустые обработчики
+                                    onCancel={() => {}} // Пустые обработчики
                                     confirmationType={confirmationActionType}
                                 />
                             )}
@@ -1840,6 +1881,16 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 )}
             </DragOverlay>
         </DndContext>
+        
+        {/* Модальное окно подтверждения - ВЫНЕСЕНО ЗА ПРЕДЕЛЫ DndContext */}
+        <ConfirmationModal
+            isOpen={isAwaitingDeleteOrAssign}
+            confirmationDataSource={deleteConfirmationDataSource}
+            confirmationType={confirmationActionType}
+            onConfirm={isAwaitingAssignmentConfirmation ? handleConfirmAssignment : handleConfirmDelete}
+            onCancel={isAwaitingAssignmentConfirmation ? handleCancelAssignment : handleCancelDelete}
+        />
+        </>
     );
 });
 

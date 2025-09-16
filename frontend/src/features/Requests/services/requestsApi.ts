@@ -85,6 +85,7 @@ export interface DeliveryResponse {
   status: string;
   accepted_by_name: string;
   accepted_by_initials: string;
+  accepted_by_user_id?: number; // Добавляем ID пользователя для загрузки фото
   accepted_at: string;
   total_items: number;
   checked_items: number;

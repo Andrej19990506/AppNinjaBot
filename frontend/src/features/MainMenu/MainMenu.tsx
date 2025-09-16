@@ -31,18 +31,33 @@ const courierMenuItems = [
 ];
 
 const itemVariants = {
-    hidden: { opacity: 0, y: 10, scale: 0.95 },
-    visible: { 
+    hidden: { opacity: 0, y: 20, scale: 0.9, rotateX: -15 },
+    visible: (i: number) => ({ 
         opacity: 1, 
         y: 0, 
         scale: 1,
-        transition: { duration: 0.3, ease: "easeOut", delay: 0.35 } 
-    },
+        rotateX: 0,
+        transition: { 
+            duration: 0.4, 
+            ease: [0.25, 0.46, 0.45, 0.94],
+            delay: i * 0.1 + 0.2
+        } 
+    }),
     exit: { 
         opacity: 0, 
-        y: -5, 
+        y: -10, 
         scale: 0.95,
+        rotateX: 15,
         transition: { duration: 0.2, ease: "easeIn" } 
+    },
+    hover: {
+        y: -2,
+        scale: 1.02,
+        transition: { duration: 0.2, ease: "easeOut" }
+    },
+    tap: {
+        scale: 0.98,
+        transition: { duration: 0.1 }
     }
 };
 
@@ -249,7 +264,12 @@ const MainMenu: React.FC = () => {
                             </motion.div>
                         )}
 
-                        <motion.div className={styles.menuGrid} variants={itemVariants} initial="hidden" animate="visible" exit="exit">
+                        <motion.div 
+                            className={styles.menuGrid}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.3, delay: 0.1 }}
+                        >
                             {currentMenuItems.map((item, index) => {
                                 const Icon = item.icon;
                                 return (
@@ -258,12 +278,12 @@ const MainMenu: React.FC = () => {
                                         className={styles.menuItem}
                                         onClick={() => handleMenuItemClick(item.path)}
                                         variants={itemVariants}
-                                        whileHover={{ 
-                                            scale: 1.03, 
-                                            boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
-                                            transition: { duration: 0.2 }
-                                        }}
-                                        whileTap={{ scale: 0.98 }}
+                                        initial="hidden"
+                                        animate="visible"
+                                        exit="exit"
+                                        custom={index}
+                                        whileHover="hover"
+                                        whileTap="tap"
                                     >
                                         <motion.div 
                                             className={styles.iconWrapper}
@@ -271,14 +291,30 @@ const MainMenu: React.FC = () => {
                                                 width: menuPositions.icon.width,
                                                 height: menuPositions.icon.height
                                             }}
+                                            whileHover={{ 
+                                                scale: 1.1,
+                                                rotate: 5,
+                                                transition: { duration: 0.2 }
+                                            }}
                                         >
-                                            <Icon />
+                                            <motion.div
+                                                whileHover={{ 
+                                                    scale: 1.1,
+                                                    transition: { duration: 0.2 }
+                                                }}
+                                            >
+                                                <Icon />
+                                            </motion.div>
                                         </motion.div>
                                         <motion.span 
                                             className={styles.menuTitle}
                                             style={{
                                                 minWidth: menuPositions.text.width,
                                                 minHeight: menuPositions.text.height
+                                            }}
+                                            whileHover={{ 
+                                                scale: 1.05,
+                                                transition: { duration: 0.2 }
                                             }}
                                         >
                                             {item.title}

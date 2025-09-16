@@ -10,7 +10,6 @@ const Container = styled(motion.div)`
   padding: 60px 24px;
   text-align: center;
   min-height: 400px;
-  background: var(--background-color);
   border-radius: var(--radius);
   border: 1px solid var(--border-color);
   margin: 24px 0;

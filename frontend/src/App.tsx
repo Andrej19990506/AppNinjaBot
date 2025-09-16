@@ -360,7 +360,6 @@ function App() {
             <AppInitializer>
               <NotificationHandler />
               <TooltipContainer />
-              <div className="app">
                 <Routes>
                   <Route path="/courier" element={
                     <ProtectedRoute requiredGroup="courier">
@@ -383,7 +382,6 @@ function App() {
                   <Route path="/competitions" element={<Competitions />} />
                   <Route path="*" element={<AutoRedirectByRole />} />
                 </Routes>
-              </div>
             </AppInitializer>
           </Router>
         </MuiThemeProvider>

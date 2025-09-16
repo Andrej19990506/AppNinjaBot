@@ -93,7 +93,7 @@ const PageContainer = styled(motion.div)`
   }
   
   @media (max-width: 768px) {
-    padding: 16px;
+    padding: 5px;
     padding-bottom: 80px; /* Меньший отступ для мобильных */
   }
 `;

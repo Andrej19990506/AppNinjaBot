@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAppSelector } from '@shared/store/hooks';
+import { selectUser } from '@shared/store/userSlice/userSelectors';
 import { getDeliveries, DeliveryResponse } from '../services/requestsApi';
 
 // 🎨 Брендовые SVG иконки
@@ -406,6 +408,7 @@ const DeliveriesGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 20px;
+  padding-bottom: 80px;
 `;
 
 const DeliveryCard = styled(motion.div)`
@@ -543,17 +546,32 @@ const AcceptedBy = styled.div`
   border-left: 4px solid var(--primary-color);
 `;
 
-const UserAvatar = styled.div`
+const UserAvatar = styled.div<{ $src?: string }>`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: var(--gradient-primary);
+  background: ${props => props.$src ? 'transparent' : 'var(--gradient-primary)'};
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 0.8rem;
   font-weight: 600;
+  background-image: ${props => props.$src ? `url(${props.$src})` : 'none'};
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Обрезаем изображение по кругу */
+  object-fit: cover; /* Сохраняем пропорции изображения */
+  
+  /* Дополнительные стили для правильного отображения фото */
+  ${props => props.$src && `
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+  `}
 `;
 
 const UserInfo = styled.div`
@@ -709,6 +727,7 @@ interface Props {
 }
 
 const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
+  const user = useAppSelector(selectUser);
   const [deliveries, setDeliveries] = useState<DeliveryResponse[]>([]);
   const [allDeliveries, setAllDeliveries] = useState<DeliveryResponse[]>([]); // Все поставки для фильтрации
   const [loading, setLoading] = useState(true);
@@ -721,6 +740,12 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     dateTo: ''
   });
 
+  // 👤 Функция для получения URL фото пользователя
+  const getUserPhotoUrl = (userId?: number): string | undefined => {
+    if (!userId) return undefined;
+    return `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${userId}/photo`;
+  };
+
   // 🔍 Логи для отладки состояния компонента
   console.log('📋 [DeliveryHistory] Рендер компонента:', {
     selectedChatId,
@@ -731,7 +756,46 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     filters
   });
 
-  const loadData = async () => {
+  // 🔍 Функция для применения фильтров на клиенте
+  const applyClientFilters = useCallback((deliveriesToFilter: DeliveryResponse[]) => {
+    console.log('🔧 [DeliveryHistory] Применяем клиентские фильтры:', filters);
+    
+    let filtered = deliveriesToFilter;
+
+    // Фильтр по поставщику
+    if (filters.supplier) {
+      filtered = filtered.filter(delivery => 
+        delivery.supplier === filters.supplier
+      );
+    }
+
+    // Фильтр по дате "с"
+    if (filters.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      filtered = filtered.filter(delivery => 
+        new Date(delivery.delivery_date) >= fromDate
+      );
+    }
+
+    // Фильтр по дате "по"
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59, 999); // Включаем весь день
+      filtered = filtered.filter(delivery => 
+        new Date(delivery.delivery_date) <= toDate
+      );
+    }
+
+    console.log('✅ [DeliveryHistory] Результат фильтрации:', {
+      original: deliveriesToFilter.length,
+      filtered: filtered.length,
+      filters
+    });
+
+    setDeliveries(filtered);
+  }, [filters]);
+
+  const loadData = useCallback(async () => {
     console.log('🔄 [DeliveryHistory] Начинаем загрузку истории поставок...');
     
     try {
@@ -781,7 +845,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
       console.log('📋 [DeliveryHistory] Найдены поставщики:', suppliers);
       setAvailableSuppliers(suppliers);
       
-      // Применяем клиентские фильтры
+      // Применяем клиентские фильтры напрямую к загруженным данным
       applyClientFilters(branchFilteredDeliveries);
       
     } catch (err) {
@@ -790,60 +854,32 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [chatTitle, applyClientFilters]);
 
-  // 🔍 Функция для применения фильтров на клиенте
-  const applyClientFilters = (deliveriesToFilter: DeliveryResponse[] = allDeliveries) => {
-    console.log('🔧 [DeliveryHistory] Применяем клиентские фильтры:', filters);
-    
-    let filtered = deliveriesToFilter;
-
-    // Фильтр по поставщику
-    if (filters.supplier) {
-      filtered = filtered.filter(delivery => 
-        delivery.supplier === filters.supplier
-      );
+  // 📦 По умолчанию сворачиваем все карточки при первой загрузке
+  React.useEffect(() => {
+    if (deliveries.length > 0 && expandedCards.size === 0) {
+      // Все карточки уже свернуты по умолчанию (expandedCards пустой)
+      console.log('📦 [DeliveryHistory] Все карточки свернуты по умолчанию');
     }
+  }, [deliveries.length, expandedCards.size]);
 
-    // Фильтр по дате "с"
-    if (filters.dateFrom) {
-      const fromDate = new Date(filters.dateFrom);
-      filtered = filtered.filter(delivery => 
-        new Date(delivery.delivery_date) >= fromDate
-      );
-    }
-
-    // Фильтр по дате "по"
-    if (filters.dateTo) {
-      const toDate = new Date(filters.dateTo);
-      toDate.setHours(23, 59, 59, 999); // Включаем весь день
-      filtered = filtered.filter(delivery => 
-        new Date(delivery.delivery_date) <= toDate
-      );
-    }
-
-    console.log('✅ [DeliveryHistory] Результат фильтрации:', {
-      original: deliveriesToFilter.length,
-      filtered: filtered.length,
-      filters
-    });
-
-    setDeliveries(filtered);
-  };
-
+  // 🔄 Основной useEffect для загрузки данных
   useEffect(() => {
     console.log('🔄 [DeliveryHistory] useEffect triggered:', { selectedChatId, chatTitle });
     if (chatTitle) { // Загружаем данные только если есть выбранный филиал
       loadData();
     }
-  }, [selectedChatId, chatTitle]); // Убираем зависимость от фильтров
+  }, [selectedChatId, chatTitle, loadData]); // Добавляем loadData в зависимости
 
   // ⚡ Применяем клиентские фильтры при их изменении
   useEffect(() => {
     if (allDeliveries.length > 0) {
-      applyClientFilters();
+      applyClientFilters(allDeliveries);
+      // Сворачиваем все карточки при изменении фильтров
+      setExpandedCards(new Set());
     }
-  }, [filters]); // Реагируем только на изменения фильтров
+  }, [filters, allDeliveries, applyClientFilters]);
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
     console.log(`🔧 [DeliveryHistory] Изменен фильтр ${key}:`, value);
@@ -861,16 +897,22 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     });
   };
 
-  // 🔄 Функция для разворачивания/сворачивания карточки
+  // 🔄 Функция для разворачивания/сворачивания карточки (только одна карточка может быть развернута)
   const toggleCardExpansion = (deliveryId: number) => {
     setExpandedCards(prev => {
       const newSet = new Set(prev);
+      
+      // Если карточка уже развернута - сворачиваем её
       if (newSet.has(deliveryId)) {
         newSet.delete(deliveryId);
+        console.log(`🔧 [DeliveryHistory] Карточка ${deliveryId} свернута`);
       } else {
+        // Если карточка свернута - сворачиваем все остальные и разворачиваем только эту
+        newSet.clear();
         newSet.add(deliveryId);
+        console.log(`🔧 [DeliveryHistory] Карточка ${deliveryId} развернута (все остальные свернуты)`);
       }
-      console.log(`🔧 [DeliveryHistory] Карточка ${deliveryId} ${newSet.has(deliveryId) ? 'развернута' : 'свернута'}`);
+      
       return newSet;
     });
   };
@@ -1053,7 +1095,9 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
                 </CardDetails>
 
                 <AcceptedBy>
-                  <UserAvatar>{delivery.accepted_by_initials}</UserAvatar>
+                  <UserAvatar $src={getUserPhotoUrl(delivery.accepted_by_user_id)}>
+                    {!getUserPhotoUrl(delivery.accepted_by_user_id) && delivery.accepted_by_initials}
+                  </UserAvatar>
                   <UserInfo>
                     <div className="name">{delivery.accepted_by_name}</div>
                     <div className="date">Принял {formatDate(delivery.accepted_at)}</div>

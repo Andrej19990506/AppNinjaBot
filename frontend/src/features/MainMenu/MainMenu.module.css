@@ -15,6 +15,20 @@
     left: 0;
     right: 0;
     bottom: 0;
+    overflow: hidden;
+}
+
+.container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 20%, rgba(var(--primary-rgb), 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 70% 80%, rgba(var(--primary-rgb), 0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* Стили для кнопки бургер меню */
@@ -59,6 +73,20 @@
     margin-bottom: 24px;
     text-align: center;
     flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.title::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 2px;
+    background: var(--primary-color);
+    border-radius: 1px;
 }
 
 /* Стили для переключателя ролей */
@@ -71,11 +99,16 @@
 
 .roleToggleContainer {
     display: flex;
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    z-index: 1;
 }
 
 .roleButton {
@@ -84,11 +117,11 @@
     justify-content: center;
     gap: 8px;
     padding: 10px 16px;
-    background: var(--card-background);
+    background: transparent;
     border: none;
     color: var(--text-color);
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all var(--transition-normal);
     min-width: 100px;
@@ -107,28 +140,35 @@
 }
 
 .roleButton.activeRole {
+    background: rgba(var(--primary-rgb), 0.1);
     color: var(--primary-color);
-    background-color: var(--primary-transparent);
 }
 
 .roleButton.activeRole::after {
     background: var(--primary-color);
+    height: 2px;
 }
 
 .roleIcon {
     font-size: 18px;
+    transition: all var(--transition-normal);
+}
+
+.roleButton:hover .roleIcon {
+    transform: scale(1.05);
 }
 
 .menuGrid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
     width: 100%;
-    max-width: 600px;
+    max-width: 800px;
     margin: 0 auto;
     flex: 1;
     align-content: center;
     min-height: 0;
+    padding: 0 8px;
 }
 
 .menuItem {
@@ -136,39 +176,103 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    padding: 20px;
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
+    gap: 8px;
+    padding: 16px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
     cursor: pointer;
     transition: all var(--transition-normal);
     color: var(--text-color);
-    height: 120px;
+    height: 100px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    z-index: 1;
 }
 
 .menuItem:hover {
-    border-color: var(--primary-color);
-    transform: var(--hover-transform);
-    box-shadow: var(--shadow-md);
+    border-color: rgba(var(--primary-rgb), 0.3);
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 24px rgba(var(--primary-rgb), 0.15), 
+                0 4px 12px rgba(0, 0, 0, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.menuItem:hover::before {
+    opacity: 1;
+}
+
+.menuItem::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 0.1) 0%, 
+        rgba(var(--primary-rgb), 0.05) 50%,
+        rgba(var(--primary-rgb), 0.1) 100%
+    );
+    border-radius: var(--radius-lg);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+    z-index: -1;
+}
+
+
+.menuItem:active {
+    transform: translateY(0) scale(0.98);
+    transition: all 0.1s ease;
 }
 
 .iconWrapper {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--primary-transparent);
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 0.15) 0%, 
+        rgba(var(--primary-rgb), 0.08) 100%
+    );
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
     border-radius: 50%;
     color: var(--primary-color);
+    transition: all var(--transition-normal);
+    position: relative;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+
+.menuItem:hover .iconWrapper {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    background: linear-gradient(135deg, 
+        rgba(var(--primary-rgb), 0.2) 0%, 
+        rgba(var(--primary-rgb), 0.12) 100%
+    );
 }
 
 .menuTitle {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     text-align: center;
     color: var(--text-color);
+    line-height: 1.2;
+    transition: all var(--transition-normal);
+}
+
+.menuItem:hover .menuTitle {
+    color: var(--primary-color);
+    transform: scale(1.02);
 }
 
 
@@ -208,18 +312,18 @@
     }
 
     .menuItem {
-        height: 100px;
-        padding: 16px;
-        gap: 8px;
+        height: 90px;
+        padding: 12px 8px;
+        gap: 6px;
     }
 
     .iconWrapper {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 30px;
     }
 
     .menuTitle {
-        font-size: 14px;
+        font-size: 12px;
     }
 }
 
@@ -238,7 +342,24 @@
     }
 
     .menuGrid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 0 4px;
+    }
+    
+    .menuItem {
+        height: 80px;
+        padding: 10px 6px;
+        gap: 4px;
+    }
+    
+    .iconWrapper {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .menuTitle {
+        font-size: 11px;
     }
 
     /* Адаптация карточки "Нет доступа" */

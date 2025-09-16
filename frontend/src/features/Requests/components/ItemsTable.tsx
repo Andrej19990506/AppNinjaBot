@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import SlidingDrawer from '../../../shared/components/SlidingDrawer/SlidingDrawer';
@@ -159,6 +159,7 @@ type AcceptedDelivery = {
     user_id?: number;
     telegram_id?: number;
     avatar?: string;
+    photoUrl?: string;
   };
   acceptedAt: string;
   itemsCount: number;
@@ -229,7 +230,6 @@ const slideInLeft = keyframes`
 
 // Стилизованные компоненты
 const TableContainer = styled.div`
-  background: var(--card-background);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   border: 1px solid var(--border-color);
@@ -288,66 +288,45 @@ const ItemCount = styled.span`
 const ScrollArea = styled.div`
   width: 100%;
   padding: 16px 24px;
-  /* Убираем все ограничения скролла для естественного роста контента */
   
   @media (max-width: 768px) {
-    padding: 12px 16px;
+    padding: 12px 0px;
   }
 `;
 
-// Контейнер для карточек с горизонтальным скроллом
+// Контейнер для карточек с адаптивной сеткой
 const CardsContainer = styled.div`
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 24px;
-  width: fit-content; /* Подстраиваем под содержимое */
-  min-width: 100%;
-  padding-bottom: 16px; /* Отступ для скроллбара */
+  width: 100%;
+  align-items: start; /* Выравниваем карточки по верху */
+  
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+  }
   
   @media (max-width: 768px) {
-    flex-direction: column;
+    margin-bottom: 85px;
+    grid-template-columns: 1fr;
     gap: 16px;
-    width: 100%;
-    min-width: auto;
-    padding-bottom: 8px;
   }
 `;
 
-// Обертка для таблицы с горизонтальным скроллом
-const TableWrapper = styled.div`
-  overflow-x: auto;
-  overflow-y: visible;
-  width: 100%;
-  
-  /* Кастомный скроллбар для таблицы */
-  &::-webkit-scrollbar {
-    height: 8px;
-  }
-  
-  &::-webkit-scrollbar-track {
-    background: var(--gray-100);
-    border-radius: 4px;
-  }
-  
-  &::-webkit-scrollbar-thumb {
-    background: var(--primary-color);
-    border-radius: 4px;
-    
-    &:hover {
-      background: var(--primary-dark);
-    }
-  }
-`;
 
 const Table = styled.table`
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
-  min-width: 700px; /* Увеличиваем минимальную ширину */
+  min-width: 600px; /* Минимальная ширина для корректного отображения всех колонок */
+  table-layout: fixed; /* Фиксированная ширина колонок */
   
   @media (max-width: 768px) {
-    min-width: 600px;
     font-size: 0.8rem;
+    min-width: 500px; /* Уменьшенная минимальная ширина для мобильных */
+    width: auto; /* Позволяем таблице расширяться за пределы контейнера */
+    table-layout: auto; /* Автоматическая ширина колонок на мобильных */
   }
 `;
 
@@ -372,22 +351,50 @@ const HeaderCell = styled.th<{ $align?: 'left' | 'right' | 'center' }>`
   
   &:first-child {
     padding-left: 24px;
+    min-width: 150px; /* Широкая колонка для названий */
+  }
+  
+  &:nth-child(2) {
+    min-width: 120px; /* Колонка категории */
+  }
+  
+  &:nth-child(3) {
+    min-width: 80px; /* Колонка единиц измерения */
+  }
+  
+  &:nth-child(4) {
+    min-width: 80px; /* Колонка количества */
   }
   
   &:last-child {
     padding-right: 24px;
+    min-width: 100px; /* Колонка статуса */
   }
   
   @media (max-width: 768px) {
-    padding: 12px 8px;
-    font-size: 0.75rem;
+    padding: 10px 8px;
+    font-size: 0.7rem;
     
     &:first-child {
-      padding-left: 16px;
+      padding-left: 12px;
+      min-width: 120px;
+    }
+    
+    &:nth-child(2) {
+      min-width: 100px;
+    }
+    
+    &:nth-child(3) {
+      min-width: 60px;
+    }
+    
+    &:nth-child(4) {
+      min-width: 60px;
     }
     
     &:last-child {
-      padding-right: 16px;
+      padding-right: 12px;
+      min-width: 80px;
     }
   }
 `;
@@ -423,26 +430,58 @@ const TableCell = styled.td<{ $align?: 'left' | 'right' | 'center'; $highlight?:
   &:first-child {
     padding-left: 24px;
     font-weight: 500;
+    min-width: 150px;
+  }
+  
+  &:nth-child(2) {
+    min-width: 120px;
+  }
+  
+  &:nth-child(3) {
+    min-width: 80px;
+  }
+  
+  &:nth-child(4) {
+    min-width: 80px;
   }
   
   &:last-child {
     padding-right: 24px;
+    min-width: 100px;
   }
   
   @media (max-width: 768px) {
-    padding: 12px 8px;
-    font-size: 0.875rem;
+    padding: 10px 8px;
+    font-size: 0.8rem;
     
     &:first-child {
-      padding-left: 16px;
+      padding-left: 12px;
+      min-width: 120px;
       max-width: 120px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
     
+    &:nth-child(2) {
+      min-width: 100px;
+      max-width: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    &:nth-child(3) {
+      min-width: 60px;
+    }
+    
+    &:nth-child(4) {
+      min-width: 60px;
+    }
+    
     &:last-child {
-      padding-right: 16px;
+      padding-right: 12px;
+      min-width: 80px;
     }
   }
 `;
@@ -526,60 +565,18 @@ const DayBadge = styled.span<{ $isActive?: boolean }>`
 
 
 
-// Заголовок поставки в брендовом стиле с различием статусов
-const SupplierHeader = styled.div<{ $isAccepted?: boolean }>`
-  background: ${props => props.$isAccepted 
-    ? 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.6) 0%, rgba(var(--primary-rgb), 0.8) 100%)'
-    : 'var(--gradient-primary)'
-  };
-  color: white;
-  padding: 16px 24px;
+// Хедер карточки в стиле DeliveryHistory
+const CardHeader = styled.div`
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
   align-items: center;
-  position: relative;
-  overflow: hidden;
-  min-height: 60px;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.1),
-      transparent
-    );
-    animation: ${props => props.$isAccepted ? 'none' : css`${shineAnimation} 4s infinite`};
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: rgba(255, 255, 255, 0.3);
-  }
-  
-  /* Приглушенный эффект для принятых поставок */
-  ${props => props.$isAccepted && `
-    &::before {
-      animation: none;
-    }
-  `}
+  margin-bottom: 16px;
   
   @media (max-width: 768px) {
-    padding: 12px 16px;
     grid-template-columns: 1fr auto;
     grid-template-rows: auto auto;
     gap: 8px;
-    min-height: auto;
   }
 `;
 
@@ -670,50 +667,45 @@ const CollapseButton = styled(motion.button)`
   }
 `;
 
-// SVG компонент для стрелки
-const ChevronIcon = ({ isCollapsed }: { isCollapsed: boolean }) => (
+// SVG компонент для стрелки в стиле DeliveryHistory
+const ChevronDownIcon = ({ isExpanded }: { isExpanded: boolean }) => (
   <svg 
     viewBox="0 0 24 24" 
     fill="none" 
     xmlns="http://www.w3.org/2000/svg"
     style={{ 
-      transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)',
+      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
       transition: 'transform 0.3s ease'
     }}
   >
     <path 
       d="M6 9L12 15L18 9" 
       stroke="currentColor" 
-      strokeWidth="2.5" 
+      strokeWidth="2" 
       strokeLinecap="round" 
       strokeLinejoin="round"
     />
   </svg>
 );
 
-const SupplierTitle = styled.h3`
+// Название поставщика в стиле DeliveryHistory
+const SupplierName = styled.h3`
   margin: 0;
   font-size: 1.2rem;
   font-weight: 700;
+  color: var(--text-color);
   display: flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  gap: 8px;
+  min-width: 0; /* Позволяет тексту сжиматься */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   
-  svg {
-    opacity: 0.9;
-    transition: all 0.3s ease;
-  }
-  
-  &:hover svg {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-  
-  @media (max-width: 768px) {
+  &::before {
+    content: '🏢';
     font-size: 1.1rem;
+    flex-shrink: 0; /* Иконка не сжимается */
   }
 `;
 
@@ -742,71 +734,266 @@ const SupplierStats = styled.div`
   }
 `;
 
-// Карточка поставщика в брендовом стиле с визуальным различием статусов
-const SupplierCard = styled.div<{ $isCollapsed?: boolean; $isAccepted?: boolean }>`
-  background: ${props => props.$isAccepted 
-    ? 'rgba(var(--primary-rgb), 0.02)' 
-    : 'var(--card-background)'
-  };
-  border: 1px solid ${props => props.$isAccepted 
-    ? 'rgba(var(--primary-rgb), 0.15)' 
-    : 'var(--border-color)'
-  };
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: ${props => props.$isAccepted 
-    ? '0 4px 12px rgba(var(--primary-rgb), 0.1)' 
-    : 'var(--shadow-md)'
-  };
-  transition: all var(--transition-normal);
-  position: relative;
-  flex: 0 0 auto;
-  min-width: 450px;
-  width: ${props => props.$isCollapsed ? '350px' : '600px'};
-  max-width: ${props => props.$isCollapsed ? '350px' : '600px'};
-  opacity: ${props => props.$isAccepted ? '0.85' : '1'};
+// Статус бейдж в стиле DeliveryHistory
+const DeliveryStatusBadge = styled.span<{ $status: string }>`
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: ${props => props.$isAccepted 
-      ? 'var(--gradient-primary)' 
-      : 'var(--gradient-primary)'
-    };
-    transform: ${props => props.$isAccepted ? 'scaleX(1)' : 'scaleX(0)'};
-    transition: transform var(--transition-normal);
-  }
-  
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: ${props => props.$isAccepted 
-      ? '0 8px 24px rgba(var(--primary-rgb), 0.15)' 
-      : 'var(--shadow-xl)'
-    };
-    opacity: 1;
-    
-    &::before {
-      transform: scaleX(1);
-    }
-  }
-  
-  /* Принятые поставки имеют приглушенный вид */
-  ${props => props.$isAccepted && `
-    filter: saturate(0.7);
-    
-    &:hover {
-      filter: saturate(1);
-    }
+  ${props => props.$status === 'accepted' ? `
+    background: rgba(var(--primary-rgb), 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(var(--primary-rgb), 0.2);
+  ` : `
+    background: var(--gray-100);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
   `}
   
   @media (max-width: 768px) {
-    min-width: auto;
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 4px;
+  }
+`;
+
+// Кнопка разворачивания в стиле DeliveryHistory
+const ExpandButton = styled(motion.button)`
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: var(--radius);
+  color: var(--primary-color);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0; /* Кнопка не сжимается */
+  
+  &:hover {
+    background: rgba(var(--primary-rgb), 0.15);
+    border-color: rgba(var(--primary-rgb), 0.3);
+    transform: scale(1.05);
+  }
+  
+  svg {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.3s ease;
+  }
+`;
+
+// Детали карточки в стиле DeliveryHistory
+const CardDetails = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+`;
+
+const DetailRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  
+  .label {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+  
+  .value {
+    color: var(--text-color);
+    font-weight: 600;
+  }
+`;
+
+// Информация о принявшем в стиле DeliveryHistory
+const AcceptedBy = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  background: rgba(var(--primary-rgb), 0.05);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--primary-color);
+`;
+
+// Контейнер для контента карточки (занимает оставшееся место)
+const CardContent = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+`;
+
+// Стили для развернутого контента с товарами (как в DeliveryHistory)
+const ExpandedContent = styled(motion.div)`
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color);
+`;
+
+// Заголовок списка товаров (как в DeliveryHistory)
+const ItemsTitle = styled.h4`
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  svg {
+    color: var(--primary-color);
+    opacity: 0.8;
+  }
+`;
+
+// Список товаров (как в DeliveryHistory)
+const SupplierItemsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+// Строка товара (как в DeliveryHistory)
+const SupplierItemRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  
+  .item-name {
+    font-weight: 500;
+    color: var(--text-color);
+    flex: 1;
+    margin-right: 12px;
+  }
+  
+  .item-details {
+    display: flex;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    flex-wrap: wrap;
+  }
+  
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    
+    .item-name {
+      margin-right: 0;
+      margin-bottom: 4px;
+    }
+    
+    .item-details {
+      width: 100%;
+      justify-content: flex-start;
+    }
+  }
+`;
+
+// Бейдж для деталей товара (как в DeliveryHistory)
+const ItemBadge = styled.span<{ $type: 'category' | 'unit' | 'quantity' | 'status' }>`
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  ${props => {
+    if (props.$type === 'quantity') {
+      return `
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary-color);
+        border: 1px solid rgba(var(--primary-rgb), 0.2);
+      `;
+    }
+    if (props.$type === 'status') {
+      return `
+        background: rgba(var(--primary-rgb), 0.1);
+        color: var(--primary-color);
+        border: 1px solid rgba(var(--primary-rgb), 0.2);
+      `;
+    }
+    return `
+      background: var(--gray-100);
+      color: var(--text-secondary);
+      border: 1px solid var(--gray-200);
+    `;
+  }}
+`;
+
+// Контейнер для таблицы с горизонтальной прокруткой
+const TableWrapper = styled.div`
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--radius);
+  
+  @media (max-width: 768px) {
+    /* Принудительная горизонтальная прокрутка на мобильных */
+    overflow-x: scroll;
+    overflow-y: visible;
     width: 100%;
     max-width: 100%;
+    
+    /* Скрываем скроллбар но оставляем функциональность */
+    scrollbar-width: thin;
+    scrollbar-color: var(--primary-color) transparent;
+    
+    &::-webkit-scrollbar {
+      height: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: var(--gray-100);
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--primary-color);
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background: var(--primary-dark);
+    }
+  }
+`;
+
+// Карточка поставщика в стиле DeliveryHistory
+const SupplierCard = styled(motion.div)<{ $isAccepted?: boolean }>`
+  background: var(--card-background);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  @media (max-width: 768px) {
+    padding: 16px;
   }
 `;
 
@@ -819,6 +1006,7 @@ const SupplierFooter = styled.div`
   justify-content: space-between;
   align-items: center;
   min-height: 50px; /* Фиксированная минимальная высота */
+  margin-top: auto; /* Прижимаем футер к низу карточки */
   
   [data-theme="dark"] & {
     background: var(--gray-100);
@@ -845,71 +1033,29 @@ const FooterInfo = styled.div`
   }
 `;
 
-const AcceptButton = styled.button<{ $isAccepted?: boolean }>`
-  padding: 14px 28px;
+const AcceptButton = styled.button`
+  padding: 12px 24px;
   border: none;
   border-radius: var(--radius);
-  font-size: 0.95rem;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 10px;
-  position: relative;
-  overflow: hidden;
-  transition: all var(--transition-normal);
+  gap: 8px;
+  transition: all var(--transition-fast);
+  margin-top: auto;
   
-  ${props => props.$isAccepted ? `
-    background: var(--gradient-primary);
-    color: white;
-    
-    &:hover {
-      background: var(--primary-dark);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 16px rgba(var(--primary-rgb), 0.3);
-    }
-  ` : `
-    background: var(--gradient-primary);
-    color: white;
-    box-shadow: var(--shadow-md);
-    
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.2),
-        transparent
-      );
-      transition: left var(--transition-normal);
-    }
-    
-    &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 24px rgba(var(--primary-rgb), 0.4);
-      
-      &::before {
-        left: 100%;
-      }
-    }
-  `}
+  &:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
+  }
   
   &:active {
     transform: translateY(0);
-  }
-  
-  &:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    
-    &:hover {
-      transform: none;
-    }
   }
 `;
 
@@ -1249,22 +1395,44 @@ const ItemInfo = styled.div`
 `;
 
 const UserInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  .name {
+    font-weight: 600;
+    color: var(--text-color);
+    font-size: 0.9rem;
+  }
+  
+  .date {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
 `;
 
-const UserAvatar = styled.div`
-  width: 24px;
-  height: 24px;
+const UserAvatar = styled.div<{ $src?: string }>`
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: var(--gradient-primary);
+  background: ${props => props.$src ? 'transparent' : 'var(--gradient-primary)'};
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   font-weight: 600;
+  background-image: ${props => props.$src ? `url(${props.$src})` : 'none'};
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Обрезаем изображение по кругу */
+  object-fit: cover; /* Сохраняем пропорции изображения */
+  
+  /* Дополнительные стили для правильного отображения фото */
+  ${props => props.$src && `
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+  `}
 `;
 
 const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef }) => {
@@ -1306,11 +1474,25 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     const fullName = `${firstName} ${lastName}`.trim() || 'Пользователь';
     const initials = getUserInitials(fullName);
     
+    // URL фото пользователя через API endpoint
+    const photoUrl = user?.id 
+      ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${user.id}/photo`
+      : undefined;
+    
+    console.log('👤 [ItemsTable] getCurrentUserData:', {
+      user: user,
+      userId: user?.id,
+      photoUrl: photoUrl,
+      fullName: fullName,
+      initials: initials
+    });
+    
     return {
       name: fullName,
       initials: initials,
       user_id: user?.id,
-      telegram_id: user?.id // Используем id как telegram_id если нет отдельного поля
+      telegram_id: user?.id, // Используем id как telegram_id если нет отдельного поля
+      photoUrl: photoUrl
     };
   };
 
@@ -1383,92 +1565,104 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   }, [supplierGroups.length, collapsedSuppliers.size]);
 
   // 📋 Загрузка принятых поставок при изменении даты
-  React.useEffect(() => {
-    const loadAcceptedDeliveries = async () => {
-      if (!selectedDate) {
-        console.log('🚫 [DELIVERIES] selectedDate не задана, пропускаем загрузку');
-        return;
-      }
+  const loadAcceptedDeliveries = useCallback(async () => {
+    if (!selectedDate) {
+      console.log('🚫 [DELIVERIES] selectedDate не задана, пропускаем загрузку');
+      return;
+    }
 
-      console.log('🔄 [DELIVERIES] Начинаем загрузку принятых поставок для даты:', selectedDate);
-      console.log('🏢 [DELIVERIES] selectedChatId:', selectedChatId);
-      console.log('🏪 [DELIVERIES] chatTitle:', chatTitle);
+    console.log('🔄 [DELIVERIES] Начинаем загрузку принятых поставок для даты:', selectedDate);
+    console.log('🏢 [DELIVERIES] selectedChatId:', selectedChatId);
+    console.log('🏪 [DELIVERIES] chatTitle:', chatTitle);
 
-      try {
-        const { getDeliveriesByDate } = await import('../services/requestsApi');
-        
-        console.log('📡 [DELIVERIES] Вызываем API getDeliveriesByDate...');
-        const deliveries = await getDeliveriesByDate(selectedDate);
-        
-        console.log('✅ [DELIVERIES] Получены поставки с сервера:', deliveries);
-        console.log('📊 [DELIVERIES] Количество поставок:', deliveries.length);
+    try {
+      const { getDeliveriesByDate } = await import('../services/requestsApi');
+      
+      console.log('📡 [DELIVERIES] Вызываем API getDeliveriesByDate...');
+      const deliveries = await getDeliveriesByDate(selectedDate);
+      
+      console.log('✅ [DELIVERIES] Получены поставки с сервера:', deliveries);
+      console.log('📊 [DELIVERIES] Количество поставок:', deliveries.length);
 
-        // Создаем Map из принятых поставок
-        const acceptedMap = new Map<string, AcceptedDelivery>();
-        
-        deliveries.forEach((delivery, index) => {
-          console.log(`📦 [DELIVERY ${index + 1}] Обрабатываем поставку:`, {
-            id: delivery.id,
-            supplier: delivery.supplier,
-            branch: delivery.branch,
-            status: delivery.status,
-            acceptedBy: `${delivery.accepted_by_name} (${delivery.accepted_by_initials})`
+      // Создаем Map из принятых поставок
+      const acceptedMap = new Map<string, AcceptedDelivery>();
+      
+      deliveries.forEach((delivery, index) => {
+        console.log(`📦 [DELIVERY ${index + 1}] Обрабатываем поставку:`, {
+          id: delivery.id,
+          supplier: delivery.supplier,
+          branch: delivery.branch,
+          status: delivery.status,
+          acceptedBy: `${delivery.accepted_by_name} (${delivery.accepted_by_initials})`
+        });
+
+        // Фильтруем только принятые поставки для текущего филиала
+        if (delivery.status === 'accepted' && 
+            (delivery.branch === chatTitle || delivery.branch === selectedChatId)) {
+          
+          // Получаем URL фото пользователя
+          const photoUrl = delivery.accepted_by_user_id 
+            ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${delivery.accepted_by_user_id}/photo`
+            : undefined;
+
+          console.log('👤 [ItemsTable] Загружаем принятую поставку:', {
+            delivery: delivery,
+            accepted_by_user_id: delivery.accepted_by_user_id,
+            photoUrl: photoUrl
           });
 
-          // Фильтруем только принятые поставки для текущего филиала
-          if (delivery.status === 'accepted' && 
-              (delivery.branch === chatTitle || delivery.branch === selectedChatId)) {
-            
-            const acceptedDelivery: AcceptedDelivery = {
-              id: delivery.id.toString(),
-              supplier: delivery.supplier,
-              acceptedBy: {
-                name: delivery.accepted_by_name || 'Неизвестно',
-                initials: delivery.accepted_by_initials || '??',
-                user_id: undefined, // В DeliveryResponse нет этих полей
-                telegram_id: undefined
-              },
-              acceptedAt: delivery.accepted_at || new Date().toISOString(),
-              itemsCount: delivery.items?.length || 0
-            };
+          const acceptedDelivery: AcceptedDelivery = {
+            id: delivery.id.toString(),
+            supplier: delivery.supplier,
+            acceptedBy: {
+              name: delivery.accepted_by_name || 'Неизвестно',
+              initials: delivery.accepted_by_initials || '??',
+              user_id: delivery.accepted_by_user_id,
+              telegram_id: delivery.accepted_by_user_id,
+              photoUrl: photoUrl
+            },
+            acceptedAt: delivery.accepted_at || new Date().toISOString(),
+            itemsCount: delivery.items?.length || 0
+          };
 
-            acceptedMap.set(delivery.supplier, acceptedDelivery);
-            
-            console.log(`✅ [DELIVERY ${index + 1}] Добавлена принятая поставка:`, {
-              supplier: delivery.supplier,
-              acceptedBy: acceptedDelivery.acceptedBy.name,
-              itemsCount: acceptedDelivery.itemsCount
-            });
-          } else {
-            console.log(`⏭️ [DELIVERY ${index + 1}] Пропускаем поставку:`, {
-              reason: delivery.status !== 'accepted' ? 'статус не accepted' : 'не наш филиал',
-              status: delivery.status,
-              branch: delivery.branch,
-              expectedBranch: chatTitle || selectedChatId
-            });
-          }
-        });
+          acceptedMap.set(delivery.supplier, acceptedDelivery);
+          
+          console.log(`✅ [DELIVERY ${index + 1}] Добавлена принятая поставка:`, {
+            supplier: delivery.supplier,
+            acceptedBy: acceptedDelivery.acceptedBy.name,
+            itemsCount: acceptedDelivery.itemsCount
+          });
+        } else {
+          console.log(`⏭️ [DELIVERY ${index + 1}] Пропускаем поставку:`, {
+            reason: delivery.status !== 'accepted' ? 'статус не accepted' : 'не наш филиал',
+            status: delivery.status,
+            branch: delivery.branch,
+            expectedBranch: chatTitle || selectedChatId
+          });
+        }
+      });
 
-        console.log('🎯 [DELIVERIES] Итоговый Map принятых поставок:', {
-          size: acceptedMap.size,
-          suppliers: Array.from(acceptedMap.keys())
-        });
+      console.log('🎯 [DELIVERIES] Итоговый Map принятых поставок:', {
+        size: acceptedMap.size,
+        suppliers: Array.from(acceptedMap.keys())
+      });
 
-        setAcceptedDeliveries(acceptedMap);
-        
-      } catch (error) {
-        console.error('❌ [DELIVERIES] Ошибка при загрузке принятых поставок:', error);
-        console.error('🔍 [DELIVERIES] Детали ошибки:', {
-          message: error instanceof Error ? error.message : 'Unknown error',
-          selectedDate,
-          selectedChatId,
-          chatTitle
-        });
-      }
-    };
-
-    loadAcceptedDeliveries();
+      setAcceptedDeliveries(acceptedMap);
+      
+    } catch (error) {
+      console.error('❌ [DELIVERIES] Ошибка при загрузке принятых поставок:', error);
+      console.error('🔍 [DELIVERIES] Детали ошибки:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        selectedDate,
+        selectedChatId,
+        chatTitle
+      });
+    }
   }, [selectedDate, selectedChatId, chatTitle]);
+
+  useEffect(() => {
+    loadAcceptedDeliveries();
+  }, [loadAcceptedDeliveries]);
 
   const handleAcceptDelivery = (supplierGroup: SupplierGroup) => {
     setSelectedSupplier(supplierGroup);
@@ -1563,12 +1757,19 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
           initials: deliveryRequest.accepted_by.initials,
           user_id: deliveryRequest.accepted_by.user_id,
           telegram_id: deliveryRequest.accepted_by.telegram_id,
-          avatar: undefined
+          avatar: undefined,
+          photoUrl: deliveryRequest.accepted_by.photoUrl
         },
         acceptedAt: new Date().toISOString(),
         itemsCount: deliveryItems.length,
         checkedItems: { ...checkedItems }
       };
+
+      console.log('👤 [ItemsTable] Создаем AcceptedDelivery с фото:', {
+        acceptedDelivery: acceptedDelivery,
+        photoUrl: deliveryRequest.accepted_by.photoUrl,
+        userData: deliveryRequest.accepted_by
+      });
 
       console.log('💾 [ACCEPT] Создаем локальную запись о принятой поставке:', acceptedDelivery);
 
@@ -1783,7 +1984,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
       
       <ScrollArea>
         <CardsContainer>
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             {supplierGroups.map((group, groupIndex) => {
               const isCollapsed = collapsedSuppliers.has(group.supplier);
               const isAccepted = acceptedDeliveries.has(group.supplier);
@@ -1798,157 +1999,103 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                   }}
                   layout
                 >
-                  <SupplierCard $isCollapsed={isCollapsed} $isAccepted={isAccepted}>
-                    <SupplierHeader $isAccepted={isAccepted}>
-                      <SupplierInfo>
-                        <SupplierTitle>
-                          <SupplierBoxIcon size={22} />
-                          Поставка от {group.supplier}
-                        </SupplierTitle>
-                        <SupplierStats>
-                          <div className="stat-item">
-                            <ItemsIcon size={14} />
-                            <span>Товаров: {group.itemCount}</span>
-                          </div>
-                        </SupplierStats>
-                      </SupplierInfo>
-                      
-                      <ExpandButtonContainer>
-                        <CollapseButton
-                          onClick={() => toggleSupplierCollapse(group.supplier)}
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <ChevronIcon isCollapsed={isCollapsed} />
-                        </CollapseButton>
-                      </ExpandButtonContainer>
-                      
-                      <SupplierStatus>
-                        {isAccepted ? (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                          >
-                            <AcceptedIcon size={18} />
-                            <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>Принято</span>
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                            initial={{ opacity: 0.7 }}
-                            animate={{ opacity: 1 }}
-                          >
-                            <PendingIcon size={16} />
-                            <span style={{ fontSize: '0.85rem', fontWeight: '500', opacity: '0.9' }}>Ожидает</span>
-                          </motion.div>
-                        )}
-                      </SupplierStatus>
-                    </SupplierHeader>
+                  <SupplierCard $isAccepted={isAccepted}>
+                    <CardHeader>
+                      <SupplierName title={`Поставка от ${group.supplier}`}>
+                        Поставка от {group.supplier}
+                      </SupplierName>
+                      <ExpandButton
+                        onClick={() => toggleSupplierCollapse(group.supplier)}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        <ChevronDownIcon isExpanded={!isCollapsed} />
+                      </ExpandButton>
+                      <DeliveryStatusBadge $status={isAccepted ? 'accepted' : 'pending'}>
+                        {isAccepted ? 'Принято' : 'Ожидает'}
+                      </DeliveryStatusBadge>
+                    </CardHeader>
               
+                    <CardDetails>
+                      <DetailRow>
+                        <span className="label">Товаров:</span>
+                        <span className="value">{group.itemCount}</span>
+                      </DetailRow>
+                      <DetailRow>
+                        <span className="label">Дата поставки:</span>
+                        <span className="value">
+                          {selectedDate ? new Date(selectedDate).toLocaleDateString('ru-RU') : '—'}
+                        </span>
+                      </DetailRow>
+                    </CardDetails>
+
+                    {isAccepted && (
+                      <AcceptedBy>
+                        <UserAvatar $src={acceptedDeliveries.get(group.supplier)?.acceptedBy.photoUrl}>
+                          {!acceptedDeliveries.get(group.supplier)?.acceptedBy.photoUrl && acceptedDeliveries.get(group.supplier)?.acceptedBy.initials}
+                        </UserAvatar>
+                        <UserInfo>
+                          <div className="name">{acceptedDeliveries.get(group.supplier)?.acceptedBy.name}</div>
+                          <div className="date">Принял {acceptedDeliveries.get(group.supplier)?.acceptedAt ? new Date(acceptedDeliveries.get(group.supplier)!.acceptedAt).toLocaleDateString('ru-RU') : '—'}</div>
+                        </UserInfo>
+                      </AcceptedBy>
+                    )}
+
+                    {/* Развернутый контент с товарами (как в DeliveryHistory) */}
                     <AnimatePresence>
                       {!isCollapsed && (
-                        <motion.div
+                        <ExpandedContent
                           initial={{ height: 0, opacity: 0 }}
-                          animate={{ 
-                            height: "auto", 
-                            opacity: 1,
-                            transition: { duration: 0.3 }
-                          }}
-                          exit={{ 
-                            height: 0, 
-                            opacity: 0,
-                            transition: { duration: 0.3 }
-                          }}
-                          style={{ overflow: "hidden" }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
                         >
-                          <TableWrapper>
-                            <Table>
-                              <TableHead>
-                                <tr>
-                                  <HeaderCell>Наименование</HeaderCell>
-                                  <HeaderCell>Категория</HeaderCell>
-                                  <HeaderCell>Ед.изм</HeaderCell>
-                                  <HeaderCell $align="right">Кол-во</HeaderCell>
-                                  <HeaderCell>Статус</HeaderCell>
-            </tr>
-                              </TableHead>
-                              <TableBody>
-                                {group.items.map((item, index) => (
-                                  <TableRow key={`${groupIndex}-${index}`} $index={index}>
-                                    <TableCell $highlight>{item.name}</TableCell>
-                                    <TableCell>{item.category || '—'}</TableCell>
-                                    <TableCell>{item.unit || '—'}</TableCell>
-                                    <TableCell $align="right">
-                                      {item.quantity_for_date != null ? formatNumber(item.quantity_for_date) : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                      {item.status ? (
-                                        <StatusBadge $status={item.status}>{item.status}</StatusBadge>
-                                      ) : (
-                                        '—'
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </TableWrapper>
-                        </motion.div>
+                          <ItemsTitle>
+                            <ItemsIcon size={18} />
+                            Товары поставки ({group.items.length})
+                          </ItemsTitle>
+                          
+                          <SupplierItemsList>
+                            {group.items.map((item, index) => (
+                              <SupplierItemRow key={`${groupIndex}-${index}`}>
+                                <div className="item-name">{item.name}</div>
+                                <div className="item-details">
+                                  {item.category && (
+                                    <ItemBadge $type="category">
+                                      {item.category}
+                                    </ItemBadge>
+                                  )}
+                                  {item.unit && (
+                                    <ItemBadge $type="unit">
+                                      {item.unit}
+                                    </ItemBadge>
+                                  )}
+                                  {item.quantity_for_date != null && (
+                                    <ItemBadge $type="quantity">
+                                      {formatNumber(item.quantity_for_date)}
+                                    </ItemBadge>
+                                  )}
+                                  {item.status && (
+                                    <ItemBadge $type="status">
+                                      {item.status}
+                                    </ItemBadge>
+                                  )}
+                                </div>
+                              </SupplierItemRow>
+                            ))}
+                          </SupplierItemsList>
+                        </ExpandedContent>
                       )}
                     </AnimatePresence>
               
-                    <SupplierFooter>
-                      <FooterInfo>
-                        {isAccepted ? (
-                          <>
-                            <AcceptedIcon size={16} />
-                            <span>Поставка принята</span>
-                            <UserInfo>
-                              <UserAvatar>
-                                {acceptedDeliveries.get(group.supplier)?.acceptedBy.initials}
-                              </UserAvatar>
-                              <span>{acceptedDeliveries.get(group.supplier)?.acceptedBy.name}</span>
-                            </UserInfo>
-                          </>
-                        ) : (
-                          <>
-                            <DeliveryTruckIcon size={18} />
-                            <span>Ожидает приемки</span>
-                          </>
-                        )}
-                      </FooterInfo>
-                      
+                    {!isAccepted && (
                       <AcceptButton 
-                        $isAccepted={isAccepted}
                         onClick={() => handleAcceptDelivery(group)}
-                        disabled={isAccepted}
                       >
-                        {isAccepted ? (
-                          <>
-                            <AcceptedIcon size={14} />
-                            &nbsp;Принято
-                          </>
-                        ) : (
-                          <>
-                            <motion.div
-                              animate={{ rotate: [0, 5, -5, 0] }}
-                              transition={{ 
-                                duration: 2,
-                                repeat: Infinity,
-                                repeatDelay: 3
-                              }}
-                              style={{ display: 'flex', alignItems: 'center' }}
-                            >
-                              <SupplierBoxIcon size={16} />
-                            </motion.div>
-                            &nbsp;Принять поставку
-                          </>
-                        )}
+                        <SupplierBoxIcon size={16} />
+                        Принять поставку
                       </AcceptButton>
-                    </SupplierFooter>
+                    )}
                   </SupplierCard>
                 </motion.div>
               );

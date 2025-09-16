@@ -78,9 +78,21 @@ async def get_user_groups_context(
     if member_with_associations and member_with_associations.groups:
         for assoc in member_with_associations.groups:
             if assoc.group:
-                group_data = assoc.group.__dict__
-                group_data['role'] = assoc.role
-                group_data['is_senior_courier'] = assoc.is_senior_courier
+                # Используем свойство chat_id для преобразования в строку
+                group_data = {
+                    'id': assoc.group.id,  # Внутренний ID группы из БД
+                    'group_id': assoc.group.chat_id,  # Используем свойство chat_id (строка)
+                    'title': assoc.group.title,
+                    'group_type': assoc.group.group_type,
+                    'username': assoc.group.username,
+                    'description': assoc.group.description,
+                    'members_count': assoc.group.members_count,
+                    'json_metadata': assoc.group.json_metadata,
+                    'supplies_config': assoc.group.supplies_config,
+                    'created_at': assoc.group.created_at,  # Дата создания
+                    'role': assoc.role,
+                    'is_senior_courier': assoc.is_senior_courier
+                }
                 groups_context.append(group_data)
 
     # 4. Вернуть список

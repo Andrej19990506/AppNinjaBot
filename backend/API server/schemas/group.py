@@ -12,6 +12,7 @@ class GroupBase(BaseModel):
     description: Optional[str] = None
     members_count: Optional[int] = None
     json_metadata: Optional[dict[str, Any]] = None
+    supplies_config: Optional[dict[str, Any]] = None
 
     # Добавляем конфигурацию для использования alias при сериализации
     model_config = ConfigDict(populate_by_name=True)

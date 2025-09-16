@@ -134,6 +134,7 @@ interface FooterProps {
     selectedItem?: string;
     onBack: () => void;
     onChatSelect?: () => void;
+    onHome?: () => void; // Новый проп для кастомного перехода на главную
     showCreateButton?: boolean;
     isCreateButtonActive?: boolean;
     onCreateClick?: (e?: React.MouseEvent) => void;
@@ -183,6 +184,7 @@ const Footer: React.FC<FooterProps> = ({
     selectedCategory,
     selectedItem,
     onBack,
+    onHome, // Добавляем новый проп
     showCreateButton = false,
     isCreateButtonActive = false,
     onCreateClick,
@@ -407,7 +409,7 @@ const Footer: React.FC<FooterProps> = ({
                             {!selectedCategory && !selectedItem && (
                                 <motion.button 
                                     className={styles.iconButton} 
-                                    onClick={() => navigate('/')} 
+                                    onClick={onHome ? onHome : () => navigate('/')} 
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                 >
@@ -434,7 +436,7 @@ const Footer: React.FC<FooterProps> = ({
                                             ref={textRef}
                                             className={isTextOverflow ? styles.scrollingText : ''}
                                         >
-                                            {selectedItem ? selectedCategory : 'Категории'}
+                                            {selectedCategory === 'requests' ? 'Назад' : (selectedItem ? selectedCategory : 'Категории')}
                                         </div>
                                     </div>
                                 </motion.button>

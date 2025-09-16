@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import {
     DrawerOverlay,
@@ -47,6 +47,20 @@ const SlidingDrawer = ({ children, onClose }) => {
     
     // Референс на контейнер для вычисления высоты
     const drawerRef = useRef(null);
+    
+    // 🚫 Блокировка скролла страницы при открытии модалки
+    useEffect(() => {
+        // Сохраняем текущее значение overflow для восстановления
+        const originalStyle = window.getComputedStyle(document.body).overflow;
+        
+        // Блокируем скролл
+        document.body.style.overflow = 'hidden';
+        
+        // Восстанавливаем скролл при размонтировании
+        return () => {
+            document.body.style.overflow = originalStyle;
+        };
+    }, []);
     
     // Обработчик окончания перетаскивания
     const handleDragEnd = (event, info) => {

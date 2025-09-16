@@ -1,7 +1,7 @@
 import { Chat } from "@/types/chat";
 
 
-export type ChatContext = 'inventory' | 'writeoff' | 'events';
+export type ChatContext = 'inventory' | 'writeoff' | 'events' | 'supplies';
 
 export interface InventoryContextData {
     inventory_progress?: number;

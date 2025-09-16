@@ -20,6 +20,7 @@ import { useActivityNotifications } from './shared/hooks/useActivityNotification
 import { useAwayState } from './shared/hooks/useAwayState';
 import { PermissionsExpiredModal } from './shared/components/PermissionsExpiredModal/PermissionsExpiredModal';
 import  NotificationHandler from './shared/components/Notifications/NotificationHandler';
+import { TooltipContainer } from './shared/components/Notifications/Toast';
 import AwayOverlay from './shared/components/AwayOverlay/AwayOverlay';
 import InventoryPage from './features/Inventory/pages/InventoryPage';
 import LoadingOverlay from './shared/components/LoadingOverlay/LoadingOverlay';
@@ -32,6 +33,7 @@ import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned
 import ServerErrorModal from './shared/components/ServerErrorModal/ServerErrorModal';
 import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
+import Requests from './features/Requests/Requests';
 import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
 
 
@@ -357,6 +359,7 @@ function App() {
             <LocationChangeListener /> 
             <AppInitializer>
               <NotificationHandler />
+              <TooltipContainer />
               <div className="app">
                 <Routes>
                   <Route path="/courier" element={
@@ -374,6 +377,8 @@ function App() {
                   <Route path="/chef/events" element={<EventList />} />
                   <Route path="/chef/inventory" element={<InventoryPage />} />
                   <Route path="/chef/write-off" element={<WriteOff />} />
+                  <Route path="/chef/requests" element={<Requests />} />
+                  <Route path="/chef/requests/:tab" element={<Requests />} />
                   <Route path="/inventory/:chatId" element={<InventoryPage />} />
                   <Route path="/competitions" element={<Competitions />} />
                   <Route path="*" element={<AutoRedirectByRole />} />

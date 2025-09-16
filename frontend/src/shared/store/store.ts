@@ -18,6 +18,7 @@ import eventsReducer from '@/store/slices/eventsSlice';
 import atoModalReducer from '@/store/slices/atoModalSlice';
 import socketReducer, { socketConnected, socketDisconnected } from '@/store/slices/socketSlice';
 import competitionsReducer from '@/store/slices/competitionsSlice';
+import requestsReducer from '@/features/Requests/store/requestsSlice';
 
 // --- Middleware для прослушивания событий ---
 export const listenerMiddleware = createListenerMiddleware();
@@ -155,6 +156,7 @@ const store = configureStore({
         events: eventsReducer,
         atoModal: atoModalReducer,
         competitions: competitionsReducer,
+        requests: requestsReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({

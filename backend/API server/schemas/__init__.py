@@ -45,6 +45,28 @@ from .material_reaction import (
     GroupedReaction,
     ReactionAuthor
 )
+# Добавляем импорт схем для поставок
+from .delivery import (
+    DeliveryBase,
+    DeliveryCreate,
+    DeliveryUpdate,
+    DeliveryRead,
+    DeliveryItemBase,
+    DeliveryItemCreate,
+    DeliveryItemRead,
+    DeliveryStats,
+    DeliveryListResponse,
+    DeliveryFilters,
+    DeliveryAcceptRequest,
+    DeliveryAcceptResponse,
+    UserInfo
+)
+# Добавляем импорт схем для конфигурации поставок
+from .supplies_config import (
+    SuppliesConfig,
+    SuppliesConfigCreate,
+    SuppliesConfigUpdate
+)
 
 # Можно добавить __all__, чтобы явно указать экспортируемые имена
 __all__ = [
@@ -69,4 +91,9 @@ __all__ = [
     "MaterialCommentRead", "MaterialCommentsResponse", "CommentAuthor",
     "MaterialReactionBase", "MaterialReactionCreate", "MaterialReactionRead",
     "MaterialReactionsResponse", "GroupedReaction", "ReactionAuthor",
+    "DeliveryBase", "DeliveryCreate", "DeliveryUpdate", "DeliveryRead",
+    "DeliveryItemBase", "DeliveryItemCreate", "DeliveryItemRead",
+    "DeliveryStats", "DeliveryListResponse", "DeliveryFilters",
+    "DeliveryAcceptRequest", "DeliveryAcceptResponse", "UserInfo",
+    "SuppliesConfig", "SuppliesConfigCreate", "SuppliesConfigUpdate",
 ] 

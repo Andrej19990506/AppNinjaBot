@@ -22,6 +22,7 @@ const chefMenuItems = [
     { id: 'events', title: 'События', path: 'events', icon: EventIcon },
     { id: 'inventory', title: 'Инвентарь', path: 'inventory', icon: InventoryIcon },
     { id: 'write-off', title: 'Списание', path: 'write-off', icon: DeleteIcon },
+    { id: 'requests', title: 'Поставки', path: 'requests', icon: InventoryIcon },
 ];
 
 const courierMenuItems = [

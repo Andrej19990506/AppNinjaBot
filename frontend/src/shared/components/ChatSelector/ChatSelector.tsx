@@ -43,6 +43,15 @@ export interface ChatItem {
         photo_url?: string;
     }>;
     inventory?: any;
+    supplies_config?: {
+        spreadsheet_id: string;
+        default_sheet_pattern: string;
+        branch_name: string;
+        start_row?: number;
+        header_row?: number;
+        months_range_back?: number;
+        months_range_forward?: number;
+    };
     [key: string]: any;
 }
 
@@ -79,6 +88,8 @@ function getTitleByMode(mode: ChatContext): string {
             return 'Выберите чат для списания';
         case 'events':
             return 'Выберите чат для просмотра событий';
+        case 'supplies':
+            return 'Выберите филиал для работы с поставками';
         default:
             return 'Выберите чат';
     }
@@ -265,8 +276,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
         try {
             console.log(`ChatSelector: handleChatClick - Processing chat ${chat.chat_id}, user ${currentUser.id}, mode ${mode}`);
 
-            // --- ИЗМЕНЕНИЕ: Пропускаем проверку прав для режима 'events' ---
-            if (mode !== 'events') {
+            // --- ИЗМЕНЕНИЕ: Пропускаем проверку прав для режимов 'events' и 'supplies' ---
+            if (mode !== 'events' && mode !== 'supplies') {
                 console.log(`ChatSelector: Mode is '${mode}', checking permissions...`);
                 
                 // Сначала проверяем временный доступ
@@ -292,8 +303,8 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                 console.log(`ChatSelector: Modal will be shown for chat ${chat.chat_id}`);
             
             } else {
-                // 3b. Mode is 'events', skip admin check and call onChatSelect directly
-                console.log(`ChatSelector: Mode is 'events', skipping admin check. Calling onChatSelect...`);
+                // 3b. Mode is 'events' or 'supplies', skip admin check and call onChatSelect directly
+                console.log(`ChatSelector: Mode is '${mode}', skipping admin check. Calling onChatSelect...`);
                 if (onChatSelect) {
                     // Используем пропс selectedChats вместо несуществующего selectedChatsInternal
                     const isSelected = selectedChats.includes(chat.chat_id); 
@@ -306,13 +317,13 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                     onChatSelect(newSelectedChats); 
                     console.log(`ChatSelector: onChatSelect called with IDs: ${newSelectedChats.join(', ')}`);
                 } else {
-                    console.warn('ChatSelector: Mode is \'events\' but onChatSelect prop is missing.');
+                    console.warn(`ChatSelector: Mode is '${mode}' but onChatSelect prop is missing.`);
                 }
             }
 
         } catch (error: any) {
             // 5. Handle rights error or other errors (only relevant if admin check was performed)
-            if (mode !== 'events') { // Only show error if it came from admin check
+            if (mode !== 'events' && mode !== 'supplies') { // Only show error if it came from admin check
                 console.error('ChatSelector: Admin rights check failed or other error:', error);
                 setSystemNotification({
                     message: typeof error === 'string' ? error : error?.message || 'Ошибка при проверке прав или другое действие',

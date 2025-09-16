@@ -40,6 +40,9 @@ class Group(Base):
     # НОВОЕ ПОЛЕ ДЛЯ ИНТЕГРАЦИИ С RETAILIQA
     retailiqa_object_name = Column(String(255), nullable=True, comment='Имя объекта из RetailiQA для данной группы')
 
+    # НОВОЕ ПОЛЕ ДЛЯ НАСТРОЕК ПОСТАВОК
+    supplies_config = Column(JSON, nullable=True, comment='Configuration for supplies management: spreadsheet_id, sheet patterns, etc.')
+
     # Связь с ассоциативной таблицей group_members
     members: Mapped[List["GroupMember"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
@@ -56,4 +59,9 @@ class Group(Base):
     )
 
     def __repr__(self):
-        return f"<Group(id={self.id}, group_id={self.group_id}, title='{self.title}', type='{self.group_type}')>" 
+        return f"<Group(id={self.id}, group_id={self.group_id}, title='{self.title}', type='{self.group_type}')>"
+    
+    @property
+    def chat_id(self) -> str:
+        """Возвращает group_id как строку для совместимости с фронтендом"""
+        return str(self.group_id) 

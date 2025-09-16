@@ -66,7 +66,8 @@ class DeliveryService:
                 quantity=item_data.quantity,
                 price=item_data.price,
                 item_total=item_total,
-                is_checked=item_data.is_checked
+                is_checked=item_data.is_checked,
+                notes=item_data.notes
             )
             self.db.add(delivery_item)
             

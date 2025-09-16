@@ -512,6 +512,123 @@ const SupplierName = styled.h3`
 `;
 
 
+const ItemNotesContainer = styled.div`
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(var(--primary-rgb), 0.05);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--primary-color);
+  
+  .item-notes-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    svg {
+      color: var(--primary-color);
+      opacity: 0.8;
+    }
+  }
+  
+  .item-notes-content {
+    font-size: 0.85rem;
+    color: var(--text-color);
+    line-height: 1.4;
+    white-space: pre-wrap;
+    font-style: italic;
+    background: rgba(var(--primary-rgb), 0.03);
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(var(--primary-rgb), 0.1);
+  }
+`;
+
+const ItemNotesIcon = ({ size = 12 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const NotesSection = styled.div`
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--primary-color);
+  
+  .notes-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    svg {
+      color: var(--primary-color);
+      opacity: 0.8;
+    }
+  }
+  
+  .notes-content {
+    font-size: 0.9rem;
+    color: var(--text-color);
+    line-height: 1.4;
+    white-space: pre-wrap;
+  }
+`;
+
+const NotesIcon = ({ size = 14 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M14 2V8H20" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 13H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 17H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M10 9H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const CardDetails = styled.div`
   display: flex;
   flex-direction: column;
@@ -1092,6 +1209,18 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
                       {delivery.checked_items} из {delivery.total_items}
                     </span>
                   </DetailRow>
+                  
+                  {delivery.notes && delivery.notes.trim() && !delivery.notes.includes('Поставка принята через веб-интерфейс') && (
+                    <NotesSection>
+                      <div className="notes-label">
+                        <NotesIcon size={14} />
+                        Заметки к поставке
+                      </div>
+                      <div className="notes-content">
+                        {delivery.notes}
+                      </div>
+                    </NotesSection>
+                  )}
                 </CardDetails>
 
                 <AcceptedBy>
@@ -1121,22 +1250,36 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
                       {delivery.items && delivery.items.length > 0 ? (
                         <ItemsList>
                           {delivery.items.map((item, itemIndex) => (
-                            <ItemRow key={itemIndex}>
-                              <div className="item-name">{item.name}</div>
-                              <div className="item-details">
-                                {item.quantity && (
-                                  <ItemBadge $type="quantity">
-                                    {item.quantity} {item.unit || 'шт'}
-                                  </ItemBadge>
-                                )}
-                          {item.is_checked && (
-                            <ItemBadge $type="checked">
-                              <CheckIcon size={12} />
-                              Принято
-                            </ItemBadge>
-                          )}
-                              </div>
-                            </ItemRow>
+                            <div key={itemIndex}>
+                              <ItemRow>
+                                <div className="item-name">{item.name}</div>
+                                <div className="item-details">
+                                  {item.quantity && (
+                                    <ItemBadge $type="quantity">
+                                      {item.quantity} {item.unit || 'шт'}
+                                    </ItemBadge>
+                                  )}
+                                  {item.is_checked && (
+                                    <ItemBadge $type="checked">
+                                      <CheckIcon size={12} />
+                                      Принято
+                                    </ItemBadge>
+                                  )}
+                                </div>
+                              </ItemRow>
+                              
+                              {item.notes && item.notes.trim() && (
+                                <ItemNotesContainer>
+                                  <div className="item-notes-label">
+                                    <ItemNotesIcon size={12} />
+                                    ⚠️ Проблема с товаром
+                                  </div>
+                                  <div className="item-notes-content">
+                                    {item.notes}
+                                  </div>
+                                </ItemNotesContainer>
+                              )}
+                            </div>
                           ))}
                         </ItemsList>
                       ) : (

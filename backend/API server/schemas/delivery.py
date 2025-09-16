@@ -12,6 +12,7 @@ class DeliveryItemBase(BaseModel):
     quantity: Optional[float] = Field(None, description="Количество")
     price: Optional[float] = Field(None, description="Цена за единицу")
     is_checked: bool = Field(default=False, description="Проверен ли товар")
+    notes: Optional[str] = Field(None, description="Заметки к товару")
 
 class DeliveryItemCreate(DeliveryItemBase):
     """Схема для создания товара в поставке"""

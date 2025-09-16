@@ -58,6 +58,9 @@ class DeliveryItem(Base):
     # Статус проверки
     is_checked = Column(Boolean, nullable=False, default=False, index=True, comment="Проверен ли товар")
     
+    # Заметки к товару
+    notes = Column(Text, nullable=True, comment="Заметки к товару")
+    
     # Метки времени
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

@@ -7,6 +7,7 @@ import { fetchSupplies, selectRequests, setParams } from './store/requestsSlice'
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
 import { generateRange } from '@/types/supplies';
+import { getKrasnoyarskDate } from '@shared/utils/dateUtils';
 import Filters from './components/Filters';
 import ItemsTable from './components/ItemsTable';
 import DeliveryHistory from './components/DeliveryHistory';
@@ -489,7 +490,7 @@ const Requests: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { params, data, loading, error } = useAppSelector(selectRequests);
   const user = useAppSelector(selectUser);
-  const [date, setDate] = useState<string>('2025-08-06');
+  const [date, setDate] = useState<string>(getKrasnoyarskDate);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isConfigMissing, setIsConfigMissing] = useState<boolean>(false);
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);

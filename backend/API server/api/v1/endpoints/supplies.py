@@ -868,7 +868,7 @@ def get_deliveries_by_supplier(
 class DeliveryNotificationRequest(BaseModel):
     chat_id: str
     supplier: str
-    items: List[Dict[str, Any]]  # [{"name": "Товар", "quantity": 10, "unit": "кг"}]
+    items: List[Dict[str, Any]]  # [{"name": "Товар", "quantity": 10, "unit": "кг", "notes": "Заметка"}]
     accepted_by: Dict[str, str]  # {"name": "Имя", "initials": "ИИ"}
     delivery_date: str
     branch: str
@@ -900,12 +900,21 @@ async def send_delivery_notification(
             f"📍 <b>Филиал:</b> {request.branch}",
             f"📅 <b>Дата поставки:</b> {request.delivery_date}",
             "",
-            f"✅ <b>Принятые товары:</b>"
+            f"📋 <b>Детали поставки:</b>"
         ]
         
         # Добавляем список товаров
         for item in request.items:
-            message_lines.append(f"• {item['name']} - {item['quantity']} {item['unit']}")
+            item_line = f"• <b>{item['name']}</b> - {item['quantity']} {item['unit']}"
+            
+            # Если есть заметка к товару, добавляем её
+            if item.get('notes') and item['notes'].strip():
+                item_line += f"\n  ⚠️ <i>Проблема:</i> {item['notes']}"
+            else:
+                # Если заметки нет, добавляем стандартное сообщение
+                item_line += f"\n  ✅ Позиция соответствует накладной"
+            
+            message_lines.append(item_line)
         
         message_lines.extend([
             "",

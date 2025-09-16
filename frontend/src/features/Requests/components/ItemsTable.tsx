@@ -5,6 +5,7 @@ import SlidingDrawer from '../../../shared/components/SlidingDrawer/SlidingDrawe
 import { useAppSelector } from '@shared/store/hooks';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import { tooltipManager } from '@shared/components/Notifications/Toast';
+import { isDeliveryDay } from '@shared/utils/dateUtils';
 
 // 🎨 Брендовые SVG иконки для поставок
 const SupplierBoxIcon = ({ size = 20 }: { size?: number }) => (
@@ -1435,6 +1436,179 @@ const UserAvatar = styled.div<{ $src?: string }>`
   `}
 `;
 
+const ItemNotesContainer = styled.div`
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--primary-color);
+`;
+
+const ItemNotesLabel = styled.label`
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  
+  svg {
+    color: var(--primary-color);
+    opacity: 0.8;
+  }
+`;
+
+const ItemNotesInput = styled.input`
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--card-background);
+  color: var(--text-color);
+  font-size: 0.8rem;
+  font-family: inherit;
+  transition: all var(--transition-normal);
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 1px rgba(var(--primary-rgb), 0.1);
+  }
+  
+  &::placeholder {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+  }
+`;
+
+const ItemNotesIcon = ({ size = 12 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M14 2V8H20" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 13H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 17H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M10 9H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const NotesSection = styled.div`
+  padding: 20px 32px;
+  border-top: 1px solid var(--border-color);
+  background: var(--card-background);
+`;
+
+const NotesLabel = styled.label`
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  
+  svg {
+    color: var(--primary-color);
+    opacity: 0.8;
+  }
+`;
+
+const NotesTextarea = styled.textarea`
+  width: 100%;
+  min-height: 80px;
+  padding: 12px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: var(--card-background);
+  color: var(--text-color);
+  font-size: 0.9rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: all var(--transition-normal);
+  
+  &:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
+  }
+  
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+`;
+
+const NotesIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M14 2V8H20" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 13H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M16 17H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+    <path 
+      d="M10 9H8" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef }) => {
   const user = useAppSelector(selectUser);
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Map<string, AcceptedDelivery>>(new Map());
@@ -1443,6 +1617,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierGroup | null>(null);
   const [checkedItems, setCheckedItems] = useState<CheckedItems>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [itemNotes, setItemNotes] = useState<Record<string, string>>({}); // Заметки для каждого товара
 
   // 🔍 Логи для отладки состояния компонента
   console.log('🎯 [ItemsTable] Рендер компонента:', {
@@ -1506,6 +1681,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     setModalOpen(false);
     setSelectedSupplier(null);
     setCheckedItems({});
+    setItemNotes({}); // Сбрасываем заметки к товарам
   }, []);
 
   // 📡 Устанавливаем функцию закрытия модалки в ref
@@ -1705,15 +1881,19 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
       console.log('📦 [ACCEPT] Подготавливаем данные для отправки...');
       // Подготавливаем данные для отправки - только отмеченные товары
       const deliveryItems = selectedSupplier.items
-        .map((item, index) => ({
-          name: item.name,
-          category: item.category || undefined,
-          unit: item.unit || undefined,
-          quantity: item.quantity_for_date || undefined,
-          price: undefined, // Цены мы убрали из интерфейса
-          is_checked: checkedItems[`${selectedSupplier.supplier}-${index}`] || false,
-          itemKey: `${selectedSupplier.supplier}-${index}`
-        }))
+        .map((item, index) => {
+          const itemKey = `${selectedSupplier.supplier}-${index}`;
+          return {
+            name: item.name,
+            category: item.category || undefined,
+            unit: item.unit || undefined,
+            quantity: item.quantity_for_date || undefined,
+            price: undefined, // Цены мы убрали из интерфейса
+            is_checked: checkedItems[itemKey] || false,
+            notes: itemNotes[itemKey] || undefined, // Добавляем заметки к товару
+            itemKey: itemKey
+          };
+        })
         .filter(item => item.is_checked); // Отправляем только отмеченные товары
 
       console.log('📋 [ACCEPT] Подготовлено товаров для отправки:', deliveryItems.length);
@@ -1732,7 +1912,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
         delivery_date: selectedDate || new Date().toISOString().split('T')[0],
         items: deliveryItems,
         accepted_by: getCurrentUserData(),
-        notes: `Поставка принята через веб-интерфейс для ${chatTitle || 'филиала'}`
+        notes: undefined // Убираем системную заметку - она не нужна пользователям
       };
 
       console.log('📨 [ACCEPT] Отправляем запрос на сервер:', {
@@ -1805,7 +1985,8 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
             items: deliveryItems.map(item => ({
               name: item.name,
               quantity: item.quantity || 0,
-              unit: item.unit || 'шт'
+              unit: item.unit || 'шт',
+              notes: item.notes || undefined // Добавляем заметки к товару
             })),
             accepted_by: {
               name: deliveryRequest.accepted_by.name,
@@ -1877,16 +2058,12 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   };
 
 
-  // Проверяем день недели для поставок
+  // Проверяем день недели для поставок (красноярское время)
   const checkDeliveryDay = (dateString?: string) => {
     if (!dateString) return { isValidDay: true, message: '' };
     
     const date = new Date(dateString);
-    const dayOfWeek = date.getDay(); // 0 = воскресенье, 1 = понедельник, ..., 6 = суббота
-    
-    // Понедельник = 1, Среда = 3, Пятница = 5
-    const validDays = [1, 3, 5];
-    const isValidDay = validDays.includes(dayOfWeek);
+    const isValidDay = isDeliveryDay(date);
     
     if (!isValidDay) {
       return {
@@ -2120,22 +2297,41 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                   {selectedSupplier.items.map((item, index) => {
                     const itemKey = `${selectedSupplier.supplier}-${index}`;
                     const isChecked = checkedItems[itemKey] || false;
+                    const itemNote = itemNotes[itemKey] || '';
                     
                     return (
-                      <ItemRow
-                        key={itemKey}
-                        $checked={isChecked}
-                        onClick={() => handleToggleItem(itemKey)}
-                      >
-                        <ItemCheckbox $checked={isChecked} />
-                        <ItemInfo>
-                          <h4>{item.name}</h4>
-                          <p>
-                            {item.category || 'Без категории'} • {item.unit || 'шт'} • 
-                            Кол-во: {item.quantity_for_date ? formatNumber(item.quantity_for_date) : '—'}
-                          </p>
-                        </ItemInfo>
-                      </ItemRow>
+                      <div key={itemKey}>
+                        <ItemRow
+                          $checked={isChecked}
+                          onClick={() => handleToggleItem(itemKey)}
+                        >
+                          <ItemCheckbox $checked={isChecked} />
+                          <ItemInfo>
+                            <h4>{item.name}</h4>
+                            <p>
+                              {item.category || 'Без категории'} • {item.unit || 'шт'} • 
+                              Кол-во: {item.quantity_for_date ? formatNumber(item.quantity_for_date) : '—'}
+                            </p>
+                          </ItemInfo>
+                        </ItemRow>
+                        
+                        <ItemNotesContainer>
+                          <ItemNotesLabel>
+                            <ItemNotesIcon size={12} />
+                            Заметка к товару
+                          </ItemNotesLabel>
+                          <ItemNotesInput
+                            value={itemNote}
+                            onChange={(e) => setItemNotes(prev => ({
+                              ...prev,
+                              [itemKey]: e.target.value
+                            }))}
+                            placeholder="Оставьте заметку, если что-то не так с товаром..."
+                            maxLength={200}
+                            onClick={(e) => e.stopPropagation()} // Предотвращаем клик по товару
+                          />
+                        </ItemNotesContainer>
+      </div>
                     );
                   })}
                 </ItemsList>
@@ -2152,7 +2348,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                     ) : (
                       <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}> - начните проверку товаров</span>
                     )}
-      </div>
+    </div>
                   <div className="progress-container">
                     <div 
                       className="progress-fill"

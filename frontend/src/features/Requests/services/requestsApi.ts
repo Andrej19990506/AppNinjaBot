@@ -59,6 +59,7 @@ export interface DeliveryItem {
   quantity?: number;
   price?: number;
   is_checked: boolean;
+  notes?: string; // Добавляем поле для заметок к товару
 }
 
 export interface UserInfo {
@@ -91,6 +92,7 @@ export interface DeliveryResponse {
   checked_items: number;
   total_cost?: number;
   items: DeliveryItem[];
+  notes?: string; // Добавляем поле для заметок
 }
 
 export interface DeliveryAcceptResponse {
@@ -161,6 +163,7 @@ export const sendDeliveryNotification = async (params: {
     name: string;
     quantity: number;
     unit: string;
+    notes?: string; // Добавляем заметки к товару
   }>;
   accepted_by: {
     name: string;

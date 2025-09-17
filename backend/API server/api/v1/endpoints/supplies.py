@@ -10,6 +10,7 @@ from datetime import datetime, date
 from sqlalchemy.orm import Session
 import httpx
 from pydantic import BaseModel
+import time
 
 # Импорты для работы с БД и схемами
 from db.session import get_db
@@ -30,6 +31,8 @@ def _load_service_account_credentials() -> service_account.Credentials:
     1) env GOOGLE_APPLICATION_CREDENTIALS
     2) файл appninjabotcontent-330206f13743.json в корне репозитория
     """
+    logger.info("🔑 Начинаем загрузку креденшиалов Google Sheets...")
+    start_time = time.time()
     credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     candidate_paths = []
 
@@ -54,9 +57,16 @@ def _load_service_account_credentials() -> service_account.Credentials:
         raise FileNotFoundError("Не найден файл сервисного аккаунта. Установите переменную окружения GOOGLE_APPLICATION_CREDENTIALS или поместите JSON в корень проекта.")
 
     credentials_path = str(found_path)
-    logger.info(f"Используется файл сервисного аккаунта: {credentials_path}")
+    logger.info(f"📁 Используется файл сервисного аккаунта: {credentials_path}")
     scopes = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+    
+    creds_start = time.time()
     creds = service_account.Credentials.from_service_account_file(credentials_path, scopes=scopes)
+    creds_time = time.time() - creds_start
+    
+    total_time = time.time() - start_time
+    logger.info(f"✅ Креденшиалы загружены за {creds_time:.3f}с (общее время: {total_time:.3f}с)")
+    
     return creds
 
 
@@ -79,6 +89,9 @@ def read_supplies(
     Пример запроса:
     GET /v1/supplies?spreadsheet_id=...&range=Лист1!A1:E100
     """
+    logger.info(f"📊 Начинаем чтение данных из Google Sheets: {spreadsheet_id}")
+    total_start = time.time()
+    
     try:
         creds = _load_service_account_credentials()
     except FileNotFoundError as e:
@@ -118,8 +131,20 @@ def read_supplies(
         return f"'{title}'!{rng}"
 
     try:
+        # Этап 1: Создание сервиса
+        service_start = time.time()
         service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+        service_time = time.time() - service_start
+        logger.info(f"🔧 Google Sheets сервис создан за {service_time:.3f}с")
+        
+        # Этап 2: Нормализация диапазона
+        range_start = time.time()
         normalized_range = _ensure_sheet_title_and_range(service, spreadsheet_id, range_, sheet_gid)
+        range_time = time.time() - range_start
+        logger.info(f"📋 Диапазон нормализован за {range_time:.3f}с: {normalized_range}")
+        
+        # Этап 3: Выполнение запроса к API
+        api_start = time.time()
         sheet = service.spreadsheets()
         request = sheet.values().get(
             spreadsheetId=spreadsheet_id,
@@ -127,7 +152,12 @@ def read_supplies(
             valueRenderOption=value_render_option,
         )
         result = request.execute()
+        api_time = time.time() - api_start
+        logger.info(f"🌐 API запрос выполнен за {api_time:.3f}с")
+        
         values: List[List[Any]] = result.get("values", [])
+        total_time = time.time() - total_start
+        logger.info(f"✅ Данные получены: {len(values)} строк за {total_time:.3f}с")
 
         # Определяем, включён ли debug по умолчанию (dev-среда)
         env_lower = os.getenv("APP_ENV", "").lower()
@@ -326,13 +356,19 @@ def read_supplies(
         if date:
             date_cols = [(j, d) for (j, d) in date_cols if d == date]
 
+        # Этап 5: Обработка данных
+        processing_start = time.time()
         records: List[Dict[str, Any]] = []
+        logger.info(f"🔄 Начинаем обработку {len(values)} строк данных...")
+        
         # --- Прайс из листа Инфо ---
         # Формула листа использует cat = INDEX($B7:$B; idx) — это Наименование в текущем листе.
         # В листе 'Инфо' колонка D содержит то же поле (Наименование), H — цена, I — дата.
         # Значит матчим по Наименованию и берём цену с максимальной датой <= дате колонки.
         info_prices_by_name: Dict[str, List[Tuple[str, float]]] = {}
         if mode in ("table", "hybrid"):
+            logger.info(f"📊 Загружаем данные из листа '{info_sheet_name}' для получения цен...")
+            info_start = time.time()
             try:
                 info_range = f"'{info_sheet_name}'!D:I"
                 info_req = sheet.values().get(
@@ -359,8 +395,13 @@ def read_supplies(
                 # сортировка по дате возрастания
                 for n_key in list(info_prices_by_name.keys()):
                     info_prices_by_name[n_key].sort(key=lambda t: t[0])
+                
+                info_time = time.time() - info_start
+                logger.info(f"📊 Данные из листа '{info_sheet_name}' загружены за {info_time:.3f}с: {len(info_prices_by_name)} товаров")
             except Exception:
                 info_prices_by_name = {}
+                info_time = time.time() - info_start
+                logger.warning(f"⚠️ Не удалось загрузить данные из листа '{info_sheet_name}' за {info_time:.3f}с")
         total_quantity: float = 0.0
         total_cost: float = 0.0
         withdrawn_quantity: float = 0.0
@@ -372,6 +413,8 @@ def read_supplies(
 
         # Проходим по строкам с товарами
         current_category: Optional[str] = None
+        logger.info(f"🔄 Обрабатываем строки с {header_row_idx + 1} по {len(values)}...")
+        rows_start = time.time()
         for i in range(header_row_idx + 1, len(values)):
             row = values[i]
             name = as_text(row[name_col]) if name_col is not None and name_col < len(row) else ""
@@ -488,6 +531,14 @@ def read_supplies(
                     } if debug_enabled else {}),
                 })
 
+        rows_time = time.time() - rows_start
+        logger.info(f"🔄 Обработка строк завершена за {rows_time:.3f}с")
+        
+        processing_time = time.time() - processing_start
+        logger.info(f"✅ Обработка данных завершена за {processing_time:.3f}с: {len(records)} записей")
+
+        # Этап 4: Формирование ответа
+        response_start = time.time()
         resp = {
             "spreadsheetId": result.get("spreadsheetId", spreadsheet_id),
             "range": result.get("range", normalized_range),
@@ -502,6 +553,12 @@ def read_supplies(
         }
         if mode in ("table", "hybrid") or debug_enabled:
             resp["sheet_total"] = sheet_total
+        
+        response_time = time.time() - response_start
+        total_time = time.time() - total_start
+        logger.info(f"📋 Ответ сформирован за {response_time:.3f}с")
+        logger.info(f"🎯 Общее время выполнения: {total_time:.3f}с")
+        
         # Нет вычитания «выведено» — возвращаем только total и limit
         return resp
     except HttpError as e:

@@ -178,6 +178,12 @@ interface FooterProps {
     showCompleteButton?: boolean;
     onCompleteClick?: () => void;
     isCompleteOpen?: boolean;
+    // Новые пропсы для модального окна приемки поставки
+    showModalAcceptanceButtons?: boolean;
+    onModalAccept?: () => void;
+    onModalCancelAcceptance?: () => void;
+    isModalAcceptDisabled?: boolean;
+    isModalSubmitting?: boolean;
 }
 
 const Footer: React.FC<FooterProps> = ({ 
@@ -224,7 +230,12 @@ const Footer: React.FC<FooterProps> = ({
     isActiveUsersOpen = false,
     showCompleteButton = false,
     onCompleteClick,
-    isCompleteOpen = false
+    isCompleteOpen = false,
+    showModalAcceptanceButtons = false,
+    onModalAccept,
+    onModalCancelAcceptance,
+    isModalAcceptDisabled = false,
+    isModalSubmitting = false
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -325,15 +336,17 @@ const Footer: React.FC<FooterProps> = ({
                     </div>
                 )}
                 
-                {showModalActions ? (
+                {showModalActions || showModalAcceptanceButtons ? (
                     // --- Секция кнопок и шагов модального окна --- 
                     <>
                         {/* --- Левая кнопка (Назад или Отмена) --- */}
                         <motion.button
-                            className={`${styles.iconButton} ${(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? styles.modalBackButton : styles.modalCancelButton}`}
+                            className={`${styles.iconButton} ${showModalAcceptanceButtons ? styles.modalCancelButton : ((showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? styles.modalBackButton : styles.modalCancelButton)}`}
                             onClick={(event) => {
                                 event.stopPropagation();
-                                if (showModalSteps && modalCurrentStep && modalCurrentStep > 1) {
+                                if (showModalAcceptanceButtons) {
+                                    onModalCancelAcceptance && onModalCancelAcceptance();
+                                } else if (showModalSteps && modalCurrentStep && modalCurrentStep > 1) {
                                     onModalBack && onModalBack();
                                 } else {
                                     onModalCancel && onModalCancel();
@@ -342,7 +355,9 @@ const Footer: React.FC<FooterProps> = ({
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                         >
-                            {(showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? 
+                            {showModalAcceptanceButtons ? (
+                                <CloseIcon className={styles.icon} />
+                            ) : (showModalSteps && modalCurrentStep && modalCurrentStep > 1) ? 
                                 <ArrowBackIcon className={styles.icon} /> : 
                                 <CloseIcon className={styles.icon} />
                             }
@@ -350,7 +365,11 @@ const Footer: React.FC<FooterProps> = ({
 
                         {/* --- Центральный элемент (Индикатор шагов или Средняя кнопка) --- */}
                         <div className={styles.stepIndicatorContainer}>
-                            {showModalSteps && modalTotalSteps && modalTotalSteps > 1 && modalCurrentStep && (
+                            {showModalAcceptanceButtons ? (
+                                <span className={styles.stepIndicatorText}>
+                                    {isModalAcceptDisabled ? 'Отметьте все товары' : 'Готово к приемке'}
+                                </span>
+                            ) : showModalSteps && modalTotalSteps && modalTotalSteps > 1 && modalCurrentStep && (
                                 <span className={styles.stepIndicatorText}>
                                     Шаг {modalCurrentStep} из {modalTotalSteps}
                                 </span>
@@ -371,34 +390,52 @@ const Footer: React.FC<FooterProps> = ({
                             )}
                         </div>
 
-                        {/* --- Правая кнопка (Далее или Сохранить) --- */}
-                        <motion.button
-                            className={`${styles.iconButton} ${(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? styles.modalNextButton : styles.modalSaveButton} ${((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? styles.disabled : ''}`}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                if (showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) {
-                                    onModalNext && onModalNext();
-                                } else {
-                                    onModalSave && onModalSave();
+                        {/* --- Правая кнопка (Далее или Сохранить или Принять поставку) --- */}
+                        {showModalAcceptanceButtons ? (
+                            <motion.button
+                                className={`${styles.iconButton} ${styles.modalAcceptButton} ${isModalAcceptDisabled ? styles.disabled : ''}`}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    onModalAccept && onModalAccept();
+                                }}
+                                disabled={isModalAcceptDisabled}
+                                whileHover={!isModalAcceptDisabled ? { scale: 1.05 } : {}}
+                                whileTap={!isModalAcceptDisabled ? { scale: 0.95 } : {}}
+                                title={isModalSubmitting ? 'Принимаем...' : 'Принять поставку'}
+                            >
+                                <CheckIcon className={styles.icon} />
+                            </motion.button>
+                        ) : (
+                            <motion.button
+                                className={`${styles.iconButton} ${(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? styles.modalNextButton : styles.modalSaveButton} ${((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? styles.disabled : ''}`}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) {
+                                        onModalNext && onModalNext();
+                                    } else {
+                                        onModalSave && onModalSave();
+                                    }
+                                }}
+                                disabled={(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled}
+                                whileHover={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 1.05 } : {}}
+                                whileTap={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 0.95 } : {}}
+                                style={{ 
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    padding: modalSaveText === "Создать уведомление" ? '12px' : undefined
+                                }}
+                            >
+                                {(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? 
+                                    <ArrowForwardIcon className={styles.icon} /> : 
+                                    <CheckIcon className={styles.icon} style={{ fontSize: '24px' }} />
                                 }
-                            }}
-                            disabled={(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled}
-                            whileHover={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 1.05 } : {}}
-                            whileTap={!((showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? isModalNextDisabled : isModalSaveDisabled) ? { scale: 0.95 } : {}}
-                            style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center',
-                                padding: modalSaveText === "Создать уведомление" ? '12px' : undefined
-                            }}
-                        >
-                            {(showModalSteps && modalTotalSteps && modalCurrentStep && modalCurrentStep < modalTotalSteps) ? 
-                                <ArrowForwardIcon className={styles.icon} /> : 
-                                <CheckIcon className={styles.icon} style={{ fontSize: '24px' }} />
-                            }
-                            {/* Добавляем текст для кнопки сохранения, если предоставлен */}
-                            {modalSaveText && modalSaveText !== "Создать уведомление" && modalSaveText !== "Сохранить" && <span style={{ marginLeft: "4px" }}>{modalSaveText}</span>}
-                        </motion.button>
+                                {/* Добавляем текст для кнопки сохранения, если предоставлен */}
+                                {modalSaveText && modalSaveText !== "Создать уведомление" && modalSaveText !== "Сохранить" && (
+                                    <span style={{ marginLeft: "4px" }}>{modalSaveText}</span>
+                                )}
+                            </motion.button>
+                        )}
                     </>
                 ) : (
                     // --- Обычные кнопки футера --- 

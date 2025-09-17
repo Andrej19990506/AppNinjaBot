@@ -44,6 +44,14 @@ const requestsSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.data = null;
+      // Сбрасываем параметры к начальному состоянию
+      state.params = {
+        spreadsheet_id: '',
+        range: '',
+        mode: 'table',
+        exclude_zero: true,
+        subtract_withdrawn: false,
+      };
     }
   },
   extraReducers: (builder) => {

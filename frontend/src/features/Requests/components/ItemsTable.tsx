@@ -1,7 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import SlidingDrawer from '../../../shared/components/SlidingDrawer/SlidingDrawer';
+import DeliveryAcceptanceModal from './DeliveryAcceptanceModal';
 import { useAppSelector } from '@shared/store/hooks';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import { tooltipManager } from '@shared/components/Notifications/Toast';
@@ -174,6 +174,9 @@ type Props = {
   chatTitle?: string;
   onModalStateChange?: (isOpen: boolean) => void; // Новый проп для передачи состояния модалки
   closeModalRef?: React.MutableRefObject<(() => void) | null>; // Ref для функции закрытия модалки
+  acceptDeliveryRef?: React.MutableRefObject<(() => void) | null>; // Ref для функции принятия поставки
+  onProgressChange?: (progress: number, isComplete: boolean) => void; // Новый проп для передачи прогресса
+  onSubmittingChange?: (isSubmitting: boolean) => void; // Новый проп для передачи состояния загрузки
 };
 
 // Брендовые анимации в стиле приложения
@@ -1060,340 +1063,8 @@ const AcceptButton = styled.button`
   }
 `;
 
-// Компоненты для выдвигающейся панели приемки поставки
-const DrawerContent = styled.div`
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--card-background);
-`;
-
-const DrawerHeader = styled.div`
-  background: var(--gradient-primary);
-  color: white;
-  padding: 24px 32px 20px 32px;
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.3);
-    border-radius: 2px;
-  }
-  
-  h2 {
-    margin: 16px 0 0 0;
-    font-size: 1.3rem;
-    font-weight: 700;
-  }
-  
-  p {
-    margin: 8px 0 0 0;
-    opacity: 0.9;
-    font-size: 0.9rem;
-  }
-`;
-
-const DrawerBody = styled.div`
-  flex: 1;
-  overflow-y: auto;
-  padding: 0;
-`;
-
-const DrawerFooter = styled.div`
-  padding: 24px 32px 120px 32px; /* Увеличиваем отступ снизу для футера */
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  background: var(--card-background);
-  
-  @media (max-width: 768px) {
-    padding: 20px 24px 100px 24px; /* Меньший отступ на мобильных */
-  }
-`;
-
-const CheckProgress = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  
-  .progress-text {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-    text-align: center;
-  }
-  
-  .progress-container {
-    width: 100%;
-    height: 10px;
-    background: var(--gray-200);
-    border-radius: 12px;
-    overflow: hidden;
-    position: relative;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
-    border: 1px solid var(--border-color);
-    
-    [data-theme="dark"] & {
-      background: var(--gray-300);
-      border-color: var(--gray-400);
-    }
-  }
-  
-  .progress-fill {
-    height: 100%;
-    background: var(--gradient-primary);
-    border-radius: 12px;
-    position: relative;
-    transition: width 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-    box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.3);
-    
-    &::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(
-        90deg,
-        transparent,
-        rgba(255, 255, 255, 0.6),
-        transparent
-      );
-      animation: ${css`${shineAnimation} 1.5s infinite`};
-      border-radius: 12px;
-    }
-    
-    /* Пульсирующий эффект при обновлении */
-    &[data-updating="true"] {
-      animation: ${css`${pulseAnimation} 0.6s ease-out`};
-    }
-  }
-`;
-
-const ModalActions = styled.div`
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-`;
-
-const SecondaryButton = styled.button`
-  padding: 12px 24px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  background: var(--card-background);
-  color: var(--text-color);
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  
-  &:hover {
-    background: var(--gray-50);
-    transform: translateY(-1px);
-  }
-`;
-
-const PrimaryButton = styled.button<{ $disabled?: boolean }>`
-  padding: 12px 24px;
-  border: none;
-  border-radius: var(--radius);
-  background: ${props => props.$disabled ? 'var(--gray-300)' : 'var(--gradient-primary)'};
-  color: ${props => props.$disabled ? 'var(--text-secondary)' : 'white'};
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  opacity: ${props => props.$disabled ? 0.6 : 1};
-  position: relative;
-  
-  ${props => props.$disabled && `
-    box-shadow: none !important;
-    
-    &::after {
-      content: '🔒';
-      position: absolute;
-      right: 8px;
-      font-size: 0.8rem;
-      opacity: 0.7;
-    }
-  `}
-  
-  &:hover {
-    background: ${props => props.$disabled ? 'var(--gray-300)' : 'var(--primary-dark)'};
-    transform: ${props => props.$disabled ? 'none' : 'translateY(-1px)'};
-    box-shadow: ${props => props.$disabled ? 'none' : '0 4px 12px rgba(var(--primary-rgb), 0.3)'};
-  }
-`;
-
-// Компонент для спиннера загрузки
-const Spinner = styled.div`
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top: 2px solid white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;
-
-// Кастомные уведомления убраны - используем общую систему tooltipManager
-
-// Брендовая круглая галочка с анимацией
-const BrandCheckIcon = styled.span<{ $size?: string }>`
-  width: ${props => props.$size || '20px'};
-  height: ${props => props.$size || '20px'};
-  border-radius: 50%;
-  background: var(--gradient-primary);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 3px 6px rgba(var(--primary-rgb), 0.4);
-  position: relative;
-  overflow: hidden;
-  animation: ${css`${pulseAnimation} 3s infinite`};
-  transition: all 0.2s ease;
-  
-  /* Эффект блеска */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.4),
-      transparent
-    );
-    animation: ${css`${shineAnimation} 2.5s infinite`};
-    border-radius: 50%;
-  }
-  
-  /* SVG галочка */
-  &::after {
-    content: '';
-    width: 65%;
-    height: 65%;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.5 4.5L6 12L2.5 8.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    position: relative;
-    z-index: 1;
-  }
-  
-  /* Hover эффект */
-  &:hover {
-    transform: scale(1.1);
-    box-shadow: 0 5px 15px rgba(var(--primary-rgb), 0.6);
-  }
-`;
-
-// Стили для списка товаров в модалке
-const ItemsList = styled.div`
-  padding: 24px 32px;
-`;
-
-const ItemRow = styled.div<{ $checked?: boolean }>`
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  margin-bottom: 12px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  position: relative;
-  
-  ${props => props.$checked ? `
-    background: rgba(255, 95, 31, 0.08);
-    border-color: var(--primary-color);
-    box-shadow: 0 4px 12px rgba(255, 95, 31, 0.15);
-    transform: scale(1.01);
-  ` : `
-    background: var(--card-background);
-    
-    &:hover {
-      background: var(--gray-50);
-      border-color: var(--primary-color);
-      transform: translateY(-1px);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-  `}
-  
-  &:active {
-    transform: scale(0.98);
-    transition: transform 0.1s ease;
-  }
-`;
-
-const ItemCheckbox = styled.div<{ $checked?: boolean }>`
-  width: 24px;
-  height: 24px;
-  border: 2px solid ${props => props.$checked ? 'var(--primary-color)' : 'var(--border-color)'};
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: ${props => props.$checked ? 'var(--primary-color)' : 'transparent'};
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  
-  /* Брендовая SVG галочка вместо эмодзи */
-  &::after {
-    content: '';
-    width: 12px;
-    height: 12px;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.5 4.5L6 12L2.5 8.5' stroke='white' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: contain;
-    opacity: ${props => props.$checked ? 1 : 0};
-    transform: scale(${props => props.$checked ? 1 : 0.3}) rotate(${props => props.$checked ? 0 : 180}deg);
-    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-  
-  /* Дополнительная анимация при наведении */
-  &:hover {
-    border-color: var(--primary-color);
-    transform: scale(1.05);
-  }
-`;
-
-const ItemInfo = styled.div`
-  flex: 1;
-  
-  h4 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-color);
-  }
-  
-  p {
-    margin: 4px 0 0 0;
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-  }
-`;
+// Компоненты для выдвигающейся панели приемки поставки - УДАЛЕНЫ
+// Теперь используется DeliveryAcceptanceModal
 
 const UserInfo = styled.div`
   .name {
@@ -1436,92 +1107,8 @@ const UserAvatar = styled.div<{ $src?: string }>`
   `}
 `;
 
-const ItemNotesContainer = styled.div`
-  margin-top: 8px;
-  padding: 8px 12px;
-  background: var(--gray-50);
-  border-radius: var(--radius);
-  border-left: 2px solid var(--primary-color);
-`;
-
-const ItemNotesLabel = styled.label`
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  
-  svg {
-    color: var(--primary-color);
-    opacity: 0.8;
-  }
-`;
-
-const ItemNotesInput = styled.input`
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: var(--card-background);
-  color: var(--text-color);
-  font-size: 0.8rem;
-  font-family: inherit;
-  transition: all var(--transition-normal);
-  
-  &:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 1px rgba(var(--primary-rgb), 0.1);
-  }
-  
-  &::placeholder {
-    color: var(--text-secondary);
-    font-size: 0.75rem;
-  }
-`;
-
-const ItemNotesIcon = ({ size = 12 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M14 2V8H20" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M16 13H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M16 17H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M10 9H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-  </svg>
-);
+// Остальные стили для модального окна - УДАЛЕНЫ
+// Теперь используется DeliveryAcceptanceModal
 
 const NotesSection = styled.div`
   padding: 20px 32px;
@@ -1609,7 +1196,7 @@ const NotesIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef }) => {
+const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef, acceptDeliveryRef, onProgressChange, onSubmittingChange }) => {
   const user = useAppSelector(selectUser);
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Map<string, AcceptedDelivery>>(new Map());
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set());
@@ -1620,14 +1207,34 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({}); // Заметки для каждого товара
 
   // 🔍 Логи для отладки состояния компонента
-  console.log('🎯 [ItemsTable] Рендер компонента:', {
-    itemsCount: items.length,
-    selectedDate,
-    selectedChatId,
-    chatTitle,
-    acceptedDeliveriesSize: acceptedDeliveries.size,
-    acceptedSuppliers: Array.from(acceptedDeliveries.keys())
-  });
+  console.log('🎯 [ItemsTable] Рендер:', items.length, 'товаров,', acceptedDeliveries.size, 'принятых поставок');
+  
+  // Отслеживаем изменения прогресса и состояния загрузки
+  useEffect(() => {
+    if (modalOpen && selectedSupplier) {
+      const totalItems = selectedSupplier.items.length;
+      const checkedCount = Object.values(checkedItems).filter(Boolean).length;
+      const progress = totalItems > 0 ? (checkedCount / totalItems) * 100 : 0;
+      const isComplete = checkedCount === totalItems;
+      
+      onProgressChange?.(progress, isComplete);
+    }
+  }, [modalOpen, selectedSupplier, checkedItems, onProgressChange]);
+
+  useEffect(() => {
+    onSubmittingChange?.(isSubmitting);
+  }, [isSubmitting, onSubmittingChange]);
+
+  // Устанавливаем функцию принятия поставки в ref
+  useEffect(() => {
+    if (acceptDeliveryRef) {
+      acceptDeliveryRef.current = () => {
+        if (selectedSupplier) {
+          handleConfirmAcceptance(checkedItems, itemNotes);
+        }
+      };
+    }
+  }, [selectedSupplier, checkedItems, itemNotes, acceptDeliveryRef]);
   
   const formatNumber = (num: number) => 
     num.toLocaleString('ru-RU');
@@ -1654,13 +1261,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
       ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${user.id}/photo`
       : undefined;
     
-    console.log('👤 [ItemsTable] getCurrentUserData:', {
-      user: user,
-      userId: user?.id,
-      photoUrl: photoUrl,
-      fullName: fullName,
-      initials: initials
-    });
+    console.log('👤 [ItemsTable] Получение данных пользователя');
     
     return {
       name: fullName,
@@ -1743,34 +1344,23 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   // 📋 Загрузка принятых поставок при изменении даты
   const loadAcceptedDeliveries = useCallback(async () => {
     if (!selectedDate) {
-      console.log('🚫 [DELIVERIES] selectedDate не задана, пропускаем загрузку');
       return;
     }
-
-    console.log('🔄 [DELIVERIES] Начинаем загрузку принятых поставок для даты:', selectedDate);
-    console.log('🏢 [DELIVERIES] selectedChatId:', selectedChatId);
-    console.log('🏪 [DELIVERIES] chatTitle:', chatTitle);
+    
+    console.log('🔄 [DELIVERIES] Загрузка принятых поставок для даты:', selectedDate);
 
     try {
       const { getDeliveriesByDate } = await import('../services/requestsApi');
       
-      console.log('📡 [DELIVERIES] Вызываем API getDeliveriesByDate...');
       const deliveries = await getDeliveriesByDate(selectedDate);
       
-      console.log('✅ [DELIVERIES] Получены поставки с сервера:', deliveries);
-      console.log('📊 [DELIVERIES] Количество поставок:', deliveries.length);
+      console.log('✅ [DELIVERIES] Получено поставок:', deliveries.length);
 
       // Создаем Map из принятых поставок
       const acceptedMap = new Map<string, AcceptedDelivery>();
       
       deliveries.forEach((delivery, index) => {
-        console.log(`📦 [DELIVERY ${index + 1}] Обрабатываем поставку:`, {
-          id: delivery.id,
-          supplier: delivery.supplier,
-          branch: delivery.branch,
-          status: delivery.status,
-          acceptedBy: `${delivery.accepted_by_name} (${delivery.accepted_by_initials})`
-        });
+        console.log(`📦 [DELIVERY ${index + 1}] Обработка поставки:`, delivery.supplier);
 
         // Фильтруем только принятые поставки для текущего филиала
         if (delivery.status === 'accepted' && 
@@ -1781,11 +1371,6 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
             ? `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${delivery.accepted_by_user_id}/photo`
             : undefined;
 
-          console.log('👤 [ItemsTable] Загружаем принятую поставку:', {
-            delivery: delivery,
-            accepted_by_user_id: delivery.accepted_by_user_id,
-            photoUrl: photoUrl
-          });
 
           const acceptedDelivery: AcceptedDelivery = {
             id: delivery.id.toString(),
@@ -1803,42 +1388,22 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
 
           acceptedMap.set(delivery.supplier, acceptedDelivery);
           
-          console.log(`✅ [DELIVERY ${index + 1}] Добавлена принятая поставка:`, {
-            supplier: delivery.supplier,
-            acceptedBy: acceptedDelivery.acceptedBy.name,
-            itemsCount: acceptedDelivery.itemsCount
-          });
         } else {
-          console.log(`⏭️ [DELIVERY ${index + 1}] Пропускаем поставку:`, {
-            reason: delivery.status !== 'accepted' ? 'статус не accepted' : 'не наш филиал',
-            status: delivery.status,
-            branch: delivery.branch,
-            expectedBranch: chatTitle || selectedChatId
-          });
         }
       });
 
-      console.log('🎯 [DELIVERIES] Итоговый Map принятых поставок:', {
-        size: acceptedMap.size,
-        suppliers: Array.from(acceptedMap.keys())
-      });
+      console.log('🎯 [DELIVERIES] Итоговый результат:', acceptedMap.size, 'поставок');
 
       setAcceptedDeliveries(acceptedMap);
       
     } catch (error) {
-      console.error('❌ [DELIVERIES] Ошибка при загрузке принятых поставок:', error);
-      console.error('🔍 [DELIVERIES] Детали ошибки:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        selectedDate,
-        selectedChatId,
-        chatTitle
-      });
+      console.error('❌ [DELIVERIES] Ошибка загрузки:', error);
     }
   }, [selectedDate, selectedChatId, chatTitle]);
 
   useEffect(() => {
     loadAcceptedDeliveries();
-  }, [loadAcceptedDeliveries]);
+  }, [selectedDate, selectedChatId, chatTitle]); // Используем прямые зависимости вместо функции
 
   const handleAcceptDelivery = (supplierGroup: SupplierGroup) => {
     setSelectedSupplier(supplierGroup);
@@ -1856,18 +1421,16 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     tooltipManager.show(message, type);
   };
 
-  const handleConfirmAcceptance = async () => {
+  const handleConfirmAcceptance = async (checkedItems: { [key: string]: boolean }, itemNotes: { [key: string]: string }) => {
     if (!selectedSupplier || isSubmitting) return;
     
-    console.log('🚀 [ACCEPT] Начинаем процесс принятия поставки:', selectedSupplier.supplier);
-    console.log('📋 [ACCEPT] Проверяем отмеченные товары...');
+    console.log('🚀 [ACCEPT] Принятие поставки:', selectedSupplier.supplier);
     
     // 🚫 Проверяем что все товары отмечены
     const checkedCount = Object.values(checkedItems).filter(Boolean).length;
     console.log('✅ [ACCEPT] Отмечено товаров:', checkedCount, 'из', selectedSupplier.items.length);
     
     if (checkedCount !== selectedSupplier.items.length) {
-      console.log('❌ [ACCEPT] Не все товары отмечены, прерываем операцию');
       showNotification('error', 'Необходимо отметить все товары перед приемкой поставки');
       return;
     }
@@ -1875,10 +1438,8 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     setIsSubmitting(true);
     
     try {
-      console.log('📡 [ACCEPT] Импортируем API функции...');
       const { acceptDelivery } = await import('../services/requestsApi');
       
-      console.log('📦 [ACCEPT] Подготавливаем данные для отправки...');
       // Подготавливаем данные для отправки - только отмеченные товары
       const deliveryItems = selectedSupplier.items
         .map((item, index) => {
@@ -1896,11 +1457,9 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
         })
         .filter(item => item.is_checked); // Отправляем только отмеченные товары
 
-      console.log('📋 [ACCEPT] Подготовлено товаров для отправки:', deliveryItems.length);
 
       // 🚫 Дополнительная проверка что есть отмеченные товары для отправки
       if (deliveryItems.length === 0) {
-        console.log('❌ [ACCEPT] Нет отмеченных товаров для отправки');
         showNotification('error', 'Не выбрано ни одного товара для приемки');
         setIsSubmitting(false);
         return;
@@ -1915,18 +1474,12 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
         notes: undefined // Убираем системную заметку - она не нужна пользователям
       };
 
-      console.log('📨 [ACCEPT] Отправляем запрос на сервер:', {
-        supplier: deliveryRequest.supplier,
-        branch: deliveryRequest.branch,
-        delivery_date: deliveryRequest.delivery_date,
-        itemsCount: deliveryRequest.items.length,
-        accepted_by: deliveryRequest.accepted_by.name
-      });
+      console.log('📨 [ACCEPT] Отправка запроса...');
 
       // Отправляем данные на сервер
       const response = await acceptDelivery(deliveryRequest);
       
-      console.log('✅ [ACCEPT] Получен ответ с сервера:', response);
+      console.log('✅ [ACCEPT] Ответ получен');
       
       // Создаем локальную запись о принятой поставке
       const acceptedDelivery: AcceptedDelivery = {
@@ -1945,13 +1498,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
         checkedItems: { ...checkedItems }
       };
 
-      console.log('👤 [ItemsTable] Создаем AcceptedDelivery с фото:', {
-        acceptedDelivery: acceptedDelivery,
-        photoUrl: deliveryRequest.accepted_by.photoUrl,
-        userData: deliveryRequest.accepted_by
-      });
 
-      console.log('💾 [ACCEPT] Создаем локальную запись о принятой поставке:', acceptedDelivery);
 
       setAcceptedDeliveries(prev => {
         const newMap = new Map(prev);
@@ -2038,12 +1585,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     }
   };
 
-  const handleToggleItem = (supplierItemKey: string) => {
-    setCheckedItems(prev => ({
-      ...prev,
-      [supplierItemKey]: !prev[supplierItemKey]
-    }));
-  };
+  // handleToggleItem удалена - теперь используется DeliveryAcceptanceModal
 
   const toggleSupplierCollapse = (supplier: string) => {
     setCollapsedSuppliers(prev => {
@@ -2282,112 +1824,38 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
       </ScrollArea>
       </TableContainer>
 
-      {/* Выдвигающаяся панель для приемки поставки */}
-      <AnimatePresence>
-        {modalOpen && selectedSupplier && (
-          <SlidingDrawer onClose={closeModal}>
-            <DrawerContent>
-              <DrawerHeader>
-                <h2>Приемка поставки от {selectedSupplier.supplier}</h2>
-                <p>Отметьте товары, которые вы проверили</p>
-              </DrawerHeader>
-              
-              <DrawerBody>
-                <ItemsList>
-                  {selectedSupplier.items.map((item, index) => {
-                    const itemKey = `${selectedSupplier.supplier}-${index}`;
-                    const isChecked = checkedItems[itemKey] || false;
-                    const itemNote = itemNotes[itemKey] || '';
-                    
-                    return (
-                      <div key={itemKey}>
-                        <ItemRow
-                          $checked={isChecked}
-                          onClick={() => handleToggleItem(itemKey)}
-                        >
-                          <ItemCheckbox $checked={isChecked} />
-                          <ItemInfo>
-                            <h4>{item.name}</h4>
-                            <p>
-                              {item.category || 'Без категории'} • {item.unit || 'шт'} • 
-                              Кол-во: {item.quantity_for_date ? formatNumber(item.quantity_for_date) : '—'}
-                            </p>
-                          </ItemInfo>
-                        </ItemRow>
-                        
-                        <ItemNotesContainer>
-                          <ItemNotesLabel>
-                            <ItemNotesIcon size={12} />
-                            Заметка к товару
-                          </ItemNotesLabel>
-                          <ItemNotesInput
-                            value={itemNote}
-                            onChange={(e) => setItemNotes(prev => ({
-                              ...prev,
-                              [itemKey]: e.target.value
-                            }))}
-                            placeholder="Оставьте заметку, если что-то не так с товаром..."
-                            maxLength={200}
-                            onClick={(e) => e.stopPropagation()} // Предотвращаем клик по товару
-                          />
-                        </ItemNotesContainer>
-      </div>
-                    );
-                  })}
-                </ItemsList>
-              </DrawerBody>
-              
-              <DrawerFooter>
-                <CheckProgress>
-                  <div className="progress-text">
-                    Проверено: {Object.values(checkedItems).filter(Boolean).length} из {selectedSupplier.items.length}
-                    {Object.values(checkedItems).filter(Boolean).length === selectedSupplier.items.length ? (
-                      <span style={{ color: 'var(--primary-color)', fontWeight: 'bold' }}> - готово к приемке!</span>
-                    ) : Object.values(checkedItems).filter(Boolean).length > 0 ? (
-                      <span style={{ color: 'var(--warning-color)', fontWeight: 'bold' }}> - отметьте все позиции</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-secondary)', fontWeight: 'normal' }}> - начните проверку товаров</span>
-                    )}
-    </div>
-                  <div className="progress-container">
-                    <div 
-                      className="progress-fill"
-                      style={{ 
-                        width: `${(Object.values(checkedItems).filter(Boolean).length / selectedSupplier.items.length) * 100}%` 
-                      }}
-                    />
-    </div>
-                </CheckProgress>
-                
-                <ModalActions>
-                  <SecondaryButton onClick={() => setModalOpen(false)}>
-                    Отменить
-                  </SecondaryButton>
-                  <PrimaryButton
-                    $disabled={Object.values(checkedItems).filter(Boolean).length !== selectedSupplier.items.length || isSubmitting}
-                    onClick={handleConfirmAcceptance}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Spinner />
-                        Сохранение...
-                      </>
-                    ) : (
-                      <>
-                        <BrandCheckIcon $size="14px" />
-                        &nbsp;{Object.values(checkedItems).filter(Boolean).length === selectedSupplier.items.length 
-                          ? 'Принять поставку' 
-                          : 'Отметьте все товары для приемки'
-                        }
-                      </>
-                    )}
-                  </PrimaryButton>
-                </ModalActions>
-              </DrawerFooter>
-            </DrawerContent>
-          </SlidingDrawer>
-        )}
-      </AnimatePresence>
+      {/* Модальное окно для приемки поставки */}
+      <DeliveryAcceptanceModal
+        isOpen={modalOpen}
+        onClose={closeModal}
+        onAccept={() => handleConfirmAcceptance(checkedItems, itemNotes)}
+        onCancel={closeModal}
+        supplier={selectedSupplier?.supplier || ''}
+        items={selectedSupplier?.items.map(item => ({
+          name: item.name,
+          category: item.category || 'Без категории',
+          unit: item.unit || 'шт',
+          quantity: item.quantity_for_date || 0,
+          price: item.price || 0
+        })) || []}
+        checkedItems={checkedItems}
+        itemNotes={itemNotes}
+        onItemToggle={(index) => {
+          const itemKey = `${selectedSupplier?.supplier}-${index}`;
+          setCheckedItems(prev => ({
+            ...prev,
+            [itemKey]: !prev[itemKey]
+          }));
+        }}
+        onNoteChange={(index, note) => {
+          const itemKey = `${selectedSupplier?.supplier}-${index}`;
+          setItemNotes(prev => ({
+            ...prev,
+            [itemKey]: note
+          }));
+        }}
+        isSubmitting={isSubmitting}
+      />
 
       {/* Уведомления теперь управляются общей системой tooltipManager */}
     </motion.div>

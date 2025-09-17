@@ -98,6 +98,7 @@
     overflow: hidden;
 }
 
+
 .iconButton:hover:not(.disabled),
 .modalBackButton:hover:not(.disabled),
 .modalCancelButton:hover:not(.disabled),
@@ -177,6 +178,22 @@
     background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.1));
     border-color: rgba(76, 175, 80, 0.4);
     box-shadow: 0 8px 25px rgba(76, 175, 80, 0.2);
+}
+
+/* Специальные стили для кнопки приемки поставки - только цвет, размер как у обычных кнопок */
+.modalAcceptButton {
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.1), rgba(255, 95, 31, 0.05));
+    border-color: rgba(255, 95, 31, 0.2);
+}
+
+.modalAcceptButton:not(.disabled) .icon {
+    color: var(--primary-color);
+}
+
+.modalAcceptButton:hover:not(.disabled) {
+    background: linear-gradient(135deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0.1));
+    border-color: rgba(255, 95, 31, 0.4);
+    box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 }
 
 .modalBackButton,

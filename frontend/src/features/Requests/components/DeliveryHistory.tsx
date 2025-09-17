@@ -987,7 +987,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     if (chatTitle) { // Загружаем данные только если есть выбранный филиал
       loadData();
     }
-  }, [selectedChatId, chatTitle, loadData]); // Добавляем loadData в зависимости
+  }, [selectedChatId, chatTitle]); // Убираем loadData из зависимостей
 
   // ⚡ Применяем клиентские фильтры при их изменении
   useEffect(() => {
@@ -996,7 +996,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
       // Сворачиваем все карточки при изменении фильтров
       setExpandedCards(new Set());
     }
-  }, [filters, allDeliveries, applyClientFilters]);
+  }, [filters, allDeliveries]); // Убираем applyClientFilters из зависимостей
 
   const handleFilterChange = (key: keyof typeof filters, value: string) => {
     console.log(`🔧 [DeliveryHistory] Изменен фильтр ${key}:`, value);

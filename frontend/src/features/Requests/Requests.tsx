@@ -3,7 +3,7 @@ import styled, { keyframes, createGlobalStyle, css } from 'styled-components';
 import { motion } from 'framer-motion';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { fetchSupplies, selectRequests, setParams } from './store/requestsSlice';
+import { fetchSupplies, selectRequests, setParams, reset } from './store/requestsSlice';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
 import { generateRange } from '@/types/supplies';
@@ -454,13 +454,11 @@ const LoadingMessages: React.FC = () => {
   ];
 
   useEffect(() => {
-    console.log('🔄 [LOADING] Инициализация LoadingMessages, всего сообщений:', loadingMessages.length);
-    console.log('🔄 [LOADING] Начальное случайное сообщение:', currentMessage, 'Текст:', loadingMessages[currentMessage].text);
+  // Инициализация LoadingMessages
     
     const interval = setInterval(() => {
       setCurrentMessage(prev => {
         const next = (prev + 1) % loadingMessages.length;
-        console.log('🔄 [LOADING] Смена сообщения:', prev, '->', next, 'Текст:', loadingMessages[next].text);
         return next;
       });
     }, 2000); // Меняем сообщение каждые 2 секунды
@@ -469,7 +467,7 @@ const LoadingMessages: React.FC = () => {
   }, []);
 
   const current = loadingMessages[currentMessage];
-  console.log('🔄 [LOADING] Рендер LoadingMessages, currentMessage:', currentMessage, 'Текст:', current.text);
+  console.log('🔄 [LOADING] Рендер LoadingMessages');
 
   return (
     <LoadingText
@@ -495,7 +493,11 @@ const Requests: React.FC = () => {
   const [isConfigMissing, setIsConfigMissing] = useState<boolean>(false);
   const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false); // Состояние модалки приемки
+  const [modalProgress, setModalProgress] = useState(0);
+  const [isModalComplete, setIsModalComplete] = useState(false);
+  const [isModalSubmitting, setIsModalSubmitting] = useState(false);
   const closeModalRef = useRef<(() => void) | null>(null); // Ref для функции закрытия модалки
+  const acceptDeliveryRef = useRef<(() => void) | null>(null); // Ref для функции принятия поставки
   const mode: 'table' = 'table';
   
   // Активная вкладка: 'delivery' (приемка) или 'history' (история)
@@ -503,7 +505,6 @@ const Requests: React.FC = () => {
   
   // 🏢 Получаем поварские группы пользователя
   const chefGroups: ChatItem[] = React.useMemo(() => {
-    console.log('🔍 [CHEF_GROUPS] user?.groups:', user?.groups);
     if (!user?.groups) return [];
     
     const chefGroups = user.groups
@@ -519,79 +520,74 @@ const Requests: React.FC = () => {
         }
       }));
     
-    console.log('🔍 [CHEF_GROUPS] Отфильтрованные chef группы:', chefGroups);
     return chefGroups;
   }, [user?.groups]);
 
   // 🔗 Получение конфигурации поставок из группы
   const getChatDataConfig = (chatId: string, selectedDate: string) => {
-    console.log('🔍 [CONFIG] Поиск конфигурации для chatId:', chatId, 'тип:', typeof chatId);
-    console.log('🔍 [CONFIG] Доступные chefGroups:', chefGroups.map(g => ({
-      chat_id: g.chat_id,
-      chat_title: g.chat_title,
-      has_supplies_config: !!g.supplies_config,
-      chat_id_type: typeof g.chat_id
-    })));
-    console.log('🔍 [CONFIG] Полные chefGroups:', chefGroups);
     
     // Ищем чат по chat_id, учитывая возможные различия в типах (string vs number)
     const selectedChat = chefGroups.find(chat => 
       String(chat.chat_id) === String(chatId)
     );
-    console.log('🔍 [CONFIG] Найденный чат:', selectedChat);
     
     // Используем supplies_config из группы, если доступен
     if (selectedChat?.supplies_config) {
       const config = selectedChat.supplies_config;
-      console.log('🔍 [CONFIG] Найдена конфигурация:', config);
       
       const result = {
         spreadsheet_id: config.spreadsheet_id,
         range: generateRange(config, selectedDate),
         branchName: config.branch_name
       };
-      console.log('🔍 [CONFIG] Возвращаем конфигурацию:', result);
       return result;
     }
     
-    console.log('🔍 [CONFIG] Конфигурация не найдена для chatId:', chatId);
     // Конфигурация не найдена - возвращаем null
     return null;
   };
 
+  // 📅 Обработчик изменения даты
+  const handleDateChange = (newDate: string) => {
+    setDate(newDate);
+    
+    // Сбрасываем состояние при смене даты
+    dispatch(reset());
+    
+    // Дополнительно сбрасываем флаги ошибок
+    setIsConfigMissing(false);
+    setIsPermissionDenied(false);
+  };
+
   // 📋 Обработчик выбора чата
   const handleChatSelect = (chatIds: string[]) => {
-    console.log('🔍 [CHAT_SELECT] Получены chatIds:', chatIds, 'тип:', typeof chatIds, 'длина:', chatIds.length);
     if (chatIds.length > 0) {
       const selectedId = chatIds[0];
-      console.log('🔍 [CHAT_SELECT] Выбранный ID:', selectedId, 'тип:', typeof selectedId);
       setSelectedChatId(String(selectedId)); // Принудительно преобразуем в строку
+      
+      // Сбрасываем состояние при смене чата
+      dispatch(reset());
+      
+      // Дополнительно сбрасываем флаги ошибок
+      setIsConfigMissing(false);
+      setIsPermissionDenied(false);
     }
   };
 
   useEffect(() => {
-    console.log('🔍 [EFFECT] selectedChatId изменился:', selectedChatId, 'тип:', typeof selectedChatId);
     if (selectedChatId && date) {
-      console.log('🔍 [EFFECT] Вызываем getChatDataConfig с:', { selectedChatId, date });
       const config = getChatDataConfig(selectedChatId, date);
-      console.log('🔍 [EFFECT] Получена конфигурация:', config);
       
       // Проверяем наличие конфигурации
       if (!config) {
-        console.log('🔍 [EFFECT] Конфигурация не найдена, устанавливаем isConfigMissing = true');
         setIsConfigMissing(true);
         return;
       }
       
-      console.log('🔍 [EFFECT] Конфигурация найдена, сбрасываем флаги');
       // Конфигурация найдена - сбрасываем флаги и устанавливаем параметры
       setIsConfigMissing(false);
       setIsPermissionDenied(false);
       if (!params.spreadsheet_id || params.spreadsheet_id !== config.spreadsheet_id || params.range !== config.range) {
-        console.log('🔍 [EFFECT] Обновляем параметры:', { 
-          spreadsheet_id: config.spreadsheet_id, 
-          range: config.range 
-        });
         dispatch(setParams({ 
           spreadsheet_id: config.spreadsheet_id, 
           range: config.range 
@@ -662,6 +658,13 @@ const Requests: React.FC = () => {
   };
 
   const handleTabChange = (newTab: 'delivery' | 'history') => {
+    // Сбрасываем состояние при смене вкладки
+    dispatch(reset());
+    
+    // Дополнительно сбрасываем флаги ошибок
+    setIsConfigMissing(false);
+    setIsPermissionDenied(false);
+    
     if (newTab === 'delivery') {
       navigate('/chef/requests');
     } else {
@@ -678,9 +681,12 @@ const Requests: React.FC = () => {
     setIsModalOpen(false);
     closeModalRef.current = null;
     
+    // Сбрасываем состояние в Redux store
+    dispatch(reset());
+    
     // Переходим на главную страницу
     navigate('/chef');
-  }, [navigate]);
+  }, [navigate, dispatch]);
 
   // ⬅️ Определяем когда показывать кнопку "Назад"
   const shouldShowBackButton = activeTab === 'history' || isModalOpen;
@@ -826,7 +832,7 @@ const Requests: React.FC = () => {
             <motion.div variants={contentVariants}>
       <Filters
         date={date}
-        onDateChange={setDate}
+        onDateChange={handleDateChange}
               />
             </motion.div>
 
@@ -881,6 +887,12 @@ const Requests: React.FC = () => {
                     chatTitle={chefGroups.find(chat => chat.chat_id === selectedChatId)?.chat_title}
                     onModalStateChange={setIsModalOpen}
                     closeModalRef={closeModalRef}
+                    acceptDeliveryRef={acceptDeliveryRef}
+                    onProgressChange={(progress, isComplete) => {
+                      setModalProgress(progress);
+                      setIsModalComplete(isComplete);
+                    }}
+                    onSubmittingChange={setIsModalSubmitting}
                   />
                 </DataContainer>
               </motion.div>
@@ -903,11 +915,26 @@ const Requests: React.FC = () => {
         )}
       </ContentWrapper>
 
-      {/* Футер с кнопкой "Назад" или "Домой" */}
+      {/* Футер с кнопками */}
       <Footer 
-        selectedCategory={shouldShowBackButton ? 'requests' : undefined} // Показываем кнопку "Назад" если нужно
-        onBack={handleBackButton} // Обработчик кнопки "Назад"
-        onHome={handleGoHome} // Кастомная функция для сброса состояния
+        selectedCategory={isModalOpen ? 'modal' : (shouldShowBackButton ? 'requests' : undefined)}
+        onBack={handleBackButton}
+        onHome={handleGoHome}
+        showModalAcceptanceButtons={isModalOpen}
+        onModalAccept={() => {
+          // Вызываем реальную логику принятия поставки
+          if (acceptDeliveryRef.current) {
+            acceptDeliveryRef.current();
+          }
+        }}
+        onModalCancelAcceptance={() => {
+          // Здесь будет логика отмены
+          if (closeModalRef.current) {
+            closeModalRef.current();
+          }
+        }}
+        isModalAcceptDisabled={!isModalComplete}
+        isModalSubmitting={isModalSubmitting}
       />
       </PageContainer>
     </>

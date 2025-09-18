@@ -89,9 +89,14 @@ const EmptyCalendarIconSVG = ({ size = 24 }: { size?: number }) => (
 const CalendarContainer = styled(motion.div)<{ $isInHeader?: boolean }>`
   background: ${props => props.$isInHeader ? 'transparent' : 'var(--card-background)'};
   border-radius: ${props => props.$isInHeader ? '0' : 'var(--radius-lg)'};
-  max-width: 400px;
+  max-width: 380px;
   margin: ${props => props.$isInHeader ? '0' : '0 auto'};
   overflow: hidden;
+  
+  @media (max-width: 768px) {
+    max-width: 100%;
+    margin: 0;
+  }
 `;
 
 const CalendarHeader = styled.div`
@@ -103,6 +108,10 @@ const CalendarHeader = styled.div`
   background: linear-gradient(135deg, var(--card-background), rgba(var(--primary-rgb), 0.02));
   border-bottom: 1px solid var(--border-color);
   transition: all 0.2s ease;
+  
+  @media (max-width: 768px) {
+    padding: 12px 16px;
+  }
   
   &:hover {
     background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.02));
@@ -127,7 +136,11 @@ const CalendarToggle = styled.div`
 `;
 
 const CalendarContent = styled(motion.div)`
-  padding: 20px;
+  padding: 16px 20px 20px;
+  
+  @media (max-width: 768px) {
+    padding: 12px 16px 16px;
+  }
 `;
 
 const MonthYear = styled.div`
@@ -138,6 +151,11 @@ const MonthYear = styled.div`
   font-size: 1.1rem;
   color: var(--text-color);
   margin-bottom: 20px;
+  
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    margin-bottom: 16px;
+  }
 `;
 
 const NavigationButton = styled(motion.button)`
@@ -152,6 +170,11 @@ const NavigationButton = styled(motion.button)`
   color: var(--primary-color);
   cursor: pointer;
   transition: all 0.2s ease;
+  
+  @media (max-width: 768px) {
+    width: 28px;
+    height: 28px;
+  }
   
   &:hover {
     background: rgba(var(--primary-rgb), 0.2);
@@ -199,13 +222,21 @@ const DayButton = styled(motion.button)<{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
+  min-height: 44px;
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
   transition: all 0.2s ease;
   font-size: 0.9rem;
   font-weight: 500;
+  padding: 6px;
+  overflow: visible;
+  
+  @media (max-width: 768px) {
+    min-height: 36px;
+    font-size: 0.8rem;
+    padding: 4px;
+  }
   
   /* Базовые цвета */
   background: ${props => {
@@ -226,7 +257,7 @@ const DayButton = styled(motion.button)<{
     if (props.$isSelected) return '2px solid var(--primary-color)';
     if (props.$isToday) return '2px solid var(--primary-color)';
     if (props.$hasDeliveries) return '2px solid var(--success-color)';
-    if (props.$isDeliveryDayOfWeek && props.$isCurrentMonth) return '1px solid rgba(var(--primary-rgb), 0.3)';
+    if (props.$isDeliveryDayOfWeek && props.$isCurrentMonth) return '2px solid var(--primary-color)';
     return '2px solid transparent';
   }};
   
@@ -234,6 +265,7 @@ const DayButton = styled(motion.button)<{
     background: ${props => {
       if (props.$isSelected) return 'var(--primary-color)';
       if (props.$hasDeliveries) return 'rgba(var(--success-rgb), 0.2)';
+      if (props.$isDeliveryDayOfWeek && props.$isCurrentMonth) return 'rgba(var(--primary-rgb), 0.15)';
       return 'rgba(var(--primary-rgb), 0.1)';
     }};
     transform: scale(1.05);
@@ -248,18 +280,43 @@ const DayButton = styled(motion.button)<{
 
 const DeliveryIndicator = styled(motion.div)`
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: -3px;
+  right: -3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  background: var(--success-color);
+  min-width: 18px;
+  height: 18px;
+  background: linear-gradient(135deg, var(--primary-color), #f97316);
   border-radius: 50%;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   color: white;
+  box-shadow: 
+    0 2px 8px rgba(var(--primary-rgb), 0.3),
+    0 0 0 1px rgba(var(--primary-rgb), 0.1);
+  z-index: 6;
+  
+  @media (max-width: 768px) {
+    min-width: 16px;
+    height: 16px;
+    font-size: 0.65rem;
+    top: -2px;
+    right: -2px;
+  }
+  
+  /* Добавляем тонкое внутреннее свечение */
+  &::before {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    right: 1px;
+    bottom: 1px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), transparent);
+    border-radius: 50%;
+    pointer-events: none;
+  }
 `;
 
 const DeliveryTooltip = styled(motion.div)`
@@ -290,42 +347,50 @@ const DeliveryTooltip = styled(motion.div)`
 
 // 🎨 Стили для легенды
 const CalendarLegend = styled.div`
-  margin-top: 16px;
-  padding: 12px;
+  margin-top: 12px;
+  padding: 10px;
   background: var(--card-background);
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
 `;
 
 const LegendTitle = styled.div`
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 `;
 
 const LegendItems = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 `;
 
 const LegendItem = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 `;
 
 const LegendDot = styled.div<{ $color: string }>`
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: ${props => props.$color};
   border: 1px solid ${props => props.$color};
 `;
 
+const LegendDotBorder = styled.div<{ $color: string }>`
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid ${props => props.$color};
+`;
+
 const LegendText = styled.div`
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-secondary);
 `;
 
@@ -573,7 +638,7 @@ const SupplyCalendar: React.FC<Props> = ({
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
               <NavigationButton
                 onClick={goToPreviousMonth}
                 whileHover={{ scale: 1.05 }}
@@ -681,16 +746,16 @@ const SupplyCalendar: React.FC<Props> = ({
                   <LegendTitle>Обозначения:</LegendTitle>
                   <LegendItems>
                     <LegendItem>
-                      <LegendDot $color="var(--primary-color)" />
+                      <LegendDotBorder $color="var(--primary-color)" />
                       <LegendText>Дни поставок (пн, ср, пт)</LegendText>
                     </LegendItem>
                     <LegendItem>
                       <LegendDot $color="var(--success-color)" />
-                      <LegendText>Дни с поставками</LegendText>
+                      <LegendText>Есть поставки</LegendText>
                     </LegendItem>
                     <LegendItem>
                       <LegendDot $color="var(--text-secondary)" />
-                      <LegendText>Обычные дни</LegendText>
+                      <LegendText>Нет поставок</LegendText>
                     </LegendItem>
                   </LegendItems>
                 </CalendarLegend>

@@ -605,6 +605,14 @@ const EmptyIcon = styled.div`
   font-size: 4rem;
   margin-bottom: 16px;
   opacity: 0.5;
+  text-align: center;
+  
+  /* Унификация эмодзи на всех устройствах */
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', 'Android Emoji', 'EmojiSymbols', 'EmojiOne Mozilla', 'Twemoji Mozilla', 'Segoe UI Symbol', sans-serif;
+  font-variant-emoji: emoji;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 `;
 
 const EmptyText = styled.p`

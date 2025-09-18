@@ -12,6 +12,17 @@ import httpx
 from pydantic import BaseModel
 import time
 
+# Схемы для календаря поставок
+class CalendarDeliveryData(BaseModel):
+    date: str
+    count: int
+    suppliers: List[str]
+
+class CalendarResponse(BaseModel):
+    month: str  # YYYY-MM
+    deliveries: List[CalendarDeliveryData]
+    total_deliveries: int
+
 # Импорты для работы с БД и схемами
 from db.session import get_db
 from schemas.delivery import (
@@ -83,13 +94,23 @@ def read_supplies(
     mode: str = Query("row", description="row|table|hybrid: источник цены (row — из строки; table — из листа Инфо по категории и дате; hybrid — Инфо, но если в строке своя цена — она)"),
     info_sheet_name: str = Query("Инфо", description="Название листа с историей цен"),
     debug: Optional[bool] = Query(None, description="Вернуть построчную отладку расчёта по формуле листа"),
+    supply_type: Optional[str] = Query("raw_materials", description="Тип поставок: raw_materials, household, stationery"),
 ) -> Dict[str, Any]:
     """
     Возвращает значения из указанного диапазона Google Sheets. Предназначено для первичного теста через Postman.
     Пример запроса:
     GET /v1/supplies?spreadsheet_id=...&range=Лист1!A1:E100
     """
-    logger.info(f"📊 Начинаем чтение данных из Google Sheets: {spreadsheet_id}")
+    # Определяем тип поставок для логирования
+    supply_type_names = {
+        'raw_materials': '🥬 Сырье',
+        'household': '🧽 Хозтовары', 
+        'stationery': '📝 Канцелярия'
+    }
+    supply_type_display = supply_type_names.get(supply_type, f'❓ Неизвестный тип ({supply_type})')
+    
+    logger.info(f"📊 [{supply_type_display}] Начинаем чтение данных из Google Sheets: {spreadsheet_id}")
+    logger.info(f"📋 [{supply_type_display}] Диапазон: {range_}, Дата: {date}")
     total_start = time.time()
     
     try:
@@ -135,13 +156,13 @@ def read_supplies(
         service_start = time.time()
         service = build("sheets", "v4", credentials=creds, cache_discovery=False)
         service_time = time.time() - service_start
-        logger.info(f"🔧 Google Sheets сервис создан за {service_time:.3f}с")
+        logger.info(f"🔧 [{supply_type_display}] Google Sheets сервис создан за {service_time:.3f}с")
         
         # Этап 2: Нормализация диапазона
         range_start = time.time()
         normalized_range = _ensure_sheet_title_and_range(service, spreadsheet_id, range_, sheet_gid)
         range_time = time.time() - range_start
-        logger.info(f"📋 Диапазон нормализован за {range_time:.3f}с: {normalized_range}")
+        logger.info(f"📋 [{supply_type_display}] Диапазон нормализован за {range_time:.3f}с: {normalized_range}")
         
         # Этап 3: Выполнение запроса к API
         api_start = time.time()
@@ -153,11 +174,11 @@ def read_supplies(
         )
         result = request.execute()
         api_time = time.time() - api_start
-        logger.info(f"🌐 API запрос выполнен за {api_time:.3f}с")
+        logger.info(f"🌐 [{supply_type_display}] API запрос выполнен за {api_time:.3f}с")
         
         values: List[List[Any]] = result.get("values", [])
         total_time = time.time() - total_start
-        logger.info(f"✅ Данные получены: {len(values)} строк за {total_time:.3f}с")
+        logger.info(f"✅ [{supply_type_display}] Данные получены: {len(values)} строк за {total_time:.3f}с")
 
         # Определяем, включён ли debug по умолчанию (dev-среда)
         env_lower = os.getenv("APP_ENV", "").lower()
@@ -254,6 +275,12 @@ def read_supplies(
         price_col = find_col("Цена", values[max(0, header_row_idx-2):header_row_idx+1])
         supplier_col = find_col("Поставщик", values[max(0, header_row_idx-2):header_row_idx+1])
         status_col = find_col("Статус", values[max(0, header_row_idx-2):header_row_idx+1])
+        
+        # 🚀 ОПТИМИЗАЦИЯ: Определяем максимальную колонку для оптимизации диапазона
+        used_cols = [name_col, unit_col, price_col, supplier_col, status_col]
+        max_used_col = max([col for col in used_cols if col is not None], default=0)
+        logger.info(f"📊 Используемые колонки: Наименование={name_col}, Ед.изм={unit_col}, Цена={price_col}, Поставщик={supplier_col}, Статус={status_col}")
+        logger.info(f"📊 Максимальная используемая колонка: {max_used_col}")
 
         # Дата-колонки часто находятся на строку выше/ниже. Сканируем окно ±3 строки.
         import re
@@ -277,6 +304,21 @@ def read_supplies(
 
         # Отфильтруем явные ложные ранние колонки (левый блок до дат), обычно даты начинаются с колонки H (индекс 7)
         date_cols = [(j, d) for (j, d) in date_cols if j >= 7]
+        
+        # 🚀 ОПТИМИЗАЦИЯ: Определяем максимальную колонку с датами
+        max_date_col = max([j for j, _ in date_cols], default=0)
+        logger.info(f"📊 Найдено {len(date_cols)} колонок с датами, максимальная колонка: {max_date_col}")
+        
+        # Определяем оптимальный диапазон колонок
+        optimal_max_col = max(max_used_col, max_date_col)
+        logger.info(f"📊 Оптимальная максимальная колонка: {optimal_max_col} (текущий диапазон: A-U = 21 колонка)")
+        
+        # 🚀 ОПТИМИЗАЦИЯ: Предлагаем сократить диапазон
+        if optimal_max_col < 20:  # U = 20, T = 19
+            suggested_range = f"A1:{chr(65 + optimal_max_col)}220"
+            logger.info(f"🚀 РЕКОМЕНДАЦИЯ: Можно сократить диапазон с A1:U220 до {suggested_range} (экономия {220 * (20 - optimal_max_col)} ячеек)")
+        else:
+            logger.info(f"📊 Диапазон A1:U220 оптимален - используется максимальная колонка {optimal_max_col}")
 
         # Если явно не нашли дат — fallback: после колонки 'Итого за мес' (обычно G), берём H..конец и пытаемся распарсить верхние 3 строки
         if not date_cols:
@@ -361,47 +403,10 @@ def read_supplies(
         records: List[Dict[str, Any]] = []
         logger.info(f"🔄 Начинаем обработку {len(values)} строк данных...")
         
-        # --- Прайс из листа Инфо ---
-        # Формула листа использует cat = INDEX($B7:$B; idx) — это Наименование в текущем листе.
-        # В листе 'Инфо' колонка D содержит то же поле (Наименование), H — цена, I — дата.
-        # Значит матчим по Наименованию и берём цену с максимальной датой <= дате колонки.
+        # 🚀 ОПТИМИЗАЦИЯ: Убираем загрузку 'Инфо' - цены не используются в интерфейсе!
+        # Цены были убраны из UI, поэтому загрузка справочника цен не нужна
         info_prices_by_name: Dict[str, List[Tuple[str, float]]] = {}
-        if mode in ("table", "hybrid"):
-            logger.info(f"📊 Загружаем данные из листа '{info_sheet_name}' для получения цен...")
-            info_start = time.time()
-            try:
-                info_range = f"'{info_sheet_name}'!D:I"
-                info_req = sheet.values().get(
-                    spreadsheetId=spreadsheet_id,
-                    range=info_range,
-                    valueRenderOption="UNFORMATTED_VALUE",
-                )
-                info_res = info_req.execute()
-                info_vals: List[List[Any]] = info_res.get("values", [])
-                for r in info_vals:
-                    # ожидается: D=Наименование (индекс 0), H=цена (индекс 4), I=дата (индекс 5)
-                    if len(r) < 6:
-                        continue
-                    item_name_key = "" if r[0] is None else str(r[0]).strip()
-                    price_val = None
-                    try:
-                        price_val = parse_number(r[4])
-                    except Exception:
-                        price_val = None
-                    date_iso_val = parse_date_cell(r[5])
-                    if not item_name_key or price_val is None or not date_iso_val:
-                        continue
-                    info_prices_by_name.setdefault(item_name_key, []).append((date_iso_val, float(price_val)))
-                # сортировка по дате возрастания
-                for n_key in list(info_prices_by_name.keys()):
-                    info_prices_by_name[n_key].sort(key=lambda t: t[0])
-                
-                info_time = time.time() - info_start
-                logger.info(f"📊 Данные из листа '{info_sheet_name}' загружены за {info_time:.3f}с: {len(info_prices_by_name)} товаров")
-            except Exception:
-                info_prices_by_name = {}
-                info_time = time.time() - info_start
-                logger.warning(f"⚠️ Не удалось загрузить данные из листа '{info_sheet_name}' за {info_time:.3f}с")
+        logger.info(f"⚡ Пропускаем загрузку листа '{info_sheet_name}' - цены не используются в интерфейсе")
         total_quantity: float = 0.0
         total_cost: float = 0.0
         withdrawn_quantity: float = 0.0
@@ -413,10 +418,18 @@ def read_supplies(
 
         # Проходим по строкам с товарами
         current_category: Optional[str] = None
-        logger.info(f"🔄 Обрабатываем строки с {header_row_idx + 1} по {len(values)}...")
+        
+        # 🔧 ИСПРАВЛЕНИЕ: Проверяем максимальную требуемую колонку (как в календарном API)
+        max_required_col = max([name_col or 0, unit_col or 0, price_col or 0, supplier_col or 0, status_col or 0] + [j for j, _ in date_cols])
+        
         rows_start = time.time()
         for i in range(header_row_idx + 1, len(values)):
             row = values[i]
+            
+            # 🔧 ИСПРАВЛЕНИЕ: Пропускаем строки с недостаточным количеством колонок
+            if len(row) < max_required_col:
+                continue
+                
             name = as_text(row[name_col]) if name_col is not None and name_col < len(row) else ""
             if not name:
                 continue
@@ -444,29 +457,17 @@ def read_supplies(
                 date_iso = date_label if date else parse_date_label(date_label)
                 if date_iso is None and qty is None and limit_val is None:
                     continue
+                # 🔧 ИСПРАВЛЕНИЕ: Пропускаем записи с qty = None (несуществующие колонки)
+                if qty is None:
+                    logger.debug(f"⏭️ Пропускаем запись для {date_label}: qty = None (колонка {j} не существует)")
+                    continue
                 if exclude_zero and (qty is None or qty == 0):
                     continue
                 # Определяем дату
                 item_date_iso = date_iso
-                # Резолвим цену согласно режиму (по Наименованию из листа Инфо)
+                # 🚀 ОПТИМИЗАЦИЯ: Используем только цену из строки (без загрузки 'Инфо')
                 resolved_price = row_price
                 price_from_info = False
-                if mode in ("table", "hybrid") and name and item_date_iso:
-                    hist = info_prices_by_name.get(name)
-                    if hist:
-                        candidates = [(d, p) for (d, p) in hist if d <= item_date_iso]
-                        if candidates:
-                            _, info_price_val = candidates[-1]
-                            if mode == "table" or row_price is None:
-                                resolved_price = info_price_val
-                                price_from_info = True
-                        else:
-                            # В режиме table, если нет цены в Инфо на дату — считаем как 0 (как формула)
-                            if mode == "table":
-                                resolved_price = None
-                    else:
-                        if mode == "table":
-                            resolved_price = None
                 item_total = (resolved_price or 0) * (qty or 0)
                 total_quantity += (qty or 0)
                 total_cost += item_total
@@ -482,10 +483,11 @@ def read_supplies(
 
                 # sheet_total «как формула листа»: qty * цена из Инфо по Наименованию и макс(I) <= date
                 # Формула также исключает строки, если qty пусто/0, name пусто, date пусто
+                # 🚀 ОПТИМИЗАЦИЯ: Упрощаем логику без загрузки 'Инфо'
                 sheet_included = True
                 sheet_reason = None
-                matched_price = None
-                matched_price_date = None
+                matched_price = row_price
+                matched_price_date = item_date_iso
                 if qty is None or (isinstance(qty, (int, float)) and qty == 0):
                     sheet_included = False
                     sheet_reason = "qty_empty_or_zero"
@@ -496,18 +498,8 @@ def read_supplies(
                     sheet_included = False
                     sheet_reason = "empty_date"
                 else:
-                    hist2 = info_prices_by_name.get(name)
-                    if not hist2:
-                        sheet_included = False
-                        sheet_reason = "no_info_prices_for_name"
-                    else:
-                        candidates2 = [(d, p) for (d, p) in hist2 if d <= item_date_iso]
-                        if not candidates2:
-                            sheet_included = False
-                            sheet_reason = "no_price_before_or_on_date"
-                        else:
-                            matched_price_date, matched_price = candidates2[-1]
-                            sheet_total += (matched_price or 0) * (qty or 0)
+                    # Используем цену из строки (без проверки 'Инфо')
+                    sheet_total += (row_price or 0) * (qty or 0)
                 records.append({
                     "name": f"{name} (Выведено)" if is_withdrawn else name,
                     "category": current_category,
@@ -1019,7 +1011,7 @@ async def send_delivery_notification(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=f"Ошибка отправки уведомления: {response.text}"
                 )
-        
+                
     except httpx.TimeoutException:
         logger.error("❌ [SEND_NOTIFICATION] Таймаут при отправке уведомления")
         raise HTTPException(
@@ -1031,4 +1023,257 @@ async def send_delivery_notification(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка сервера: {str(e)}"
+        )
+
+
+@router.get("/supplies/calendar", response_model=CalendarResponse, summary="Получение данных поставок для календаря", tags=["Supplies"])
+def get_calendar_data(
+    chat_id: str = Query(..., description="ID чата группы"),
+    month: str = Query(..., description="Месяц в формате YYYY-MM (например: 2025-09)"),
+    supply_type: str = Query("raw_materials", description="Тип поставок: raw_materials, household, stationery"),
+    db: Session = Depends(get_db)
+):
+    """
+    Получает данные поставок для календаря за указанный месяц.
+    Оптимизированный запрос - загружает только необходимые поля для отображения в календаре.
+    """
+    try:
+        # Получаем конфигурацию группы из БД по chat_id (group_id)
+        from models.group import Group
+        group = db.query(Group).filter(Group.group_id == int(chat_id)).first()
+        
+        if not group or not group.supplies_config:
+            logger.warning(f"⚠️ [CALENDAR] Конфигурация не найдена для chat_id: {chat_id}")
+            return CalendarResponse(
+                month=month,
+                deliveries=[],
+                total_deliveries=0
+            )
+        
+        config = group.supplies_config
+        
+        # Определяем правильный spreadsheet_id для типа поставок
+        if supply_type == "household" and config.get("household_spreadsheet_id"):
+            spreadsheet_id = config["household_spreadsheet_id"]
+        elif supply_type == "stationery" and config.get("stationery_spreadsheet_id"):
+            spreadsheet_id = config["stationery_spreadsheet_id"]
+        else:
+            spreadsheet_id = config["spreadsheet_id"]
+        
+        # Формируем диапазон для месяца (например: '09-25'!A1:U220)
+        range_name = f"'{month.split('-')[1]}-{month.split('-')[0][2:]}'!A1:U220"
+        
+        # Загружаем данные из Google Sheets
+        credentials = _load_service_account_credentials()
+        service = build('sheets', 'v4', credentials=credentials)
+        
+        # Получаем данные
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=range_name,
+            valueRenderOption='UNFORMATTED_VALUE'
+        ).execute()
+        
+        values = result.get('values', [])
+        
+        if not values:
+            return CalendarResponse(
+                month=month,
+                deliveries=[],
+                total_deliveries=0
+            )
+        
+        # 🚀 НОВАЯ ЛОГИКА: Пробегаемся по каждому дню месяца и считаем поставки
+        
+        # Получаем год и месяц из параметра month (например: "2025-09")
+        year = int(month.split('-')[0])
+        month_num = int(month.split('-')[1])
+        
+        # Создаем словарь для подсчета поставок по дням
+        deliveries_by_date = {}
+        
+        # Инициализируем все дни месяца нулевыми значениями
+        from datetime import datetime, timedelta
+        import calendar
+        
+        # Получаем количество дней в месяце
+        days_in_month = calendar.monthrange(year, month_num)[1]
+        
+        # Находим колонки с датами в заголовках (ищем в первых двух строках)
+        header_row = values[0] if values else []
+        date_row = values[1] if len(values) > 1 else []  # Вторая строка с датами
+        date_columns = {}  # {день_месяца: номер_колонки}
+        
+        # Ищем даты в первой строке
+        for i, header in enumerate(header_row):
+            if isinstance(header, (int, float)) and header > 40000:
+                # Это Excel дата, конвертируем в обычную дату
+                try:
+                    excel_date = datetime(1900, 1, 1) + timedelta(days=header - 2)
+                    if excel_date.year == year and excel_date.month == month_num:
+                        day = excel_date.day
+                        date_columns[day] = i
+                except Exception as e:
+                    logger.warning(f"⚠️ [CALENDAR] Ошибка конвертации Excel даты {header}: {e}")
+        
+        # Ищем даты во второй строке (основные даты)
+        for i, header in enumerate(date_row):
+            if isinstance(header, (int, float)) and header > 40000:
+                # Это Excel дата, конвертируем в обычную дату
+                try:
+                    excel_date = datetime(1900, 1, 1) + timedelta(days=header - 2)
+                    if excel_date.year == year and excel_date.month == month_num:
+                        day = excel_date.day
+                        date_columns[day] = i
+                except Exception as e:
+                    logger.warning(f"⚠️ [CALENDAR] Ошибка конвертации Excel даты {header}: {e}")
+        
+        
+        # Находим колонки с наименованием, поставщиком и статусом (ищем во второй строке)
+        name_col = None
+        supplier_col = None
+        status_col = None
+        
+        # Ищем в первой строке
+        for i, header in enumerate(header_row):
+            header_str = str(header).lower() if header is not None else ""
+            if 'наименование' in header_str or 'товар' in header_str or 'название' in header_str:
+                name_col = i
+            elif 'поставщик' in header_str:
+                supplier_col = i
+            elif 'статус' in header_str:
+                status_col = i
+        
+        # Ищем во второй строке (основные заголовки)
+        for i, header in enumerate(date_row):
+            header_str = str(header).lower() if header is not None else ""
+            if 'наименование' in header_str or 'товар' in header_str or 'название' in header_str:
+                name_col = i
+            elif 'поставщик' in header_str:
+                supplier_col = i
+            elif 'статус' in header_str:
+                status_col = i
+        
+        # Дополнительная отладка для понимания структуры заголовков
+        logger.info(f"📅 [CALENDAR] Анализ заголовков для поиска колонок:")
+        logger.info(f"📅 [CALENDAR] Первая строка (header_row):")
+        for i, header in enumerate(header_row):
+            logger.info(f"📅 [CALENDAR] Колонка {i}: '{header}'")
+            if i > 10:  # Ограничиваем вывод
+                logger.info(f"📅 [CALENDAR] ... (показаны первые 10 колонок)")
+                break
+        
+        
+        # Инициализируем счетчики для всех дней месяца
+        for day in range(1, days_in_month + 1):
+            date_str = f"{year}-{month_num:02d}-{day:02d}"
+            deliveries_by_date[date_str] = {
+                'count': 0,
+                'suppliers': set()
+            }
+        
+        # Обрабатываем строки данных (пропускаем первые 6 строк: заголовки, лимиты, суммы и служебные)
+        processed_rows = 0
+        # 🔧 ИСПРАВЛЕНИЕ: Уменьшаем max_required_col, чтобы не пропускать строки с данными
+        # Нам нужны только: name_col, supplier_col, status_col и даты
+        required_cols = [name_col or 0, supplier_col or 0, status_col or 0]
+        if date_columns:
+            required_cols.extend(date_columns.values())
+        max_required_col = max(required_cols) if required_cols else 0
+        
+        
+        
+        for row_idx, row in enumerate(values[6:], 6):
+            # 🔧 ИСПРАВЛЕНИЕ: Убираем проверку на количество колонок - обрабатываем все строки
+            # Проверяем только что у нас есть минимально необходимые данные
+            if len(row) < 5:  # Минимум: статус, название, единица, цена, поставщик
+                continue
+                
+            name = str(row[name_col]) if name_col is not None and name_col < len(row) else ""
+            supplier = str(row[supplier_col]) if supplier_col is not None and supplier_col < len(row) else ""
+            status_val = str(row[status_col]) if status_col is not None and status_col < len(row) else ""
+            
+            # 🔧 ИСПРАВЛЕНИЕ: Если поставщик пустой, считаем как "Неизвестный поставщик"
+            if not supplier.strip():
+                supplier = "Неизвестный поставщик"
+            
+            # 🔧 ИСПРАВЛЕНИЕ: Проверяем статус "выведено" (как в основном API)
+            is_withdrawn = status_val.lower().startswith("выведено")
+            
+            # Отладка для первых нескольких строк
+            if processed_rows < 5:
+                pass  # Убрали логи
+            
+            # 🔧 ИСПРАВЛЕНИЕ: Пропускаем только если имя товара пустое
+            if not name.strip():
+                continue
+            
+            processed_rows += 1
+            
+            # Проверяем каждую колонку с датами
+            for day, col_idx in date_columns.items():
+                if col_idx >= len(row):
+                    continue
+                    
+                cell_value = row[col_idx]
+                if not cell_value:
+                    continue
+                
+                # Проверяем есть ли поставка в этот день
+                # Если значение не пустое и не равно 0, значит есть поставка
+                try:
+                    qty = float(cell_value) if isinstance(cell_value, (int, float)) else 0
+                    if qty > 0:  # Есть поставка
+                        date_str = f"{year}-{month_num:02d}-{day:02d}"
+                        # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
+                        # Каждый поставщик = 1 поставка
+                        if supplier not in deliveries_by_date[date_str]['suppliers']:
+                            deliveries_by_date[date_str]['count'] += 1
+                            deliveries_by_date[date_str]['suppliers'].add(supplier)
+                except (ValueError, TypeError):
+                    # Если не число, но не пустое - считаем как поставку
+                    if str(cell_value).strip():
+                        date_str = f"{year}-{month_num:02d}-{day:02d}"
+                        # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
+                        if supplier not in deliveries_by_date[date_str]['suppliers']:
+                            deliveries_by_date[date_str]['count'] += 1
+                            deliveries_by_date[date_str]['suppliers'].add(supplier)
+        
+        
+        # Формируем ответ только для дней с поставками
+        deliveries = []
+        for date_str, data in deliveries_by_date.items():
+            if data['count'] > 0:  # Только дни с поставками
+                deliveries.append(CalendarDeliveryData(
+                    date=date_str,
+                    count=data['count'],
+                    suppliers=list(data['suppliers'])
+                ))
+        
+        # Сортируем по дате
+        deliveries.sort(key=lambda x: x.date)
+        
+        
+        return CalendarResponse(
+            month=month,
+            deliveries=deliveries,
+            total_deliveries=sum(d.count for d in deliveries)
+        )
+        
+    except Exception as e:
+        error_str = str(e)
+        logger.error(f"❌ [CALENDAR] Ошибка получения данных календаря: {e}")
+        
+        # 🔧 КРАСИВАЯ ОБРАБОТКА: Проверяем, если лист не найден
+        if "Unable to parse range" in error_str or "Unable to find" in error_str:
+            return CalendarResponse(
+                month=month,
+                deliveries=[],
+                total_deliveries=0
+            )
+        
+        # Для других ошибок возвращаем стандартную ошибку
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка получения данных календаря: {str(e)}"
         )

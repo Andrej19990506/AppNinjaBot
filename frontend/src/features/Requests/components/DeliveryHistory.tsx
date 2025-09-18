@@ -209,6 +209,18 @@ const EmptyIcon = ({ size = 32 }: { size?: number }) => (
   </svg>
 );
 
+const FilterIcon = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M22 3H2L10 12.46V19L14 21V12.46L22 3Z" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 const CheckIcon = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle 
@@ -234,14 +246,49 @@ const Container = styled(motion.div)`
   background: transparent;
 `;
 
-const FiltersContainer = styled.div`
+const FiltersContainer = styled(motion.div)`
   background: var(--card-background);
   border-radius: var(--radius-lg);
-  padding: 20px;
   margin-bottom: 24px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
+  overflow: hidden;
+`;
+
+const FiltersHeader = styled.div`
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--card-background), rgba(var(--primary-rgb), 0.02));
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.2s ease;
   
+  &:hover {
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.02));
+  }
+`;
+
+const FiltersTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-color);
+  font-size: 0.95rem;
+`;
+
+const FiltersToggle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+`;
+
+const FiltersContent = styled(motion.div)`
+  padding: 20px;
   display: flex;
   gap: 16px;
   flex-wrap: wrap;
@@ -408,7 +455,6 @@ const DeliveriesGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 20px;
-  padding-bottom: 80px;
 `;
 
 const DeliveryCard = styled(motion.div)`
@@ -856,6 +902,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     dateFrom: '',
     dateTo: ''
   });
+  const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
 
   // 👤 Функция для получения URL фото пользователя
   const getUserPhotoUrl = (userId?: number): string | undefined => {
@@ -863,20 +910,11 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
     return `${window.APP_CONFIG?.API_URL || 'http://localhost:8000/api'}/v1/users/${userId}/photo`;
   };
 
-  // 🔍 Логи для отладки состояния компонента
-  console.log('📋 [DeliveryHistory] Рендер компонента:', {
-    selectedChatId,
-    chatTitle,
-    deliveriesCount: deliveries.length,
-    loading,
-    error,
-    filters
-  });
+
 
   // 🔍 Функция для применения фильтров на клиенте
   const applyClientFilters = useCallback((deliveriesToFilter: DeliveryResponse[]) => {
-    console.log('🔧 [DeliveryHistory] Применяем клиентские фильтры:', filters);
-    
+     
     let filtered = deliveriesToFilter;
 
     // Фильтр по поставщику
@@ -903,12 +941,6 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
       );
     }
 
-    console.log('✅ [DeliveryHistory] Результат фильтрации:', {
-      original: deliveriesToFilter.length,
-      filtered: filtered.length,
-      filters
-    });
-
     setDeliveries(filtered);
   }, [filters]);
 
@@ -925,9 +957,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
         include_stats: false,
         size: 100 // Максимально допустимое значение по API
       };
-
-      console.log('📡 [DeliveryHistory] Применяем фильтры:', filtersToApply);
-
+;
       const response = await getDeliveries(filtersToApply);
       
       console.log('✅ [DeliveryHistory] Получены данные с сервера:', {
@@ -977,7 +1007,7 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
   React.useEffect(() => {
     if (deliveries.length > 0 && expandedCards.size === 0) {
       // Все карточки уже свернуты по умолчанию (expandedCards пустой)
-      console.log('📦 [DeliveryHistory] Все карточки свернуты по умолчанию');
+      
     }
   }, [deliveries.length, expandedCards.size]);
 
@@ -985,9 +1015,12 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
   useEffect(() => {
     console.log('🔄 [DeliveryHistory] useEffect triggered:', { selectedChatId, chatTitle });
     if (chatTitle) { // Загружаем данные только если есть выбранный филиал
-      loadData();
+      // Загружаем данные только если их еще нет или изменился филиал
+      if (allDeliveries.length === 0 || allDeliveries[0]?.branch !== chatTitle) {
+        loadData();
+      }
     }
-  }, [selectedChatId, chatTitle]); // Убираем loadData из зависимостей
+  }, [selectedChatId, chatTitle, allDeliveries.length, loadData]);
 
   // ⚡ Применяем клиентские фильтры при их изменении
   useEffect(() => {
@@ -1083,76 +1116,105 @@ const DeliveryHistory: React.FC<Props> = ({ selectedChatId, chatTitle }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <FiltersContainer>
-        <FiltersRow>
-          <FilterGroup>
-            <FilterLabel>
-              <SupplierIcon size={16} />
-              Поставщик
-            </FilterLabel>
-            <FilterSelect
-              value={filters.supplier}
-              onChange={(e) => handleFilterChange('supplier', e.target.value)}
+      <FiltersContainer
+        initial={false}
+        animate={{ 
+          height: isFiltersExpanded ? 'auto' : 'auto',
+          opacity: 1 
+        }}
+        transition={{ duration: 0.3, ease: 'easeInOut' }}
+      >
+        <FiltersHeader onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}>
+          <FiltersTitle>
+            <FilterIcon size={16} />
+            Фильтры поставок
+          </FiltersTitle>
+          <FiltersToggle>
+            <span>{isFiltersExpanded ? 'Скрыть' : 'Показать'}</span>
+            <ChevronDownIcon isExpanded={isFiltersExpanded} />
+          </FiltersToggle>
+        </FiltersHeader>
+
+        <AnimatePresence>
+          {isFiltersExpanded && (
+            <FiltersContent
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
             >
-              <option value="">Все поставщики</option>
-              {availableSuppliers.map(supplier => (
-                <option key={supplier} value={supplier}>
-                  {supplier}
-                </option>
-              ))}
-            </FilterSelect>
-          </FilterGroup>
+              <FiltersRow>
+                <FilterGroup>
+                  <FilterLabel>
+                    <SupplierIcon size={16} />
+                    Поставщик
+                  </FilterLabel>
+                  <FilterSelect
+                    value={filters.supplier}
+                    onChange={(e) => handleFilterChange('supplier', e.target.value)}
+                  >
+                    <option value="">Все поставщики</option>
+                    {availableSuppliers.map(supplier => (
+                      <option key={supplier} value={supplier}>
+                        {supplier}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                </FilterGroup>
 
-          <FilterGroup>
-            <FilterLabel>
-              <CalendarIcon size={16} />
-              Дата с
-            </FilterLabel>
-            <FilterDateInput
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-            />
-          </FilterGroup>
+                <FilterGroup>
+                  <FilterLabel>
+                    <CalendarIcon size={16} />
+                    Дата с
+                  </FilterLabel>
+                  <FilterDateInput
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+                  />
+                </FilterGroup>
 
-          <FilterGroup>
-            <FilterLabel>
-              <CalendarIcon size={16} />
-              Дата по
-            </FilterLabel>
-            <FilterDateInput
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-            />
-          </FilterGroup>
+                <FilterGroup>
+                  <FilterLabel>
+                    <CalendarIcon size={16} />
+                    Дата по
+                  </FilterLabel>
+                  <FilterDateInput
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+                  />
+                </FilterGroup>
 
-          <FilterActions>
-            <ClearButton onClick={clearFilters}>
-              <CleanIcon size={16} />
-              Сбросить
-            </ClearButton>
-          </FilterActions>
-        </FiltersRow>
+                <FilterActions>
+                  <ClearButton onClick={clearFilters}>
+                    <CleanIcon size={16} />
+                    Сбросить
+                  </ClearButton>
+                </FilterActions>
+              </FiltersRow>
 
-        <ResultsInfo>
-          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <ListIcon size={16} />
-            Найдено поставок: <strong>{deliveries.length}</strong> из <strong>{allDeliveries.length}</strong>
-          </span>
-          {(filters.supplier || filters.dateFrom || filters.dateTo) && (
-            <span style={{ 
-              color: 'var(--primary-color)', 
-              fontSize: '0.8rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <SearchIcon size={14} />
-              Фильтры активны
-            </span>
+              <ResultsInfo>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ListIcon size={16} />
+                  Найдено поставок: <strong>{deliveries.length}</strong> из <strong>{allDeliveries.length}</strong>
+                </span>
+                {(filters.supplier || filters.dateFrom || filters.dateTo) && (
+                  <span style={{ 
+                    color: 'var(--primary-color)', 
+                    fontSize: '0.8rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                    <SearchIcon size={14} />
+                    Фильтры активны
+                  </span>
+                )}
+              </ResultsInfo>
+            </FiltersContent>
           )}
-        </ResultsInfo>
+        </AnimatePresence>
       </FiltersContainer>
 
       {deliveries.length === 0 ? (

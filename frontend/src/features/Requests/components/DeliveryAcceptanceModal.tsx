@@ -763,9 +763,6 @@ const DeliveryAcceptanceModal: React.FC<Props> = ({
                         <DetailBadge $type="category">
                           {item.category}
                         </DetailBadge>
-                        <DetailBadge $type="unit">
-                          {item.price.toLocaleString('ru-RU')} ₽
-                        </DetailBadge>
                       </ItemDetails>
 
                       <NotesSection $hasNotes={!!note}>

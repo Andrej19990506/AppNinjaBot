@@ -9,10 +9,22 @@ export type SuppliesQuery = {
   info_sheet_name?: string;
   exclude_zero?: boolean;
   debug?: boolean;
+  supply_type?: 'raw_materials' | 'household' | 'stationery';
+  signal?: AbortSignal; // Добавляем поддержку AbortSignal
 };
 
 export const getSupplies = async (params: SuppliesQuery) => {
-  const resp = await axiosInstance.get('/v1/supplies', { params });
+  console.log('📡 [getSupplies] Отправляем запрос с параметрами:', params);
+  
+  // Извлекаем signal из параметров
+  const { signal, ...requestParams } = params;
+  
+  const resp = await axiosInstance.get('/v1/supplies', { 
+    params: requestParams,
+    signal // Передаем AbortSignal в axios
+  });
+  
+  console.log('📡 [getSupplies] Получен ответ:', resp.data);
   return resp.data as {
     spreadsheetId: string;
     range: string;
@@ -176,6 +188,38 @@ export const sendDeliveryNotification = async (params: {
   return resp.data as {
     success: boolean;
     message: string;
+  };
+};
+
+// 🚀 НОВЫЙ API для получения данных календаря
+export const getCalendarData = async (params: {
+  chat_id: string; // ID чата группы
+  month: string; // YYYY-MM
+  supply_type?: 'raw_materials' | 'household' | 'stationery';
+  signal?: AbortSignal;
+}) => {
+  console.log('📅 [getCalendarData] Отправляем запрос с параметрами:', params);
+  
+  // Извлекаем signal из параметров
+  const { signal, ...requestParams } = params;
+  
+  console.log('📡 [getCalendarData] URL:', '/v1/supplies/calendar');
+  console.log('📡 [getCalendarData] requestParams:', requestParams);
+  
+  const resp = await axiosInstance.get('/v1/supplies/calendar', { 
+    params: requestParams,
+    signal // Передаем AbortSignal в axios
+  });
+  
+  console.log('✅ [getCalendarData] Получен ответ:', resp.data);
+  return resp.data as {
+    month: string;
+    deliveries: Array<{
+      date: string;
+      count: number;
+      suppliers: string[];
+    }>;
+    total_deliveries: number;
   };
 };
 

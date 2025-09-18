@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import styled, { keyframes, createGlobalStyle, css } from 'styled-components';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { fetchSupplies, selectRequests, setParams, reset } from './store/requestsSlice';
+import { fetchSupplies, fetchCalendarData, selectRequests, selectCalendarData, setParams, reset } from './store/requestsSlice';
+import { getCalendarData } from './services/requestsApi';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
 import { generateRange } from '@/types/supplies';
@@ -14,8 +15,133 @@ import DeliveryHistory from './components/DeliveryHistory';
 import ConfigMissing from './components/ConfigMissing';
 import PermissionDenied from './components/PermissionDenied';
 import Footer from '@/features/Inventory/Footer';
+import SupplyCalendar from './components/SupplyCalendar';
+
+// Интерфейс для конфигурации поставок
+interface SuppliesConfig {
+  spreadsheet_id: string;
+  household_spreadsheet_id?: string;
+  stationery_spreadsheet_id?: string;
+  default_sheet_pattern: string;
+  branch_name: string;
+  start_row?: number;
+  header_row?: number;
+  months_range_back?: number;
+  months_range_forward?: number;
+}
+
+// Типы поставок
+const SUPPLY_TYPES = [
+  { id: 'raw_materials', name: 'Сырье', description: 'Продукты и ингредиенты' },
+  { id: 'household', name: 'Хозтовары', description: 'Бытовая химия и уборка' },
+  { id: 'stationery', name: 'Канцелярия', description: 'Офисные принадлежности' }
+] as const;
 
 
+// Стили для карусельки типов поставок
+const SupplyTypeCarousel = styled.div`
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  background: var(--card-background);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-sm);
+  margin: 20px 0;
+  backdrop-filter: blur(10px);
+`;
+
+const SupplyTypeButton = styled.button<{ $isActive: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0px;
+  padding: 16px 20px;
+  border: none;
+  border-radius: var(--radius-lg);
+  background: ${props => props.$isActive 
+    ? 'linear-gradient(135deg, var(--primary-color) 0%, #ff8c42 100%)' 
+    : 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.08) 0%, rgba(var(--primary-rgb), 0.12) 100%)'
+  };
+  color: ${props => props.$isActive 
+    ? 'white' 
+    : 'var(--text-primary)'
+  };
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 100px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid ${props => props.$isActive 
+    ? 'var(--primary-color)' 
+    : 'var(--border-color)'
+  };
+  box-shadow: ${props => props.$isActive 
+    ? '0 4px 16px rgba(var(--primary-rgb), 0.3), 0 2px 4px rgba(0, 0, 0, 0.1)' 
+    : '0 2px 8px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+  };
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.6s ease;
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  
+  &:hover {
+    background: ${props => props.$isActive 
+      ? 'linear-gradient(135deg, var(--primary-color) 0%, #ff8c42 100%)' 
+      : 'linear-gradient(135deg, rgba(var(--primary-rgb), 0.12) 0%, rgba(var(--primary-rgb), 0.18) 100%)'
+    };
+    border-color: ${props => props.$isActive 
+      ? 'var(--primary-color)' 
+      : 'var(--primary-color)'
+    };
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: ${props => props.$isActive 
+      ? '0 8px 24px rgba(var(--primary-rgb), 0.4), 0 4px 8px rgba(0, 0, 0, 0.15)' 
+      : '0 4px 16px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
+    };
+    
+    &::before {
+      left: 100%;
+    }
+    
+    &::after {
+      opacity: 1;
+    }
+  }
+  
+  &:active {
+    transform: translateY(-1px) scale(1.01);
+    transition: all 0.1s ease;
+  }
+`;
+
+const SupplyTypeName = styled.span`
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+`;
 
 // Глобальный стиль для принудительного включения скролла
 const GlobalScrollFix = createGlobalStyle`
@@ -33,18 +159,6 @@ const GlobalScrollFix = createGlobalStyle`
   }
 `;
 
-// Брендовые анимации
-const pulseAnimation = keyframes`
-  0% { 
-    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4);
-  }
-  70% { 
-    box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0);
-  }
-  100% { 
-    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
-  }
-`;
 
 const shineAnimation = keyframes`
   from {
@@ -55,26 +169,11 @@ const shineAnimation = keyframes`
   }
 `;
 
-const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
 
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-`;
 
 // Стилизованные компоненты в брендовом стиле
 const PageContainer = styled(motion.div)`
   width: 100%;
-  background: linear-gradient(135deg, var(--background-color) 0%, var(--gray-50) 100%);
   padding: 24px;
   padding-bottom: 100px; /* Отступ для футера */
   position: relative;
@@ -86,20 +185,19 @@ const PageContainer = styled(motion.div)`
     left: 0;
     right: 0;
     bottom: 0;
-    background: 
-      radial-gradient(circle at 20% 80%, rgba(var(--primary-rgb), 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, rgba(var(--primary-rgb), 0.05) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
   }
   
   @media (max-width: 768px) {
+    height: 100vh;
     padding: 5px;
     padding-bottom: 80px; /* Меньший отступ для мобильных */
   }
 `;
 
 const ContentWrapper = styled(motion.div)`
+  padding-bottom: 80px;
   max-width: 1400px;
   margin: 0 auto;
   position: relative;
@@ -116,7 +214,7 @@ const Header = styled(motion.div)`
   background: var(--card-background);
   padding: 24px 32px;
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+
   border: 1px solid var(--border-color);
   position: relative;
   overflow: hidden;
@@ -217,14 +315,46 @@ const BranchName = styled.span`
   font-weight: 600;
 `;
 
+const CalendarHeaderButton = styled(motion.button)`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(var(--primary-rgb), 0.1);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  border-radius: var(--radius);
+  color: var(--primary-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: rgba(var(--primary-rgb), 0.2);
+    border-color: rgba(var(--primary-rgb), 0.3);
+    transform: scale(1.02);
+  }
+`;
+
+const CalendarDropdown = styled(motion.div)`
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  z-index: 100;
+  overflow: hidden;
+`;
+
 const LoadingContainer = styled(motion.div)`
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 60px 40px;
-  background: linear-gradient(135deg, var(--card-background), rgba(var(--primary-rgb), 0.05));
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 32px rgba(var(--primary-rgb), 0.15), var(--shadow-lg);
   margin: 24px 0;
   border: 1px solid rgba(var(--primary-rgb), 0.2);
   flex-direction: column;
@@ -252,27 +382,16 @@ const LoadingContainer = styled(motion.div)`
 `;
 
 const LoadingSpinner = styled(motion.div)`
-  width: 56px;
-  height: 56px;
-  border: 3px solid rgba(var(--primary-rgb), 0.2);
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--gray-200);
   border-top: 3px solid var(--primary-color);
-  border-right: 3px solid var(--primary-light);
   border-radius: 50%;
-  box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.4), inset 0 0 20px rgba(var(--primary-rgb), 0.1);
-  position: relative;
-  z-index: 1;
+  animation: spin 1s linear infinite;
   
-  &::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 8px;
-    height: 8px;
-    background: var(--primary-color);
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(var(--primary-rgb), 0.6);
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 `;
 
@@ -488,6 +607,7 @@ const Requests: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { params, data, loading, error } = useAppSelector(selectRequests);
   const user = useAppSelector(selectUser);
+  const calendarData = useAppSelector(selectCalendarData);
   const [date, setDate] = useState<string>(getKrasnoyarskDate);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isConfigMissing, setIsConfigMissing] = useState<boolean>(false);
@@ -496,8 +616,18 @@ const Requests: React.FC = () => {
   const [modalProgress, setModalProgress] = useState(0);
   const [isModalComplete, setIsModalComplete] = useState(false);
   const [isModalSubmitting, setIsModalSubmitting] = useState(false);
+  const [deliveryData, setDeliveryData] = useState<Array<{date: string, count: number, suppliers: string[]}>>([]);
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  const [showCalendarInHeader, setShowCalendarInHeader] = useState(false);
+  const [selectedSupplyType, setSelectedSupplyType] = useState<'raw_materials' | 'household' | 'stationery'>('raw_materials');
+  
+  // 🚀 Глобальный кеш принятых поставок - не теряется при перемонтировании ItemsTable
+  const acceptedDeliveriesCache = useRef<Map<string, Map<string, any>>>(new Map());
   const closeModalRef = useRef<(() => void) | null>(null); // Ref для функции закрытия модалки
   const acceptDeliveryRef = useRef<(() => void) | null>(null); // Ref для функции принятия поставки
+  const currentRequestId = useRef<string | null>(null); // ID текущего запроса для отмены
+  const abortController = useRef<AbortController | null>(null); // Контроллер для отмены запросов
+  const isRequestInProgress = useRef<boolean>(false); // Флаг для предотвращения дублирования запросов
   const mode: 'table' = 'table';
   
   // Активная вкладка: 'delivery' (приемка) или 'history' (история)
@@ -524,7 +654,7 @@ const Requests: React.FC = () => {
   }, [user?.groups]);
 
   // 🔗 Получение конфигурации поставок из группы
-  const getChatDataConfig = (chatId: string, selectedDate: string) => {
+  const getChatDataConfig = (chatId: string, selectedDate: string): SuppliesConfig & { range: string; branchName: string } | null => {
     
     // Ищем чат по chat_id, учитывая возможные различия в типах (string vs number)
     const selectedChat = chefGroups.find(chat => 
@@ -536,7 +666,7 @@ const Requests: React.FC = () => {
       const config = selectedChat.supplies_config;
       
       const result = {
-        spreadsheet_id: config.spreadsheet_id,
+        ...config,
         range: generateRange(config, selectedDate),
         branchName: config.branch_name
       };
@@ -574,6 +704,30 @@ const Requests: React.FC = () => {
     }
   };
 
+  // 🔄 Обработчик смены типа поставок с отменой предыдущего запроса
+  const handleSupplyTypeChange = (newSupplyType: 'raw_materials' | 'household' | 'stationery') => {
+    console.log('🔄 [Requests] Смена типа поставок:', { from: selectedSupplyType, to: newSupplyType });
+    
+    // Отменяем предыдущий запрос если он есть
+    if (abortController.current) {
+      console.log('❌ [Requests] Отменяем предыдущий запрос на сервере:', currentRequestId.current);
+      abortController.current.abort(); // РЕАЛЬНАЯ отмена запроса!
+      abortController.current = null;
+      currentRequestId.current = null;
+    }
+    
+    // Сбрасываем флаг запроса
+    isRequestInProgress.current = false;
+    
+    // Сбрасываем данные и состояние при смене типа
+    dispatch(reset());
+    setIsConfigMissing(false);
+    setIsPermissionDenied(false);
+    
+    // Устанавливаем новый тип
+    setSelectedSupplyType(newSupplyType);
+  };
+
   useEffect(() => {
     if (selectedChatId && date) {
       const config = getChatDataConfig(selectedChatId, date);
@@ -581,33 +735,122 @@ const Requests: React.FC = () => {
       // Проверяем наличие конфигурации
       if (!config) {
         setIsConfigMissing(true);
+        dispatch(reset()); // Сбрасываем loading если конфиг отсутствует
         return;
+      }
+      
+      // Проверяем конфигурацию для выбранного типа поставок
+      if (selectedSupplyType === 'household' && !config.household_spreadsheet_id) {
+        setIsConfigMissing(true);
+        dispatch(reset()); // Сбрасываем loading если конфиг для хозтоваров отсутствует
+        return;
+      }
+      
+      // Для канцелярии не проверяем конфигурацию - показываем заглушку "в разработке"
+      if (selectedSupplyType === 'stationery') {
+        console.log('🎯 [Requests] Канцелярия выбрана - сбрасываем loading и показываем заглушку');
+        setIsConfigMissing(false);
+        setIsPermissionDenied(false);
+        dispatch(reset()); // Сбрасываем loading для канцелярии
+        return; // Не отправляем запрос для канцелярии
       }
       
       // Конфигурация найдена - сбрасываем флаги и устанавливаем параметры
       setIsConfigMissing(false);
       setIsPermissionDenied(false);
+      
+      // Обновляем параметры только если они изменились
       if (!params.spreadsheet_id || params.spreadsheet_id !== config.spreadsheet_id || params.range !== config.range) {
         dispatch(setParams({ 
           spreadsheet_id: config.spreadsheet_id, 
           range: config.range 
         }));
       }
-    }
-  }, [dispatch, selectedChatId, date, params.spreadsheet_id, params.range]);
+      
+      // Получаем правильный spreadsheet_id в зависимости от типа поставок
+      const getSpreadsheetIdForType = (supplyType: string): string => {
+        switch (supplyType) {
+          case 'raw_materials':
+            return config.spreadsheet_id;
+          case 'household':
+            return config.household_spreadsheet_id || config.spreadsheet_id;
+          case 'stationery':
+            return config.stationery_spreadsheet_id || config.spreadsheet_id;
+          default:
+            return config.spreadsheet_id;
+        }
+      };
 
-  useEffect(() => {
-    if (selectedChatId && !isConfigMissing && params.spreadsheet_id && params.range) {
+      const currentSpreadsheetId = getSpreadsheetIdForType(selectedSupplyType);
+      
+      // Отправляем запрос только если данных еще нет или параметры изменились
+      const shouldFetch = !data || 
+                        !params.spreadsheet_id || 
+                        params.spreadsheet_id !== currentSpreadsheetId || 
+                        params.range !== config.range;
+      
+      if (shouldFetch && !isRequestInProgress.current) {
+        // Предотвращаем дублирование запросов
+        isRequestInProgress.current = true;
+        
+        // Создаем новый AbortController для текущего запроса
+        abortController.current = new AbortController();
+        
+        // Генерируем уникальный ID для текущего запроса
+        const requestId = `${selectedSupplyType}-${currentSpreadsheetId}-${config.range}-${Date.now()}`;
+        currentRequestId.current = requestId;
+        
+        console.log('🔄 [Requests] Отправляем fetchSupplies:', {
+          requestId,
+          hasData: !!data,
+          currentSpreadsheetId: params.spreadsheet_id,
+          newSpreadsheetId: currentSpreadsheetId,
+          currentRange: params.range,
+          newRange: config.range,
+          currentSupplyType: params.supply_type,
+          newSupplyType: selectedSupplyType,
+          date,
+          mode,
+          reason: !data ? 'Нет данных' : 
+                 !params.spreadsheet_id ? 'Нет spreadsheet_id' :
+                 params.spreadsheet_id !== currentSpreadsheetId ? 'Изменился spreadsheet_id' :
+                 params.range !== config.range ? 'Изменился range' : 'Неизвестно'
+        });
+        
       dispatch(fetchSupplies({
-        spreadsheet_id: params.spreadsheet_id,
-        range: params.range,
+          spreadsheet_id: currentSpreadsheetId,
+          range: config.range,
         date,
         mode,
-        subtract_withdrawn: false,
+          subtract_withdrawn: false,
         exclude_zero: true,
+          supply_type: selectedSupplyType,
+          signal: abortController.current.signal, // Передаем сигнал отмены
       }) as any);
+      
+          // 🚀 ПАРАЛЛЕЛЬНАЯ ЗАГРУЗКА: Загружаем данные календаря одновременно с основными поставками
+          const currentMonth = new Date();
+          const year = currentMonth.getFullYear();
+          const monthNum = currentMonth.getMonth();
+          const monthKey = `${year}-${String(monthNum + 1).padStart(2, '0')}`;
+          
+          dispatch(fetchCalendarData({
+            chat_id: selectedChatId,
+            month: monthKey,
+            supply_type: selectedSupplyType
+          }));
+      } else {
+        // Данные уже есть и параметры не изменились
+      }
     }
-  }, [dispatch, selectedChatId, isConfigMissing, params.spreadsheet_id, params.range, date, mode]);
+  }, [dispatch, selectedChatId, date, params.spreadsheet_id, params.range, mode, data, selectedSupplyType]);
+
+  // Сбрасываем флаг запроса при изменении состояния Redux
+  useEffect(() => {
+    if (loading === false || error) {
+      isRequestInProgress.current = false;
+    }
+  }, [loading, error]);
 
   // 🚨 Обработка ошибок: определение типа ошибки
   useEffect(() => {
@@ -626,6 +869,14 @@ const Requests: React.FC = () => {
       setIsPermissionDenied(false);
     }
   }, [error]);
+
+  // 🔄 Сброс ошибок при смене типа поставок
+  useEffect(() => {
+    if (error) {
+      console.log('🔄 [Requests] Сбрасываем ошибку при смене типа поставок:', selectedSupplyType);
+      dispatch(reset());
+    }
+  }, [selectedSupplyType, dispatch]);
 
   // Анимации для framer-motion
   const pageVariants = {
@@ -658,10 +909,7 @@ const Requests: React.FC = () => {
   };
 
   const handleTabChange = (newTab: 'delivery' | 'history') => {
-    // Сбрасываем состояние при смене вкладки
-    dispatch(reset());
-    
-    // Дополнительно сбрасываем флаги ошибок
+    // НЕ сбрасываем данные при смене вкладки - только флаги ошибок
     setIsConfigMissing(false);
     setIsPermissionDenied(false);
     
@@ -705,6 +953,60 @@ const Requests: React.FC = () => {
       return;
     }
   }, [isModalOpen, activeTab, navigate]);
+
+  // 📊 Функция для получения данных о поставках для календаря (ленивая загрузка по месяцам)
+  const fetchDeliveryData = useCallback(async (month: Date) => {
+    if (!selectedChatId) {
+      return;
+    }
+    
+    const year = month.getFullYear();
+    const monthNum = month.getMonth();
+    const monthKey = `${year}-${String(monthNum + 1).padStart(2, '0')}`;
+    
+    try {
+      dispatch(fetchCalendarData({
+        chat_id: selectedChatId,
+        month: monthKey,
+        supply_type: selectedSupplyType
+      }));
+    } catch (error) {
+      console.error('Ошибка при загрузке данных календаря:', error);
+    }
+  }, [selectedChatId, selectedSupplyType, dispatch]);
+
+  // 📊 Загружаем данные о поставках при смене филиала
+  useEffect(() => {
+    if (selectedChatId) {
+      fetchDeliveryData(new Date());
+    }
+  }, [selectedChatId, fetchDeliveryData]);
+
+  // 🚀 Синхронизация данных календаря из Redux store для ВСЕХ месяцев
+  useEffect(() => {
+    if (!selectedChatId) return;
+    
+    setDeliveryData(prevData => {
+      let newData = [...prevData];
+      
+      // Проходим по всем данным календаря в Redux store
+      for (const [key, cachedData] of Array.from(calendarData.entries())) {
+        if (key.startsWith(`${selectedChatId}-`)) {
+          const monthKey = key.replace(`${selectedChatId}-`, '');
+          
+          // Удаляем старые данные для этого месяца
+          newData = newData.filter(item => !item.date.startsWith(monthKey));
+          
+          // Добавляем новые данные
+          if (cachedData.deliveries && cachedData.deliveries.length > 0) {
+            newData = [...newData, ...cachedData.deliveries];
+          }
+        }
+      }
+      
+      return newData;
+    });
+  }, [selectedChatId, calendarData]);
 
   // 🧹 Сброс состояния при размонтировании компонента
   useEffect(() => {
@@ -811,10 +1113,24 @@ const Requests: React.FC = () => {
           </motion.div>
         )}
 
+        {/* Каруселька типов поставок - показываем всегда */}
+        <SupplyTypeCarousel>
+          {SUPPLY_TYPES.map((type) => (
+            <SupplyTypeButton
+              key={type.id}
+              $isActive={selectedSupplyType === type.id}
+              onClick={() => handleSupplyTypeChange(type.id)}
+            >
+              <SupplyTypeName>{type.name}</SupplyTypeName>
+            </SupplyTypeButton>
+          ))}
+        </SupplyTypeCarousel>
+
         {/* Сообщение о ненастроенной конфигурации */}
         {isConfigMissing && (
           <ConfigMissing 
             branchName={chefGroups.find(chat => chat.chat_id === selectedChatId)?.chat_title || 'Неизвестный филиал'}
+            supplyType={selectedSupplyType}
           />
         )}
 
@@ -823,18 +1139,13 @@ const Requests: React.FC = () => {
           <PermissionDenied 
             branchName={chefGroups.find(chat => chat.chat_id === selectedChatId)?.chat_title || 'Неизвестный филиал'}
             errorMessage={error || undefined}
+            supplyType={selectedSupplyType}
           />
         )}
 
         {/* Контент приемки поставок */}
-        {!isConfigMissing && !isPermissionDenied && activeTab === 'delivery' && (
+        {((!isConfigMissing && !isPermissionDenied && activeTab === 'delivery') || (selectedSupplyType === 'stationery' && activeTab === 'delivery')) && (
           <>
-            <motion.div variants={contentVariants}>
-      <Filters
-        date={date}
-        onDateChange={handleDateChange}
-              />
-            </motion.div>
 
             {loading && (
               <LoadingContainer
@@ -873,7 +1184,7 @@ const Requests: React.FC = () => {
               </ErrorContainer>
             )}
 
-      {data && !loading && (
+            {((data && !loading) || (selectedSupplyType === 'stationery' && !loading)) && (
               <motion.div
                 variants={contentVariants}
                 initial="hidden"
@@ -881,7 +1192,7 @@ const Requests: React.FC = () => {
               >
                 <DataContainer>
                   <ItemsTable 
-                    items={data.items} 
+                    items={selectedSupplyType === 'stationery' ? [] : (data?.items || [])} 
                     selectedDate={date}
                     selectedChatId={selectedChatId}
                     chatTitle={chefGroups.find(chat => chat.chat_id === selectedChatId)?.chat_title}
@@ -893,14 +1204,19 @@ const Requests: React.FC = () => {
                       setIsModalComplete(isComplete);
                     }}
                     onSubmittingChange={setIsModalSubmitting}
+                    acceptedDeliveriesCache={acceptedDeliveriesCache}
+                    onDateChange={handleDateChange}
+                    selectedSupplyType={selectedSupplyType}
+                    onSupplyTypeChange={handleSupplyTypeChange}
+                    onMonthChange={fetchDeliveryData}
+                    deliveryData={deliveryData}
                   />
                 </DataContainer>
               </motion.div>
             )}
+
         </>
       )}
-
-        {/* Контент истории поставок */}
         {!isConfigMissing && !isPermissionDenied && activeTab === 'history' && (
           <motion.div
             variants={contentVariants}

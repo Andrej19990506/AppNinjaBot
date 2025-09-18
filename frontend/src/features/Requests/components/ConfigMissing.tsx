@@ -101,9 +101,36 @@ const TelegramIcon = () => (
 
 interface Props {
   branchName: string;
+  supplyType?: 'raw_materials' | 'household' | 'stationery';
 }
 
-const ConfigMissing: React.FC<Props> = ({ branchName }) => {
+const ConfigMissing: React.FC<Props> = ({ branchName, supplyType = 'raw_materials' }) => {
+  // Определяем сообщения в зависимости от типа поставок
+  const getMessages = () => {
+    switch (supplyType) {
+      case 'household':
+        return {
+          title: 'Конфигурация хозтоваров не настроена',
+          description: `Для филиала ${branchName} не настроена конфигурация подключения к таблице хозтоваров. Без этой настройки невозможно загрузить данные о хозтоварах.`,
+          contactText: `Обратитесь в техническую поддержку для настройки интеграции с Google Sheets для хозтоваров филиала ${branchName}.`
+        };
+      case 'stationery':
+        return {
+          title: 'Конфигурация канцелярии не настроена',
+          description: `Для филиала ${branchName} не настроена конфигурация подключения к таблице канцелярии. Без этой настройки невозможно загрузить данные о канцелярии.`,
+          contactText: `Обратитесь в техническую поддержку для настройки интеграции с Google Sheets для канцелярии филиала ${branchName}.`
+        };
+      default:
+        return {
+          title: 'Конфигурация поставок не настроена',
+          description: `Для филиала ${branchName} не настроена конфигурация подключения к таблицам поставок. Без этой настройки невозможно загрузить данные о поставках.`,
+          contactText: `Обратитесь в техническую поддержку для настройки интеграции с Google Sheets для филиала ${branchName}.`
+        };
+    }
+  };
+
+  const messages = getMessages();
+
   return (
     <Container
       initial={{ opacity: 0, y: 20 }}
@@ -119,13 +146,11 @@ const ConfigMissing: React.FC<Props> = ({ branchName }) => {
       </Icon>
       
       <Title>
-        Конфигурация поставок не настроена
+        {messages.title}
       </Title>
       
       <Description>
-        Для филиала <BranchName>{branchName}</BranchName> не настроена 
-        конфигурация подключения к таблицам поставок. 
-        Без этой настройки невозможно загрузить данные о поставках.
+        {messages.description}
       </Description>
       
       <ContactInfo>
@@ -133,8 +158,7 @@ const ConfigMissing: React.FC<Props> = ({ branchName }) => {
            Что делать?
         </ContactTitle>
         <ContactText>
-          Обратитесь в техническую поддержку для настройки 
-          интеграции с Google Sheets для филиала <strong>{branchName}</strong>.
+          {messages.contactText}
         </ContactText>
         
         <SupportLink href="https://t.me/+Sc8qu36mX-IwM2My" target="_blank" rel="noopener noreferrer">

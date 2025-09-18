@@ -1,5 +1,10 @@
 import { configureStore, createListenerMiddleware, isAnyOf } from '@reduxjs/toolkit';
+import { enableMapSet } from 'immer';
 import type { } from '@reduxjs/toolkit';
+
+// 🚀 Включаем поддержку Map и Set в Immer
+enableMapSet();
+
 import inventoryReducer from '@/store/slices/inventorySlice';
 import writeOffReducer from '@/features/WriteOff/store/writeOffSlice';
 import notificationReducer from '@shared/store/notificationSlice/notificationSlice';
@@ -180,6 +185,7 @@ export type RootState = {
     events: ReturnType<typeof eventsReducer>;
     atoModal: ReturnType<typeof atoModalReducer>;
     competitions: ReturnType<typeof competitionsReducer>;
+    requests: ReturnType<typeof requestsReducer>;
 };
 export type AppDispatch = typeof store.dispatch;
 

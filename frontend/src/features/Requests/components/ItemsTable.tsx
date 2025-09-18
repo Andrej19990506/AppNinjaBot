@@ -2,12 +2,127 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import DeliveryAcceptanceModal from './DeliveryAcceptanceModal';
+import SupplyCalendar from './SupplyCalendar';
 import { useAppSelector } from '@shared/store/hooks';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import { tooltipManager } from '@shared/components/Notifications/Toast';
 import { isDeliveryDay } from '@shared/utils/dateUtils';
 
 // 🎨 Брендовые SVG иконки для поставок
+
+// Функция для правильного склонения слова "поставка"
+const getSuppliesText = (count: number): string => {
+  if (count === 1) return 'поставка';
+  if (count >= 2 && count <= 4) return 'поставки';
+  return 'поставок';
+};
+
+// Функция для получения полного текста с датой и количеством
+const getSuppliesTextWithDate = (date: string, count: number): string => {
+  const dateObj = new Date(date);
+  const day = dateObj.getDate();
+  const month = dateObj.getMonth();
+  
+  // Склонение месяцев в родительный падеж
+  const monthsGenitive = [
+    'Января', 'Февраля', 'Марта', 'Апреля', 'Мая', 'Июня',
+    'Июля', 'Августа', 'Сентября', 'Октября', 'Ноября', 'Декабря'
+  ];
+  
+  const monthName = monthsGenitive[month];
+  
+  return `За ${day} ${monthName} ${count} ${getSuppliesText(count)}`;
+};
+
+// Типы поставок
+const SUPPLY_TYPES = [
+  { id: 'raw_materials', name: 'Сырье', description: 'Продукты и ингредиенты' },
+  { id: 'household', name: 'Хозтовары', description: 'Бытовая химия и уборка' },
+  { id: 'stationery', name: 'Канцелярия', description: 'Офисные принадлежности' }
+] as const;
+
+// Интерфейс для конфигурации поставок с поддержкой разных таблиц
+interface SuppliesConfig {
+  spreadsheet_id: string;
+  household_spreadsheet_id?: string; // Отдельная таблица для хозтоваров
+  stationery_spreadsheet_id?: string; // Отдельная таблица для канцелярии
+  default_sheet_pattern: string;
+  branch_name: string;
+  start_row: number;
+  header_row: number;
+  months_range_back: number;
+  months_range_forward: number;
+}
+
+type SupplyType = typeof SUPPLY_TYPES[number]['id'];
+
+// Функция для получения правильного spreadsheet_id в зависимости от типа поставок
+const getSpreadsheetIdForType = (config: SuppliesConfig, supplyType: SupplyType): string => {
+  switch (supplyType) {
+    case 'raw_materials':
+      return config.spreadsheet_id;
+    case 'household':
+      return config.household_spreadsheet_id || config.spreadsheet_id;
+    case 'stationery':
+      return config.stationery_spreadsheet_id || config.spreadsheet_id;
+    default:
+      return config.spreadsheet_id;
+  }
+};
+
+const CalendarIcon = ({ size = 20, selectedDate }: { size?: number; selectedDate?: string }) => {
+  const dayNumber = selectedDate ? new Date(selectedDate).getDate() : new Date().getDate();
+  
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Основа календаря */}
+      <rect 
+        x="3" 
+        y="4" 
+        width="18" 
+        height="18" 
+        rx="2" 
+        ry="2" 
+        stroke="currentColor" 
+        strokeWidth="2"
+        fill="rgba(var(--primary-rgb), 0.05)"
+      />
+      
+      {/* Верхние крепления */}
+      <line 
+        x1="16" 
+        y1="2" 
+        x2="16" 
+        y2="6" 
+        stroke="currentColor" 
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <line 
+        x1="8" 
+        y1="2" 
+        x2="8" 
+        y2="6" 
+        stroke="currentColor" 
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      
+      {/* Разделитель заголовка */}
+      <line 
+        x1="3" 
+        y1="10" 
+        x2="21" 
+        y2="10" 
+        stroke="currentColor" 
+        strokeWidth="2"
+      />
+      
+  
+    </svg>
+  );
+};
+
 const SupplierBoxIcon = ({ size = 20 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path 
@@ -34,53 +149,6 @@ const SupplierBoxIcon = ({ size = 20 }: { size?: number }) => (
   </svg>
 );
 
-const DeliveryTruckIcon = ({ size = 18 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M1 3H15V13H1V3Z" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M16 8H20L23 11V16H16V8Z" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <circle cx="5.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="2"/>
-    <circle cx="18.5" cy="18.5" r="2.5" stroke="currentColor" strokeWidth="2"/>
-  </svg>
-);
-
-const PendingIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
-    <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const AcceptedIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle 
-      cx="12" 
-      cy="12" 
-      r="10" 
-      fill="var(--primary-color)" 
-      stroke="var(--primary-color)" 
-      strokeWidth="2"
-    />
-    <path 
-      d="M9 12L11 14L15 10" 
-      stroke="white" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 const ItemsIcon = ({ size = 16 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -177,38 +245,14 @@ type Props = {
   acceptDeliveryRef?: React.MutableRefObject<(() => void) | null>; // Ref для функции принятия поставки
   onProgressChange?: (progress: number, isComplete: boolean) => void; // Новый проп для передачи прогресса
   onSubmittingChange?: (isSubmitting: boolean) => void; // Новый проп для передачи состояния загрузки
+  onDateChange?: (date: string) => void; // Новый проп для изменения даты
+  selectedSupplyType?: SupplyType; // Выбранный тип поставок
+  onSupplyTypeChange?: (type: SupplyType) => void; // Функция для изменения типа поставок
+  acceptedDeliveriesCache?: React.MutableRefObject<Map<string, Map<string, any>>>; // Глобальный кеш принятых поставок
+  onMonthChange?: (month: Date) => void; // Функция для загрузки данных при смене месяца
+  deliveryData?: Array<{date: string, count: number, suppliers: string[]}>; // Данные поставок для календаря
 };
 
-// Брендовые анимации в стиле приложения
-const pulseAnimation = keyframes`
-  0% { 
-    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0.4);
-    transform: scale(1);
-  }
-  70% { 
-    box-shadow: 0 0 0 8px rgba(var(--primary-rgb), 0);
-    transform: scale(1.02);
-  }
-  100% { 
-    box-shadow: 0 0 0 0 rgba(var(--primary-rgb), 0);
-    transform: scale(1);
-  }
-`;
-
-const breatheAnimation = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
-`;
-
-const shineAnimation = keyframes`
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-`;
 
 const fadeInUp = keyframes`
   from {
@@ -221,54 +265,295 @@ const fadeInUp = keyframes`
   }
 `;
 
-const slideInLeft = keyframes`
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-`;
 
 // Стилизованные компоненты
 const TableContainer = styled.div`
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  border: 1px solid var(--border-color);
   position: relative;
   animation: ${fadeInUp} 0.7s ease-out;
-  /* Убираем все ограничения для естественного роста контента */
-  
-  &::before {
+  backdrop-filter: blur(20px);
+  &::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: var(--gradient-primary);
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: calc(var(--radius-lg) + 2px);
+    pointer-events: none;
+    z-index: -2;
+    opacity: 0.6;
   }
 `;
 
-const TableHeader = styled.div`
+const TableHeader = styled.div<{ $isExpanded?: boolean }>`
   background: var(--card-background);
-  border-bottom: 2px solid var(--border-color);
-  padding: 20px 24px;
+  padding: 24px 32px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: space-between;
   backdrop-filter: blur(10px);
   flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  
   
   @media (max-width: 768px) {
-    padding: 16px;
-    flex-direction: column;
-    gap: 8px;
+    padding: 20px 24px;
+    flex-direction:column;
+    gap: 12px;
     text-align: center;
   }
 `;
+
+const HeaderTopRow = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  gap: 16px;
+  margin-bottom: 16px;
+`;
+
+const HeaderLeftSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+`;
+
+
+const CalendarToggleIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(var(--primary-rgb), 0.08);
+  border: 1px solid rgba(var(--primary-rgb), 0.15);
+  white-space: nowrap;
+  
+  &:hover {
+    color: var(--primary-color);
+    background: rgba(var(--primary-rgb), 0.12);
+    border-color: rgba(var(--primary-rgb), 0.25);
+    transform: scale(1.02);
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+    padding: 5px 8px;
+    gap: 4px;
+  }
+`;
+
+const CalendarGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-radius: var(--radius-lg);
+  background: rgba(var(--primary-rgb), 0.05);
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  &:hover {
+    background: rgba(var(--primary-rgb), 0.08);
+    border-color: rgba(var(--primary-rgb), 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+// Каруселька типов поставок
+const SupplyTypeCarousel = styled.div`
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(var(--primary-rgb), 0.05);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--primary-rgb), 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+`;
+
+const SupplyTypeButton = styled.button<{ $isActive: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: ${props => props.$isActive 
+    ? 'var(--primary-color)' 
+    : 'rgba(var(--primary-rgb), 0.1)'
+  };
+  color: ${props => props.$isActive 
+    ? 'white' 
+    : 'var(--text-primary)'
+  };
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  box-shadow: ${props => props.$isActive 
+    ? '0 4px 12px rgba(var(--primary-rgb), 0.3)' 
+    : '0 2px 4px rgba(0, 0, 0, 0.1)'
+  };
+  
+  &:hover {
+    background: ${props => props.$isActive 
+      ? 'var(--primary-color)' 
+      : 'rgba(var(--primary-rgb), 0.15)'
+    };
+    transform: translateY(-1px);
+    box-shadow: ${props => props.$isActive 
+      ? '0 6px 16px rgba(var(--primary-rgb), 0.4)' 
+      : '0 4px 8px rgba(0, 0, 0, 0.15)'
+    };
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const SupplyTypeIcon = styled.span`
+  font-size: 1.2rem;
+  line-height: 1;
+`;
+
+const SupplyTypeName = styled.span`
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+`;
+
+const SupplyTypeDescription = styled.span`
+  font-size: 0.7rem;
+  opacity: 0.8;
+  text-align: center;
+  line-height: 1.2;
+  margin-top: 2px;
+`;
+
+// Компонент заглушки для типов поставок в разработке
+const DevelopmentPlaceholder = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.1));
+  border-radius: var(--radius-lg);
+  border: 2px dashed rgba(var(--primary-rgb), 0.3);
+  margin: 20px 0;
+  text-align: center;
+`;
+
+const DevelopmentIcon = styled.div`
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.7;
+`;
+
+const DevelopmentTitle = styled.h3`
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+`;
+
+const DevelopmentText = styled.p`
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  max-width: 300px;
+`;
+
+const TitleGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+`;
+
+const TitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+`;
+
+const CountRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+`;
+
+const SupplierCount = styled.span`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(var(--primary-rgb), 0.1);
+  padding: 4px 12px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--primary-rgb), 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+`;
+
+const ItemCount = styled.span`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: rgba(var(--primary-rgb), 0.15);
+  padding: 6px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--primary-rgb), 0.3);
+  box-shadow: 0 3px 6px rgba(var(--primary-rgb), 0.2);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(var(--primary-rgb), 0.3);
+  }
+`;
+
+const ChevronDownIcon = ({ isExpanded }: { isExpanded: boolean }) => (
+  <motion.svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    animate={{ rotate: isExpanded ? 180 : 0 }}
+    transition={{ duration: 0.3, ease: 'easeInOut' }}
+    style={{ color: 'currentColor' }}
+  >
+    <path 
+      d="M6 9L12 15L18 9" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    />
+  </motion.svg>
+);
 
 const TableTitle = styled.h3`
   margin: 0;
@@ -278,15 +563,6 @@ const TableTitle = styled.h3`
   display: flex;
   align-items: center;
   gap: 8px;
-`;
-
-const ItemCount = styled.span`
-  background: var(--primary-color);
-  color: white;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
 `;
 
 const ScrollArea = styled.div`
@@ -312,217 +588,12 @@ const CardsContainer = styled.div`
   }
   
   @media (max-width: 768px) {
-    margin-bottom: 85px;
     grid-template-columns: 1fr;
     gap: 16px;
+    min-height: 100%;
   }
 `;
 
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-  min-width: 600px; /* Минимальная ширина для корректного отображения всех колонок */
-  table-layout: fixed; /* Фиксированная ширина колонок */
-  
-  @media (max-width: 768px) {
-    font-size: 0.8rem;
-    min-width: 500px; /* Уменьшенная минимальная ширина для мобильных */
-    width: auto; /* Позволяем таблице расширяться за пределы контейнера */
-    table-layout: auto; /* Автоматическая ширина колонок на мобильных */
-  }
-`;
-
-const TableHead = styled.thead`
-  background: var(--gray-50);
-  position: sticky;
-  top: 0;
-  z-index: 5;
-`;
-
-const HeaderCell = styled.th<{ $align?: 'left' | 'right' | 'center' }>`
-  padding: 16px 12px;
-  text-align: ${props => props.$align || 'left'};
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  border-bottom: 2px solid var(--border-color);
-  background: var(--card-background);
-  white-space: nowrap;
-  
-  &:first-child {
-    padding-left: 24px;
-    min-width: 150px; /* Широкая колонка для названий */
-  }
-  
-  &:nth-child(2) {
-    min-width: 120px; /* Колонка категории */
-  }
-  
-  &:nth-child(3) {
-    min-width: 80px; /* Колонка единиц измерения */
-  }
-  
-  &:nth-child(4) {
-    min-width: 80px; /* Колонка количества */
-  }
-  
-  &:last-child {
-    padding-right: 24px;
-    min-width: 100px; /* Колонка статуса */
-  }
-  
-  @media (max-width: 768px) {
-    padding: 10px 8px;
-    font-size: 0.7rem;
-    
-    &:first-child {
-      padding-left: 12px;
-      min-width: 120px;
-    }
-    
-    &:nth-child(2) {
-      min-width: 100px;
-    }
-    
-    &:nth-child(3) {
-      min-width: 60px;
-    }
-    
-    &:nth-child(4) {
-      min-width: 60px;
-    }
-    
-    &:last-child {
-      padding-right: 12px;
-      min-width: 80px;
-    }
-  }
-`;
-
-const TableBody = styled.tbody``;
-
-const TableRow = styled.tr<{ $index: number }>`
-  border-bottom: 1px solid var(--border-color);
-  transition: all var(--transition-normal);
-  animation: ${slideInLeft} 0.4s ease-out;
-  animation-delay: ${props => props.$index * 0.05}s;
-  animation-fill-mode: both;
-  
-  &:hover {
-    background: var(--primary-transparent);
-    transform: translateX(4px);
-    box-shadow: inset 4px 0 0 var(--primary-color);
-  }
-  
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const TableCell = styled.td<{ $align?: 'left' | 'right' | 'center'; $highlight?: boolean }>`
-  padding: 16px 12px;
-  text-align: ${props => props.$align || 'left'};
-  color: ${props => props.$highlight ? 'var(--primary-color)' : 'var(--text-color)'};
-  font-weight: ${props => props.$highlight ? '600' : '400'};
-  border-bottom: 1px solid var(--border-color);
-  transition: all var(--transition-fast);
-  
-  &:first-child {
-    padding-left: 24px;
-    font-weight: 500;
-    min-width: 150px;
-  }
-  
-  &:nth-child(2) {
-    min-width: 120px;
-  }
-  
-  &:nth-child(3) {
-    min-width: 80px;
-  }
-  
-  &:nth-child(4) {
-    min-width: 80px;
-  }
-  
-  &:last-child {
-    padding-right: 24px;
-    min-width: 100px;
-  }
-  
-  @media (max-width: 768px) {
-    padding: 10px 8px;
-    font-size: 0.8rem;
-    
-    &:first-child {
-      padding-left: 12px;
-      min-width: 120px;
-      max-width: 120px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    
-    &:nth-child(2) {
-      min-width: 100px;
-      max-width: 100px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    
-    &:nth-child(3) {
-      min-width: 60px;
-    }
-    
-    &:nth-child(4) {
-      min-width: 60px;
-    }
-    
-    &:last-child {
-      padding-right: 12px;
-      min-width: 80px;
-    }
-  }
-`;
-
-const StatusBadge = styled.span<{ $status?: string }>`
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  transition: all var(--transition-fast);
-  background: ${props => {
-    const status = props.$status?.toLowerCase();
-    if (status?.includes('готов') || status?.includes('выполнен')) return 'rgba(var(--primary-rgb), 0.1)';
-    if (status?.includes('ожидан') || status?.includes('процесс')) return 'var(--warning-background)';
-    if (status?.includes('отклонен') || status?.includes('ошибка')) return 'var(--error-background)';
-    return 'var(--gray-100)';
-  }};
-  color: ${props => {
-    const status = props.$status?.toLowerCase();
-    if (status?.includes('готов') || status?.includes('выполнен')) return 'var(--primary-color)';
-    if (status?.includes('ожидан') || status?.includes('процесс')) return 'var(--warning-color)';
-    if (status?.includes('отклонен') || status?.includes('ошибка')) return 'var(--error-color)';
-    return 'var(--text-secondary)';
-  }};
-  
-  &:hover {
-    transform: scale(1.05);
-  }
-  
-  @media (max-width: 768px) {
-    font-size: 0.65rem;
-    padding: 2px 8px;
-  }
-`;
 
 const EmptyState = styled.div`
   text-align: center;
@@ -670,27 +741,6 @@ const CollapseButton = styled(motion.button)`
     transition: transform 0.3s ease;
   }
 `;
-
-// SVG компонент для стрелки в стиле DeliveryHistory
-const ChevronDownIcon = ({ isExpanded }: { isExpanded: boolean }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    xmlns="http://www.w3.org/2000/svg"
-    style={{ 
-      transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-      transition: 'transform 0.3s ease'
-    }}
-  >
-    <path 
-      d="M6 9L12 15L18 9" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-  </svg>
-);
 
 // Название поставщика в стиле DeliveryHistory
 const SupplierName = styled.h3`
@@ -1196,18 +1246,66 @@ const NotesIcon = ({ size = 16 }: { size?: number }) => (
   </svg>
 );
 
-const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef, acceptDeliveryRef, onProgressChange, onSubmittingChange }) => {
+const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef, acceptDeliveryRef, onProgressChange, onSubmittingChange, onDateChange, selectedSupplyType = 'raw_materials', onSupplyTypeChange, acceptedDeliveriesCache, onMonthChange, deliveryData = [] }) => {
+  console.log('🎯 [ItemsTable] Рендер:', { 
+    itemsCount: items?.length || 0, 
+    selectedSupplyType, 
+    hasItems: !!items,
+    items: items,
+    deliveryDataCount: deliveryData?.length || 0,
+    deliveryData: deliveryData,
+    selectedDate: selectedDate
+  });
   const user = useAppSelector(selectUser);
   const [acceptedDeliveries, setAcceptedDeliveries] = useState<Map<string, AcceptedDelivery>>(new Map());
+  
+  // 🚀 Используем глобальный кеш из Requests.tsx - не теряется при перемонтировании
+  const cache = acceptedDeliveriesCache || useRef<Map<string, Map<string, AcceptedDelivery>>>(new Map());
   const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierGroup | null>(null);
   const [checkedItems, setCheckedItems] = useState<CheckedItems>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({}); // Заметки для каждого товара
+  const [isCalendarExpanded, setIsCalendarExpanded] = useState(false);
+  
+  // 🚀 Сохраняем состояние календаря между рендерами - не сбрасывается при переключении месяца
+  const calendarExpandedRef = useRef(false);
 
-  // 🔍 Логи для отладки состояния компонента
+  // 📅 Переключение состояния календаря с сохранением в useRef
+  const toggleCalendar = useCallback(() => {
+    const newState = !calendarExpandedRef.current;
+    calendarExpandedRef.current = newState;
+    setIsCalendarExpanded(newState);
+    console.log('📅 [ItemsTable] Переключение календаря:', newState ? 'развернут' : 'свернут');
+    console.log('📅 [ItemsTable] calendarExpandedRef.current:', calendarExpandedRef.current);
+    console.log('📅 [ItemsTable] isCalendarExpanded state:', newState);
+  }, []);
+  
+  // 🔄 Синхронизируем состояние календаря с useRef при каждом рендере
+  useEffect(() => {
+    console.log('🔄 [ItemsTable] Синхронизация календаря - deliveryData изменился');
+    console.log('🔄 [ItemsTable] calendarExpandedRef.current до синхронизации:', calendarExpandedRef.current);
+    console.log('🔄 [ItemsTable] isCalendarExpanded до синхронизации:', isCalendarExpanded);
+    
+    setIsCalendarExpanded(calendarExpandedRef.current);
+    
+    console.log('🔄 [ItemsTable] После синхронизации - isCalendarExpanded:', calendarExpandedRef.current);
+  }, [deliveryData]); // Синхронизируем при изменении deliveryData
+  
+  useEffect(() => {
+    if (selectedSupplyType === 'stationery') {
+      console.log('🎯 [ItemsTable] Канцелярия выбрана - должна показаться заглушка!');
+    }
+  }, [selectedSupplyType]);
+
+  // 🚀 ОПТИМИЗАЦИЯ: Данные календаря теперь приходят из Requests.tsx через пропсы
+  // Удаляем локальную функцию fetchDeliveryData и useEffect
+
   console.log('🎯 [ItemsTable] Рендер:', items.length, 'товаров,', acceptedDeliveries.size, 'принятых поставок');
+  console.log('🎯 [ItemsTable] isCalendarExpanded в рендере:', isCalendarExpanded);
+  console.log('🎯 [ItemsTable] calendarExpandedRef.current в рендере:', calendarExpandedRef.current);
+  console.log('🎯 [ItemsTable] deliveryData.length в рендере:', deliveryData.length);
   
   // Отслеживаем изменения прогресса и состояния загрузки
   useEffect(() => {
@@ -1343,7 +1441,22 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
 
   // 📋 Загрузка принятых поставок при изменении даты
   const loadAcceptedDeliveries = useCallback(async () => {
-    if (!selectedDate) {
+    if (!selectedDate || !selectedChatId) {
+      console.log('❌ [DELIVERIES] Пропускаем загрузку - нет selectedDate или selectedChatId');
+      return;
+    }
+    
+    // 🚀 Создаем ключ кеша: chatId + date
+    const cacheKey = `${selectedChatId}-${selectedDate}`;
+    console.log('🔍 [DELIVERIES] Проверяем кеш для ключа:', cacheKey);
+    console.log('📊 [DELIVERIES] Текущий размер кеша:', cache.current.size);
+    console.log('🗂️ [DELIVERIES] Ключи в кеше:', Array.from(cache.current.keys()));
+    
+    // ✅ Проверяем кеш - если данные уже есть, используем их
+    if (cache.current.has(cacheKey)) {
+      const cachedData = cache.current.get(cacheKey)!;
+      console.log('⚡ [DELIVERIES] Используем кешированные данные:', cachedData.size, 'поставок');
+      setAcceptedDeliveries(cachedData);
       return;
     }
     
@@ -1394,6 +1507,11 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
 
       console.log('🎯 [DELIVERIES] Итоговый результат:', acceptedMap.size, 'поставок');
 
+      // 🚀 Сохраняем в кеш для будущих использований
+      cache.current.set(cacheKey, acceptedMap);
+      console.log('💾 [DELIVERIES] Сохранили в кеш:', cacheKey, 'с', acceptedMap.size, 'поставками');
+      console.log('📊 [DELIVERIES] Размер кеша:', cache.current.size, 'записей');
+      
       setAcceptedDeliveries(acceptedMap);
       
     } catch (error) {
@@ -1402,8 +1520,24 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   }, [selectedDate, selectedChatId, chatTitle]);
 
   useEffect(() => {
-    loadAcceptedDeliveries();
-  }, [selectedDate, selectedChatId, chatTitle]); // Используем прямые зависимости вместо функции
+    // 🚀 Умное кеширование как в DeliveryHistory - загружаем только если данных нет или изменился филиал
+    console.log('🔄 [ItemsTable] useEffect triggered - вызываем loadAcceptedDeliveries:', { selectedDate, selectedChatId, chatTitle });
+    
+    if (selectedDate && selectedChatId && chatTitle) {
+      // Проверяем есть ли уже данные для этого филиала и даты
+      const cacheKey = `${selectedChatId}-${selectedDate}`;
+      const hasCachedData = cache.current.has(cacheKey);
+      
+      if (!hasCachedData) {
+        console.log('🔄 [ItemsTable] Нет кешированных данных - загружаем');
+        loadAcceptedDeliveries();
+      } else {
+        console.log('⚡ [ItemsTable] Данные уже есть в кеше - используем их');
+        const cachedData = cache.current.get(cacheKey)!;
+        setAcceptedDeliveries(cachedData);
+      }
+    }
+  }, [selectedDate, selectedChatId, chatTitle]); // Убираем loadAcceptedDeliveries из зависимостей
 
   const handleAcceptDelivery = (supplierGroup: SupplierGroup) => {
     setSelectedSupplier(supplierGroup);
@@ -1619,34 +1753,6 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
 
   const deliveryCheck = checkDeliveryDay(selectedDate);
 
-  if (!items || items.length === 0) {
-  return (
-      <TableContainer>
-        <TableHeader>
-          <TableTitle>📦 Поставки</TableTitle>
-        </TableHeader>
-        <EmptyState>
-          <EmptyIcon>{deliveryCheck.isValidDay ? '📭' : '📅'}</EmptyIcon>
-          <EmptyText>
-            {deliveryCheck.isValidDay 
-              ? 'Нет товаров в текущей заявке'
-              : deliveryCheck.message
-            }
-          </EmptyText>
-          {!deliveryCheck.isValidDay && (
-            <DeliveryDaysInfo>
-              <DayBadge $isActive>Пн</DayBadge>
-              <DayBadge $isActive>Ср</DayBadge>
-              <DayBadge $isActive>Пт</DayBadge>
-            </DeliveryDaysInfo>
-          )}
-        </EmptyState>
-      </TableContainer>
-    );
-  }
-
-  const totalSuppliers = supplierGroups.length;
-
   // Анимации для framer-motion
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },
@@ -1678,6 +1784,89 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     }
   };
 
+  if (!items || items.length === 0) {
+  return (
+      <TableContainer>
+        <motion.div variants={headerVariants}>
+          <TableHeader $isExpanded={isCalendarExpanded}>
+            <HeaderTopRow>
+              <HeaderLeftSection>
+                <CalendarGroup>
+                  <CalendarIcon size={24} selectedDate={selectedDate} />
+                  <CalendarToggleIndicator onClick={toggleCalendar}>
+                    <span>{isCalendarExpanded ? 'Скрыть' : 'Показать'}</span>
+                    <ChevronDownIcon isExpanded={isCalendarExpanded} />
+                  </CalendarToggleIndicator>
+                </CalendarGroup>
+              </HeaderLeftSection>
+            </HeaderTopRow>
+            
+            {/* Интегрированный календарь прямо в хедере */}
+            <AnimatePresence>
+              {isCalendarExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}
+                >
+                  <SupplyCalendar
+                    selectedDate={new Date(selectedDate || new Date().toISOString().split('T')[0])}
+                    onDateChange={(newDate) => {
+                      // Исправляем проблему с UTC - используем локальное время
+                      const year = newDate.getFullYear();
+                      const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(newDate.getDate()).padStart(2, '0');
+                      const localDateString = `${year}-${month}-${day}`;
+                      onDateChange?.(localDateString);
+                    }}
+                    deliveries={deliveryData}
+                    onMonthChange={onMonthChange}
+                    isExpanded={true}
+                    onToggleExpanded={() => {}}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </TableHeader>
+        </motion.div>
+        
+        <EmptyState>
+          <EmptyIcon>
+            {selectedSupplyType === 'stationery' 
+              ? '🚧' 
+              : deliveryCheck.isValidDay ? '📭' : '📅'
+            }
+          </EmptyIcon>
+          <EmptyText>
+            {selectedSupplyType === 'stationery' 
+              ? 'Приемка канцелярии находится в разработке. Скоро будет доступна!'
+              : deliveryCheck.isValidDay 
+                ? 'На выбранную дату поставок нет' 
+                : 'Поставки принимаются только в понедельник, среду и пятницу'
+            }
+          </EmptyText>
+          {selectedSupplyType === 'stationery' ? (
+            <DeliveryDaysInfo>
+              <DayBadge $isActive>🔨</DayBadge>
+              <DayBadge $isActive>В разработке</DayBadge>
+              <DayBadge $isActive>Скоро!</DayBadge>
+            </DeliveryDaysInfo>
+          ) : !deliveryCheck.isValidDay && (
+            <DeliveryDaysInfo>
+              <DayBadge $isActive>Пн</DayBadge>
+              <DayBadge $isActive>Ср</DayBadge>
+              <DayBadge $isActive>Пт</DayBadge>
+            </DeliveryDaysInfo>
+          )}
+        </EmptyState>
+      </TableContainer>
+    );
+  }
+
+  const totalSuppliers = supplierGroups.length;
+
   return (
     <motion.div
       variants={containerVariants}
@@ -1686,25 +1875,74 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
     >
       <TableContainer>
         <motion.div variants={headerVariants}>
-          <TableHeader>
-            <TableTitle>
-              📦 Поставки ({totalSuppliers})
-            </TableTitle>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <ItemCount>
-                {items.length} товаров
-              </ItemCount>
-            </motion.div>
+          <TableHeader $isExpanded={isCalendarExpanded}>
+            <HeaderTopRow>
+              <HeaderLeftSection>
+                  <TitleGroup>
+                    <TitleRow>
+                      <TableTitle>
+                        {getSuppliesTextWithDate(selectedDate || new Date().toISOString().split('T')[0], totalSuppliers)}
+                      </TableTitle>
+                    </TitleRow>
+                  </TitleGroup>
+                <CalendarGroup>
+                  <CalendarIcon size={24} selectedDate={selectedDate} />
+                  <CalendarToggleIndicator onClick={toggleCalendar}>
+                    <span>{isCalendarExpanded ? 'Скрыть' : 'Показать'}</span>
+                    <ChevronDownIcon isExpanded={isCalendarExpanded} />
+                  </CalendarToggleIndicator>
+                </CalendarGroup>
+              </HeaderLeftSection>
+            </HeaderTopRow>
+            
+            {/* Интегрированный календарь прямо в хедере */}
+            <AnimatePresence>
+              {isCalendarExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.3, ease: 'easeInOut' }}
+                  style={{ marginTop: '20px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}
+                >
+                  <SupplyCalendar
+                    selectedDate={new Date(selectedDate || new Date().toISOString().split('T')[0])}
+                    onDateChange={(newDate) => {
+                      // Исправляем проблему с UTC - используем локальное время
+                      const year = newDate.getFullYear();
+                      const month = String(newDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(newDate.getDate()).padStart(2, '0');
+                      const localDateString = `${year}-${month}-${day}`;
+                      onDateChange?.(localDateString);
+                    }}
+                    deliveries={deliveryData}
+                    onMonthChange={onMonthChange}
+                    isExpanded={true}
+                    onToggleExpanded={() => {}}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </TableHeader>
         </motion.div>
       
       <ScrollArea>
         <CardsContainer>
-          <AnimatePresence>
-            {supplierGroups.map((group, groupIndex) => {
+          {/* Показываем заглушку только для канцелярии */}
+          {selectedSupplyType === 'stationery' && (
+            <DevelopmentPlaceholder>
+              <DevelopmentIcon>📝</DevelopmentIcon>
+              <DevelopmentTitle>Канцелярия</DevelopmentTitle>
+              <DevelopmentText>
+                Приемка канцелярии находится в разработке. Скоро будет доступна!
+              </DevelopmentText>
+            </DevelopmentPlaceholder>
+          )}
+          
+          {/* Показываем товары для Сырье и Хозтовары */}
+          {(selectedSupplyType === 'raw_materials' || selectedSupplyType === 'household') && (
+            <AnimatePresence>
+              {supplierGroups.map((group, groupIndex) => {
               const isCollapsed = collapsedSuppliers.has(group.supplier);
               const isAccepted = acceptedDeliveries.has(group.supplier);
               
@@ -1799,7 +2037,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                                       {item.status}
                                     </ItemBadge>
                                   )}
-                                </div>
+      </div>
                               </SupplierItemRow>
                             ))}
                           </SupplierItemsList>
@@ -1819,7 +2057,8 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                 </motion.div>
               );
             })}
-          </AnimatePresence>
+            </AnimatePresence>
+          )}
         </CardsContainer>
       </ScrollArea>
       </TableContainer>

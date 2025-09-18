@@ -103,9 +103,36 @@ const TelegramIcon = () => (
 interface Props {
   branchName: string;
   errorMessage?: string;
+  supplyType?: 'raw_materials' | 'household' | 'stationery';
 }
 
-const PermissionDenied: React.FC<Props> = ({ branchName, errorMessage }) => {
+const PermissionDenied: React.FC<Props> = ({ branchName, errorMessage, supplyType = 'raw_materials' }) => {
+  // Определяем сообщения в зависимости от типа поставок
+  const getMessages = () => {
+    switch (supplyType) {
+      case 'household':
+        return {
+          title: 'Нет прав доступа к данным хозтоваров',
+          description: `У бота NinjaBot нет прав доступа для анализа хозтоваров филиала ${branchName}. Необходимо предоставить доступ к таблице хозтоваров.`,
+          contactText: `Администратор должен предоставить боту права доступа к Google Sheets таблице хозтоваров для филиала ${branchName}. Обратитесь в техническую поддержку для настройки доступа.`
+        };
+      case 'stationery':
+        return {
+          title: 'Нет прав доступа к данным канцелярии',
+          description: `У бота NinjaBot нет прав доступа для анализа канцелярии филиала ${branchName}. Необходимо предоставить доступ к таблице канцелярии.`,
+          contactText: `Администратор должен предоставить боту права доступа к Google Sheets таблице канцелярии для филиала ${branchName}. Обратитесь в техническую поддержку для настройки доступа.`
+        };
+      default:
+        return {
+          title: 'Нет прав доступа к данным поставок',
+          description: `У бота NinjaBot нет прав доступа для анализа поставок филиала ${branchName}. Необходимо предоставить доступ к таблице поставок.`,
+          contactText: `Администратор должен предоставить боту права доступа к Google Sheets таблице поставок для филиала ${branchName}. Обратитесь в техническую поддержку для настройки доступа.`
+        };
+    }
+  };
+
+  const messages = getMessages();
+
   return (
     <Container
       initial={{ opacity: 0, y: 20 }}
@@ -121,22 +148,18 @@ const PermissionDenied: React.FC<Props> = ({ branchName, errorMessage }) => {
       </Icon>
       
       <Title>
-        Нет прав доступа к данным поставок
+        {messages.title}
       </Title>
       
       <Description>
-        У бота NinjaBot нет прав доступа для анализа поставок 
-        филиала <BranchName>{branchName}</BranchName>. 
-        Необходимо предоставить доступ к таблице поставок.
+        {messages.description}
       </Description>      
       <ContactInfo>
         <ContactTitle>
           🛠️ Как исправить?
         </ContactTitle>
         <ContactText>
-          Администратор должен предоставить боту права доступа 
-          к Google Sheets таблице поставок для филиала <strong>{branchName}</strong>.
-          Обратитесь в техническую поддержку для настройки доступа.
+          {messages.contactText}
         </ContactText>
         
         <SupportLink href="https://t.me/+Sc8qu36mX-IwM2My" target="_blank" rel="noopener noreferrer">

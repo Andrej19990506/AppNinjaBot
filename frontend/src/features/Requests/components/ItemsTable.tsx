@@ -663,92 +663,9 @@ const CardHeader = styled.div`
   }
 `;
 
-const SupplierInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  grid-column: 1; /* Левая колонка */
-  justify-self: start;
-`;
 
-// Кнопка разворачивания в центре
-const ExpandButtonContainer = styled.div`
-  grid-column: 2; /* Центральная колонка */
-  justify-self: center;
-`;
 
-// Статус поставки в правой части
-const SupplierStatus = styled.div`
-  grid-column: 3; /* Правая колонка */
-  justify-self: end;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  @media (max-width: 768px) {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: start;
-    margin-top: 4px;
-  }
-`;
 
-// Брендовая кнопка разворачивания/сворачивания
-const CollapseButton = styled(motion.button)`
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: var(--radius);
-  color: white;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
-  position: relative;
-  overflow: hidden;
-  z-index: 1;
-  
-  /* Эффект блеска */
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.3),
-      transparent
-    );
-    transition: left 0.3s ease;
-  }
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.25);
-    border-color: rgba(255, 255, 255, 0.5);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    
-    &::before {
-      left: 100%;
-    }
-  }
-  
-  &:active {
-    transform: scale(0.95);
-  }
-  
-  /* SVG иконка стрелки */
-  svg {
-    width: 16px;
-    height: 16px;
-    transition: transform 0.3s ease;
-  }
-`;
 
 // Название поставщика в стиле DeliveryHistory
 const SupplierName = styled.h3`
@@ -886,12 +803,7 @@ const AcceptedBy = styled.div`
   border-left: 4px solid var(--primary-color);
 `;
 
-// Контейнер для контента карточки (занимает оставшееся место)
-const CardContent = styled.div`
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-`;
+
 
 // Стили для развернутого контента с товарами (как в DeliveryHistory)
 const ExpandedContent = styled(motion.div)`
@@ -998,44 +910,7 @@ const ItemBadge = styled.span<{ $type: 'category' | 'unit' | 'quantity' | 'statu
   }}
 `;
 
-// Контейнер для таблицы с горизонтальной прокруткой
-const TableWrapper = styled.div`
-  width: 100%;
-  max-width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-radius: var(--radius);
-  
-  @media (max-width: 768px) {
-    /* Принудительная горизонтальная прокрутка на мобильных */
-    overflow-x: scroll;
-    overflow-y: visible;
-    width: 100%;
-    max-width: 100%;
-    
-    /* Скрываем скроллбар но оставляем функциональность */
-    scrollbar-width: thin;
-    scrollbar-color: var(--primary-color) transparent;
-    
-    &::-webkit-scrollbar {
-      height: 6px;
-    }
-    
-    &::-webkit-scrollbar-track {
-      background: var(--gray-100);
-      border-radius: 3px;
-    }
-    
-    &::-webkit-scrollbar-thumb {
-      background: var(--primary-color);
-      border-radius: 3px;
-    }
-    
-    &::-webkit-scrollbar-thumb:hover {
-      background: var(--primary-dark);
-    }
-  }
-`;
+
 
 // Карточка поставщика в стиле DeliveryHistory
 const SupplierCard = styled(motion.div)<{ $isAccepted?: boolean }>`
@@ -1059,41 +934,7 @@ const SupplierCard = styled(motion.div)<{ $isAccepted?: boolean }>`
   }
 `;
 
-// Футер карточки с действиями в брендовом стиле - компактный дизайн
-const SupplierFooter = styled.div`
-  background: var(--gray-50);
-  padding: 12px 20px; /* Уменьшили padding */
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  min-height: 50px; /* Фиксированная минимальная высота */
-  margin-top: auto; /* Прижимаем футер к низу карточки */
-  
-  [data-theme="dark"] & {
-    background: var(--gray-100);
-  }
-  
-  @media (max-width: 768px) {
-    padding: 10px 16px; /* Еще меньше на мобильных */
-    flex-direction: column;
-    gap: 12px;
-    min-height: auto;
-  }
-`;
 
-const FooterInfo = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  font-weight: 500;
-  
-  span:first-child {
-    font-size: 1.2rem;
-  }
-`;
 
 const AcceptButton = styled.button`
   padding: 12px 24px;
@@ -1108,7 +949,7 @@ const AcceptButton = styled.button`
   align-items: center;
   gap: 8px;
   transition: all var(--transition-fast);
-  margin-top: auto;
+  margin-top: 15px;
   
   &:hover {
     background: var(--primary-dark);
@@ -1269,7 +1110,9 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   
   // 🚀 Используем глобальный кеш из Requests.tsx - не теряется при перемонтировании
   const cache = acceptedDeliveriesCache || useRef<Map<string, Map<string, AcceptedDelivery>>>(new Map());
-  const [collapsedSuppliers, setCollapsedSuppliers] = useState<Set<string>>(new Set());
+  // 🚀 Используем useRef для сохранения состояния свернутых поставщиков между рендерами
+  const collapsedSuppliersRef = useRef<Set<string>>(new Set());
+  const [, forceUpdate] = useState({});
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierGroup | null>(null);
   const [checkedItems, setCheckedItems] = useState<CheckedItems>({});
@@ -1441,11 +1284,12 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
 
   // 📦 По умолчанию сворачиваем все карточки при первой загрузке
   React.useEffect(() => {
-    if (supplierGroups.length > 0 && collapsedSuppliers.size === 0) {
+    if (supplierGroups.length > 0 && collapsedSuppliersRef.current.size === 0) {
       const allSuppliers = new Set(supplierGroups.map(group => group.supplier));
-      setCollapsedSuppliers(allSuppliers);
+      collapsedSuppliersRef.current = allSuppliers;
+      forceUpdate({});
     }
-  }, [supplierGroups.length, collapsedSuppliers.size]);
+  }, [supplierGroups.length]);
 
   // 📋 Загрузка принятых поставок при изменении даты
   const loadAcceptedDeliveries = useCallback(async () => {
@@ -1730,15 +1574,18 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   // handleToggleItem удалена - теперь используется DeliveryAcceptanceModal
 
   const toggleSupplierCollapse = (supplier: string) => {
-    setCollapsedSuppliers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(supplier)) {
-        newSet.delete(supplier);
-      } else {
-        newSet.add(supplier);
-      }
-      return newSet;
-    });
+    console.log('🔄 [ItemsTable] Переключение поставщика:', supplier);
+    const wasCollapsed = collapsedSuppliersRef.current.has(supplier);
+    if (wasCollapsed) {
+      collapsedSuppliersRef.current.delete(supplier);
+      console.log('📂 [ItemsTable] Разворачиваем:', supplier);
+    } else {
+      collapsedSuppliersRef.current.add(supplier);
+      console.log('📁 [ItemsTable] Сворачиваем:', supplier);
+    }
+    console.log('🔄 [ItemsTable] Новое состояние collapsedSuppliers:', Array.from(collapsedSuppliersRef.current));
+    // Принудительно обновляем компонент
+    forceUpdate({});
   };
 
 
@@ -1951,8 +1798,16 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
           {(selectedSupplyType === 'raw_materials' || selectedSupplyType === 'household') && (
             <AnimatePresence>
               {supplierGroups.map((group, groupIndex) => {
-              const isCollapsed = collapsedSuppliers.has(group.supplier);
+              const isCollapsed = collapsedSuppliersRef.current.has(group.supplier);
               const isAccepted = acceptedDeliveries.has(group.supplier);
+              
+              console.log('🎯 [ItemsTable] Рендер карточки:', {
+                supplier: group.supplier,
+                isCollapsed,
+                isAccepted,
+                collapsedSuppliers: Array.from(collapsedSuppliersRef.current),
+                itemsCount: group.items.length
+              });
               
               return (
                 <motion.div

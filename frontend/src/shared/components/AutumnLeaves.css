@@ -1,0 +1,32 @@
+.autumn-leaves-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 1000;
+    overflow: hidden;
+  }
+  
+.autumn-leaf {
+  position: absolute;
+  top: -50px;
+  font-size: 48px; /* Увеличенный размер как у эмодзи */
+  width: 48px; /* Фиксированная ширина для изображений */
+  height: 48px; /* Фиксированная высота для изображений */
+  animation: leafFall linear forwards;
+  will-change: transform, opacity;
+  transform-origin: center bottom;
+}
+  
+@keyframes leafFall {
+  0% {
+    transform: translateY(-50px) translateX(0px) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(calc(var(--landing-y, 80vh))) translateX(calc(var(--wind-strength, 1) * var(--wind-direction, 1) * 60px + var(--landing-x, 0px))) rotate(180deg) scale(1);
+    opacity: 1;
+  }
+}

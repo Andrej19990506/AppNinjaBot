@@ -35,6 +35,7 @@ import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
 import Requests from './features/Requests/Requests';
 import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
+import AutumnLeaves from './shared/components/AutumnLeaves';
 
 
 
@@ -280,6 +281,9 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
         isVisible={isAwayOverlayVisible}
         onContinue={handleContinueWork}
       />
+      
+      {/* Осенний листопад */}
+      <AutumnLeaves />
     </>
   );
 };

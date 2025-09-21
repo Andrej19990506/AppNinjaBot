@@ -451,39 +451,6 @@ const SupplyTypeDescription = styled.span`
   margin-top: 2px;
 `;
 
-// Компонент заглушки для типов поставок в разработке
-const DevelopmentPlaceholder = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 40px;
-  background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.05), rgba(var(--primary-rgb), 0.1));
-  border-radius: var(--radius-lg);
-  border: 2px dashed rgba(var(--primary-rgb), 0.3);
-  margin: 20px 0;
-  text-align: center;
-`;
-
-const DevelopmentIcon = styled.div`
-  font-size: 3rem;
-  margin-bottom: 16px;
-  opacity: 0.7;
-`;
-
-const DevelopmentTitle = styled.h3`
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-`;
-
-const DevelopmentText = styled.p`
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  line-height: 1.5;
-  max-width: 300px;
-`;
 
 const TitleGroup = styled.div`
   display: flex;
@@ -1146,7 +1113,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
   
   useEffect(() => {
     if (selectedSupplyType === 'stationery') {
-      console.log('🎯 [ItemsTable] Канцелярия выбрана - должна показаться заглушка!');
+      console.log('🎯 [ItemsTable] Канцелярия выбрана - показываем товары!');
     }
   }, [selectedSupplyType]);
 
@@ -1689,26 +1656,15 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
         
         <EmptyState>
           <EmptyIcon>
-            {selectedSupplyType === 'stationery' 
-              ? '🚧' 
-              : deliveryCheck.isValidDay ? '📭' : '📅'
-            }
+            {deliveryCheck.isValidDay ? '📭' : '📅'}
           </EmptyIcon>
           <EmptyText>
-            {selectedSupplyType === 'stationery' 
-              ? 'Приемка канцелярии находится в разработке. Скоро будет доступна!'
-              : deliveryCheck.isValidDay 
-                ? 'На выбранную дату поставок нет' 
-                : 'Поставки принимаются только в понедельник, среду и пятницу'
+            {deliveryCheck.isValidDay 
+              ? 'На выбранную дату поставок нет' 
+              : 'Поставки принимаются только в понедельник, среду и пятницу'
             }
           </EmptyText>
-          {selectedSupplyType === 'stationery' ? (
-            <DeliveryDaysInfo>
-              <DayBadge $isActive>🔨</DayBadge>
-              <DayBadge $isActive>В разработке</DayBadge>
-              <DayBadge $isActive>Скоро!</DayBadge>
-            </DeliveryDaysInfo>
-          ) : !deliveryCheck.isValidDay && (
+          {!deliveryCheck.isValidDay && (
             <DeliveryDaysInfo>
               <DayBadge $isActive>Пн</DayBadge>
               <DayBadge $isActive>Ср</DayBadge>
@@ -1783,19 +1739,8 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
       
       <ScrollArea>
         <CardsContainer>
-          {/* Показываем заглушку только для канцелярии */}
-          {selectedSupplyType === 'stationery' && (
-            <DevelopmentPlaceholder>
-              <DevelopmentIcon>📝</DevelopmentIcon>
-              <DevelopmentTitle>Канцелярия</DevelopmentTitle>
-              <DevelopmentText>
-                Приемка канцелярии находится в разработке. Скоро будет доступна!
-              </DevelopmentText>
-            </DevelopmentPlaceholder>
-          )}
-          
-          {/* Показываем товары для Сырье и Хозтовары */}
-          {(selectedSupplyType === 'raw_materials' || selectedSupplyType === 'household') && (
+          {/* Показываем товары для всех типов поставок */}
+          {true && (
             <AnimatePresence>
               {supplierGroups.map((group, groupIndex) => {
               const isCollapsed = collapsedSuppliersRef.current.has(group.supplier);

@@ -35,6 +35,19 @@ from services.delivery_service import DeliveryService
 router = APIRouter()
 
 
+@router.get("/test-connection", summary="Тестовый эндпоинт для Google Sheets", tags=["Supplies"])
+def test_connection():
+    """
+    Простой эндпоинт для тестирования соединения с Google Sheets
+    """
+    return {
+        "status": "success",
+        "message": "Соединение с сервером установлено успешно!",
+        "timestamp": datetime.now().isoformat(),
+        "server": "AppNinjaBot API"
+    }
+
+
 def _load_service_account_credentials() -> service_account.Credentials:
     """
     Загружает креды сервисного аккаунта из файла.
@@ -287,12 +300,15 @@ def read_supplies(
         date_cols: List[Tuple[int, str]] = []
         start_i = max(0, header_row_idx - 3)
         end_i = min(len(values), header_row_idx + 4)
+        logger.info(f"🔍 [Хозтовары] Ищем даты в строках {start_i}-{end_i}, header_row_idx={header_row_idx}")
         for r_idx in range(start_i, end_i):
             row_scan = values[r_idx]
+            logger.info(f"🔍 [Хозтовары] Строка {r_idx}: {row_scan[:15]}...")  # Показываем первые 15 колонок
             for j, cell in enumerate(row_scan):
                 iso = parse_date_cell(cell)
                 if iso:
                     date_cols.append((j, iso))
+                    logger.info(f"🔍 [Хозтовары] Найдена дата в строке {r_idx}, колонка {j}: '{cell}' -> '{iso}'")
         # Уникализируем по индексу колонки, оставляя первое встреченное название
         seen = set()
         uniq_date_cols: List[Tuple[int, str]] = []
@@ -302,8 +318,13 @@ def read_supplies(
                 uniq_date_cols.append((j, lbl))
         date_cols = uniq_date_cols
 
-        # Отфильтруем явные ложные ранние колонки (левый блок до дат), обычно даты начинаются с колонки H (индекс 7)
-        date_cols = [(j, d) for (j, d) in date_cols if j >= 7]
+        # Отфильтруем явные ложные ранние колонки (левый блок до дат)
+        # Для хозтоваров даты могут начинаться с колонки G (индекс 6)
+        if supply_type == 'household':
+            date_cols = [(j, d) for (j, d) in date_cols if j >= 6]
+        else:
+            # Для сырья и канцелярии даты обычно начинаются с колонки H (индекс 7)
+            date_cols = [(j, d) for (j, d) in date_cols if j >= 7]
         
         # 🚀 ОПТИМИЗАЦИЯ: Определяем максимальную колонку с датами
         max_date_col = max([j for j, _ in date_cols], default=0)
@@ -447,81 +468,190 @@ def read_supplies(
             status_val = as_text(row[status_col]) if status_col is not None and status_col < len(row) else ""
             is_withdrawn = status_val.lower().startswith("выведено")
 
-            for j, date_label in date_cols:
-                if j >= len(row):
-                    qty = None
-                else:
-                    qty = parse_number(row[j])
-                limit_val = parse_number(fixed_limit_row[j]) if j < len(fixed_limit_row) else None
-                order_val = parse_number(order_row[j]) if j < len(order_row) else None
-                date_iso = date_label if date else parse_date_label(date_label)
-                if date_iso is None and qty is None and limit_val is None:
-                    continue
-                # 🔧 ИСПРАВЛЕНИЕ: Пропускаем записи с qty = None (несуществующие колонки)
-                if qty is None:
-                    logger.debug(f"⏭️ Пропускаем запись для {date_label}: qty = None (колонка {j} не существует)")
-                    continue
-                if exclude_zero and (qty is None or qty == 0):
-                    continue
-                # Определяем дату
-                item_date_iso = date_iso
-                # 🚀 ОПТИМИЗАЦИЯ: Используем только цену из строки (без загрузки 'Инфо')
-                resolved_price = row_price
-                price_from_info = False
-                item_total = (resolved_price or 0) * (qty or 0)
-                total_quantity += (qty or 0)
-                total_cost += item_total
-                # сохраняем пометку, но не вычитаем из итогов
-                if is_withdrawn:
-                    withdrawn_quantity += (qty or 0)
-                    withdrawn_cost += item_total
-                # Запоминаем лимиты для текущей даты (берём одно значение на дату)
-                if limit_value is None and limit_val is not None:
-                    limit_value = limit_val
-                if filled_limit_value is None and order_val is not None:
-                    filled_limit_value = order_val
+            # 🚀 СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ КАНЦЕЛЯРИИ: Если дат нет, используем колонку с количеством
+            if not date_cols and supply_type == 'stationery':
+                logger.info(f"📝 [SUPPLIES] Канцелярия: даты не найдены, используем колонку с количеством")
+                
+                # Ищем колонку с количеством
+                qty_col = None
+                for j, header in enumerate(header_row):
+                    header_str = str(header).lower() if header is not None else ""
+                    if any(keyword in header_str for keyword in ['кол-во', 'количество', 'к-во', 'qty']):
+                        qty_col = j
+                        break
+                
+                if qty_col is not None and qty_col < len(row):
+                    qty = parse_number(row[qty_col])
+                    if qty is not None and qty > 0:
+                        # Для канцелярии проверяем, что запрошенная дата - это 1 число месяца
+                        if date:
+                            try:
+                                requested_date = datetime.strptime(date, "%Y-%m-%d")
+                                if requested_date.day != 1:
+                                    logger.info(f"📝 [SUPPLIES] Канцелярия: запрошена дата {date} (не 1 число), пропускаем товары")
+                                    continue
+                            except ValueError:
+                                logger.warning(f"📝 [SUPPLIES] Канцелярия: неверный формат даты {date}, пропускаем товары")
+                                continue
+                        
+                        # Для канцелярии всегда используем дату из таблицы (1 число месяца)
+                        date_iso = f"{datetime.now().year}-{datetime.now().month:02d}-01"
+                        logger.info(f"📝 [SUPPLIES] Канцелярия: найдены товары для 1 числа, используем дату {date_iso}")
+                        
+                        # Пропускаем если exclude_zero и количество 0
+                        if exclude_zero and qty == 0:
+                            continue
+                        
+                        # Определяем дату
+                        item_date_iso = date_iso
+                        
+                        # Общая логика обработки записи (для канцелярии)
+                        # 🚀 ОПТИМИЗАЦИЯ: Используем только цену из строки (без загрузки 'Инфо')
+                        resolved_price = row_price
+                        price_from_info = False
+                        item_total = (resolved_price or 0) * (qty or 0)
+                        total_quantity += (qty or 0)
+                        total_cost += item_total
+                        # сохраняем пометку, но не вычитаем из итогов
+                        if is_withdrawn:
+                            withdrawn_quantity += (qty or 0)
+                            withdrawn_cost += item_total
+                        # Запоминаем лимиты для текущей даты (берём одно значение на дату)
+                        # Для канцелярии лимиты не используются, устанавливаем в None
+                        limit_val = None
+                        order_val = None
+                        if limit_value is None and limit_val is not None:
+                            limit_value = limit_val
+                        if filled_limit_value is None and order_val is not None:
+                            filled_limit_value = order_val
 
-                # sheet_total «как формула листа»: qty * цена из Инфо по Наименованию и макс(I) <= date
-                # Формула также исключает строки, если qty пусто/0, name пусто, date пусто
-                # 🚀 ОПТИМИЗАЦИЯ: Упрощаем логику без загрузки 'Инфо'
-                sheet_included = True
-                sheet_reason = None
-                matched_price = row_price
-                matched_price_date = item_date_iso
-                if qty is None or (isinstance(qty, (int, float)) and qty == 0):
-                    sheet_included = False
-                    sheet_reason = "qty_empty_or_zero"
-                elif not name:
-                    sheet_included = False
-                    sheet_reason = "empty_name"
-                elif not item_date_iso:
-                    sheet_included = False
-                    sheet_reason = "empty_date"
+                        # sheet_total «как формула листа»: qty * цена из Инфо по Наименованию и макс(I) <= date
+                        # Формула также исключает строки, если qty пусто/0, name пусто, date пусто
+                        # 🚀 ОПТИМИЗАЦИЯ: Упрощаем логику без загрузки 'Инфо'
+                        sheet_included = True
+                        sheet_reason = None
+                        matched_price = row_price
+                        matched_price_date = item_date_iso
+                        if qty is None or (isinstance(qty, (int, float)) and qty == 0):
+                            sheet_included = False
+                            sheet_reason = "qty_empty_or_zero"
+                        elif not name:
+                            sheet_included = False
+                            sheet_reason = "empty_name"
+                        elif not item_date_iso:
+                            sheet_included = False
+                            sheet_reason = "empty_date"
+                        else:
+                            # Используем цену из строки (без проверки 'Инфо')
+                            sheet_total += (row_price or 0) * (qty or 0)
+                        
+                        records.append({
+                            "name": f"{name} (Выведено)" if is_withdrawn else name,
+                            "category": current_category,
+                            "unit": unit,
+                            "supplier": supplier,
+                            "price": resolved_price,
+                            "price_source": ("info" if price_from_info else "row"),
+                            "date": item_date_iso,
+                            "limit_for_date": limit_val,
+                            "quantity_for_date": qty,
+                            "item_total": item_total,
+                            "status": status_val or None,
+                            "is_withdrawn": is_withdrawn,
+                            **({
+                                "debug": {
+                                    "included_by_formula": sheet_included,
+                                    "exclude_reason": sheet_reason,
+                                    "info_price_date": matched_price_date,
+                                    "info_price_value": matched_price,
+                                }
+                            } if debug_enabled else {}),
+                        })
+                    else:
+                        continue  # Нет товаров
                 else:
-                    # Используем цену из строки (без проверки 'Инфо')
-                    sheet_total += (row_price or 0) * (qty or 0)
-                records.append({
-                    "name": f"{name} (Выведено)" if is_withdrawn else name,
-                    "category": current_category,
-                    "unit": unit,
-                    "supplier": supplier,
-                    "price": resolved_price,
-                    "price_source": ("info" if price_from_info else "row"),
-                    "date": item_date_iso,
-                    "limit_for_date": limit_val,
-                    "quantity_for_date": qty,
-                    "item_total": item_total,
-                    "status": status_val or None,
-                    "is_withdrawn": is_withdrawn,
-                    **({
-                        "debug": {
-                            "included_by_formula": sheet_included,
-                            "exclude_reason": sheet_reason,
-                            "info_price_date": matched_price_date,
-                            "info_price_value": matched_price,
-                        }
-                    } if debug_enabled else {}),
-                })
+                    continue  # Не нашли колонку с количеством
+            else:
+                # Обычная логика для других типов поставок
+                for j, date_label in date_cols:
+                    if j >= len(row):
+                        qty = None
+                    else:
+                        qty = parse_number(row[j])
+                    limit_val = parse_number(fixed_limit_row[j]) if j < len(fixed_limit_row) else None
+                    order_val = parse_number(order_row[j]) if j < len(order_row) else None
+                    date_iso = date_label if date else parse_date_label(date_label)
+                    if date_iso is None and qty is None and limit_val is None:
+                        continue
+                    # 🔧 ИСПРАВЛЕНИЕ: Пропускаем записи с qty = None (несуществующие колонки)
+                    if qty is None:
+                        logger.debug(f"⏭️ Пропускаем запись для {date_label}: qty = None (колонка {j} не существует)")
+                        continue
+                    if exclude_zero and (qty is None or qty == 0):
+                        continue
+                    
+                    # Определяем дату
+                    item_date_iso = date_iso
+                
+                    # Общая логика обработки записи (для обычных типов поставок)
+                    # 🚀 ОПТИМИЗАЦИЯ: Используем только цену из строки (без загрузки 'Инфо')
+                    resolved_price = row_price
+                    price_from_info = False
+                    item_total = (resolved_price or 0) * (qty or 0)
+                    total_quantity += (qty or 0)
+                    total_cost += item_total
+                    # сохраняем пометку, но не вычитаем из итогов
+                    if is_withdrawn:
+                        withdrawn_quantity += (qty or 0)
+                        withdrawn_cost += item_total
+                    # Запоминаем лимиты для текущей даты (берём одно значение на дату)
+                    if limit_value is None and limit_val is not None:
+                        limit_value = limit_val
+                    if filled_limit_value is None and order_val is not None:
+                        filled_limit_value = order_val
+
+                    # sheet_total «как формула листа»: qty * цена из Инфо по Наименованию и макс(I) <= date
+                    # Формула также исключает строки, если qty пусто/0, name пусто, date пусто
+                    # 🚀 ОПТИМИЗАЦИЯ: Упрощаем логику без загрузки 'Инфо'
+                    sheet_included = True
+                    sheet_reason = None
+                    matched_price = row_price
+                    matched_price_date = item_date_iso
+                    if qty is None or (isinstance(qty, (int, float)) and qty == 0):
+                        sheet_included = False
+                        sheet_reason = "qty_empty_or_zero"
+                    elif not name:
+                        sheet_included = False
+                        sheet_reason = "empty_name"
+                    elif not item_date_iso:
+                        sheet_included = False
+                        sheet_reason = "empty_date"
+                    else:
+                        # Используем цену из строки (без проверки 'Инфо')
+                        sheet_total += (row_price or 0) * (qty or 0)
+                    
+                    records.append({
+                        "name": f"{name} (Выведено)" if is_withdrawn else name,
+                        "category": current_category,
+                        "unit": unit,
+                        "supplier": supplier,
+                        "price": resolved_price,
+                        "price_source": ("info" if price_from_info else "row"),
+                        "date": item_date_iso,
+                        "limit_for_date": limit_val,
+                        "quantity_for_date": qty,
+                        "item_total": item_total,
+                        "status": status_val or None,
+                        "is_withdrawn": is_withdrawn,
+                        **({
+                            "debug": {
+                                "included_by_formula": sheet_included,
+                                "exclude_reason": sheet_reason,
+                                "info_price_date": matched_price_date,
+                                "info_price_value": matched_price,
+                            }
+                        } if debug_enabled else {}),
+                    })
 
         rows_time = time.time() - rows_start
         logger.info(f"🔄 Обработка строк завершена за {rows_time:.3f}с")
@@ -1172,72 +1302,138 @@ def get_calendar_data(
                 'suppliers': set()
             }
         
-        # Обрабатываем строки данных (пропускаем первые 6 строк: заголовки, лимиты, суммы и служебные)
-        processed_rows = 0
-        # 🔧 ИСПРАВЛЕНИЕ: Уменьшаем max_required_col, чтобы не пропускать строки с данными
-        # Нам нужны только: name_col, supplier_col, status_col и даты
-        required_cols = [name_col or 0, supplier_col or 0, status_col or 0]
-        if date_columns:
-            required_cols.extend(date_columns.values())
-        max_required_col = max(required_cols) if required_cols else 0
+        # 🔍 ДЕБАГ: Логируем состояние для канцелярии
+        logger.info(f"📝 [CALENDAR] ДЕБАГ: date_columns={len(date_columns) if date_columns else 0}, supply_type='{supply_type}'")
         
-        
-        
-        for row_idx, row in enumerate(values[6:], 6):
-            # 🔧 ИСПРАВЛЕНИЕ: Убираем проверку на количество колонок - обрабатываем все строки
-            # Проверяем только что у нас есть минимально необходимые данные
-            if len(row) < 5:  # Минимум: статус, название, единица, цена, поставщик
-                continue
+        # 🚀 СПЕЦИАЛЬНАЯ ЛОГИКА ДЛЯ КАНЦЕЛЯРИИ: Для канцелярии всегда используем 1 число
+        if supply_type == 'stationery':
+            logger.info(f"📝 [CALENDAR] Канцелярия: используем специальную логику для 1 числа месяца")
+            
+            # Проверяем есть ли товары в таблице (колонка с количеством)
+            qty_col = None
+            for i, header in enumerate(header_row):
+                header_str = str(header).lower() if header is not None else ""
+                if any(keyword in header_str for keyword in ['кол-во', 'количество', 'к-во', 'qty']):
+                    qty_col = i
+                    break
+            
+            logger.info(f"📝 [CALENDAR] Канцелярия: найдена колонка с количеством: {qty_col}")
+            
+            # Если нашли колонку с количеством, проверяем все строки
+            if qty_col is not None:
+                suppliers_found = set()
                 
-            name = str(row[name_col]) if name_col is not None and name_col < len(row) else ""
-            supplier = str(row[supplier_col]) if supplier_col is not None and supplier_col < len(row) else ""
-            status_val = str(row[status_col]) if status_col is not None and status_col < len(row) else ""
+                # Обрабатываем строки данных (пропускаем первые 6 строк: заголовки, лимиты, суммы и служебные)
+                for row_idx, row in enumerate(values[6:], 6):
+                    if len(row) < 5:  # Минимум: статус, название, единица, цена, поставщик
+                        continue
+                        
+                    name = str(row[name_col]) if name_col is not None and name_col < len(row) else ""
+                    supplier = str(row[supplier_col]) if supplier_col is not None and supplier_col < len(row) else ""
+                    status_val = str(row[status_col]) if status_col is not None and status_col < len(row) else ""
+                    
+                    # Пропускаем если имя товара пустое
+                    if not name.strip():
+                        continue
+                    
+                    # Если поставщик пустой, считаем как "Неизвестный поставщик"
+                    if not supplier.strip():
+                        supplier = "Неизвестный поставщик"
+                    
+                    # Проверяем статус "выведено"
+                    is_withdrawn = status_val.lower().startswith("выведено")
+                    
+                    # Проверяем есть ли товары в колонке с количеством
+                    if qty_col < len(row):
+                        cell_value = row[qty_col]
+                        if cell_value:
+                            try:
+                                qty = float(cell_value) if isinstance(cell_value, (int, float)) else 0
+                                if qty > 0:  # Есть товары
+                                    suppliers_found.add(supplier)
+                                    logger.info(f"📝 [CALENDAR] Канцелярия: найдены товары от {supplier}, количество: {qty}")
+                            except (ValueError, TypeError):
+                                # Если не число, но не пустое - считаем как поставку
+                                if str(cell_value).strip():
+                                    suppliers_found.add(supplier)
+                                    logger.info(f"📝 [CALENDAR] Канцелярия: найдены товары от {supplier} (текстовое значение)")
+                
+                # Добавляем поставку на 1 число месяца для всех найденных поставщиков
+                if suppliers_found:
+                    date_str = f"{year}-{month_num:02d}-01"
+                    deliveries_by_date[date_str]['count'] = len(suppliers_found)
+                    deliveries_by_date[date_str]['suppliers'] = suppliers_found
+                    logger.info(f"📝 [CALENDAR] Канцелярия: добавлена поставка на {date_str} от {len(suppliers_found)} поставщиков: {list(suppliers_found)}")
+                else:
+                    logger.info(f"📝 [CALENDAR] Канцелярия: товары не найдены")
+            else:
+                logger.info(f"📝 [CALENDAR] Канцелярия: колонка с количеством не найдена")
+        else:
+            # Обычная логика для других типов поставок
+            # Обрабатываем строки данных (пропускаем первые 6 строк: заголовки, лимиты, суммы и служебные)
+            processed_rows = 0
+            # 🔧 ИСПРАВЛЕНИЕ: Уменьшаем max_required_col, чтобы не пропускать строки с данными
+            # Нам нужны только: name_col, supplier_col, status_col и даты
+            required_cols = [name_col or 0, supplier_col or 0, status_col or 0]
+            if date_columns:
+                required_cols.extend(date_columns.values())
+            max_required_col = max(required_cols) if required_cols else 0
             
-            # 🔧 ИСПРАВЛЕНИЕ: Если поставщик пустой, считаем как "Неизвестный поставщик"
-            if not supplier.strip():
-                supplier = "Неизвестный поставщик"
-            
-            # 🔧 ИСПРАВЛЕНИЕ: Проверяем статус "выведено" (как в основном API)
-            is_withdrawn = status_val.lower().startswith("выведено")
-            
-            # Отладка для первых нескольких строк
-            if processed_rows < 5:
-                pass  # Убрали логи
-            
-            # 🔧 ИСПРАВЛЕНИЕ: Пропускаем только если имя товара пустое
-            if not name.strip():
-                continue
-            
-            processed_rows += 1
-            
-            # Проверяем каждую колонку с датами
-            for day, col_idx in date_columns.items():
-                if col_idx >= len(row):
+            for row_idx, row in enumerate(values[6:], 6):
+                # 🔧 ИСПРАВЛЕНИЕ: Убираем проверку на количество колонок - обрабатываем все строки
+                # Проверяем только что у нас есть минимально необходимые данные
+                if len(row) < 5:  # Минимум: статус, название, единица, цена, поставщик
                     continue
                     
-                cell_value = row[col_idx]
-                if not cell_value:
+                name = str(row[name_col]) if name_col is not None and name_col < len(row) else ""
+                supplier = str(row[supplier_col]) if supplier_col is not None and supplier_col < len(row) else ""
+                status_val = str(row[status_col]) if status_col is not None and status_col < len(row) else ""
+                
+                # 🔧 ИСПРАВЛЕНИЕ: Если поставщик пустой, считаем как "Неизвестный поставщик"
+                if not supplier.strip():
+                    supplier = "Неизвестный поставщик"
+                
+                # 🔧 ИСПРАВЛЕНИЕ: Проверяем статус "выведено" (как в основном API)
+                is_withdrawn = status_val.lower().startswith("выведено")
+                
+                # Отладка для первых нескольких строк
+                if processed_rows < 5:
+                    pass  # Убрали логи
+                
+                # 🔧 ИСПРАВЛЕНИЕ: Пропускаем только если имя товара пустое
+                if not name.strip():
                     continue
                 
-                # Проверяем есть ли поставка в этот день
-                # Если значение не пустое и не равно 0, значит есть поставка
-                try:
-                    qty = float(cell_value) if isinstance(cell_value, (int, float)) else 0
-                    if qty > 0:  # Есть поставка
-                        date_str = f"{year}-{month_num:02d}-{day:02d}"
-                        # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
-                        # Каждый поставщик = 1 поставка
-                        if supplier not in deliveries_by_date[date_str]['suppliers']:
-                            deliveries_by_date[date_str]['count'] += 1
-                            deliveries_by_date[date_str]['suppliers'].add(supplier)
-                except (ValueError, TypeError):
-                    # Если не число, но не пустое - считаем как поставку
-                    if str(cell_value).strip():
-                        date_str = f"{year}-{month_num:02d}-{day:02d}"
-                        # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
-                        if supplier not in deliveries_by_date[date_str]['suppliers']:
-                            deliveries_by_date[date_str]['count'] += 1
-                            deliveries_by_date[date_str]['suppliers'].add(supplier)
+                processed_rows += 1
+                
+                # Обычная логика для других типов поставок
+                for day, col_idx in date_columns.items():
+                    if col_idx >= len(row):
+                        continue
+                        
+                    cell_value = row[col_idx]
+                    if not cell_value:
+                        continue
+                    
+                    # Проверяем есть ли поставка в этот день
+                    # Если значение не пустое и не равно 0, значит есть поставка
+                    try:
+                        qty = float(cell_value) if isinstance(cell_value, (int, float)) else 0
+                        if qty > 0:  # Есть поставка
+                            date_str = f"{year}-{month_num:02d}-{day:02d}"
+                            # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
+                            # Каждый поставщик = 1 поставка
+                            if supplier not in deliveries_by_date[date_str]['suppliers']:
+                                deliveries_by_date[date_str]['count'] += 1
+                                deliveries_by_date[date_str]['suppliers'].add(supplier)
+                    except (ValueError, TypeError):
+                        # Если не число, но не пустое - считаем как поставку
+                        if str(cell_value).strip():
+                            date_str = f"{year}-{month_num:02d}-{day:02d}"
+                            # ✅ СЧИТАЕМ ПОСТАВЩИКОВ, А НЕ ТОВАРЫ!
+                            if supplier not in deliveries_by_date[date_str]['suppliers']:
+                                deliveries_by_date[date_str]['count'] += 1
+                                deliveries_by_date[date_str]['suppliers'].add(supplier)
         
         
         # Формируем ответ только для дней с поставками

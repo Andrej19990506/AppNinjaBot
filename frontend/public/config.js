@@ -11,13 +11,16 @@
         return;
     }
     
-    // Определяем, работаем ли в эмуляторе Android Studio
+    // Определяем окружение
     const isAndroidEmulator = window.location.hostname === '10.0.2.2';
+    const isExternalAccess = window.location.hostname === 'dev-bot.appninjabot.ru';
     
-    // Создаем конфигурацию для development
+    // Создаем конфигурацию
     window.APP_CONFIG = {
-        API_URL: isAndroidEmulator ? "http://10.0.2.2:8000/api" : "http://localhost:8000/api",
-        WS_URL: isAndroidEmulator ? "ws://10.0.2.2:8001" : "ws://localhost:8001",
+        API_URL: isExternalAccess ? "https://dev-bot.appninjabot.ru/api" : 
+                 isAndroidEmulator ? "http://10.0.2.2:8000/api" : "http://localhost:8000/api",
+        WS_URL: isExternalAccess ? "wss://dev-bot.appninjabot.ru/ws" :
+                isAndroidEmulator ? "ws://10.0.2.2:8001" : "ws://localhost:8001",
         ENV: "development",
         DEBUG: "true",
         GENERATED_AT: new Date().toISOString(),

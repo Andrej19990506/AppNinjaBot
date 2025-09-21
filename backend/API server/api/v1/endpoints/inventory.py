@@ -14,7 +14,6 @@ import uuid
 import asyncio
 import subprocess
 from urllib.parse import unquote
-
 # Используем абсолютные импорты от корня /app
 from db.session import get_db_session, async_engine
 from sqlalchemy.ext.asyncio import AsyncSession # Добавляем импорт AsyncSession
@@ -26,7 +25,7 @@ from schemas.inventory import InventoryData, InventoryUpdatePayload, InventoryIt
 from schemas.user import UserSimple # Для информации об админах
 # Добавим импорт Pydantic для полей админов
 from pydantic import Field, BaseModel
-# ---> ДОБАВЛЕНИЕ: импорты для кэша и зависимостей < ---
+
 import redis.asyncio as redis # Типизация для клиента
 from core.dependencies import get_redis_client # Импортируем из нового файла
 from fastapi import Depends # Обновляем импорт Depends, чтобы он включал нашу зависимость
@@ -43,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
-
 
 
 # Вспомогательная функция для получения группы по Telegram ID
@@ -94,14 +92,13 @@ def calculate_inventory_progress_py(inventory: Dict[str, Any] | None) -> int:
     if total_items == 0:
         return 0
 
-    progress = round((filled_items / total_items) * 100)
-    # logger.debug(f"Calculated progress: {progress}% ({filled_items}/{total_items})") # Optional debug log
+    progress = round((filled_items / total_items) * 100)  
     return progress
 
-# 🔧 НОВАЯ ФУНКЦИЯ: Обновляет метаданные инвентаря с автоматической установкой start_time
+# Функция обновления метаданных инвентаризации
 def update_inventory_metadata(metadata: Dict[str, Any], new_progress: int) -> Dict[str, Any]:
     """
-    Обновляет метаданные инвентаря, автоматически устанавливая start_time когда прогресс становится > 0
+    Обновляет метаданные инвентаря
     
     Args:
         metadata: Текущие метаданные
@@ -115,16 +112,6 @@ def update_inventory_metadata(metadata: Dict[str, Any], new_progress: int) -> Di
     # Обновляем прогресс
     updated_metadata['progress'] = new_progress
     updated_metadata['lastUpdated'] = datetime.now(timezone.utc).isoformat()
-    
-    # 🔧 НОВОЕ: Автоматически устанавливаем start_time когда прогресс становится > 0
-    if new_progress > 0 and 'start_time' not in updated_metadata:
-        updated_metadata['start_time'] = datetime.now(timezone.utc).isoformat()
-        logger.info(f"🔍 [update_inventory_metadata] Установлено время начала инвентаризации: {updated_metadata['start_time']}")
-    
-    # 🔧 НОВОЕ: Сбрасываем start_time когда прогресс становится 0 (сброс инвентаризации)
-    elif new_progress == 0 and 'start_time' in updated_metadata:
-        del updated_metadata['start_time']
-        logger.info(f"🔍 [update_inventory_metadata] Сброшено время начала инвентаризации при сбросе")
     
     return updated_metadata
 
@@ -400,7 +387,7 @@ async def read_inventory_for_chat(
         # Важно: Пересчитываем прогресс на основе финального инвентаря (base_inventory)
         progress = calculate_inventory_progress_py(final_inventory_data)
         
-        # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+        # Обновляем метаданные
         updated_metadata = update_inventory_metadata(metadata, progress)
         updated_metadata["chat_id"] = chat_id
 
@@ -433,10 +420,10 @@ async def read_inventory_for_chat(
         decoded_inventory_data = {}
         
         # Формируем ответ, используя final_inventory_data и пересчитанный progress
-        # 🔧 НОВОЕ: Используем обновленные метаданные с start_time
+        # Используем обновленные метаданные
         response_dict = {
             "inventory": decoded_inventory_data,
-            "metadata": updated_metadata, # Используем обновленные метаданные с start_time
+            "metadata": updated_metadata, # Используем обновленные метаданные
             "chat_title": group.title,
             "admins": admins_list_of_dicts
         }
@@ -1325,11 +1312,11 @@ async def delete_inventory_item(
             metadata = group.json_metadata or {}
             if deleted_from_inventory:
                 new_progress = calculate_inventory_progress_py(group.json_inventory)
-                # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+                # Обновляем метаданные
                 metadata = update_inventory_metadata(metadata, new_progress)
                 group.json_metadata = metadata
                 flag_modified(group, "json_metadata")
-                logger.info(f"[delete_inventory_item] Metadata updated for chat {chat_id}: progress={new_progress}, start_time={metadata.get('start_time', 'not_set')}")
+                logger.info(f"[delete_inventory_item] Metadata updated for chat {chat_id}: progress={new_progress}")
             
             updated_metadata_for_notify = metadata # Сохраняем метаданные для отправки в NOTIFY
 
@@ -1352,7 +1339,6 @@ async def delete_inventory_item(
             "type": "inventory_updated", 
             "chat_id": str(chat_id),
             "metadata": updated_metadata_for_notify, # Отправляем актуальные метаданные
-            # Не отправляем item_id/category при удалении, т.к. товара больше нет
         }
         notify_payload_json = json.dumps(notify_payload_dict, default=str)
         escaped_payload = notify_payload_json.replace("'", "''")
@@ -1516,8 +1502,8 @@ async def trigger_excel_generation(
             "file_path": absolute_file_path_str # Передаем абсолютный путь к файлу
         }
 
-        # Запускаем отправку запроса боту в фоновой задаче
-        background_tasks.add_task(send_inventory_report_to_bot, send_report_endpoint, bot_payload, absolute_file_path_str)
+        # Запускаем отправку запроса боту в фоновой задаче с названием филиала
+        background_tasks.add_task(send_inventory_report_to_bot, send_report_endpoint, bot_payload, absolute_file_path_str, group_title)
 
         logger.info(f"[trigger_excel_generation] Excel generation process initiated for chat_id: {chat_id}. Bot notification task scheduled.")
         return {
@@ -1536,27 +1522,31 @@ async def trigger_excel_generation(
         logger.exception(f"[trigger_excel_generation] Unexpected error generating Excel for chat_id: {chat_id}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred during Excel generation.")
 
-# Асинхронная функция для отправки запроса боту в фоне и удаления файла
-async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_delete: str):
+# Асинхронная функция для отправки запроса боту в фоне, загрузки в Google Drive и удаления файла
+async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_delete: str, branch_name: str = None):
     """Отправляет отчет боту и удаляет временный файл."""
     logger.info(f"[BG Task - Inventory Report] Attempting to send request to bot. URL: {url}, Payload keys: {list(payload.keys())}")
-    async with httpx.AsyncClient(timeout=60.0) as client: # Добавлен таймаут
+    
+    # Отправляем боту
+    async with httpx.AsyncClient(timeout=60.0) as client:
         try:
             response = await client.post(url, json=payload)
             response.raise_for_status()
             logger.info(f"[BG Task - Inventory Report] Successful response from bot (status {response.status_code}) for report {payload.get('chat_id')}")
+            
             # Удаляем временный файл после успешной отправки боту
             try:
                 os.remove(file_path_to_delete)
                 logger.info(f"[BG Task - Inventory Report] Temporary file {file_path_to_delete} deleted.")
             except OSError as unlink_err:
                 logger.error(f"[BG Task - Inventory Report] Failed to delete temporary file {file_path_to_delete}: {unlink_err}")
+                
         except httpx.RequestError as req_err:
             logger.error(f"[BG Task - Inventory Report] Request error while contacting bot at {url}: {req_err}")
         except httpx.HTTPStatusError as status_err:
             logger.error(f"[BG Task - Inventory Report] Bot returned an error status {status_err.response.status_code} for {url}. Response: {status_err.response.text}")
         except Exception as e:
-            logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({url})") # Используем logger.exception
+            logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({url})")
 
 # ---> ДОБАВЛЕНИЕ: Новый эндпоинт для сброса инвентаризации <---
 @router.post(
@@ -1649,13 +1639,13 @@ async def reset_inventory_for_chat(
 
             # 4. Обновляем метаданные
             existing_metadata = group.json_metadata or {}
-            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической очистки start_time
+            # Обновляем метаданные
             updated_metadata = update_inventory_metadata(existing_metadata, 0)
             updated_metadata['chat_id'] = chat_id  # Добавляем chat_id
             group.json_metadata = updated_metadata
             flag_modified(group, "json_metadata")
             updated_metadata_for_notify = updated_metadata # Сохраняем для NOTIFY
-            logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0, start_time cleared")
+            logger.info(f"[reset_inventory_for_chat] Metadata updated for chat {chat_id}: progress=0")
 
         # Транзакция успешно завершена (commit)
         logger.info(f"[reset_inventory_for_chat] DB transaction committed for chat_id: {chat_id} after reset.")
@@ -2145,7 +2135,7 @@ async def sync_chat_with_template(
             group.json_metadata = {}
         group.json_metadata["lastUpdated"] = now
         group.json_metadata["lastSynced"] = now
-        # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+        # Обновляем метаданные
         new_progress = calculate_inventory_progress_py(updated_inventory)
         group.json_metadata = update_inventory_metadata(group.json_metadata, new_progress)
         flag_modified(group, "json_metadata")
@@ -2337,7 +2327,7 @@ async def sync_all_groups_with_template(db: AsyncSession) -> Dict[str, Any]:
                         group.json_metadata = {}
                     group.json_metadata["lastUpdated"] = now
                     group.json_metadata["lastSynced"] = now
-                    # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+                    # Обновляем метаданные
                     new_progress = calculate_inventory_progress_py(updated_inventory)
                     group.json_metadata = update_inventory_metadata(group.json_metadata, new_progress)
                     
@@ -2604,7 +2594,7 @@ async def update_inventory_item_point(
             except Exception:
                 current_version = 0
             
-            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+            # Обновляем метаданные
             updated_metadata = update_inventory_metadata(existing_metadata, calculated_progress)
             updated_metadata["chat_id"] = chat_id
             updated_metadata["version"] = current_version + 1
@@ -2909,7 +2899,7 @@ async def update_inventory_item_by_uuid(
             except Exception:
                 current_version = 0
             
-            # 🔧 НОВОЕ: Используем функцию update_inventory_metadata для автоматической установки start_time
+            # Обновляем метаданные
             updated_metadata = update_inventory_metadata(existing_metadata, calculated_progress)
             updated_metadata["chat_id"] = chat_id
             updated_metadata["version"] = current_version + 1

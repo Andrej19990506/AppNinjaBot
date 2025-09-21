@@ -746,13 +746,18 @@ const Requests: React.FC = () => {
         return;
       }
       
-      // Для канцелярии не проверяем конфигурацию - показываем заглушку "в разработке"
+      // Для канцелярии проверяем конфигурацию как для обычных поставок
       if (selectedSupplyType === 'stationery') {
-        console.log('🎯 [Requests] Канцелярия выбрана - сбрасываем loading и показываем заглушку');
-        setIsConfigMissing(false);
-        setIsPermissionDenied(false);
-        dispatch(reset()); // Сбрасываем loading для канцелярии
-        return; // Не отправляем запрос для канцелярии
+        console.log('🎯 [Requests] Канцелярия выбрана - проверяем конфигурацию');
+        // Проверяем есть ли конфигурация для канцелярии
+        if (!config.stationery_spreadsheet_id) {
+          console.log('⚠️ [Requests] Конфигурация канцелярии не найдена');
+          setIsConfigMissing(true);
+          setIsPermissionDenied(false);
+          dispatch(reset()); // Сбрасываем loading если конфиг для канцелярии отсутствует
+          return;
+        }
+        console.log('✅ [Requests] Конфигурация канцелярии найдена:', config.stationery_spreadsheet_id);
       }
       
       // Конфигурация найдена - сбрасываем флаги и устанавливаем параметры
@@ -1192,7 +1197,7 @@ const Requests: React.FC = () => {
               >
                 <DataContainer>
                   <ItemsTable 
-                    items={selectedSupplyType === 'stationery' ? [] : (data?.items || [])} 
+                    items={data?.items || []} 
                     selectedDate={date}
                     selectedChatId={selectedChatId}
                     chatTitle={chefGroups.find(chat => chat.chat_id === selectedChatId)?.chat_title}

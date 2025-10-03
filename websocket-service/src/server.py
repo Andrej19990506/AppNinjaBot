@@ -4,7 +4,8 @@ import asyncio
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 import uvicorn
-from prometheus_client import make_asgi_app
+from prometheus_client import make_asgi_app, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import PlainTextResponse
 import socketio
 
 # Настройка логирования
@@ -18,6 +19,7 @@ from src.socket_instance import sio
 import src.websocket_handler
 from src.database import listen_for_notifications
 from src.metrics import init_metrics
+from src.redis_client import redis_manager
 
 logger.info("🔄 Инициализация server.py (режим FastAPI/Uvicorn)")
 logger.info("✅ Socket.IO и обработчики импортированы")
@@ -32,7 +34,10 @@ async def lifespan(app: FastAPI):
     try:
         logger.info("🚀 Запуск приложения")
         
-       
+        # --- Подключаемся к Redis ---
+        logger.info("🔗 Подключение к Redis...")
+        await redis_manager.connect()
+        logger.info("✅ Redis подключен")
         
         # --- Запускаем слушателя PostgreSQL --- 
         logger.info("🎧 Запуск PostgreSQL LISTEN/NOTIFY listener...")
@@ -48,6 +53,13 @@ async def lifespan(app: FastAPI):
         raise
     finally:
         logger.info("👋 Завершение работы приложения")
+        
+        # --- Отключаемся от Redis ---
+        try:
+            await redis_manager.disconnect()
+            logger.info("✅ Redis отключен")
+        except Exception as e:
+            logger.error(f"❌ Ошибка отключения от Redis: {e}")
         # --- Останавливаем слушателя PostgreSQL --- 
         if listener_task and listener_stop_event:
             logger.info("🛑 Остановка PostgreSQL LISTEN/NOTIFY listener...")

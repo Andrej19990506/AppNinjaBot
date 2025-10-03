@@ -22,7 +22,8 @@ COPY requirements.txt .
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install gunicorn
 
 # Копируем весь код приложения из текущей директории (контекста сборки)
 # в рабочую директорию /app внутри образа.
@@ -35,8 +36,8 @@ EXPOSE 8000
 
 # Команда по умолчанию для запуска приложения.
 # Будет использоваться, если не переопределена в docker-compose.yml.
-# Запускает uvicorn, слушая на всех интерфейсах (0.0.0.0) внутри контейнера.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Для тестирования производительности используем gunicorn с 8 воркерами
+CMD ["gunicorn", "main:app", "-b", "0.0.0.0:8000", "--workers", "8", "--timeout", "120", "-k", "uvicorn.workers.UvicornWorker"]
 
 # Production target
 FROM base as production

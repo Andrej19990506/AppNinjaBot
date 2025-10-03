@@ -6,10 +6,14 @@ from contextlib import asynccontextmanager
 from models.base import Base
 from core.config import settings
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from loguru import logger
 import redis.asyncio as redis
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+import time
 
+# Импортируем метрики для их инициализации (метрики инициализируются при импорте)
+from core import metrics
 
 from api.v1.api import api_router as api_v1_router # Импортируем наш агрегатор V1
 from core.logging_config import setup_logging
@@ -35,6 +39,10 @@ redis_client = None
 async def lifespan(app: FastAPI):
     # Код, который выполняется при старте
     logger.info("Приложение запускается...")
+    
+    # Метрики Prometheus уже инициализированы при импорте модуля
+    logger.info("Метрики Prometheus инициализированы")
+    
     # Создаем таблицы при старте (если они не существуют)
     await create_tables()
     
@@ -92,6 +100,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Добавляем endpoint для метрик Prometheus
+@app.get("/metrics")
+async def get_metrics():
+    """Endpoint для получения метрик Prometheus"""
+    return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
 # Добавляем middleware для доверия заголовкам прокси
 @app.middleware("http")
 async def trust_proxy_headers(request, call_next):
@@ -110,6 +124,95 @@ async def trust_proxy_headers(request, call_next):
     # Продолжаем обработку запроса
     response = await call_next(request)
     return response
+
+# Добавляем middleware для сбора метрик HTTP запросов
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    """Middleware для сбора метрик HTTP запросов"""
+    # Получаем метрики из модуля
+    http_requests_total = getattr(metrics, 'http_requests_total', None)
+    http_request_duration_seconds = getattr(metrics, 'http_request_duration_seconds', None)
+    http_errors_total = getattr(metrics, 'http_errors_total', None)
+    http_requests_in_progress = getattr(metrics, 'http_requests_in_progress', None)
+    
+    # Извлекаем информацию о запросе
+    method = request.method
+    endpoint = request.url.path
+    if endpoint.startswith('/api/'):
+        endpoint = endpoint[4:]  # Убираем '/api/' префикс
+    
+    # Засекаем время начала обработки
+    start_time = time.time()
+    
+    # Увеличиваем счетчик запросов в обработке
+    if http_requests_in_progress:
+        http_requests_in_progress.labels(method=method, endpoint=endpoint).inc()
+    
+    try:
+        # Выполняем запрос
+        response = await call_next(request)
+        
+        # Вычисляем время обработки
+        duration = time.time() - start_time
+        
+        # Обновляем метрики
+        if http_requests_total:
+            http_requests_total.labels(
+                method=method, 
+                endpoint=endpoint, 
+                status_code=response.status_code
+            ).inc()
+        
+        if http_request_duration_seconds:
+            http_request_duration_seconds.labels(
+                method=method, 
+                endpoint=endpoint
+            ).observe(duration)
+        
+        # Считаем ошибки (4xx и 5xx)
+        if response.status_code >= 400 and http_errors_total:
+            error_type = f"http_{response.status_code}"
+            http_errors_total.labels(
+                error_type=error_type, 
+                endpoint=endpoint
+            ).inc()
+        
+        # Уменьшаем счетчик запросов в обработке
+        if http_requests_in_progress:
+            http_requests_in_progress.labels(method=method, endpoint=endpoint).dec()
+        
+        return response
+        
+    except Exception as e:
+        # В случае ошибки
+        duration = time.time() - start_time
+        
+        # Обновляем метрики ошибок
+        if http_requests_total:
+            http_requests_total.labels(
+                method=method, 
+                endpoint=endpoint, 
+                status_code=500
+            ).inc()
+        
+        if http_request_duration_seconds:
+            http_request_duration_seconds.labels(
+                method=method, 
+                endpoint=endpoint
+            ).observe(duration)
+        
+        if http_errors_total:
+            http_errors_total.labels(
+                error_type="internal_error", 
+                endpoint=endpoint
+            ).inc()
+        
+        # Уменьшаем счетчик запросов в обработке
+        if http_requests_in_progress:
+            http_requests_in_progress.labels(method=method, endpoint=endpoint).dec()
+        
+        # Пробрасываем ошибку дальше
+        raise e
 
 @app.get("/")
 async def root():

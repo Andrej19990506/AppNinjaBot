@@ -12,9 +12,10 @@ import aiohttp
 from dotenv import load_dotenv
 
 from .socket_instance import sio
+from .redis_client import redis_manager
 
 # --- Возвращаем импорт метрик из metrics.py ---
-from .metrics import connected_clients, events_received 
+from .metrics import connected_clients, events_received, messages_sent, connection_errors, redis_operations, message_processing_time, active_rooms 
 # ---------------------------------------------
 
 # Загрузка переменных окружения
@@ -27,7 +28,8 @@ logger = logging.getLogger(__name__)
 # Время жизни неактивных пользователей (в секундах)
 USER_INACTIVITY_TIMEOUT = int(os.getenv('USER_INACTIVITY_TIMEOUT', 1800)) # 30 минут
 
-# Глобальные хранилища
+# Глобальные хранилища (теперь используются только для локального кэша)
+# Основное состояние хранится в Redis
 user_info = defaultdict(lambda: {'last_activity': datetime.utcnow(), 'rooms': set(), 'is_away': False})
 user_rooms = defaultdict(set) 
 room_users = defaultdict(set)
@@ -144,11 +146,11 @@ async def connect(sid, environ, auth):
             logger.info(f"📊 Увеличен счетчик подключенных клиентов")
         
         # Сохраняем базовую информацию о пользователе
-        user_info[sid] = { # Используем новый sid как ключ
+        connection_data = { # Используем новый sid как ключ
             "sid": sid,
             "user_id": user_id, # Сохраняем user_id
             "connection_time": str(time.time()),  # Используем реальный Unix timestamp
-            "rooms": set(),
+            "rooms": list(),  # Список комнат (для JSON сериализации)
             "transport": environ.get('wsgi.url_scheme', 'unknown'),
             "user_info": {}, # Данные профиля добавятся при join_room
             "last_activity": asyncio.get_event_loop().time(),
@@ -161,6 +163,17 @@ async def connect(sid, environ, auth):
             "missed_pongs": 0
         }
         
+        # Сохраняем в локальный кэш
+        user_info[sid] = connection_data.copy()
+        user_info[sid]['rooms'] = set()  # Для локального использования
+        
+        # Сохраняем в Redis
+        await redis_manager.set_connection_info(sid, connection_data)
+        
+        # Увеличиваем счетчик Redis операций
+        if redis_operations:
+            redis_operations.labels(operation="set_connection_info", status="success").inc()
+        
         # Инициализируем состояние подключения
         connection_states[sid] = {
             'state': CONNECTION_STATES['ACTIVE'],
@@ -169,7 +182,7 @@ async def connect(sid, environ, auth):
             'ping_history': [],
             'connection_quality': 'good'
         }
-        logger.info(f"📝 Сохранена/обновлена информация о пользователе: {user_info[sid]}")
+        logger.info(f"📝 Сохранена/обновлена информация о пользователе: {connection_data}")
         
         # Автоматически присоединяем пользователя к глобальной комнате
         await sio.enter_room(sid, 'global')
@@ -220,6 +233,15 @@ async def disconnect(sid):
         # Получаем информацию о пользователе перед удалением
         user_data = user_info.get(sid, {}).get('user_info', {})
         user_id = user_info.get(sid, {}).get('user_id')
+        
+        # Удаляем из Redis
+        await redis_manager.remove_connection_info(sid)
+        
+        # Удаляем пользователя из всех комнат в Redis
+        if sid in user_info:
+            rooms = user_info[sid].get('rooms', set())
+            for room in rooms:
+                await redis_manager.remove_user_from_room(sid, room)
         
         # Определяем причину отключения
         disconnect_reason = "manual"
@@ -294,6 +316,11 @@ async def disconnect(sid):
         if connected_clients:
             connected_clients.dec()
             logger.info(f"📊 Уменьшен счетчик подключенных клиентов")
+        
+        # Увеличиваем счетчик отключений
+        if connection_errors:
+            connection_errors.labels(error_type="disconnect").inc()
+            logger.info(f"📊 Увеличен счетчик отключений")
             
         logger.info(f"✅ [CONNECTION] Полная очистка данных для отключенного клиента {sid}")
             
@@ -518,6 +545,10 @@ async def join_room(sid, data):
                 user_rooms[sid] = set()
             user_rooms[sid].add(room)
             
+            # Обновляем метрику активных комнат
+            if active_rooms:
+                active_rooms.set(len(room_users))
+            
             # Добавляем sid пользователя в множество пользователей комнаты
             if room not in room_users: # Добавляем инициализацию, если комнаты еще нет
                 room_users[room] = set()
@@ -739,6 +770,58 @@ async def handle_echo(sid, data):
         'sid': sid
     }, room=sid)
 
+async def redis_message_handler(message):
+    """Обработчик сообщений из Redis для broadcasting между воркерами"""
+    start_time = time.time()
+    try:
+        logger.info(f"🔄 Получено Redis сообщение для broadcasting: {message}")
+        
+        # Определяем тип сообщения
+        message_type = message.get('type')
+        target_room = message.get('room')
+        target_user = message.get('user_id')
+        
+        if message_type == 'broadcast_to_room' and target_room:
+            # Отправляем всем пользователям в комнате на этом воркере
+            await sio.emit('notification', message.get('data', {}), room=target_room)
+            logger.info(f"📡 Отправлено уведомление в комнату {target_room}")
+            
+            # Увеличиваем счетчик отправленных сообщений
+            if messages_sent:
+                messages_sent.labels(room=target_room).inc()
+            
+        elif message_type == 'broadcast_to_user' and target_user:
+            # Находим SID пользователя на этом воркере
+            user_sid = None
+            for sid, info in user_info.items():
+                if info.get('user_id') == target_user:
+                    user_sid = sid
+                    break
+            
+            if user_sid:
+                await sio.emit('notification', message.get('data', {}), room=user_sid)
+                logger.info(f"📡 Отправлено уведомление пользователю {target_user}")
+            else:
+                logger.info(f"👤 Пользователь {target_user} не найден на этом воркере")
+                
+        elif message_type == 'broadcast_all':
+            # Отправляем всем подключенным клиентам на этом воркере
+            await sio.emit('notification', message.get('data', {}))
+            logger.info(f"📡 Отправлено глобальное уведомление")
+            
+        # Записываем время обработки сообщения
+        processing_time = time.time() - start_time
+        if message_processing_time:
+            message_processing_time.labels(message_type=message_type or "unknown").observe(processing_time)
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка обработки Redis сообщения: {e}", exc_info=True)
+        
+        # Записываем время обработки даже при ошибке
+        processing_time = time.time() - start_time
+        if message_processing_time:
+            message_processing_time.labels(message_type="error").observe(processing_time)
+
 async def notification_handler(payload):
     """Обработчик уведомлений от PostgreSQL (канал websocket_channel)"""
     try:
@@ -839,11 +922,20 @@ async def notification_handler(payload):
 async def start_notification_listener():
     """Запуск слушателя уведомлений"""
     try:
-        logger.info("Starting notification listener task (websocket_channel only)...")
+        # Подключаемся к Redis
+        await redis_manager.connect()
+        
+        # Запускаем слушатель PostgreSQL уведомлений
+        logger.info("Starting PostgreSQL notification listener task (websocket_channel only)...")
         await subscribe_to_events(notification_handler)
-        logger.info("Notification listener finished (should not happen normally)")
+        
+        # Запускаем слушатель Redis broadcasting
+        logger.info("Starting Redis broadcasting listener...")
+        await redis_manager.subscribe_to_channel('websocket_broadcast', redis_message_handler)
+        
+        logger.info("Notification listeners finished (should not happen normally)")
     except Exception as e:
-        logger.error(f"Error starting notification listener: {e}")
+        logger.error(f"Error starting notification listeners: {e}")
         logger.exception("Notification listener startup error stack:")
 
 # Вспомогательные функции для работы с комнатами курьеров

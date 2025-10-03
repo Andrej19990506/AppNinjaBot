@@ -29,6 +29,7 @@ body {
     margin: 0;
     padding: 0;
     background: var(--background-color);
+    background-image: var(--background-texture, none);
     color: var(--text-color);
     transition: background-color var(--transition-normal), color var(--transition-normal);
     -webkit-touch-callout: none !important;

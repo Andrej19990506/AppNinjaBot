@@ -35,7 +35,6 @@ services:
             condition: service_healthy
     networks:
       - ninja_network
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
     environment:
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
@@ -186,6 +185,81 @@ services:
         hard: 65535
   # ---> КОНЕЦ ДОБАВЛЕНИЯ <---
 
+  # ===== МОНИТОРИНГ =====
+  prometheus:
+    build:
+      context: ./monitoring/prometheus
+      dockerfile: Dockerfile
+    container_name: appninjabot-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - ninja_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: appninjabot-grafana
+    ports:
+      - "3001:3000"  # Используем 3001 чтобы не конфликтовать с фронтендом
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - ninja_network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: appninjabot-node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    networks:
+      - ninja_network
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: appninjabot-cadvisor
+    ports:
+      - "8081:8080"  # Используем 8081 вместо 8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg
+    networks:
+      - ninja_network
+    restart: unless-stopped
+
 volumes:
   shared-data:
     driver: local
@@ -194,7 +268,9 @@ volumes:
       o: bind
       device: ./backend/shared
   postgres-data:
-  dragonfly_data: 
+  dragonfly_data:
+  prometheus_data:
+  grafana_data:
 
 
 networks:

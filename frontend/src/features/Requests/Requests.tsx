@@ -3,7 +3,7 @@ import styled, { keyframes, createGlobalStyle, css } from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
-import { fetchSupplies, fetchCalendarData, selectRequests, selectCalendarData, setParams, reset } from './store/requestsSlice';
+import { fetchSupplies, fetchCalendarData, selectRequests, selectCalendarData, selectCalendarLoading, setParams, reset } from './store/requestsSlice';
 import { getCalendarData } from './services/requestsApi';
 import { selectUser } from '@shared/store/userSlice/userSelectors';
 import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSelector';
@@ -356,7 +356,6 @@ const LoadingContainer = styled(motion.div)`
   padding: 60px 40px;
   border-radius: var(--radius-lg);
   margin: 24px 0;
-  border: 1px solid rgba(var(--primary-rgb), 0.2);
   flex-direction: column;
   gap: 24px;
   min-height: 220px;
@@ -416,12 +415,6 @@ const LoadingText = styled(motion.span)`
   }
 `;
 
-const LoadingEmoji = styled(motion.span)`
-  font-size: 2rem;
-  margin-bottom: 8px;
-  display: block;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-`;
 
 const ErrorContainer = styled(motion.div)`
   background: var(--error-background);
@@ -608,6 +601,7 @@ const Requests: React.FC = () => {
   const { params, data, loading, error } = useAppSelector(selectRequests);
   const user = useAppSelector(selectUser);
   const calendarData = useAppSelector(selectCalendarData);
+  const calendarLoading = useAppSelector(selectCalendarLoading);
   const [date, setDate] = useState<string>(getKrasnoyarskDate);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isConfigMissing, setIsConfigMissing] = useState<boolean>(false);
@@ -1215,6 +1209,7 @@ const Requests: React.FC = () => {
                     onSupplyTypeChange={handleSupplyTypeChange}
                     onMonthChange={fetchDeliveryData}
                     deliveryData={deliveryData}
+                    loading={calendarLoading}
                   />
                 </DataContainer>
               </motion.div>

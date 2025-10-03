@@ -104,7 +104,25 @@
     --primary-transparent: rgb(255 95 31 / 15%);
 
     /* Фоны и цвета текста */
-    --background-color: #121212;
+    --background-color: #0D0D0D;
+    --background-texture: 
+        radial-gradient(circle at 25% 25%, rgba(255, 95, 31, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(255, 95, 31, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 2px,
+            rgba(255, 95, 31, 0.01) 2px,
+            rgba(255, 95, 31, 0.01) 4px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.02) 2px,
+            rgba(0, 0, 0, 0.02) 4px
+        );
     --card-background: #1E1E1E;
     --text-color: #E0E0E0;
     --text-secondary: #A0A0A0;

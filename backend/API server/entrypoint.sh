@@ -3,7 +3,6 @@
 # Выходим при любой ошибке
 set -e
 
-# Установка зависимостей (можно убрать, если они ставятся в Dockerfile)
 # /bin/sh -c echo "Installing requirements..."
 # pip install -r requirements.txt
 

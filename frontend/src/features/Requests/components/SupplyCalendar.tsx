@@ -433,6 +433,28 @@ const EmptyCalendarText = styled.div`
   max-width: 280px;
 `;
 
+// 🎨 Стили для загрузки (аналогично DeliveryHistory)
+const LoadingContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+`;
+
+const LoadingSpinner = styled.div`
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--gray-200);
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+`;
+
 const ChevronDownIcon = ({ isExpanded }: { isExpanded: boolean }) => (
   <svg 
     viewBox="0 0 24 24" 
@@ -479,6 +501,7 @@ interface Props {
   className?: string;
   isExpanded?: boolean;
   onToggleExpanded?: () => void;
+  loading?: boolean; // Состояние загрузки
 }
 
 // 🗓️ Компонент календаря
@@ -489,7 +512,8 @@ const SupplyCalendar: React.FC<Props> = ({
   onMonthChange,
   className,
   isExpanded = false,
-  onToggleExpanded
+  onToggleExpanded,
+  loading = false
 }) => {
   
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
@@ -667,8 +691,12 @@ const SupplyCalendar: React.FC<Props> = ({
               ))}
             </WeekDays>
 
-            {/* 🔍 Проверяем, есть ли данные для текущего месяца */}
-            {getDeliveriesForMonth(currentMonth).length === 0 ? (
+            {/* 🔍 Показываем спиннер загрузки или содержимое календаря */}
+            {loading ? (
+              <LoadingContainer>
+                <LoadingSpinner />
+              </LoadingContainer>
+            ) : getDeliveriesForMonth(currentMonth).length === 0 ? (
               <EmptyCalendarMessage
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}

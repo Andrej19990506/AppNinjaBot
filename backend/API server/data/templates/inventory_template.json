@@ -1303,6 +1303,15 @@
         "notes": ""
       }
     },
+      "Морковь (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Капуста (гр.)": {
       "raw": {
         "quantity": 0,
@@ -1569,15 +1578,6 @@
   },
   "Молочные продукты": {
     "Сыр Чеддер (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Морковь (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

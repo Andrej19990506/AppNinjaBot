@@ -251,6 +251,7 @@ type Props = {
   acceptedDeliveriesCache?: React.MutableRefObject<Map<string, Map<string, any>>>; // Глобальный кеш принятых поставок
   onMonthChange?: (month: Date) => void; // Функция для загрузки данных при смене месяца
   deliveryData?: Array<{date: string, count: number, suppliers: string[]}>; // Данные поставок для календаря
+  loading?: boolean; // Состояние загрузки для календаря
 };
 
 
@@ -376,60 +377,6 @@ const CalendarGroup = styled.div`
   }
 `;
 
-// Каруселька типов поставок
-const SupplyTypeCarousel = styled.div`
-  display: flex;
-  gap: 8px;
-  padding: 8px;
-  background: rgba(var(--primary-rgb), 0.05);
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(var(--primary-rgb), 0.1);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  margin-bottom: 16px;
-`;
-
-const SupplyTypeButton = styled.button<{ $isActive: boolean }>`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 16px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: ${props => props.$isActive 
-    ? 'var(--primary-color)' 
-    : 'rgba(var(--primary-rgb), 0.1)'
-  };
-  color: ${props => props.$isActive 
-    ? 'white' 
-    : 'var(--text-primary)'
-  };
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 80px;
-  box-shadow: ${props => props.$isActive 
-    ? '0 4px 12px rgba(var(--primary-rgb), 0.3)' 
-    : '0 2px 4px rgba(0, 0, 0, 0.1)'
-  };
-  
-  &:hover {
-    background: ${props => props.$isActive 
-      ? 'var(--primary-color)' 
-      : 'rgba(var(--primary-rgb), 0.15)'
-    };
-    transform: translateY(-1px);
-    box-shadow: ${props => props.$isActive 
-      ? '0 6px 16px rgba(var(--primary-rgb), 0.4)' 
-      : '0 4px 8px rgba(0, 0, 0, 0.15)'
-    };
-  }
-  
-  &:active {
-    transform: translateY(0);
-  }
-`;
 
 const SupplyTypeIcon = styled.span`
   font-size: 1.2rem;
@@ -441,14 +388,6 @@ const SupplyTypeName = styled.span`
   font-weight: 600;
   text-align: center;
   line-height: 1.2;
-`;
-
-const SupplyTypeDescription = styled.span`
-  font-size: 0.7rem;
-  opacity: 0.8;
-  text-align: center;
-  line-height: 1.2;
-  margin-top: 2px;
 `;
 
 
@@ -473,33 +412,6 @@ const CountRow = styled.div`
   gap: 8px;
 `;
 
-const SupplierCount = styled.span`
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  background: rgba(var(--primary-rgb), 0.1);
-  padding: 4px 12px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(var(--primary-rgb), 0.2);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-`;
-
-const ItemCount = styled.span`
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--primary-color);
-  background: rgba(var(--primary-rgb), 0.15);
-  padding: 6px 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(var(--primary-rgb), 0.3);
-  box-shadow: 0 3px 6px rgba(var(--primary-rgb), 0.2);
-  transition: all 0.2s ease;
-  
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 4px 8px rgba(var(--primary-rgb), 0.3);
-  }
-`;
 
 const ChevronDownIcon = ({ isExpanded }: { isExpanded: boolean }) => (
   <motion.svg
@@ -631,9 +543,6 @@ const CardHeader = styled.div`
 `;
 
 
-
-
-
 // Название поставщика в стиле DeliveryHistory
 const SupplierName = styled.h3`
   margin: 0;
@@ -652,31 +561,6 @@ const SupplierName = styled.h3`
     content: '🏢';
     font-size: 1.1rem;
     flex-shrink: 0; /* Иконка не сжимается */
-  }
-`;
-
-const SupplierStats = styled.div`
-  font-size: 0.9rem;
-  opacity: 0.95;
-  display: flex;
-  gap: 20px;
-  position: relative;
-  z-index: 1;
-  
-  .stat-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    
-    svg {
-      opacity: 0.8;
-    }
-  }
-  
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
   }
 `;
 
@@ -973,96 +857,8 @@ const UserAvatar = styled.div<{ $src?: string }>`
   `}
 `;
 
-// Остальные стили для модального окна - УДАЛЕНЫ
-// Теперь используется DeliveryAcceptanceModal
 
-const NotesSection = styled.div`
-  padding: 20px 32px;
-  border-top: 1px solid var(--border-color);
-  background: var(--card-background);
-`;
-
-const NotesLabel = styled.label`
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-color);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  svg {
-    color: var(--primary-color);
-    opacity: 0.8;
-  }
-`;
-
-const NotesTextarea = styled.textarea`
-  width: 100%;
-  min-height: 80px;
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius);
-  background: var(--card-background);
-  color: var(--text-color);
-  font-size: 0.9rem;
-  font-family: inherit;
-  resize: vertical;
-  transition: all var(--transition-normal);
-  
-  &:focus {
-    outline: none;
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
-  }
-  
-  &::placeholder {
-    color: var(--text-secondary);
-  }
-`;
-
-const NotesIcon = ({ size = 16 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path 
-      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.89 22 5.99 22H18C19.1 22 20 21.1 20 20V8L14 2Z" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M14 2V8H20" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M16 13H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M16 17H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-    <path 
-      d="M10 9H8" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef, acceptDeliveryRef, onProgressChange, onSubmittingChange, onDateChange, selectedSupplyType = 'raw_materials', onSupplyTypeChange, acceptedDeliveriesCache, onMonthChange, deliveryData = [] }) => {
+const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chatTitle, onModalStateChange, closeModalRef, acceptDeliveryRef, onProgressChange, onSubmittingChange, onDateChange, selectedSupplyType = 'raw_materials', onSupplyTypeChange, acceptedDeliveriesCache, onMonthChange, deliveryData = [], loading = false }) => {
   console.log('🎯 [ItemsTable] Рендер:', { 
     itemsCount: items?.length || 0, 
     selectedSupplyType, 
@@ -1647,6 +1443,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                     onMonthChange={onMonthChange}
                     isExpanded={true}
                     onToggleExpanded={() => {}}
+                    loading={loading}
                   />
                 </motion.div>
               )}
@@ -1730,6 +1527,7 @@ const ItemsTable: React.FC<Props> = ({ items, selectedDate, selectedChatId, chat
                     onMonthChange={onMonthChange}
                     isExpanded={true}
                     onToggleExpanded={() => {}}
+                    loading={loading}
                   />
                 </motion.div>
               )}

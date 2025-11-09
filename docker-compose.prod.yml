@@ -209,7 +209,6 @@ networks:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: appninjabot-grafana-prod
     expose:
       - "3000"
     volumes:
@@ -234,7 +233,6 @@ networks:
 
   node-exporter:
     image: prom/node-exporter:latest
-    container_name: appninjabot-node-exporter-prod
     expose:
       - "9100"
     volumes:
@@ -252,7 +250,6 @@ networks:
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:latest
-    container_name: appninjabot-cadvisor-prod
     expose:
       - "8080"
     volumes:

@@ -148,6 +148,8 @@ services:
       - server
       - websocket
     restart: unless-stopped
+    networks:
+      - ninja_network
     deploy:
       resources:
         limits:

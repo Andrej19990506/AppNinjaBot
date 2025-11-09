@@ -175,16 +175,11 @@ services:
         reservations:
           memory: 512M
 
-networks:
-  ninja_network:
-    driver: bridge 
-
   # ===== МОНИТОРИНГ =====
   prometheus:
     build:
       context: ./monitoring/prometheus
       dockerfile: Dockerfile
-    container_name: appninjabot-prometheus-prod
     expose:
       - "9090"
     volumes:
@@ -195,7 +190,7 @@ networks:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=30d'  # 30 дней в проде
+      - '--storage.tsdb.retention.time=30d'
       - '--web.enable-lifecycle'
     networks:
       - ninja_network
@@ -264,6 +259,10 @@ networks:
     networks:
       - ninja_network
     restart: unless-stopped
+
+networks:
+  ninja_network:
+    driver: bridge 
 
 volumes:
   shared-data:

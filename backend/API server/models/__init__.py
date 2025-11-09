@@ -12,6 +12,7 @@ from .material_comment import MaterialComment
 from .material_reaction import MaterialReaction
 from .competition import Competition, CompetitionParticipant, CompetitionWinner, CompetitionStatus
 from .delivery import Delivery, DeliveryItem
+from .shift_template import ShiftTemplate, ShiftTemplateDay
 
 __all__ = [
     "Base",
@@ -32,4 +33,6 @@ __all__ = [
     "CompetitionStatus",
     "Delivery",
     "DeliveryItem",
+    "ShiftTemplate",
+    "ShiftTemplateDay",
 ] 

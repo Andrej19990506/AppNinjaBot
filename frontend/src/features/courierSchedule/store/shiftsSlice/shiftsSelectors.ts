@@ -18,7 +18,18 @@ export const selectSettingsError = (state: RootState) => state.shifts.settingsEr
 export const selectSlotConfigForDay = (dayIndex: number) => (state: RootState): SlotConfigForDay => {
     if (dayIndex < 0 || dayIndex > 6) return defaultWeeklySlotConfig[0];
     const dayConfig = state.shifts.slotConfig ? state.shifts.slotConfig[dayIndex] : undefined;
-    return dayConfig ?? defaultWeeklySlotConfig[dayIndex];
+    const result = dayConfig ?? defaultWeeklySlotConfig[dayIndex];
+    
+    console.log('[selectSlotConfigForDay] Debug:', {
+        dayIndex,
+        slotConfig: state.shifts.slotConfig,
+        dayConfig,
+        result,
+        shiftTemplates: result.shiftTemplates,
+        shiftTemplatesLength: result.shiftTemplates?.length || 0
+    });
+    
+    return result;
 };
 
 // Селектор: проверяет, назначен ли курьер на дату
@@ -63,4 +74,10 @@ export const selectAvailableCouriersByDate = (date: string) =>
             );
             return couriers.filter(courier => !assignedIds.has(String(courier.user_id)));
         }
-    ); 
+    );
+
+export const selectLocalAppliedTemplates = (state: RootState) => state.shifts.localAppliedTemplates;
+export const selectLocalAppliedTemplatesForDay = (dayIndex: number) => createSelector(
+    (state: RootState) => state.shifts.localAppliedTemplates,
+    (localAppliedTemplates) => localAppliedTemplates[dayIndex] || []
+); 

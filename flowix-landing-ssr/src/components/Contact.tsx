@@ -144,8 +144,8 @@ const Contact = () => {
   return (
     <section
       id="contact"
-      className="relative h-screen w-screen flex-shrink-0 flex items-center snap-start overflow-x-hidden overflow-y-auto"
-      style={{ paddingTop: '110px', paddingBottom: '44px' }}
+      className="relative h-screen w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
+      style={{ paddingTop: '110px', paddingBottom: '52px' }}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
@@ -164,11 +164,11 @@ const Contact = () => {
         </div>
       </div>
 
-      <div className="container relative z-10 h-full flex flex-col justify-center">
-        <div className="w-full max-w-[1180px] mx-auto">
-          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-14 items-start">
+      <div className="container relative z-10 h-full flex flex-col justify-start md:justify-center">
+        <div className="w-full max-w-[1180px] mx-auto px-5 sm:px-8">
+          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8 sm:gap-10 lg:gap-14 items-start">
             <div className="space-y-8">
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <div className="inline-flex items-center gap-2 rounded-full bg-white/22 dark:bg-black/35 border border-white/35 dark:border-white/12 px-6 py-2 text-[11px] font-semibold uppercase tracking-[0.4em] text-white/80 backdrop-blur-xl">
                   Контакты
                 </div>

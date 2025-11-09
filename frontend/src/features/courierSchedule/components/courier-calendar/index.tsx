@@ -31,7 +31,8 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     isCurrentUserSenior,
     chatId: propChatId,
     onShiftSelect,
-    onOpenProfile
+    onOpenProfile,
+    onOpenShiftTemplateSettings
 }) => {
 
     const [forceLoading, setForceLoading] = useState(false);
@@ -160,14 +161,17 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     const handleDialogShiftSelect = useCallback(async (
         shiftType: 'day' | 'night', 
-        slotIndex: number
+        slotIndex: number,
+        existingShiftId?: string,
+        isDragAction?: boolean,
+        templateId?: string
     ): Promise<any> => {
         if (!selectedDateForDialog) {
             return Promise.reject('No date selected');
         }
         
         try {
-            await onShiftSelect(selectedDateForDialog, shiftType, slotIndex);
+            await onShiftSelect(selectedDateForDialog, shiftType, slotIndex, templateId);
             return Promise.resolve(); 
         } catch (e) {
             return Promise.reject(e); 
@@ -273,6 +277,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     onDateChange={handleDateChange}
                     disablePrevDate={!isPrevDateAvailable}
                     disableNextDate={!isNextDateAvailable}
+                    onOpenShiftTemplateSettings={onOpenShiftTemplateSettings}
                 />
             )}
 

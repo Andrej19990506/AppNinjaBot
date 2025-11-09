@@ -126,7 +126,7 @@ export default function Navigation() {
   }, [activeSection]);
 
   return (
-    <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-50">
+    <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-50 hidden lg:block">
       {/* Glassmorphism Container */}
       <div className="relative">
         {/* Glow Effect */}

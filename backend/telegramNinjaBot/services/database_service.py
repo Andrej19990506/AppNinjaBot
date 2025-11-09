@@ -20,22 +20,10 @@ class DatabaseService:
     def __init__(self, pool: asyncpg.Pool):
         """Инициализация сервиса с пулом соединений asyncpg"""
         self.pool = pool
-        # Убираем инициализацию соединения psycopg2
-        # self.db_host = os.getenv('POSTGRES_HOST', 'postgres')
-        # ... (остальные переменные окружения для psycopg2)
-        # self.conn = None
-        # self.initialize_connection()
-        
-        # Создание таблиц/индексов должно управляться Alembic или другими инструментами миграции
-        # self.create_tables() 
         
         logger.info(f"✅ DatabaseService инициализирован с пулом соединений asyncpg")
-    
-    # Убираем синхронные методы инициализации и создания таблиц
-    # def initialize_connection(self): ...
-    # def create_tables(self): ...
 
-    # === Вспомогательные методы (остаются синхронными, т.к. не работают с БД) ===
+
     
     def determine_group_type(self, chat_title: str) -> str:
         """Определяет тип группы на основе её названия"""
@@ -47,6 +35,8 @@ class DatabaseService:
             return "chef"
         elif "инвентаризация" in chat_title_lower:
             return "inventory"
+        elif any(word in chat_title_lower for word in ["закуп", "закупка", "закупки", "закупок", "отдел закуп"]):
+            return "purchasing"
         else:
             return "general"
     
@@ -168,8 +158,6 @@ class DatabaseService:
                         )
                         logger.info(f"[async] Связь group_members сохранена/обновлена с ролью: {role}")
 
-                    # Удаляем устаревшие связи group_members (если нужно)
-                    # ... (можно добавить логику удаления, если участника больше нет в members) ...
                     
                     # Транзакция завершится успешно здесь (автоматический commit)
                     logger.info(f"✅ [async] Группа {chat_title} (тип: {group_type}) успешно сохранена в базе данных")
@@ -194,9 +182,6 @@ class DatabaseService:
 
         try:
             async with self.pool.acquire() as conn:
-                # Используем conn.fetchrow для получения одной строки
-                # Запрос остается почти таким же, но используем $1
-                # json_agg вместо array_agg для удобства работы с JSON
                 record = await conn.fetchrow(
                     """
                     SELECT 
@@ -354,20 +339,13 @@ class DatabaseService:
                         logger.warning(f"[async] Группа {chat_id} не найдена для удаления.")
                         return False
 
-                    # Удаляем связи из group_members (каскадное удаление может быть настроено в БД)
-                    # Если каскадного удаления нет, раскомментируйте:
-                    # deleted_links = await conn.execute("DELETE FROM group_members WHERE group_id = $1", group_db_id)
-                    # logger.info(f"[async] Удалено связей для группы {chat_id}: {deleted_links}")
-
-                    # Удаляем саму группу
-                    # execute возвращает строку статуса, например "DELETE 1"
                     status = await conn.execute("DELETE FROM groups WHERE id = $1", group_db_id)
                     deleted = 'DELETE 1' in status # Проверяем, что одна строка удалена
                 
                 if deleted:
                     logger.info(f"✅ [async] Группа {chat_id} (внутренний ID: {group_db_id}) успешно удалена из базы данных")
                 else:
-                    # Эта ветка не должна сработать, если group_db_id был найден, но на всякий случай
+                    
                     logger.warning(f"[async] Не удалось удалить группу {chat_id}, хотя она была найдена.")
                 return deleted
         except asyncpg.PostgresError as e:
@@ -398,8 +376,6 @@ class DatabaseService:
                      return False
                  if not member_db_id:
                       logger.warning(f"[async] Участник {member_user_id} не найден для удаления из группы {chat_id}.")
-                      # Возможно, его и так нет в группе, считаем это успехом? Зависит от логики.
-                      # Пока вернем False, т.к. не нашли кого удалять.
                       return False 
 
                  # Удаляем связь
@@ -489,8 +465,6 @@ class DatabaseService:
         field_to_update = None
         if group_type == 'courier':
             field_to_update = 'is_senior_courier'
-        # elif group_type == 'chef':
-        #     field_to_update = 'is_senior_chef' # Если есть такое поле
         else:
              logger.warning(f"Неподдерживаемый тип группы '{group_type}' для установки статуса старшего.")
              return False
@@ -519,16 +493,6 @@ class DatabaseService:
              logger.error(f"❌ [async] Неожиданная ошибка при установке статуса старшего для user_id {user_id}: {e}")
              return False
 
-    # Добавьте другие методы, если они есть, переделав их на asyncpg...
-    # Например, get_member_data, update_member_photo и т.д.
-
-    async def close_connection(self):
-        """Закрывает пул соединений asyncpg."""
-        # Этот метод больше не нужен здесь, закрытие пула будет в lifespan
-        # if self.pool:
-        #     await self.pool.close()
-        #     logger.info("✅ [async] Пул соединений asyncpg закрыт")
-        pass # Оставляем пустым или удаляем
 
     # --- НОВЫЙ МЕТОД --- 
     async def is_user_in_group(self, user_id: int, chat_id: str) -> bool:
@@ -577,8 +541,6 @@ class DatabaseService:
                 )
                 logger.info(f"🔍 [is_user_in_group] Группа {group_chat_id_int} есть в таблице groups: {group_exists}")
                 
-                # Запрос для проверки существования связи в group_members
-                # через внешние ID пользователя и группы
                 query = """
                     SELECT EXISTS (
                         SELECT 1

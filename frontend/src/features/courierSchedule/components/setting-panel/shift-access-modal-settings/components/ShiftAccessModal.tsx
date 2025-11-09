@@ -41,7 +41,7 @@ export interface AccessSettingsContextType {
     updateSettings: (updatedValues: Partial<AccessSettings>) => void;
 }
 
-export const AccessSettingsContext = createContext<AccessSettingsContextType>({
+const AccessSettingsContext = createContext<AccessSettingsContextType>({
     settings: null,
     isLoading: false,
     error: null,
@@ -201,4 +201,5 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
 
 ShiftAccessModal.displayName = 'ShiftAccessModal';
 
+export { AccessSettingsContext };
 export default ShiftAccessModal;

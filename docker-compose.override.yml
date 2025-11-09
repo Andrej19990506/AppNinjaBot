@@ -32,6 +32,8 @@ services:
       - ENVIRONMENT=development
       - PYTHONPATH=/app
       - BOT_API_URL=http://bot:8003
+      - TELEGRAM_BOT_TOKEN=8012479473:AAHHMhUpZb2XD_08Plv_o5mr_YUMbMLYhUw
+      - TELEGRAM_CHAT_ID=6843570748
       - GOOGLE_APPLICATION_CREDENTIALS=/app/shared/appninjabotcontent-330206f13743.json
     env_file:
       - ./backend/API server/.env

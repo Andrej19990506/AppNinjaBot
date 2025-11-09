@@ -67,6 +67,22 @@ from .supplies_config import (
     SuppliesConfigCreate,
     SuppliesConfigUpdate
 )
+# Добавляем импорт схем для шаблонов смен
+from .shift_template import (
+    ShiftTemplateBase,
+    ShiftTemplateCreate,
+    ShiftTemplateUpdate,
+    ShiftTemplateRead,
+    ShiftTemplateListResponse,
+    ShiftTemplateApplyPayload,
+    ShiftTemplateDayBase,
+    ShiftTemplateDayCreate,
+    ShiftTemplateDayRead,
+    ShiftTemplatesByDayResponse,
+    BulkApplyTemplatesPayload,
+    RemoveTemplatesFromDaysPayload,
+    CloneTemplatePayload
+)
 
 # Можно добавить __all__, чтобы явно указать экспортируемые имена
 __all__ = [
@@ -96,4 +112,8 @@ __all__ = [
     "DeliveryStats", "DeliveryListResponse", "DeliveryFilters",
     "DeliveryAcceptRequest", "DeliveryAcceptResponse", "UserInfo",
     "SuppliesConfig", "SuppliesConfigCreate", "SuppliesConfigUpdate",
+    "ShiftTemplateBase", "ShiftTemplateCreate", "ShiftTemplateUpdate", "ShiftTemplateRead",
+    "ShiftTemplateListResponse", "ShiftTemplateApplyPayload", "ShiftTemplateDayBase",
+    "ShiftTemplateDayCreate", "ShiftTemplateDayRead", "ShiftTemplatesByDayResponse",
+    "BulkApplyTemplatesPayload", "RemoveTemplatesFromDaysPayload", "CloneTemplatePayload",
 ] 

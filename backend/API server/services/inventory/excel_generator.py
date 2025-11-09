@@ -19,8 +19,12 @@ from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from io import BytesIO
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Dict, Any
 import logging
+
+# Константа для часового пояса
+TIMEZONE = "Asia/Krasnoyarsk"  # UTC+7
 from .excel_template import (
     EXCEL_MAIN_ITEMS, EXCEL_SEMIFINISHED, EXCEL_DRINKS, EXCEL_PACKAGING, EXCEL_DESSERTS, EXCEL_BAR
 )
@@ -171,10 +175,11 @@ def generate_inventory_excel(
             author_first_name = metadata.get('currentUser', {}).get('first_name', '')
             author_last_name = metadata.get('currentUser', {}).get('last_name', '')
             author_full_name = f"{author_first_name} {author_last_name}".strip()
+            local_time = datetime.now(ZoneInfo(TIMEZONE))
             meta_info = {
                 'Поле': ['Дата:', 'Филиал:', 'Автор:'],
                 'Значение': [
-                    datetime.now().strftime('%d.%m.%Y %H:%M'),
+                    local_time.strftime('%d.%m.%Y %H:%M'),
                     group_title,
                     author_full_name if author_full_name else 'Не указан'
                 ]

@@ -2,8 +2,16 @@
 // Только slice и редьюсеры для смен. Thunks и селекторы вынесены в отдельные файлы.
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { CourierShift, AccessSettings, WeeklySlotConfig, SlotConfigForDay, ShiftsUpdatedWsPayload, ShiftState } from '@features/courierSchedule/types/courierScheduleTypes';
+import { CourierShift, AccessSettings, WeeklySlotConfig, SlotConfigForDay, ShiftsUpdatedWsPayload, ShiftState, ShiftTemplate } from '@features/courierSchedule/types/courierScheduleTypes';
 import { bookShift, cancelShift, fetchAccessSettings, updateAccessSettings, fetchSlotConfig, assignCourierToShiftThunk, fetchShifts } from './shiftsThunks';
+import { 
+    fetchShiftTemplatesThunk, 
+    createShiftTemplateThunk, 
+    updateShiftTemplateThunk, 
+    deleteShiftTemplateThunk, 
+    applyShiftTemplatesThunk,
+    fetchAllShiftTemplatesThunk
+} from './shiftTemplatesThunks';
 
 
 
@@ -39,6 +47,11 @@ const initialState: ShiftState = {
     settingsError: null,
     isShiftDialogOpen: false,
     shiftDialogMode: 'shifts',
+
+    shiftTemplates: [],
+    templatesLoading: false,
+    templatesError: null,
+    localAppliedTemplates: {},
 };
 
 const shiftsSlice = createSlice({
@@ -78,6 +91,34 @@ const shiftsSlice = createSlice({
         shiftAddedOrUpdated: (state, action: PayloadAction<CourierShift>) => {},
         shiftRemoved: (state, action: PayloadAction<string>) => {},
         removeShiftLocally: (state, action: PayloadAction<string>) => {},
+
+        // --- Шаблоны смен ---
+        setShiftTemplates: (state, action: PayloadAction<ShiftTemplate[]>) => {
+            state.shiftTemplates = action.payload;
+            state.templatesError = null;
+        },
+        addShiftTemplate: (state, action: PayloadAction<ShiftTemplate>) => {
+            state.shiftTemplates.push(action.payload);
+        },
+        updateShiftTemplate: (state, action: PayloadAction<ShiftTemplate>) => {
+            const index = state.shiftTemplates.findIndex(t => t.id === action.payload.id);
+            if (index !== -1) {
+                state.shiftTemplates[index] = action.payload;
+            }
+        },
+        removeShiftTemplate: (state, action: PayloadAction<string>) => {
+            state.shiftTemplates = state.shiftTemplates.filter(t => t.id !== action.payload);
+        },
+        setTemplatesLoading: (state, action: PayloadAction<boolean>) => {
+            state.templatesLoading = action.payload;
+        },
+        setTemplatesError: (state, action: PayloadAction<string | null>) => {
+            state.templatesError = action.payload;
+        },
+        setLocalAppliedTemplates: (state, action: PayloadAction<{ dayOfWeek: number; templateIds: string[] }>) => {
+            const { dayOfWeek, templateIds } = action.payload;
+            state.localAppliedTemplates[dayOfWeek] = templateIds;
+        },
         setShiftDialogOpen: (state, action: PayloadAction<boolean>) => {
             state.isShiftDialogOpen = action.payload;
         },
@@ -184,6 +225,108 @@ const shiftsSlice = createSlice({
             .addCase(assignCourierToShiftThunk.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload || 'Не удалось назначить курьера';
+            })
+
+            // --- Шаблоны смен thunks ---
+            .addCase(fetchShiftTemplatesThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(fetchShiftTemplatesThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                state.shiftTemplates = action.payload;
+            })
+            .addCase(fetchShiftTemplatesThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Не удалось загрузить шаблоны смен';
+            })
+
+            .addCase(createShiftTemplateThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(createShiftTemplateThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                state.shiftTemplates.push(action.payload);
+            })
+            .addCase(createShiftTemplateThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Не удалось создать шаблон смены';
+            })
+
+            .addCase(updateShiftTemplateThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(updateShiftTemplateThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                const index = state.shiftTemplates.findIndex(t => t.id === action.payload.id);
+                if (index !== -1) {
+                    state.shiftTemplates[index] = action.payload;
+                }
+            })
+            .addCase(updateShiftTemplateThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Не удалось обновить шаблон смены';
+            })
+
+            .addCase(deleteShiftTemplateThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(deleteShiftTemplateThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                state.shiftTemplates = state.shiftTemplates.filter(t => t.id !== action.payload);
+            })
+            .addCase(deleteShiftTemplateThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Не удалось удалить шаблон смены';
+            })
+
+            .addCase(applyShiftTemplatesThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(applyShiftTemplatesThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                // TODO: Обновить конфиг слотов на основе примененных шаблонов
+            })
+            .addCase(applyShiftTemplatesThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Не удалось применить шаблоны смен';
+            })
+            
+            // Обработчики для загрузки всех шаблонов смен
+            .addCase(fetchAllShiftTemplatesThunk.pending, (state) => {
+                state.templatesLoading = true;
+                state.templatesError = null;
+            })
+            .addCase(fetchAllShiftTemplatesThunk.fulfilled, (state, action) => {
+                state.templatesLoading = false;
+                
+                // Обновляем общий список шаблонов
+                const { allTemplates, templatesByDay } = action.payload;
+                state.shiftTemplates = allTemplates;
+                
+                // Обновляем конфиг слотов с шаблонами смен для каждого дня
+                if (state.slotConfig) {
+                    for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
+                        if (state.slotConfig[dayOfWeek]) {
+                            state.slotConfig[dayOfWeek].shiftTemplates = templatesByDay[dayOfWeek] || [];
+                        }
+                    }
+                }
+                
+                // Инициализируем локальные применения на основе данных из БД
+                for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
+                    const templates = templatesByDay[dayOfWeek] || [];
+                    const templateIds = templates.map(template => template.id);
+                    state.localAppliedTemplates[dayOfWeek] = templateIds;
+                }
+            })
+            .addCase(fetchAllShiftTemplatesThunk.rejected, (state, action) => {
+                state.templatesLoading = false;
+                state.templatesError = typeof action.payload === 'string' ? action.payload : 'Ошибка при загрузке шаблонов смен';
             });
     }
 });
@@ -200,6 +343,14 @@ export const {
     setShiftDialogOpen,
     setShiftDialogMode,
     toggleShiftDialogMode,
+    // Шаблоны смен
+    setShiftTemplates,
+    addShiftTemplate,
+    updateShiftTemplate,
+    removeShiftTemplate,
+    setTemplatesLoading,
+    setTemplatesError,
+    setLocalAppliedTemplates,
 } = shiftsSlice.actions;
 export default shiftsSlice.reducer;
  

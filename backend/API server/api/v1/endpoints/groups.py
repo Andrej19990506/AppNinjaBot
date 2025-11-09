@@ -14,6 +14,8 @@ from schemas.group import GroupRead # Схема для ответа
 from models.group_member import GroupMember 
 from models.member import Member 
 from schemas.group_settings import GroupSettings, GroupSettingsUpdate
+from models.shift_template import ShiftTemplate, ShiftTemplateDay
+from schemas.shift_template import ShiftTemplateRead
 import logging
 
 # --- НОВЫЕ ИМПОРТЫ для /chats ---
@@ -343,6 +345,8 @@ class DaySlotConfig(BaseModel):
     # Время начала и конца ночной смены
     nightShiftStartTime: Optional[str] = "17:00"  # формат "HH:mm"
     nightShiftEndTime: Optional[str] = "23:40"    # формат "HH:mm"
+    # Шаблоны смен для этого дня недели
+    shiftTemplates: Optional[List[Dict[str, Any]]] = None
 
 class SlotConfigUpdate(BaseModel):
     # Ключи - это индексы дня '0'-'6'
@@ -411,6 +415,7 @@ async def get_slot_config(
     """
     Получает конфигурацию слотов для группы.
     Возвращает {"config": {}} если конфигурация не установлена.
+    Теперь также включает примененные шаблоны смен для каждого дня недели.
     """
     logger.info(f"[get_slot_config] GET /groups/{group_telegram_id}/slot_config")
     db_group = await get_group_by_telegram_id(db, group_telegram_id)
@@ -418,10 +423,60 @@ async def get_slot_config(
         logger.warning(f"[get_slot_config] Group {group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
 
-    # Возвращаем данные из поля slot_config, или пустой словарь, если оно None/null
+    # Получаем базовую конфигурацию слотов
     slot_config_data = db_group.slot_config or {}
-    logger.info(f"[get_slot_config] Returning slot config for group {group_telegram_id}: {slot_config_data}")
-    return SlotConfigResponse(config=slot_config_data)
+    
+    # Загружаем шаблоны смен для каждого дня недели
+    templates_by_day = {}
+    for day_index in range(7):  # 0-6 (понедельник-воскресенье)
+        try:
+            # Получаем шаблоны для конкретного дня недели
+            templates_result = await db.execute(
+                select(ShiftTemplate)
+                .join(ShiftTemplateDay)
+                .where(
+                    ShiftTemplateDay.group_id == db_group.id,
+                    ShiftTemplateDay.day_of_week == day_index
+                )
+            )
+            templates = templates_result.scalars().all()
+            
+            # Преобразуем шаблоны в словари для JSON сериализации
+            templates_dict = []
+            for template in templates:
+                template_dict = {
+                    "id": str(template.id),
+                    "name": template.name,
+                    "description": template.description,
+                    "startTime": template.start_time.isoformat(),
+                    "endTime": template.end_time.isoformat(),
+                    "maxSlots": template.max_slots,
+                    "hasSeniorSlot": template.has_senior_slot,
+                    "isActive": True,
+                    "createdAt": template.created_at.isoformat(),
+                    "updatedAt": template.updated_at.isoformat()
+                }
+                templates_dict.append(template_dict)
+            
+            templates_by_day[str(day_index)] = templates_dict
+        except Exception as e:
+            logger.error(f"[get_slot_config] Error loading templates for day {day_index}: {str(e)}")
+            templates_by_day[str(day_index)] = []
+    
+    # Объединяем конфигурацию слотов с шаблонами
+    enhanced_config = {}
+    for day_index in range(7):
+        day_key = str(day_index)
+        day_config = slot_config_data.get(day_key, {})
+        
+        # Добавляем шаблоны к конфигурации дня
+        enhanced_config[day_key] = {
+            **day_config,
+            "shiftTemplates": templates_by_day.get(day_key, [])
+        }
+    
+    logger.info(f"[get_slot_config] Returning enhanced slot config for group {group_telegram_id}")
+    return SlotConfigResponse(config=enhanced_config)
 
 # --- Эндпоинт для получения участников группы ---
 class GroupMemberInfo(BaseModel):

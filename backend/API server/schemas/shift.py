@@ -1,12 +1,13 @@
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, time
 import uuid
 
 # Базовая схема для общих полей
 class ShiftBase(BaseModel):
     date: date
-    shift_type: str # 'day' или 'night'
+    shift_type: str # 'day' или 'night' - сохраняем для обратной совместимости
+    template_id: Optional[uuid.UUID] = None # ID шаблона смены (новое поле)
     slot_index: int
     group_id: int # ID группы (нашей внутренней)
 
@@ -27,10 +28,23 @@ class ShiftMemberInfo(BaseModel):
     class ConfigDict:
         from_attributes = True
 
-# Схема для чтения смены (включая инфо о курьере)
+# Схема для представления информации о шаблоне смены
+class ShiftTemplateInfo(BaseModel):
+    id: uuid.UUID
+    name: str
+    start_time: time
+    end_time: time
+    max_slots: int
+    has_senior_slot: bool
+
+    class ConfigDict:
+        from_attributes = True
+
+# Схема для чтения смены (включая инфо о курьере и шаблоне)
 class ShiftRead(ShiftBase):
     id: uuid.UUID # UUID смены
     member: ShiftMemberInfo # Вложенная информация о курьере
+    template: Optional[ShiftTemplateInfo] = None # Вложенная информация о шаблоне
     created_at: datetime
     updated_at: datetime
 

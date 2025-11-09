@@ -84,6 +84,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000", 
         "http://localhost", 
+        "http://localhost:8888",  # Landing page local server
         "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net", 
         "http://192.168.0.115:3000", 
         "http://10.0.2.2:3000",

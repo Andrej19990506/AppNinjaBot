@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SectionHeader from './SectionHeader';
-import { useTheme } from './ThemeProvider';
 
 interface Benefit {
   number: string;
@@ -57,12 +56,6 @@ const benefits: Benefit[] = [
 export default function Benefits() {
   const [isVisible, setIsVisible] = useState(false);
   const sectionRef = useRef<HTMLDivElement>(null);
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
-  const baseTextColor = isLight ? 'text-[#2B140B]' : 'text-white';
-  const secondaryTextColor = isLight ? 'text-[#4B2B1E]/80' : 'text-gray-300';
-  const bulletTextColor = isLight ? 'text-[#3C2415]' : 'text-gray-400';
-  const cardBackground = isLight ? 'bg-white/92 border-[#FF9D66]/25 shadow-[0_24px_60px_rgba(255,140,70,0.18)]' : 'bg-white/40 dark:bg-black/20 border-2 border-white/30 dark:border-white/10 shadow-xl';
 
   useEffect(() => {
     if (!sectionRef.current) return;
@@ -95,31 +88,19 @@ export default function Benefits() {
     <section
       ref={sectionRef}
       id="benefits"
-      className="relative h-screen w-screen flex-shrink-0 flex items-center snap-start overflow-x-hidden overflow-y-auto"
-      style={{ paddingTop: '120px', paddingBottom: '40px' }}
+      className="relative h-screen w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
+      style={{ paddingTop: '110px', paddingBottom: '52px' }}
     >
       {/* Animated background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div
-          data-parallax-speed="60"
-          className="absolute -top-40 -left-40 w-[500px] h-[500px]"
-          style={{ transform: 'translate3d(0, 0, 0)' }}
-        >
-          <div className="w-full h-full bg-gradient-to-br from-[#FF9D66]/15 via-[#FF8040]/10 to-transparent rounded-full blur-3xl animate-float"></div>
-        </div>
-        <div
-          data-parallax-speed="55"
-          className="absolute bottom-20 -right-40 w-[600px] h-[600px]"
-          style={{ transform: 'translate3d(0, 0, 0)' }}
-        >
-          <div className="w-full h-full bg-gradient-to-tl from-[#FF8040]/15 via-[#FF9D66]/10 to-transparent rounded-full blur-3xl animate-float-delayed"></div>
-        </div>
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-gradient-to-br from-[#FF9D66]/15 via-[#FF8040]/10 to-transparent rounded-full blur-3xl animate-float"></div>
+        <div className="absolute bottom-20 -right-40 w-[600px] h-[600px] bg-gradient-to-tl from-[#FF8040]/15 via-[#FF9D66]/10 to-transparent rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
-      <div className="container relative z-10 h-full flex flex-col justify-center">
+      <div className="container relative z-10 h-full flex flex-col justify-start md:justify-center gap-10 px-5 sm:px-8">
         
         {/* Section Header */}
-        <div className="mb-10">
+        <div className="mb-8 md:mb-10">
           <SectionHeader
             badge="Главные преимущества"
             badgeIcon="⭐"
@@ -142,7 +123,7 @@ export default function Benefits() {
             >
               {/* Glassmorphism Card */}
               <div 
-                className={`relative h-full rounded-[28px] backdrop-blur-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:-translate-y-2 overflow-hidden ${cardBackground}`}
+                className="relative h-full rounded-[28px] bg-white/40 dark:bg-black/20 backdrop-blur-xl border-2 border-white/30 dark:border-white/10 shadow-xl hover:shadow-2xl hover:border-[#FF9D66]/30 transition-all duration-500 hover:scale-[1.02] hover:-translate-y-2 overflow-hidden"
                 style={{ paddingLeft: '32px', paddingRight: '32px', paddingTop: '32px', paddingBottom: '32px' }}
               >
                 
@@ -155,12 +136,12 @@ export default function Benefits() {
                 </div>
 
                 {/* Title */}
-                <h3 className={`relative text-[22px] font-extrabold mb-3 leading-tight z-10 ${baseTextColor}`}>
+                <h3 className="relative text-[22px] font-extrabold mb-3 text-gray-900 dark:text-white leading-tight z-10">
                   {benefit.title}
                 </h3>
 
                 {/* Description */}
-                <p className={`relative text-[14px] leading-relaxed mb-5 z-10 ${secondaryTextColor}`}>
+                <p className="relative text-[14px] text-gray-700 dark:text-gray-300 leading-relaxed mb-5 z-10">
                   {benefit.description}
                 </p>
 
@@ -181,7 +162,7 @@ export default function Benefits() {
                       </div>
                       
                       {/* Point Text */}
-                      <span className={`flex-1 text-[13px] leading-relaxed ${bulletTextColor}`}>
+                      <span className="flex-1 text-[13px] text-gray-600 dark:text-gray-400 leading-relaxed">
                         {point}
                       </span>
                     </li>

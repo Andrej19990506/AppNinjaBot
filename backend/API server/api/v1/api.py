@@ -24,6 +24,8 @@ from .endpoints.competitions import router as competitions_router
 
 from .endpoints.chats import router as chats_router
 from .endpoints.supplies import router as supplies_router
+from .endpoints.shift_templates import router as shift_templates_router
+from .endpoints.contact import router as contact_router
 
 api_router = APIRouter()
 
@@ -50,3 +52,5 @@ api_router.include_router(competitions_router, prefix="/competitions", tags=["Co
 
 api_router.include_router(chats_router, prefix="/chats", tags=["Chats"])
 api_router.include_router(supplies_router, tags=["Supplies"])
+api_router.include_router(shift_templates_router, prefix="/shift-templates", tags=["Shift Templates"])
+api_router.include_router(contact_router, prefix="/contact", tags=["Contact"])

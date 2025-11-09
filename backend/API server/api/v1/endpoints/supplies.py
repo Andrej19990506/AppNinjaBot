@@ -7,10 +7,15 @@ from loguru import logger
 import os
 from pathlib import Path
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 import httpx
 from pydantic import BaseModel
 import time
+
+# Константа для часового пояса
+TIMEZONE = "Asia/Krasnoyarsk"  # UTC+7
 
 # Схемы для календаря поставок
 class CalendarDeliveryData(BaseModel):
@@ -1067,6 +1072,10 @@ async def send_delivery_notification(
     - Кто принял поставку
     - Дате поставки
     - Филиале
+    
+    Уведомление отправляется в:
+    - Основной чат (chef группу)
+    - Все группы типа "purchasing" (Отдел закупок)
     """
     logger.info(f"📢 [SEND_NOTIFICATION] Отправка уведомления о принятии поставки от {request.supplier}")
     
@@ -1095,10 +1104,13 @@ async def send_delivery_notification(
             
             message_lines.append(item_line)
         
+        # Получаем текущее время в нужном часовом поясе
+        local_time = datetime.now(ZoneInfo(TIMEZONE))
+        
         message_lines.extend([
             "",
             f"👤 <b>Принял:</b> {request.accepted_by['name']} ({request.accepted_by['initials']})",
-            f"⏰ <b>Время:</b> {datetime.now().strftime('%d.%m.%Y, %H:%M')}"
+            f"⏰ <b>Время:</b> {local_time.strftime('%d.%m.%Y, %H:%M')}"
         ])
         
         message_text = "\n".join(message_lines)
@@ -1112,42 +1124,83 @@ async def send_delivery_notification(
                 detail="Конфигурация бота не найдена"
             )
         
-        # Подготавливаем данные для отправки
-        payload = {
-            "chat_id": request.chat_id,
-            "text": message_text,
-            "parse_mode": "HTML"
-        }
+        # Получаем все группы типа "purchasing" для дублирования уведомлений
+        from models.group import Group
+        purchasing_groups = db.execute(
+            select(Group).where(Group.group_type == 'purchasing')
+        ).scalars().all()
         
-        logger.info(f"📡 [SEND_NOTIFICATION] Отправляем запрос в бот API: {bot_api_url}/send_message")
-        logger.info(f"📋 [SEND_NOTIFICATION] Payload: {payload}")
+        logger.info(f"📋 [SEND_NOTIFICATION] Найдено {len(purchasing_groups)} групп типа 'purchasing'")
         
-        # Отправляем запрос к боту
+        # Собираем все chat_id для отправки (основной чат + purchasing группы)
+        chat_ids_to_send = [request.chat_id]
+        for group in purchasing_groups:
+            chat_ids_to_send.append(str(group.group_id))
+            logger.info(f"🛒 [SEND_NOTIFICATION] Добавлена группа закупок: {group.title} (ID: {group.group_id})")
+        
+        # Отправляем уведомления во все чаты
+        success_count = 0
+        error_count = 0
+        errors = []
+        
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                f"{bot_api_url}/send_message",
-                json=payload
+            for chat_id in chat_ids_to_send:
+                try:
+                    payload = {
+                        "chat_id": chat_id,
+                        "text": message_text,
+                        "parse_mode": "HTML"
+                    }
+                    
+                    logger.info(f"📡 [SEND_NOTIFICATION] Отправка в чат {chat_id}")
+                    
+                    response = await client.post(
+                        f"{bot_api_url}/send_message",
+                        json=payload
+                    )
+                    
+                    if response.status_code == 200:
+                        logger.info(f"✅ [SEND_NOTIFICATION] Уведомление успешно отправлено в чат {chat_id}")
+                        success_count += 1
+                    else:
+                        error_msg = f"Чат {chat_id}: {response.status_code} - {response.text}"
+                        logger.error(f"❌ [SEND_NOTIFICATION] {error_msg}")
+                        errors.append(error_msg)
+                        error_count += 1
+                        
+                except httpx.TimeoutException:
+                    error_msg = f"Чат {chat_id}: таймаут"
+                    logger.error(f"❌ [SEND_NOTIFICATION] {error_msg}")
+                    errors.append(error_msg)
+                    error_count += 1
+                except Exception as e:
+                    error_msg = f"Чат {chat_id}: {str(e)}"
+                    logger.exception(f"❌ [SEND_NOTIFICATION] {error_msg}")
+                    errors.append(error_msg)
+                    error_count += 1
+        
+        # Если хотя бы одно сообщение отправлено успешно, считаем операцию успешной
+        if success_count > 0:
+            result = {
+                "success": True,
+                "message": f"Уведомление отправлено в {success_count} из {len(chat_ids_to_send)} чатов",
+                "success_count": success_count,
+                "error_count": error_count
+            }
+            if errors:
+                result["errors"] = errors
+            logger.info(f"✅ [SEND_NOTIFICATION] Итого: успешно={success_count}, ошибок={error_count}")
+            return result
+        else:
+            logger.error(f"❌ [SEND_NOTIFICATION] Не удалось отправить ни одного уведомления")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Не удалось отправить уведомления. Ошибки: {'; '.join(errors)}"
             )
-            
-            if response.status_code == 200:
-                logger.info(f"✅ [SEND_NOTIFICATION] Уведомление успешно отправлено в чат {request.chat_id}")
-                return {
-                    "success": True,
-                    "message": "Уведомление успешно отправлено в чат"
-                }
-            else:
-                logger.error(f"❌ [SEND_NOTIFICATION] Ошибка отправки: {response.status_code} - {response.text}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Ошибка отправки уведомления: {response.text}"
-                )
                 
-    except httpx.TimeoutException:
-        logger.error("❌ [SEND_NOTIFICATION] Таймаут при отправке уведомления")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Таймаут при отправке уведомления"
-        )
+    except HTTPException:
+        # Пробрасываем HTTPException дальше
+        raise
     except Exception as e:
         logger.exception(f"❌ [SEND_NOTIFICATION] Неожиданная ошибка при отправке уведомления")
         raise HTTPException(

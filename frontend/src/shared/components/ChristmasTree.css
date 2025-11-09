@@ -1,0 +1,51 @@
+/* Новогодняя елочка - глобальная */
+.global-christmas-tree {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom) + 80px);
+    right: 24px;
+    width: 80px;
+    height: 80px;
+    z-index: 1052; /* Над футером */
+    cursor: pointer;
+    transition: transform 0.3s ease;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15));
+    pointer-events: auto;
+}
+
+.global-christmas-tree:hover {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.global-christmas-tree:active {
+    transform: scale(0.95);
+}
+
+.global-christmas-tree img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Мерцающий эффект для елочки */
+@keyframes twinkling {
+    0%, 100% {
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.15)) brightness(1);
+    }
+    50% {
+        filter: drop-shadow(0 4px 12px rgba(255, 215, 0, 0.4)) brightness(1.2);
+    }
+}
+
+.global-christmas-tree.twinkle {
+    animation: twinkling 2s ease-in-out infinite;
+}
+
+@media (max-width: 768px) {
+    .global-christmas-tree {
+        width: 60px;
+        height: 60px;
+        right: 16px;
+        bottom: calc(env(safe-area-inset-bottom) + 75px);
+    }
+}
+

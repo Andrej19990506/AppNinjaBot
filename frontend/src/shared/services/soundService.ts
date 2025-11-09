@@ -4,7 +4,9 @@ class SoundService {
   private notificationSound: HTMLAudioElement | null = null;
   private successSound: HTMLAudioElement | null = null;
   private errorSound: HTMLAudioElement | null = null;
+  private winterMusic: HTMLAudioElement | null = null;
   private isEnabled: boolean = true;
+  private isMusicPlaying: boolean = false;
 
   private constructor() {
     console.log('🔊 [SoundService] Инициализация звукового сервиса');
@@ -34,6 +36,18 @@ class SoundService {
       this.errorSound = new Audio('/sounds/error.mp3');
       this.errorSound.preload = 'auto';
       this.errorSound.volume = 0.3;
+      
+      // Создаем аудио элемент для зимней музыки (Чайковский - Щелкунчик)
+      this.winterMusic = new Audio('/sounds/chajkovskij-balet-cshelkunchik.mp3');
+      this.winterMusic.preload = 'auto';
+      this.winterMusic.volume = 0.15; // Тише, чтобы не мешать основному контенту
+      this.winterMusic.loop = false; // НЕ зацикливаем - играет один раз
+      
+      // Сбрасываем флаг когда музыка заканчивается
+      this.winterMusic.addEventListener('ended', () => {
+        this.isMusicPlaying = false;
+        console.log('🎵 [SoundService] Зимняя музыка закончилась, флаг сброшен');
+      });
       
       console.log('🔊 [SoundService] Аудио элементы инициализированы');
     } catch (error) {
@@ -132,6 +146,73 @@ class SoundService {
    */
   getVolume(): number {
     return this.notificationSound?.volume || 0;
+  }
+
+  /**
+   * Запускает зимнюю фоновую музыку (Чайковский - Щелкунчик)
+   * Возвращает Promise<boolean> - true если успешно, false если заблокировано
+   */
+  async playWinterMusic(): Promise<boolean> {
+    if (!this.isEnabled || !this.winterMusic || this.isMusicPlaying) {
+      return false;
+    }
+
+    try {
+      this.winterMusic.currentTime = 0;
+      await this.winterMusic.play();
+      this.isMusicPlaying = true;
+      console.log('✅ [SoundService] Зимняя музыка (Чайковский) успешно запущена');
+      return true;
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError') {
+        console.log('⚠️ [SoundService] Автовоспроизведение заблокировано браузером. Ожидание взаимодействия пользователя...');
+      } else {
+        console.error('❌ [SoundService] Ошибка воспроизведения зимней музыки:', error);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Останавливает зимнюю фоновую музыку
+   */
+  stopWinterMusic(): void {
+    if (!this.winterMusic || !this.isMusicPlaying) {
+      return;
+    }
+
+    try {
+      this.winterMusic.pause();
+      this.winterMusic.currentTime = 0;
+      this.isMusicPlaying = false;
+      console.log('❄️🎵 [SoundService] Зимняя музыка остановлена');
+    } catch (error) {
+      console.error('❌ [SoundService] Ошибка при остановке зимней музыки:', error);
+    }
+  }
+
+  /**
+   * Проверяет, играет ли сейчас зимняя музыка
+   */
+  isWinterMusicPlaying(): boolean {
+    return this.isMusicPlaying;
+  }
+
+  /**
+   * Устанавливает громкость зимней музыки (0.0 - 1.0)
+   */
+  setWinterMusicVolume(volume: number): void {
+    if (this.winterMusic) {
+      this.winterMusic.volume = Math.max(0, Math.min(1, volume));
+      console.log(`❄️🎵 [SoundService] Громкость зимней музыки установлена на ${volume}`);
+    }
+  }
+
+  /**
+   * Получает элемент зимней музыки для подписки на события
+   */
+  getWinterMusicElement(): HTMLAudioElement | null {
+    return this.winterMusic;
   }
 }
 

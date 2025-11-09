@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .group_member import GroupMember
     from .shift import Shift
     from .reserve import Reserve
+    from .shift_template import ShiftTemplate, ShiftTemplateDay
 
 class Group(Base):
     __tablename__ = "groups"
@@ -51,6 +52,9 @@ class Group(Base):
     
     # Связь с резервами (одна группа - много резервов)
     reserves: Mapped[List["Reserve"]] = relationship(back_populates="group", cascade="all, delete-orphan")
+    
+    # Связь с шаблонами смен (одна группа - много шаблонов)
+    shift_templates: Mapped[List["ShiftTemplate"]] = relationship(back_populates="group", cascade="all, delete-orphan")
 
     # Ограничение уникальности для group_id (хотя уже есть unique=True)
     __table_args__ = (

@@ -7,6 +7,7 @@ import httpx
 import logging
 from pathlib import Path
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 from typing import Dict, List, Optional
 from docx import Document
 from docx.shared import Pt, Cm
@@ -17,6 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.write_off import WriteOffService
 from models.group import Group
 from sqlalchemy.future import select
+
+# Константа для часового пояса
+TIMEZONE = "Asia/Krasnoyarsk"  # UTC+7
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -72,15 +76,18 @@ def create_write_off_document(data: Dict) -> io.BytesIO:
     chat_title = data.get('chatTitle', 'Неизвестный филиал')
     
     # Форматируем дату из ISO в читаемый формат
-    date_str = data.get('date', datetime.now().isoformat())
+    local_time = datetime.now(ZoneInfo(TIMEZONE))
+    date_str = data.get('date', local_time.isoformat())
     try:
         if isinstance(date_str, str):
             date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-            date_formatted = date_obj.strftime("%d.%m.%Y %H:%M")
+            # Конвертируем в локальный часовой пояс
+            date_obj_local = date_obj.astimezone(ZoneInfo(TIMEZONE))
+            date_formatted = date_obj_local.strftime("%d.%m.%Y %H:%M")
         else:
-            date_formatted = datetime.now().strftime("%d.%m.%Y %H:%M")
+            date_formatted = local_time.strftime("%d.%m.%Y %H:%M")
     except (ValueError, TypeError):
-        date_formatted = datetime.now().strftime("%d.%m.%Y %H:%M")
+        date_formatted = local_time.strftime("%d.%m.%Y %H:%M")
     
     # Добавляем строку с датой и филиалом
     date_line = doc.add_paragraph(f"От {date_formatted}. Филиал: {chat_title}.")
@@ -143,7 +150,8 @@ def create_write_off_document(data: Dict) -> io.BytesIO:
     
     # Добавляем информацию о времени формирования документа
     doc.add_paragraph("")
-    generation_info = doc.add_paragraph(f"Документ сформирован: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
+    local_time = datetime.now(ZoneInfo(TIMEZONE))
+    generation_info = doc.add_paragraph(f"Документ сформирован: {local_time.strftime('%d.%m.%Y %H:%M:%S')}")
     generation_info.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     generation_info.paragraph_format.space_after = Pt(12)
     

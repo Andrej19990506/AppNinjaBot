@@ -57,7 +57,8 @@ def sanitize_filename(name: str) -> str:
 # <<< Новая схема для создания через Telegram ID >>>
 class ShiftCreateTelegram(BaseModel):
     date: str # ISO string date only YYYY-MM-DD
-    shift_type: str # 'day' or 'night'
+    shift_type: str # 'day' or 'night' - сохраняем для обратной совместимости
+    template_id: Optional[str] = None # ID шаблона смены (новое поле)
     slot_index: int
     user_telegram_id: int # Telegram ID пользователя
     group_telegram_id: int # Telegram ID группы
@@ -70,6 +71,7 @@ class ShiftAssignBySenior(BaseModel):
     group_telegram_id: int = Field(..., description="Telegram ID группы, в которую происходит назначение")
     date: str = Field(..., description="Дата смены в формате YYYY-MM-DD")
     shift_type: str = Field(..., description="Тип смены ('day' или 'night')")
+    template_id: Optional[str] = Field(None, description="ID шаблона смены")
     slot_index: int = Field(..., description="Индекс слота (начиная с 0)")
 
 router = APIRouter()
@@ -98,7 +100,10 @@ async def read_shifts(
     # 2. Запрос для выбора смен по ВНУТРЕННЕМУ ID группы
     stmt = (
         select(Shift)
-        .options(joinedload(Shift.member))
+        .options(
+            joinedload(Shift.member),
+            joinedload(Shift.template)  # Загружаем информацию о шаблоне
+        )
         .where(Shift.group_id == group_internal_id) # <<< Используем внутренний ID
         .order_by(Shift.date, Shift.shift_type, Shift.slot_index)
     )
@@ -163,6 +168,30 @@ async def create_shift(
         logger.error(f"[Create Shift] Group with Telegram ID {shift_in.group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with Telegram ID {shift_in.group_telegram_id} not found")
 
+    # --- Шаг 1.5: Определяем shift_type из шаблона (для обратной совместимости) ---
+    # ВАЖНО: shift_type - это УСТАРЕВШЕЕ поле для новых смен с template_id
+    # Оно заполняется только потому, что фронтенд еще группирует смены по dayShifts/nightShifts
+    # TODO: После полного перехода фронтенда на работу с template_id:
+    #       1. Сделать shift_type nullable в модели Shift
+    #       2. Убрать автоматическое определение shift_type
+    #       3. Сохранять shift_type=None для новых смен с template_id
+    effective_shift_type = shift_in.shift_type  # По умолчанию из запроса
+    
+    if shift_in.template_id:
+        from models.shift_template import ShiftTemplate
+        template_result = await db.execute(
+            select(ShiftTemplate).where(ShiftTemplate.id == shift_in.template_id)
+        )
+        template = template_result.scalar_one_or_none()
+        if not template:
+            logger.error(f"[Create Shift] Template {shift_in.template_id} not found.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift template not found")
+        
+        # Определяем shift_type для обратной совместимости с фронтендом
+        # Фронтенд группирует смены по dayShifts/nightShifts
+        effective_shift_type = 'night' if template.start_time >= datetime.strptime('12:00', '%H:%M').time() else 'day'
+        logger.info(f"[Create Shift] Template {shift_in.template_id} start_time={template.start_time}, auto-determined shift_type={effective_shift_type} (for backward compatibility)")
+
     # --- Шаг 2: Преобразовать дату (ВНЕ ТРАНЗАКЦИИ) ---
     try:
         date_obj = datetime.strptime(shift_in.date, '%Y-%m-%d').date()
@@ -225,54 +254,94 @@ async def create_shift(
     target_slot_index: Optional[int] = None
 
     # Сначала проверяем запрошенный слот
-    requested_slot_stmt = (
-        select(Shift.id)
-        .where(
-            Shift.group_id == group.id,
-            Shift.date == date_obj,
-            Shift.shift_type == shift_in.shift_type,
-            Shift.slot_index == shift_in.slot_index
+    # ВАЖНО: Если передан template_id, проверяем по нему, иначе по shift_type (старая логика)
+    if shift_in.template_id:
+        requested_slot_stmt = (
+            select(Shift.id)
+            .where(
+                Shift.group_id == group.id,
+                Shift.date == date_obj,
+                Shift.template_id == shift_in.template_id,
+                Shift.slot_index == shift_in.slot_index
+            )
+            .limit(1)
         )
-        .limit(1) # Достаточно одной записи для проверки
-    )
+    else:
+        requested_slot_stmt = (
+            select(Shift.id)
+            .where(
+                Shift.group_id == group.id,
+                Shift.date == date_obj,
+                Shift.shift_type == shift_in.shift_type,
+                Shift.slot_index == shift_in.slot_index
+            )
+            .limit(1)
+        )
+    
     requested_slot_result = await db.execute(requested_slot_stmt)
     is_requested_slot_occupied = requested_slot_result.scalar_one_or_none() is not None
 
     if not is_requested_slot_occupied:
         target_slot_index = shift_in.slot_index
-        logger.info(f"[Create Shift] Requested slot {shift_in.shift_type} index {shift_in.slot_index} is free.")
-    else:
-        logger.warning(f"[Create Shift] Requested slot {shift_in.shift_type} index {shift_in.slot_index} is occupied. Searching for alternatives...")
-
-        # Определяем лимиты слотов для данного типа смены
-        # TODO: Перенести default_single_day_slot_config или определить значения здесь
-        DEFAULT_MAX_DAY_SLOTS = 4
-        DEFAULT_MAX_NIGHT_SLOTS = 2
-        slot_config = group.slot_config or {}
-        if shift_in.shift_type == 'day':
-            max_slots = slot_config.get('maxDaySlots', DEFAULT_MAX_DAY_SLOTS)
-        elif shift_in.shift_type == 'night':
-            max_slots = slot_config.get('maxNightSlots', DEFAULT_MAX_NIGHT_SLOTS)
+        if shift_in.template_id:
+            logger.info(f"[Create Shift] Requested slot for template {shift_in.template_id} index {shift_in.slot_index} is free.")
         else:
-            logger.error(f"[Create Shift] Unknown shift_type: {shift_in.shift_type}")
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid shift type provided.")
+            logger.info(f"[Create Shift] Requested slot {shift_in.shift_type} index {shift_in.slot_index} is free.")
+    else:
+        logger.warning(f"[Create Shift] Requested slot index {shift_in.slot_index} is occupied. Searching for alternatives...")
+
+        # Определяем лимиты слотов
+        if shift_in.template_id:
+            # Если используем шаблоны, берем max_slots из шаблона
+            from models.shift_template import ShiftTemplate
+            template_result = await db.execute(
+                select(ShiftTemplate).where(ShiftTemplate.id == shift_in.template_id)
+            )
+            template = template_result.scalar_one_or_none()
+            if not template:
+                logger.error(f"[Create Shift] Template {shift_in.template_id} not found.")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift template not found")
+            max_slots = template.max_slots
+        else:
+            # Старая логика для обратной совместимости
+            DEFAULT_MAX_DAY_SLOTS = 4
+            DEFAULT_MAX_NIGHT_SLOTS = 2
+            slot_config = group.slot_config or {}
+            if shift_in.shift_type == 'day':
+                max_slots = slot_config.get('maxDaySlots', DEFAULT_MAX_DAY_SLOTS)
+            elif shift_in.shift_type == 'night':
+                max_slots = slot_config.get('maxNightSlots', DEFAULT_MAX_NIGHT_SLOTS)
+            else:
+                logger.error(f"[Create Shift] Unknown shift_type: {shift_in.shift_type}")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid shift type provided.")
             
         if max_slots <= 0:
-             logger.warning(f"[Create Shift] No slots configured for {shift_in.shift_type} shifts in group {group.id}.")
-             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Для {shift_in.shift_type} смен не настроены слоты в этой группе.")
+             logger.warning(f"[Create Shift] No slots configured in group {group.id}.")
+             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Для смен не настроены слоты в этой группе.")
 
-        # Ищем все занятые слоты этого типа на эту дату
-        occupied_slots_stmt = (
-            select(Shift.slot_index)
-            .where(
-                Shift.group_id == group.id,
-                Shift.date == date_obj,
-                Shift.shift_type == shift_in.shift_type
+        # Ищем все занятые слоты (по template_id если есть, иначе по shift_type)
+        if shift_in.template_id:
+            occupied_slots_stmt = (
+                select(Shift.slot_index)
+                .where(
+                    Shift.group_id == group.id,
+                    Shift.date == date_obj,
+                    Shift.template_id == shift_in.template_id
+                )
             )
-        )
+        else:
+            occupied_slots_stmt = (
+                select(Shift.slot_index)
+                .where(
+                    Shift.group_id == group.id,
+                    Shift.date == date_obj,
+                    Shift.shift_type == shift_in.shift_type
+                )
+            )
+        
         occupied_slots_result = await db.execute(occupied_slots_stmt)
         occupied_indices = {row.slot_index for row in occupied_slots_result.all()}
-        logger.info(f"[Create Shift] Occupied {shift_in.shift_type} slots on {date_obj}: {occupied_indices}. Max allowed: {max_slots}")
+        logger.info(f"[Create Shift] Occupied slots on {date_obj}: {occupied_indices}. Max allowed: {max_slots}")
 
         # Ищем первый свободный слот
         for potential_index in range(max_slots):
@@ -283,8 +352,8 @@ async def create_shift(
 
         # Если после цикла не нашли свободный слот
         if target_slot_index is None:
-            logger.warning(f"[Create Shift] No free {shift_in.shift_type} slots found on {date_obj} for group {group.id}.")
-            shift_type_rus = "дневные" if shift_in.shift_type == 'day' else "ночные"
+            logger.warning(f"[Create Shift] No free slots found on {date_obj} for group {group.id}.")
+            shift_type_rus = "дневные" if effective_shift_type == 'day' else "ночные"
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Все {shift_type_rus} слоты на {date_obj.strftime('%d.%m.%Y')} уже заняты.")
 
     # --- Шаг 3.3: Создать НОВУЮ смену с найденным/подтвержденным слотом ---
@@ -296,14 +365,15 @@ async def create_shift(
         member_id=member.id,
         group_id=group.id,
         date=date_obj,
-        shift_type=shift_in.shift_type,
-        slot_index=target_slot_index # <<< Используем target_slot_index
+        shift_type=effective_shift_type,  # Используем определенный shift_type
+        template_id=shift_in.template_id,
+        slot_index=target_slot_index
     )
     db.add(db_shift)
 
     # Flush, чтобы получить ID и данные для ответа/уведомления ДО коммита
     await db.flush()
-    await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member']) # Обновляем с member
+    await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member', 'template']) # Обновляем с member и template
 
     logger.info(f"[Create Shift] Shift object created for member {member.id}, slot {db_shift.shift_type} index {db_shift.slot_index}. Ready for commit by session manager.")
 
@@ -1137,7 +1207,10 @@ async def get_formatted_timesheet_data(
     # 1. Запрос смен с фильтрами
     stmt = (
         select(Shift)
-        .options(joinedload(Shift.member))
+        .options(
+            joinedload(Shift.member),
+            joinedload(Shift.template)  # Загружаем template для отображения времени
+        )
         .where(*filter_conditions)
         .order_by(Shift.date, Shift.member_id, Shift.shift_type)
     )
@@ -1172,22 +1245,28 @@ async def get_formatted_timesheet_data(
         # Добавляем информацию о смене на эту дату
         date_str = shift.date.isoformat()
         
-        # <<< Определяем значение для ячейки на основе настроек времени смен >>>
-        # Получаем конфигурацию для дня недели этой смены
-        day_index = shift.date.weekday()
-        slot_config_key = str((day_index + 1) % 7)  # Конвертируем в наш формат ключей
-        config_for_day_dict = group_slot_config.get(slot_config_key, {})
-        
-        if shift.shift_type == 'day':
-            day_start_time = config_for_day_dict.get('dayShiftStartTime', default_single_day_slot_config.dayShiftStartTime)
-            # Извлекаем только часы из времени "HH:mm"
-            current_shift_info = day_start_time.split(':')[0] if day_start_time else '10'
-        elif shift.shift_type == 'night':
-            night_start_time = config_for_day_dict.get('nightShiftStartTime', default_single_day_slot_config.nightShiftStartTime)
-            # Извлекаем только часы из времени "HH:mm"
-            current_shift_info = night_start_time.split(':')[0] if night_start_time else '18'
+        # <<< Определяем значение для ячейки: используем шаблон если есть, иначе старую логику >>>
+        if shift.template:
+            # Используем время из шаблона
+            start_time = shift.template.start_time.strftime('%H:%M')
+            end_time = shift.template.end_time.strftime('%H:%M')
+            current_shift_info = f"{start_time}-{end_time}"
         else:
-            current_shift_info = shift.shift_type.capitalize() # Fallback на всякий случай
+            # Старая логика для смен без шаблона (обратная совместимость)
+            day_index = shift.date.weekday()
+            slot_config_key = str((day_index + 1) % 7)  # Конвертируем в наш формат ключей
+            config_for_day_dict = group_slot_config.get(slot_config_key, {})
+            
+            if shift.shift_type == 'day':
+                day_start_time = config_for_day_dict.get('dayShiftStartTime', default_single_day_slot_config.dayShiftStartTime)
+                day_end_time = config_for_day_dict.get('dayShiftEndTime', default_single_day_slot_config.dayShiftEndTime)
+                current_shift_info = f"{day_start_time}-{day_end_time}" if day_start_time and day_end_time else '10:00-18:00'
+            elif shift.shift_type == 'night':
+                night_start_time = config_for_day_dict.get('nightShiftStartTime', default_single_day_slot_config.nightShiftStartTime)
+                night_end_time = config_for_day_dict.get('nightShiftEndTime', default_single_day_slot_config.nightShiftEndTime)
+                current_shift_info = f"{night_start_time}-{night_end_time}" if night_start_time and night_end_time else '18:00-02:00'
+            else:
+                current_shift_info = shift.shift_type.capitalize() # Fallback на всякий случай
             
         # TODO: Решить, как обрабатывать несколько смен в день (если возможно)
         # Пока просто записываем тип смены. Если запись уже есть, можно добавить через "/"

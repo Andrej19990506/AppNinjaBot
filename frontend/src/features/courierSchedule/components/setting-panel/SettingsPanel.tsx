@@ -25,7 +25,7 @@ const slideOutRight = keyframes`
   }
 `;
 
-// Стилизуем контейнер как боковую панель
+
 const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
     padding-top: 60px;    
     position: fixed;
@@ -117,12 +117,6 @@ const PanelContent = styled.div`
     padding-bottom: 80px;
 `;
 
-// Убираем стили для выбора дня
-// const DaySelectorContainer = styled.div` ... `;
-// const SelectorLabel = styled.label` ... `;
-// const DaySelect = styled.select` ... `;
-
-// Убираем $disabled из стилей опции
 const SettingsOption = styled.div`
     display: flex;
     align-items: center;
@@ -174,6 +168,7 @@ interface SettingsPanelProps {
     onClose: () => void;
     onOpenShiftAccess: () => void;
     onOpenSlotSettings: () => void; 
+    onOpenShiftTemplateSettings: () => void;
     onOpenTimesheet: () => void;
     onOpenCouriersList?: () => void;
 }
@@ -183,6 +178,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     onClose, 
     onOpenShiftAccess,
     onOpenSlotSettings,
+    onOpenShiftTemplateSettings,
     onOpenTimesheet,
     onOpenCouriersList
 }) => {
@@ -201,6 +197,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     
     const handleSlotSettingsClick = () => {
         onOpenSlotSettings();
+    };
+
+    const handleShiftTemplateSettingsClick = () => {
+        onOpenShiftTemplateSettings();
     };
 
     const handleTimesheetClick = () => {
@@ -227,8 +227,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <OptionIcon><EventNoteIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
                 <SettingsOption onClick={handleSlotSettingsClick}> 
-                    <OptionLabel>Настройка слотов</OptionLabel>
+                    <OptionLabel>Настройка слотов (старый)</OptionLabel>
                     <OptionIcon><TuneIcon fontSize="inherit" /></OptionIcon> 
+                </SettingsOption>
+                <SettingsOption onClick={handleShiftTemplateSettingsClick}>
+                    <OptionLabel>Шаблоны смен (новый)</OptionLabel>
+                    <OptionIcon>📋</OptionIcon>
                 </SettingsOption>
                 <SettingsOption onClick={handleTimesheetClick}>
                     <OptionLabel>Табель</OptionLabel>

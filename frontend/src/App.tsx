@@ -28,6 +28,9 @@ import EventList from './features/Events/EventList';
 import { setActiveRole } from './shared/store/userSlice/userSlice';
 import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
+import SnowOnElements from '@/shared/components/SnowOnElements';
+import ChristmasTree from '@/shared/components/ChristmasTree';
+import AutumnLeaves from '@/shared/components/AutumnLeaves';
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
 import ServerErrorModal from './shared/components/ServerErrorModal/ServerErrorModal';
@@ -35,7 +38,6 @@ import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
 import Requests from './features/Requests/Requests';
 import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
-import AutumnLeaves from './shared/components/AutumnLeaves';
 
 
 
@@ -345,6 +347,8 @@ const AutoRedirectByRole = () => {
 };
 
 function App() {
+  const [triggerSnowflakes, setTriggerSnowflakes] = React.useState(false);
+
   // Инициализируем глобальные обработчики ошибок
   React.useEffect(() => {
     initializeGlobalErrorHandlers();
@@ -355,6 +359,12 @@ function App() {
     };
   }, []);
 
+  // Обработчик клика на елочку
+  const handleChristmasTreeClick = () => {
+    console.log('🎄 Клик на елочку! Запускаем снежинки вручную');
+    setTriggerSnowflakes(prev => !prev); // Переключаем триггер для запуска
+  };
+
   return (
     <Provider store={store}>
       <CustomThemeProvider>
@@ -364,6 +374,40 @@ function App() {
             <AppInitializer>
               <NotificationHandler />
               <TooltipContainer />
+              
+              {/* Глобальный снег на видимых элементах приложения */}
+              <SnowOnElements 
+                selectors={[
+                  // Основные интерактивные элементы
+                  'button:not([aria-hidden="true"])',
+                  
+                  // Material-UI компоненты
+                  '.MuiButton-root',
+                  '.MuiCard-root',
+                  '.MuiPaper-root',
+                  '.MuiChip-root',
+                  
+                  // Формы
+                  'input[type="text"]:not([style*="display: none"])',
+                  'input[type="number"]:not([style*="display: none"])',
+                  'select:not([style*="display: none"])',
+                  
+                  // Карточки и контейнеры (более специфичные селекторы)
+                  '[class*="Card"]:not([style*="display: none"])',
+                  '[class*="Panel"]:not([style*="display: none"])',
+                  '[class*="Item"]:not([style*="display: none"])',
+                  '[class*="Cell"]:not([style*="display: none"])'
+                ]}
+                probability={0.35}
+                enabled={true}
+              />
+
+              {/* Глобальная елочка */}
+              <ChristmasTree onClick={handleChristmasTreeClick} />
+
+              {/* Падающие снежинки (автоматически + при клике на елочку) */}
+              <AutumnLeaves triggerStart={triggerSnowflakes} />
+
                 <Routes>
                   <Route path="/courier" element={
                     <ProtectedRoute requiredGroup="courier">

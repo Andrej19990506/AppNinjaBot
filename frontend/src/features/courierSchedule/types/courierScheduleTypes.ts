@@ -12,6 +12,7 @@ export interface ApiShift {
     shift_type: 'day' | 'night';
     slot_index: number;
     is_senior_courier?: boolean;
+    template_id?: string | null; // ID шаблона смены
     member?: {
         id: string;
         user_id: string;
@@ -20,6 +21,14 @@ export interface ApiShift {
         photo_url: string | null;
         is_senior_courier?: boolean;
     };
+    template?: {
+        id: string;
+        name: string;
+        start_time: string; // HH:MM:SS format
+        end_time: string;   // HH:MM:SS format
+        max_slots: number;
+        has_senior_slot: boolean;
+    } | null;
 }
 
 export interface ApiReserve {
@@ -50,6 +59,15 @@ export interface CourierShift {
     shiftType: 'day' | 'night';
     slotIndex: number;
     isSeniorCourier: boolean;
+    template_id?: string | null;
+    template?: {
+        id: string;
+        name: string;
+        startTime: string; // HH:MM:SS format
+        endTime: string;   // HH:MM:SS format
+        maxSlots: number;
+        hasSeniorSlot: boolean;
+    } | null;
 }
 
 // --- Тип состояния курьера ---
@@ -113,7 +131,22 @@ export interface AccessSettings {
     updatedBy?: string | number;
 }
 
-// --- Конфиг слотов на день ---
+// --- Шаблон смены ---
+export interface ShiftTemplate {
+    id: string;
+    name: string; // например "Дневные смены", "Вечерние смены"
+    description?: string;
+    startTime: string; // формат "HH:mm"
+    endTime: string; // формат "HH:mm"
+    maxSlots: number;
+    hasSeniorSlot: boolean;
+    isActive: boolean;
+    daysOfWeek: number[]; // дни недели (0-6, где 0 = воскресенье)
+    createdAt: string;
+    updatedAt: string;
+}
+
+// --- Конфиг слотов на день (обновленный для работы с шаблонами) ---
 export interface SlotConfigForDay {
     maxDaySlots: number;
     maxNightSlots: number;
@@ -124,6 +157,8 @@ export interface SlotConfigForDay {
     // Время начала и конца ночной смены
     nightShiftStartTime?: string; // формат "HH:mm"
     nightShiftEndTime?: string; // формат "HH:mm"
+    // Шаблоны смен для дня
+    shiftTemplates?: ShiftTemplate[];
 }
 
 // --- Конфиг слотов на неделю ---
@@ -140,6 +175,12 @@ export interface ShiftState {
     settingsError: string | null;
     isShiftDialogOpen: boolean;
     shiftDialogMode: 'shifts' | 'reserves';
+    // Шаблоны смен
+    shiftTemplates: ShiftTemplate[];
+    templatesLoading: boolean;
+    templatesError: string | null;
+    // Локальные применения шаблонов (для отображения изменений в реальном времени)
+    localAppliedTemplates: { [dayOfWeek: number]: string[] };
 }
 
 
@@ -216,6 +257,38 @@ export interface SlotConfigResponse {
     config: Record<string, SlotConfigForDay>;
 }
 
+// --- Типы для шаблонов смен ---
+export interface ShiftTemplateCreatePayload {
+    name: string;
+    description?: string;
+    startTime: string;
+    endTime: string;
+    maxSlots: number;
+    hasSeniorSlot: boolean;
+    daysOfWeek: number[];
+}
+
+export interface ShiftTemplateUpdatePayload {
+    id: string;
+    name?: string;
+    description?: string;
+    startTime?: string;
+    endTime?: string;
+    maxSlots?: number;
+    hasSeniorSlot?: boolean;
+    isActive?: boolean;
+    daysOfWeek?: number[];
+}
+
+export interface ShiftTemplateResponse {
+    templates: ShiftTemplate[];
+}
+
+export interface ShiftTemplateApplyPayload {
+    dayOfWeek: number; // 0-6 (воскресенье-суббота)
+    templateIds: string[];
+}
+
 // --- Тип: статус курьера ---
 export interface CourierStatusResponse {
     is_senior_courier: boolean;
@@ -255,6 +328,7 @@ export interface BookShiftApiData {
     shift_type: 'day' | 'night';
     slot_index: number;
     group_telegram_id: number;
+    template_id?: string | null; // ID шаблона смены
 }
 
 // --- Тип: данные для назначения курьера на слот ---

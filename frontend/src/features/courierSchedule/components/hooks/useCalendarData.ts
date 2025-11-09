@@ -3,9 +3,9 @@ import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch } from '@shared/store/store';
 import { 
     fetchShifts, 
-    fetchSlotConfig,
     fetchAccessSettings
 } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
+import { fetchAllShiftTemplatesThunk } from '@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks';
 import { formatDateForAPI } from '../courier-calendar/utils/dateUtils';
 import { selectAllShifts, selectError, selectIsLoading } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { selectUser } from '@/shared/store/userSlice/userSelectors';
@@ -22,7 +22,7 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
     const loadCalendarData = useCallback(() => {
         if (chatId !== undefined) {
             dispatch(fetchShifts({ chatId }));
-            dispatch(fetchSlotConfig({ chatId: Number(chatId) }));
+            dispatch(fetchAllShiftTemplatesThunk(Number(chatId)));
             dispatch(fetchAccessSettings({ chatId: String(chatId) }));
         }
     }, [dispatch, chatId]);

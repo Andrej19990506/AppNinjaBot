@@ -246,7 +246,7 @@ services:
     image: gcr.io/cadvisor/cadvisor:latest
     container_name: appninjabot-cadvisor
     ports:
-      - "8081:8080"  # Используем 8081 вместо 8080
+      - "8081:8080" 
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:rw

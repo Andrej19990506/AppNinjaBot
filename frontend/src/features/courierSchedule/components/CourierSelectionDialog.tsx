@@ -403,7 +403,7 @@ interface ShiftSelectionDialogProps {
     requesterId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number) => Promise<any>;
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean, templateId?: string) => Promise<any>;
     chatId?: string;
     getDisplayReservesForDate: (date: Date | null) => ReserveEntry[];
     isCurrentUserInReserveForDate: (date: Date | null) => boolean;
@@ -419,11 +419,13 @@ interface ShiftSelectionDialogProps {
     onDateChange?: (newDate: Date) => void;
     disablePrevDate?: boolean;
     disableNextDate?: boolean;
+    onOpenShiftTemplateSettings?: () => void;
 }
 
 interface PendingShiftAction {
     shiftType: 'day' | 'night';
     slotIndex: number;
+    templateId?: string;
 }
 
 const SeniorCourierBadge = styled.div`
@@ -495,7 +497,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     showNotification,
     onDateChange,
     disablePrevDate = false,
-    disableNextDate = false
+    disableNextDate = false,
+    onOpenShiftTemplateSettings
 }) => {
     const dispatch = useAppDispatch();
     const shiftDialogMode = useAppSelector(selectShiftDialogMode);
@@ -599,10 +602,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
 
     const handleSlotSelectWrapper = useCallback((
         shiftType: 'day' | 'night',
-        slotIndex: number
+        slotIndex: number,
+        existingShiftId?: string,
+        isDragAction?: boolean,
+        templateId?: string
     ) => {
         setTimeout(() => {
-            setPendingAction({ shiftType, slotIndex });
+            setPendingAction({ shiftType, slotIndex, templateId });
             setIsConfirmationOpen(true);
         }, 50);
     }, [setPendingAction, setIsConfirmationOpen]);
@@ -610,14 +616,14 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const handleConfirmAction = useCallback(async () => {
         if (!pendingAction) return;
 
-        const { shiftType, slotIndex } = pendingAction;
+        const { shiftType, slotIndex, templateId } = pendingAction;
         
         setInternalIsBookingLoading(true);
         setLoadingType(shiftType);
         setLoadingSlot(slotIndex);
         
         try {
-            await onSlotSelect(shiftType, slotIndex);
+            await onSlotSelect(shiftType, slotIndex, undefined, undefined, templateId);
         } catch (error) {
             // Пробрасываем ошибку дальше, чтобы ShiftConfirmationDialog мог её обработать
             throw error;
@@ -1839,6 +1845,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                         onCloseCouriersPanel={handleCloseCouriersPanel}
                                         activeDragId={activeDragId}
                                         hasSeniorSlot={currentHasSeniorSlot}
+                                        onOpenShiftTemplateSettings={onOpenShiftTemplateSettings}
                                     />
                                 )
                             ) : (

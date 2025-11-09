@@ -21,15 +21,10 @@ class Shift(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False) 
 
     date = Column(Date, nullable=False, index=True)
-    shift_type = Column(String, nullable=False) # 'day' или 'night'
+    shift_type = Column(String, nullable=False) # 'day' или 'night' - сохраняем для обратной совместимости
+    template_id = Column(UUID(as_uuid=True), ForeignKey("shift_templates.id"), nullable=True) # ID шаблона смены
     slot_index = Column(Integer, nullable=False)
     
-    # Поля, которые, возможно, дублируются из Member/Group, но могут быть полезны
-    # Или их можно убрать и подтягивать через relationship
-    # photo_url = Column(String, nullable=True)
-    # first_name = Column(String, nullable=True)
-    # last_name = Column(String, nullable=True)
-    # is_senior_courier = Column(Boolean, default=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -39,12 +34,7 @@ class Shift(Base):
     # Связи (Relationships)
     member = relationship("Member", back_populates="shifts")
     group = relationship("Group", back_populates="shifts")
+    template = relationship("ShiftTemplate", back_populates="shifts")
 
     def __repr__(self):
         return f"<Shift(id={self.id}, member_id={self.member_id}, group_id={self.group_id}, date='{self.date}', type='{self.shift_type}')>"
-
-# Важно: Добавить back_populates="shifts" в модели Member и Group
-# Пример для Member:
-# shifts = relationship("Shift", back_populates="member")
-# Пример для Group:
-# shifts = relationship("Shift", back_populates="group") 

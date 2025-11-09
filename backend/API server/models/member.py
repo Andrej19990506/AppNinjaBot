@@ -3,9 +3,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.orm import Mapped
 from typing import List, Optional
 
-from .base import Base # <-- Исправляем импорт на относительный
+from .base import Base 
 
-# NEW: Import TYPE_CHECKING and forward references
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:

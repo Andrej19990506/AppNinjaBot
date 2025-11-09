@@ -177,7 +177,6 @@ export const CloseSettingsButton = styled.button`
 export const SlotSettingsContent = styled.div`
     flex: 1;
     text-align: center;
-    padding: 32px 16px;
     color: var(--text-secondary);
     font-size: 1.1rem;
 `; 

@@ -637,6 +637,10 @@ class GroupHandler:
                     "⚠️ Видео без подписи или превышающее 2 ГБ не принимается!"
                 )
                 await context.bot.send_message(chat_id=chat.id, text=welcome_text)
+            
+            # --- ДОБАВЛЯЕМ ПРИВЕТСТВИЕ ДЛЯ ГРУППЫ ЗАКУПОК ---
+            if group_type == "purchasing":
+                await self._send_purchasing_welcome_message(chat, context)
 
         except Exception as e:
             logger.error(f"❌ Ошибка при обработке добавления бота (сохранение данных): {str(e)}")
@@ -747,6 +751,54 @@ class GroupHandler:
             
         except Exception as e:
             logger.error(f"❌ Ошибка при отправке приветственного сообщения для группы инвентаризации: {e}")
+
+    async def _send_purchasing_welcome_message(self, chat: Chat, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Отправляет приветственное сообщение для групп закупок"""
+        try:
+            # Проверяем дедупликацию - создаем уникальный ключ для этого события
+            event_key = f"purchasing_welcome_{chat.id}"
+            current_time = asyncio.get_event_loop().time()
+            
+            # Проверяем, было ли уже отправлено приветствие в течение последних 60 секунд
+            if hasattr(self, '_welcome_events'):
+                if event_key in self._welcome_events:
+                    last_sent_time = self._welcome_events[event_key]
+                    if current_time - last_sent_time < 60:  # 60 секунд
+                        logger.info(f"Приветственное сообщение для группы закупок '{chat.title}' уже было отправлено недавно, пропускаем")
+                        return
+            else:
+                self._welcome_events = {}
+            
+            # Отправляем информационное сообщение о функциях бота для отдела закупок
+            welcome_text = (
+                "🛒 **Добро пожаловать в группу отдела закупок!**\n\n"
+                "🤖 Я буду автоматически информировать вас о всех поставках.\n\n"
+                "📋 **Что вы будете получать:**\n"
+                "• 📦 Уведомления о принятых поставках\n"
+                "• 🏢 Информацию о поставщиках\n"
+                "• 📊 Детали по каждому товару и количеству\n"
+                "• ⚠️ Информацию о проблемах с поставками\n"
+                "• ✅ Статус соответствия накладным\n"
+                "• 📍 Информацию о филиалах\n"
+                "• 👤 Данные о том, кто принял поставку\n\n"
+                "⚡ **Уведомления приходят автоматически** сразу после принятия поставки поваром!\n\n"
+                "📈 Это позволит вам оперативно отслеживать все поставки и работать с поставщиками более эффективно.\n\n"
+                "🆘 При возникновении вопросов обращайтесь в [техподдержку](https://t.me/+HU1WcpcswddlNjI6)"
+            )
+            
+            await context.bot.send_message(
+                chat_id=chat.id,
+                text=welcome_text,
+                parse_mode='Markdown',
+                disable_web_page_preview=True
+            )
+            
+            # Сохраняем время отправки для предотвращения дублирования
+            self._welcome_events[event_key] = current_time
+            logger.info(f"✅ Отправлено информационное сообщение для группы закупок: {chat.title}")
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при отправке приветственного сообщения для группы закупок: {e}")
 
     async def handle_left_chat_member(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик удаления участника из чата"""
@@ -967,7 +1019,7 @@ class GroupHandler:
             standardized_chat_id = await self._get_standardized_chat_id(chat.id)
             original_chat_id = await self._get_original_chat_id(standardized_chat_id)
 
-            # --- Оставляем приветствие только для курьерских групп ---
+            # --- Обработка добавления бота в группу (отправка приветствий для различных типов групп) ---
             if new_status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:
                 await self._process_bot_added(chat, context)
                 if new_status == ChatMemberStatus.MEMBER and old_status not in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR]:

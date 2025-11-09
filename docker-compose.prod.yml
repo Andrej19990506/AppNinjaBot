@@ -53,6 +53,8 @@ services:
       - RETAILIQA_API_BASE_URL=https://ninjapizza.retailiqa.ru/api/v2/
       - RETAILIQA_TOKEN=7e20cab58a5d4b06b6a55424f0127731
       - RETAILIQA_API_TIMEOUT=15
+      - TELEGRAM_BOT_TOKEN=8012479473:AAHHMhUpZb2XD_08Plv_o5mr_YUMbMLYhUw
+      - TELEGRAM_CHAT_ID=6843570748
       - GOOGLE_APPLICATION_CREDENTIALS=/app/shared/appninjabotcontent-330206f13743.json
     restart: unless-stopped
     depends_on:

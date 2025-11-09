@@ -53,7 +53,7 @@ interface ShiftPanelContainerProps {
     maxSlots: number;
     currentUserId: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => void;
+    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean, templateId?: string) => void;
     isLoading: boolean;
     loadingSlot: number | null;
     userHasShift: boolean;

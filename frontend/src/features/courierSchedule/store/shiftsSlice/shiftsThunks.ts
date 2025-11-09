@@ -20,6 +20,8 @@ import { fetchReservesForGroup } from '@features/courierSchedule/store/reservesS
 // --- Маппинг ApiShift -> CourierShift с приоритетом member и camelCase ---
 function mapApiShiftToCourierShift(apiShift: ApiShift): CourierShift {
     const member = apiShift.member;
+    const template = apiShift.template;
+    
     return {
         id: apiShift.id,
         userId: member?.user_id ? String(member.user_id) : String(apiShift.user_id || 'unknown'),
@@ -30,6 +32,15 @@ function mapApiShiftToCourierShift(apiShift: ApiShift): CourierShift {
         shiftType: apiShift.shift_type,
         slotIndex: apiShift.slot_index,
         isSeniorCourier: member ? (member.is_senior_courier || false) : (apiShift.is_senior_courier || false),
+        template_id: apiShift.template_id || null,
+        template: template ? {
+            id: template.id,
+            name: template.name,
+            startTime: template.start_time,
+            endTime: template.end_time,
+            maxSlots: template.max_slots,
+            hasSeniorSlot: template.has_senior_slot,
+        } : null,
     };
 }
 
@@ -58,11 +69,11 @@ export const fetchShifts = createAsyncThunk<
 // --- Thunk: бронирование смены ---
 export const bookShift = createAsyncThunk<
   CourierShift,
-  { date: string; userId: string; shiftType: 'day' | 'night'; slotIndex: number; chatId: string },
+  { date: string; userId: string; shiftType: 'day' | 'night'; slotIndex: number; chatId: string; templateId?: string },
   { rejectValue: string }
 >(
   'shifts/bookShift',
-  async ({ date, userId, shiftType, slotIndex, chatId }, { rejectWithValue }) => {
+  async ({ date, userId, shiftType, slotIndex, chatId, templateId }, { rejectWithValue }) => {
     try {
       const apiData = {
         date,
@@ -70,7 +81,9 @@ export const bookShift = createAsyncThunk<
         group_telegram_id: parseInt(chatId, 10),
         shift_type: shiftType,
         slot_index: slotIndex,
+        template_id: templateId || null, // Передаем template_id в API
       };
+      console.log('[bookShift] Sending to API:', apiData);
       const bookedApiShift = await bookShiftApi(apiData);
       return mapApiShiftToCourierShift(bookedApiShift);
     } catch (error: any) {

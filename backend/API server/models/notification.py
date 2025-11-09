@@ -7,7 +7,7 @@ from sqlalchemy.sql import func
 import sqlalchemy as sa
 from typing import Optional, Dict, Any
 
-from .base import Base # Используем относительный импорт .base
+from .base import Base 
 
 class Notification(Base):
     __tablename__ = "notifications"
@@ -38,7 +38,7 @@ class Notification(Base):
         """Собирает объект настроек повтора для сериализации Pydantic."""
         if self.repeat_type and self.repeat_type != 'none':
             repeat_data = {'type': self.repeat_type}
-            if self.repeat_config: # repeat_config может быть None или {}
+            if self.repeat_config:
                 # Безопасно проверяем наличие ключей
                 if 'weekdays' in self.repeat_config:
                     repeat_data['weekdays'] = self.repeat_config.get('weekdays')
@@ -46,8 +46,4 @@ class Notification(Base):
                     repeat_data['month_day'] = self.repeat_config.get('month_day')
             return repeat_data
         else:
-            # Возвращаем структуру для типа 'none' или None, если поле опционально
-            # Зависит от того, как определено поле repeat в схеме NotificationRead
-            # Если Optional[RepeatSettingsRead], то можно вернуть None
-            # Если RepeatSettingsRead (не опционально), то нужно вернуть {'type': 'none'}
             return {'type': 'none'} # Возвращаем словарь для типа 'none' 

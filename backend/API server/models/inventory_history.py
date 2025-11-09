@@ -11,23 +11,21 @@ class InventoryHistory(Base):
     group_id = Column(Integer, ForeignKey('groups.id', ondelete='CASCADE'), nullable=False, index=True)
     category = Column(String, nullable=False, index=True)
     item_name = Column(String, nullable=False, index=True)
-    action = Column(String, nullable=False) # e.g., 'add', 'remove', 'update', 'add_option', 'remove_option'
-    type = Column(String, nullable=False, index=True) # 'raw' or 'semifinished'
-    old_quantity = Column(Float, nullable=True) # Может быть null при первом добавлении
+    action = Column(String, nullable=False) 
+    type = Column(String, nullable=False, index=True)
+    old_quantity = Column(Float, nullable=True) 
     new_quantity = Column(Float, nullable=False)
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
     
-    # ID автора изменения (ссылка на таблицу members)
+    
     author_id = Column(Integer, ForeignKey('members.id', ondelete='SET NULL'), nullable=True, index=True)
 
-    # Связи (Relationships)
-    group = relationship("Group") # Связь с группой (опционально, если нужно)
-    author_member = relationship("Member") # Связь с автором
 
-    # Дополнительные поля, если нужны (например, описание, причина)
-    # description = Column(Text, nullable=True)
+    group = relationship("Group")
+    author_member = relationship("Member")
 
-    # Добавляем ограничение на допустимые значения type
+
+
     __table_args__ = (
         CheckConstraint(
             type.in_(['raw', 'semifinished']),

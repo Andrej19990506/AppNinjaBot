@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { useTheme } from './ThemeProvider';
-import MobileMenu from './MobileMenu';
+import styles from './Hero.module.css';
 
 export default function Hero() {
   const { theme, toggleTheme } = useTheme();
@@ -330,7 +330,13 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="relative h-screen w-screen flex-shrink-0 flex items-center pt-32 pb-20 snap-start overflow-x-hidden overflow-y-auto"
+      className={`${styles.heroSection} relative flex-shrink-0 flex items-center snap-start overflow-x-hidden overflow-y-auto w-screen`}
+      style={{
+        minHeight: "calc(100vh - var(--header-height))",
+        paddingTop: "0",
+        paddingBottom: "clamp(1rem, 3vh, 1.5rem)",
+        scrollMarginTop: "var(--header-height)",
+      }}
     >
       {/* Простые декоративные элементы */}
       <div
@@ -344,30 +350,12 @@ export default function Hero() {
         style={{ transform: 'translate3d(0, 0, 0)' }}
       ></div>
 
-      {/* Топ бар - Логотип + Бургер выровнены */}
-      <div className="fixed top-0 left-0 right-0 flex items-center justify-between px-6 sm:px-8 py-6 pointer-events-none" style={{ zIndex: 300 }}>
-        <div className="pointer-events-auto">
-          <Image
-            src="/Logo.png"
-            alt="FloWix Logo"
-            width={140}
-            height={140}
-            className="h-20 sm:h-24 md:h-28 w-auto drop-shadow-[0_8px_24px_rgba(255,107,53,0.4)] drop-shadow-[0_4px_12px_rgba(255,157,102,0.3)] drop-shadow-[0_0_40px_rgba(255,107,53,0.2)] transition-all duration-400 animate-logo-glow hover:scale-[1.08] hover:-translate-y-0.5 relative z-[300]"
-          />
-        </div>
-        
-        {/* Mobile Menu */}
-        <div className="pointer-events-auto">
-          <MobileMenu />
-        </div>
-      </div>
-
-      <div className="container relative z-10">
-        <div className="hero-content">
+      <div className="container relative z-10 flex items-center" style={{ height: '100%' }}>
+        <div className={`${styles.heroContent} w-full`}>
           {/* Hero Text */}
           <div 
             ref={heroTextRef}
-            className="hero-text"
+            className={styles.heroText}
           >
             <h1>
               Автоматизация<br />
@@ -375,12 +363,12 @@ export default function Hero() {
               вашего <span className="gradient-text">бизнеса</span>
             </h1>
 
-            <p className="hero-subtitle">
+            <p className={styles.heroSubtitle}>
               Инвентаризация, списания, поставки, автоматические отчеты - всё в одной системе. 
               Для магазинов, складов, ресторанов, любых точек продаж. Интеграция с Telegram для мгновенных уведомлений.
             </p>
 
-            <div className="hero-buttons">
+            <div className={`${styles.heroButtons} ${styles.desktopButtons}`}>
               <Link
                 ref={primaryBtnRef}
                 href="#contact"
@@ -402,8 +390,8 @@ export default function Hero() {
           {/* Hero Images */}
           <div 
             ref={heroImagesRef}
-            className="relative min-h-[450px] sm:min-h-[550px] lg:min-h-[650px] flex items-center justify-center perspective-[2000px]" 
-            style={{ transformStyle: 'preserve-3d' }}
+            className="relative flex items-center justify-center perspective-[2000px]"
+            style={{ transformStyle: 'preserve-3d', height: 'clamp(240px, 38vh, 420px)' }}
           >
             {/* Glow effect - улучшенный */}
             <div 
@@ -419,9 +407,9 @@ export default function Hero() {
               ref={phoneLightRef}
               src="/Phone820shots_so.png"
               alt="FloWix Light Theme"
-              width={280}
-              height={560}
-              className="absolute w-[200px] sm:w-[240px] lg:w-[280px] cursor-pointer pointer-events-auto z-10 hover:brightness-110 hover:drop-shadow-[0_20px_40px_rgba(255,95,31,0.3)]"
+              width={210}
+              height={440}
+              className="absolute w-[clamp(130px,18vw,200px)] cursor-pointer pointer-events-auto z-10 hover:brightness-110 hover:drop-shadow-[0_18px_36px_rgба(255,95,31,0.28)]"
               style={{ 
                 height: 'auto',
                 opacity: initialTheme ? undefined : 0,
@@ -435,9 +423,9 @@ export default function Hero() {
               ref={phoneDarkRef}
               src="/166shots_so.png"
               alt="FloWix Dark Theme"
-              width={280}
-              height={560}
-              className="absolute w-[200px] sm:w-[240px] lg:w-[280px] cursor-pointer pointer-events-auto z-10 hover:brightness-110 hover:drop-shadow-[0_20px_40px_rgba(255,95,31,0.3)]"
+              width={210}
+              height={440}
+              className="absolute w-[clamp(130px,18vw,200px)] cursor-pointer pointer-events-auto z-10 hover:brightness-110 hover:drop-shadow-[0_18px_36px_rgба(255,95,31,0.28)]"
               style={{ 
                 height: 'auto',
                 opacity: initialTheme ? undefined : 0,
@@ -446,6 +434,20 @@ export default function Hero() {
               onClick={handlePhoneDarkClick}
               priority
             />
+          </div>
+
+          <div className={`${styles.heroButtons} ${styles.mobileButtons}`}>
+            <Link
+              href="#contact"
+              className="group relative inline-flex items-center justify-center rounded-[40px] text-lg font-semibold text-gray-900 dark:text-white bg-white/50 dark:bg-black/30 backdrop-blur-xl border border-white/35 dark:border-white/20 hover:border-[#FF9D66]/45 shadow-[0_4px_16px_rgba(255,95,31,0.28)] transition-all duration-300 whitespace-nowrap"
+              style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '18px', paddingBottom: '18px', gap: '14px' }}
+            >
+              <span className="relative z-10">Связаться</span>
+              <svg className="relative z-10 group-hover:translate-x-1 transition-transform duration-300" width="24" height="24" viewBox="0 0 20 20" fill="none">
+                <path d="M7.5 15L12.5 10L7.5 5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="absolute inset-0 rounded-[40px] bg-gradient-to-r from-[#FF9D66]/12 via-[#FF9D66]/18 to-[#FF8040]/12 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
+            </Link>
           </div>
         </div>
       </div>

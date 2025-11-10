@@ -202,8 +202,13 @@ export default function FAQ() {
     <section
       ref={sectionRef}
       id="faq"
-      className="relative h-screen w-screen flex-shrink-0 flex items-center snap-start overflow-x-hidden overflow-y-auto"
-      style={{ paddingTop: '96px', paddingBottom: '32px' }}
+      className="relative w-screen flex-shrink-0 flex items-center snap-start overflow-x-hidden overflow-y-auto"
+      style={{
+        minHeight: "calc(100vh - var(--header-height))",
+        paddingTop: "2.5rem",
+        paddingBottom: "2.5rem",
+        scrollMarginTop: "var(--header-height)",
+      }}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
@@ -222,7 +227,7 @@ export default function FAQ() {
         </div>
       </div>
 
-      <div className="container relative z-10 h-full flex flex-col justify-center">
+      <div className="container relative z-10 flex flex-col justify-center w-full">
         <div className={`transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
           <div className="mb-6 flex justify-center">
             <div className="w-full max-w-[680px] text-center">

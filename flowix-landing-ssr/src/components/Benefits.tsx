@@ -88,8 +88,13 @@ export default function Benefits() {
     <section
       ref={sectionRef}
       id="benefits"
-      className="relative h-screen w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
-      style={{ paddingTop: '110px', paddingBottom: '52px' }}
+      className="relative w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
+      style={{
+        minHeight: "calc(100vh - var(--header-height))",
+        paddingTop: "2.5rem",
+        paddingBottom: "2.5rem",
+        scrollMarginTop: "var(--header-height)",
+      }}
     >
       {/* Animated background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -97,7 +102,7 @@ export default function Benefits() {
         <div className="absolute bottom-20 -right-40 w-[600px] h-[600px] bg-gradient-to-tl from-[#FF8040]/15 via-[#FF9D66]/10 to-transparent rounded-full blur-3xl animate-float-delayed"></div>
       </div>
 
-      <div className="container relative z-10 h-full flex flex-col justify-start md:justify-center gap-10 px-5 sm:px-8">
+      <div className="container relative z-10 flex flex-col justify-start md:justify-center gap-10 px-5 sm:px-8 w-full">
         
         {/* Section Header */}
         <div className="mb-8 md:mb-10">

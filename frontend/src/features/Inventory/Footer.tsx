@@ -528,30 +528,6 @@ const Footer: React.FC<FooterProps> = ({
                                     </motion.button>
                                 )}
                                 
-                                {/* --- Кнопка Активных Пользователей --- */}
-                                {(showActiveUsersButton && !isAnalyticsOpen && !isSearchOpen) && (
-                                    <motion.button
-                                        className={`${styles.iconButton} ${styles.activeUsersButton}`}
-                                        onClick={onActiveUsersClick}
-                                        whileHover={{ scale: 1.05, rotate: 5 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        title={isActiveUsersOpen ? 'Закрыть панель активных пользователей' : `Активные пользователи (${activeUsersCount})`}
-                                    >
-                                        <div className={styles.activeUsersIconWrapper}>
-                                            {isActiveUsersOpen ? (
-                                                <CloseIcon className={styles.icon} />
-                                            ) : (
-                                                <PeopleIcon className={styles.icon} />
-                                            )}
-                                            {activeUsersCount > 0 && !isActiveUsersOpen && (
-                                                <span className={styles.activeUsersCount}>
-                                                    {activeUsersCount}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </motion.button>
-                                )}
-                                
                                 {/* --- Кнопка Завершения Инвентаризации --- */}
                                 {(showCompleteButton && !isAnalyticsOpen && !isSearchOpen && !isActiveUsersOpen) && (
                                     <motion.button

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, type ReactNode, type PointerEvent as ReactPointerEvent } from 'react';
 
 interface NavItem {
   id: string;
@@ -55,8 +55,78 @@ const navItems: NavItem[] = [
   { id: 'contact', label: 'Контакты', icon: <ContactIcon /> },
 ];
 
+const BUBBLE_PADDING = 18;
+
 export default function Navigation() {
   const [activeSection, setActiveSection] = useState('hero');
+  const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
+  const [dragState, setDragState] = useState({ isDragging: false, offset: 0, pointerLeft: 0, pointerId: -1 });
+  const [observerLocked, setObserverLocked] = useState(false);
+  const indicatorTargetRef = useRef({ width: 0, left: 0 });
+  const indicatorCurrentRef = useRef({ width: 0, left: 0 });
+  const animationFrameRef = useRef<number | null>(null);
+  const bubbleSheenRef = useRef(0.5);
+  const [bubbleSheen, setBubbleSheen] = useState(0.5);
+
+  const stopAnimation = () => {
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  };
+
+  const animateBubble = () => {
+    const current = indicatorCurrentRef.current;
+    const target = indicatorTargetRef.current;
+    const easing = 0.22;
+
+    const nextWidth = current.width + (target.width - current.width) * easing;
+    const nextLeft = current.left + (target.left - current.left) * easing;
+
+    indicatorCurrentRef.current = { width: nextWidth, left: nextLeft };
+    setIndicatorStyle({ width: nextWidth, left: nextLeft });
+
+    const widthDiff = Math.abs(target.width - nextWidth);
+    const leftDiff = Math.abs(target.left - nextLeft);
+
+    if (widthDiff < 0.1 && leftDiff < 0.1) {
+      indicatorCurrentRef.current = { ...target };
+      setIndicatorStyle(target);
+      stopAnimation();
+      return;
+    }
+
+    animationFrameRef.current = requestAnimationFrame(animateBubble);
+  };
+
+  const updateBubbleTarget = (left: number, width: number, immediate = false) => {
+    const target = {
+      width: Math.max(width, 0),
+      left: Math.max(left, 0),
+    };
+    indicatorTargetRef.current = target;
+
+    if (immediate) {
+      indicatorCurrentRef.current = target;
+      setIndicatorStyle(target);
+      stopAnimation();
+      return;
+    }
+
+    if (animationFrameRef.current === null) {
+      animationFrameRef.current = requestAnimationFrame(animateBubble);
+    }
+  };
+
+  const updateBubbleSheen = (value: number, immediate = false) => {
+    const clamped = Math.min(1, Math.max(0, value));
+    bubbleSheenRef.current = clamped;
+    if (immediate) {
+      setBubbleSheen(clamped);
+      return;
+    }
+    setBubbleSheen((prev) => (Math.abs(prev - clamped) > 0.02 ? clamped : prev));
+  };
 
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId);
@@ -67,13 +137,9 @@ export default function Navigation() {
 
   const navTrackRef = useRef<HTMLDivElement>(null);
   const buttonRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
 
   // Detect which section is currently visible с помощью IntersectionObserver
   useEffect(() => {
-    const main = document.querySelector('main');
-    if (!main) return;
-
     const sections = navItems
       .map((item) => document.getElementById(item.id))
       .filter((section): section is HTMLElement => Boolean(section));
@@ -86,23 +152,31 @@ export default function Navigation() {
           .filter((entry) => entry.isIntersecting)
           .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
 
+        if (observerLocked) {
+          return;
+        }
+
         if (visible[0]) {
           setActiveSection(visible[0].target.id);
         }
       },
       {
-        root: main,
-        threshold: [0.4, 0.6, 0.75],
+        root: null,
+        threshold: [0.2, 0.4, 0.6],
+        rootMargin: '0px',
       }
     );
 
     sections.forEach((section) => observer.observe(section));
 
     return () => observer.disconnect();
-  }, []);
+  }, [observerLocked]);
+
+  useEffect(() => () => stopAnimation(), []);
 
   // Обновляем позицию стеклянного индикатора
   useEffect(() => {
+    if (dragState.isDragging) return;
     const track = navTrackRef.current;
     const activeIndex = navItems.findIndex((item) => item.id === activeSection);
     const activeButton = buttonRefs.current[activeIndex];
@@ -112,18 +186,218 @@ export default function Navigation() {
     const updateIndicator = () => {
       const trackRect = track.getBoundingClientRect();
       const buttonRect = activeButton.getBoundingClientRect();
+      let width = buttonRect.width + BUBBLE_PADDING;
+      let left = buttonRect.left - trackRect.left - BUBBLE_PADDING / 2;
+      left = Math.max(0, Math.min(left, trackRect.width - width));
 
-      setIndicatorStyle({
-        width: buttonRect.width,
-        left: buttonRect.left - trackRect.left,
-      });
+      updateBubbleTarget(left, width, !indicatorCurrentRef.current.width);
+      if (!dragState.isDragging) {
+        setDragState((prev) => {
+          if (Math.abs(prev.pointerLeft - left) < 0.2) {
+            return prev;
+          }
+          return { ...prev, pointerLeft: left };
+        });
+      }
     };
 
     updateIndicator();
     window.addEventListener('resize', updateIndicator);
 
     return () => window.removeEventListener('resize', updateIndicator);
-  }, [activeSection]);
+  }, [activeSection, dragState.isDragging]);
+
+  useEffect(() => {
+    if (!dragState.isDragging) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const track = navTrackRef.current;
+      if (!track) return;
+      const trackRect = track.getBoundingClientRect();
+      let newLeft = event.clientX - trackRect.left - dragState.offset;
+      newLeft = Math.max(0, newLeft);
+      const pointerX = event.clientX - trackRect.left;
+
+      const metrics = buttonRefs.current
+        .map((button) => {
+          if (!button) return null;
+          const rect = button.getBoundingClientRect();
+          const width = rect.width + BUBBLE_PADDING;
+          const center = rect.left + rect.width / 2 - trackRect.left;
+          return { width, center };
+        })
+        .filter((item): item is { width: number; center: number } => Boolean(item));
+
+      let targetWidth = indicatorTargetRef.current.width || indicatorCurrentRef.current.width || indicatorStyle.width;
+      if (metrics.length) {
+        let nearest = metrics[0];
+        let minDist = Math.abs(pointerX - metrics[0].center);
+        for (let i = 1; i < metrics.length; i++) {
+          const dist = Math.abs(pointerX - metrics[i].center);
+          if (dist < minDist) {
+            minDist = dist;
+            nearest = metrics[i];
+          }
+        }
+        targetWidth = nearest.width;
+      }
+
+      const maxLeftForWidth = Math.max(trackRect.width - targetWidth, 0);
+      const clampedLeft = Math.max(0, Math.min(newLeft, maxLeftForWidth));
+
+      updateBubbleTarget(clampedLeft, targetWidth);
+      const relativeSheen = targetWidth > 0 ? (pointerX - clampedLeft) / targetWidth : 0.5;
+      updateBubbleSheen(relativeSheen);
+
+      const bubbleCenterWithinTrack = clampedLeft + targetWidth / 2;
+      const trackWidth = Math.max(trackRect.width, 1);
+      const progress = Math.min(1, Math.max(0, bubbleCenterWithinTrack / trackWidth));
+
+      const main = document.querySelector('main');
+      if (main) {
+        const maxScroll = Math.max(main.scrollWidth - main.clientWidth, 0);
+        const targetScrollLeft = progress * maxScroll;
+        if (!Number.isNaN(targetScrollLeft)) {
+          main.scrollLeft = targetScrollLeft;
+        }
+      }
+
+      const interpolatedIndex = progress * (navItems.length - 1);
+      const nearestIndex = Math.round(interpolatedIndex);
+      const nextSectionId = navItems[Math.min(Math.max(nearestIndex, 0), navItems.length - 1)].id;
+      if (nextSectionId !== activeSection) {
+        setActiveSection(nextSectionId);
+      }
+
+      setDragState((prev) => {
+        if (Math.abs(prev.pointerLeft - clampedLeft) < 0.2) {
+          return prev;
+        }
+        return { ...prev, pointerLeft: clampedLeft };
+      });
+    };
+
+    const handlePointerUp = (event: PointerEvent) => {
+      try {
+        navTrackRef.current?.releasePointerCapture(event.pointerId);
+      } catch (error) {
+        /* ignore */
+      }
+
+      const track = navTrackRef.current;
+      if (!track) {
+        setDragState((prev) => ({ ...prev, isDragging: false, pointerId: -1 }));
+        return;
+      }
+
+      const trackRect = track.getBoundingClientRect();
+      const currentWidth = indicatorTargetRef.current.width || indicatorCurrentRef.current.width || indicatorStyle.width;
+      const bubbleCenter = trackRect.left + dragState.pointerLeft + currentWidth / 2;
+
+      let nearestIndex = 0;
+      let minDistance = Infinity;
+
+      buttonRefs.current.forEach((button, index) => {
+        if (!button) return;
+        const rect = button.getBoundingClientRect();
+        const center = rect.left + rect.width / 2;
+        const distance = Math.abs(center - bubbleCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestIndex = index;
+        }
+      });
+
+      const targetButton = buttonRefs.current[nearestIndex];
+      if (targetButton) {
+        const buttonRect = targetButton.getBoundingClientRect();
+        const width = buttonRect.width + BUBBLE_PADDING;
+        const maxLeftForWidth = Math.max(trackRect.width - width, 0);
+        const left = Math.max(0, Math.min(buttonRect.left - trackRect.left - BUBBLE_PADDING / 2, maxLeftForWidth));
+        updateBubbleTarget(left, width);
+        setDragState((prev) => {
+          if (Math.abs(prev.pointerLeft - left) < 0.2) {
+            return prev;
+          }
+          return { ...prev, pointerLeft: left };
+        });
+      }
+
+      const targetSection = navItems[nearestIndex].id;
+      setDragState((prev) => ({ ...prev, isDragging: false, pointerId: -1 }));
+      setActiveSection(targetSection);
+
+      requestAnimationFrame(() => {
+        scrollToSection(targetSection);
+      });
+
+      setTimeout(() => {
+        setObserverLocked(false);
+      }, 450);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [dragState.isDragging, dragState.offset, dragState.pointerLeft, indicatorStyle.width, activeSection]);
+
+  const beginDrag = (clientX: number, pointerId: number) => {
+    const track = navTrackRef.current;
+    if (!track) return;
+
+    const trackRect = track.getBoundingClientRect();
+    const currentLeft = indicatorCurrentRef.current.left;
+    const offset = clientX - (trackRect.left + currentLeft);
+
+    setObserverLocked(true);
+    setDragState({ isDragging: true, offset, pointerLeft: currentLeft, pointerId });
+    track.setPointerCapture(pointerId);
+  };
+
+  const handleTrackPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const track = navTrackRef.current;
+    if (!track) return;
+
+    const trackRect = track.getBoundingClientRect();
+    const localX = event.clientX - trackRect.left;
+    const localY = event.clientY - trackRect.top;
+
+    const indicatorHeight = Math.max(trackRect.height - 12, 0);
+    const verticalPadding = (trackRect.height - indicatorHeight) / 2;
+    const indicatorTop = verticalPadding;
+    const indicatorBottom = indicatorTop + indicatorHeight;
+    const indicatorLeft = indicatorCurrentRef.current.left;
+    const indicatorRight = indicatorLeft + (indicatorCurrentRef.current.width || indicatorStyle.width);
+
+    const isWithinIndicator =
+      localX >= indicatorLeft &&
+      localX <= indicatorRight &&
+      localY >= indicatorTop &&
+      localY <= indicatorBottom;
+
+    if (!isWithinIndicator) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    beginDrag(event.clientX, event.pointerId);
+  };
+
+  const handleIndicatorPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    beginDrag(event.clientX, event.pointerId);
+  };
+
+  const handleButtonPointerDown = (event: ReactPointerEvent<HTMLButtonElement>, isActive: boolean) => {
+    if (!isActive) return;
+    event.preventDefault();
+    beginDrag(event.clientX, event.pointerId);
+  };
 
   return (
     <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-50 hidden lg:block">
@@ -135,17 +409,23 @@ export default function Navigation() {
         {/* Navigation Container */}
         <div 
           ref={navTrackRef}
-          className="relative flex items-center gap-3 rounded-full bg-white/35 dark:bg-black/30 backdrop-blur-2xl border border-white/35 dark:border-white/20 shadow-[0_24px_60px_rgba(15,23,42,0.18)]"
+          onPointerDown={handleTrackPointerDown}
+          className="relative flex items-center gap-3 rounded-full bg-white/35 dark:bg-black/30 backdrop-blur-2xl border border-white/35 dark:border-white/20 shadow-[0_24px_60px_rgба(15,23,42,0.18)]"
           style={{ paddingLeft: '8px', paddingRight: '8px', paddingTop: '8px', paddingBottom: '8px' }}
         >
           <div
-            className="pointer-events-none absolute top-1 bottom-1 rounded-full border border-white/55 dark:border-white/25 bg-white/65 dark:bg-white/15 backdrop-blur-2xl shadow-[0_16px_40px_rgba(255,95,31,0.28)] transition-[transform,width] duration-400 ease-[cubic-bezier(0.22,1,0.36,1)]"
+            onPointerDown={handleIndicatorPointerDown}
+            className={`absolute top-1/2 -translate-y-1/2 h-[calc(100%-12px)] rounded-full transition-[transform,width] duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${dragState.isDragging ? 'shadow-[0_18px_48px_rgба(255,95,31,0.35)] scale-[1.02] cursor-grabbing' : 'shadow-[0_16px_40px_rgба(255,95,31,0.28)] cursor-grab'} pointer-events-auto`}
             style={{
               width: indicatorStyle.width ? `${indicatorStyle.width}px` : 0,
               transform: `translateX(${indicatorStyle.left}px)`,
               opacity: indicatorStyle.width ? 1 : 0,
             }}
-          ></div>
+          >
+            <span className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-white/85 via-white/70 to-white/55 dark:from-white/15 dark:via-white/10 dark:to-white/5 backdrop-blur-3xl"></span>
+            <span className="pointer-events-none absolute inset-[2px] rounded-full border border-white/70 dark:border-white/20 opacity-80"></span>
+            <span className="pointer-events-none absolute inset-[6px] rounded-full bg-gradient-to-br from-white/40 via-transparent to-white/25 dark:from-white/10 dark:via-transparent dark:to-white/5 opacity-70"></span>
+          </div>
           {navItems.map((item, index) => {
             const isActive = activeSection === item.id;
             
@@ -153,12 +433,14 @@ export default function Navigation() {
               <button
                 key={item.id}
                 onClick={() => scrollToSection(item.id)}
+                onPointerDown={(event) => handleButtonPointerDown(event, isActive)}
                 ref={(el) => {
                   buttonRefs.current[index] = el;
                 }}
                 className={`
                   group relative overflow-hidden rounded-full font-semibold text-sm tracking-wide
                   transition-colors duration-200
+                  ${isActive ? (dragState.isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-pointer'}
                   ${isActive 
                     ? 'text-gray-900 dark:text-white'
                     : 'text-gray-700 dark:text-gray-300'
@@ -177,41 +459,6 @@ export default function Navigation() {
             );
           })}
         </div>
-      </div>
-      
-      {/* Navigation Arrows */}
-      <div className="absolute -left-16 top-1/2 -translate-y-1/2">
-        <button
-          onClick={() => {
-            const currentIndex = navItems.findIndex(item => item.id === activeSection);
-            if (currentIndex > 0) {
-              scrollToSection(navItems[currentIndex - 1].id);
-            }
-          }}
-          disabled={activeSection === navItems[0].id}
-          className="group w-12 h-12 rounded-full bg-white/40 dark:bg-black/30 backdrop-blur-xl border border-white/40 dark:border-white/20 flex items-center justify-center hover:scale-110 hover:-translate-x-1 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-[#FF9D66]/30"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 dark:text-gray-300 group-hover:text-[#FF9D66] transition-colors">
-            <path d="M15 18L9 12L15 6"/>
-          </svg>
-        </button>
-      </div>
-      
-      <div className="absolute -right-16 top-1/2 -translate-y-1/2">
-        <button
-          onClick={() => {
-            const currentIndex = navItems.findIndex(item => item.id === activeSection);
-            if (currentIndex < navItems.length - 1) {
-              scrollToSection(navItems[currentIndex + 1].id);
-            }
-          }}
-          disabled={activeSection === navItems[navItems.length - 1].id}
-          className="group w-12 h-12 rounded-full bg-white/40 dark:bg-black/30 backdrop-blur-xl border border-white/40 dark:border-white/20 flex items-center justify-center hover:scale-110 hover:translate-x-1 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl hover:shadow-[#FF9D66]/30"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700 dark:text-gray-300 group-hover:text-[#FF9D66] transition-colors">
-            <path d="M9 18L15 12L9 6"/>
-          </svg>
-        </button>
       </div>
     </nav>
   );

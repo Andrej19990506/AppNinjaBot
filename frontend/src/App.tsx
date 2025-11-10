@@ -42,6 +42,7 @@ import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './sha
 
 
 const MIN_LOADING_TIME = 1500; 
+const WINTER_DECOR_STORAGE_KEY = 'flowix-winter-decor-enabled';
 
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
@@ -348,6 +349,30 @@ const AutoRedirectByRole = () => {
 
 function App() {
   const [triggerSnowflakes, setTriggerSnowflakes] = React.useState(false);
+  const [isWinterDecorEnabled, setIsWinterDecorEnabled] = React.useState<boolean>(() => {
+    const stored = localStorage.getItem(WINTER_DECOR_STORAGE_KEY);
+    return stored !== null ? stored === 'true' : true;
+  });
+
+  React.useEffect(() => {
+    const handleToggle = (event: CustomEvent<{ enabled: boolean }>) => {
+      const enabled = event.detail.enabled;
+      setIsWinterDecorEnabled(enabled);
+      localStorage.setItem(WINTER_DECOR_STORAGE_KEY, String(enabled));
+      window.dispatchEvent(new CustomEvent('winterDecorStateChanged', { detail: { enabled } }));
+    };
+
+    const listener = handleToggle as EventListener;
+    window.addEventListener('winterDecorToggle', listener);
+
+    return () => {
+      window.removeEventListener('winterDecorToggle', listener);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    window.dispatchEvent(new CustomEvent('winterDecorStateChanged', { detail: { enabled: isWinterDecorEnabled } }));
+  }, [isWinterDecorEnabled]);
 
   // Инициализируем глобальные обработчики ошибок
   React.useEffect(() => {
@@ -361,6 +386,7 @@ function App() {
 
   // Обработчик клика на елочку
   const handleChristmasTreeClick = () => {
+    if (!isWinterDecorEnabled) return;
     console.log('🎄 Клик на елочку! Запускаем снежинки вручную');
     setTriggerSnowflakes(prev => !prev); // Переключаем триггер для запуска
   };
@@ -376,37 +402,39 @@ function App() {
               <TooltipContainer />
               
               {/* Глобальный снег на видимых элементах приложения */}
-              <SnowOnElements 
-                selectors={[
-                  // Основные интерактивные элементы
-                  'button:not([aria-hidden="true"])',
-                  
-                  // Material-UI компоненты
-                  '.MuiButton-root',
-                  '.MuiCard-root',
-                  '.MuiPaper-root',
-                  '.MuiChip-root',
-                  
-                  // Формы
-                  'input[type="text"]:not([style*="display: none"])',
-                  'input[type="number"]:not([style*="display: none"])',
-                  'select:not([style*="display: none"])',
-                  
-                  // Карточки и контейнеры (более специфичные селекторы)
-                  '[class*="Card"]:not([style*="display: none"])',
-                  '[class*="Panel"]:not([style*="display: none"])',
-                  '[class*="Item"]:not([style*="display: none"])',
-                  '[class*="Cell"]:not([style*="display: none"])'
-                ]}
-                probability={0.35}
-                enabled={true}
-              />
+              {isWinterDecorEnabled && (
+                <SnowOnElements 
+                  selectors={[
+                    // Основные интерактивные элементы
+                    'button:not([aria-hidden="true"])',
+                    
+                    // Material-UI компоненты
+                    '.MuiButton-root',
+                    '.MuiCard-root',
+                    '.MuiPaper-root',
+                    '.MuiChip-root',
+                    
+                    // Формы
+                    'input[type="text"]:not([style*="display: none"])',
+                    'input[type="number"]:not([style*="display: none"])',
+                    'select:not([style*="display: none"])',
+                    
+                    // Карточки и контейнеры (более специфичные селекторы)
+                    '[class*="Card"]:not([style*="display: none"])',
+                    '[class*="Panel"]:not([style*="display: none"])',
+                    '[class*="Item"]:not([style*="display: none"])',
+                    '[class*="Cell"]:not([style*="display: none"])'
+                  ]}
+                  probability={0.35}
+                  enabled={isWinterDecorEnabled}
+                />
+              )}
 
               {/* Глобальная елочка */}
-              <ChristmasTree onClick={handleChristmasTreeClick} />
+              {isWinterDecorEnabled && <ChristmasTree onClick={handleChristmasTreeClick} />}
 
               {/* Падающие снежинки (автоматически + при клике на елочку) */}
-              <AutumnLeaves triggerStart={triggerSnowflakes} />
+              {isWinterDecorEnabled && <AutumnLeaves triggerStart={triggerSnowflakes} />}
 
                 <Routes>
                   <Route path="/courier" element={

@@ -27,6 +27,12 @@ const Header: React.FC<HeaderProps> = ({
     isEditing = false,
     isItemView = false
 }) => {
+    const shouldRender = isEditing || isItemView;
+
+    if (!shouldRender) {
+        return null;
+    }
+
     const [animatedProgress, setAnimatedProgress] = useState(progress);
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [showExpandButton, setShowExpandButton] = useState(false);
@@ -141,66 +147,67 @@ const Header: React.FC<HeaderProps> = ({
     return (
         <>
             {/* Основной хедер */}
-            <div 
-                className={`${styles.header} ${isEditing ? styles.hidden : (isCollapsed ? styles.collapsed : '')}`}
-            >
-                {/* Кнопка сворачивания хедера (скрыта в режиме редактирования и в ItemEdit) */}
-                {!isCollapsed && !isEditing && !isItemView && (
-                    <button
-                        className={styles.collapseButton}
-                        onClick={handleCollapse}
-                        title="Свернуть хедер"
-                    >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                            <path d="M19 13H5V11H19V13Z" fill="currentColor"/>
-                        </svg>
-                    </button>
-                )}
-
-                {/* Верхняя секция с заголовком и статусом */}
-                <div className={styles.headerTop}>
-                    <div className={styles.titleSection}>
-                        <h2 
-                            className={styles.headerTitle}
-                            data-text={getDisplayTitle()}
+            {shouldRender && (
+                <div 
+                    className={`${styles.header} ${isEditing ? styles.hidden : (isCollapsed ? styles.collapsed : '')}`}
+                >
+                    {/* Кнопка сворачивания хедера (скрыта в режиме редактирования и в ItemEdit) */}
+                    {!isCollapsed && !isEditing && !isItemView && (
+                        <button
+                            className={styles.collapseButton}
+                            onClick={handleCollapse}
+                            title="Свернуть хедер"
                         >
-                            {getDisplayTitle()}
-                        </h2>
-                    </div>
-                </div>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M19 13H5V11H19V13Z" fill="currentColor"/>
+                            </svg>
+                        </button>
+                    )}
 
-
-
-                {/* Секция с прогрессом и таймером */}
-                <div className={styles.progressSection}>
-                    {/* Прогресс бар */}
-                    <div className={styles.progress}>
-                        <div 
-                            className={styles.progressBar}
-                            style={{
-                                width: `${progress}%`,
-                                backgroundColor: getProgressColor()
-                            }}
-                        />
-                        
-                        {/* Анимированные элементы прогресса */}
-                        <div className={styles.progressOverlay}>
-                            <div className={styles.progressShine} />
-                        </div>
-
-                        {/* Текст прогресса */}
-                        <div className={styles.progressTextContainer}>
-                            <span className={styles.progressText}>
-                                {animatedProgress}%
-                            </span>
+                    {/* Верхняя секция с заголовком и статусом */}
+                    <div className={styles.headerTop}>
+                        <div className={styles.titleSection}>
+                            <h2 
+                                className={styles.headerTitle}
+                                data-text={getDisplayTitle()}
+                            >
+                                {getDisplayTitle()}
+                            </h2>
                         </div>
                     </div>
 
+
+
+                    {/* Секция с прогрессом и таймером */}
+                    <div className={styles.progressSection}>
+                        {/* Прогресс бар */}
+                        <div className={styles.progress}>
+                            <div 
+                                className={styles.progressBar}
+                                style={{
+                                    width: `${progress}%`,
+                                    backgroundColor: getProgressColor()
+                                }}
+                            />
+                            
+                            {/* Анимированные элементы прогресса */}
+                            <div className={styles.progressOverlay}>
+                                <div className={styles.progressShine} />
+                            </div>
+
+                            {/* Текст прогресса */}
+                            <div className={styles.progressTextContainer}>
+                                <span className={styles.progressText}>
+                                    {animatedProgress}%
+                                </span>
+                            </div>
+                        </div>
+
+                    </div>
+                    
+
                 </div>
-                
-
-            </div>
-
+            )}
 
 
             {/* Элементы слева от экрана для свернутого состояния */}

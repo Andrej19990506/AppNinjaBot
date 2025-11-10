@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ScrollProgress from "@/components/ScrollProgress";
-import Navigation from "@/components/Navigation";
 
 const inter = Inter({
   subsets: ["latin", "cyrillic"],
@@ -77,7 +76,6 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
         <ThemeProvider>
-          <Navigation />
           <ScrollProgress />
           {children}
         </ThemeProvider>

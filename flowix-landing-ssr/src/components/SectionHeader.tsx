@@ -74,12 +74,17 @@ export default function SectionHeader({
     );
   };
 
+  const maxWidth = align === 'center'
+    ? 'min(960px, 90vw)'
+    : 'min(520px, 85vw)';
+
   return (
     <div 
       ref={headerRef}
-      className={`${alignmentClasses[align]} mb-16 lg:mb-24 transition-all duration-1000 ${
+      className={`${alignmentClasses[align]} mb-10 sm:mb-12 lg:mb-14 transition-all duration-1000 ${
         animated && isVisible ? 'opacity-100 translate-y-0' : animated ? 'opacity-0 translate-y-8' : ''
       }`}
+      style={{ maxWidth, marginInline: align === 'center' ? 'auto' : undefined }}
     >
       {/* Badge */}
       {badge && (
@@ -103,7 +108,7 @@ export default function SectionHeader({
 
       {/* Title */}
       <h2 
-        className={`text-5xl sm:text-6xl lg:text-7xl font-black mb-6 leading-[1.1] tracking-tight text-gray-900 dark:text-white transition-all duration-800 ${
+        className={`text-4xl sm:text-5xl lg:text-[clamp(2.5rem,4vw,3.5rem)] font-black mb-5 leading-[1.12] tracking-tight text-gray-900 dark:text-white transition-all duration-800 ${
           animated && isVisible ? 'opacity-100 translate-y-0' : animated ? 'opacity-0 translate-y-6' : ''
         }`}
         style={animated ? { transitionDelay: '150ms' } : {}}
@@ -114,7 +119,7 @@ export default function SectionHeader({
       {/* Description */}
       {description && (
         <p 
-          className={`text-xl sm:text-2xl lg:text-[26px] leading-relaxed max-w-3xl text-gray-700 dark:text-gray-300 ${align === 'center' ? 'mx-auto text-center' : ''} transition-all duration-800 ${
+          className={`text-lg sm:text-xl lg:text-[clamp(1.1rem,2.2vw,1.45rem)] leading-relaxed max-w-3xl text-gray-700 dark:text-gray-300 ${align === 'center' ? 'mx-auto text-center' : ''} transition-all duration-800 ${
             animated && isVisible ? 'opacity-100 translate-y-0' : animated ? 'opacity-0 translate-y-6' : ''
           }`}
           style={animated ? { transitionDelay: '300ms' } : {}}

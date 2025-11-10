@@ -144,8 +144,13 @@ const Contact = () => {
   return (
     <section
       id="contact"
-      className="relative h-screen w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
-      style={{ paddingTop: '110px', paddingBottom: '52px' }}
+      className="relative w-screen flex-shrink-0 flex items-start md:items-center snap-start overflow-x-hidden overflow-y-auto"
+      style={{
+        minHeight: "calc(100vh - var(--header-height))",
+        paddingTop: "2.5rem",
+        paddingBottom: "2.5rem",
+        scrollMarginTop: "var(--header-height)",
+      }}
     >
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
@@ -189,12 +194,11 @@ const Contact = () => {
                     href={method.href}
                     target={method.href.startsWith('http') ? '_blank' : undefined}
                     rel={method.href.startsWith('http') ? 'noopener noreferrer' : undefined}
-                    className={`group relative flex items-center justify-between rounded-[28px] border transition-all duration-300 backdrop-blur-xl ${
+                    className={`group relative flex items-center justify-between rounded-[28px] border px-8 py-7 transition-all duration-300 backdrop-blur-xl ${
                       method.highlight
                         ? 'bg-white/22 dark:bg-black/35 border-white/35 dark:border-white/12 shadow-[0_24px_60px_rgba(255,128,64,0.25)] hover:shadow-[0_28px_70px_rgba(255,128,64,0.3)]'
                         : 'bg-white/22 dark:bg-black/32 border-white/28 dark:border-white/12 hover:bg-white/28 hover:dark:bg-black/40 hover:shadow-lg hover:shadow-black/15'
                     }`}
-                    style={{ padding: '28px 34px' }}
                   >
                     <div className="flex items-center gap-4">
                       <span
@@ -229,8 +233,7 @@ const Contact = () => {
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
-                className="relative rounded-[32px] bg-white/22 dark:bg-black/35 backdrop-blur-2xl border border-white/35 dark:border-white/12 shadow-[0_24px_60px_rgba(255,128,64,0.25)]"
-                style={{ padding: '40px 38px 44px' }}
+                className="relative rounded-[32px] bg-white/22 dark:bg-black/35 backdrop-blur-2xl border border-white/35 dark:border-white/12 shadow-[0_24px_60px_rgba(255,128,64,0.25)] px-8 sm:px-10 py-10"
               >
                 <div className="space-y-7">
                   <div className="space-y-3">

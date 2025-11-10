@@ -3,16 +3,10 @@ import styles from './ItemList.module.css';
 import { InventoryItem } from '@/types/inventoryTypes';
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { removeInventoryItem } from '@/store/slices/inventorySlice';
-import { requestAddItemThroughBot } from './services/inventoryApi';
-import { addNotification } from '@shared/store/notificationSlice/notificationSlice';
-import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
-import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
 import { socketService } from '@shared/services/socketService';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import CircularProgress from '@mui/material/CircularProgress';
-import AddIcon from '@mui/icons-material/Add';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 
 // Интерфейс для результатов поиска
 interface SearchResult {
@@ -51,10 +45,6 @@ const ItemList: React.FC<ItemListProps> = ({
     const { selectedChat } = useAppSelector(state => state.inventory);
     const dispatch = useAppDispatch();
     const [deleteItem, setDeleteItem] = useState<{ id: string; name: string } | null>(null);
-    const [showAddForm, setShowAddForm] = useState(false);
-    const [newItemName, setNewItemName] = useState('');
-    const [newItemHasSemifinshed, setNewItemHasSemifinshed] = useState(false);
-    const inputRef = useRef<HTMLInputElement>(null);
     // Для отслеживания долгого нажатия
     const longPressRef = useRef<{
         timerId: NodeJS.Timeout | null; 
@@ -349,82 +339,6 @@ const ItemList: React.FC<ItemListProps> = ({
         };
     }, []);
     
-    // Показать форму добавления товара
-    const handleShowAddForm = () => {
-        setShowAddForm(true);
-        setNewItemName('');
-        setNewItemHasSemifinshed(false);
-        // Фокус на инпуте после отображения формы
-        setTimeout(() => {
-            inputRef.current?.focus();
-        }, 10);
-    };
-    
-    // Скрыть форму добавления товара
-    const handleCancelAdd = () => {
-        setShowAddForm(false);
-    };
-    
-    // Обработка ввода имени нового товара
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setNewItemName(e.target.value);
-    };
-    
-    // Handler for checkbox change
-    const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        setNewItemHasSemifinshed(event.target.checked);
-    };
-    
-    // Обработка нажатия Enter в поле ввода
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && newItemName.trim()) {
-            handleAddItem();
-        } else if (e.key === 'Escape') {
-            handleCancelAdd();
-        }
-    };
-    
-    // Функция для отправки запроса на добавление товара через бота
-    const handleAddItem = async () => {
-        if (newItemName.trim()) {
-            try {
-                // Отправляем запрос через бота в группу инвентаризации
-                await requestAddItemThroughBot(
-                    chatId,
-                    category,
-                    newItemName.trim(),
-                    newItemHasSemifinshed
-                );
-                
-                // Показываем уведомление об успешной отправке запроса
-                dispatch(addNotification({
-                    id: `item-request-${Date.now()}`,
-                    title: '📤 Запрос отправлен',
-                    message: `Запрос на добавление товара "${newItemName.trim()}" отправлен администраторам в группу инвентаризации.`,
-                    type: NotificationTypes.SUCCESS,
-                    duration: 5000
-                }));
-                
-                // Очищаем форму
-                setShowAddForm(false);
-                setNewItemName('');
-                setNewItemHasSemifinshed(false);
-                
-            } catch (error) {
-                console.error('Ошибка при отправке запроса:', error);
-                
-                // Показываем уведомление об ошибке
-                dispatch(addNotification({
-                    id: `item-request-error-${Date.now()}`,
-                    title: '❌ Ошибка отправки запроса',
-                    message: `Не удалось отправить запрос: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`,
-                    type: NotificationTypes.ERROR,
-                    duration: 8000
-                }));
-            }
-        }
-    };
-    
     // Функция для обработки удаления товара
     const handleDelete = async (itemId: string) => {
         if (!selectedChat) return;
@@ -601,52 +515,6 @@ const ItemList: React.FC<ItemListProps> = ({
                         })}
                     </AnimatePresence>
                 </motion.div>
-            )}
-            
-            {/* Кнопка/форма добавления товара (перемещена вниз) */}
-            {showAddForm ? (
-                <div className={styles.addItemForm}>
-                    <input
-                        ref={inputRef}
-                        type="text"
-                        className={styles.addItemInput}
-                        placeholder="Введите название товара для запроса..."
-                        value={newItemName}
-                        onChange={handleInputChange}
-                        onKeyDown={handleKeyDown}
-                    />
-                    <FormControlLabel 
-                        control={
-                            <Checkbox 
-                                checked={newItemHasSemifinshed}
-                                onChange={handleCheckboxChange}
-                                size="small"
-                            />
-                        }
-                        label="Есть полуфабрикат?"
-                        className={styles.addItemCheckboxLabel}
-                    />
-                    <div className={styles.addItemButtons}>
-                        <button 
-                            className={styles.okButton} 
-                            onClick={handleAddItem}
-                            disabled={!newItemName.trim()}
-                        >
-                            📤 Отправить запрос
-                        </button>
-                        <button 
-                            className={styles.cancelButton} 
-                            onClick={handleCancelAdd}
-                        >
-                            Отмена
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <button onClick={handleShowAddForm} className={styles.addItemButton}>
-                    <AddIcon style={{ marginRight: '8px' }} />
-                    📋 Запросить добавление товара
-                </button>
             )}
             
             <DeleteConfirmationModal

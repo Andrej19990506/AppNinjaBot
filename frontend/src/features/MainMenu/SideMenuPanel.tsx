@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { useNavigate } from 'react-router-dom';
+import styled from 'styled-components';
 import CloseIcon from '@mui/icons-material/Close';
 import SchoolIcon from '@mui/icons-material/School';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
-import EventIcon from '@mui/icons-material/Event';
+import AcUnitIcon from '@mui/icons-material/AcUnit';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAppSelector } from '@/shared/store/hooks';
 import { RootState } from '@/shared/store/store';
@@ -218,9 +217,12 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
     isOpen, 
     onClose
 }) => {
-    const navigate = useNavigate();
     const [hasMounted, setHasMounted] = useState(false);
     const [internalOpen, setInternalOpen] = useState(false);
+    const [isWinterAnimationEnabled, setIsWinterAnimationEnabled] = useState<boolean>(() => {
+        const stored = localStorage.getItem('flowix-winter-decor-enabled');
+        return stored !== null ? stored === 'true' : true;
+    });
     const { theme, toggleTheme } = useTheme();
     const { user } = useAppSelector((state: RootState) => state.user);
 
@@ -251,18 +253,6 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
         }, 200);
     };
 
-    const handleCompetitionsClick = () => {
-        // Запускаем анимацию закрытия панели
-        setInternalOpen(false);
-        
-        // Ждем завершения анимации
-        setTimeout(() => {
-            onClose();
-            // Переходим на страницу конкурсов
-            navigate('/competitions');
-        }, 200);
-    };
-
     const handleCloseClick = () => {
         // Запускаем анимацию закрытия панели
         setInternalOpen(false);
@@ -275,6 +265,27 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
     const handleThemeToggle = () => {
         toggleTheme();
     };
+
+    const handleWinterToggle = () => {
+        const next = !isWinterAnimationEnabled;
+        setIsWinterAnimationEnabled(next);
+        localStorage.setItem('flowix-winter-decor-enabled', String(next));
+        window.dispatchEvent(new CustomEvent('winterDecorToggle', { detail: { enabled: next } }));
+    };
+
+    useEffect(() => {
+        const syncHandler = (event: CustomEvent<{ enabled: boolean }>) => {
+            setIsWinterAnimationEnabled(event.detail.enabled);
+            localStorage.setItem('flowix-winter-decor-enabled', String(event.detail.enabled));
+        };
+
+        const listener = syncHandler as EventListener;
+        window.addEventListener('winterDecorStateChanged', listener);
+
+        return () => {
+            window.removeEventListener('winterDecorStateChanged', listener);
+        };
+    }, []);
 
     if (!hasMounted && !isOpen) {
         return null;
@@ -312,10 +323,16 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
                     <OptionLabel>Обучающие материалы</OptionLabel>
                     <OptionIcon><SchoolIcon fontSize="inherit" /></OptionIcon>
                 </MenuOption>
-                <MenuOption onClick={handleCompetitionsClick}>
+                <MenuOption onClick={handleWinterToggle}>
+                    <OptionLabel>
+                        {isWinterAnimationEnabled ? 'Выключить зимнюю анимацию' : 'Включить зимнюю анимацию'}
+                    </OptionLabel>
+                    <OptionIcon><AcUnitIcon fontSize="inherit" /></OptionIcon>
+                </MenuOption>
+                {/* <MenuOption onClick={handleCompetitionsClick}>
                     <OptionLabel>Конкурсы</OptionLabel>
                     <OptionIcon><EventIcon fontSize="inherit" /></OptionIcon>
-                </MenuOption>
+                </MenuOption> */}
             </PanelContent>
 
             <PanelFooter>

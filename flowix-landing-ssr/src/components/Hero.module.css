@@ -1,0 +1,85 @@
+.heroSection {
+  position: relative;
+  background: transparent;
+}
+
+.heroContent {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: clamp(32px, 5vw, 56px);
+  align-items: center;
+  min-height: clamp(320px, 58vh, 580px);
+  padding-top: clamp(40px, 9vh, 72px);
+}
+
+.heroText h1 {
+  font-size: clamp(36px, 4vw, 54px);
+  font-weight: 900;
+  line-height: 1.18;
+  margin-bottom: clamp(16px, 3vh, 20px);
+  letter-spacing: -0.02em;
+  max-width: 720px;
+  text-shadow: 0 0 32px rgba(255, 95, 31, 0.1);
+}
+
+.heroSubtitle {
+  font-size: clamp(15px, 1.1vw, 18px);
+  color: var(--gray-600);
+  margin-bottom: clamp(24px, 4vh, 30px);
+  line-height: 1.6;
+  text-shadow: 0 1px 8px rgba(255, 95, 31, 0.04);
+}
+
+:global([data-theme="dark"]) .heroSubtitle {
+  color: #e0e0e0;
+}
+
+.heroButtons {
+  display: flex;
+  gap: 12px;
+  margin-bottom: clamp(24px, 4vh, 32px);
+}
+
+.desktopButtons {
+  display: flex;
+}
+
+.mobileButtons {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .heroContent {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    min-height: auto;
+  }
+
+  .heroText h1 {
+    font-size: clamp(30px, 6vw, 40px);
+  }
+}
+
+@media (max-width: 768px) {
+  .heroText h1 {
+    font-size: clamp(26px, 9vw, 38px);
+  }
+
+  .heroSubtitle {
+    font-size: 18px;
+  }
+
+  .heroButtons {
+    flex-direction: column;
+  }
+
+  .desktopButtons {
+    display: none;
+  }
+
+  .mobileButtons {
+    display: flex;
+    margin-top: clamp(24px, 5vh, 32px);
+  }
+}
+

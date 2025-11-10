@@ -4,9 +4,10 @@ import { soundService } from '../services/soundService';
 
 interface AutumnLeavesProps {
   triggerStart?: boolean; // Триггер для ручного запуска
+  enabled?: boolean;
 }
 
-const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart }) => {
+const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart, enabled = true }) => {
   // Массив с путями к изображениям 
   const leafImages = [
     '/free-icon-snowflake-9011983.png',
@@ -119,6 +120,11 @@ const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart }) => {
 
   // Запускает новый цикл: музыка + снежинки
   const startWinterCycle = useCallback(async () => {
+    if (!enabled) {
+      console.log('❄️ [AutumnLeaves] Зимняя анимация отключена. Пропускаем запуск цикла.');
+      return;
+    }
+
     // Очищаем pending таймер следующего цикла, если есть
     if (nextCycleTimeoutRef.current) {
       clearTimeout(nextCycleTimeoutRef.current);
@@ -199,7 +205,7 @@ const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart }) => {
         }
       }, nextDelay);
     }
-  }, [startContinuousSnowfall, stopContinuousSnowfall]);
+  }, [startContinuousSnowfall, stopContinuousSnowfall, enabled]);
 
   // Обработчик ручного запуска через клик на елочку
   useEffect(() => {
@@ -214,11 +220,14 @@ const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart }) => {
       
       startWinterCycle();
     }
-  }, [triggerStart, startWinterCycle]);
+  }, [triggerStart, startWinterCycle, enabled]);
 
   // Обработчик взаимодействия пользователя (для autoplay bypass)
   useEffect(() => {
     const handleUserInteraction = async () => {
+      if (!enabled) {
+        return;
+      }
       // Регистрируем взаимодействие пользователя
       if (!userInteractedRef.current) {
         userInteractedRef.current = true;
@@ -281,84 +290,21 @@ const AutumnLeaves: React.FC<AutumnLeavesProps> = ({ triggerStart }) => {
       window.removeEventListener('touchstart', handleUserInteraction);
       window.removeEventListener('keydown', handleUserInteraction);
     };
-  }, [startWinterCycle, startContinuousSnowfall, stopContinuousSnowfall]);
+  }, [startWinterCycle, startContinuousSnowfall, stopContinuousSnowfall, enabled]);
 
-  // Инициализация: через 5 секунд начинаем первый зимний цикл
-  useEffect(() => {
-    console.log('🔄 [AutumnLeaves] useEffect инициализации вызван');
-    
-    // Глобальная блокировка через window для защиты от двойного запуска
-    // при навигации между страницами
-    if ((window as any).__autumnLeavesInitialized) {
-      console.log('⚠️ [AutumnLeaves] Уже инициализирован глобально, пропускаем');
-      return;
-    }
-    
-    console.log('✅ [AutumnLeaves] Инициализация начата. Ждем перед первым запуском...');
-    
-    // Первый запуск через случайное время: 30, 60 или 90 секунд
-    const initialDelays = [30, 60, 90];
-    const randomInitialDelay = initialDelays[Math.floor(Math.random() * initialDelays.length)];
-    const initialDelay = randomInitialDelay * 1000;
-    console.log(`⏰ [AutumnLeaves] Первый запуск через ${randomInitialDelay} секунд`);
-
-    initTimeoutRef.current = setTimeout(() => {
-      // Двойная проверка внутри таймера
-      if ((window as any).__autumnLeavesInitialized) {
-        console.log('⚠️ [AutumnLeaves] Уже запущен другим таймером, пропускаем');
-        return;
-      }
-      
-      // Глобальная блокировка
-      (window as any).__autumnLeavesInitialized = true;
-      isInitializedRef.current = true;
-      
-      console.log('❄️ [AutumnLeaves] Время пришло! Начинаем первый зимний цикл...');
-      
-      // Устанавливаем флаг что снежинки начались
-      snowflakesStartedRef.current = true;
-      
-      // Добавляем первую порцию снежинок
-      addLeavesToQueue();
-      
-      // Запускаем зимний цикл (музыка + снежинки)
-      startWinterCycle();
-    }, initialDelay);
-
-    // Cleanup: останавливаем всё при размонтировании компонента
-    return () => {
-      console.log('🧹 [AutumnLeaves] Cleanup вызван - останавливаем таймеры');
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-        initTimeoutRef.current = null;
-      }
-      if (nextCycleTimeoutRef.current) {
-        clearTimeout(nextCycleTimeoutRef.current);
-        nextCycleTimeoutRef.current = null;
-      }
-      stopContinuousSnowfall();
-      soundService.stopWinterMusic();
-      
-      // Сбрасываем глобальный флаг при размонтировании
-      // чтобы после HMR (hot reload) компонент мог инициализироваться заново
-      (window as any).__autumnLeavesInitialized = false;
-      isInitializedRef.current = false;
-      console.log('🔄 [AutumnLeaves] Глобальный флаг инициализации сброшен');
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Обработчик завершения анимации падения
   const handleAnimationEnd = useCallback((leafId: number) => {
     setActiveLeaves(prev => {
       const leaf = prev.find(l => l.id === leafId);
       if (leaf && !leaf.shouldStay) {
-        // Убираем листочек если он не должен остаться
         return prev.filter(l => l.id !== leafId);
       }
       return prev;
     });
   }, []);
+
+  if (!enabled) {
+    return null;
+  }
 
   return (
     <div className="autumn-leaves-container">

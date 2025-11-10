@@ -22,6 +22,7 @@
   
   /* Typography */
   --font-inter: var(--font-inter);
+  --header-height: 110px;
 }
 
 [data-theme="dark"] {
@@ -61,8 +62,16 @@
 html {
   scroll-behavior: smooth;
   font-size: 80%; /* Уменьшение всего контента на 20% */
-  overflow: hidden;
-  height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 100%;
+}
+
+@media (max-width: 1023px) {
+  html {
+    height: 100vh;
+    overflow: hidden;
+  }
 }
 
 /* Супер-плавная прокрутка с кастомной кривой */
@@ -81,9 +90,17 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   transition: background 0.5s ease, color 0.5s ease;
-  height: 100vh;
+  min-height: 100vh;
+}
+
+@media (max-width: 1023px) {
+  body {
+    height: 100vh;
+    overflow: hidden;
+  }
 }
 
 body p,
@@ -256,7 +273,6 @@ body::after {
           drop-shadow(0 2px 4px rgba(255, 95, 31, 0.2));
 }
 
-/* Dark theme - ТОЧЬ В ТОЧЬ как светлая */
 [data-theme="dark"] .gradient-text {
   background: linear-gradient(
     135deg,
@@ -301,110 +317,6 @@ body::after {
     filter: drop-shadow(0 0 10px rgba(255, 157, 102, 0.4))
             drop-shadow(0 2px 4px rgba(255, 95, 31, 0.2));
   }
-}
-
-/* Hero content */
-.hero-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 60px;
-  align-items: center;
-}
-
-.hero-text h1 {
-  font-size: 51px; /* Уменьшено на 20% (было 64px) */
-  font-weight: 900;
-  line-height: 1.2;
-  margin-bottom: 19px; /* Уменьшено на 20% (было 24px) */
-  letter-spacing: -0.02em;
-  max-width: 800px;
-  text-shadow: 0 0 40px rgba(255, 95, 31, 0.1);
-}
-
-.hero-subtitle {
-  font-size: 16px; /* Уменьшено на 20% (было 20px) */
-  color: var(--gray-600);
-  margin-bottom: 32px; /* Уменьшено на 20% (было 40px) */
-  line-height: 1.7;
-  text-shadow: 0 1px 10px rgba(255, 95, 31, 0.05);
-}
-
-.hero-buttons {
-  display: flex;
-  gap: 13px; /* Уменьшено на 20% (было 16px) */
-  margin-bottom: 48px; /* Уменьшено на 20% (было 60px) */
-}
-
-@media (max-width: 1024px) {
-  .hero-content {
-    grid-template-columns: 1fr;
-    gap: 32px; /* Уменьшено на 20% (было 40px) */
-  }
-  
-  .hero-text h1 {
-    font-size: 38px; /* Уменьшено на 20% (было 48px) */
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-text h1 {
-    font-size: clamp(26px, 9vw, 38px); /* Уменьшено на 20% (было 32px-48px) */
-  }
-  
-  .hero-subtitle {
-    font-size: 18px;
-  }
-  
-  .hero-buttons {
-    flex-direction: column;
-  }
-}
-
-/* Hero section backgrounds - прозрачный для плавного перехода */
-#hero {
-  position: relative;
-  background: transparent;
-}
-
-
-/* Hero subtext colors */
-#hero p {
-  color: var(--gray-600);
-}
-
-[data-theme="dark"] #hero p {
-  color: #E0E0E0;
-}
-
-/* Hero heading colors */
-#hero h1 {
-  color: var(--foreground);
-}
-
-[data-theme="dark"] #hero h1 {
-  color: #E0E0E0;
-}
-
-/* Hero secondary button (border button) colors */
-#hero a.rounded-full {
-  border-color: #D1D5DB;
-  color: var(--foreground);
-}
-
-[data-theme="dark"] #hero a.rounded-full {
-  border-color: var(--gray-600);
-  color: #ffffff;
-}
-
-/* Hero button hover states */
-#hero a.rounded-full:hover {
-  border-color: #FF9D66;
-  color: #FF9D66;
-}
-
-[data-theme="dark"] #hero a.rounded-full:hover {
-  border-color: #FF9D66;
-  color: #FF9D66;
 }
 
 /* Animations */
@@ -575,7 +487,7 @@ body::after {
   }
 }
 
-/* Buttons - точно как в оригинале */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -821,97 +733,6 @@ body::after {
   .animate-slide-in-left,
   .animate-slide-in-right {
     animation: none !important;
-  }
-}
-
-/* Простой и чистый дизайн секций */
-#hero {
-  position: relative;
-  background: transparent;
-}
-
-#features {
-  position: relative;
-  background: transparent;
-  padding-top: 100px;
-}
-
-/* Единый фоновый градиент для всего body - плавный переход обеспечивается автоматически */
-
-/* Features section with Glassmorphism */
-#features {
-  min-height: auto;
-}
-
-/* Glassmorphism support */
-@supports (backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px)) {
-  .backdrop-blur-xl,
-  .backdrop-blur-2xl {
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-  }
-}
-
-/* Fallback for browsers without backdrop-filter support */
-@supports not ((backdrop-filter: blur(24px)) or (-webkit-backdrop-filter: blur(24px))) {
-  #features .rounded-3xl {
-    background: rgba(255, 255, 255, 0.85);
-  }
-  
-  [data-theme="dark"] #features .rounded-3xl {
-    background: rgba(0, 0, 0, 0.6);
-  }
-  
-  #features button[aria-label] {
-    background: rgba(255, 255, 255, 0.85);
-  }
-  
-  [data-theme="dark"] #features button[aria-label] {
-    background: rgba(0, 0, 0, 0.6);
-  }
-}
-
-/* Адаптивность для Features */
-@media (max-width: 1024px) {
-  #features {
-    padding-top: 4rem;
-    padding-bottom: 4rem;
-  }
-}
-
-@media (max-width: 768px) {
-  #features {
-    padding-top: 3rem;
-    padding-bottom: 3rem;
-  }
-  
-  #features button[aria-label] {
-    width: 3.5rem !important;
-    height: 3.5rem !important;
-  }
-}
-
-@media (max-width: 640px) {
-  #features {
-    padding-top: 2.5rem;
-    padding-bottom: 2.5rem;
-  }
-}
-
-@media (max-width: 480px) {
-  #features {
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-  }
-  
-  #features button[aria-label] {
-    width: 3rem !important;
-    height: 3rem !important;
-  }
-  
-  #features button[aria-label] svg {
-    width: 18px !important;
-    height: 18px !important;
   }
 }
 

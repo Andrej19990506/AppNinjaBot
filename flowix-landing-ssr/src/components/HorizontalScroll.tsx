@@ -4,6 +4,13 @@ import { useEffect } from 'react';
 
 export default function HorizontalScroll() {
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    if (!mediaQuery.matches) {
+      return;
+    }
+
     const main = document.querySelector('main');
     if (!main) return;
 
@@ -36,28 +43,37 @@ export default function HorizontalScroll() {
     };
 
     const handleWheel = (e: WheelEvent) => {
-      // Предотвращаем стандартное вертикальное скроллирование
       e.preventDefault();
-      // Конвертируем вертикальный скролл в горизонтальный
       main.scrollLeft += e.deltaY;
       requestParallaxUpdate();
     };
 
     updateParallax();
 
-    // Добавляем слушатель с passive: false чтобы preventDefault работал
     main.addEventListener('wheel', handleWheel, { passive: false });
     main.addEventListener('scroll', requestParallaxUpdate, { passive: true });
     window.addEventListener('resize', requestParallaxUpdate);
+
+    const handleBreakpointChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) {
+        main.removeEventListener('wheel', handleWheel);
+        main.removeEventListener('scroll', requestParallaxUpdate);
+        window.removeEventListener('resize', requestParallaxUpdate);
+        if (rafId) cancelAnimationFrame(rafId);
+      }
+    };
+
+    mediaQuery.addEventListener('change', handleBreakpointChange);
 
     return () => {
       main.removeEventListener('wheel', handleWheel);
       main.removeEventListener('scroll', requestParallaxUpdate);
       window.removeEventListener('resize', requestParallaxUpdate);
+      mediaQuery.removeEventListener('change', handleBreakpointChange);
       if (rafId) cancelAnimationFrame(rafId);
     };
   }, []);
 
-  return null; // Этот компонент не рендерит ничего
+  return null;
 }
 

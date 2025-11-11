@@ -10,6 +10,11 @@ declare module '@zxing/browser' {
       videoElement: HTMLVideoElement,
       callback: (result: unknown, err: unknown) => void
     ): Promise<void>;
+    decodeFromStream(
+      stream: MediaStream,
+      videoElement: HTMLVideoElement,
+      callback: (result: unknown, err: unknown, controls: { stop: () => void }) => void
+    ): Promise<void>;
     reset(): void;
   }
 }

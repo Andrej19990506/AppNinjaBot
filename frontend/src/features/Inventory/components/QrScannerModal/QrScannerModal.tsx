@@ -237,53 +237,48 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             setIsUsingFallback(true);
  
             const videoEl = videoRef.current;
-            if (!videoEl) {
+            const currentStream = streamRef.current;
+            if (!videoEl || !currentStream) {
+                pushLog('Нет активного видеопотока для ZXing');
                 return;
             }
 
-            if (typeof reader.decodeFromVideoDevice === 'function') {
-                const result = reader.decodeFromVideoDevice(
-                    selectedDeviceId,
-                    videoEl,
-                    (result: unknown, error: unknown) => {
-                        if (!isActiveRef.current) {
-                            return;
-                        }
-
-                        if (result && typeof (result as any)?.getText === 'function') {
-                            const text = (result as any).getText().trim();
-                            if (text) {
-                                handleDetectionSuccess(text);
-                            }
-                            return;
-                        }
-
-                        if (error && (error as any)?.name !== 'NotFoundException') {
-                            console.warn('[QR Scanner][ZXing] Ошибка распознавания:', error);
-                            const msg = String(error);
-                            if (lastFallbackErrorRef.current !== msg) {
-                                lastFallbackErrorRef.current = msg;
-                                pushLog(`ZXing ошибка: ${msg}`);
-                            }
-                            detectorFailureCountRef.current += 1;
-                        }
+            const promise = reader.decodeFromStream(
+                currentStream,
+                videoEl,
+                (result: unknown, error: unknown, controls: { stop: () => void }) => {
+                    if (controls && typeof controls.stop === 'function') {
+                        fallbackControlsRef.current = controls;
                     }
-                );
-                if (result && typeof (result as any).then === 'function') {
-                    (result as Promise<any>)
-                        .then(controls => {
-                            if (controls && typeof controls.stop === 'function') {
-                                fallbackControlsRef.current = controls;
-                            }
-                        })
-                        .catch(err => {
-                            console.warn('[QR Scanner] Ошибка получения контроля ZXing:', err);
-                            pushLog(`Не удалось получить контролы ZXing: ${String(err)}`);
-                        });
+
+                    if (!isActiveRef.current) {
+                        return;
+                    }
+
+                    if (result && typeof (result as any)?.getText === 'function') {
+                        const text = (result as any).getText().trim();
+                        if (text) {
+                            handleDetectionSuccess(text);
+                        }
+                        return;
+                    }
+
+                    if (error && (error as any)?.name !== 'NotFoundException') {
+                        console.warn('[QR Scanner][ZXing] Ошибка распознавания:', error);
+                        const msg = String(error);
+                        if (lastFallbackErrorRef.current !== msg) {
+                            lastFallbackErrorRef.current = msg;
+                            pushLog(`ZXing ошибка: ${msg}`);
+                        }
+                        detectorFailureCountRef.current += 1;
+                    }
                 }
-            } else {
-                console.error('[QR Scanner] decodeFromVideoDevice не поддерживается в используемой версии ZXing');
-                pushLog('decodeFromVideoDevice не поддерживается этой версией ZXing');
+            );
+            if (promise && typeof promise.then === 'function') {
+                promise.catch((err: unknown) => {
+                    console.warn('[QR Scanner] Ошибка запуска ZXing:', err);
+                    pushLog(`Не удалось запустить ZXing: ${String(err)}`);
+                });
             }
         } catch (err) {
             console.error('[QR Scanner] Не удалось запустить fallback-сканер:', err);

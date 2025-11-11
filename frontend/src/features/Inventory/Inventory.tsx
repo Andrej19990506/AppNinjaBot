@@ -381,7 +381,6 @@ const Inventory: React.FC = () => {
     }, []);
 
     const handleQrDetected = useCallback((code: string) => {
-        setIsQrScannerOpen(false);
         setNotifications(prev => [
             ...prev,
             {
@@ -648,14 +647,6 @@ const Inventory: React.FC = () => {
                 isEditing={isItemEditing} // true только при активном редактировании (модалка заметок или ввод количества)
                 isItemView={!!selectedItem} // true когда находимся в ItemEdit (хедер должен быть развернут)
             />
-            {console.log('🔍 [Inventory] Header рендерится с isEditing:', {
-                selectedItem: !!selectedItem,
-                isItemEditing,
-                finalIsEditing: isItemEditing
-            })}
-            
-
-            
             <div className={styles.content}>
                 {/* Контейнер для поиска, который будет позиционировать дропдаун */}
                 <SearchContainer> 

@@ -52,6 +52,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         return undefined;
     });
     const [debugLogs, setDebugLogs] = useState<string[]>([]);
+    const [successCode, setSuccessCode] = useState<string | null>(null);
     const lastDetectorErrorRef = useRef<string | null>(null);
     const lastFallbackErrorRef = useRef<string | null>(null);
     const initialFocusDoneRef = useRef(false);
@@ -135,6 +136,12 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             if (!options?.silent) {
                 pushLog('Камера остановлена');
             }
+        }
+        hasStartedRef.current = false;
+        if (!options?.silent) {
+            setSuccessCode(null);
+        } else {
+            setSuccessCode(prev => prev);
         }
     }, [pushLog, stopFallbackReader]);
 
@@ -224,20 +231,20 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     }, [pushLog]);
 
     const handleDetectionSuccess = useCallback((payload: string) => {
-         if (!payload || !isActiveRef.current) {
-             return;
-         }
-         isActiveRef.current = false;
-         setStatusMessage('Код считан');
-         const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
-         pushLog(`Код считан: ${short}`);
-         lastDetectorErrorRef.current = null;
-         detectorFailureCountRef.current = 0;
-         lastFallbackErrorRef.current = null;
-         onDetected(payload);
+        if (!payload || !isActiveRef.current) {
+            return;
+        }
+        isActiveRef.current = false;
+        setStatusMessage('Код считан');
+        setSuccessCode(payload);
+        const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
+        pushLog(`Код считан: ${short}`);
+        lastDetectorErrorRef.current = null;
+        detectorFailureCountRef.current = 0;
+        lastFallbackErrorRef.current = null;
         stopFallbackReader(true);
-        stopStream();
-    }, [onDetected, pushLog, stopFallbackReader, stopStream]);
+        onDetected(payload);
+    }, [onDetected, pushLog, stopFallbackReader]);
 
     const startFallbackReader = useCallback(() => {
         if (fallbackActiveRef.current || !videoRef.current) {
@@ -546,6 +553,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
     const handleClose = useCallback(() => {
         isActiveRef.current = false;
+        setSuccessCode(null);
         stopStream();
         onClose();
     }, [onClose, stopStream]);
@@ -579,6 +587,23 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         const found = devicesRef.current.find(device => device.deviceId === value);
         pushLog(`Выбрана камера пользователем: ${found?.label || value || 'по умолчанию'}`);
     }, [pushLog]);
+
+    const handleSuccessContinue = useCallback(() => {
+        setSuccessCode(null);
+        lastDetectorErrorRef.current = null;
+        lastFallbackErrorRef.current = null;
+        detectorFailureCountRef.current = 0;
+        setStatusMessage('Используем усиленный сканер ZXing...');
+        isActiveRef.current = true;
+        startFallbackReader();
+        animationFrameRef.current = requestAnimationFrame(detectLoop);
+    }, [detectLoop, startFallbackReader]);
+
+    const successShort = successCode
+        ? successCode.length > 160
+            ? `${successCode.slice(0, 160)}…`
+            : successCode
+        : '';
 
     return (
         <motion.div
@@ -675,6 +700,20 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                         onChange={handleFileChange}
                     />
                 </footer>
+                {successCode && (
+                    <div className={styles.successOverlay}>
+                        <div className={styles.successTitle}>QR-код считан</div>
+                        <div className={styles.successCode}>{successShort}</div>
+                        <div className={styles.debugActions}>
+                            <button type="button" className={styles.successButton} onClick={handleSuccessContinue}>
+                                Сканировать ещё
+                            </button>
+                            <button type="button" className={styles.successButton} onClick={handleClose}>
+                                Закрыть
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
         </motion.div>
     );

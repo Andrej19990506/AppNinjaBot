@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FlashOnIcon from '@mui/icons-material/FlashOn';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+import { BarcodeFormat, DecodeHintType } from '@zxing/library';
 import styles from './QrScannerModal.module.css';
 
 interface QrScannerModalProps {
@@ -10,15 +11,8 @@ interface QrScannerModalProps {
     onDetected: (code: string) => void;
 }
 
-interface BarcodeDetectorInstance {
-    detect: (source: CanvasImageSource) => Promise<Array<{ rawValue?: string }>>;
-}
-
 declare global {
     interface Window {
-        BarcodeDetector?: {
-            new (options?: { formats?: string[] }): BarcodeDetectorInstance;
-        };
         ImageCapture?: new (track: MediaStreamTrack) => ImageCapture;
     }
 }
@@ -34,13 +28,17 @@ interface ImageCapture {
 export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetected }) => {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const streamRef = useRef<MediaStream | null>(null);
-    const animationFrameRef = useRef<number | null>(null);
-    const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
+    const readerRef = useRef<BrowserMultiFormatReader | null>(null);
+    const decodeTimeoutRef = useRef<number | null>(null);
+    const isDecodingRef = useRef(false);
+    const hintsRef = useRef<Map<DecodeHintType, unknown> | null>(null);
+    const scanDelayRef = useRef(140);
+    const brightnessCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const brightnessContextRef = useRef<CanvasRenderingContext2D | null>(null);
+    const brightnessHintShownRef = useRef(false);
+    const decodeFallbackWarnedRef = useRef(false);
     const isActiveRef = useRef(true);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const fallbackReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-    const fallbackActiveRef = useRef(false);
-    const fallbackControlsRef = useRef<{ stop: () => void } | null>(null);
     const imageCaptureRef = useRef<ImageCapture | null>(null);
     const autoFocusIntervalRef = useRef<number | null>(null);
     const devicesRef = useRef<MediaDeviceInfo[]>([]);
@@ -53,20 +51,59 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     });
     const [debugLogs, setDebugLogs] = useState<string[]>([]);
     const [successCode, setSuccessCode] = useState<string | null>(null);
-    const lastDetectorErrorRef = useRef<string | null>(null);
-    const lastFallbackErrorRef = useRef<string | null>(null);
     const initialFocusDoneRef = useRef(false);
-    const detectorFailureCountRef = useRef(0);
     const focusAttemptedRef = useRef(false);
-    const [isUsingFallback, setIsUsingFallback] = useState(false);
     const hasStartedRef = useRef(false);
     const currentDeviceIdRef = useRef<string | undefined>(undefined);
-    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const [isScanning, setIsScanning] = useState(true);
+    const reticlePositions = useMemo(() => ([
+        { x: 0, y: 0 },
+        { x: 10, y: -6 },
+        { x: -12, y: 8 },
+        { x: 14, y: 10 },
+        { x: -14, y: -10 },
+    ]), []);
+    const [reticleStep, setReticleStep] = useState(0);
+    const [reticleOffset, setReticleOffset] = useState(reticlePositions[0]);
+    const reticleTimerRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (!isScanning) {
+            if (reticleTimerRef.current) {
+                window.clearInterval(reticleTimerRef.current);
+                reticleTimerRef.current = null;
+            }
+            setReticleOffset({ x: 0, y: 0 });
+            return;
+        }
+
+        if (reticleTimerRef.current) {
+            window.clearInterval(reticleTimerRef.current);
+        }
+        setReticleStep(0);
+        setReticleOffset(reticlePositions[0]);
+
+        reticleTimerRef.current = window.setInterval(() => {
+            setReticleStep(prev => {
+                const next = (prev + 1) % reticlePositions.length;
+                setReticleOffset(reticlePositions[next]);
+                return next;
+            });
+        }, 900);
+
+        return () => {
+            if (reticleTimerRef.current) {
+                window.clearInterval(reticleTimerRef.current);
+                reticleTimerRef.current = null;
+            }
+        };
+    }, [isScanning, reticlePositions]);
 
     const pushLog = useCallback((message: string) => {
         setDebugLogs(prev => {
             const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const entry = `${timestamp} — ${message}`;
+            const entry = `${timestamp} - ${message}`;
             const next = [...prev, entry];
             return next.length > 25 ? next.slice(next.length - 25) : next;
         });
@@ -87,43 +124,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         }
     }, [debugLogs, pushLog]);
 
-    const ensureAudioContext = useCallback(() => {
+    useEffect(() => {
         if (typeof window === 'undefined') {
-            return null;
-        }
-        if (!audioContextRef.current) {
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            audioContextRef.current = AudioCtx ? new AudioCtx() : null;
-        }
-        return audioContextRef.current;
-    }, []);
-
-    const playBeep = useCallback(() => {
-        const context = ensureAudioContext();
-        if (!context) {
             return;
         }
-        if (context.state === 'suspended') {
-            context.resume().catch(() => undefined);
-        }
-
-        const now = context.currentTime;
-        const oscillator = context.createOscillator();
-        const gainNode = context.createGain();
-
-        oscillator.type = 'square';
-        oscillator.frequency.value = 950;
-
-        gainNode.gain.setValueAtTime(0.0001, now);
-        gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
-
-        oscillator.connect(gainNode);
-        gainNode.connect(context.destination);
-
-        oscillator.start(now);
-        oscillator.stop(now + 0.25);
-    }, [ensureAudioContext]);
+        const audio = new Audio('/sounds/scanner.mp3');
+        audio.preload = 'auto';
+        audioRef.current = audio;
+        return () => {
+            audio.pause();
+            audioRef.current = null;
+        };
+    }, []);
 
     useEffect(() => {
         pushLog('Окно сканирования открыто');
@@ -132,38 +144,60 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         };
     }, [pushLog]);
 
-    const [statusMessage, setStatusMessage] = useState('Наведите камеру на QR-код');
+    useEffect(() => {
+        const hints = new Map<DecodeHintType, unknown>();
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE]);
+        hints.set(DecodeHintType.TRY_HARDER, true);
+        hintsRef.current = hints;
+    }, []);
+
+    useEffect(() => {
+        if (typeof document === 'undefined') {
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = 160;
+        canvas.height = 160;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        brightnessCanvasRef.current = canvas;
+        brightnessContextRef.current = ctx;
+        return () => {
+            brightnessCanvasRef.current = null;
+            brightnessContextRef.current = null;
+        };
+    }, []);
+
+    const [statusMessage, setStatusMessage] = useState('Ищем QR-код...');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isTorchOn, setIsTorchOn] = useState(false);
     const [canUseTorch, setCanUseTorch] = useState(false);
+    useEffect(() => {
+        canUseTorchRef.current = canUseTorch;
+    }, [canUseTorch]);
+    useEffect(() => {
+        torchStateRef.current = isTorchOn;
+    }, [isTorchOn]);
+    const canUseTorchRef = useRef(false);
+    const torchStateRef = useRef(false);
 
-    const stopFallbackReader = useCallback((silently = false) => {
-         if (fallbackControlsRef.current) {
-             try {
-                 fallbackControlsRef.current.stop();
-             } catch (err) {
-                if (!silently) {
-                    console.debug('[QR Scanner] остановка ZXing завершилась с ошибкой:', err);
-                    pushLog(`Не удалось корректно остановить ZXing: ${String(err)}`);
-                }
-             }
-             fallbackControlsRef.current = null;
-         }
-         if (fallbackReaderRef.current) {
-            fallbackReaderRef.current = null;
-         }
-         fallbackActiveRef.current = false;
-         setIsUsingFallback(false);
-    }, [pushLog]);
+    const stopDecoding = useCallback((options?: { reset?: boolean }) => {
+        if (decodeTimeoutRef.current) {
+            window.clearTimeout(decodeTimeoutRef.current);
+            decodeTimeoutRef.current = null;
+        }
+        isDecodingRef.current = false;
+        if (options?.reset && readerRef.current) {
+            try {
+                readerRef.current.reset();
+            } catch (err) {
+                console.debug('[QR Scanner] Ошибка сброса ZXing:', err);
+            }
+        }
+    }, []);
 
     const stopStream = useCallback((options?: { silent?: boolean }) => {
-        if (animationFrameRef.current) {
-            cancelAnimationFrame(animationFrameRef.current);
-            animationFrameRef.current = null;
-        }
-
-        stopFallbackReader(options?.silent ?? false);
-
+        stopDecoding({ reset: true });
+        setIsScanning(false);
         if (autoFocusIntervalRef.current) {
             clearInterval(autoFocusIntervalRef.current);
             autoFocusIntervalRef.current = null;
@@ -180,7 +214,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         if (!options?.silent) {
             setSuccessCode(null);
         }
-    }, [pushLog, stopFallbackReader]);
+    }, [pushLog, stopDecoding]);
 
     const triggerAutoFocus = useCallback(async (withHint = false) => {
         const track = streamRef.current?.getVideoTracks()[0];
@@ -209,7 +243,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             }
         }
         if (withHint) {
-            setTimeout(() => setStatusMessage('Наведите камеру на QR-код'), 600);
+            setTimeout(() => setStatusMessage('Ищем QR-код...'), 600);
         }
         if (!initialFocusDoneRef.current) {
             initialFocusDoneRef.current = true;
@@ -267,142 +301,138 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         focusAttemptedRef.current = true;
     }, [pushLog]);
 
+    const sampleBrightness = useCallback((): number | null => {
+        const video = videoRef.current;
+        const canvas = brightnessCanvasRef.current;
+        const ctx = brightnessContextRef.current;
+        if (!video || !canvas || !ctx || video.videoWidth === 0 || video.videoHeight === 0) {
+            return null;
+        }
+
+        const size = canvas.width;
+        const side = Math.min(video.videoWidth, video.videoHeight);
+        const sx = (video.videoWidth - side) / 2;
+        const sy = (video.videoHeight - side) / 2;
+
+        try {
+            ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+            const { data } = ctx.getImageData(0, 0, size, size);
+            let sum = 0;
+            for (let i = 0; i < data.length; i += 4) {
+                sum += data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+            }
+            return sum / (size * size);
+        } catch (err) {
+            console.debug('[QR Scanner] Не удалось измерить яркость кадра:', err);
+            return null;
+        }
+    }, []);
+
     const handleDetectionSuccess = useCallback((payload: string) => {
         if (!payload || !isActiveRef.current) {
             return;
         }
         isActiveRef.current = false;
+        stopDecoding();
+        setIsScanning(false);
+        setReticleOffset({ x: 0, y: 0 });
         setStatusMessage('Код считан');
         setSuccessCode(payload);
-        playBeep();
-        const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
+        if (audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(() => undefined);
+        }
+        const short = payload.length > 80 ? `${payload.slice(0, 80)}...` : payload;
         pushLog(`Код считан: ${short}`);
-        lastDetectorErrorRef.current = null;
-        detectorFailureCountRef.current = 0;
-        lastFallbackErrorRef.current = null;
-        stopFallbackReader(true);
+        brightnessHintShownRef.current = false;
         onDetected(payload);
-    }, [onDetected, playBeep, pushLog, stopFallbackReader]);
+    }, [onDetected, pushLog, stopDecoding]);
 
-    const startFallbackReader = useCallback(() => {
-        if (fallbackActiveRef.current || !videoRef.current) {
+    const ensureReader = useCallback(() => {
+        if (!readerRef.current) {
+            readerRef.current = new BrowserMultiFormatReader(hintsRef.current ?? undefined);
+        }
+        if (readerRef.current && hintsRef.current) {
+            try {
+                const readerAny = readerRef.current as unknown as { setHints?: (hints: Map<DecodeHintType, unknown>) => void };
+                readerAny.setHints?.(hintsRef.current as Map<DecodeHintType, unknown>);
+            } catch (err) {
+                console.debug('[QR Scanner] Не удалось обновить подсказки ZXing:', err);
+            }
+        }
+        return readerRef.current;
+    }, []);
+
+    const decodeLoop = useCallback(async () => {
+        if (!isActiveRef.current || !videoRef.current) {
+            return;
+        }
+        if (isDecodingRef.current) {
             return;
         }
 
+        const reader = ensureReader();
+        const videoEl = videoRef.current;
+        if (!reader || !videoEl) {
+            return;
+        }
+
+        if (videoEl.readyState < 2) {
+            if (decodeTimeoutRef.current) {
+                window.clearTimeout(decodeTimeoutRef.current);
+            }
+            decodeTimeoutRef.current = window.setTimeout(() => decodeLoop(), scanDelayRef.current);
+            return;
+        }
+
+        isDecodingRef.current = true;
         try {
-            const reader = new BrowserMultiFormatReader();
-            fallbackReaderRef.current = reader;
-            fallbackActiveRef.current = true;
-            setStatusMessage('Используем усиленный режим сканирования...');
-            pushLog('Запускаем fallback ZXing');
-            detectorFailureCountRef.current = 0;
-            setIsUsingFallback(true);
- 
-            const videoEl = videoRef.current;
-            const currentStream = streamRef.current;
-            if (!videoEl || !currentStream) {
-                pushLog('Нет активного видеопотока для ZXing');
-                return;
+            const brightness = sampleBrightness();
+            if (brightness !== null) {
+                if (brightness < 55 && canUseTorchRef.current && !torchStateRef.current && !brightnessHintShownRef.current) {
+                    brightnessHintShownRef.current = true;
+                    setStatusMessage('Темно - включите фонарик для лучшего сканирования');
+                    pushLog('Освещенность низкая (<55), рекомендуем включить фонарик');
+                } else if (brightness >= 70 && brightnessHintShownRef.current) {
+                    brightnessHintShownRef.current = false;
+                    setStatusMessage('Ищем QR-код...');
+                }
             }
 
-            const promise = reader.decodeFromStream(
-                currentStream,
-                videoEl,
-                (result: unknown, error: unknown, controls: { stop: () => void }) => {
-                    if (controls && typeof controls.stop === 'function') {
-                        fallbackControlsRef.current = controls;
-                    }
-
-                    if (!isActiveRef.current) {
-                        return;
-                    }
-
-                    if (result && typeof (result as any)?.getText === 'function') {
-                        const text = (result as any).getText().trim();
-                        if (text) {
-                            handleDetectionSuccess(text);
-                        }
-                        return;
-                    }
-
-                    if (error && (error as any)?.name !== 'NotFoundException') {
-                        console.warn('[QR Scanner][ZXing] Ошибка распознавания:', error);
-                        const msg = String(error);
-                        if (lastFallbackErrorRef.current !== msg) {
-                            lastFallbackErrorRef.current = msg;
-                            pushLog(`ZXing ошибка: ${msg}`);
-                        }
-                        detectorFailureCountRef.current += 1;
-                    }
+            const readerAny = reader as any;
+            const decodeOnce = typeof readerAny.decodeOnceFromVideoElement === 'function'
+                ? readerAny.decodeOnceFromVideoElement.bind(readerAny)
+                : null;
+            let decodedText: string | undefined;
+            if (decodeOnce) {
+                const result = await decodeOnce(videoEl, hintsRef.current ?? undefined);
+                if (result && typeof result.getText === 'function') {
+                    decodedText = result.getText().trim();
                 }
-            );
-            if (promise && typeof promise.then === 'function') {
-                promise.catch((err: unknown) => {
-                    console.warn('[QR Scanner] Ошибка запуска ZXing:', err);
-                    pushLog(`Не удалось запустить ZXing: ${String(err)}`);
-                });
+            } else if (!decodeFallbackWarnedRef.current) {
+                decodeFallbackWarnedRef.current = true;
+                pushLog('Метод decodeOnceFromVideoElement недоступен, обновите библиотеку ZXing');
+            }
+
+            if (decodedText) {
+                handleDetectionSuccess(decodedText);
+                return;
             }
         } catch (err) {
-            console.error('[QR Scanner] Не удалось запустить fallback-сканер:', err);
-            pushLog(`Не удалось запустить fallback-сканер: ${String(err)}`);
-        }
-    }, [handleDetectionSuccess, pushLog, selectedDeviceId]);
-
-    const detectLoop = useCallback(async () => {
-         if (!isActiveRef.current) {
-             return;
-         }
- 
-        const videoEl = videoRef.current;
-        if (!videoEl) {
-            return;
-        }
-
-        if (isUsingFallback || fallbackActiveRef.current) {
-            // ZXing работает, просто ждём следующий кадр
-            animationFrameRef.current = requestAnimationFrame(detectLoop);
-            return;
-        }
-
-        if (!detectorRef.current && typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-            try {
-                detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-                pushLog('Инициализируем BarcodeDetector как запасной вариант');
-            } catch (err) {
-                pushLog(`Не удалось создать BarcodeDetector: ${String(err)}`);
-                startFallbackReader();
-                animationFrameRef.current = requestAnimationFrame(detectLoop);
-                return;
+            if ((err as any)?.name !== 'NotFoundException') {
+                console.warn('[QR Scanner][ZXing] Ошибка распознавания:', err);
+                pushLog(`ZXing ошибка: ${String(err)}`);
+            }
+        } finally {
+            isDecodingRef.current = false;
+            if (isActiveRef.current) {
+                if (decodeTimeoutRef.current) {
+                    window.clearTimeout(decodeTimeoutRef.current);
+                }
+                decodeTimeoutRef.current = window.setTimeout(() => decodeLoop(), scanDelayRef.current);
             }
         }
-
-        if (detectorRef.current) {
-            try {
-                const results = await detectorRef.current.detect(videoEl);
-                if (results.length > 0) {
-                    const payload = results[0]?.rawValue?.trim();
-                    if (payload) {
-                        handleDetectionSuccess(payload);
-                        return;
-                    }
-                }
-            } catch (err) {
-                console.error('[QR Scanner] Ошибка при распознавании:', err);
-                const msg = String(err);
-                if (lastDetectorErrorRef.current !== msg) {
-                    lastDetectorErrorRef.current = msg;
-                    pushLog(`BarcodeDetector ошибка: ${msg}`);
-                }
-                detectorFailureCountRef.current += 1;
-                if (!fallbackActiveRef.current) {
-                    pushLog('Переходим на ZXing из-за ошибок BarcodeDetector');
-                    startFallbackReader();
-                }
-            }
-        }
-
-        animationFrameRef.current = requestAnimationFrame(detectLoop);
-    }, [handleDetectionSuccess, isUsingFallback, pushLog, startFallbackReader]);
+    }, [ensureReader, handleDetectionSuccess, pushLog, sampleBrightness]);
 
     const startCamera = useCallback(
         async (deviceId?: string) => {
@@ -427,8 +457,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 initialFocusDoneRef.current = false;
                 setCanUseTorch(false);
                 setIsTorchOn(false);
-                lastDetectorErrorRef.current = null;
-                lastFallbackErrorRef.current = null;
 
                 setStatusMessage('Открываем камеру...');
                 pushLog(`Пробуем открыть камеру: ${targetId ?? 'по умолчанию'}`);
@@ -508,21 +536,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     }
                 }
 
-                if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-                    detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
-                    pushLog('BarcodeDetector доступен как запасной вариант');
-                }
-
-                setStatusMessage('Используем усиленный сканер ZXing...');
-                startFallbackReader();
-                animationFrameRef.current = requestAnimationFrame(detectLoop);
+                brightnessHintShownRef.current = false;
+                setStatusMessage('Ищем QR-код...');
+                setIsScanning(true);
+                isActiveRef.current = true;
+                decodeLoop();
             } catch (error) {
                 console.error('[QR Scanner] Ошибка при доступе к камере:', error);
                 setErrorMessage('Не удалось получить доступ к камере. Проверьте разрешения.');
                 pushLog(`Ошибка доступа к камере: ${String(error)}`);
             }
         },
-        [configureTrackForFocus, detectLoop, pushLog, startFallbackReader, stopStream, triggerAutoFocus]
+        [configureTrackForFocus, decodeLoop, pushLog, stopStream, triggerAutoFocus]
     );
 
     useEffect(() => {
@@ -629,18 +654,30 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
     const handleSuccessContinue = useCallback(() => {
         setSuccessCode(null);
-        lastDetectorErrorRef.current = null;
-        lastFallbackErrorRef.current = null;
-        detectorFailureCountRef.current = 0;
-        setStatusMessage('Используем усиленный сканер ZXing...');
+        brightnessHintShownRef.current = false;
+
+        const track = streamRef.current?.getVideoTracks()[0];
+        if (!track || track.readyState !== 'live') {
+            pushLog('Видеопоток завершен - переоткрываем камеру');
+            startCamera(currentDeviceIdRef.current);
+            return;
+        }
+
+        if (videoRef.current?.paused) {
+            videoRef.current.play().catch(() => undefined);
+        }
+
+        setStatusMessage('Ищем QR-код...');
+        setIsScanning(true);
+        stopDecoding();
         isActiveRef.current = true;
-        startFallbackReader();
-        animationFrameRef.current = requestAnimationFrame(detectLoop);
-    }, [detectLoop, startFallbackReader]);
+        decodeLoop();
+        triggerAutoFocus(true).catch(() => undefined);
+    }, [decodeLoop, pushLog, startCamera, stopDecoding, triggerAutoFocus]);
 
     const successShort = successCode
         ? successCode.length > 160
-            ? `${successCode.slice(0, 160)}…`
+            ? `${successCode.slice(0, 160)}...`
             : successCode
         : '';
 
@@ -697,11 +734,16 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                                 onClick={() => triggerAutoFocus(true)}
                             />
                             <div className={styles.videoGlow} />
-                            <div className={styles.reticle}>
-                                <div className={styles.corner} />
-                                <div className={styles.corner} />
-                                <div className={styles.corner} />
-                                <div className={styles.corner} />
+                            <div
+                                className={`${styles.reticle} ${isScanning ? styles.reticleScanning : styles.reticleLocked}`}
+                                style={
+                                    {
+                                        '--reticle-offset-x': `${reticleOffset.x}%`,
+                                        '--reticle-offset-y': `${reticleOffset.y}%`,
+                                    } as React.CSSProperties
+                                }
+                            >
+                                <div className={styles.scanBeam} />
                             </div>
                         </>
                     )}

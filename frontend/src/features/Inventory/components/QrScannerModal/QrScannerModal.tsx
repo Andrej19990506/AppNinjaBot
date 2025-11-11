@@ -40,13 +40,21 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const fallbackReaderRef = useRef<BrowserMultiFormatReader | null>(null);
     const fallbackActiveRef = useRef(false);
+    const imageCaptureRef = useRef<ImageCapture | null>(null);
     const autoFocusIntervalRef = useRef<number | null>(null);
+    const devicesRef = useRef<MediaDeviceInfo[]>([]);
+    const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+    const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('qr-preferred-device') ?? undefined;
+        }
+        return undefined;
+    });
 
     const [statusMessage, setStatusMessage] = useState('Наведите камеру на QR-код');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [isTorchOn, setIsTorchOn] = useState(false);
     const [canUseTorch, setCanUseTorch] = useState(false);
-    const imageCaptureRef = useRef<ImageCapture | null>(null);
 
     const stopFallbackReader = useCallback(() => {
         if (fallbackReaderRef.current) {
@@ -173,7 +181,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
             if (typeof reader.decodeFromVideoDevice === 'function') {
                 reader.decodeFromVideoDevice(
-                    undefined,
+                    selectedDeviceId,
                     videoEl,
                     (result: unknown, error: unknown) => {
                         if (!isActiveRef.current) {
@@ -199,7 +207,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         } catch (err) {
             console.error('[QR Scanner] Не удалось запустить fallback-сканер:', err);
         }
-    }, [handleDetectionSuccess]);
+    }, [handleDetectionSuccess, selectedDeviceId]);
 
     const detectLoop = useCallback(async () => {
         if (!isActiveRef.current) {
@@ -233,35 +241,73 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         animationFrameRef.current = requestAnimationFrame(detectLoop);
     }, [handleDetectionSuccess, startFallbackReader]);
 
+    const loadCameraDevices = useCallback(async () => {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoInputs = devices.filter(device => device.kind === 'videoinput');
+            devicesRef.current = videoInputs;
+            setAvailableCameras(videoInputs);
+
+            if (!selectedDeviceId && videoInputs.length > 0) {
+                const preferred = videoInputs.find(device => device.label.toLowerCase().includes('back')) ?? videoInputs[0];
+                setSelectedDeviceId(preferred.deviceId);
+            }
+        } catch (err) {
+            console.warn('[QR Scanner] Не удалось получить список камер:', err);
+        }
+    }, [selectedDeviceId]);
+
     useEffect(() => {
         isActiveRef.current = true;
-
-        if (!navigator.mediaDevices?.getUserMedia) {
-            setErrorMessage('Браузер не позволяет использовать камеру. Попробуйте другой браузер или устройство.');
-            return;
-        }
-
-        const start = async () => {
+ 
+         if (!navigator.mediaDevices?.getUserMedia) {
+             setErrorMessage('Браузер не позволяет использовать камеру. Попробуйте другой браузер или устройство.');
+             return;
+         }
+ 
+        const startCamera = async () => {
             try {
                 setStatusMessage('Открываем камеру...');
                 // fallback state reset happens in stopFallbackReader
  
-                const stream = await navigator.mediaDevices.getUserMedia({
+                const baseConstraints: MediaStreamConstraints = {
                     video: {
                         facingMode: 'environment',
                         width: { ideal: 1920 },
                         height: { ideal: 1080 },
                         frameRate: { ideal: 30 },
                     },
-                });
+                };
 
+                if (selectedDeviceId) {
+                    (baseConstraints.video as MediaTrackConstraints).deviceId = { exact: selectedDeviceId };
+                }
+
+                let stream: MediaStream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
+                } catch (err) {
+                    console.warn('[QR Scanner] Не удалось запустить выбранную камеру, пробуем без deviceId', err);
+                    const fallbackConstraints: MediaStreamConstraints = {
+                        video: {
+                            facingMode: 'environment',
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                            frameRate: { ideal: 30 },
+                        },
+                    };
+                    stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                }
+ 
                 streamRef.current = stream;
  
-                 if (videoRef.current) {
-                     videoRef.current.srcObject = stream;
-                     await videoRef.current.play();
-                 }
- 
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    await videoRef.current.play();
+                }
+
+                await loadCameraDevices();
+
                 await configureTrackForFocus();
                 await triggerAutoFocus();
 
@@ -300,14 +346,14 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 setErrorMessage('Не удалось получить доступ к камере. Проверьте разрешения.');
             }
         };
-
-        start();
-
+ 
+        startCamera();
+ 
         return () => {
             isActiveRef.current = false;
             stopStream();
         };
-    }, [configureTrackForFocus, detectLoop, startFallbackReader, stopStream, triggerAutoFocus]);
+    }, [configureTrackForFocus, detectLoop, loadCameraDevices, selectedDeviceId, startFallbackReader, stopStream, triggerAutoFocus]);
 
     const toggleTorch = useCallback(async () => {
         if (!canUseTorch || !imageCaptureRef.current) return;
@@ -341,6 +387,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         event.target.value = '';
     }, []);
 
+    const handleCameraChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = event.target.value || undefined;
+        setSelectedDeviceId(value);
+        if (typeof window !== 'undefined') {
+            if (value) {
+                localStorage.setItem('qr-preferred-device', value);
+            } else {
+                localStorage.removeItem('qr-preferred-device');
+            }
+        }
+    }, []);
+
     return (
         <motion.div
             className={styles.overlay}
@@ -354,7 +412,22 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                         <ArrowBackIcon />
                     </button>
 
-                    <span className={styles.headerTitle}>Сканирование QR</span>
+                    <div className={styles.headerCenter}>
+                        <span className={styles.headerTitle}>Сканирование QR</span>
+                        {availableCameras.length > 0 && (
+                            <select
+                                className={styles.cameraSelect}
+                                value={selectedDeviceId ?? ''}
+                                onChange={handleCameraChange}
+                            >
+                                {availableCameras.map((device, index) => (
+                                    <option key={device.deviceId || index} value={device.deviceId}>
+                                        {device.label || `Камера ${index + 1}`}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
 
                     <button
                         className={`${styles.headerButton} ${!canUseTorch ? styles.headerButtonDisabled : ''}`}

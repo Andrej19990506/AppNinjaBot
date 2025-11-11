@@ -445,6 +445,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     ) : (
                         <>
                             <video ref={videoRef} className={styles.video} playsInline muted onClick={() => triggerAutoFocus(true)} />
+                            <div className={styles.videoGlow} />
                             <div className={styles.reticle}>
                                 <div className={styles.corner} />
                                 <div className={styles.corner} />

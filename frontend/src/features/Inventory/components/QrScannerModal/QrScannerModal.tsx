@@ -38,9 +38,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const detectorRef = useRef<BarcodeDetectorInstance | null>(null);
     const isActiveRef = useRef(true);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const barcodeFailCountRef = useRef(0);
     const fallbackReaderRef = useRef<BrowserMultiFormatReader | null>(null);
     const fallbackActiveRef = useRef(false);
+    const autoFocusIntervalRef = useRef<number | null>(null);
 
     const [statusMessage, setStatusMessage] = useState('Наведите камеру на QR-код');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -50,11 +50,14 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
     const stopFallbackReader = useCallback(() => {
         if (fallbackReaderRef.current) {
-            fallbackReaderRef.current.reset();
+            try {
+                fallbackReaderRef.current.reset();
+            } catch (err) {
+                console.debug('[QR Scanner] reset fallback reader failed (ignored):', err);
+            }
             fallbackReaderRef.current = null;
         }
         fallbackActiveRef.current = false;
-        barcodeFailCountRef.current = 0;
     }, []);
 
     const stopStream = useCallback(() => {
@@ -64,6 +67,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         }
 
         stopFallbackReader();
+
+        if (autoFocusIntervalRef.current) {
+            clearInterval(autoFocusIntervalRef.current);
+            autoFocusIntervalRef.current = null;
+        }
 
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
@@ -94,7 +102,48 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             setTimeout(() => setStatusMessage('Наведите камеру на QR-код'), 600);
         }
     }, []);
- 
+
+    const configureTrackForFocus = useCallback(async () => {
+        const track = streamRef.current?.getVideoTracks()[0];
+        if (!track) return;
+
+        const capabilities = typeof track.getCapabilities === 'function' ? (track.getCapabilities() as any) : undefined;
+        console.log('[QR Scanner] video capabilities:', capabilities);
+
+        const constraintSets: MediaTrackConstraintSet[] = [];
+
+        if (Array.isArray(capabilities?.focusMode) && capabilities.focusMode.length > 0) {
+            const mode = capabilities.focusMode.includes('continuous')
+                ? 'continuous'
+                : capabilities.focusMode.includes('single-shot')
+                    ? 'single-shot'
+                    : capabilities.focusMode[0];
+            constraintSets.push({ ...( { focusMode: mode } as any ) });
+        }
+
+        const focusDistanceCaps = capabilities?.focusDistance;
+        if (focusDistanceCaps && typeof focusDistanceCaps.min === 'number' && typeof focusDistanceCaps.max === 'number' && focusDistanceCaps.max > focusDistanceCaps.min) {
+            const mid = capabilities.focusDistance.min + (capabilities.focusDistance.max - capabilities.focusDistance.min) / 2;
+            constraintSets.push({ ...( { focusDistance: mid } as any ) });
+        }
+
+        const zoomCaps = capabilities?.zoom;
+        if (zoomCaps && typeof zoomCaps.max === 'number') {
+            const targetZoom = Math.min(zoomCaps.max, Math.max(zoomCaps.min ?? 1, 1.8));
+            if (!Number.isNaN(targetZoom)) {
+                constraintSets.push({ ...( { zoom: targetZoom } as any ) });
+            }
+        }
+
+        if (constraintSets.length) {
+            try {
+                await track.applyConstraints({ advanced: constraintSets as any });
+            } catch (err) {
+                console.warn('[QR Scanner] Не удалось применить настройки фокуса/зума:', err);
+            }
+        }
+    }, []);
+
     const handleDetectionSuccess = useCallback((payload: string) => {
         if (!payload || !isActiveRef.current) {
             return;
@@ -116,20 +165,37 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             fallbackReaderRef.current = reader;
             fallbackActiveRef.current = true;
             setStatusMessage('Используем усиленный режим сканирования...');
+ 
+            const videoEl = videoRef.current;
+            if (!videoEl) {
+                return;
+            }
 
-            reader.decodeFromVideoElementContinuously(videoRef.current, (result: unknown, err: unknown) => {
-                if (!isActiveRef.current) {
-                    return;
-                }
-                if (result && typeof (result as any)?.getText === 'function') {
-                    const text = (result as any).getText().trim();
-                    if (text) {
-                        handleDetectionSuccess(text);
+            if (typeof reader.decodeFromVideoDevice === 'function') {
+                reader.decodeFromVideoDevice(
+                    undefined,
+                    videoEl,
+                    (result: unknown, error: unknown) => {
+                        if (!isActiveRef.current) {
+                            return;
+                        }
+
+                        if (result && typeof (result as any)?.getText === 'function') {
+                            const text = (result as any).getText().trim();
+                            if (text) {
+                                handleDetectionSuccess(text);
+                            }
+                            return;
+                        }
+
+                        if (error && (error as any)?.name !== 'NotFoundException') {
+                            console.warn('[QR Scanner][ZXing] Ошибка распознавания:', error);
+                        }
                     }
-                } else if (err && (err as any)?.name !== 'NotFoundException') {
-                    console.warn('[QR Scanner][ZXing] Ошибка распознавания:', err);
-                }
-            });
+                );
+            } else {
+                console.error('[QR Scanner] decodeFromVideoDevice не поддерживается в используемой версии ZXing');
+            }
         } catch (err) {
             console.error('[QR Scanner] Не удалось запустить fallback-сканер:', err);
         }
@@ -157,15 +223,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     return;
                 }
             } else {
-                barcodeFailCountRef.current += 1;
+                // no-op
             }
         } catch (err) {
             console.error('[QR Scanner] Ошибка при распознавании:', err);
-            barcodeFailCountRef.current += 1;
-        }
-
-        if (barcodeFailCountRef.current > 20 && !fallbackActiveRef.current) {
-            startFallbackReader();
+            // no-op
         }
  
         animationFrameRef.current = requestAnimationFrame(detectLoop);
@@ -182,8 +244,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         const start = async () => {
             try {
                 setStatusMessage('Открываем камеру...');
-                barcodeFailCountRef.current = 0;
-                fallbackActiveRef.current = false;
+                // fallback state reset happens in stopFallbackReader
  
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: {
@@ -195,13 +256,21 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 });
 
                 streamRef.current = stream;
-
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
-                }
-
+ 
+                 if (videoRef.current) {
+                     videoRef.current.srcObject = stream;
+                     await videoRef.current.play();
+                 }
+ 
+                await configureTrackForFocus();
                 await triggerAutoFocus();
+
+                if (autoFocusIntervalRef.current) {
+                    clearInterval(autoFocusIntervalRef.current);
+                }
+                autoFocusIntervalRef.current = window.setInterval(() => {
+                    triggerAutoFocus();
+                }, 2500);
 
                 // Проверяем поддержку фонарика
                 const track = stream.getVideoTracks()[0];
@@ -238,7 +307,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             isActiveRef.current = false;
             stopStream();
         };
-    }, [detectLoop, startFallbackReader, stopStream, triggerAutoFocus]);
+    }, [configureTrackForFocus, detectLoop, startFallbackReader, stopStream, triggerAutoFocus]);
 
     const toggleTorch = useCallback(async () => {
         if (!canUseTorch || !imageCaptureRef.current) return;

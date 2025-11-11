@@ -56,7 +56,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const lastFallbackErrorRef = useRef<string | null>(null);
     const initialFocusDoneRef = useRef(false);
     const detectorFailureCountRef = useRef(0);
+    const focusAttemptedRef = useRef(false);
     const [isUsingFallback, setIsUsingFallback] = useState(false);
+    const hasStartedRef = useRef(false);
+    const currentDeviceIdRef = useRef<string | undefined>(undefined);
 
     const pushLog = useCallback((message: string) => {
         setDebugLogs(prev => {
@@ -113,13 +116,13 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
          setIsUsingFallback(false);
     }, [pushLog]);
 
-    const stopStream = useCallback(() => {
+    const stopStream = useCallback((options?: { silent?: boolean }) => {
         if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
             animationFrameRef.current = null;
         }
 
-        stopFallbackReader();
+        stopFallbackReader(options?.silent ?? false);
 
         if (autoFocusIntervalRef.current) {
             clearInterval(autoFocusIntervalRef.current);
@@ -129,13 +132,21 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
-            pushLog('Камера остановлена');
+            if (!options?.silent) {
+                pushLog('Камера остановлена');
+            }
         }
     }, [pushLog, stopFallbackReader]);
 
     const triggerAutoFocus = useCallback(async (withHint = false) => {
         const track = streamRef.current?.getVideoTracks()[0];
         if (!track?.applyConstraints) return;
+        if (track.readyState !== 'live') {
+            if (withHint) {
+                pushLog('Трек камеры еще не готов к автофокусу');
+            }
+            return;
+        }
         if (withHint) {
             setStatusMessage('Подстраиваем фокус...');
             pushLog('Вручную запущен автофокус пользователем');
@@ -165,6 +176,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const configureTrackForFocus = useCallback(async () => {
         const track = streamRef.current?.getVideoTracks()[0];
         if (!track) return;
+        if (focusAttemptedRef.current) {
+            return;
+        }
 
         const capabilities = typeof track.getCapabilities === 'function' ? (track.getCapabilities() as any) : undefined;
         console.log('[QR Scanner] video capabilities:', capabilities);
@@ -203,7 +217,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 console.warn('[QR Scanner] Не удалось применить настройки фокуса/зума:', err);
                 pushLog(`Не удалось применить настройки фокуса: ${String(err)}`);
             }
+        } else {
+            pushLog('Камера не предоставляет настройки фокуса/зума');
         }
+        focusAttemptedRef.current = true;
     }, [pushLog]);
 
     const handleDetectionSuccess = useCallback((payload: string) => {
@@ -342,38 +359,34 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         animationFrameRef.current = requestAnimationFrame(detectLoop);
     }, [handleDetectionSuccess, isUsingFallback, pushLog, startFallbackReader]);
 
-    const loadCameraDevices = useCallback(async () => {
-        try {
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoInputs = devices.filter(device => device.kind === 'videoinput');
-            devicesRef.current = videoInputs;
-            setAvailableCameras(videoInputs);
-            pushLog(`Найдено камер: ${videoInputs.length}`);
-
-            if (!selectedDeviceId && videoInputs.length > 0) {
-                const preferred = videoInputs.find(device => device.label.toLowerCase().includes('back')) ?? videoInputs[0];
-                setSelectedDeviceId(preferred.deviceId);
-                pushLog(`Выбрана камера по умолчанию: ${preferred.label || preferred.deviceId}`);
+    const startCamera = useCallback(
+        async (deviceId?: string) => {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                setErrorMessage('Браузер не позволяет использовать камеру. Попробуйте другой браузер или устройство.');
+                pushLog('getUserMedia не поддерживается');
+                return;
             }
-        } catch (err) {
-            console.warn('[QR Scanner] Не удалось получить список камер:', err);
-            pushLog(`Ошибка получения списка камер: ${String(err)}`);
-        }
-    }, [pushLog, selectedDeviceId]);
 
-    useEffect(() => {
-        isActiveRef.current = true;
- 
-         if (!navigator.mediaDevices?.getUserMedia) {
-             setErrorMessage('Браузер не позволяет использовать камеру. Попробуйте другой браузер или устройство.');
-             return;
-         }
- 
-        const startCamera = async () => {
             try {
+                const targetId = deviceId;
+                if (hasStartedRef.current) {
+                    if (currentDeviceIdRef.current === targetId) {
+                        pushLog('Камера уже активна, переинициализация не требуется');
+                        return;
+                    }
+                    stopStream({ silent: true });
+                }
+
+                focusAttemptedRef.current = false;
+                initialFocusDoneRef.current = false;
+                setCanUseTorch(false);
+                setIsTorchOn(false);
+                lastDetectorErrorRef.current = null;
+                lastFallbackErrorRef.current = null;
+
                 setStatusMessage('Открываем камеру...');
-                // fallback state reset happens in stopFallbackReader
- 
+                pushLog(`Пробуем открыть камеру: ${targetId ?? 'по умолчанию'}`);
+
                 const baseConstraints: MediaStreamConstraints = {
                     video: {
                         facingMode: 'environment',
@@ -383,11 +396,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     },
                 };
 
-                if (selectedDeviceId) {
-                    (baseConstraints.video as MediaTrackConstraints).deviceId = { exact: selectedDeviceId };
+                if (targetId) {
+                    (baseConstraints.video as MediaTrackConstraints).deviceId = { exact: targetId };
                 }
 
-                pushLog(`Пробуем открыть камеру: ${selectedDeviceId ?? 'по умолчанию'}`);
                 let stream: MediaStream;
                 try {
                     stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
@@ -404,20 +416,26 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     };
                     stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
                 }
- 
+
                 streamRef.current = stream;
-                initialFocusDoneRef.current = false;
-                lastDetectorErrorRef.current = null;
-                lastFallbackErrorRef.current = null;
+                const appliedDeviceId = targetId ?? stream.getVideoTracks()[0]?.getSettings()?.deviceId;
+                currentDeviceIdRef.current = appliedDeviceId;
+                if (!targetId && appliedDeviceId) {
+                    setSelectedDeviceId(prev => prev ?? appliedDeviceId);
+                }
+                hasStartedRef.current = true;
                 pushLog('Камера успешно открыта');
- 
+
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
-                    await videoRef.current.play();
+                    try {
+                        await videoRef.current.play();
+                    } catch (err) {
+                        console.warn('[QR Scanner] Ошибка запуска воспроизведения видео:', err);
+                        pushLog(`Видео не удалось воспроизвести: ${String(err)}`);
+                    }
                 }
- 
-                await loadCameraDevices();
- 
+
                 await configureTrackForFocus();
                 await triggerAutoFocus();
 
@@ -428,11 +446,10 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     triggerAutoFocus();
                 }, 2500);
 
-                // Проверяем поддержку фонарика
                 const track = stream.getVideoTracks()[0];
-                if ('ImageCapture' in window && track) {
+                if ('ImageCapture' in window && track && track.readyState === 'live') {
                     try {
-                        const capture = new ImageCapture(track);
+                        const capture = new (window as any).ImageCapture(track);
                         imageCaptureRef.current = capture;
                         const capabilities = await capture.getPhotoCapabilities();
                         if (capabilities.fillLightMode?.includes('flash')) {
@@ -450,7 +467,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     pushLog('BarcodeDetector доступен как запасной вариант');
                 }
 
-                // Начинаем сразу с ZXing
                 setStatusMessage('Используем усиленный сканер ZXing...');
                 startFallbackReader();
                 animationFrameRef.current = requestAnimationFrame(detectLoop);
@@ -459,21 +475,66 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 setErrorMessage('Не удалось получить доступ к камере. Проверьте разрешения.');
                 pushLog(`Ошибка доступа к камере: ${String(error)}`);
             }
-        };
- 
-        startCamera();
- 
+        },
+        [configureTrackForFocus, detectLoop, pushLog, startFallbackReader, stopStream, triggerAutoFocus]
+    );
+
+    useEffect(() => {
+        isActiveRef.current = true;
         return () => {
             isActiveRef.current = false;
-            stopStream();
+            stopStream({ silent: true });
         };
-    }, [configureTrackForFocus, detectLoop, loadCameraDevices, pushLog, selectedDeviceId, startFallbackReader, stopStream, triggerAutoFocus]);
+    }, [stopStream]);
+
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                if (cancelled) return;
+                const videoInputs = devices.filter(device => device.kind === 'videoinput');
+                devicesRef.current = videoInputs;
+                setAvailableCameras(videoInputs);
+                pushLog(`Найдено камер: ${videoInputs.length}`);
+                if (videoInputs.length > 0) {
+                    setSelectedDeviceId(prev => {
+                        if (prev) {
+                            currentDeviceIdRef.current = prev;
+                            return prev;
+                        }
+                        const preferred = videoInputs.find(device => device.label.toLowerCase().includes('back')) ?? videoInputs[0];
+                        pushLog(`Выбрана камера по умолчанию: ${preferred.label || preferred.deviceId}`);
+                        currentDeviceIdRef.current = preferred.deviceId;
+                        return preferred.deviceId;
+                    });
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    console.warn('[QR Scanner] Не удалось получить список камер:', err);
+                    pushLog(`Ошибка получения списка камер: ${String(err)}`);
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [pushLog]);
+
+    useEffect(() => {
+        if (!selectedDeviceId) return;
+        startCamera(selectedDeviceId);
+    }, [selectedDeviceId, startCamera]);
 
     const toggleTorch = useCallback(async () => {
         if (!canUseTorch || !imageCaptureRef.current) return;
         try {
             const track = streamRef.current?.getVideoTracks()[0];
-            if (!track) return;
+            if (!track || track.readyState !== 'live') {
+                pushLog('Фонарик недоступен: поток неактивен');
+                return;
+            }
             await (track as any).applyConstraints({ advanced: [{ torch: !isTorchOn }] });
             setIsTorchOn(prev => !prev);
             pushLog(`Фонарик ${!isTorchOn ? 'включен' : 'выключен'}`);
@@ -583,6 +644,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 </div>
 
                 <footer className={styles.footerBar}>
+                    <div className={styles.floatingIcon} aria-hidden="true" />
                     <p className={styles.status}>{errorMessage ? 'Попробуйте позже' : statusMessage}</p>
 
                     {debugLogs.length > 0 && (

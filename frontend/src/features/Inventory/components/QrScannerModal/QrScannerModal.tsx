@@ -61,6 +61,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const [isUsingFallback, setIsUsingFallback] = useState(false);
     const hasStartedRef = useRef(false);
     const currentDeviceIdRef = useRef<string | undefined>(undefined);
+    const audioContextRef = useRef<AudioContext | null>(null);
 
     const pushLog = useCallback((message: string) => {
         setDebugLogs(prev => {
@@ -85,6 +86,44 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             pushLog(`Не удалось скопировать логи: ${String(err)}`);
         }
     }, [debugLogs, pushLog]);
+
+    const ensureAudioContext = useCallback(() => {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+        if (!audioContextRef.current) {
+            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+            audioContextRef.current = AudioCtx ? new AudioCtx() : null;
+        }
+        return audioContextRef.current;
+    }, []);
+
+    const playBeep = useCallback(() => {
+        const context = ensureAudioContext();
+        if (!context) {
+            return;
+        }
+        if (context.state === 'suspended') {
+            context.resume().catch(() => undefined);
+        }
+
+        const now = context.currentTime;
+        const oscillator = context.createOscillator();
+        const gainNode = context.createGain();
+
+        oscillator.type = 'square';
+        oscillator.frequency.value = 950;
+
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+
+        oscillator.connect(gainNode);
+        gainNode.connect(context.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.25);
+    }, [ensureAudioContext]);
 
     useEffect(() => {
         pushLog('Окно сканирования открыто');
@@ -140,8 +179,6 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         hasStartedRef.current = false;
         if (!options?.silent) {
             setSuccessCode(null);
-        } else {
-            setSuccessCode(prev => prev);
         }
     }, [pushLog, stopFallbackReader]);
 
@@ -237,6 +274,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         isActiveRef.current = false;
         setStatusMessage('Код считан');
         setSuccessCode(payload);
+        playBeep();
         const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
         pushLog(`Код считан: ${short}`);
         lastDetectorErrorRef.current = null;
@@ -244,7 +282,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         lastFallbackErrorRef.current = null;
         stopFallbackReader(true);
         onDetected(payload);
-    }, [onDetected, pushLog, stopFallbackReader]);
+    }, [onDetected, playBeep, pushLog, stopFallbackReader]);
 
     const startFallbackReader = useCallback(() => {
         if (fallbackActiveRef.current || !videoRef.current) {
@@ -384,6 +422,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     stopStream({ silent: true });
                 }
 
+                setSuccessCode(null);
                 focusAttemptedRef.current = false;
                 initialFocusDoneRef.current = false;
                 setCanUseTorch(false);

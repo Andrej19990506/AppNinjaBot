@@ -50,6 +50,41 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         }
         return undefined;
     });
+    const [debugLogs, setDebugLogs] = useState<string[]>([]);
+    const lastDetectorErrorRef = useRef<string | null>(null);
+    const lastFallbackErrorRef = useRef<string | null>(null);
+    const initialFocusDoneRef = useRef(false);
+
+    const pushLog = useCallback((message: string) => {
+        setDebugLogs(prev => {
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const entry = `${timestamp} — ${message}`;
+            const next = [...prev, entry];
+            return next.length > 25 ? next.slice(next.length - 25) : next;
+        });
+    }, []);
+
+    const clearLogs = useCallback(() => {
+        setDebugLogs([]);
+    }, []);
+
+    const copyLogs = useCallback(async () => {
+        if (!debugLogs.length) return;
+        const text = debugLogs.join('\n');
+        try {
+            await navigator.clipboard.writeText(text);
+            pushLog('Логи скопированы в буфер обмена');
+        } catch (err) {
+            pushLog(`Не удалось скопировать логи: ${String(err)}`);
+        }
+    }, [debugLogs, pushLog]);
+
+    useEffect(() => {
+        pushLog('Окно сканирования открыто');
+        return () => {
+            pushLog('Окно сканирования закрыто');
+        };
+    }, [pushLog]);
 
     const [statusMessage, setStatusMessage] = useState('Наведите камеру на QR-код');
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -58,15 +93,17 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
     const stopFallbackReader = useCallback(() => {
         if (fallbackReaderRef.current) {
+            pushLog('Останавливаем fallback ZXing');
             try {
                 fallbackReaderRef.current.reset();
             } catch (err) {
                 console.debug('[QR Scanner] reset fallback reader failed (ignored):', err);
+                pushLog(`Не удалось корректно сбросить fallback: ${String(err)}`);
             }
             fallbackReaderRef.current = null;
         }
         fallbackActiveRef.current = false;
-    }, []);
+    }, [pushLog]);
 
     const stopStream = useCallback(() => {
         if (animationFrameRef.current) {
@@ -84,14 +121,16 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(track => track.stop());
             streamRef.current = null;
+            pushLog('Камера остановлена');
         }
-    }, [stopFallbackReader]);
+    }, [pushLog, stopFallbackReader]);
 
     const triggerAutoFocus = useCallback(async (withHint = false) => {
         const track = streamRef.current?.getVideoTracks()[0];
         if (!track?.applyConstraints) return;
         if (withHint) {
             setStatusMessage('Подстраиваем фокус...');
+            pushLog('Вручную запущен автофокус пользователем');
         }
         try {
             await (track as any).applyConstraints({
@@ -109,7 +148,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         if (withHint) {
             setTimeout(() => setStatusMessage('Наведите камеру на QR-код'), 600);
         }
-    }, []);
+        if (!initialFocusDoneRef.current) {
+            initialFocusDoneRef.current = true;
+            pushLog('Автофокус активирован');
+        }
+    }, [pushLog]);
 
     const configureTrackForFocus = useCallback(async () => {
         const track = streamRef.current?.getVideoTracks()[0];
@@ -117,6 +160,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
         const capabilities = typeof track.getCapabilities === 'function' ? (track.getCapabilities() as any) : undefined;
         console.log('[QR Scanner] video capabilities:', capabilities);
+        pushLog(`Камера capabilities → focus:${Array.isArray(capabilities?.focusMode) ? capabilities.focusMode.join('/') : 'нет'}, zoom:${capabilities?.zoom ? `${capabilities.zoom.min ?? 0}-${capabilities.zoom.max ?? 0}` : 'нет'}`);
 
         const constraintSets: MediaTrackConstraintSet[] = [];
 
@@ -146,11 +190,13 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         if (constraintSets.length) {
             try {
                 await track.applyConstraints({ advanced: constraintSets as any });
+                pushLog('Применены настройки фокуса/зума');
             } catch (err) {
                 console.warn('[QR Scanner] Не удалось применить настройки фокуса/зума:', err);
+                pushLog(`Не удалось применить настройки фокуса: ${String(err)}`);
             }
         }
-    }, []);
+    }, [pushLog]);
 
     const handleDetectionSuccess = useCallback((payload: string) => {
         if (!payload || !isActiveRef.current) {
@@ -160,8 +206,12 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         setStatusMessage('Код считан');
         stopFallbackReader();
         stopStream();
+        const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
+        pushLog(`Код считан: ${short}`);
+        lastDetectorErrorRef.current = null;
+        lastFallbackErrorRef.current = null;
         onDetected(payload);
-    }, [onDetected, stopFallbackReader, stopStream]);
+    }, [onDetected, pushLog, stopFallbackReader, stopStream]);
 
     const startFallbackReader = useCallback(() => {
         if (fallbackActiveRef.current || !videoRef.current) {
@@ -173,6 +223,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             fallbackReaderRef.current = reader;
             fallbackActiveRef.current = true;
             setStatusMessage('Используем усиленный режим сканирования...');
+            pushLog('Запускаем fallback ZXing');
  
             const videoEl = videoRef.current;
             if (!videoEl) {
@@ -198,16 +249,23 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
                         if (error && (error as any)?.name !== 'NotFoundException') {
                             console.warn('[QR Scanner][ZXing] Ошибка распознавания:', error);
+                            const msg = String(error);
+                            if (lastFallbackErrorRef.current !== msg) {
+                                lastFallbackErrorRef.current = msg;
+                                pushLog(`ZXing ошибка: ${msg}`);
+                            }
                         }
                     }
                 );
             } else {
                 console.error('[QR Scanner] decodeFromVideoDevice не поддерживается в используемой версии ZXing');
+                pushLog('decodeFromVideoDevice не поддерживается этой версией ZXing');
             }
         } catch (err) {
             console.error('[QR Scanner] Не удалось запустить fallback-сканер:', err);
+            pushLog(`Не удалось запустить fallback-сканер: ${String(err)}`);
         }
-    }, [handleDetectionSuccess, selectedDeviceId]);
+    }, [handleDetectionSuccess, pushLog, selectedDeviceId]);
 
     const detectLoop = useCallback(async () => {
         if (!isActiveRef.current) {
@@ -235,11 +293,15 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             }
         } catch (err) {
             console.error('[QR Scanner] Ошибка при распознавании:', err);
-            // no-op
+            const msg = String(err);
+            if (lastDetectorErrorRef.current !== msg) {
+                lastDetectorErrorRef.current = msg;
+                pushLog(`BarcodeDetector ошибка: ${msg}`);
+            }
         }
  
         animationFrameRef.current = requestAnimationFrame(detectLoop);
-    }, [handleDetectionSuccess, startFallbackReader]);
+    }, [handleDetectionSuccess, pushLog, startFallbackReader]);
 
     const loadCameraDevices = useCallback(async () => {
         try {
@@ -247,15 +309,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             const videoInputs = devices.filter(device => device.kind === 'videoinput');
             devicesRef.current = videoInputs;
             setAvailableCameras(videoInputs);
+            pushLog(`Найдено камер: ${videoInputs.length}`);
 
             if (!selectedDeviceId && videoInputs.length > 0) {
                 const preferred = videoInputs.find(device => device.label.toLowerCase().includes('back')) ?? videoInputs[0];
                 setSelectedDeviceId(preferred.deviceId);
+                pushLog(`Выбрана камера по умолчанию: ${preferred.label || preferred.deviceId}`);
             }
         } catch (err) {
             console.warn('[QR Scanner] Не удалось получить список камер:', err);
+            pushLog(`Ошибка получения списка камер: ${String(err)}`);
         }
-    }, [selectedDeviceId]);
+    }, [pushLog, selectedDeviceId]);
 
     useEffect(() => {
         isActiveRef.current = true;
@@ -283,11 +348,13 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     (baseConstraints.video as MediaTrackConstraints).deviceId = { exact: selectedDeviceId };
                 }
 
+                pushLog(`Пробуем открыть камеру: ${selectedDeviceId ?? 'по умолчанию'}`);
                 let stream: MediaStream;
                 try {
                     stream = await navigator.mediaDevices.getUserMedia(baseConstraints);
                 } catch (err) {
                     console.warn('[QR Scanner] Не удалось запустить выбранную камеру, пробуем без deviceId', err);
+                    pushLog(`Не удалось запустить выбранную камеру: ${String(err)}. Пробуем параметры по умолчанию.`);
                     const fallbackConstraints: MediaStreamConstraints = {
                         video: {
                             facingMode: 'environment',
@@ -300,14 +367,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 }
  
                 streamRef.current = stream;
+                initialFocusDoneRef.current = false;
+                lastDetectorErrorRef.current = null;
+                lastFallbackErrorRef.current = null;
+                pushLog('Камера успешно открыта');
  
                 if (videoRef.current) {
                     videoRef.current.srcObject = stream;
                     await videoRef.current.play();
                 }
-
+ 
                 await loadCameraDevices();
-
+ 
                 await configureTrackForFocus();
                 await triggerAutoFocus();
 
@@ -327,9 +398,11 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                         const capabilities = await capture.getPhotoCapabilities();
                         if (capabilities.fillLightMode?.includes('flash')) {
                             setCanUseTorch(true);
+                            pushLog('Фонарик доступен');
                         }
                     } catch (torchErr) {
                         console.warn('[QR Scanner] Фонарик недоступен:', torchErr);
+                        pushLog(`Фонарик недоступен: ${String(torchErr)}`);
                     }
                 }
 
@@ -337,6 +410,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     detectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] });
                     setStatusMessage('Наведите камеру на QR-код');
                     animationFrameRef.current = requestAnimationFrame(detectLoop);
+                    pushLog('Используем встроенный BarcodeDetector');
                 } else {
                     setStatusMessage('Используем резервный сканер...');
                     startFallbackReader();
@@ -344,6 +418,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             } catch (error) {
                 console.error('[QR Scanner] Ошибка при доступе к камере:', error);
                 setErrorMessage('Не удалось получить доступ к камере. Проверьте разрешения.');
+                pushLog(`Ошибка доступа к камере: ${String(error)}`);
             }
         };
  
@@ -353,7 +428,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             isActiveRef.current = false;
             stopStream();
         };
-    }, [configureTrackForFocus, detectLoop, loadCameraDevices, selectedDeviceId, startFallbackReader, stopStream, triggerAutoFocus]);
+    }, [configureTrackForFocus, detectLoop, loadCameraDevices, pushLog, selectedDeviceId, startFallbackReader, stopStream, triggerAutoFocus]);
 
     const toggleTorch = useCallback(async () => {
         if (!canUseTorch || !imageCaptureRef.current) return;
@@ -362,10 +437,12 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             if (!track) return;
             await (track as any).applyConstraints({ advanced: [{ torch: !isTorchOn }] });
             setIsTorchOn(prev => !prev);
+            pushLog(`Фонарик ${!isTorchOn ? 'включен' : 'выключен'}`);
         } catch (err) {
             console.warn('[QR Scanner] Не удалось переключить фонарик:', err);
+            pushLog(`Ошибка переключения фонарика: ${String(err)}`);
         }
-    }, [canUseTorch, isTorchOn]);
+    }, [canUseTorch, isTorchOn, pushLog]);
 
     const handleClose = useCallback(() => {
         isActiveRef.current = false;
@@ -376,8 +453,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const handleGallerySelect = useCallback(() => {
         if (fileInputRef.current) {
             fileInputRef.current.click();
+            pushLog('Открыт выбор изображения из галереи');
         }
-    }, []);
+    }, [pushLog]);
 
     const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
         if (!event.target.files || event.target.files.length === 0) {
@@ -385,7 +463,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         }
         setStatusMessage('Загрузка из галереи пока недоступна.');
         event.target.value = '';
-    }, []);
+        pushLog('Выбор файла из галереи недоступен (не реализовано)');
+    }, [pushLog]);
 
     const handleCameraChange = useCallback((event: React.ChangeEvent<HTMLSelectElement>) => {
         const value = event.target.value || undefined;
@@ -397,7 +476,9 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                 localStorage.removeItem('qr-preferred-device');
             }
         }
-    }, []);
+        const found = devicesRef.current.find(device => device.deviceId === value);
+        pushLog(`Выбрана камера пользователем: ${found?.label || value || 'по умолчанию'}`);
+    }, [pushLog]);
 
     return (
         <motion.div
@@ -458,6 +539,23 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
 
                 <footer className={styles.footerBar}>
                     <p className={styles.status}>{errorMessage ? 'Попробуйте позже' : statusMessage}</p>
+
+                    {debugLogs.length > 0 && (
+                        <div className={styles.debugPanel}>
+                            <div className={styles.debugTitle}>Отладка</div>
+                            {debugLogs.map((log, index) => (
+                                <div key={index} className={styles.debugItem}>{log}</div>
+                            ))}
+                            <div className={styles.debugActions}>
+                                <button type="button" className={styles.debugButton} onClick={clearLogs}>
+                                    Очистить
+                                </button>
+                                <button type="button" className={styles.debugButton} onClick={copyLogs}>
+                                    Скопировать
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     <button className={styles.galleryButton} onClick={handleGallerySelect} type="button">
                         Выбрать из галереи

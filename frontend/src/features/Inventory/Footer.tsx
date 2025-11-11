@@ -16,6 +16,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import styled from 'styled-components';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 
 import { useAppDispatch, useAppSelector } from '@/shared/store/hooks';
 import { 
@@ -174,6 +175,9 @@ interface FooterProps {
     onActiveUsersClick?: () => void;
     activeUsersCount?: number;
     isActiveUsersOpen?: boolean;
+    // Пропсы для сканера
+    showQrScanButton?: boolean;
+    onQrScanClick?: () => void;
     // Новые пропсы для завершения инвентаризации
     showCompleteButton?: boolean;
     onCompleteClick?: () => void;
@@ -228,6 +232,8 @@ const Footer: React.FC<FooterProps> = ({
     onActiveUsersClick,
     activeUsersCount = 0,
     isActiveUsersOpen = false,
+    showQrScanButton = false,
+    onQrScanClick,
     showCompleteButton = false,
     onCompleteClick,
     isCompleteOpen = false,
@@ -235,7 +241,7 @@ const Footer: React.FC<FooterProps> = ({
     onModalAccept,
     onModalCancelAcceptance,
     isModalAcceptDisabled = false,
-    isModalSubmitting = false
+    isModalSubmitting = false,
 }) => {
     const navigate = useNavigate();
     const [isTextOverflow, setIsTextOverflow] = useState(false);
@@ -478,7 +484,19 @@ const Footer: React.FC<FooterProps> = ({
                                     </div>
                                 </motion.button>
                             )}
-                            
+ 
+                            {/* Кнопка сканирования QR */}
+                            {showQrScanButton && !isSearchOpen && (
+                                <motion.button
+                                    className={styles.qrScanButton}
+                                    onClick={onQrScanClick}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                >
+                                    <QrCodeScannerIcon className={styles.qrIcon} /> 
+                                </motion.button>
+                            )}
+
                             {/* <<< Кнопка Смены/Резерв >>> */}
                             {isShiftDialogOpen && !isSearchOpen && !isActiveUsersOpen && (
                                 <motion.button

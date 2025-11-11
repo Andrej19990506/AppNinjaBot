@@ -1085,3 +1085,33 @@
     transform: translateY(-2px) scale(1.05);
     box-shadow: 0 8px 25px rgba(255, 95, 31, 0.2);
 } 
+
+.qrScanButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-color);
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.qrScanButton:hover {
+    border-color: rgba(255, 95, 31, 0.4);
+    color: var(--orange-primary);
+    box-shadow: 0 12px 30px rgba(255, 95, 31, 0.25);
+}
+
+.qrIcon {
+    font-size: 1.25rem !important;
+    width: 1.5rem;
+    height: 1.5rem;
+} 

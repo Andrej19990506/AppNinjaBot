@@ -22,6 +22,7 @@ import config from '@/config';
 import { useInventoryWebSocketSync } from '@features/Inventory/hooks/useInventoryWebSocketSync';
 import { socketService } from '@shared/services/socketService';
 import styled from 'styled-components';
+import { QrScannerModal } from '@features/Inventory/components/QrScannerModal/QrScannerModal';
 
 // Импортируем необходимые хуки
 import { useInventoryLoader } from '@features/Inventory/hooks/useInventoryLoader';
@@ -95,6 +96,7 @@ const Inventory: React.FC = () => {
         onConfirm: () => void;
         onEdit: () => void;
     } | null>(null);
+    const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
   
  
     // --- 4. Инициализация кастомных хуков ---
@@ -368,6 +370,28 @@ const Inventory: React.FC = () => {
 
     const handleCloseActiveUsersDrawer = useCallback(() => {
         setIsActiveUsersDrawerOpen(false);
+    }, []);
+
+    const handleOpenQrScanner = useCallback(() => {
+        setIsQrScannerOpen(true);
+    }, []);
+
+    const handleCloseQrScanner = useCallback(() => {
+        setIsQrScannerOpen(false);
+    }, []);
+
+    const handleQrDetected = useCallback((code: string) => {
+        setIsQrScannerOpen(false);
+        setNotifications(prev => [
+            ...prev,
+            {
+                id: `qr-detected-${Date.now()}`,
+                type: 'success',
+                title: 'QR считан',
+                message: `Код ${code} успешно считан.`,
+            },
+        ]);
+        setHasUnreadNotifications(true);
     }, []);
 
     const handleCompleteClick = useCallback(() => {
@@ -681,6 +705,8 @@ const Inventory: React.FC = () => {
                 onActiveUsersClick={handleActiveUsersClick}
                 activeUsersCount={activeUsersCount}
                 isActiveUsersOpen={isActiveUsersDrawerOpen}
+                showQrScanButton={!isQrScannerOpen}
+                onQrScanClick={handleOpenQrScanner}
                 showCompleteButton={currentChatData.metadata?.progress === 100}
                 onCompleteClick={handleCompleteClick}
                 isCompleteOpen={showCompleteDialog}
@@ -697,6 +723,15 @@ const Inventory: React.FC = () => {
                      </SlidingDrawer>
                  )}
              </AnimatePresence>
+
+            <AnimatePresence>
+                {isQrScannerOpen && (
+                    <QrScannerModal
+                        onClose={handleCloseQrScanner}
+                        onDetected={handleQrDetected}
+                    />
+                )}
+            </AnimatePresence>
             
             {/* Модальное окно с изменениями шаблона */}
             {templateChanges && (

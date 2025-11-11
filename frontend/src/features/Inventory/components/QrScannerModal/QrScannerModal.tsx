@@ -40,6 +40,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const fallbackReaderRef = useRef<BrowserMultiFormatReader | null>(null);
     const fallbackActiveRef = useRef(false);
+    const fallbackControlsRef = useRef<{ stop: () => void } | null>(null);
     const imageCaptureRef = useRef<ImageCapture | null>(null);
     const autoFocusIntervalRef = useRef<number | null>(null);
     const devicesRef = useRef<MediaDeviceInfo[]>([]);
@@ -93,19 +94,23 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const [isTorchOn, setIsTorchOn] = useState(false);
     const [canUseTorch, setCanUseTorch] = useState(false);
 
-    const stopFallbackReader = useCallback(() => {
-        if (fallbackReaderRef.current) {
-            pushLog('Останавливаем fallback ZXing');
-            try {
-                fallbackReaderRef.current.reset();
-            } catch (err) {
-                console.debug('[QR Scanner] reset fallback reader failed (ignored):', err);
-                pushLog(`Не удалось корректно сбросить fallback: ${String(err)}`);
-            }
+    const stopFallbackReader = useCallback((silently = false) => {
+         if (fallbackControlsRef.current) {
+             try {
+                 fallbackControlsRef.current.stop();
+             } catch (err) {
+                if (!silently) {
+                    console.debug('[QR Scanner] остановка ZXing завершилась с ошибкой:', err);
+                    pushLog(`Не удалось корректно остановить ZXing: ${String(err)}`);
+                }
+             }
+             fallbackControlsRef.current = null;
+         }
+         if (fallbackReaderRef.current) {
             fallbackReaderRef.current = null;
-        }
-        fallbackActiveRef.current = false;
-        setIsUsingFallback(false);
+         }
+         fallbackActiveRef.current = false;
+         setIsUsingFallback(false);
     }, [pushLog]);
 
     const stopStream = useCallback(() => {
@@ -202,19 +207,19 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     }, [pushLog]);
 
     const handleDetectionSuccess = useCallback((payload: string) => {
-        if (!payload || !isActiveRef.current) {
-            return;
-        }
-        isActiveRef.current = false;
-        setStatusMessage('Код считан');
-        stopFallbackReader();
+         if (!payload || !isActiveRef.current) {
+             return;
+         }
+         isActiveRef.current = false;
+         setStatusMessage('Код считан');
+         const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
+         pushLog(`Код считан: ${short}`);
+         lastDetectorErrorRef.current = null;
+         detectorFailureCountRef.current = 0;
+         lastFallbackErrorRef.current = null;
+         onDetected(payload);
+        stopFallbackReader(true);
         stopStream();
-        const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
-        pushLog(`Код считан: ${short}`);
-        lastDetectorErrorRef.current = null;
-        detectorFailureCountRef.current = 0;
-        lastFallbackErrorRef.current = null;
-        onDetected(payload);
     }, [onDetected, pushLog, stopFallbackReader, stopStream]);
 
     const startFallbackReader = useCallback(() => {
@@ -237,7 +242,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             }
 
             if (typeof reader.decodeFromVideoDevice === 'function') {
-                reader.decodeFromVideoDevice(
+                const result = reader.decodeFromVideoDevice(
                     selectedDeviceId,
                     videoEl,
                     (result: unknown, error: unknown) => {
@@ -264,6 +269,18 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                         }
                     }
                 );
+                if (result && typeof (result as any).then === 'function') {
+                    (result as Promise<any>)
+                        .then(controls => {
+                            if (controls && typeof controls.stop === 'function') {
+                                fallbackControlsRef.current = controls;
+                            }
+                        })
+                        .catch(err => {
+                            console.warn('[QR Scanner] Ошибка получения контроля ZXing:', err);
+                            pushLog(`Не удалось получить контролы ZXing: ${String(err)}`);
+                        });
+                }
             } else {
                 console.error('[QR Scanner] decodeFromVideoDevice не поддерживается в используемой версии ZXing');
                 pushLog('decodeFromVideoDevice не поддерживается этой версией ZXing');

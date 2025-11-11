@@ -54,6 +54,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     const lastDetectorErrorRef = useRef<string | null>(null);
     const lastFallbackErrorRef = useRef<string | null>(null);
     const initialFocusDoneRef = useRef(false);
+    const detectorFailureCountRef = useRef(0);
+    const [isUsingFallback, setIsUsingFallback] = useState(false);
 
     const pushLog = useCallback((message: string) => {
         setDebugLogs(prev => {
@@ -103,6 +105,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             fallbackReaderRef.current = null;
         }
         fallbackActiveRef.current = false;
+        setIsUsingFallback(false);
     }, [pushLog]);
 
     const stopStream = useCallback(() => {
@@ -209,6 +212,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         const short = payload.length > 80 ? `${payload.slice(0, 80)}…` : payload;
         pushLog(`Код считан: ${short}`);
         lastDetectorErrorRef.current = null;
+        detectorFailureCountRef.current = 0;
         lastFallbackErrorRef.current = null;
         onDetected(payload);
     }, [onDetected, pushLog, stopFallbackReader, stopStream]);
@@ -224,6 +228,8 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
             fallbackActiveRef.current = true;
             setStatusMessage('Используем усиленный режим сканирования...');
             pushLog('Запускаем fallback ZXing');
+            detectorFailureCountRef.current = 0;
+            setIsUsingFallback(true);
  
             const videoEl = videoRef.current;
             if (!videoEl) {
@@ -254,6 +260,7 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                                 lastFallbackErrorRef.current = msg;
                                 pushLog(`ZXing ошибка: ${msg}`);
                             }
+                            detectorFailureCountRef.current += 1;
                         }
                     }
                 );
@@ -268,40 +275,60 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
     }, [handleDetectionSuccess, pushLog, selectedDeviceId]);
 
     const detectLoop = useCallback(async () => {
-        if (!isActiveRef.current) {
+         if (!isActiveRef.current) {
+             return;
+         }
+ 
+        const videoEl = videoRef.current;
+        if (!videoEl) {
             return;
         }
 
-        if (!detectorRef.current || !videoRef.current) {
-            if (!fallbackActiveRef.current) {
-                startFallbackReader();
-            }
+        if (isUsingFallback || fallbackActiveRef.current) {
+            // ZXing работает, просто ждём следующий кадр
             animationFrameRef.current = requestAnimationFrame(detectLoop);
             return;
         }
- 
-        try {
-            const results = await detectorRef.current.detect(videoRef.current);
-            if (results.length > 0) {
-                const payload = results[0]?.rawValue?.trim();
-                if (payload) {
-                    handleDetectionSuccess(payload);
-                    return;
-                }
-            } else {
-                // no-op
-            }
-        } catch (err) {
-            console.error('[QR Scanner] Ошибка при распознавании:', err);
-            const msg = String(err);
-            if (lastDetectorErrorRef.current !== msg) {
-                lastDetectorErrorRef.current = msg;
-                pushLog(`BarcodeDetector ошибка: ${msg}`);
+
+        if (!detectorRef.current && typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+            try {
+                detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+                pushLog('Инициализируем BarcodeDetector как запасной вариант');
+            } catch (err) {
+                pushLog(`Не удалось создать BarcodeDetector: ${String(err)}`);
+                startFallbackReader();
+                animationFrameRef.current = requestAnimationFrame(detectLoop);
+                return;
             }
         }
- 
+
+        if (detectorRef.current) {
+            try {
+                const results = await detectorRef.current.detect(videoEl);
+                if (results.length > 0) {
+                    const payload = results[0]?.rawValue?.trim();
+                    if (payload) {
+                        handleDetectionSuccess(payload);
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.error('[QR Scanner] Ошибка при распознавании:', err);
+                const msg = String(err);
+                if (lastDetectorErrorRef.current !== msg) {
+                    lastDetectorErrorRef.current = msg;
+                    pushLog(`BarcodeDetector ошибка: ${msg}`);
+                }
+                detectorFailureCountRef.current += 1;
+                if (!fallbackActiveRef.current) {
+                    pushLog('Переходим на ZXing из-за ошибок BarcodeDetector');
+                    startFallbackReader();
+                }
+            }
+        }
+
         animationFrameRef.current = requestAnimationFrame(detectLoop);
-    }, [handleDetectionSuccess, pushLog, startFallbackReader]);
+    }, [handleDetectionSuccess, isUsingFallback, pushLog, startFallbackReader]);
 
     const loadCameraDevices = useCallback(async () => {
         try {
@@ -406,15 +433,15 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                     }
                 }
 
-                if (window.BarcodeDetector) {
-                    detectorRef.current = new window.BarcodeDetector({ formats: ['qr_code'] });
-                    setStatusMessage('Наведите камеру на QR-код');
-                    animationFrameRef.current = requestAnimationFrame(detectLoop);
-                    pushLog('Используем встроенный BarcodeDetector');
-                } else {
-                    setStatusMessage('Используем резервный сканер...');
-                    startFallbackReader();
+                if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+                    detectorRef.current = new (window as any).BarcodeDetector({ formats: ['qr_code'] });
+                    pushLog('BarcodeDetector доступен как запасной вариант');
                 }
+
+                // Начинаем сразу с ZXing
+                setStatusMessage('Используем усиленный сканер ZXing...');
+                startFallbackReader();
+                animationFrameRef.current = requestAnimationFrame(detectLoop);
             } catch (error) {
                 console.error('[QR Scanner] Ошибка при доступе к камере:', error);
                 setErrorMessage('Не удалось получить доступ к камере. Проверьте разрешения.');
@@ -525,7 +552,13 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
                         <div className={styles.errorBlock}>{errorMessage}</div>
                     ) : (
                         <>
-                            <video ref={videoRef} className={styles.video} playsInline muted onClick={() => triggerAutoFocus(true)} />
+                            <video
+                                ref={videoRef}
+                                className={styles.video}
+                                playsInline
+                                muted
+                                onClick={() => triggerAutoFocus(true)}
+                            />
                             <div className={styles.videoGlow} />
                             <div className={styles.reticle}>
                                 <div className={styles.corner} />
@@ -572,3 +605,5 @@ export const QrScannerModal: React.FC<QrScannerModalProps> = ({ onClose, onDetec
         </motion.div>
     );
 };
+
+export default QrScannerModal;

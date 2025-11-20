@@ -36,10 +36,10 @@ def _get_secret_key(bot_token: str) -> bytes:
 
 def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
     logger.info(f"[Telegram Auth] _build_data_check_string: входные пары: {pairs}")
-    # Исключаем hash и signature из data_check_string
-    # signature - это отдельное поле для проверки подлинности мини-аппа, не входит в проверку hash
-    filtered = [(k, v) for k, v in pairs if k not in ("hash", "signature")]
-    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash и signature): {filtered}")
+    # Исключаем только hash из data_check_string
+    # В Bot API 8.0+ signature должен быть включен в data_check_string для проверки hash
+    filtered = [(k, v) for k, v in pairs if k != "hash"]
+    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash): {filtered}")
     filtered.sort(key=lambda item: item[0])
     logger.info(f"[Telegram Auth] _build_data_check_string: отсортированные пары: {filtered}")
     result = "\n".join(f"{k}={v}" for k, v in filtered)

@@ -1,13 +1,11 @@
-import hashlib
-import hmac
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Tuple
-from urllib.parse import parse_qsl, unquote, quote
+from typing import Any, Dict
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel
+from telegram_init_data import validate as validate_init_data, parse as parse_init_data
 
 from core.config import settings
 
@@ -30,46 +28,6 @@ class TelegramAuthPayload(BaseModel):
     raw_data: Dict[str, Any]
 
 
-def _get_secret_key(bot_token: str) -> bytes:
-    return hashlib.sha256(bot_token.encode()).digest()
-
-
-def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
-    logger.info(f"[Telegram Auth] _build_data_check_string: входные пары: {pairs}")
-    # Исключаем hash и signature из data_check_string
-    # hash - это проверяемое значение
-    # signature - это отдельное поле для проверки подлинности приложения (Bot API 8.0+)
-    # Для Bot API 9.2 оба поля должны быть исключены из data_check_string
-    filtered = [(k, v) for k, v in pairs if k not in ("hash", "signature")]
-    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash и signature): {filtered}")
-    filtered.sort(key=lambda item: item[0])
-    logger.info(f"[Telegram Auth] _build_data_check_string: отсортированные пары: {filtered}")
-    result = "\n".join(f"{k}={v}" for k, v in filtered)
-    logger.info(f"[Telegram Auth] _build_data_check_string: результат: {repr(result)}")
-    return result
-
-
-def _verify_signature(data_check_string: str, received_hash: str) -> bool:
-    logger.info(f"[Telegram Auth] Проверка подписи. Токенов для проверки: {len(settings.telegram_bot_tokens)}")
-    logger.info(f"[Telegram Auth] data_check_string: {data_check_string}")
-    logger.info(f"[Telegram Auth] received_hash: {received_hash}")
-    
-    for i, token in enumerate(settings.telegram_bot_tokens):
-        token_preview = token[:20] + "..." if len(token) > 20 else token
-        logger.info(f"[Telegram Auth] Проверка токена {i+1}: {token_preview}")
-        secret_key = _get_secret_key(token)
-        computed_hash = hmac.new(
-            secret_key,
-            msg=data_check_string.encode(),
-            digestmod=hashlib.sha256,
-        ).hexdigest()
-        logger.info(f"[Telegram Auth] Токен {i+1}: computed_hash={computed_hash}, received_hash={received_hash}")
-        logger.info(f"[Telegram Auth] Токен {i+1}: совпадение={computed_hash == received_hash}")
-        if hmac.compare_digest(computed_hash, received_hash):
-            logger.info(f"[Telegram Auth] Подпись валидна для токена {i+1}")
-            return True
-    logger.warning(f"[Telegram Auth] Подпись не прошла валидацию ни для одного токена")
-    return False
 
 
 def _validate_auth_date(auth_date: int) -> datetime:
@@ -92,76 +50,89 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         logger.error("[Telegram Auth] Нет токенов для проверки!")
         raise RuntimeError("No TELEGRAM_BOT_TOKEN configured for verification")
 
-    # Используем parse_qsl для парсинга init_data (стандартный способ в Python)
-    # parse_qsl автоматически декодирует URL-encoded значения
-    pairs = parse_qsl(init_data, keep_blank_values=True)
-    
-    logger.info(f"[Telegram Auth] Распарсено пар: {len(pairs)}")
-    
-    if not pairs:
-        logger.error("[Telegram Auth] Пустые данные init_data")
+    # Используем библиотеку telegram-init-data для валидации
+    try:
+        # Пробуем валидировать с каждым токеном
+        validation_success = False
+        data_dict = None
+        
+        for i, token in enumerate(settings.telegram_bot_tokens):
+            token_preview = token[:20] + "..." if len(token) > 20 else token
+            logger.info(f"[Telegram Auth] Проверка токена {i+1}: {token_preview}")
+            
+            try:
+                # Валидируем init_data с помощью библиотеки
+                # validate() выбрасывает исключение, если валидация не прошла
+                validated_data = validate_init_data(init_data, token)
+                
+                logger.info(f"[Telegram Auth] Подпись валидна для токена {i+1}")
+                validation_success = True
+                
+                # Парсим данные после успешной валидации
+                data_dict = parse_init_data(init_data)
+                break
+                
+            except Exception as e:
+                logger.warning(f"[Telegram Auth] Токен {i+1}: валидация не прошла - {e}")
+                continue
+        
+        if not validation_success:
+            logger.error("[Telegram Auth] Подпись не прошла валидацию ни для одного токена")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Telegram init data signature",
+            )
+        
+        if not data_dict:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to parse init data",
+            )
+        
+        logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Telegram Auth] Ошибка при парсинге/валидации init_data: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Empty init data",
+            detail=f"Invalid init data format: {str(e)}",
         )
 
-    # Создаем словарь для получения hash и других полей
-    data_dict = dict(pairs)
-    received_hash = data_dict.get("hash")
-    if not received_hash:
-        logger.error("[Telegram Auth] Отсутствует hash в init_data")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing hash in init data",
-        )
-    
-    logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
-    
-    # Для проверки hash используем ДЕКОДИРОВАННЫЕ значения (исключая hash и signature)
-    # Согласно документации Telegram, parse_qsl автоматически декодирует значения,
-    # и именно декодированные значения используются для проверки hash
-    data_check_string = _build_data_check_string(pairs)
-    logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
-    
-    if not _verify_signature(data_check_string, received_hash):
-        logger.error(f"[Telegram Auth] Подпись не прошла валидацию. received_hash: {received_hash}")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid Telegram init data signature",
-        )
-
-    raw_user = data_dict.get("user")
-    if not raw_user:
+    # Получаем user из распарсенных данных
+    user_data = data_dict.get("user")
+    if not user_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing user data in init data",
         )
 
     try:
-        user_payload = json.loads(raw_user)
-    except json.JSONDecodeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid user payload in init data",
-        ) from exc
-
-    try:
-        telegram_user = TelegramAuthorizedUser.model_validate(user_payload)
+        telegram_user = TelegramAuthorizedUser.model_validate(user_data)
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Unexpected user payload structure",
         ) from exc
 
+    # Получаем auth_date
+    auth_date_raw = data_dict.get("auth_date")
+    if not auth_date_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid auth_date in init data",
+        )
+
     try:
-        auth_date_raw = int(data_dict["auth_date"])
-    except (KeyError, ValueError) as exc:
+        auth_date_int = int(auth_date_raw)
+    except (TypeError, ValueError) as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid auth_date in init data",
         ) from exc
 
-    auth_datetime = _validate_auth_date(auth_date_raw)
+    auth_datetime = _validate_auth_date(auth_date_int)
 
     query_id = data_dict.get("query_id")
 

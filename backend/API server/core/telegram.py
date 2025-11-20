@@ -42,17 +42,20 @@ def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
 
 def _verify_signature(data_check_string: str, received_hash: str) -> bool:
     logger.info(f"[Telegram Auth] Проверка подписи. Токенов для проверки: {len(settings.telegram_bot_tokens)}")
-    logger.debug(f"[Telegram Auth] data_check_string: {data_check_string[:100]}...")
-    logger.debug(f"[Telegram Auth] received_hash: {received_hash}")
+    logger.info(f"[Telegram Auth] data_check_string: {data_check_string}")
+    logger.info(f"[Telegram Auth] received_hash: {received_hash}")
     
     for i, token in enumerate(settings.telegram_bot_tokens):
+        token_preview = token[:20] + "..." if len(token) > 20 else token
+        logger.info(f"[Telegram Auth] Проверка токена {i+1}: {token_preview}")
         secret_key = _get_secret_key(token)
         computed_hash = hmac.new(
             secret_key,
             msg=data_check_string.encode(),
             digestmod=hashlib.sha256,
         ).hexdigest()
-        logger.debug(f"[Telegram Auth] Токен {i+1}: computed_hash={computed_hash[:20]}..., received_hash={received_hash[:20]}...")
+        logger.info(f"[Telegram Auth] Токен {i+1}: computed_hash={computed_hash}, received_hash={received_hash}")
+        logger.info(f"[Telegram Auth] Токен {i+1}: совпадение={computed_hash == received_hash}")
         if hmac.compare_digest(computed_hash, received_hash):
             logger.info(f"[Telegram Auth] Подпись валидна для токена {i+1}")
             return True
@@ -98,7 +101,7 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         )
 
     data_check_string = _build_data_check_string(pairs)
-    logger.debug(f"[Telegram Auth] data_check_string построен: {data_check_string[:200]}...")
+    logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
     
     if not _verify_signature(data_check_string, received_hash):
         logger.error(f"[Telegram Auth] Подпись не прошла валидацию. received_hash: {received_hash}")

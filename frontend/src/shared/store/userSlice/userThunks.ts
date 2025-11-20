@@ -95,8 +95,26 @@ export const initializeFromTelegram = createAsyncThunk(
             
             // Проверяем, есть ли уже сохраненные токены (ПЕРЕД проверкой initData)
             // Это позволяет восстановить сессию после перезагрузки страницы
-            const { getAuthToken, getUserIdFromToken } = await import('@shared/api/api');
-            const existingToken = getAuthToken();
+            const { getAuthToken, getUserIdFromToken, getUserIdFromInitData, setAuthToken } = await import('@shared/api/api');
+            let existingToken = getAuthToken();
+            
+            // Проверяем, соответствует ли сохраненный токен текущему пользователю Telegram
+            const webApp = window.Telegram?.WebApp as WebApp | undefined;
+            if (existingToken && webApp?.initData && webApp.initData.length > 0) {
+                const tokenUserId = getUserIdFromToken(existingToken);
+                const telegramUserId = getUserIdFromInitData(webApp.initData);
+                
+                if (tokenUserId && telegramUserId && tokenUserId !== telegramUserId) {
+                    console.warn('⚠️ [Auth] Сохраненный токен принадлежит другому пользователю!');
+                    console.warn(`⚠️ [Auth] User ID из токена: ${tokenUserId}, User ID из Telegram: ${telegramUserId}`);
+                    console.log('🔄 [Auth] Очищаем токен и авторизуемся заново');
+                    setAuthToken(null, null);
+                    existingToken = null; // Обновляем переменную после очистки
+                    // Продолжаем выполнение, чтобы авторизоваться через initData
+                } else if (tokenUserId && telegramUserId && tokenUserId === telegramUserId) {
+                    console.log('✅ [Auth] Сохраненный токен соответствует текущему пользователю Telegram');
+                }
+            }
             
             if (existingToken) {
                 console.log('🔐 [Auth] Обнаружен сохраненный токен, проверяем валидность...');

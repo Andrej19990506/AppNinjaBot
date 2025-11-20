@@ -114,6 +114,40 @@ export const getUserIdFromToken = (token: string | null): number | null => {
     }
 };
 
+// Функция для извлечения user_id из Telegram initData
+export const getUserIdFromInitData = (initData: string): number | null => {
+    try {
+        // initData - это query string вида "user=%7B%22id%22%3A123456%2C...%7D&..."
+        const params = new URLSearchParams(initData);
+        const userParam = params.get('user');
+        
+        if (!userParam) {
+            console.warn('⚠️ [Auth] Параметр user не найден в initData');
+            return null;
+        }
+        
+        // Декодируем URL-encoded JSON
+        const userJson = decodeURIComponent(userParam);
+        const user = JSON.parse(userJson);
+        
+        if (!user || !user.id) {
+            console.warn('⚠️ [Auth] user.id не найден в initData');
+            return null;
+        }
+        
+        const userId = parseInt(user.id, 10);
+        if (isNaN(userId)) {
+            console.warn('⚠️ [Auth] user.id не является числом:', user.id);
+            return null;
+        }
+        
+        return userId;
+    } catch (error) {
+        console.error('❌ [Auth] Ошибка извлечения user_id из initData:', error);
+        return null;
+    }
+};
+
 // Функция для авторизации через токен от бота
 export const authenticateWithBotToken = async (token: string): Promise<{
     access_token: string;

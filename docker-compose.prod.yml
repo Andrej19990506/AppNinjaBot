@@ -121,6 +121,8 @@ services:
         condition: service_healthy
       cache:
         condition: service_started
+    networks:
+      - ninja_network
     deploy:
       resources:
         limits:
@@ -224,6 +226,8 @@ services:
 
   cache:
     restart: unless-stopped
+    networks:
+      - ninja_network
     deploy:
       replicas: 1
       restart_policy:

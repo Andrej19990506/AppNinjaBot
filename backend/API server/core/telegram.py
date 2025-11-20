@@ -35,9 +35,14 @@ def _get_secret_key(bot_token: str) -> bytes:
 
 
 def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
+    logger.info(f"[Telegram Auth] _build_data_check_string: входные пары: {pairs}")
     filtered = [(k, v) for k, v in pairs if k != "hash"]
+    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash): {filtered}")
     filtered.sort(key=lambda item: item[0])
-    return "\n".join(f"{k}={v}" for k, v in filtered)
+    logger.info(f"[Telegram Auth] _build_data_check_string: отсортированные пары: {filtered}")
+    result = "\n".join(f"{k}={v}" for k, v in filtered)
+    logger.info(f"[Telegram Auth] _build_data_check_string: результат: {repr(result)}")
+    return result
 
 
 def _verify_signature(data_check_string: str, received_hash: str) -> bool:

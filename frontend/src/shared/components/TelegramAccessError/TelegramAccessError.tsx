@@ -146,7 +146,8 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
       const setupWebSocket = async () => {
         try {
           // Инициализируем и подключаемся к WebSocket
-          socketService.init();
+          const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+          socketService.init(wsUrl);
           socketService.connect();
           
           // Ждем подключения

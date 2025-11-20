@@ -274,7 +274,8 @@ const WebSocketHandler: React.FC = () => {
   const handleActivate = () => {
     logger.log('🔄 Попытка активации соединения WebSocket...');
     if (!socketService.isInitialized()) {
-        socketService.init(); 
+        const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+        socketService.init(wsUrl); 
     }
     if (!socketService.isConnected()) {
         socketService.connect(); 

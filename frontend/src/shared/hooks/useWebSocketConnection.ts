@@ -39,7 +39,9 @@ export const useWebSocketConnection = () => {
 
     if (stringUserId && !socketService.isInitialized()) {
       logger.log(`✨ [WebSocketHook] UserID есть (${stringUserId}), сокет не инициализирован. Вызов init()...`);
-      socketService.init(undefined, stringUserId);
+      // Используем URL из конфига или переменных окружения
+      const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+      socketService.init(wsUrl, stringUserId);
       setSocketState(socketService.getState());
     }
 

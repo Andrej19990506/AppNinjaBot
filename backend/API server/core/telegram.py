@@ -84,6 +84,9 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         raise RuntimeError("No TELEGRAM_BOT_TOKEN configured for verification")
 
     pairs = parse_qsl(init_data, keep_blank_values=True)
+    logger.info(f"[Telegram Auth] Распарсено пар: {len(pairs)}")
+    logger.info(f"[Telegram Auth] Пары: {pairs}")
+    
     if not pairs:
         logger.error("[Telegram Auth] Пустые данные init_data")
         raise HTTPException(
@@ -92,6 +95,7 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         )
 
     data_dict = dict(pairs)
+    logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
     received_hash = data_dict.get("hash")
     if not received_hash:
         logger.error("[Telegram Auth] Отсутствует hash в init_data")

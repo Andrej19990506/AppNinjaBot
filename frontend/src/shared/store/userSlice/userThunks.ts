@@ -98,8 +98,10 @@ export const initializeFromTelegram = createAsyncThunk(
             const { getAuthToken, getUserIdFromToken, getUserIdFromInitData, setAuthToken } = await import('@shared/api/api');
             let existingToken = getAuthToken();
             
-            // Проверяем, соответствует ли сохраненный токен текущему пользователю Telegram
+            // Получаем webApp один раз для использования во всей функции
             const webApp = window.Telegram?.WebApp as WebApp | undefined;
+            
+            // Проверяем, соответствует ли сохраненный токен текущему пользователю Telegram
             if (existingToken && webApp?.initData && webApp.initData.length > 0) {
                 const tokenUserId = getUserIdFromToken(existingToken);
                 const telegramUserId = getUserIdFromInitData(webApp.initData);
@@ -244,7 +246,6 @@ export const initializeFromTelegram = createAsyncThunk(
                 }
             }
             
-            const webApp = window.Telegram?.WebApp as WebApp | undefined;
             const isDevelopmentMode = import.meta.env.VITE_ENV === 'development';
             
             // Детальное логирование для отладки

@@ -39,6 +39,7 @@ def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
     # Исключаем hash и signature из data_check_string
     # hash - это проверяемое значение
     # signature - это отдельное поле для проверки подлинности приложения (Bot API 8.0+)
+    # Для Bot API 9.2 оба поля должны быть исключены из data_check_string
     filtered = [(k, v) for k, v in pairs if k not in ("hash", "signature")]
     logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash и signature): {filtered}")
     filtered.sort(key=lambda item: item[0])
@@ -91,8 +92,8 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         logger.error("[Telegram Auth] Нет токенов для проверки!")
         raise RuntimeError("No TELEGRAM_BOT_TOKEN configured for verification")
 
-    # Парсим init_data вручную, сохраняя исходные URL-encoded значения
-    # Это нужно для правильной проверки подписи
+    # Парсим init_data, сохраняя исходные URL-encoded значения для проверки hash
+    # Для проверки hash нужно использовать исходные URL-encoded значения
     pairs_raw = []
     for pair in init_data.split('&'):
         if '=' in pair:
@@ -117,16 +118,15 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing hash in init data",
         )
-
+    
     # Для парсинга user и других полей декодируем значения
-    pairs = [(k, unquote(v)) for k, v in pairs_raw]
-    data_dict = dict(pairs)
+    pairs_decoded = [(k, unquote(v)) for k, v in pairs_raw]
+    data_dict = dict(pairs_decoded)
     logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
     
-    # Для проверки подписи используем ДЕКОДИРОВАННЫЕ значения (исключая hash и signature)
-    # Согласно документации Telegram, parse_qsl автоматически декодирует значения,
-    # и именно декодированные значения используются для проверки подписи
-    data_check_string = _build_data_check_string(pairs)
+    # Для проверки hash используем ИСХОДНЫЕ URL-encoded значения (исключая hash и signature)
+    # Согласно документации Telegram, для проверки hash используются исходные URL-encoded значения
+    data_check_string = _build_data_check_string(pairs_raw)
     logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
     
     if not _verify_signature(data_check_string, received_hash):

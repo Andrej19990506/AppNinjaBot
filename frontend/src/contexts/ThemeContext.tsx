@@ -18,6 +18,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     useEffect(() => {
         localStorage.setItem('theme', theme);
         document.body.setAttribute('data-theme', theme);
+        
+        // Обновляем theme-color для PWA
+        const themeColorMeta = document.getElementById('theme-color-meta');
+        if (themeColorMeta) {
+            themeColorMeta.content = theme === 'dark' ? '#0D0D0D' : '#ffffff';
+        }
+        
+        // Отправляем событие для других слушателей
+        window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));
     }, [theme]);
 
     const toggleTheme = () => {

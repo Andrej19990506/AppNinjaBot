@@ -6,13 +6,45 @@
     <link rel="apple-touch-icon" href="/Logo.png" />
     <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#1976d2" />
+    <meta name="theme-color" content="#0D0D0D" id="theme-color-meta" />
     <meta name="description" content="Инвентаризация, списание, поставки, автоматические отчеты - всё в одной системе. Для магазинов, складов, ресторанов, любых точек продаж. Интеграция с Telegram для мгновенных уведомлений." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="FloWix" />
     <title>FloWix - Умная автоматизация для вашего бизнеса</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      // Динамическое обновление theme-color в зависимости от темы
+      (function() {
+        function updateThemeColor(theme) {
+          try {
+            const themeToUse = theme || localStorage.getItem('theme') || 'dark';
+            const themeColorMeta = document.getElementById('theme-color-meta');
+            if (themeColorMeta) {
+              themeColorMeta.content = themeToUse === 'dark' ? '#0D0D0D' : '#ffffff';
+            }
+          } catch (e) {
+            // no-op
+          }
+        }
+        
+        // Обновляем при загрузке
+        updateThemeColor();
+        
+        // Обновляем при изменении темы через storage event
+        window.addEventListener('storage', function(e) {
+          if (e.key === 'theme') {
+            updateThemeColor(e.newValue);
+          }
+        });
+        
+        // Слушаем кастомное событие изменения темы
+        window.addEventListener('themeChanged', function(e) {
+          const theme = e.detail?.theme || localStorage.getItem('theme') || 'dark';
+          updateThemeColor(theme);
+        });
+      })();
+    </script>
     <script>
       (function initViewportInset() {
         function updateBottomInset() {

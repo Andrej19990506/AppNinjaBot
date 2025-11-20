@@ -36,10 +36,11 @@ def _get_secret_key(bot_token: str) -> bytes:
 
 def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
     logger.info(f"[Telegram Auth] _build_data_check_string: входные пары: {pairs}")
-    # Исключаем только hash из data_check_string
-    # В Bot API 8.0+ signature ДОЛЖЕН быть включен в data_check_string для проверки hash
-    filtered = [(k, v) for k, v in pairs if k != "hash"]
-    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash): {filtered}")
+    # Исключаем hash и signature из data_check_string
+    # hash - это проверяемое значение
+    # signature - это отдельное поле для проверки подлинности приложения (Bot API 8.0+)
+    filtered = [(k, v) for k, v in pairs if k not in ("hash", "signature")]
+    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash и signature): {filtered}")
     filtered.sort(key=lambda item: item[0])
     logger.info(f"[Telegram Auth] _build_data_check_string: отсортированные пары: {filtered}")
     result = "\n".join(f"{k}={v}" for k, v in filtered)
@@ -122,9 +123,9 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
     data_dict = dict(pairs)
     logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
     
-    # Для проверки подписи используем ДЕКОДИРОВАННЫЕ значения (как в документации Telegram)
-    # parse_qsl автоматически декодирует значения, что соответствует спецификации Telegram
-    data_check_string = _build_data_check_string(pairs)
+    # Для проверки подписи используем ИСХОДНЫЕ URL-encoded значения (исключая hash и signature)
+    # Telegram использует исходные URL-encoded значения для проверки подписи
+    data_check_string = _build_data_check_string(pairs_raw)
     logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
     
     if not _verify_signature(data_check_string, received_hash):

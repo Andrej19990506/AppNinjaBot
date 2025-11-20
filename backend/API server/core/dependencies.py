@@ -1,25 +1,33 @@
 import redis.asyncio as redis
 from typing import Optional
-
-# Глобальная переменная для хранения клиента (импортируется из main или передается)
-# Лучше использовать Request State или DI контейнер в будущем
-# Пока что предполагаем, что redis_client импортируется или доступен глобально
-# TODO: Рефакторить способ доступа к redis_client
-
-# Временное решение: импортируем напрямую из main, но это сохраняет риск
-# Лучше передавать клиент через Request state или через DI.
-# Эта версия все еще может вызвать проблемы при импорте, если main.py сам импортирует что-то отсюда
-# через другие модули.
-try:
-    # Попытка импорта, чтобы получить доступ к глобальной переменной
-    # ВНИМАНИЕ: Это не идеальное решение!
-    from ..main import redis_client as global_redis_client
-except ImportError:
-    # Если импорт не удался (например, при тестировании или другом сценарии),
-    # устанавливаем в None. Зависимость должна будет обработать это.
-    global_redis_client = None
+import sys
 
 async def get_redis_client() -> Optional[redis.Redis]:
-
-    # Возвращаем импортированный глобальный клиент
-    return global_redis_client 
+    """
+    Получает Redis клиент из main модуля.
+    Импортирует модуль динамически при каждом вызове, чтобы получить актуальное значение redis_client.
+    Это нужно, потому что redis_client инициализируется в lifespan, а не при загрузке модуля.
+    """
+    try:
+        # Пробуем найти модуль main в sys.modules (может быть 'main' или полный путь)
+        for module_name in sys.modules.keys():
+            if module_name == 'main' or module_name.endswith('.main'):
+                main_module = sys.modules[module_name]
+                redis_client = getattr(main_module, 'redis_client', None)
+                if redis_client is not None:
+                    return redis_client
+        
+        # Если не нашли в sys.modules, пробуем импортировать напрямую
+        # Это fallback на случай, если модуль еще не загружен
+        try:
+            import main
+            return getattr(main, 'redis_client', None)
+        except ImportError:
+            try:
+                from .. import main
+                return getattr(main, 'redis_client', None)
+            except ImportError:
+                return None
+    except Exception:
+        # В случае любой ошибки возвращаем None
+        return None 

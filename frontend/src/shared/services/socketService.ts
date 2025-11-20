@@ -59,6 +59,7 @@ export interface ServerToClientEvents {
   inventory_reset: (data: any) => void;
   template_updated: (data: any) => void;
   item_editing_update: (data: { chat_id: string; category: string; item_id: string; editing: boolean; sid: string; user_info?: any; timestamp: string }) => void;
+  bot_auth_token: (data: { token: string; session_id: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -324,6 +325,13 @@ class SocketService {
       logger.info('📊 Получено событие: connection_status', data);
       // Эмитим событие для подписчиков
       this.stateChangeEmitter.emit('connection_status', data);
+    });
+
+    // Добавляем обработчик bot_auth_token для авторизации через бота
+    this.socket.on('bot_auth_token', (data: { token: string; session_id: string }) => {
+      logger.info('🔐 [Auth] Получено событие: bot_auth_token', data);
+      // Эмитим событие для подписчиков
+      this.stateChangeEmitter.emit('bot_auth_token', data);
     });
 
     // Добавляем обработчик inventory_updated c дедупликацией

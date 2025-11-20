@@ -51,6 +51,15 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
                 logger.info(f"Отправка ГЛОБАЛЬНОГО события '{event_type}' - обновление шаблона инвентаря")
                 await sio.emit(event_type, data)
                 logger.info(f"✅ ГЛОБАЛЬНОЕ событие '{event_type}' успешно отправлено всем клиентам")
+            elif event_type == 'bot_auth_token':
+                # Специальная обработка для bot_auth_token - отправляем в комнату из data.room
+                target_room = data.get('room')
+                if target_room:
+                    token_data = data.get('data', {})
+                    await sio.emit('bot_auth_token', token_data, room=target_room)
+                    logger.info(f"✅ Событие 'bot_auth_token' отправлено в комнату '{target_room}'")
+                else:
+                    logger.warning(f"⚠️ bot_auth_token событие без указания комнаты")
             else:
                 chat_id = data.get('chat_id')
                 if not chat_id:

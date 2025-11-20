@@ -325,4 +325,94 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
     return finalAvailableDates;
 }
 
-const formatDateToYYYYMMDD = (date: Date): string => format(date, 'yyyy-MM-dd'); 
+const formatDateToYYYYMMDD = (date: Date): string => format(date, 'yyyy-MM-dd');
+
+/**
+ * Интерфейс для информации о периоде записи
+ */
+export interface BookingPeriod {
+    startDate: Date;
+    endDate: Date;
+    startDateStr: string;
+    endDateStr: string;
+    registrationDate: Date;
+    registrationDateStr: string;
+}
+
+/**
+ * Получает информацию о текущем периоде записи
+ */
+export function getCurrentBookingPeriod(accessSettings?: AccessSettings | null): BookingPeriod | null {
+    const settings = accessSettings !== undefined ? accessSettings : (store.getState() as RootState).shifts.accessSettings;
+    
+    if (!settings) {
+        return null;
+    }
+    
+    const now = new Date();
+    const registrationDay = settings.registrationStartDay ?? 4;
+    const registrationHour = settings.registrationStartHour ?? 12;
+    const registrationMinute = settings.registrationStartMinute ?? 0;
+    const periodLength = settings.periodLength ?? 7;
+    
+    // Получаем последний день регистрации (текущий период)
+    const currentRegistrationDate = getLastRegistrationDay(now, registrationDay, registrationHour, registrationMinute, periodLength);
+    
+    // Рассчитываем даты периода
+    const periodDates = calculateSingleWindowDates(currentRegistrationDate, settings, now);
+    
+    if (periodDates.length === 0) {
+        return null;
+    }
+    
+    const startDate = new Date(periodDates[0]);
+    const endDate = new Date(periodDates[periodDates.length - 1]);
+    
+    return {
+        startDate,
+        endDate,
+        startDateStr: format(startDate, 'dd.MM.yyyy'),
+        endDateStr: format(endDate, 'dd.MM.yyyy'),
+        registrationDate: currentRegistrationDate,
+        registrationDateStr: format(currentRegistrationDate, 'dd.MM.yyyy HH:mm')
+    };
+}
+
+/**
+ * Получает информацию о следующем периоде записи
+ */
+export function getNextBookingPeriod(accessSettings?: AccessSettings | null): BookingPeriod | null {
+    const settings = accessSettings !== undefined ? accessSettings : (store.getState() as RootState).shifts.accessSettings;
+    
+    if (!settings) {
+        return null;
+    }
+    
+    const now = new Date();
+    const registrationDay = settings.registrationStartDay ?? 4;
+    const registrationHour = settings.registrationStartHour ?? 12;
+    const registrationMinute = settings.registrationStartMinute ?? 0;
+    const periodLength = settings.periodLength ?? 7;
+    
+    // Получаем следующий день регистрации
+    const nextRegistrationDate = getNextRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
+    
+    // Рассчитываем даты периода
+    const periodDates = calculateSingleWindowDates(nextRegistrationDate, settings, now);
+    
+    if (periodDates.length === 0) {
+        return null;
+    }
+    
+    const startDate = new Date(periodDates[0]);
+    const endDate = new Date(periodDates[periodDates.length - 1]);
+    
+    return {
+        startDate,
+        endDate,
+        startDateStr: format(startDate, 'dd.MM.yyyy'),
+        endDateStr: format(endDate, 'dd.MM.yyyy'),
+        registrationDate: nextRegistrationDate,
+        registrationDateStr: format(nextRegistrationDate, 'dd.MM.yyyy HH:mm')
+    };
+} 

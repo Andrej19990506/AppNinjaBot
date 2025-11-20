@@ -19,11 +19,19 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
     const userGroups = user?.groups;
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
-    const loadCalendarData = useCallback(() => {
+    const loadCalendarData = useCallback(async () => {
         if (chatId !== undefined) {
             dispatch(fetchShifts({ chatId }));
-            dispatch(fetchAllShiftTemplatesThunk(Number(chatId)));
-            dispatch(fetchAccessSettings({ chatId: String(chatId) }));
+            // Сначала загружаем настройки доступа, затем шаблоны (чтобы использовать дату периода)
+            try {
+                await dispatch(fetchAccessSettings({ chatId: String(chatId) })).unwrap();
+                // После загрузки настроек загружаем шаблоны с правильной датой
+                dispatch(fetchAllShiftTemplatesThunk(Number(chatId)));
+            } catch (error) {
+                // Если не удалось загрузить настройки, все равно загружаем шаблоны (с текущей датой)
+                console.warn('Failed to load access settings, loading templates with current date:', error);
+                dispatch(fetchAllShiftTemplatesThunk(Number(chatId)));
+            }
         }
     }, [dispatch, chatId]);
 
@@ -36,20 +44,17 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
         return shifts.filter(shift => shift.date === dateStr);
     };
 
+    // Убрали getDayShifts и getNightShifts - теперь группируем только по шаблонам
+    // Для обратной совместимости оставляем функции, но они возвращают пустые массивы
+    // TODO: Удалить после полного перехода на шаблоны
     const getDayShifts = (date: Date) => {
-        const dateStr = formatDateForAPI(date);
-        return shifts.filter(shift => 
-            shift.date === dateStr && 
-            shift.shiftType === 'day'
-        );
+        // Deprecated: используйте getShiftsForDate и группируйте по template_id
+        return [];
     };
 
     const getNightShifts = (date: Date) => {
-        const dateStr = formatDateForAPI(date);
-        return shifts.filter(shift => 
-            shift.date === dateStr && 
-            shift.shiftType === 'night'
-        );
+        // Deprecated: используйте getShiftsForDate и группируйте по template_id
+        return [];
     };
 
     const hasUserShift = (date: Date) => {
@@ -71,8 +76,8 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
         currentMonth,
         setCurrentMonth,
         getShiftsForDate,
-        getDayShifts,
-        getNightShifts,
+        getDayShifts, // Deprecated - оставлено для обратной совместимости
+        getNightShifts, // Deprecated - оставлено для обратной совместимости
         hasUserShift,
         refetchData
     };

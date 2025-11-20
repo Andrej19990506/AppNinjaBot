@@ -54,12 +54,6 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
     logger.info(f"Данные payload: {payload.model_dump()}")
     
     try:
-        # Получаем экземпляр бота из app.state
-        bot_app: Application = request.app.state.bot_application
-        if not bot_app or not bot_app.bot:
-            logger.error("❌ Экземпляр бота не доступен в app.state")
-            raise HTTPException(status_code=503, detail="Bot instance not available")
-            
         # Преобразуем формат ID чата
         chat_id_str = payload.chat_id
         processed_chat_id: int
@@ -70,6 +64,84 @@ async def send_message_api_v2(payload: SendMessagePayload, request: Request):
         except ValueError:
              logger.error(f"Не удалось преобразовать chat_id '{chat_id_str}' в число")
              raise HTTPException(status_code=400, detail=f"Invalid chat_id format: {chat_id_str}")
+
+        # Определяем, какой бот использовать для этой группы
+        bot_app: Application = None
+        
+        # Если режим companies, пытаемся найти правильный бот для группы
+        from telegramNinjaBot.config.config import Config
+        config = Config()
+        if config.BOT_TYPE == 'companies':
+            # Получаем все боты компаний
+            bot_applications = getattr(request.app.state, 'bot_applications', None)
+            if bot_applications:
+                # Пытаемся найти бот компании для этой группы через БД
+                db_pool = getattr(request.app.state, 'db_pool', None)
+                if db_pool:
+                    try:
+                        # Сначала пробуем найти через group_role_mappings (как в API сервере)
+                        logger.info(f"🔍 Поиск бота компании для группы {chat_id_str} через group_role_mappings...")
+                        query = """
+                            SELECT cb.id, cb.bot_token, cb.company_name 
+                            FROM company_bots cb
+                            JOIN company_roles cr ON cb.id = cr.company_bot_id
+                            JOIN group_role_mappings grm ON cr.id = grm.company_role_id
+                            WHERE grm.group_id = $1 
+                                AND cb.is_active = true 
+                                AND cr.is_active = true
+                            LIMIT 1
+                        """
+                        bot_row = await db_pool.fetchrow(query, processed_chat_id)
+                        
+                        if bot_row:
+                            logger.info(f"✅ Найден бот через group_role_mappings: {bot_row['company_name']} (ID: {bot_row['id']})")
+                        else:
+                            logger.info(f"⚠️ Бот не найден через group_role_mappings, пробуем напрямую по group_id...")
+                            # Если не найден через group_role_mappings, пробуем напрямую через group_id в CompanyBot
+                            query = """
+                                SELECT id, bot_token, company_name 
+                                FROM company_bots 
+                                WHERE group_id = $1 AND is_active = true
+                                LIMIT 1
+                            """
+                            bot_row = await db_pool.fetchrow(query, processed_chat_id)
+                            
+                            if bot_row:
+                                logger.info(f"✅ Найден бот напрямую по group_id: {bot_row['company_name']} (ID: {bot_row['id']})")
+                        
+                        if bot_row:
+                            company_bot_id = bot_row['id']
+                            logger.info(f"🔍 Найден бот компании для группы {chat_id_str}: {bot_row['company_name']} (ID: {company_bot_id})")
+                            
+                            # Ищем соответствующий bot_app по company_bot_id
+                            found_app = False
+                            for app_instance in bot_applications:
+                                app_bot_id = app_instance.bot_data.get('company_bot_id')
+                                logger.debug(f"Проверяем bot_app: company_bot_id={app_bot_id}, ищем {company_bot_id}")
+                                if app_bot_id == company_bot_id:
+                                    bot_app = app_instance
+                                    logger.info(f"✅ Найден bot_app для бота компании {bot_row['company_name']}")
+                                    found_app = True
+                                    break
+                            
+                            if not found_app:
+                                logger.warning(f"⚠️ Bot_app не найден для company_bot_id={company_bot_id}, хотя бот найден в БД")
+                        else:
+                            logger.warning(f"⚠️ Бот компании не найден для группы {chat_id_str} в БД (ни через group_role_mappings, ни напрямую)")
+                    except Exception as e:
+                        logger.error(f"❌ Ошибка при поиске бота компании для группы {chat_id_str}: {e}", exc_info=True)
+            
+            # Если не нашли конкретный бот, используем первый доступный
+            if not bot_app and bot_applications:
+                bot_app = bot_applications[0]
+                logger.warning(f"⚠️ Используем первый доступный бот для группы {chat_id_str} (бот компании не найден)")
+        else:
+            # Для других режимов используем основной бот
+            bot_app = request.app.state.bot_application
+        
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state")
+            raise HTTPException(status_code=503, detail="Bot instance not available")
 
         # Отправляем сообщение
         try:

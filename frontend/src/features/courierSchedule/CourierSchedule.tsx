@@ -8,12 +8,10 @@ import { addNotification} from '@shared/store/notificationSlice/notificationSlic
 import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
 import { bookShift } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
 import { fetchSlotConfig } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
-import { fetchAllShiftTemplatesThunk } from '@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks';
 import { format } from 'date-fns';
 import { ShiftAccessModalRef } from '@/features/courierSchedule/components/setting-panel/shift-access-modal-settings';
 import SettingsPanel from '@/features/courierSchedule/components/setting-panel/SettingsPanel';
 import Footer from '@features/Inventory/Footer';
-import SlotSettings, { SlotSettingsRef } from './components/setting-panel/slot-settings/index';
 import ShiftTemplateSettings, { ShiftTemplateSettingsRef } from './components/setting-panel/slot-settings/ShiftTemplateSettings';
 import { SettingsOverlay as ModalBackdropOverlay } from './components/courier-calendar/styles';
 import ShiftAccessModal from '@/features/courierSchedule/components/setting-panel/shift-access-modal-settings';
@@ -44,15 +42,12 @@ const CourierSchedule: React.FC = () => {
     const [showCalendar, setShowCalendar] = useState(true);
     const [showShiftAccessSettings, setShowShiftAccessSettings] = useState(false);
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
-    const [showSlotSettings, setShowSlotSettings] = useState(false);
     const [showShiftTemplateSettings, setShowShiftTemplateSettings] = useState(false);
     const [selectedDayIndexForSlots, setSelectedDayIndexForSlots] = useState<number | null>(null);
-    const [isSlotSettingsDirty, setIsSlotSettingsDirty] = useState(false);
     const [isShiftTemplateSettingsDirty, setIsShiftTemplateSettingsDirty] = useState(false);
     const [isShiftAccessDirty, setIsShiftAccessDirty] = useState(false);
     const [currentModalStep, setCurrentModalStep] = useState(1);
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
-    const slotSettingsRef = useRef<SlotSettingsRef>(null);
     const shiftTemplateSettingsRef = useRef<ShiftTemplateSettingsRef>(null);
     const [isTimesheetLoading, setIsTimesheetLoading] = useState(false);
     const [timesheetData, setTimesheetData] = useState<TimesheetResponse | null>(null);
@@ -167,11 +162,6 @@ const CourierSchedule: React.FC = () => {
         return user.groups.find(g => g.group_type === 'courier' && String(g.chat_id) === String(courierChatId));
     }, [courierChats, courierChatId, user?.groups]);
 
-    useEffect(() => {
-        if (courierChatId) {
-            dispatch(fetchAllShiftTemplatesThunk(courierChatId));
-        }
-    }, [dispatch, courierChatId]);
 
 
     useEffect(() => {
@@ -198,7 +188,7 @@ const CourierSchedule: React.FC = () => {
         return Promise.resolve(); // Возвращаем пустой промис
     };
 
-    const handleShiftSelect = async (date: Date, shiftType: 'day' | 'night', slotIndex: number, templateId?: string) => {
+    const handleShiftSelect = async (date: Date, templateId: string, slotIndex: number) => {
         console.log('Выбрана дата:', date, 'templateId:', templateId);
         
         if (!user?.id) {
@@ -220,7 +210,6 @@ const CourierSchedule: React.FC = () => {
         try {
             await dispatch(bookShift({
                 date: format(date, 'yyyy-MM-dd'),
-                shiftType,
                 slotIndex,
                 userId: String(user.id),
                 chatId: selectedChatId,
@@ -261,21 +250,14 @@ const CourierSchedule: React.FC = () => {
         }
     };
 
-    const isModalActive = showShiftAccessSettings || showSlotSettings || showShiftTemplateSettings;
-    const activeModalType: 'shiftAccess' | 'slotSettings' | 'shiftTemplateSettings' | 'none' = 
+    const isModalActive = showShiftAccessSettings || showShiftTemplateSettings;
+    const activeModalType: 'shiftAccess' | 'shiftTemplateSettings' | 'none' = 
         showShiftAccessSettings ? 'shiftAccess' : 
-        showSlotSettings ? 'slotSettings' :
         showShiftTemplateSettings ? 'shiftTemplateSettings' : 'none';
 
     const handleCloseShiftAccessSettings = useCallback(() => {
         setShowShiftAccessSettings(false);
         setIsShiftAccessDirty(false);
-    }, []);
-
-    const handleCloseSlotSettings = useCallback(() => {
-        setShowSlotSettings(false);
-        setSelectedDayIndexForSlots(null);
-        setIsSlotSettingsDirty(false);
     }, []);
 
     const handleCloseShiftTemplateSettings = useCallback(() => {
@@ -290,19 +272,16 @@ const CourierSchedule: React.FC = () => {
 
     const handleOpenShiftAccessModal = useCallback(() => {
         closeSettingsPanel();
-        if (showSlotSettings) handleCloseSlotSettings();
         if (showShiftTemplateSettings) handleCloseShiftTemplateSettings();
         setCurrentModalStep(1);
         setIsShiftAccessDirty(false);
         setShowShiftAccessSettings(true);
-    }, [closeSettingsPanel, showSlotSettings, handleCloseSlotSettings, showShiftTemplateSettings, handleCloseShiftTemplateSettings]);
+    }, [closeSettingsPanel, showShiftTemplateSettings, handleCloseShiftTemplateSettings]);
 
-    const handleSlotSettingsDayChange = useCallback((newDayIndex: number) => {
-        console.log(`[CourierSchedule] Request to change slot settings day to: ${newDayIndex}`);
+    const handleShiftTemplateSettingsDayChange = useCallback((newDayIndex: number) => {
+        console.log(`[CourierSchedule] Request to change shift template settings day to: ${newDayIndex}`);
         if (selectedDayIndexForSlots !== newDayIndex) {
             setSelectedDayIndexForSlots(newDayIndex);
-            // НЕ СБРАСЫВАЕМ isSlotSettingsDirty при смене дня, так как изменения могут быть в других днях
-            // setIsSlotSettingsDirty(false);
         }
     }, [selectedDayIndexForSlots]);
 
@@ -317,9 +296,6 @@ const CourierSchedule: React.FC = () => {
         if (activeModalType === 'shiftAccess') {
             console.log('[CourierSchedule] Footer save -> shiftAccessModalRef.triggerSave()');
             await shiftAccessModalRef.current?.triggerSave();
-        } else if (activeModalType === 'slotSettings') {
-            console.log('[CourierSchedule] Footer save -> slotSettingsRef.current?.triggerSave()');
-            await slotSettingsRef.current?.triggerSave(); 
         } else if (activeModalType === 'shiftTemplateSettings') {
             console.log('[CourierSchedule] Footer save -> shiftTemplateSettingsRef.current?.triggerSave()');
             await shiftTemplateSettingsRef.current?.triggerSave();
@@ -332,9 +308,6 @@ const CourierSchedule: React.FC = () => {
                 shiftAccessModalRef.current?.triggerReset();
             }
             handleCloseShiftAccessSettings();
-        } else if (activeModalType === 'slotSettings') {
-            slotSettingsRef.current?.triggerReset(); 
-            handleCloseSlotSettings(); 
         } else if (activeModalType === 'shiftTemplateSettings') {
             shiftTemplateSettingsRef.current?.triggerReset();
             handleCloseShiftTemplateSettings();
@@ -375,10 +348,6 @@ const CourierSchedule: React.FC = () => {
             dirty = isShiftAccessDirty;
             const isLast = currentModalStep === MODAL_TOTAL_STEPS;
             return !isLast || !dirty;
-        } else if (activeModalType === 'slotSettings') {
-            dirty = isSlotSettingsDirty;
-            console.log('[CourierSchedule] getIsModalSaveDisabled - slotSettings:', { dirty, isSlotSettingsDirty });
-            return !dirty;
         } else if (activeModalType === 'shiftTemplateSettings') {
             dirty = isShiftTemplateSettingsDirty;
             console.log('[CourierSchedule] getIsModalSaveDisabled - shiftTemplateSettings:', { dirty, isShiftTemplateSettingsDirty });
@@ -391,28 +360,15 @@ const CourierSchedule: React.FC = () => {
         setIsSettingsPanelOpen(prev => !prev);
     }, []);
 
-    const handleOpenSlotSettingsFromPanel = useCallback(() => {
-        const defaultDayIndex = 1; // Или 0, если нужно
-        console.log(`[CourierSchedule] Opening slot settings from panel (default day: ${defaultDayIndex})`);
-        closeSettingsPanel();
-        if (showShiftAccessSettings) handleCloseShiftAccessSettings();
-        if (showShiftTemplateSettings) handleCloseShiftTemplateSettings();
-        setSelectedDayIndexForSlots(defaultDayIndex);
-        // Сбрасываем только при первом открытии, но не при переключении дней
-        setIsSlotSettingsDirty(false);
-        setShowSlotSettings(true);
-    }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings, showShiftTemplateSettings, handleCloseShiftTemplateSettings]);
-
     const handleOpenShiftTemplateSettingsFromPanel = useCallback(() => {
         const defaultDayIndex = 1; // Или 0, если нужно
         closeSettingsPanel();
         if (showShiftAccessSettings) handleCloseShiftAccessSettings();
-        if (showSlotSettings) handleCloseSlotSettings();
         setSelectedDayIndexForSlots(defaultDayIndex);
         // Сбрасываем только при первом открытии, но не при переключении дней
         setIsShiftTemplateSettingsDirty(false);
         setShowShiftTemplateSettings(true);
-    }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings, showSlotSettings, handleCloseSlotSettings]);
+    }, [closeSettingsPanel, showShiftAccessSettings, handleCloseShiftAccessSettings]);
 
     const handleLongPress = useCallback((shiftType: 'day' | 'night', slotIndex: number) => {
         console.log(`[CourierSchedule] Long press detected on ${shiftType} slot ${slotIndex}`, { 
@@ -578,12 +534,6 @@ const CourierSchedule: React.FC = () => {
                             isCurrentUserSenior={currentCourierGroup?.is_senior_courier ?? false}
                             onClose={() => setShowCalendar(false)} 
                             onShiftSelect={handleShiftSelect}
-                            onOpenSlotSettings={(dayIndex: number) => {
-                                setSelectedDayIndexForSlots(dayIndex);
-                                setShowSlotSettings(true);
-                                if (isSettingsPanelOpen) closeSettingsPanel();
-                                if (showShiftAccessSettings) handleCloseShiftAccessSettings();
-                            }}
                             onLongPress={handleLongPress}
                             onOpenProfile={handleOpenCourierProfile}
                             onOpenShiftTemplateSettings={() => {
@@ -603,24 +553,9 @@ const CourierSchedule: React.FC = () => {
                         onStepChange={setCurrentModalStep}
                     />
                     <ModalBackdropOverlay 
-                        $isOpen={showSlotSettings} 
-                        onClick={handleCloseSlotSettings}
-                    /> 
-                    <ModalBackdropOverlay 
                         $isOpen={showShiftTemplateSettings} 
                         onClick={handleCloseShiftTemplateSettings}
                     /> 
-                    {selectedDayIndexForSlots !== null && (
-                        <SlotSettings
-                            ref={slotSettingsRef}
-                            isOpen={showSlotSettings}
-                            onClose={handleCloseSlotSettings}
-                            chatId={Number(selectedChatId)}
-                            dayIndex={selectedDayIndexForSlots}
-                            onDayChangeRequest={handleSlotSettingsDayChange}
-                            onDirtyChange={setIsSlotSettingsDirty}
-                        />
-                    )}
                     {selectedDayIndexForSlots !== null && (
                         <ShiftTemplateSettings
                             ref={shiftTemplateSettingsRef}
@@ -628,7 +563,7 @@ const CourierSchedule: React.FC = () => {
                             onClose={handleCloseShiftTemplateSettings}
                             chatId={Number(selectedChatId)}
                             dayIndex={selectedDayIndexForSlots}
-                            onDayChangeRequest={handleSlotSettingsDayChange}
+                            onDayChangeRequest={handleShiftTemplateSettingsDayChange}
                             onDirtyChange={setIsShiftTemplateSettingsDirty}
                         />
                     )}
@@ -636,7 +571,6 @@ const CourierSchedule: React.FC = () => {
                         isOpen={isSettingsPanelOpen}
                         onClose={closeSettingsPanel}
                         onOpenShiftAccess={handleOpenShiftAccessModal}
-                        onOpenSlotSettings={handleOpenSlotSettingsFromPanel}
                         onOpenShiftTemplateSettings={handleOpenShiftTemplateSettingsFromPanel}
                         onOpenTimesheet={handleShowTimesheet} 
                     />

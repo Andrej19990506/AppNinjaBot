@@ -29,6 +29,17 @@ import { NotificationTypes } from '@/shared/store/notificationSlice/notification
 import { SlotConfigForDay } from '@features/courierSchedule/types/courierScheduleTypes';
 import ShiftTemplateSelector from './components/ShiftTemplateSelector';
 import ShiftTemplateForm from './components/ShiftTemplateForm';
+import { PeriodSelector } from './components/PeriodSelector';
+import { getCurrentBookingPeriod, getNextBookingPeriod } from '@features/courierSchedule/components/courier-calendar/utils/dateUtils';
+import { getAppliedShiftTemplates } from '@features/courierSchedule/services/courierApi/shiftTemplatesApi';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import { selectAccessSettings } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
+import { selectAllShifts } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { 
     selectShiftTemplates, 
     selectShiftTemplatesLoading, 
@@ -40,7 +51,8 @@ import {
     createShiftTemplateThunk,
     updateShiftTemplateThunk,
     deleteShiftTemplateThunk,
-    applyShiftTemplatesThunk
+    applyShiftTemplatesThunk,
+    removeShiftTemplatesFromDaysThunk
 } from '@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks';
 
 
@@ -320,14 +332,45 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
     const templatesLoading = useSelector(selectShiftTemplatesLoading);
     const templatesError = useSelector(selectShiftTemplatesError);
     const localAppliedTemplates = useSelector((state: any) => state.shifts.localAppliedTemplates);
+    const accessSettings = useSelector(selectAccessSettings);
+    const allShifts = useSelector(selectAllShifts);
 
     // Локальное состояние
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
     const [showTemplateForm, setShowTemplateForm] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
+    const [selectedPeriod, setSelectedPeriod] = useState<'current' | 'next'>('next');
     
     const [isLoading, setIsLoading] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
+    
+    // Состояние для диалога подтверждения отмены шаблона для следующего периода
+    const [showUnapplyConfirmDialog, setShowUnapplyConfirmDialog] = useState(false);
+    const [pendingUnapplyTemplateId, setPendingUnapplyTemplateId] = useState<string | null>(null);
+    const [isCheckingNextPeriod, setIsCheckingNextPeriod] = useState(false);
+    const [unapplyWarningMessage, setUnapplyWarningMessage] = useState<string | null>(null);
+    
+    // Проверяем наличие записанных курьеров в текущем периоде
+    const currentPeriodInfo = useMemo(() => {
+        if (!accessSettings || !editingTemplate) return null;
+        
+        const currentPeriod = getCurrentBookingPeriod(accessSettings);
+        if (!currentPeriod) return null;
+        
+        // Подсчитываем смены с записанными курьерами в текущем периоде для этого шаблона
+        const periodShifts = allShifts.filter(shift => {
+            const shiftDate = new Date(shift.date);
+            return shift.templateId === editingTemplate.id &&
+                   shiftDate >= currentPeriod.startDate &&
+                   shiftDate <= currentPeriod.endDate &&
+                   shift.userId; // Только смены с записанными курьерами
+        });
+        
+        return {
+            hasShifts: periodShifts.length > 0,
+            shiftsCount: periodShifts.length
+        };
+    }, [accessSettings, editingTemplate, allShifts]);
 
     const dayOfWeekNames = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
     const dayShortNames = ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"];
@@ -394,29 +437,210 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
     }, [dispatch, chatId]);
 
     const handleTemplateUnapply = useCallback(async (templateId: string) => {
-        // Переключаем локальное состояние применения шаблона в Redux
+        if (!chatId) return;
+        
         const currentApplied = localAppliedTemplates[dayIndex] || [];
         const isCurrentlyApplied = currentApplied.includes(templateId);
         
-        const newAppliedTemplates = isCurrentlyApplied 
-            ? currentApplied.filter((id: string) => id !== templateId)
-            : [...currentApplied, templateId];
+        if (isCurrentlyApplied) {
+            // Проверяем, есть ли записанные курьеры в текущем периоде для этого шаблона
+            setIsCheckingNextPeriod(true);
+            try {
+                const currentPeriod = getCurrentBookingPeriod(accessSettings);
+                console.log('[handleTemplateUnapply] Checking shifts:', {
+                    templateId,
+                    dayIndex,
+                    currentPeriod,
+                    allShiftsCount: allShifts.length,
+                    allShifts: allShifts.map(s => ({ 
+                        id: s.id, 
+                        date: s.date, 
+                        template_id: (s as any).template_id, 
+                        templateId: (s as any).templateId,
+                        userId: s.userId 
+                    }))
+                });
+                
+                if (currentPeriod) {
+                    // Подсчитываем смены с записанными курьерами в текущем периоде для этого шаблона
+                    const periodShifts = allShifts.filter(shift => {
+                        const shiftDate = new Date(shift.date);
+                        const inPeriod = shiftDate >= currentPeriod.startDate &&
+                                        shiftDate <= currentPeriod.endDate;
+                        // Используем template_id (snake_case), так как это поле в CourierShift
+                        const shiftTemplateId = (shift as any).template_id || (shift as any).templateId;
+                        const matchesTemplate = shiftTemplateId === templateId;
+                        const hasCourier = !!shift.userId;
+                        
+                        console.log('[handleTemplateUnapply] Shift check:', {
+                            shiftId: shift.id,
+                            date: shift.date,
+                            shiftDate,
+                            shiftTemplateId,
+                            expectedTemplateId: templateId,
+                            matchesTemplate,
+                            inPeriod,
+                            hasCourier,
+                            startDate: currentPeriod.startDate,
+                            endDate: currentPeriod.endDate
+                        });
+                        
+                        return matchesTemplate && inPeriod && hasCourier;
+                    });
+                    
+                    console.log('[handleTemplateUnapply] Period shifts found:', periodShifts.length, periodShifts);
+                    
+                    if (periodShifts.length > 0) {
+                        // В текущем периоде есть записанные курьеры - показываем диалог подтверждения
+                        // Шаблон останется активным в текущем периоде, но будет деактивирован для следующего
+                        console.log('[handleTemplateUnapply] Showing confirmation dialog');
+                        setPendingUnapplyTemplateId(templateId);
+                        setUnapplyWarningMessage(
+                            `На этот шаблон уже записаны курьеры в текущем периоде (${currentPeriod.startDateStr} - ${currentPeriod.endDateStr}). ` +
+                            `Шаблон будет деактивирован только для следующего периода записи.`
+                        );
+                        setShowUnapplyConfirmDialog(true);
+                        setIsCheckingNextPeriod(false);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking current period shifts:', error);
+            } finally {
+                setIsCheckingNextPeriod(false);
+            }
             
-        dispatch(setLocalAppliedTemplates({ 
-            dayOfWeek: dayIndex, 
-            templateIds: newAppliedTemplates 
-        }));
-    }, [dispatch, dayIndex, localAppliedTemplates]);
+            // Если в текущем периоде нет записанных курьеров, выполняем отмену сразу
+            console.log('[handleTemplateUnapply] No shifts in current period, performing unapply immediately');
+            await performTemplateUnapply(templateId);
+        } else {
+            // Применяем шаблон - отправляем запрос на сервер
+            try {
+                await dispatch(applyShiftTemplatesThunk({
+                    chatId,
+                    applyData: {
+                        dayOfWeek: dayIndex,
+                        templateIds: [...currentApplied, templateId]
+                    }
+                })).unwrap();
+                
+                // Обновляем локальное состояние
+                dispatch(setLocalAppliedTemplates({ 
+                    dayOfWeek: dayIndex, 
+                    templateIds: [...currentApplied, templateId]
+                }));
+                
+                dispatch(addNotification({
+                    type: NotificationTypes.SUCCESS,
+                    message: "Шаблон применен",
+                    duration: 3000
+                }));
+                
+                // Обновляем список примененных шаблонов
+                await dispatch(fetchAllShiftTemplatesThunk(chatId));
+            } catch (error: any) {
+                dispatch(addNotification({
+                    type: NotificationTypes.ERROR,
+                    message: `Ошибка применения шаблона: ${error.message || error}`,
+                    duration: 5000
+                }));
+            }
+        }
+    }, [dispatch, dayIndex, localAppliedTemplates, chatId, accessSettings, allShifts]);
+    
+    // Функция для выполнения отмены применения шаблона
+    const performTemplateUnapply = useCallback(async (templateId: string) => {
+        if (!chatId) return;
+        
+        const currentApplied = localAppliedTemplates[dayIndex] || [];
+        
+        try {
+            const result = await dispatch(removeShiftTemplatesFromDaysThunk({
+                chatId,
+                templateIds: [templateId],
+                daysOfWeek: [dayIndex]
+            })).unwrap();
+            
+            // Проверяем, будет ли шаблон деактивирован для следующего периода
+            if (result.templates_deactivated_for_next_period && result.templates_deactivated_for_next_period.length > 0) {
+                // Шаблон будет деактивирован для следующего периода
+                // Не обновляем локальное состояние, так как шаблон остается активным в текущем периоде
+                dispatch(addNotification({
+                    type: NotificationTypes.SUCCESS,
+                    message: "Шаблон будет отменен в следующем периоде",
+                    duration: 5000
+                }));
+            } else {
+                // Шаблон деактивирован сразу
+                const newAppliedTemplates = currentApplied.filter((id: string) => id !== templateId);
+                dispatch(setLocalAppliedTemplates({ 
+                    dayOfWeek: dayIndex, 
+                    templateIds: newAppliedTemplates 
+                }));
+                
+                // Показываем предупреждение, если есть смены с курьерами
+                if (result.has_future_shifts) {
+                    dispatch(addNotification({
+                        type: NotificationTypes.WARNING,
+                        message: result.warning || "На этот шаблон уже записаны курьеры на будущие даты. Отмена будет применена при следующем открытии смен.",
+                        duration: 8000
+                    }));
+                } else {
+                    dispatch(addNotification({
+                        type: NotificationTypes.SUCCESS,
+                        message: "Применение шаблона отменено",
+                        duration: 3000
+                    }));
+                }
+            }
+            
+            // Обновляем список шаблонов
+            await dispatch(fetchAllShiftTemplatesThunk(chatId)).unwrap();
+        } catch (error: any) {
+            dispatch(addNotification({
+                type: NotificationTypes.ERROR,
+                message: `Ошибка отмены применения шаблона: ${error.message || error}`,
+                duration: 5000
+            }));
+        }
+    }, [dispatch, dayIndex, localAppliedTemplates, chatId]);
+    
+    // Обработчики для диалога подтверждения
+    const handleConfirmUnapply = useCallback(async () => {
+        if (pendingUnapplyTemplateId) {
+            setShowUnapplyConfirmDialog(false);
+            const templateIdToUnapply = pendingUnapplyTemplateId;
+            setPendingUnapplyTemplateId(null);
+            setUnapplyWarningMessage(null);
+            await performTemplateUnapply(templateIdToUnapply);
+        }
+    }, [pendingUnapplyTemplateId, performTemplateUnapply]);
+    
+    const handleCancelUnapply = useCallback(() => {
+        setShowUnapplyConfirmDialog(false);
+        setPendingUnapplyTemplateId(null);
+        setUnapplyWarningMessage(null);
+    }, []);
 
     const handleTemplateSubmit = useCallback(async (data: ShiftTemplateCreatePayload | ShiftTemplateUpdatePayload) => {
         if (!chatId) return;
 
         try {
+            // Если это обновление шаблона, добавляем информацию о периоде
             if ('id' in data) {
-                // Обновление существующего шаблона
-                await dispatch(updateShiftTemplateThunk({ templateId: data.id, templateData: data })).unwrap();
+                // Обновление существующего шаблона с учетом выбранного периода
+                const updateData: ShiftTemplateUpdatePayload = {
+                    ...data,
+                    applyToPeriod: selectedPeriod // 'current' или 'next'
+                };
+                console.log('[handleTemplateSubmit] Updating template with period:', { 
+                    templateId: data.id, 
+                    selectedPeriod, 
+                    updateData 
+                });
+                await dispatch(updateShiftTemplateThunk({ templateId: data.id, templateData: updateData })).unwrap();
             } else {
-                // Создание нового шаблона
+                // Создание нового шаблона (всегда применяется к следующему периоду)
                 await dispatch(createShiftTemplateThunk({ chatId, templateData: data })).unwrap();
             }
             
@@ -425,6 +649,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
             
             setShowTemplateForm(false);
             setEditingTemplate(null);
+            setSelectedPeriod('next'); // Сбрасываем выбор периода
         } catch (error: any) {
             dispatch(addNotification({
                 type: NotificationTypes.ERROR,
@@ -432,7 +657,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                 duration: 5000
             }));
         }
-    }, [chatId, dispatch]);
+    }, [chatId, dispatch, selectedPeriod]);
 
     const handleTemplateFormCancel = useCallback(() => {
         setShowTemplateForm(false);
@@ -466,6 +691,9 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                     templateIds: localAppliedTemplates[dayIndex] || []
                 }
             })).unwrap();
+            
+            // Обновляем список примененных шаблонов после успешного применения
+            await dispatch(fetchAllShiftTemplatesThunk(chatId));
             
             setShowSuccess(true);
             setIsLoading(false); 
@@ -542,14 +770,26 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                 )}
 
                 {showTemplateForm ? (
-                    <ShiftTemplateForm
-                        template={editingTemplate}
-                        onSubmit={handleTemplateSubmit}
-                        onCancel={handleTemplateFormCancel}
-                        isLoading={isLoading || templatesLoading}
-                        currentDayIndex={dayIndex}
-                        formId="shift-template-form"
-                    />
+                    <>
+                        {/* Показываем выбор периода только при редактировании существующего шаблона */}
+                        {editingTemplate && accessSettings && (
+                            <PeriodSelector
+                                accessSettings={accessSettings}
+                                selectedPeriod={selectedPeriod}
+                                onPeriodChange={setSelectedPeriod}
+                                hasShiftsInCurrentPeriod={currentPeriodInfo?.hasShifts || false}
+                                shiftsCount={currentPeriodInfo?.shiftsCount || 0}
+                            />
+                        )}
+                        <ShiftTemplateForm
+                            template={editingTemplate}
+                            onSubmit={handleTemplateSubmit}
+                            onCancel={handleTemplateFormCancel}
+                            isLoading={isLoading || templatesLoading}
+                            currentDayIndex={dayIndex}
+                            formId="shift-template-form"
+                        />
+                    </>
                 ) : (
                     <ShiftTemplateSelector
                             templates={templates.filter(template => {
@@ -598,6 +838,31 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                     </div>
                 )}
             </FullHeightContent>
+            
+            {/* Диалог подтверждения отмены шаблона для следующего периода */}
+            <Dialog
+                open={showUnapplyConfirmDialog}
+                onClose={handleCancelUnapply}
+                aria-labelledby="unapply-confirm-dialog-title"
+                aria-describedby="unapply-confirm-dialog-description"
+            >
+                <DialogTitle id="unapply-confirm-dialog-title">
+                    Подтверждение отмены шаблона
+                </DialogTitle>
+                <DialogContent>
+                    <DialogContentText id="unapply-confirm-dialog-description">
+                        {unapplyWarningMessage || "Вы уверены, что хотите отменить применение этого шаблона?"}
+                    </DialogContentText>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCancelUnapply} color="primary">
+                        Отмена
+                    </Button>
+                    <Button onClick={handleConfirmUnapply} color="primary" variant="contained" autoFocus>
+                        Подтвердить
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </SlotSettingsContainer>
     );
 };

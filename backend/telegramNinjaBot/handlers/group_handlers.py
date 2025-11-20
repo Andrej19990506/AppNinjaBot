@@ -618,6 +618,19 @@ class GroupHandler:
                 admins=filtered_admins    # Сохраняем отфильтрованных админов
             )
             logger.info(f"✅ Отфильтрованные данные группы {chat.title} успешно сохранены в БД после добавления бота")
+            
+            # Автоматически привязываем группу к компании через bot_id
+            try:
+                group_telegram_id = int(original_chat_id)
+                linked = await self.db_service.auto_link_group_to_company(group_telegram_id, bot_id)
+                if linked:
+                    logger.info(f"✅ Группа {chat.title} (ID: {group_telegram_id}) автоматически привязана к компании через bot_id {bot_id}")
+                else:
+                    logger.warning(f"⚠️ Не удалось автоматически привязать группу {chat.title} к компании (bot_id {bot_id} не найден в company_bots или группа уже привязана)")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"⚠️ Не удалось преобразовать chat_id {original_chat_id} в int для привязки к компании: {e}")
+            except Exception as e:
+                logger.error(f"❌ Ошибка при автоматической привязке группы к компании: {e}")
 
             # Отправляем специальное приветствие для групп инвентаризации
             group_type = self.db_service.determine_group_type(chat.title)

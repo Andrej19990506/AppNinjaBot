@@ -162,13 +162,212 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         user = update.effective_user
         logger.info(f"Пользователь {user.full_name} ({user.id}) запустил команду /start")
 
+        # Проверяем тип бота
+        config = Config()
+        bot_type = config.BOT_TYPE
+        
         # Проверяем параметры команды /start
         args = context.args
-        logger.info(f"🔍 Параметры команды /start: {args}")
+        logger.info(f"🔍 Параметры команды /start: {args}, BOT_TYPE: {bot_type}")
         
-        # Если есть параметр registry_ - обрабатываем регистрацию
-        if args and args[0].startswith('registry_'):
-            registry_param = args[0]
+        # === ОСНОВНОЙ БОТ (main) - только авторизация ===
+        if bot_type == 'main':
+            # Если есть параметр auth или auth_<session_id> - обрабатываем авторизацию
+            if args and len(args) > 0 and (args[0] == 'auth' or args[0].startswith('auth_')):
+                logger.info(f"🔐 Пользователь {user.id} запросил авторизацию через бота")
+                
+                # Проверяем, является ли этот бот основным ботом для авторизации
+                try:
+                    bot_info = await context.bot.get_me()
+                    current_bot_username = bot_info.username.lower() if bot_info.username else None
+                    auth_bot_username = config.AUTH_BOT_USERNAME.lower()
+                    
+                    logger.info(f"🔍 [Auth] Текущий бот: @{bot_info.username}, Основной бот для авторизации: @{config.AUTH_BOT_USERNAME}")
+                    
+                    # Если это не основной бот приложения - перенаправляем на него
+                    if current_bot_username != auth_bot_username:
+                        logger.info(f"⚠️ [Auth] Команда /start auth вызвана не через основной бот. Перенаправляем на @{config.AUTH_BOT_USERNAME}")
+                        keyboard = InlineKeyboardMarkup([
+                            [InlineKeyboardButton(
+                                text=f"🔐 Авторизоваться через @{config.AUTH_BOT_USERNAME}",
+                                url=f"https://t.me/{config.AUTH_BOT_USERNAME}?start=auth"
+                            )]
+                        ])
+                        await update.message.reply_text(
+                            f"ℹ️ *Авторизация через основной бот*\n\n"
+                            f"Для авторизации в приложении необходимо использовать основной бот приложения.\n\n"
+                            f"Нажмите на кнопку ниже, чтобы перейти к авторизации через @{config.AUTH_BOT_USERNAME}.",
+                            reply_markup=keyboard,
+                            parse_mode='Markdown'
+                        )
+                        return
+                except Exception as e:
+                    logger.error(f"❌ Ошибка при проверке бота: {e}")
+                    # Продолжаем выполнение, если не удалось проверить
+                
+                # Получаем сервис БД из bot_data
+                db_service = context.application.bot_data.get('db_service')
+                if not db_service:
+                    logger.error("DatabaseService не найден в bot_data")
+                    await update.message.reply_text(
+                        "❌ Ошибка системы. Попробуйте позже."
+                    )
+                    return
+                
+                # Проверяем, что пользователь существует в БД
+                user_groups = await db_service.get_user_groups(user.id)
+                if not user_groups:
+                    await update.message.reply_text(
+                        f"❌ *Авторизация недоступна*\n\n"
+                        f"Вы не зарегистрированы ни в одной группе в системе.\n\n"
+                        f"📞 **Для регистрации обратитесь к своему руководителю.**",
+                        parse_mode='Markdown'
+                    )
+                    return
+                
+                # Генерируем одноразовый токен
+                import secrets
+                import hashlib
+                import time
+                import httpx
+                
+                timestamp = int(time.time())
+                random_secret = secrets.token_hex(16)
+                token_data = f"{user.id}_{timestamp}_{random_secret}"
+                auth_token = hashlib.sha256(token_data.encode()).hexdigest()[:32]
+                
+                # Проверяем, есть ли session_id в параметрах команды (для WebSocket механизма)
+                session_id = None
+                if args and len(args) > 0:
+                    # Формат: /start auth_<session_id> или /start auth
+                    if args[0] == 'auth':
+                        # Просто /start auth без session_id (старый формат, fallback)
+                        logger.info(f"🔐 [Auth] Команда /start auth без session_id")
+                    elif args[0].startswith('auth_'):
+                        # Извлекаем session_id из параметра auth_<session_id>
+                        session_id = args[0].replace('auth_', '', 1)  # Убираем только первый префикс auth_
+                        logger.info(f"🔐 [Auth] Обнаружен session_id: {session_id[:20]}...")
+                    elif args[0] == 'auth' and len(args) > 1:
+                        # Альтернативный формат: /start auth <session_id>
+                        session_id = args[1]
+                        logger.info(f"🔐 [Auth] Обнаружен session_id (альтернативный формат): {session_id[:20]}...")
+                
+                # Сохраняем токен в Redis через API сервер
+                # Токен действителен 5 минут
+                try:
+                    api_url = config.API_URL.rstrip('/')
+                    logger.info(f"🔗 [Auth] Отправка запроса на сохранение токена: {api_url}/api/v1/auth/bot-token")
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        request_data = {
+                            "token": auth_token,
+                            "user_id": user.id,
+                            "expires_in": 300  # 5 минут
+                        }
+                        # Добавляем session_id, если он есть
+                        if session_id:
+                            request_data["session_id"] = session_id
+                        
+                        response = await client.post(
+                            f"{api_url}/api/v1/auth/bot-token",
+                            json=request_data
+                        )
+                        logger.info(f"📡 [Auth] Ответ API: статус {response.status_code}")
+                        if response.status_code != 200:
+                            error_detail = response.text if hasattr(response, 'text') else "Unknown error"
+                            logger.error(f"❌ [Auth] Не удалось сохранить токен в Redis: статус {response.status_code}, детали: {error_detail}")
+                            raise Exception(f"Failed to store token: {response.status_code} - {error_detail}")
+                        logger.info(f"✅ [Auth] Токен успешно сохранен в Redis")
+                except httpx.ConnectError as e:
+                    logger.error(f"❌ [Auth] Ошибка подключения к API серверу ({api_url}): {e}")
+                    await update.message.reply_text(
+                        f"❌ *Ошибка подключения*\n\n"
+                        f"Не удалось подключиться к серверу авторизации.\n\n"
+                        f"Попробуйте позже или обратитесь к администратору.",
+                        parse_mode='Markdown'
+                    )
+                    return
+                except httpx.TimeoutException as e:
+                    logger.error(f"❌ [Auth] Таймаут при подключении к API серверу: {e}")
+                    await update.message.reply_text(
+                        f"❌ *Таймаут подключения*\n\n"
+                        f"Сервер авторизации не отвечает.\n\n"
+                        f"Попробуйте позже.",
+                        parse_mode='Markdown'
+                    )
+                    return
+                except Exception as e:
+                    logger.error(f"❌ [Auth] Ошибка при сохранении токена: {e}", exc_info=True)
+                    await update.message.reply_text(
+                        f"❌ *Ошибка при создании токена авторизации*\n\n"
+                        f"Попробуйте позже или обратитесь к администратору.",
+                        parse_mode='Markdown'
+                    )
+                    return
+                
+                # Если есть session_id, значит запрос пришел из веб-версии (WebSocket механизм)
+                # В этом случае отправляем только сообщение для веб-версии
+                if session_id:
+                    await update.message.reply_text(
+                        f"✅ *Авторизация успешна!*\n\n"
+                        f"Вернитесь в приложение в браузере — авторизация произойдет автоматически.\n\n"
+                        f"⏰ Токен действителен в течение 5 минут.",
+                        parse_mode='Markdown'
+                    )
+                else:
+                    # Для нативного приложения используем WebSocket механизм (как для веб-версии)
+                    # Если есть session_id, значит приложение подключено к WebSocket
+                    # Отправляем сообщение и токен будет доставлен через WebSocket автоматически
+                    await update.message.reply_text(
+                        f"✅ *Авторизация успешна!*\n\n"
+                        f"Вернитесь в приложение — авторизация произойдет автоматически.\n\n"
+                        f"⏰ Токен действителен в течение 5 минут.",
+                        parse_mode='Markdown'
+                    )
+                    
+                    logger.info(f"📱 [Auth] Токен создан для нативного приложения, будет доставлен через WebSocket")
+                logger.info(f"✅ Токен авторизации создан для пользователя {user.id}: {auth_token[:8]}...")
+                return
+            else:
+                # Основной бот обрабатывает только /start auth
+                await update.message.reply_text(
+                    f"🔐 *Основной бот приложения*\n\n"
+                    f"Этот бот используется только для авторизации в приложении.\n\n"
+                    f"Для авторизации используйте команду:\n"
+                    f"`/start auth`\n\n"
+                    f"Для работы с группами используйте бота вашей компании.",
+                    parse_mode='Markdown'
+                )
+                return
+        
+        # === БОТ(Ы) КОМПАНИИ (company/companies) - полный функционал ===
+        elif bot_type in ('company', 'companies'):
+            # Если есть параметр auth - перенаправляем на основной бот
+            if args and args[0] == 'auth':
+                logger.info(f"⚠️ [Company Bot] Команда /start auth вызвана в боте компании. Перенаправляем на основной бот.")
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton(
+                        text=f"🔐 Авторизоваться через @{config.AUTH_BOT_USERNAME}",
+                        url=f"https://t.me/{config.AUTH_BOT_USERNAME}?start=auth"
+                    )]
+                ])
+                await update.message.reply_text(
+                    f"ℹ️ *Авторизация через основной бот*\n\n"
+                    f"Для авторизации в приложении необходимо использовать основной бот приложения.\n\n"
+                    f"Нажмите на кнопку ниже, чтобы перейти к авторизации через @{config.AUTH_BOT_USERNAME}.",
+                    reply_markup=keyboard,
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Если есть параметр registry_ - обрабатываем регистрацию
+            registry_param = None
+            if args and len(args) > 0 and args[0].startswith('registry_'):
+                registry_param = args[0]
+            
+            # Если нет параметра registry_, просто выходим (обычный /start)
+            if not registry_param:
+                # Обычный /start без параметров - ничего не делаем для ботов компаний
+                return
             
             # Парсим параметры: registry_<chat_id>_<token>
             # Используем более надежный способ парсинга для отрицательных ID
@@ -485,8 +684,18 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                     parse_mode='Markdown'
                 )
                 return
+            
+            # Обычный /start без параметров - показываем приветствие
+            # (код ниже продолжается)
+        
+        else:
+            logger.error(f"❌ Неизвестный BOT_TYPE: {bot_type}")
+            await update.message.reply_text(
+                "❌ Ошибка конфигурации бота. Обратитесь к администратору."
+            )
+            return
 
-        # Персонализированное приветствие на основе групп пользователя
+        # Персонализированное приветствие на основе групп пользователя (только для ботов компаний)
         db_service = context.application.bot_data.get('db_service')
         if not db_service:
             logger.error("DatabaseService не найден в bot_data")

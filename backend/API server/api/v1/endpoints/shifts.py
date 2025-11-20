@@ -57,8 +57,8 @@ def sanitize_filename(name: str) -> str:
 # <<< Новая схема для создания через Telegram ID >>>
 class ShiftCreateTelegram(BaseModel):
     date: str # ISO string date only YYYY-MM-DD
-    shift_type: str # 'day' or 'night' - сохраняем для обратной совместимости
-    template_id: Optional[str] = None # ID шаблона смены (новое поле)
+    shift_type: Optional[str] = None # 'day' or 'night' - устаревшее поле, оставлено для обратной совместимости
+    template_id: Optional[str] = None # ID шаблона смены (обязателен для новых смен)
     slot_index: int
     user_telegram_id: int # Telegram ID пользователя
     group_telegram_id: int # Telegram ID группы
@@ -168,29 +168,34 @@ async def create_shift(
         logger.error(f"[Create Shift] Group with Telegram ID {shift_in.group_telegram_id} not found.")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Group with Telegram ID {shift_in.group_telegram_id} not found")
 
-    # --- Шаг 1.5: Определяем shift_type из шаблона (для обратной совместимости) ---
-    # ВАЖНО: shift_type - это УСТАРЕВШЕЕ поле для новых смен с template_id
-    # Оно заполняется только потому, что фронтенд еще группирует смены по dayShifts/nightShifts
-    # TODO: После полного перехода фронтенда на работу с template_id:
-    #       1. Сделать shift_type nullable в модели Shift
-    #       2. Убрать автоматическое определение shift_type
-    #       3. Сохранять shift_type=None для новых смен с template_id
-    effective_shift_type = shift_in.shift_type  # По умолчанию из запроса
+    # --- Шаг 1.5: Проверяем наличие template_id и валидируем шаблон ---
+    # ВАЖНО: shift_type больше не определяется автоматически из template.start_time
+    # Для новых смен с template_id shift_type будет None
+    # Старые смены без template_id могут иметь shift_type для обратной совместимости
+    effective_shift_type = shift_in.shift_type  # Используем из запроса, если передан (для старых смен)
     
     if shift_in.template_id:
         from models.shift_template import ShiftTemplate
+        import uuid as uuid_lib
+        try:
+            template_uuid = uuid_lib.UUID(shift_in.template_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid template_id format")
+        
         template_result = await db.execute(
-            select(ShiftTemplate).where(ShiftTemplate.id == shift_in.template_id)
+            select(ShiftTemplate).where(ShiftTemplate.id == template_uuid)
         )
         template = template_result.scalar_one_or_none()
         if not template:
             logger.error(f"[Create Shift] Template {shift_in.template_id} not found.")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift template not found")
         
-        # Определяем shift_type для обратной совместимости с фронтендом
-        # Фронтенд группирует смены по dayShifts/nightShifts
-        effective_shift_type = 'night' if template.start_time >= datetime.strptime('12:00', '%H:%M').time() else 'day'
-        logger.info(f"[Create Shift] Template {shift_in.template_id} start_time={template.start_time}, auto-determined shift_type={effective_shift_type} (for backward compatibility)")
+        # Для новых смен с template_id shift_type = None
+        effective_shift_type = None
+        logger.info(f"[Create Shift] Template {shift_in.template_id} found, shift_type will be None (new template-based system)")
+    elif not shift_in.shift_type:
+        # Если нет template_id и нет shift_type, это ошибка
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Either template_id or shift_type must be provided")
 
     # --- Шаг 2: Преобразовать дату (ВНЕ ТРАНЗАКЦИИ) ---
     try:
@@ -292,8 +297,11 @@ async def create_shift(
 
         # Определяем лимиты слотов
         if shift_in.template_id:
-            # Если используем шаблоны, берем max_slots из шаблона
+            # Если используем шаблоны, берем max_slots из шаблона или версии для даты смены
             from models.shift_template import ShiftTemplate
+            from crud import shift_template as crud_shift_template
+            from uuid import UUID as UUIDType
+            
             template_result = await db.execute(
                 select(ShiftTemplate).where(ShiftTemplate.id == shift_in.template_id)
             )
@@ -301,7 +309,22 @@ async def create_shift(
             if not template:
                 logger.error(f"[Create Shift] Template {shift_in.template_id} not found.")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift template not found")
-            max_slots = template.max_slots
+            
+            # Получаем версию шаблона для даты смены
+            shift_date_obj = datetime.strptime(shift_in.date, "%Y-%m-%d").date()
+            version = await crud_shift_template.get_template_version_for_date(
+                db,
+                template_id=UUIDType(shift_in.template_id),
+                shift_date=shift_date_obj
+            )
+            
+            # Используем max_slots из версии, если она существует, иначе из базового шаблона
+            if version:
+                max_slots = version.max_slots
+                logger.info(f"[Create Shift] Using version for date {shift_date_obj}: max_slots={max_slots} (base template has {template.max_slots})")
+            else:
+                max_slots = template.max_slots
+                logger.info(f"[Create Shift] No version found for date {shift_date_obj}, using base template: max_slots={max_slots}")
         else:
             # Старая логика для обратной совместимости
             DEFAULT_MAX_DAY_SLOTS = 4
@@ -353,20 +376,35 @@ async def create_shift(
         # Если после цикла не нашли свободный слот
         if target_slot_index is None:
             logger.warning(f"[Create Shift] No free slots found on {date_obj} for group {group.id}.")
-            shift_type_rus = "дневные" if effective_shift_type == 'day' else "ночные"
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Все {shift_type_rus} слоты на {date_obj.strftime('%d.%m.%Y')} уже заняты.")
+            if shift_in.template_id:
+                # Для новых смен с template_id используем название шаблона
+                template_name = template.name if 'template' in locals() else "смены"
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Все слоты для шаблона '{template_name}' на {date_obj.strftime('%d.%m.%Y')} уже заняты.")
+            else:
+                # Для старых смен используем shift_type
+                shift_type_rus = "дневные" if effective_shift_type == 'day' else "ночные"
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Все {shift_type_rus} слоты на {date_obj.strftime('%d.%m.%Y')} уже заняты.")
 
     # --- Шаг 3.3: Создать НОВУЮ смену с найденным/подтвержденным слотом ---
     if target_slot_index is None: # Дополнительная проверка на всякий случай
             logger.error("[Create Shift] CRITICAL: target_slot_index is None after checks!")
             raise HTTPException(status_code=500, detail="Internal server error during slot assignment.")
 
+    # Преобразуем template_id в UUID, если он передан
+    template_uuid = None
+    if shift_in.template_id:
+        import uuid as uuid_lib
+        try:
+            template_uuid = uuid_lib.UUID(shift_in.template_id)
+        except ValueError:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid template_id format")
+    
     db_shift = Shift(
         member_id=member.id,
         group_id=group.id,
         date=date_obj,
-        shift_type=effective_shift_type,  # Используем определенный shift_type
-        template_id=shift_in.template_id,
+        shift_type=effective_shift_type,  # None для новых смен с template_id, значение для старых смен
+        template_id=template_uuid,
         slot_index=target_slot_index
     )
     db.add(db_shift)
@@ -924,22 +962,35 @@ async def assign_shift_by_senior(
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid date format. Use YYYY-MM-DD.")
 
         # 5. Проверить, свободен ли целевой слот
-        target_slot_occupied_stmt = (
-            select(Shift.id)
-            .where(
-                (Shift.group_id == group.id) &
-                (Shift.date == date_obj) &
-                (Shift.shift_type == assignment_data.shift_type) &
-                (Shift.slot_index == assignment_data.slot_index)
+        # Если передан template_id, проверяем по template_id, иначе по shift_type (обратная совместимость)
+        if assignment_data.template_id:
+            target_slot_occupied_stmt = (
+                select(Shift.id)
+                .where(
+                    (Shift.group_id == group.id) &
+                    (Shift.date == date_obj) &
+                    (Shift.template_id == assignment_data.template_id) &
+                    (Shift.slot_index == assignment_data.slot_index)
+                )
             )
-        )
+        else:
+            target_slot_occupied_stmt = (
+                select(Shift.id)
+                .where(
+                    (Shift.group_id == group.id) &
+                    (Shift.date == date_obj) &
+                    (Shift.shift_type == assignment_data.shift_type) &
+                    (Shift.slot_index == assignment_data.slot_index)
+                )
+            )
         target_slot_occupied_result = await db.execute(target_slot_occupied_stmt)
         occupied_shift_id = target_slot_occupied_result.scalar_one_or_none()
         if occupied_shift_id:
-            logger.warning(f"[Assign Shift] Target slot {assignment_data.shift_type}-{assignment_data.slot_index} on {date_obj} is already occupied by shift {occupied_shift_id}.")
+            slot_desc = f"template {assignment_data.template_id}" if assignment_data.template_id else f"{assignment_data.shift_type}"
+            logger.warning(f"[Assign Shift] Target slot {slot_desc}-{assignment_data.slot_index} on {date_obj} is already occupied by shift {occupied_shift_id}.")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Target slot {assignment_data.shift_type} {assignment_data.slot_index + 1} is already occupied."
+                detail=f"Target slot {slot_desc} {assignment_data.slot_index + 1} is already occupied."
             )
 
         # 6. Обработать существующие смены НАЗНАЧАЕМОГО курьера (если allowMultipleShifts=false)
@@ -991,64 +1042,102 @@ async def assign_shift_by_senior(
             logger.info(f"[Assign Shift] No existing reserves found for member {target_member.id} on {date_obj}.")
 
         # 7. Создать новую смену для НАЗНАЧАЕМОГО курьера
-        db_shift = Shift(
-            member_id=target_member.id, # <<< Используем ID назначаемого
-            group_id=group.id,
-            date=date_obj,
-            shift_type=assignment_data.shift_type,
-            slot_index=assignment_data.slot_index
-            # created_by можно добавить, если есть поле, указав assigner_member.id
-        )
+        # Используем template_id если передан, иначе shift_type (обратная совместимость)
+        shift_kwargs = {
+            'member_id': target_member.id, # <<< Используем ID назначаемого
+            'group_id': group.id,
+            'date': date_obj,
+            'slot_index': assignment_data.slot_index
+        }
+        
+        if assignment_data.template_id:
+            # Для новых смен используем template_id
+            try:
+                shift_kwargs['template_id'] = UUID(assignment_data.template_id)
+                shift_kwargs['shift_type'] = None  # shift_type может быть null для новых смен
+            except ValueError:
+                logger.error(f"[Assign Shift] Invalid template_id format: {assignment_data.template_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid template_id format: {assignment_data.template_id}"
+                )
+        else:
+            # Обратная совместимость: используем shift_type
+            shift_kwargs['shift_type'] = assignment_data.shift_type
+            shift_kwargs['template_id'] = None
+        
+        db_shift = Shift(**shift_kwargs)
         db.add(db_shift)
         await db.flush() # Flush для получения ID новой смены
-        await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member']) # Обновляем с нужными связями
+        
+        # Загружаем связанные данные (member и template) внутри транзакции
+        await db.refresh(db_shift, attribute_names=['id', 'created_at', 'updated_at', 'member', 'template'])
 
     # Транзакция завершится (commit или rollback)
 
     # --- Отправка NOTIFY после успешной транзакции --- >
     try:
-        # Добавляем статус старшего ПЕРЕД отправкой (для назначаемого курьера)
-        if db_shift.member:
-             is_target_senior = False 
-             gm_target_result = await db.execute(
-                 select(GroupMember.is_senior_courier)
-                 .where(
-                     (GroupMember.member_id == db_shift.member.id) &
-                     (GroupMember.group_id == group.id)
+        # Перезагружаем объект с нужными связями после транзакции для сериализации
+        # Используем новую сессию для загрузки связанных данных
+        async with AsyncSessionFactory() as notify_db:
+            reloaded_shift_result = await notify_db.execute(
+                select(Shift)
+                .options(joinedload(Shift.member), joinedload(Shift.template))
+                .where(Shift.id == db_shift.id)
+            )
+            reloaded_shift = reloaded_shift_result.scalar_one()
+            
+            # Добавляем статус старшего ПЕРЕД отправкой (для назначаемого курьера)
+            if reloaded_shift.member:
+                 is_target_senior = False 
+                 gm_target_result = await notify_db.execute(
+                     select(GroupMember.is_senior_courier)
+                     .where(
+                         (GroupMember.member_id == reloaded_shift.member.id) &
+                         (GroupMember.group_id == group.id)
+                     )
                  )
-             )
-             target_senior_status = gm_target_result.scalar_one_or_none()
-             if target_senior_status is not None:
-                 is_target_senior = target_senior_status
-             try:
-                 setattr(db_shift.member, 'is_senior_courier', is_target_senior)
-             except AttributeError: pass
+                 target_senior_status = gm_target_result.scalar_one_or_none()
+                 if target_senior_status is not None:
+                     is_target_senior = target_senior_status
+                 try:
+                     setattr(reloaded_shift.member, 'is_senior_courier', is_target_senior)
+                 except AttributeError: pass
 
-        pydantic_shift = ShiftRead.model_validate(db_shift, from_attributes=True)
-        shift_data_dict = pydantic_shift.model_dump(exclude_none=True, mode='json')
+            pydantic_shift = ShiftRead.model_validate(reloaded_shift, from_attributes=True)
+            shift_data_dict = pydantic_shift.model_dump(exclude_none=True, mode='json')
 
-        notify_payload_dict = {
-            "type": "shifts_updated",
-            "chat_id": str(assignment_data.group_telegram_id),
-            "source": "shift_assignment", # Новый источник
-            "shift_data": shift_data_dict
-        }
-        notify_payload_json = json.dumps(notify_payload_dict)
+            notify_payload_dict = {
+                "type": "shifts_updated",
+                "chat_id": str(assignment_data.group_telegram_id),
+                "source": "shift_assignment", # Новый источник
+                "shift_data": shift_data_dict
+            }
+            notify_payload_json = json.dumps(notify_payload_dict)
 
-        if len(notify_payload_json.encode('utf-8')) < 7900:
-            escaped_payload = notify_payload_json.replace("'", "''")
-            sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
-            await db.execute(sql_command)
-            logger.info(f"[Assign Shift] Sent NOTIFY for assigned shift_id {db_shift.id} in chat_id {assignment_data.group_telegram_id}")
-        else:
-            logger.warning(f"[Assign Shift] NOTIFY payload for assigned shift_id {db_shift.id} is too large. Skipping NOTIFY.")
+            if len(notify_payload_json.encode('utf-8')) < 7900:
+                escaped_payload = notify_payload_json.replace("'", "''")
+                sql_command = text(f"NOTIFY websocket_channel, '{escaped_payload}'")
+                await notify_db.execute(sql_command)
+                logger.info(f"[Assign Shift] Sent NOTIFY for assigned shift_id {db_shift.id} in chat_id {assignment_data.group_telegram_id}")
+            else:
+                logger.warning(f"[Assign Shift] NOTIFY payload for assigned shift_id {db_shift.id} is too large. Skipping NOTIFY.")
 
     except Exception as notify_err:
         logger.error(f"[Assign Shift] Failed to send NOTIFY for chat_id {assignment_data.group_telegram_id}: {notify_err}", exc_info=True)
     # --- Конец блока NOTIFY ---
 
-    logger.info(f"[Assign Shift] Successfully assigned shift {db_shift.id} for member {target_member.user_id}")
-    return db_shift # Возвращаем созданный объект Shift
+    # Перезагружаем объект для возврата с нужными связями
+    async with AsyncSessionFactory() as return_db:
+        return_shift_result = await return_db.execute(
+            select(Shift)
+            .options(joinedload(Shift.member), joinedload(Shift.template))
+            .where(Shift.id == db_shift.id)
+        )
+        return_shift = return_shift_result.scalar_one()
+        
+        logger.info(f"[Assign Shift] Successfully assigned shift {db_shift.id} for member {target_member.user_id}")
+        return return_shift # Возвращаем перезагруженный объект Shift с связанными данными
 
 
 # ===> TIMESHEET ENDPOINTS <===

@@ -23,8 +23,7 @@ interface DayCellProps {
     isAvailable: boolean;
     onClick: () => void;
     currentUserId: string;
-    getDayShifts: (date: Date) => CourierShift[];
-    getNightShifts: (date: Date) => CourierShift[];
+    getShiftsForDate: (date: Date) => CourierShift[];
     hasUserShift: (date: Date) => boolean;
     userIsInReserve: (date: Date) => boolean;
     slotConfig: WeeklySlotConfig | null;
@@ -42,8 +41,7 @@ const DayCell: React.FC<DayCellProps> = ({
     isAvailable,
     onClick: onOriginalClick,
     currentUserId,
-    getDayShifts,
-    getNightShifts,
+    getShiftsForDate,
     hasUserShift,
     userIsInReserve,
     slotConfig,
@@ -79,13 +77,12 @@ const DayCell: React.FC<DayCellProps> = ({
         const currentMaxDay = dayConfig?.maxDaySlots ?? SLOTS_CONFIG.DAY.MAX_SLOTS;
         const currentMaxNight = dayConfig?.maxNightSlots ?? SLOTS_CONFIG.NIGHT.MAX_SLOTS;
         
-        const dayShifts = getDayShifts(date);
-        const nightShifts = getNightShifts(date);
+        const allShifts = getShiftsForDate(date);
         const userHasShift = hasUserShift(date);
         const inReserve = userIsInReserve(date);
 
         if (userHasShift) {
-            const userShift = [...dayShifts, ...nightShifts].find(shift => 
+            const userShift = allShifts.find(shift => 
                 String(shift.userId) === String(currentUserId)
             );
             const currentUserData = usersById[currentUserId];
@@ -118,13 +115,21 @@ const DayCell: React.FC<DayCellProps> = ({
             );
         }
 
-        const occupiedDaySlots = dayShifts.filter(s => s.slotIndex !== -1).length;
-        const occupiedNightSlots = nightShifts.filter(s => s.slotIndex !== -1).length;
-        const allDaySlotsOccupied = occupiedDaySlots >= currentMaxDay;
-        const allNightSlotsOccupied = occupiedNightSlots >= currentMaxNight;
+        // Считаем все занятые слоты (исключая слот старшего курьера с slotIndex === -1)
+        const occupiedSlots = allShifts.filter(s => s.slotIndex !== -1).length;
+        
+        // Используем новую логику с шаблонами
+        const templates = dayConfig?.shiftTemplates || [];
+        const totalSlotsFromTemplates = templates.reduce((sum, template) => {
+            return sum + (template.maxSlots || 0);
+        }, 0);
+        
+        // Если нет шаблонов, используем старую логику для обратной совместимости
+        const totalMaxSlots = totalSlotsFromTemplates > 0 ? totalSlotsFromTemplates : (currentMaxDay + currentMaxNight);
+        const allSlotsOccupied = totalMaxSlots > 0 && occupiedSlots >= totalMaxSlots;
 
-        if (isAvailable || (allDaySlotsOccupied && allNightSlotsOccupied)) {
-            if (allDaySlotsOccupied && allNightSlotsOccupied) {
+        if (isAvailable || allSlotsOccupied) {
+            if (allSlotsOccupied) {
                 return (
                     <OccupiedSlotIndicator title="Все смены заняты">
                         <DayNumber 

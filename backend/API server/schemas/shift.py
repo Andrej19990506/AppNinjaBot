@@ -6,8 +6,8 @@ import uuid
 # Базовая схема для общих полей
 class ShiftBase(BaseModel):
     date: date
-    shift_type: str # 'day' или 'night' - сохраняем для обратной совместимости
-    template_id: Optional[uuid.UUID] = None # ID шаблона смены (новое поле)
+    shift_type: Optional[str] = None # 'day' или 'night' - устаревшее поле, оставлено для обратной совместимости
+    template_id: Optional[uuid.UUID] = None # ID шаблона смены (обязателен для новых смен)
     slot_index: int
     group_id: int # ID группы (нашей внутренней)
 

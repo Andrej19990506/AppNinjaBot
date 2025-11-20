@@ -308,11 +308,50 @@ const shiftsSlice = createSlice({
                 const { allTemplates, templatesByDay } = action.payload;
                 state.shiftTemplates = allTemplates;
                 
+                console.log('[shiftsSlice] fetchAllShiftTemplatesThunk.fulfilled:', {
+                    allTemplatesCount: allTemplates.length,
+                    templatesByDay: Object.keys(templatesByDay).map(day => ({
+                        day: Number(day),
+                        templatesCount: templatesByDay[Number(day)]?.length || 0,
+                        templates: templatesByDay[Number(day)]?.map(t => ({
+                            id: t.id,
+                            name: t.name,
+                            maxSlots: t.maxSlots
+                        })) || []
+                    })),
+                    slotConfigExists: !!state.slotConfig
+                });
+                
+                // Инициализируем slotConfig, если его нет
+                if (!state.slotConfig) {
+                    state.slotConfig = defaultWeeklySlotConfig;
+                }
+                
                 // Обновляем конфиг слотов с шаблонами смен для каждого дня
-                if (state.slotConfig) {
-                    for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
-                        if (state.slotConfig[dayOfWeek]) {
-                            state.slotConfig[dayOfWeek].shiftTemplates = templatesByDay[dayOfWeek] || [];
+                for (let dayOfWeek = 0; dayOfWeek <= 6; dayOfWeek++) {
+                    if (!state.slotConfig[dayOfWeek]) {
+                        state.slotConfig[dayOfWeek] = {
+                            ...defaultWeeklySlotConfig[dayOfWeek],
+                            shiftTemplates: []
+                        };
+                    }
+                    
+                    const templates = templatesByDay[dayOfWeek] || [];
+                    state.slotConfig[dayOfWeek].shiftTemplates = templates;
+                    
+                    if (templates.length > 0) {
+                        const templatesInfo = templates.map(t => ({ 
+                            id: t.id, 
+                            name: t.name, 
+                            maxSlots: t.maxSlots,
+                            startTime: t.startTime,
+                            endTime: t.endTime
+                        }));
+                        console.log(`[shiftsSlice] Updated day ${dayOfWeek} with ${templates.length} templates:`, templatesInfo);
+                        
+                        // Особое внимание к субботе (day 6) - проверяем версию
+                        if (dayOfWeek === 6) {
+                            console.log(`[shiftsSlice] 🔍 SATURDAY (day 6) template details:`, JSON.stringify(templatesInfo, null, 2));
                         }
                     }
                 }

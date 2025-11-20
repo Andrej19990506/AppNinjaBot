@@ -29,6 +29,7 @@ const GlobalTooltipFix = createGlobalStyle`
 
 export interface ShiftSlotProps {
     shiftType: 'day' | 'night';
+    templateId?: string | null; // ID шаблона смены (обязателен для новых смен)
     slotIndex: number;
     courier?: ShiftSlot | null;
     currentUserId: string;
@@ -476,6 +477,7 @@ const SeniorSlotIndicator = styled.div`
 
 const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
     shiftType,
+    templateId, // ID шаблона смены
     slotIndex,
     courier,
     currentUserId,
@@ -658,7 +660,7 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         return courier.isSeniorCourier ? `${idText}\nСтарший курьер ★` : idText;
     }, [courier, courierInfoFromRedux]);
 
-    const droppableId = `empty-drop-${shiftType}-${slotIndex}`;
+    const droppableId = `empty-drop-${templateId || shiftType}-${slotIndex}`;
     const { 
         isOver,
         setNodeRef: setDroppableNodeRef 
@@ -667,7 +669,8 @@ const ShiftSlotComponent: React.FC<ShiftSlotProps> = React.memo(({
         disabled: isOccupied || isSeniorCourierSlot,
         data: {
             type: 'empty-slot',
-            shiftType: shiftType,
+            shiftType: shiftType, // Deprecated - оставлено для совместимости
+            templateId: templateId, // ID шаблона смены (приоритетный)
             slotIndex: slotIndex,
         }
     });

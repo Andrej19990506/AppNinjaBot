@@ -12,7 +12,13 @@ from db.session import get_db_session
 from models.group import Group
 from schemas.group import GroupRead # Схема для ответа
 from models.group_member import GroupMember 
-from models.member import Member 
+from models.member import Member
+from models.group_role_mapping import GroupRoleMapping
+from models.company_role import CompanyRole
+from models.role_feature_mapping import RoleFeatureMapping
+from models.bot_feature import BotFeature
+from schemas.bot_feature import BotFeatureResponse
+from api.dependencies.auth import get_current_member 
 from schemas.group_settings import GroupSettings, GroupSettingsUpdate
 from models.shift_template import ShiftTemplate, ShiftTemplateDay
 from schemas.shift_template import ShiftTemplateRead
@@ -692,3 +698,95 @@ async def get_group_couriers(
     
     logger.info(f"[get_group_couriers] Успешно получен список курьеров для группы {group_telegram_id}: {len(couriers_list)} записей")
     return couriers_list
+
+
+@router.get(
+    "/{group_id}/features",
+    response_model=List[BotFeatureResponse],
+    summary="Get Group Features",
+    description="Получает список доступных функций для указанной группы. Доступно только для участников группы.",
+    tags=["Groups", "Features"]
+)
+async def get_group_features_public(
+    group_id: int = Path(..., description="Telegram Group ID"),
+    current_member: Member = Depends(get_current_member),
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Получает список доступных функций для указанной группы.
+    Функции определяются через: Group → GroupRoleMapping → CompanyRole → RoleFeatureMapping → BotFeature
+    
+    Доступно только для участников группы.
+    """
+    # Проверяем существование группы
+    stmt = select(Group).where(Group.group_id == group_id)
+    result = await db.execute(stmt)
+    group = result.scalar_one_or_none()
+    
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Group with ID {group_id} not found",
+        )
+    
+    # Проверяем, что текущий пользователь состоит в этой группе
+    member_group_stmt = (
+        select(GroupMember)
+        .where(GroupMember.group_id == group.id)
+        .where(GroupMember.member_id == current_member.id)
+    )
+    member_group_result = await db.execute(member_group_stmt)
+    member_group = member_group_result.scalar_one_or_none()
+    
+    if not member_group:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a member of this group",
+        )
+    
+    # Получаем привязку группы к роли
+    stmt = select(GroupRoleMapping).where(GroupRoleMapping.group_id == group_id)
+    result = await db.execute(stmt)
+    group_mapping = result.scalar_one_or_none()
+    
+    if not group_mapping:
+        # Группа не привязана к роли - возвращаем пустой список
+        return []
+    
+    # Получаем информацию о роли
+    stmt = select(CompanyRole).where(CompanyRole.id == group_mapping.company_role_id)
+    result = await db.execute(stmt)
+    role = result.scalar_one_or_none()
+    
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found",
+        )
+    
+    # Получаем функции роли (только включенные)
+    stmt = (
+        select(BotFeature)
+        .join(RoleFeatureMapping, RoleFeatureMapping.bot_feature_id == BotFeature.id)
+        .where(
+            RoleFeatureMapping.company_role_id == role.id,
+            RoleFeatureMapping.is_enabled == True,
+            BotFeature.is_active == True
+        )
+    )
+    result = await db.execute(stmt)
+    features = result.scalars().all()
+    
+    return [
+        BotFeatureResponse(
+            id=feature.id,
+            feature_code=feature.feature_code,
+            feature_name=feature.feature_name,
+            description=feature.description,
+            icon=feature.icon,
+            is_active=feature.is_active,
+            created_at=feature.created_at.isoformat() if feature.created_at else "",
+            updated_at=feature.updated_at.isoformat() if feature.updated_at else "",
+        )
+        for feature in features
+    ]

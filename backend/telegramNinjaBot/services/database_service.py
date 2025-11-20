@@ -870,8 +870,121 @@ class DatabaseService:
                     logger.error(f"❌ [add_user_to_group] Ошибка PostgreSQL при добавлении пользователя {user_info.get('user_id')} в группу {group_id}: {e}")
                     return False
                 except Exception as e:
-                    logger.error(f"❌ [add_user_to_group] Неожиданная ошибка при добавлении пользователя {user_info.get('user_id')} в группу {group_id}: {e}")
+                    logger.error(f"❌ [add_user_to_group] Неожиданная ошибка: {e}")
                     return False
+    
+    async def auto_link_group_to_company(self, group_telegram_id: int, bot_id: int) -> bool:
+        """
+        Автоматически привязывает группу к компании через bot_id.
+        Находит CompanyBot по bot_id, находит или создает дефолтную роль, создает GroupRoleMapping.
+        
+        Args:
+            group_telegram_id: Telegram ID группы (groups.group_id)
+            bot_id: Telegram bot ID (company_bots.bot_id)
+        
+        Returns:
+            True если привязка успешна, False если ошибка или бот не найден
+        """
+        logger.info(f"🔗 [auto_link_group_to_company] Попытка привязать группу {group_telegram_id} к компании через bot_id {bot_id}")
+        
+        try:
+            async with self.pool.acquire() as conn:
+                async with conn.transaction():
+                    # Шаг 1: Находим CompanyBot по bot_id
+                    company_bot = await conn.fetchrow(
+                        """
+                        SELECT id, company_name, is_active
+                        FROM company_bots
+                        WHERE bot_id = $1 AND is_active = true
+                        """,
+                        bot_id
+                    )
+                    
+                    if not company_bot:
+                        logger.warning(f"⚠️ [auto_link_group_to_company] Бот с bot_id {bot_id} не найден в company_bots или неактивен")
+                        return False
+                    
+                    company_bot_id = company_bot['id']
+                    company_name = company_bot['company_name'] or f"Компания #{company_bot_id}"
+                    logger.info(f"✅ [auto_link_group_to_company] Найден CompanyBot: ID={company_bot_id}, название={company_name}")
+                    
+                    # Шаг 2: Проверяем, есть ли уже привязка для этой группы
+                    existing_mapping = await conn.fetchrow(
+                        """
+                        SELECT id FROM group_role_mappings
+                        WHERE group_id = $1
+                        """,
+                        group_telegram_id
+                    )
+                    
+                    if existing_mapping:
+                        logger.info(f"ℹ️ [auto_link_group_to_company] Группа {group_telegram_id} уже привязана к компании (mapping_id={existing_mapping['id']})")
+                        return True
+                    
+                    # Шаг 3: Определяем тип группы по названию (нужно получить название из groups)
+                    group_info = await conn.fetchrow(
+                        """
+                        SELECT title, group_type FROM groups
+                        WHERE group_id = $1
+                        """,
+                        group_telegram_id
+                    )
+                    
+                    if not group_info:
+                        logger.warning(f"⚠️ [auto_link_group_to_company] Группа {group_telegram_id} не найдена в таблице groups")
+                        return False
+                    
+                    group_title = group_info['title']
+                    
+                    # Шаг 4: Находим дефолтную роль "Общая" (general) для компании
+                    # Эта роль создается автоматически при создании компании
+                    company_role = await conn.fetchrow(
+                        """
+                        SELECT id FROM company_roles
+                        WHERE company_bot_id = $1 AND role_code = 'general' AND is_active = true
+                        """,
+                        company_bot_id
+                    )
+                    
+                    if not company_role:
+                        # Если дефолтной роли нет (старые компании), создаем её
+                        company_role_id = await conn.fetchval(
+                            """
+                            INSERT INTO company_roles (company_bot_id, role_name, role_code, description, is_active, display_order)
+                            VALUES ($1, 'Общая', 'general', 'Дефолтная роль для автоматической привязки групп к компании', true, 0)
+                            ON CONFLICT (company_bot_id, role_code) DO UPDATE SET
+                                is_active = true
+                            RETURNING id
+                            """,
+                            company_bot_id
+                        )
+                        logger.info(f"✅ [auto_link_group_to_company] Создана дефолтная роль: ID={company_role_id}")
+                    else:
+                        company_role_id = company_role['id']
+                        logger.info(f"✅ [auto_link_group_to_company] Используется дефолтная роль: ID={company_role_id}")
+                    
+                    # Шаг 5: Создаем привязку группы к роли компании
+                    mapping_id = await conn.fetchval(
+                        """
+                        INSERT INTO group_role_mappings (group_id, company_role_id, is_working_group)
+                        VALUES ($1, $2, true)
+                        ON CONFLICT (group_id, company_role_id) DO UPDATE SET
+                            is_working_group = EXCLUDED.is_working_group
+                        RETURNING id
+                        """,
+                        group_telegram_id,
+                        company_role_id
+                    )
+                    
+                    logger.info(f"✅ [auto_link_group_to_company] Группа {group_telegram_id} ({group_title}) успешно привязана к компании {company_name} (mapping_id={mapping_id})")
+                    return True
+                    
+        except asyncpg.PostgresError as e:
+            logger.error(f"❌ [auto_link_group_to_company] Ошибка PostgreSQL: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"❌ [auto_link_group_to_company] Неожиданная ошибка: {e}")
+            return False
 
     async def get_user_groups(self, user_id: int) -> List[Dict]:
         """

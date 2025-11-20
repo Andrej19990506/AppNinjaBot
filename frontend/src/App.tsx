@@ -117,7 +117,12 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
           console.log('✅ [App] Пользователь успешно инициализирован');
         })
         .catch((error) => {
-          console.error('❌ [App] Ошибка инициализации:', error);
+          if (error !== 'AUTH_REQUIRED') {
+            // AUTH_REQUIRED - это не ошибка, а нормальное состояние
+            console.error('❌ [App] Ошибка инициализации:', error);
+          } else {
+            console.log('ℹ️ [App] Требуется авторизация через Telegram бота');
+          }
         });
     }
   }, [dispatch, isUserInitialized, initError]);
@@ -195,7 +200,8 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   // Детальное логирование ошибок для отладки
   React.useEffect(() => {
-    if (initError) {
+    if (initError && initError !== 'AUTH_REQUIRED') {
+      // AUTH_REQUIRED - это не ошибка, а нормальное состояние (требуется авторизация)
       console.error('🚨 [App] Обнаружена ошибка инициализации:', {
         error: initError,
         isServerError,
@@ -204,6 +210,8 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
         url: window.location.href,
         user: user ? { id: user.id, groups: user.groups?.length || 0 } : null
       });
+    } else if (initError === 'AUTH_REQUIRED') {
+      console.log('ℹ️ [App] Требуется авторизация через Telegram бота');
     }
   }, [initError, isServerError, user]);
 
@@ -215,33 +223,37 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return (
     <>
         <LoadingOverlay isLoading={showOverlay} /> 
-             {!showOverlay && !initError && !isServerError && (
-         // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
-         (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
-           ? <NoGroupAssigned user={user} />
-           : (
-               <>
-                 {/* Показываем главное меню если tutorial не открыт или если показываем оба */}
-                 {(!isTutorialOpen || showBothScreens) && <>{children}</>}
-                 
-                 {/* Показываем обучающие материалы */}
-                 {isTutorialOpen && (
-                   <TutorialMaterials 
-                     isOpen={true}
-                     onClose={() => setIsTutorialOpen(false)}
-                   />
-                 )}
-               </>
-             )
-       )}
-      
-             {/* Показываем NoGroupAssigned только если нет ошибок сервера */}
-       {!showOverlay && initError && !isServerError && (
-         <NoGroupAssigned user={user} />
-       )}
-      {initError && !isServerError && (
-        <TelegramAccessError error={initError} />
-      )}
+        
+        {/* Показываем экран авторизации если требуется авторизация */}
+        {!showOverlay && initError === 'AUTH_REQUIRED' && !isServerError && (
+          <TelegramAccessError error={initError} />
+        )}
+        
+        {/* Показываем основной контент только если нет ошибок авторизации */}
+        {!showOverlay && initError !== 'AUTH_REQUIRED' && !isServerError && (
+          // Если пользователь проинициализирован, но нет групп — показываем NoGroupAssigned
+          (isUserInitialized && (!user || !Array.isArray(user.groups) || user.groups.length === 0))
+            ? <NoGroupAssigned user={user} />
+            : (
+                <>
+                  {/* Показываем главное меню если tutorial не открыт или если показываем оба */}
+                  {(!isTutorialOpen || showBothScreens) && <>{children}</>}
+                  
+                  {/* Показываем обучающие материалы */}
+                  {isTutorialOpen && (
+                    <TutorialMaterials 
+                      isOpen={true}
+                      onClose={() => setIsTutorialOpen(false)}
+                    />
+                  )}
+                </>
+              )
+        )}
+        
+        {/* Показываем другие ошибки (не AUTH_REQUIRED) */}
+        {!showOverlay && initError && initError !== 'AUTH_REQUIRED' && !isServerError && (
+          <TelegramAccessError error={initError} />
+        )}
       
              {/* Модальное окно ошибки сервера */}
        {console.log('🔍 [ServerErrorModal Debug]', { showServerError, isServerError, isOpen: Boolean(showServerError && isServerError) })}

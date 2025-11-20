@@ -1,0 +1,221 @@
+/* Переменные для админ-панели из основного приложения */
+/* Переопределяем переменные Tailwind, которые генерируются в формате lab() */
+/* Используем !important чтобы гарантированно перекрыть Tailwind переменные */
+@supports (color: lab(0% 0 0)) {
+    /* Переопределяем переменные Tailwind для серых цветов */
+    :root,
+    :host {
+        --color-gray-50: #f9fafb !important;
+        --color-gray-100: #f3f4f6 !important;
+        --color-gray-200: #e5e7eb !important;
+        --color-gray-300: #d1d5db !important;
+        --color-gray-400: #9ca3af !important;
+        --color-gray-500: #6b7280 !important;
+        --color-gray-600: #4b5563 !important;
+        --color-gray-700: #374151 !important;
+        --color-gray-800: #1f2937 !important;
+        --color-gray-900: #111827 !important;
+    }
+
+    [data-theme="dark"],
+    [data-theme="dark"]:host {
+        --color-gray-50: #1A1A1A !important;
+        --color-gray-100: #242424 !important;
+        --color-gray-200: #2A2A2A !important;
+        --color-gray-300: #333333 !important;
+        --color-gray-400: #404040 !important;
+        --color-gray-500: #595959 !important;
+        --color-gray-600: #737373 !important;
+        --color-gray-700: #8C8C8C !important;
+        --color-gray-800: #A6A6A6 !important;
+        --color-gray-900: #BFBFBF !important;
+    }
+}
+
+/* Используем html:root для большей специфичности, чтобы перекрыть globals.css */
+html:root {
+    /* Брендовые цвета */
+    --orange-primary: #FF5F1F;
+    --orange-light: #FF8B59;
+    --orange-dark: #E64500;
+    --primary-rgb: 255, 95, 31; /* RGB значение для --orange-primary */
+
+    /* Основные цвета */
+    --primary-color: var(--orange-primary);
+    --primary-light: var(--orange-light);
+    --primary-dark: var(--orange-dark);
+    --primary-transparent: rgb(255 95 31 / 10%);
+
+    /* Нейтральные цвета */
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+
+    /* Светлая тема */
+    --background-color: #fff;
+    --card-background: #fff;
+    --text-color: #2c3e50;
+    --text-secondary: #666;
+    --border-color: #e0e0e0;
+    --error-color: #e74c3c;
+    --error-background: rgb(231 76 60 / 10%);
+    --success-color: #FF5F1F;
+    --success-background: rgb(46 204 113 / 10%);
+    --card-background-transparent: rgba(255, 255, 255, 0.85);
+
+    /* Размеры и отступы */
+    --header-height: 60px;
+    --radius: 12px;
+    --radius-lg: 16px;
+    --radius-sm: 8px;
+    
+    /* Тени */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 5%);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 10%), 0 1px 2px -1px rgb(0 0 0 / 10%);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 10%), 0 2px 4px -2px rgb(0 0 0 / 10%);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 10%);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+    /* Эффекты */
+    --hover-overlay: rgb(0 0 0 / 5%);
+    --active-overlay: rgb(0 0 0 / 10%);
+    --disabled-opacity: 50%;
+
+    /* Анимации и переходы */
+    --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Эффекты наведения */
+    --hover-transform: translateY(-2px);
+    --active-transform: translateY(0);
+
+    /* Скелетон и загрузка */
+    --skeleton-base: var(--gray-100);
+    --skeleton-shine: var(--gray-200);
+
+    /* Утилиты для градиентов */
+    --gradient-primary: linear-gradient(45deg, var(--orange-dark), var(--orange-primary));
+    --gradient-dark: linear-gradient(45deg, var(--gray-900), var(--gray-800));
+
+    --navigation-height: 60px;
+
+    /* Дополнительные цвета */
+    --warning-color: #F59E0B;
+    --warning-background: rgba(245, 158, 11, 0.1);
+
+    /* <<< ДОБАВЛЕННЫЕ ПЕРЕМЕННЫЕ ДЛЯ КНОПОК >>> */
+    --text-color-on-primary: #ffffff; /* Белый текст на основной кнопке */
+    --disabled-bg-color: rgba(0, 0, 0, 0.12); /* Фон отключенной кнопки (MUI default) */
+    --disabled-text-color: rgba(0, 0, 0, 0.26); /* Текст отключенной кнопки (MUI default) */
+    --success-dark: #1d9b56; /* Более темный зеленый для hover */
+    --warning-dark: #d88e0a; /* Более темный оранжевый/желтый для hover */
+    /* <<< КОНЕЦ ДОБАВЛЕННЫХ ПЕРЕМЕННЫХ >>> */
+
+    /* --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ВТОРИЧНЫХ/ОПАСНЫХ КНОПОК --- */
+    --danger-color: var(--orange-dark); /* Оранжевый цвет для опасных кнопок */
+    --danger-dark: #c0392b; /* Темно-красный для hover/active опасных кнопок */
+    --button-secondary-bg: #6c757d; /* Фон вторичной/отменяющей кнопки */
+    --button-secondary-text: #ffffff; /* Текст на вторичной кнопке */
+    --button-secondary-hover-bg: #5a6268; /* Фон вторичной кнопки при наведении */
+    /* ---------------------------------------------------- */
+}
+
+/* Темная тема */
+html[data-theme="dark"] {
+    /* Основные цвета */
+    --primary-color: var(--orange-primary);
+    --primary-light: var(--orange-light);
+    --primary-dark: var(--orange-dark);
+    --primary-transparent: rgb(255 95 31 / 15%);
+
+    /* Фоны и цвета текста */
+    --background-color: #0D0D0D;
+    --background-texture: 
+        radial-gradient(circle at 25% 25%, rgba(255, 95, 31, 0.03) 0%, transparent 50%),
+        radial-gradient(circle at 75% 75%, rgba(255, 95, 31, 0.02) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.1) 0%, transparent 100%),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 2px,
+            rgba(255, 95, 31, 0.01) 2px,
+            rgba(255, 95, 31, 0.01) 4px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 2px,
+            rgba(0, 0, 0, 0.02) 2px,
+            rgba(0, 0, 0, 0.02) 4px
+        );
+    --card-background: #1E1E1E;
+    --text-color: #E0E0E0;
+    --text-secondary: #A0A0A0;
+    --border-color: #2A2A2A;
+
+    /* Состояния */
+    --error-color: var(--orange-dark);
+    --error-background: rgb(230 69 0 / 15%);
+    --success-color: var(--orange-primary);
+    --success-background: rgb(255 95 31 / 15%);
+
+    /* Оттенки серого */
+    --gray-50: #1A1A1A;
+    --gray-100: #242424;
+    --gray-200: #2A2A2A;
+    --gray-300: #333333;
+    --gray-400: #404040;
+    --gray-500: #595959;
+    --gray-600: #737373;
+    --gray-700: #8C8C8C;
+    --gray-800: #A6A6A6;
+    --gray-900: #BFBFBF;
+
+    /* Тени */
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --shadow: 0 1px 3px rgb(0 0 0 / 40%);
+    --shadow-md: 0 4px 6px rgb(0 0 0 / 50%);
+    --shadow-lg: 0 10px 15px rgb(0 0 0 / 50%);
+
+    /* Эффекты */
+    --hover-overlay: rgb(255 95 31 / 10%);
+    --active-overlay: rgb(255 95 31 / 15%);
+
+    /* Скелетон и загрузка */
+    --skeleton-base: var(--gray-800);
+    --skeleton-shine: var(--gray-700);
+
+    /* Обновляем цвета для форм и текстовых полей */
+    --input-background: #2A2A2A;
+    --input-border: #404040;
+    --input-text: #E0E0E0;
+    --input-placeholder: #808080;
+    --input-focus-border: var(--orange-primary);
+    --input-focus-background: #333333;
+
+    --card-background-transparent: rgba(30, 30, 30, 0.85);
+
+    /* <<< ДОБАВЛЕННЫЕ ПЕРЕМЕННЫЕ ДЛЯ КНОПОК (ТЕМНАЯ ТЕМА) >>> */
+    --text-color-on-primary: #ffffff; /* Белый текст обычно остается белым */
+    --disabled-bg-color: rgba(255, 255, 255, 0.12); /* Светлый фон для темной темы */
+    --disabled-text-color: rgba(255, 255, 255, 0.3); /* Светлый текст для темной темы */
+    --success-dark: #0a8f61; /* Темный зеленый для темной темы */
+    --warning-dark: #c18009; /* Темный желтый/оранжевый для темной темы */
+    /* <<< КОНЕЦ ДОБАВЛЕННЫХ ПЕРЕМЕННЫХ >>> */
+
+    /* --- ПЕРЕОПРЕДЕЛЕНИЕ ДЛЯ ВТОРИЧНЫХ/ОПАСНЫХ КНОПОК (ТЕМНАЯ ТЕМА) --- */
+    --danger-color: var(--orange-dark); /* Оранжевый цвет для опасных кнопок */
+    --danger-dark: #b83728; /* Немного другой оттенок темно-красного для темной темы */
+    --button-secondary-bg: #4A4A4A; /* Темно-серый фон вторичной кнопки */
+    --button-secondary-text: #E0E0E0; /* Светлый текст на вторичной кнопке */
+    --button-secondary-hover-bg: #5a6268; /* Более светлый серый при наведении */
+    /* ------------------------------------------------------------------ */
+}

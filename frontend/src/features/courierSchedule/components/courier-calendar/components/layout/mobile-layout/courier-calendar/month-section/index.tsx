@@ -26,8 +26,7 @@ interface MonthSectionProps {
     month: Date;
     selectedDate: Date | null;
     onDayClick: (date: Date) => void;
-    getDayShifts: (date: Date) => CourierShift[];
-    getNightShifts: (date: Date) => CourierShift[];
+    getShiftsForDate: (date: Date) => CourierShift[];
     hasUserShift: (date: Date) => boolean;
     userIsInReserve: (date: Date) => boolean;
     currentUserAvatar?: string;
@@ -43,8 +42,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     month,
     selectedDate,
     onDayClick,
-    getDayShifts,
-    getNightShifts,
+    getShiftsForDate,
     hasUserShift,
     userIsInReserve,
     currentUserId,
@@ -115,18 +113,23 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                         const dayConfig = slotConfig[dayIndex] || defaultSingleDaySlotConfig;
                         
                         if (dayConfig) {
-                            const daySlots = dayConfig.maxDaySlots || 0;
-                            const nightSlots = dayConfig.maxNightSlots || 0;
-                            const totalSlots = daySlots + nightSlots;
+                            // Используем новую логику с шаблонами
+                            const templates = dayConfig.shiftTemplates || [];
                             
-                            if (totalSlots > 0) {
-                                // Новый способ: считаем только обычные слоты (slotIndex !== -1)
-                                const dayShifts = getDayShifts(date).filter(s => s.slotIndex !== -1);
-                                const nightShifts = getNightShifts(date).filter(s => s.slotIndex !== -1);
-                                const dayShiftsCount = dayShifts.length;
-                                const nightShiftsCount = nightShifts.length;
-                                const filledSlots = dayShiftsCount + nightShiftsCount;
-                                const completionPercentage = totalSlots > 0 ? (filledSlots / totalSlots) * 100 : 0;
+                            // Считаем общее количество слотов из всех шаблонов
+                            const totalSlots = templates.reduce((sum, template) => {
+                                return sum + (template.maxSlots || 0);
+                            }, 0);
+                            
+                            // Если нет шаблонов, используем старую логику для обратной совместимости
+                            const fallbackTotalSlots = (dayConfig.maxDaySlots || 0) + (dayConfig.maxNightSlots || 0);
+                            const effectiveTotalSlots = totalSlots > 0 ? totalSlots : fallbackTotalSlots;
+                            
+                            if (effectiveTotalSlots > 0) {
+                                // Считаем только обычные слоты (slotIndex !== -1), исключая слот старшего курьера
+                                const allShifts = getShiftsForDate(date).filter(s => s.slotIndex !== -1);
+                                const filledSlots = allShifts.length;
+                                const completionPercentage = effectiveTotalSlots > 0 ? (filledSlots / effectiveTotalSlots) * 100 : 0;
 
                                 const iconStyle = { fontSize: 'inherit', color: 'white' };
 
@@ -245,12 +248,11 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             date={date}
                             isToday={isToday(date)}
                             isSelected={isSelected(date, selectedDate)}
-                            hasShifts={getDayShifts(date).length > 0 || getNightShifts(date).length > 0}
+                            hasShifts={getShiftsForDate(date).length > 0}
                             isAvailable={isAvailable}
                             onClick={() => onDayClick(date)}
                             currentUserId={currentUserId}
-                            getDayShifts={getDayShifts}
-                            getNightShifts={getNightShifts}
+                            getShiftsForDate={getShiftsForDate}
                             hasUserShift={hasUserShift}
                             userIsInReserve={userIsInReserve}
                             slotConfig={slotConfig}

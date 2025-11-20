@@ -50,12 +50,17 @@ async def lifespan(app: FastAPI):
     global redis_client
     redis_host = os.getenv("REDIS_HOST", "cache") # Имя сервиса из docker-compose
     redis_port = int(os.getenv("REDIS_PORT", 6379))
+    logger.info(f"🔗 [Redis] Попытка подключения к Redis/DragonflyDB: {redis_host}:{redis_port}")
     try:
         redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True) # decode_responses=True для строк
         await redis_client.ping() # Проверяем соединение
-        logger.info(f"Успешное подключение к Redis/DragonflyDB по адресу {redis_host}:{redis_port}")
+        logger.info(f"✅ [Redis] Успешное подключение к Redis/DragonflyDB по адресу {redis_host}:{redis_port}")
+    except redis.ConnectionError as e:
+        logger.error(f"❌ [Redis] Ошибка подключения к Redis/DragonflyDB ({redis_host}:{redis_port}): {e}")
+        logger.error(f"❌ [Redis] Убедитесь, что Redis/DragonflyDB запущен и доступен")
+        redis_client = None # Устанавливаем в None, если не удалось подключиться
     except Exception as e:
-        logger.error(f"Не удалось подключиться к Redis/DragonflyDB: {e}")
+        logger.error(f"❌ [Redis] Неожиданная ошибка при подключении к Redis/DragonflyDB: {e}", exc_info=True)
         redis_client = None # Устанавливаем в None, если не удалось подключиться
     # ---> Конец инициализации Redis < ---
 
@@ -83,6 +88,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000", 
+        "http://localhost:3002",  # Admin panel
         "http://localhost", 
         "http://localhost:8888",  # Landing page local server
         "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net", 

@@ -206,6 +206,52 @@ const PanelFooter = styled.div`
     flex-shrink: 0;
 `;
 
+const NativeAppCard = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(12px);
+    margin-top: 28px;
+`;
+
+const NativeAppTitle = styled.span`
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-color-on-primary);
+`;
+
+const NativeAppDescription = styled.span`
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.45;
+`;
+
+const NativeAppButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    background: rgba(0, 0, 0, 0.35);
+    color: var(--text-color-on-primary);
+    font-weight: 600;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    transition: transform var(--transition-fast), background-color var(--transition-normal), border-color var(--transition-normal);
+
+    &:hover {
+        transform: translateY(-1px);
+        background: rgba(0, 0, 0, 0.45);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+`;
+
 
 
 interface SideMenuPanelProps { 
@@ -236,6 +282,39 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
             setInternalOpen(true);
         }
     }, [isOpen]);
+
+    const showAlert = (message: string) => {
+        const webApp = window.Telegram?.WebApp;
+        const nativeAlert = (webApp as any)?.showAlert;
+        if (typeof nativeAlert === 'function') {
+            nativeAlert(message);
+        } else {
+            alert(message);
+        }
+    };
+
+    const handleOpenNativeApp = () => {
+        const webApp = window.Telegram?.WebApp;
+        const initData = webApp?.initData;
+
+        if (!initData) {
+            showAlert('Не удалось получить данные авторизации Telegram. Попробуйте обновить мини-апп.');
+            return;
+        }
+
+        const deepLink = `flowixapp://auth?payload=${encodeURIComponent(initData)}`;
+
+        try {
+            if (webApp?.openLink) {
+                webApp.openLink(deepLink, { try_instant_view: false });
+            } else {
+                window.location.href = deepLink;
+            }
+        } catch (error) {
+            console.error('[SideMenuPanel] Ошибка открытия нативного приложения', error);
+            showAlert('Не удалось открыть нативное приложение Flowix. Убедитесь, что оно установлено.');
+        }
+    };
 
     const handleTutorialClick = () => {
         // Сразу показываем обучающие материалы под панелью
@@ -329,6 +408,16 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
                     </OptionLabel>
                     <OptionIcon><AcUnitIcon fontSize="inherit" /></OptionIcon>
                 </MenuOption>
+
+                <NativeAppCard>
+                    <NativeAppTitle>Flowix App для Android / iOS</NativeAppTitle>
+                    <NativeAppDescription>
+                        Продолжайте работу в нативном приложении: быстрый QR-сканер, офлайн-режим и мгновенный вход через Telegram.
+                    </NativeAppDescription>
+                    <NativeAppButton onClick={handleOpenNativeApp}>
+                        Открыть в приложении
+                    </NativeAppButton>
+                </NativeAppCard>
                 {/* <MenuOption onClick={handleCompetitionsClick}>
                     <OptionLabel>Конкурсы</OptionLabel>
                     <OptionIcon><EventIcon fontSize="inherit" /></OptionIcon>

@@ -12,8 +12,7 @@ interface ReservePanelProps {
     currentUserId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    dayShifts: ShiftSlotType[];
-    nightShifts: ShiftSlotType[];
+    shifts: ShiftSlotType[]; // Все смены для даты
     onSwitchToShifts: () => void;
     getDisplayReservesForDate: (date: Date | null) => ReserveEntry[];
     isCurrentUserInReserveForDate: (date: Date | null) => boolean;
@@ -320,8 +319,7 @@ const LoadingOverlay = styled.div`
 const ReservePanel: React.FC<ReservePanelProps> = ({
     date,
     currentUserId,
-    dayShifts = [],
-    nightShifts = [],
+    shifts = [],
     onSwitchToShifts,
     getDisplayReservesForDate,
     isCurrentUserInReserveForDate,
@@ -352,8 +350,8 @@ const ReservePanel: React.FC<ReservePanelProps> = ({
         : false; 
 
     const userHasShift = useMemo(() => {
-        return [...dayShifts, ...nightShifts].some(shift => String(shift.userId) === String(currentUserId));
-    }, [dayShifts, nightShifts, currentUserId]);
+        return shifts.some(shift => String(shift.userId) === String(currentUserId));
+    }, [shifts, currentUserId]);
 
     const canAttemptReserve = !isCurrentUserInReserve && !isHookLoading;
 

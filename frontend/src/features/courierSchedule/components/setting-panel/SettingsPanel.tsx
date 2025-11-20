@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import EventNoteIcon from '@mui/icons-material/EventNote';
-import TuneIcon from '@mui/icons-material/Tune';
 import ArticleIcon from '@mui/icons-material/Article';
 import CloseIcon from '@mui/icons-material/Close';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 // Анимация выезда панели
 const slideInRight = keyframes`
@@ -167,7 +167,6 @@ interface SettingsPanelProps {
     isOpen: boolean;
     onClose: () => void;
     onOpenShiftAccess: () => void;
-    onOpenSlotSettings: () => void; 
     onOpenShiftTemplateSettings: () => void;
     onOpenTimesheet: () => void;
     onOpenCouriersList?: () => void;
@@ -177,7 +176,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
     isOpen, 
     onClose, 
     onOpenShiftAccess,
-    onOpenSlotSettings,
     onOpenShiftTemplateSettings,
     onOpenTimesheet,
     onOpenCouriersList
@@ -193,10 +191,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
     const handleShiftAccessClick = () => {
         onOpenShiftAccess(); 
-    };
-    
-    const handleSlotSettingsClick = () => {
-        onOpenSlotSettings();
     };
 
     const handleShiftTemplateSettingsClick = () => {
@@ -226,13 +220,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     <OptionLabel>Доступ к записи смен</OptionLabel>
                     <OptionIcon><EventNoteIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
-                <SettingsOption onClick={handleSlotSettingsClick}> 
-                    <OptionLabel>Настройка слотов (старый)</OptionLabel>
-                    <OptionIcon><TuneIcon fontSize="inherit" /></OptionIcon> 
-                </SettingsOption>
                 <SettingsOption onClick={handleShiftTemplateSettingsClick}>
-                    <OptionLabel>Шаблоны смен (новый)</OptionLabel>
-                    <OptionIcon>📋</OptionIcon>
+                    <OptionLabel>Шаблоны смен</OptionLabel>
+                    <OptionIcon><DescriptionIcon fontSize="inherit" /></OptionIcon>
                 </SettingsOption>
                 <SettingsOption onClick={handleTimesheetClick}>
                     <OptionLabel>Табель</OptionLabel>

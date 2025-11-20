@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
 # --- Загружаем переменные окружения ---
 env_path = Path('.') / '.env' 
@@ -35,7 +35,45 @@ class Settings(BaseSettings):
     # --- Настройки Telegram Bot Service ---
     BOT_SERVICE_URL: str = os.getenv("BOT_SERVICE_URL", "http://bot:8003") # URL сервиса бота
 
-    # --- Настройки JWT (позже) ---
+    # --- Настройки авторизации через Telegram ---
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    TELEGRAM_ADDITIONAL_BOT_TOKENS: str = os.getenv("TELEGRAM_ADDITIONAL_BOT_TOKENS", "")
+    TELEGRAM_ALLOWED_BOTS: str = os.getenv("TELEGRAM_ALLOWED_BOTS", "")
+    TELEGRAM_INITDATA_MAX_AGE: int = int(os.getenv("TELEGRAM_INITDATA_MAX_AGE", 600))
+
+    # --- Настройки JWT ---
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "change_me")
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    JWT_ACCESS_TOKEN_EXPIRES: int = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", 900))  # 15 минут
+    JWT_REFRESH_TOKEN_EXPIRES: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES", 60 * 60 * 24 * 7))  # 7 дней
+    
+    # --- Настройки окружения ---
+    ENV: str = os.getenv("ENV", "production")  # development или production
+
+    @property
+    def telegram_bot_tokens(self) -> List[str]:
+        tokens: List[str] = []
+        if self.TELEGRAM_BOT_TOKEN:
+            tokens.append(self.TELEGRAM_BOT_TOKEN.strip())
+        if self.TELEGRAM_ADDITIONAL_BOT_TOKENS:
+            tokens.extend(
+                [
+                    token.strip()
+                    for token in self.TELEGRAM_ADDITIONAL_BOT_TOKENS.split(",")
+                    if token.strip()
+                ]
+            )
+        return tokens
+
+    @property
+    def telegram_allowed_bots(self) -> List[str]:
+        if not self.TELEGRAM_ALLOWED_BOTS:
+            return []
+        return [
+            bot.strip().lower()
+            for bot in self.TELEGRAM_ALLOWED_BOTS.split(",")
+            if bot.strip()
+        ]
 
     class Config:
         case_sensitive = True

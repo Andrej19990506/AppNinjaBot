@@ -1,7 +1,8 @@
 version: '3.8'
 
 services:
-  bot:
+  # Основной бот для авторизации
+  bot-main:
     build: 
       context: ./backend/telegramNinjaBot
       target: production
@@ -11,6 +12,7 @@ services:
       - PYTHONPATH=/app
       - BOT_PORT=8003
       - SCHEDULER_API_URL=http://scheduler:8002
+      - BOT_TYPE=main
     volumes:
       - shared-data:/app/shared
     env_file:
@@ -29,6 +31,37 @@ services:
         reservations:
           memory: 256M
 
+  # Контейнер для всех ботов компаний (динамически загружает все активные боты из БД)
+  bot-companies:
+    build: 
+      context: ./backend/telegramNinjaBot
+      target: production
+    environment:
+      - API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
+      - ENVIRONMENT=production
+      - PYTHONPATH=/app
+      - BOT_PORT=8003
+      - SCHEDULER_API_URL=http://scheduler:8002
+      - BOT_TYPE=companies
+    volumes:
+      - shared-data:/app/shared
+    env_file:
+      - ./backend/telegramNinjaBot/.env.prod
+    command: python -u /app/telegramNinjaBot/main.py
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+
   server:
     build:
       target: production
@@ -39,7 +72,7 @@ services:
     command: gunicorn main:app -b 0.0.0.0:8000 --workers 8 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
       - API_BASE_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api
-      - BOT_URL=http://bot:8003
+      - BOT_URL=http://bot-companies:8003
       - SCHEDULER_URL=http://scheduler:8002
       - WEBSOCKET_SERVER_URL=http://websocket:8001
       - SOCKET_URL=wss://appninjabot.ru
@@ -58,7 +91,9 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/shared/appninjabotcontent-330206f13743.json
     restart: unless-stopped
     depends_on:
-      bot:
+      bot-main:
+        condition: service_started
+      bot-companies:
         condition: service_started
       postgres:
         condition: service_healthy
@@ -84,11 +119,11 @@ services:
       - POSTGRES_DB=appninjabot
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
-      - BOT_API_URL=http://bot:8003
-      - BOT_INTERNAL_URL=http://bot:8003
+      - BOT_API_URL=http://bot-companies:8003
+      - BOT_INTERNAL_URL=http://bot-companies:8003
       - HEALTHCHECK_API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/health
       - HEALTHCHECK_BOT_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/bot/health
-      - HEALTHCHECK_BOT_SEND_MESSAGE_URL=http://bot:8003/send_message/health
+      - HEALTHCHECK_BOT_SEND_MESSAGE_URL=http://bot-companies:8003/send_message/health
       - CLOUDINARY_CLOUD_NAME=dzymrkr14
       - CLOUDINARY_API_KEY=729531884973171
       - CLOUDINARY_API_SECRET=D8f3KJs53yr2D36mmxy6pEM9DuQ

@@ -12,7 +12,7 @@ import {
   assignCourierToShift,
 } from '@features/courierSchedule/services/courierApi/shiftsApi';
 import { RootState } from '@shared/types/store';
-import { ApiShift, CourierShift, CourierInfo  } from '@features/courierSchedule/types/courierScheduleTypes';
+import { ApiShift, CourierShift, CourierInfo, BookShiftApiData  } from '@features/courierSchedule/types/courierScheduleTypes';
 import { fetchReservesForGroup } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
 
 
@@ -69,19 +69,19 @@ export const fetchShifts = createAsyncThunk<
 // --- Thunk: бронирование смены ---
 export const bookShift = createAsyncThunk<
   CourierShift,
-  { date: string; userId: string; shiftType: 'day' | 'night'; slotIndex: number; chatId: string; templateId?: string },
+  { date: string; userId: string; slotIndex: number; chatId: string; templateId: string },
   { rejectValue: string }
 >(
   'shifts/bookShift',
-  async ({ date, userId, shiftType, slotIndex, chatId, templateId }, { rejectWithValue }) => {
+  async ({ date, userId, slotIndex, chatId, templateId }, { rejectWithValue }) => {
     try {
-      const apiData = {
+      const apiData: BookShiftApiData = {
         date,
         user_telegram_id: parseInt(userId, 10),
         group_telegram_id: parseInt(chatId, 10),
-        shift_type: shiftType,
         slot_index: slotIndex,
-        template_id: templateId || null, // Передаем template_id в API
+        template_id: templateId, // template_id обязателен для новых смен
+        // shift_type не передаем, так как используем template_id
       };
       console.log('[bookShift] Sending to API:', apiData);
       const bookedApiShift = await bookShiftApi(apiData);
@@ -163,19 +163,20 @@ export const fetchSlotConfig = createAsyncThunk<
 // --- Thunk: назначение курьера на слот ---
 export const assignCourierToShiftThunk = createAsyncThunk<
   CourierShift,
-  { assignerId: string; courier: CourierInfo; groupTelegramId: string; date: string; shiftType: 'day' | 'night'; slotIndex: number },
+  { assignerId: string; courier: CourierInfo; groupTelegramId: string; date: string; shiftType?: 'day' | 'night' | null; templateId?: string | null; slotIndex: number },
   { rejectValue: string }
 >(
   'shifts/assignCourier',
-  async ({ assignerId, courier, groupTelegramId, date, shiftType, slotIndex }, { rejectWithValue, dispatch }) => {
+  async ({ assignerId, courier, groupTelegramId, date, shiftType, templateId, slotIndex }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[DEBUG][assignCourierToShiftThunk] START', { assignerId, courier, groupTelegramId, date, shiftType, slotIndex });
+      console.log('[DEBUG][assignCourierToShiftThunk] START', { assignerId, courier, groupTelegramId, date, shiftType, templateId, slotIndex });
       const assignedShift = await assignCourierToShift({
         assigner_telegram_id: assignerId,
         target_user_telegram_id: courier.user_id,
         group_telegram_id: groupTelegramId,
         date,
-        shift_type: shiftType,
+        shift_type: shiftType || null, // Для обратной совместимости
+        template_id: templateId || null, // Приоритетный параметр
         slot_index: slotIndex,
       });
       console.log('[DEBUG][assignCourierToShiftThunk] assignedShift', assignedShift);

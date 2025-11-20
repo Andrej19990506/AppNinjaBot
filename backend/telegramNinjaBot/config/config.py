@@ -27,18 +27,42 @@ else:
     print(f"Найденный .env файл: {env_path}")
     load_dotenv(env_path)
 
-# Конфигурация бота
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-print(f"Загруженный токен: {BOT_TOKEN}")
+# Тип бота: 'main' - основной бот приложения, 'company' - один бот компании, 'companies' - все боты компаний
+BOT_TYPE = os.getenv('BOT_TYPE', 'main').lower()  # main, company или companies
 
-if not BOT_TOKEN:
-    raise ValueError("BOT_TOKEN не найден в .env файле")
+# Конфигурация бота
+# Для основного бота - токен из env, для ботов компаний - будет загружен из БД
+BOT_TOKEN = os.getenv('BOT_TOKEN')  # Основной токен приложения (только для BOT_TYPE=main)
+
+# Для ботов компаний: ID бота в таблице company_bots (опционально, можно искать по токену)
+COMPANY_BOT_ID = os.getenv('COMPANY_BOT_ID', None)  # ID бота компании в БД
+
+if BOT_TYPE == 'main':
+    # Основной бот - токен обязателен
+    if not BOT_TOKEN:
+        raise ValueError("BOT_TOKEN не найден в .env файле для основного бота")
+    print(f"Загруженный токен основного бота: {BOT_TOKEN[:20]}...")
+elif BOT_TYPE == 'company':
+    # Один бот компании - токен будет загружен из БД при старте
+    print(f"Бот компании. Токен будет загружен из БД (ID: {COMPANY_BOT_ID or 'поиск по токену'})")
+    # Если токен указан в env - используем его для поиска в БД
+    if BOT_TOKEN:
+        print(f"Токен из env будет использован для поиска в БД: {BOT_TOKEN[:20]}...")
+elif BOT_TYPE == 'companies':
+    # Все боты компаний - токены будут загружены из БД при старте
+    print(f"Режим всех ботов компаний. Все активные боты будут загружены из БД автоматически")
+else:
+    raise ValueError(f"Неизвестный BOT_TYPE: {BOT_TYPE}. Должно быть 'main', 'company' или 'companies'")
 
 DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
-API_URL = os.getenv('API_URL', 'http://server:8000')
+API_URL = os.getenv('API_URL', 'http://server:8000')  # Внутренний URL для запросов между сервисами
+# Публичный URL для кнопок в Telegram (если не задан, используем API_URL, но для продакшена должен быть задан явно)
+PUBLIC_API_URL = os.getenv('PUBLIC_API_URL') or os.getenv('API_URL', 'http://server:8000')
 USE_DATABASE = os.getenv('USE_DATABASE', 'false').lower() == 'true'
 SCHEDULER_API_URL = os.getenv('SCHEDULER_API_URL') # URL для API шедулера
 print(f"Использование базы данных: {USE_DATABASE}")
+print(f"API URL (внутренний): {API_URL}")
+print(f"API URL (публичный): {PUBLIC_API_URL}")
 
 # Пути к файлам данных
 DATA_DIR = 'telegramNinjaBot/data'  # Используем путь относительно корня приложения
@@ -50,6 +74,7 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL') # Например, https://your.domain.c
 WEBHOOK_PATH = os.getenv('WEBHOOK_PATH') # Например, /telegram/webhook или /telegram/<secret_token>
 WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET') # Опциональный секретный токен
 WEB_APP_URL = os.getenv('WEB_APP_URL') # Загружаем URL веб-приложения
+AUTH_BOT_USERNAME = os.getenv('AUTH_BOT_USERNAME', 'Flouix_bot') # Username основного бота для авторизации
 
 if not WEBHOOK_URL:
     print("ПРЕДУПРЕЖДЕНИЕ: WEBHOOK_URL не задан в .env! Вебхуки не будут работать.")
@@ -73,19 +98,23 @@ DB_POOL_MAX_SIZE = int(os.getenv('DB_POOL_MAX_SIZE', '10')) # Максимум 1
 
 @dataclass
 class Config:
-    TOKEN: str = BOT_TOKEN
+    TOKEN: str = BOT_TOKEN  # Может быть None для ботов компаний, будет загружен из БД
+    BOT_TYPE: str = BOT_TYPE  # 'main' или 'company'
+    COMPANY_BOT_ID: Union[int, None] = int(COMPANY_BOT_ID) if COMPANY_BOT_ID else None
     DATA_DIR: str = DATA_DIR
     ADMINS_FILE: str = ADMINS_FILE
     MEMBERS_FILE: str = MEMBERS_FILE
     DEBUG: bool = DEBUG
     ENVIRONMENT: str = ENVIRONMENT
-    API_URL: str = API_URL
+    API_URL: str = API_URL  # Внутренний URL для запросов между сервисами
+    PUBLIC_API_URL: str = PUBLIC_API_URL  # Публичный URL для кнопок в Telegram
     USE_DATABASE: bool = USE_DATABASE
     # Добавляем настройки вебхука в dataclass
     WEBHOOK_URL: Union[str, None] = WEBHOOK_URL
     WEBHOOK_PATH: Union[str, None] = WEBHOOK_PATH
     WEBHOOK_SECRET: Union[str, None] = WEBHOOK_SECRET
     WEB_APP_URL: Union[str, None] = WEB_APP_URL # Добавляем URL веб-приложения в dataclass
+    AUTH_BOT_USERNAME: str = AUTH_BOT_USERNAME # Username основного бота для авторизации
     # Добавляем настройки пула БД
     DB_POOL_MIN_SIZE: int = DB_POOL_MIN_SIZE
     DB_POOL_MAX_SIZE: int = DB_POOL_MAX_SIZE

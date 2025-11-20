@@ -48,7 +48,7 @@ export interface SlotSettingsProps {
 }
 
 export interface CalendarProps {
-    onShiftSelect: (date: Date, shiftType: 'day' | 'night', slotIndex: number, templateId?: string) => void;
+    onShiftSelect: (date: Date, templateId: string, slotIndex: number) => void;
     selectedDate?: Date;
     currentUserId: string;
     currentUserAvatar?: string;
@@ -58,7 +58,6 @@ export interface CalendarProps {
     chatId?: string;
     accessSettings?: AccessSettings;
     refetchData?: () => void;
-    onOpenSlotSettings?: (dayIndex: number) => void;
     onOpenShiftTemplateSettings?: () => void;
     onLongPress?: (shiftType: 'day' | 'night', slotIndex: number) => void;
     onOpenProfile?: (courier: any) => void;

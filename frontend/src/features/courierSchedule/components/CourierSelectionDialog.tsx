@@ -396,14 +396,13 @@ interface ShiftSelectionDialogProps {
     isOpen: boolean;
     onClose: () => void;
     date: Date;
-    dayShifts: CourierShift[];
-    nightShifts: CourierShift[];
+    shifts: CourierShift[]; // Все смены для даты - группируем по шаблонам
     slotConfig: WeeklySlotConfig | null;
     currentUserId: string;
     requesterId: string;
     currentUserAvatar?: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean, templateId?: string) => Promise<any>;
+    onSlotSelect: (templateId: string, slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => Promise<any>;
     chatId?: string;
     getDisplayReservesForDate: (date: Date | null) => ReserveEntry[];
     isCurrentUserInReserveForDate: (date: Date | null) => boolean;
@@ -477,8 +476,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     isOpen,
     onClose,
     date,
-    dayShifts,
-    nightShifts,
+    shifts, // Все смены для даты
     slotConfig,
     currentUserId,
     requesterId,
@@ -504,7 +502,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const shiftDialogMode = useAppSelector(selectShiftDialogMode);
     const [internalIsBookingLoading, setInternalIsBookingLoading] = useState(false);
     const [loadingSlot, setLoadingSlot] = useState<number | null>(null);
-    const [loadingType, setLoadingType] = useState<'day' | 'night' | null>(null);
+    const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null);
     const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<PendingShiftAction | null>(null);
     const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -539,7 +537,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const [isAwaitingAssignmentConfirmation, setIsAwaitingAssignmentConfirmation] = useState(false);
     const [assignmentToConfirmData, setAssignmentToConfirmData] = useState<{
         courier: CourierInfo;
-        shiftType: ShiftType;
+        shiftType: ShiftType | null; // Deprecated - оставлено для обратной совместимости
+        templateId?: string | null; // Приоритетный параметр для новых смен
         slotIndex: number;
     } | null>(null);
 
@@ -563,7 +562,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         }
         setIsCouriersPanelOpen(value);
     }, []);
-    const [panelTargetShiftType, setPanelTargetShiftType] = useState<ShiftType | null>(null);
+    const [panelTargetTemplateId, setPanelTargetTemplateId] = useState<string | null>(null);
     const [panelTargetSlotIndex, setPanelTargetSlotIndex] = useState<number | null>(null);
 
     const user = useAppSelector(selectUser);
@@ -601,14 +600,13 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     };
 
     const handleSlotSelectWrapper = useCallback((
-        shiftType: 'day' | 'night',
+        templateId: string,
         slotIndex: number,
         existingShiftId?: string,
-        isDragAction?: boolean,
-        templateId?: string
+        isDragAction?: boolean
     ) => {
         setTimeout(() => {
-            setPendingAction({ shiftType, slotIndex, templateId });
+            setPendingAction({ shiftType: 'day', slotIndex, templateId }); // shiftType оставлен для совместимости с ShiftConfirmationDialog
             setIsConfirmationOpen(true);
         }, 50);
     }, [setPendingAction, setIsConfirmationOpen]);
@@ -616,19 +614,24 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     const handleConfirmAction = useCallback(async () => {
         if (!pendingAction) return;
 
-        const { shiftType, slotIndex, templateId } = pendingAction;
+        const { slotIndex, templateId } = pendingAction;
+        
+        if (!templateId) {
+            console.error('[ShiftSelectionDialog] templateId is required');
+            return;
+        }
         
         setInternalIsBookingLoading(true);
-        setLoadingType(shiftType);
+        setLoadingTemplateId(templateId);
         setLoadingSlot(slotIndex);
         
         try {
-            await onSlotSelect(shiftType, slotIndex, undefined, undefined, templateId);
+            await onSlotSelect(templateId, slotIndex, undefined, undefined);
         } catch (error) {
             // Пробрасываем ошибку дальше, чтобы ShiftConfirmationDialog мог её обработать
             throw error;
         } finally {
-            setLoadingType(null);
+            setLoadingTemplateId(null);
             setLoadingSlot(null);
             setInternalIsBookingLoading(false);
         }
@@ -636,7 +639,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         pendingAction, 
         onSlotSelect, 
         setInternalIsBookingLoading,
-        setLoadingType, 
+        setLoadingTemplateId, 
         setLoadingSlot, 
         setIsConfirmationOpen, 
         setPendingAction
@@ -804,8 +807,8 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                 setIsProcessingMove(true); // Начинаем индикацию загрузки
                 setProcessingShiftId(shiftDbId); // Подсвечиваем изменяемую смену
                 
-                // Устанавливаем слот и тип для отображения лоадера
-                setLoadingType(targetShiftType);
+                // Устанавливаем слот для отображения лоадера
+                // Примечание: updateShiftSlot все еще использует старую логику shiftType для обратной совместимости
                 setLoadingSlot(targetSlotIndex);
 
                 try {
@@ -842,7 +845,6 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                     setIsProcessingMove(false); // Завершаем индикацию загрузки
                     setProcessingShiftId(null); // Убираем подсветку
                     // Сбрасываем индикацию лоадера
-                    setLoadingType(null);
                     setLoadingSlot(null);
                     // Сбрасываем состояние перетаскивания в любом случае
                     setActiveDragId(null);
@@ -863,6 +865,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         } else if (draggedData?.type === 'courier-from-panel' && droppedOnData?.type === 'empty-slot') {
             const draggedCourier = draggedData?.courier as CourierInfo | undefined;
             const targetShiftType = droppedOnData?.shiftType as ('day' | 'night' | null);
+            const targetTemplateId = droppedOnData?.templateId as (string | null | undefined);
             const targetSlotIndex = droppedOnData?.slotIndex;
 
 
@@ -884,12 +887,15 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             }
 
             // Проверяем все необходимые данные и права старшего курьера
-            if (draggedCourier && targetShiftType && targetSlotIndex !== undefined && isCurrentUserSenior && chatId && date) {
+            // Теперь проверяем templateId (приоритет) или shiftType (для обратной совместимости)
+            const hasValidTarget = targetTemplateId || targetShiftType;
+            if (draggedCourier && hasValidTarget && targetSlotIndex !== undefined && isCurrentUserSenior && chatId && date) {
 
                 // <<< ВМЕСТО ЭТОГО УСТАНАВЛИВАЕМ СОСТОЯНИЕ ДЛЯ ПОДТВЕРЖДЕНИЯ >>>
                 setAssignmentToConfirmData({
                     courier: draggedCourier,
-                    shiftType: targetShiftType,
+                    shiftType: targetShiftType, // Deprecated - оставлено для совместимости
+                    templateId: targetTemplateId, // Приоритетный параметр
                     slotIndex: targetSlotIndex,
                 });
                 setConfirmationActionType('assignment');
@@ -949,10 +955,10 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         currentUserId
     ]);
 
-    // <<< Получаем тип перетаскиваемой смены >>>
-    const draggingShiftType = useMemo(() => {
+    // <<< Получаем template_id перетаскиваемой смены >>>
+    const draggingTemplateId = useMemo(() => {
         if (activeDragData?.type === 'shift') {
-            return activeDragData.shiftType as ('day' | 'night');
+            return activeDragData.templateId as (string | undefined);
         }
         return null;
     }, [activeDragData]);
@@ -1183,7 +1189,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         
         if (isCouriersPanelOpen) {
             setIsCouriersPanelOpenWithLogging(false);
-            setPanelTargetShiftType(null);
+            setPanelTargetTemplateId(null);
             setPanelTargetSlotIndex(null);
         }
         
@@ -1201,7 +1207,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         setPendingAction, 
         isCouriersPanelOpen, 
         setIsCouriersPanelOpenWithLogging,
-        setPanelTargetShiftType,
+        setPanelTargetTemplateId,
         setPanelTargetSlotIndex,
         setIsDraggingGlobally,
         setActiveDragId,
@@ -1270,20 +1276,20 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     }, [selectedCourier, showNotification, setIsProfileRefreshing, dispatch]);
 
     // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ОТКРЫТИЯ ПАНЕЛИ >>>
-    const handleLongPressEmptySlot = useCallback((shiftType: ShiftType, slotIndex: number) => {
+    const handleLongPressEmptySlot = useCallback((templateId: string, slotIndex: number) => {
         // <<< ПРОВЕРКА: Если панель уже открыта, ничего не делаем >>>
         if (isCouriersPanelOpen) {
             return;
         }
         // <<< Конец проверки >>>
-        setPanelTargetShiftType(shiftType);
+        setPanelTargetTemplateId(templateId);
         setPanelTargetSlotIndex(slotIndex);
         setIsCouriersPanelOpenWithLogging(true);
         
         // Явно отключаем свайп при открытии панели курьеров
         setIsSwipeEnabled(false);
         
-    }, [isCouriersPanelOpen, setPanelTargetShiftType, setPanelTargetSlotIndex, setIsCouriersPanelOpenWithLogging, setIsSwipeEnabled]); // Добавляем setIsSwipeEnabled в зависимости
+    }, [isCouriersPanelOpen, setPanelTargetTemplateId, setPanelTargetSlotIndex, setIsCouriersPanelOpenWithLogging, setIsSwipeEnabled]); // Добавляем setIsSwipeEnabled в зависимости
 
     // <<< ВОЗВРАЩАЕМ ОБРАБОТЧИК ДЛЯ ЗАКРЫТИЯ ПАНЕЛИ >>>
     const handleCloseCouriersPanel = useCallback(() => {
@@ -1291,14 +1297,14 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             console.log('🔍 [handleCloseCouriersPanel] Закрываем панель курьеров');
         }
         setIsCouriersPanelOpenWithLogging(false);
-        setPanelTargetShiftType(null); // Сбрасываем цель при закрытии
+        setPanelTargetTemplateId(null); // Сбрасываем цель при закрытии
         setPanelTargetSlotIndex(null); // Сбрасываем цель при закрытии
 
         // Явно включаем свайп при закрытии панели курьеров, если не идет перетаскивание
         if (!isDraggingGlobally) {
             setIsSwipeEnabled(true);
         }
-    }, [setIsCouriersPanelOpenWithLogging, setPanelTargetShiftType, setPanelTargetSlotIndex, isDraggingGlobally, setIsSwipeEnabled]); // Добавляем зависимости
+    }, [setIsCouriersPanelOpenWithLogging, setPanelTargetTemplateId, setPanelTargetSlotIndex, isDraggingGlobally, setIsSwipeEnabled]); // Добавляем зависимости
 
     // <<< НОВЫЙ ОБРАБОТЧИК: Подтверждение назначения курьера >>>
     const handleConfirmAssignment = useCallback(async () => {
@@ -1312,26 +1318,40 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             return;
         }
 
-        const { courier, shiftType, slotIndex } = assignmentToConfirmData;
+        const { courier, shiftType, templateId, slotIndex } = assignmentToConfirmData;
+        
+        // Проверяем, что указан templateId (приоритет) или shiftType (для обратной совместимости)
+        if (!templateId && !shiftType) {
+            console.error('[handleConfirmAssignment] templateId or shiftType is required for assignment');
+            if (showNotification) {
+                showNotification(NotificationTypes.ERROR, 'Не удалось определить шаблон смены для назначения.');
+            }
+            setIsAwaitingAssignmentConfirmation(false);
+            setAssignmentToConfirmData(null);
+            return;
+        }
+        
         // Показываем индикацию загрузки
-        setLoadingType(shiftType);
         setLoadingSlot(slotIndex);
         setInternalIsBookingLoading(true);
 
         try {
+            // Используем templateId если он есть (приоритет), иначе shiftType для обратной совместимости
             await dispatch(assignCourierToShiftThunk({
                 assignerId: String(currentUserId),
                 courier: courier,
                 groupTelegramId: chatId,
                 date: format(date, 'yyyy-MM-dd'),
-                shiftType: shiftType,
+                templateId: templateId || null, // Приоритетный параметр
+                shiftType: shiftType || null, // Для обратной совместимости
                 slotIndex: slotIndex
             })).unwrap();
 
             if (showNotification) {
+                const shiftTypeText = shiftType === 'day' ? 'дневной' : shiftType === 'night' ? 'ночной' : 'смену';
                 showNotification(
                     NotificationTypes.SUCCESS,
-                    `Курьер ${courier.first_name || ''} ${courier.last_name || ''} назначен на ${shiftType === 'day' ? 'дневной' : 'ночной'} слот ${slotIndex + 1}.`
+                    `Курьер ${courier.first_name || ''} ${courier.last_name || ''} назначен на ${shiftTypeText} слот ${slotIndex + 1}.`
                 );
             }
             
@@ -1370,7 +1390,6 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
             setAssignmentToConfirmData(null);
             setIsDraggingGlobally(false);
             // Сбрасываем индикацию загрузки
-            setLoadingType(null);
             setLoadingSlot(null);
             setInternalIsBookingLoading(false);
             // Включаем свайп снова
@@ -1465,7 +1484,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
         // Сбрасываем состояние панели курьеров
         if (isCouriersPanelOpen) {
             setIsCouriersPanelOpenWithLogging(false);
-            setPanelTargetShiftType(null);
+            setPanelTargetTemplateId(null);
             setPanelTargetSlotIndex(null);
         }
         
@@ -1496,7 +1515,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
     }, [
         isCouriersPanelOpen, 
         setIsCouriersPanelOpenWithLogging,
-        setPanelTargetShiftType,
+        setPanelTargetTemplateId,
         setPanelTargetSlotIndex,
         isConfirmationOpen,
         setIsConfirmationOpen,
@@ -1811,10 +1830,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                 ) : (
                                     <ShiftPanel
                                         date={date}
-                                        dayShifts={dayShifts}
-                                        nightShifts={nightShifts}
-                                        maxDaySlots={currentMaxDay}
-                                        maxNightSlots={currentMaxNight}
+                                        shifts={shifts}
                                         currentUserId={currentUserId}
                                         currentUserName={currentUserName}
                                         onSlotSelect={handleSlotSelectWrapper}
@@ -1829,22 +1845,20 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                         }}
                                         isLoading={internalIsBookingLoading}
                                         loadingSlot={loadingSlot}
-                                        loadingType={loadingType}
+                                        loadingTemplateId={loadingTemplateId}
                                         chatId={chatId}
                                         isSenior={isCurrentUserSenior}
-                                        draggingShiftType={draggingShiftType}
+                                        draggingTemplateId={draggingTemplateId}
                                         isDraggingGlobal={isDraggingGlobally}
                                         processingShiftId={processingShiftId}
                                         isProcessingMove={isProcessingMove}
                                         onOpenProfile={handleOpenCourierProfile}
-                                        // <<< ДОБАВЛЯЕМ НЕДОСТАЮЩИЕ ПРОПСЫ >>>
                                         onLongPressEmptySlot={handleLongPressEmptySlot}
                                         isCouriersPanelOpen={isCouriersPanelOpen}
-                                        panelTargetShiftType={panelTargetShiftType}
+                                        panelTargetTemplateId={panelTargetTemplateId}
                                         panelTargetSlotIndex={panelTargetSlotIndex}
                                         onCloseCouriersPanel={handleCloseCouriersPanel}
                                         activeDragId={activeDragId}
-                                        hasSeniorSlot={currentHasSeniorSlot}
                                         onOpenShiftTemplateSettings={onOpenShiftTemplateSettings}
                                     />
                                 )
@@ -1854,8 +1868,7 @@ const ShiftSelectionDialog: FC<ShiftSelectionDialogProps> = React.memo(({
                                     currentUserId={currentUserId}
                                     currentUserAvatar={currentUserAvatar}
                                     currentUserName={currentUserName}
-                                    dayShifts={dayShifts}
-                                    nightShifts={nightShifts}
+                                    shifts={shifts}
                                     onSwitchToShifts={() => dispatch(setShiftDialogMode('shifts'))}
                                     getDisplayReservesForDate={getDisplayReservesForDate}
                                     isCurrentUserInReserveForDate={isCurrentUserInReserveForDate}

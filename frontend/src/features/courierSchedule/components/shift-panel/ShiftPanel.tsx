@@ -129,43 +129,36 @@ const fadeInVariants = {
 
 interface ShiftPanelProps {
     date: Date | null;
-    dayShifts: CourierShift[];
-    nightShifts: CourierShift[];
-    maxDaySlots: number;
-    maxNightSlots: number;
+    shifts: CourierShift[]; // Все смены для даты - группируем по шаблонам внутри
     currentUserId: string;
     currentUserName?: string;
-    onSlotSelect: (shiftType: 'day' | 'night', slotIndex: number, existingShiftId?: string, isDragAction?: boolean, templateId?: string) => void;
+    onSlotSelect: (templateId: string, slotIndex: number, existingShiftId?: string, isDragAction?: boolean) => void;
     onSwitchToReserve: () => void;
     showSuccessMessage: (message: string) => void;
     showErrorMessage?: (message: string) => void;
     isLoading: boolean;
     loadingSlot: number | null;
-    loadingType: 'day' | 'night' | null;
+    loadingTemplateId?: string | null; // ID шаблона, для которого идет загрузка
     chatId?: string;
     isSenior?: boolean;
-    draggingShiftType?: 'day' | 'night' | null;
+    draggingTemplateId?: string | null; // ID шаблона, который перетаскивается
     isDraggingGlobal?: boolean;
     processingShiftId?: string | null;
     isProcessingMove?: boolean;
     onOpenProfile?: (courier: CourierShift) => void;
-    onLongPressEmptySlot: (shiftType: 'day' | 'night', slotIndex: number) => void;
+    onLongPressEmptySlot: (templateId: string, slotIndex: number) => void;
     isCouriersPanelOpen: boolean;
-    panelTargetShiftType: ShiftType | null;
+    panelTargetTemplateId: string | null; // ID шаблона для панели курьеров
     panelTargetSlotIndex: number | null;
     onCloseCouriersPanel: () => void;
     activeDragId?: string | null;
-    hasSeniorSlot?: boolean;
     onOpenShiftTemplateSettings?: () => void;
 }
 
 
 const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({ 
     date, 
-    dayShifts, 
-    nightShifts, 
-    maxDaySlots, 
-    maxNightSlots, 
+    shifts, // Все смены для даты
     currentUserId, 
     currentUserName, 
     onSlotSelect, 
@@ -174,33 +167,30 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     showErrorMessage, 
     isLoading = false,
     loadingSlot = null,
-    loadingType = null,
+    loadingTemplateId = null,
     chatId,
     isSenior,
-    draggingShiftType,
+    draggingTemplateId,
     isDraggingGlobal,
     onOpenProfile,
     onLongPressEmptySlot,
     isCouriersPanelOpen,
-    panelTargetShiftType,
+    panelTargetTemplateId,
     panelTargetSlotIndex,
     onCloseCouriersPanel,
-    hasSeniorSlot = false,
     onOpenShiftTemplateSettings
 }) => {
     console.log('[ShiftPanel] Component rendered with props:', {
         date: date?.toISOString(),
         chatId,
-        dayShifts: dayShifts.length,
-        nightShifts: nightShifts.length
+        shiftsCount: shifts.length
     });
-    const userHasDayShift = useMemo(() => dayShifts.some(shift => shift.userId === currentUserId), [dayShifts, currentUserId]);
-    const userHasNightShift = useMemo(() => nightShifts.some(shift => shift.userId === currentUserId), [nightShifts, currentUserId]);
-    const userHasShift = userHasDayShift || userHasNightShift; 
-    const totalSlots = maxDaySlots + maxNightSlots;
-    const totalOccupiedDaySlots = dayShifts.filter(s => s.slotIndex !== -1).length;
-    const totalOccupiedNightSlots = nightShifts.filter(s => s.slotIndex !== -1).length;
-    const isFullyBooked = totalOccupiedDaySlots >= maxDaySlots && totalOccupiedNightSlots >= maxNightSlots;
+    
+    // Проверяем, есть ли у пользователя смена
+    const userHasShift = useMemo(() => 
+        shifts.some(shift => shift.userId === currentUserId), 
+        [shifts, currentUserId]
+    );
     
     // Проверяем, есть ли шаблоны для текущего дня (учитываем локальные изменения)
     const dayOfWeek = date ? date.getDay() : 0; // 0 = воскресенье, 1 = понедельник, и т.д.
@@ -212,24 +202,58 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
     const effectiveAppliedTemplates = localAppliedTemplatesForDay;
     const hasShiftTemplates = effectiveAppliedTemplates.length > 0;
     
-    // Получаем шаблоны для отображения из общего списка шаблонов
-    const displayTemplates = allShiftTemplates.filter(template => 
+    // ВАЖНО: Используем шаблоны из dayConfig.shiftTemplates, которые уже содержат правильные версии
+    // для текущего периода, а не из allShiftTemplates (которые содержат только базовые значения)
+    const templatesFromDayConfig = dayConfig.shiftTemplates || [];
+    const displayTemplates = templatesFromDayConfig.filter(template => 
         effectiveAppliedTemplates.includes(template.id)
     );
+    
+    // Если в dayConfig нет шаблонов, fallback на allShiftTemplates (для обратной совместимости)
+    const fallbackTemplates = displayTemplates.length === 0 && templatesFromDayConfig.length === 0
+        ? allShiftTemplates.filter(template => effectiveAppliedTemplates.includes(template.id))
+        : [];
+    
+    const finalDisplayTemplates = displayTemplates.length > 0 ? displayTemplates : fallbackTemplates;
+    
+    // Группируем смены по template_id
+    const shiftsByTemplate = useMemo(() => {
+        const grouped: Record<string, CourierShift[]> = {};
+        shifts.forEach(shift => {
+            if (shift.template_id) {
+                if (!grouped[shift.template_id]) {
+                    grouped[shift.template_id] = [];
+                }
+                grouped[shift.template_id].push(shift);
+            }
+        });
+        return grouped;
+    }, [shifts]);
+    
+    // Проверяем, все ли слоты заняты
+    const isFullyBooked = useMemo(() => {
+        if (!hasShiftTemplates) return false;
+        return finalDisplayTemplates.every(template => {
+            const templateShifts = shiftsByTemplate[template.id] || [];
+            const occupiedSlots = templateShifts.filter(s => s.slotIndex !== -1).length;
+            return occupiedSlots >= template.maxSlots;
+        });
+    }, [finalDisplayTemplates, shiftsByTemplate, hasShiftTemplates]);
     
     // Отладочные логи
     console.log('[ShiftPanel] Debug info:', {
         date: date?.toISOString(),
         dayOfWeek,
-        dayConfig,
-        localAppliedTemplatesForDay,
-        effectiveAppliedTemplates,
-        hasShiftTemplates,
-        displayTemplates,
-        allShiftTemplates,
-        allShiftTemplatesLength: allShiftTemplates.length,
-        shiftTemplates: dayConfig.shiftTemplates,
-        shiftTemplatesLength: dayConfig.shiftTemplates?.length || 0
+        shiftsCount: shifts.length,
+        shiftsByTemplate,
+        displayTemplates: finalDisplayTemplates.map(t => ({ 
+            id: t.id, 
+            name: t.name, 
+            maxSlots: t.maxSlots,
+            source: templatesFromDayConfig.includes(t) ? 'dayConfig' : 'allTemplates'
+        })),
+        templatesFromDayConfig: templatesFromDayConfig.map(t => ({ id: t.id, name: t.name, maxSlots: t.maxSlots })),
+        isFullyBooked
     });
     
     const bottomPadding = isCouriersPanelOpen ? `${COURIERS_PANEL_HEIGHT}px` : '0px';
@@ -258,15 +282,9 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
             >
                 {hasShiftTemplates ? (
                     <>
-                        {displayTemplates.map((template, templateIndex) => {
-                            // Определяем тип смены на основе времени начала шаблона
-                            // Если смена начинается после 12:00, считаем её вечерней (night)
-                            const templateShiftType: 'day' | 'night' = template.startTime >= '12:00' ? 'night' : 'day';
-                            
-                            // Фильтруем смены по template_id
-                            const templateShifts = [...dayShifts, ...nightShifts].filter(
-                                shift => shift.template_id === template.id
-                            );
+                        {finalDisplayTemplates.map((template, templateIndex) => {
+                            // Получаем смены для этого шаблона
+                            const templateShifts = shiftsByTemplate[template.id] || [];
                             
                             return (
                             <ShiftSection 
@@ -282,34 +300,38 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                                 </ShiftTitle>
                                 <LayoutGroup>
                                     <ShiftPanelContainer
-                                        shiftType={templateShiftType}
+                                        shiftType={'day'} // Deprecated - оставлено для совместимости
+                                        templateId={template.id} // ID шаблона смены
                                         shifts={templateShifts}
                                         maxSlots={template.maxSlots}
                                         currentUserId={currentUserId}
                                         currentUserName={currentUserName}
                                         onSlotSelect={(shiftType, slotIndex, existingShiftId, isDragAction) => {
-                                            // Передаем template_id и правильный shiftType
-                                            console.log(`[ShiftPanel] Slot clicked: template=${template.id}, shiftType=${templateShiftType}, slot=${slotIndex}`);
-                                            onSlotSelect(templateShiftType, slotIndex, existingShiftId, isDragAction, template.id);
+                                            // Передаем только template_id и slotIndex
+                                            console.log(`[ShiftPanel] Slot clicked: template=${template.id}, slot=${slotIndex}`);
+                                            onSlotSelect(template.id, slotIndex, existingShiftId, isDragAction);
                                         }}
-                                        isLoading={isLoading && loadingType === 'day'}
-                                        loadingSlot={loadingType === 'day' ? loadingSlot : null}
-                                        userHasShift={templateIndex === 0 ? userHasDayShift : false}
+                                        isLoading={isLoading && loadingTemplateId === template.id}
+                                        loadingSlot={loadingTemplateId === template.id ? loadingSlot : null}
+                                        userHasShift={templateShifts.some(s => s.userId === currentUserId)}
                                         chatId={chatId}
                                         isSenior={isSenior}
                                         showSuccessMessage={showSuccessMessage}
                                         showErrorMessage={showErrorMessage}
-                                        draggingShiftType={draggingShiftType}
+                                        draggingShiftType={draggingTemplateId === template.id ? 'day' : null} // Для совместимости с ShiftPanelContainer
                                         isDraggingGlobal={isDraggingGlobal}
                                         onOpenProfile={onOpenProfile ? (shiftSlot) => {
                                             console.log('[ShiftPanel] Opening template profile with data:', shiftSlot);
                                             onOpenProfile({
                                                 ...shiftSlot,
                                                 date: format(date || new Date(), 'yyyy-MM-dd'),
-                                                shiftType: 'day' // Используем day как базовый тип
+                                                template_id: template.id
                                             } as CourierShift)
                                         } : undefined}
-                                        onLongPressEmptySlot={onLongPressEmptySlot}
+                                        onLongPressEmptySlot={(shiftType, slotIndex) => {
+                                            // shiftType игнорируется, используем template.id
+                                            onLongPressEmptySlot(template.id, slotIndex);
+                                        }}
                                         hasSeniorSlot={template.hasSeniorSlot}
                                     />
                                 </LayoutGroup>
@@ -345,7 +367,7 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
                             <div style={{ marginTop: '8px', fontSize: '0.85rem', opacity: 0.8 }}>
                                 Создайте шаблоны смен для настройки расписания
                             </div>
-                            {onOpenShiftTemplateSettings && (
+                            {onOpenShiftTemplateSettings && isSenior && (
                                 <SetupTemplatesButton onClick={onOpenShiftTemplateSettings}>
                                     Перейти к настройке шаблонов
                                 </SetupTemplatesButton>
@@ -357,17 +379,18 @@ const ShiftPanel: React.FC<ShiftPanelProps> = React.memo(({
             </ShiftContentWrapper> 
    
             <AnimatePresence> 
-                {isCouriersPanelOpen && panelTargetShiftType && panelTargetSlotIndex !== null && (
+                {isCouriersPanelOpen && panelTargetTemplateId && panelTargetSlotIndex !== null && (
                      <CouriersPanel
-                         key="couriers-panel" 
-                         shiftType={panelTargetShiftType!}
+                         key="couriers-panel"
+                         shiftType={'day'} // Deprecated - оставлено для совместимости
                          slotIndex={panelTargetSlotIndex!}
                          onClose={onCloseCouriersPanel}
                          chatId={chatId}
                          date={date}
+                         templateId={panelTargetTemplateId} // Передаем templateId
                      />
                 )}
-            </AnimatePresence> 
+            </AnimatePresence>
         </>
     );
 });

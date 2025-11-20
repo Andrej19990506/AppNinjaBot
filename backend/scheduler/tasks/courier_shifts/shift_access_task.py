@@ -188,33 +188,57 @@ class ShiftAccessTask(BaseTask):
         if success:
             logger.info(f"({self.TASK_TYPE}) ✅ Основное действие (отправка уведомления) для {chat_id_str} успешно завершено.")
 
+    async def _get_company_bot_url_for_group(self, chat_id: str, settings: scheduler_settings) -> Optional[str]:
+        """Получает URL бота компании для группы через API."""
+        try:
+            chat_id_int = int(chat_id)
+            base_api_url = str(settings.API_URL).rstrip('/')
+            # Получаем информацию о боте компании для этой группы
+            url = f"{base_api_url}/api/v1/company-bots/by-group/{chat_id_int}"
+            logger.info(f"({self.TASK_TYPE}) Запрос бота компании для группы {chat_id}: {url}")
+            
+            client = await get_async_http_client()
+            try:
+                response = await client.get(url, timeout=10)
+                if response.status_code == 200:
+                    bot_data = response.json()
+                    # Получаем URL бота компании из ответа API
+                    bot_api_url = bot_data.get('bot_api_url')
+                    if bot_api_url:
+                        # В dev окружении заменяем http://bot:8003 на http://bot-companies:8003
+                        import os
+                        env = os.getenv('ENVIRONMENT', 'development')
+                        if env == 'development' and 'http://bot:8003' in str(bot_api_url):
+                            bot_api_url = str(bot_api_url).replace('http://bot:8003', 'http://bot-companies:8003')
+                            logger.info(f"({self.TASK_TYPE}) 🔄 Заменен URL бота с http://bot:8003 на http://bot-companies:8003 для dev окружения")
+                        logger.info(f"({self.TASK_TYPE}) ✅ Найден бот компании для группы {chat_id}: {bot_data.get('company_name', 'Unknown')}, URL: {bot_api_url}")
+                        return str(bot_api_url).rstrip('/')
+                    else:
+                        logger.warning(f"({self.TASK_TYPE}) ⚠️ Бот компании найден, но bot_api_url не указан. Используем основной BOT_API_URL.")
+                        return str(settings.BOT_API_URL).rstrip('/') if hasattr(settings, 'BOT_API_URL') and settings.BOT_API_URL else None
+                elif response.status_code == 404:
+                    logger.warning(f"({self.TASK_TYPE}) ⚠️ Бот компании не найден для группы {chat_id}. Используем основной BOT_API_URL.")
+                    return str(settings.BOT_API_URL).rstrip('/') if hasattr(settings, 'BOT_API_URL') and settings.BOT_API_URL else None
+                else:
+                    logger.warning(f"({self.TASK_TYPE}) ⚠️ Ошибка при получении бота компании для группы {chat_id}: {response.status_code}. Используем основной BOT_API_URL.")
+                    return str(settings.BOT_API_URL).rstrip('/') if hasattr(settings, 'BOT_API_URL') and settings.BOT_API_URL else None
+            finally:
+                await client.aclose()
+        except Exception as e:
+            logger.warning(f"({self.TASK_TYPE}) ⚠️ Ошибка при получении бота компании для группы {chat_id}: {e}. Используем основной BOT_API_URL.")
+            return str(settings.BOT_API_URL).rstrip('/') if hasattr(settings, 'BOT_API_URL') and settings.BOT_API_URL else None
+
     async def _send_notification(self, chat_id: str, settings: scheduler_settings) -> bool:
-        """Отправляет уведомление через API телеграм-бота."""
-        if not hasattr(settings, 'BOT_API_URL') or not settings.BOT_API_URL:
-            logger.error(f"({self.TASK_TYPE}) ❌ URL API телеграм-бота (BOT_API_URL) не задан в настройках.")
+        """Отправляет уведомление через API телеграм-бота компании для этой группы."""
+        # Получаем URL бота компании для этой группы
+        bot_url = await self._get_company_bot_url_for_group(chat_id, settings)
+        if not bot_url:
+            logger.error(f"({self.TASK_TYPE}) ❌ Не удалось определить URL бота для группы {chat_id}.")
             return False
             
-        if hasattr(settings, 'HEALTHCHECK_BOT_SEND_MESSAGE_URL') and settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL:
-            logger.info(f"({self.TASK_TYPE}) 🔍 Проверка доступности эндпоинта отправки сообщений перед отправкой...")
-            try:
-                client = await get_async_http_client()
-                try:
-                    health_response = await client.get(settings.HEALTHCHECK_BOT_SEND_MESSAGE_URL, timeout=5)
-                    if health_response.status_code != 200:
-                        logger.error(f"({self.TASK_TYPE}) ❌ Эндпоинт отправки сообщений недоступен. Статус: {health_response.status_code}. Отмена отправки.")
-                        return False
-                    logger.info(f"({self.TASK_TYPE}) ✅ Эндпоинт отправки сообщений доступен.")
-                except Exception as health_error:
-                    logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при проверке доступности эндпоинта отправки сообщений: {health_error}")
-                    return False
-                finally:
-                    await client.aclose()
-            except Exception as e:
-                logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при создании HTTP-клиента: {e}")
-                return False
+        logger.info(f"({self.TASK_TYPE}) Используется бот компании для группы {chat_id}: {bot_url}")
                 
-        base_bot_url = str(settings.BOT_API_URL).rstrip('/')
-        api_endpoint = f"{base_bot_url}/send_message"
+        api_endpoint = f"{bot_url}/send_message"
         message_text = "Доступ к записи на смены открыт!"
         payload = {
             "chat_id": chat_id,
@@ -228,7 +252,7 @@ class ShiftAccessTask(BaseTask):
             try:
                 response = await client.post(api_endpoint, json=payload)
                 if response.status_code == 200:
-                    logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в Telegram Bot API.")
+                    logger.info(f"({self.TASK_TYPE}) ✅ Уведомление успешно отправлено в Telegram Bot API компании.")
                     return True
                 else:
                     logger.error(f"({self.TASK_TYPE}) ❌ Ошибка при отправке уведомления в Telegram Bot API: {response.status_code}, {response.text}")

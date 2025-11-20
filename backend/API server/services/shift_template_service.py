@@ -60,13 +60,18 @@ class ShiftTemplateService:
             if existing_template.name.lower() == template_data.name.lower():
                 raise ValueError(f"Шаблон с названием '{template_data.name}' уже существует в группе")
         
-        # Создаем шаблон
-        template = await crud_shift_template.create_shift_template(
+        # Создаем шаблоны (для каждого дня недели создается отдельный шаблон)
+        templates = await crud_shift_template.create_shift_template(
             self.db, template_data=template_data
         )
         
-        logger.info(f"Created shift template {template.id} for group {template_data.group_id}")
-        return template
+        # Для обратной совместимости возвращаем первый шаблон
+        # В будущем можно изменить сигнатуру на List[ShiftTemplateRead]
+        if templates:
+            logger.info(f"Created {len(templates)} shift template(s) for group {template_data.group_id}")
+            return templates[0]  # Возвращаем первый шаблон для обратной совместимости
+        else:
+            raise ValueError("Не удалось создать шаблон смены")
     
     async def update_template_with_validation(
         self,
@@ -214,17 +219,19 @@ class ShiftTemplateService:
                 raise ValueError(f"Шаблон с названием '{new_name}' уже существует в группе")
         
         # Клонируем шаблон
-        cloned_template = await crud_shift_template.clone_shift_template(
+        cloned_templates = await crud_shift_template.clone_shift_template(
             self.db,
             source_template_id=source_template_id,
             new_name=new_name,
             group_id=target_group_id
         )
         
-        if not cloned_template:
+        if not cloned_templates:
             raise ValueError("Ошибка при клонировании шаблона")
         
-        logger.info(f"Cloned shift template {source_template_id} to {cloned_template.id}")
+        # Для обратной совместимости возвращаем первый клонированный шаблон
+        cloned_template = cloned_templates[0]
+        logger.info(f"Cloned shift template {source_template_id} to {len(cloned_templates)} template(s)")
         return cloned_template
     
     async def validate_template_conflicts(

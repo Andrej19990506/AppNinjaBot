@@ -1,8 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Time
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, JSON, Time, Date
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 import uuid
-from datetime import datetime
+from datetime import datetime, date
 
 from .base import Base
 
@@ -44,6 +44,7 @@ class ShiftTemplate(Base):
     group = relationship("Group", back_populates="shift_templates")
     days = relationship("ShiftTemplateDay", back_populates="template", cascade="all, delete-orphan")
     shifts = relationship("Shift", back_populates="template")
+    versions = relationship("ShiftTemplateVersion", back_populates="template", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<ShiftTemplate(id={self.id}, name='{self.name}', group_id={self.group_id}, start_time='{self.start_time}', end_time='{self.end_time}')>"
@@ -64,6 +65,13 @@ class ShiftTemplateDay(Base):
     # День недели (0 = понедельник, 6 = воскресенье)
     day_of_week = Column(Integer, nullable=False)
     
+    # Активен ли шаблон для этого дня недели
+    is_active = Column(Boolean, default=True, nullable=False)
+    
+    # Дата, с которой шаблон должен быть деактивирован (для следующего периода)
+    # Если установлена, шаблон остается активным до этой даты, затем деактивируется
+    deactivate_from_date = Column(Date, nullable=True)
+    
     # Временные метки
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -74,3 +82,37 @@ class ShiftTemplateDay(Base):
 
     def __repr__(self):
         return f"<ShiftTemplateDay(id={self.id}, template_id={self.template_id}, group_id={self.group_id}, day_of_week={self.day_of_week})>"
+
+
+class ShiftTemplateVersion(Base):
+    """Версии шаблонов смен для разных периодов"""
+    __tablename__ = "shift_template_versions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    
+    # Внешний ключ к шаблону смены
+    template_id = Column(UUID(as_uuid=True), ForeignKey("shift_templates.id", ondelete="CASCADE"), nullable=False)
+    
+    # Номер версии
+    version_number = Column(Integer, nullable=False)
+    
+    # Период действия версии
+    valid_from_date = Column(Date, nullable=False)
+    valid_to_date = Column(Date, nullable=True)  # NULL означает текущую активную версию
+    
+    # Параметры шаблона на момент создания версии
+    max_slots = Column(Integer, nullable=False)
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    has_senior_slot = Column(Boolean, default=False)
+    template_metadata = Column(JSON, nullable=True)
+    
+    # Временные метки
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Связи
+    template = relationship("ShiftTemplate", back_populates="versions")
+    
+    def __repr__(self):
+        return f"<ShiftTemplateVersion(id={self.id}, template_id={self.template_id}, version_number={self.version_number}, valid_from={self.valid_from_date}, valid_to={self.valid_to_date})>"

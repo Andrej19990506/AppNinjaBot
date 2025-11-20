@@ -1,4 +1,69 @@
 services:
+  # Основной бот для авторизации
+  bot-main:
+    build:
+      target: development
+      context: ./backend/telegramNinjaBot
+    volumes:
+      - ./backend/telegramNinjaBot:/app/telegramNinjaBot
+      - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
+    environment:
+      - API_URL=http://server:8000
+      - PUBLIC_API_URL=http://localhost:8000
+      - ENVIRONMENT=development
+      - USE_POLLING=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - SCHEDULER_API_URL=http://scheduler:8002
+      - LOCAL_DEV=true
+      - LOCAL_FRONTEND_PORT=3000
+      - BOT_TYPE=main
+      - BOT_TOKEN=8012479473:AAHHMhUpZb2XD_08Plv_o5mr_YUMbMLYhUw
+      - AUTH_BOT_USERNAME=Flouix_bot
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
+      - USE_DATABASE=true
+    ports:
+      - "8003:8003"
+    networks:
+      - ninja_network
+    restart: unless-stopped
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
+
+  # Контейнер для всех ботов компаний (динамически загружает все активные боты из БД)
+  bot-companies:
+    build:
+      target: development
+      context: ./backend/telegramNinjaBot
+    volumes:
+      - ./backend/telegramNinjaBot:/app/telegramNinjaBot
+      - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
+    environment:
+      - API_URL=http://server:8000
+      - PUBLIC_API_URL=http://localhost:8000
+      - ENVIRONMENT=development
+      - USE_POLLING=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - SCHEDULER_API_URL=http://scheduler:8002
+      - LOCAL_DEV=true
+      - LOCAL_FRONTEND_PORT=3000
+      - BOT_TYPE=companies
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
+      - USE_DATABASE=true
+    ports:
+      - "8004:8003"
+    networks:
+      - ninja_network
+    restart: unless-stopped
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8003"]
+
+  # Старый сервис bot для обратной совместимости (можно удалить после миграции)
   bot:
     build:
       target: development
@@ -7,13 +72,18 @@ services:
       - ./backend/telegramNinjaBot/data:/app/telegramNinjaBot/data
     environment:
       - API_URL=http://server:8000
+      - PUBLIC_API_URL=http://localhost:8000
       - ENVIRONMENT=development
       - USE_POLLING=true
       - PYTHONDONTWRITEBYTECODE=1
       - SCHEDULER_API_URL=http://scheduler:8002
+      - LOCAL_DEV=true
+      - LOCAL_FRONTEND_PORT=3000
     ports:
       - "8003:8003"
     restart: unless-stopped
+    profiles:
+      - legacy
 
   server:
     build:
@@ -30,6 +100,7 @@ services:
       - PYTHONPYCACHEPREFIX=/tmp/pycache
       - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
       - ENVIRONMENT=development
+      - ENV=development
       - PYTHONPATH=/app
       - BOT_API_URL=http://bot:8003
       - TELEGRAM_BOT_TOKEN=8012479473:AAHHMhUpZb2XD_08Plv_o5mr_YUMbMLYhUw
@@ -58,7 +129,9 @@ services:
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - API_URL=http://server:8000
-      - BOT_URL=http://bot:8003
+      - BOT_URL=http://bot-companies:8003
+      - BOT_API_URL=http://bot-companies:8003
+      - HEALTHCHECK_BOT_URL=http://bot-companies:8003/health
       - ENVIRONMENT=development
       - PYTHONPATH=/app:/app/shared
       - POSTGRES_HOST=postgres
@@ -97,4 +170,8 @@ services:
       - PYTHONUNBUFFERED=1
     command: ["sh", "-c", "gunicorn src.asgi:app -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8001 --workers 2"]
     depends_on:
-      - postgres 
+      - postgres
+
+  landing:
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api

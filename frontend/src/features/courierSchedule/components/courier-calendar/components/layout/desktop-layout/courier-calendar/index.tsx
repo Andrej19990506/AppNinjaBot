@@ -37,8 +37,7 @@ interface CourierCalendarDesktopProps {
   monthsToDisplay: Date[];
   selectedDate: Date | null;
   onDayClick: (date: Date) => void;
-  getDayShifts: (date: Date) => any[];
-  getNightShifts: (date: Date) => any[];
+  getShiftsForDate: (date: Date) => any[];
   hasUserShift: (date: Date) => boolean;
   userIsInReserve: (date: Date) => boolean;
   currentUserId: string;
@@ -53,8 +52,7 @@ const CourierCalendarDesktop: React.FC<CourierCalendarDesktopProps> = ({
   monthsToDisplay,
   selectedDate,
   onDayClick,
-  getDayShifts,
-  getNightShifts,
+  getShiftsForDate,
   hasUserShift,
   userIsInReserve,
   currentUserId,
@@ -74,8 +72,7 @@ const CourierCalendarDesktop: React.FC<CourierCalendarDesktopProps> = ({
             month={month}
             selectedDate={selectedDate}
             onDayClick={onDayClick}
-            getDayShifts={getDayShifts}
-            getNightShifts={getNightShifts}
+            getShiftsForDate={getShiftsForDate}
             hasUserShift={hasUserShift}
             userIsInReserve={userIsInReserve}
             currentUserId={currentUserId}

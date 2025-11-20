@@ -21,8 +21,8 @@ class Shift(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False) 
 
     date = Column(Date, nullable=False, index=True)
-    shift_type = Column(String, nullable=False) # 'day' или 'night' - сохраняем для обратной совместимости
-    template_id = Column(UUID(as_uuid=True), ForeignKey("shift_templates.id"), nullable=True) # ID шаблона смены
+    shift_type = Column(String, nullable=True) # 'day' или 'night' - устаревшее поле, оставлено для обратной совместимости со старыми сменами
+    template_id = Column(UUID(as_uuid=True), ForeignKey("shift_templates.id"), nullable=True) # ID шаблона смены (обязателен для новых смен)
     slot_index = Column(Integer, nullable=False)
     
 

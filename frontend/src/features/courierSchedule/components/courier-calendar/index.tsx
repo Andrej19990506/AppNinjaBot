@@ -56,8 +56,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         isLoading: isShiftsLoading,
         error: shiftsError,
         currentMonth,
-        getDayShifts,
-        getNightShifts,
+        getShiftsForDate,
         hasUserShift,
     } = useCalendarData(currentUserId, chatId);
 
@@ -102,12 +101,24 @@ const CourierCalendar: React.FC<CalendarProps> = ({
             // Устанавливаем дату для диалога
             setSelectedDateForDialog(date);
             
+            // Загружаем шаблоны для конкретной даты при открытии диалога
+            // Это гарантирует, что версия шаблона будет применена для этой даты
+            if (chatId) {
+                const dateStr = format(date, 'yyyy-MM-dd');
+                import('@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks').then(({ fetchAllShiftTemplatesThunk }) => {
+                    dispatch(fetchAllShiftTemplatesThunk({ 
+                        chatId: Number(chatId), 
+                        forDate: dateStr 
+                    }));
+                });
+            }
+            
             // Добавляем проверку даты прямо после установки
             const selectedDate = new Date(date);
             selectedDate.setDate(selectedDate.getDate() + 1);
             
         }
-    }, [accessSettings, currentUserId]);
+    }, [accessSettings, currentUserId, chatId, dispatch]);
 
     const handleCloseShiftDialog = useCallback(() => {
         setSelectedDateForDialog(null);
@@ -121,6 +132,18 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         if (isNewDateAllowed) {
             // Обновляем выбранную дату
             setSelectedDateForDialog(newDate);
+            
+            // Загружаем шаблоны для новой даты при изменении даты в диалоге
+            // Это гарантирует, что версия шаблона будет применена для этой даты
+            if (chatId) {
+                const dateStr = format(newDate, 'yyyy-MM-dd');
+                import('@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks').then(({ fetchAllShiftTemplatesThunk }) => {
+                    dispatch(fetchAllShiftTemplatesThunk({ 
+                        chatId: Number(chatId), 
+                        forDate: dateStr 
+                    }));
+                });
+            }
         } else {
             // Если дата недоступна, показываем уведомление
             dispatch(addNotification({ 
@@ -129,7 +152,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                 isToast: true 
             }));
         }
-    }, [accessSettings, currentUserId, dispatch]);
+    }, [accessSettings, currentUserId, chatId, dispatch]);
     
     // Функции для проверки доступности предыдущей и следующей даты
     const isPrevDateAvailable = useMemo(() => {
@@ -151,27 +174,23 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     }, [selectedDateForDialog, accessSettings, currentUserId]);
 
     const selectedDateShifts = useMemo(() => {
-        if (!selectedDateForDialog) return { dayShifts: [], nightShifts: [] };
-        return {
-            dayShifts: getDayShifts(selectedDateForDialog),
-            nightShifts: getNightShifts(selectedDateForDialog)
-        };
-    }, [selectedDateForDialog, getDayShifts, getNightShifts]);
+        if (!selectedDateForDialog) return [];
+        return getShiftsForDate(selectedDateForDialog);
+    }, [selectedDateForDialog, getShiftsForDate]);
 
 
     const handleDialogShiftSelect = useCallback(async (
-        shiftType: 'day' | 'night', 
+        templateId: string,
         slotIndex: number,
         existingShiftId?: string,
-        isDragAction?: boolean,
-        templateId?: string
+        isDragAction?: boolean
     ): Promise<any> => {
         if (!selectedDateForDialog) {
             return Promise.reject('No date selected');
         }
         
         try {
-            await onShiftSelect(selectedDateForDialog, shiftType, slotIndex, templateId);
+            await onShiftSelect(selectedDateForDialog, templateId, slotIndex);
             return Promise.resolve(); 
         } catch (e) {
             return Promise.reject(e); 
@@ -231,8 +250,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                                 <MonthSection
                                     month={month}
                                     onDayClick={handleDayClick}
-                                    getDayShifts={getDayShifts}
-                                    getNightShifts={getNightShifts}
+                                    getShiftsForDate={getShiftsForDate}
                                     userIsInReserve={isCurrentUserInReserveForDate}
                                     hasUserShift={hasUserShift}
                                     currentUserId={currentUserId}
@@ -255,8 +273,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                     isOpen={!!selectedDateForDialog}
                     onClose={handleCloseShiftDialog}
                     date={selectedDateForDialog}
-                    dayShifts={selectedDateShifts.dayShifts}
-                    nightShifts={selectedDateShifts.nightShifts}
+                    shifts={selectedDateShifts}
                     slotConfig={slotConfig}
                     currentUserId={currentUserId}
                     requesterId={currentUserId}

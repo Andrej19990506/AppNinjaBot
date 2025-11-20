@@ -27,6 +27,7 @@ class ShiftTemplateUpdate(BaseModel):
     max_slots: Optional[int] = Field(None, ge=1, le=50)
     has_senior_slot: Optional[bool] = None
     template_metadata: Optional[Dict[str, Any]] = None
+    apply_to_period: Optional[str] = Field(None, description="Период применения изменений: 'current' или 'next'")
 
 # Схема для чтения шаблона смены
 class ShiftTemplateRead(ShiftTemplateBase):
@@ -52,6 +53,7 @@ class ShiftTemplateDayBase(BaseModel):
     template_id: uuid.UUID = Field(..., description="ID шаблона смены")
     group_id: int = Field(..., description="ID группы")
     day_of_week: Annotated[int, Field(ge=0, le=6)] = Field(..., description="День недели (0-6)")
+    is_active: bool = Field(True, description="Активен ли шаблон для этого дня недели")
 
 class ShiftTemplateDayCreate(ShiftTemplateDayBase):
     pass

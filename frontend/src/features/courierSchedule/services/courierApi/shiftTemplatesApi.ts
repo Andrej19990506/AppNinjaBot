@@ -38,7 +38,7 @@ export const fetchShiftTemplates = async (chatId: number): Promise<ShiftTemplate
 export const createShiftTemplate = async (
     chatId: number, 
     templateData: ShiftTemplateCreatePayload
-): Promise<ShiftTemplate> => {
+): Promise<ShiftTemplate[]> => {
     try {
         // Преобразуем camelCase в snake_case для сервера
         const serverData = {
@@ -52,8 +52,14 @@ export const createShiftTemplate = async (
             template_metadata: null
         };
         
-        const response = await axiosInstance.post<any>(`/v1/shift-templates?chat_id=${chatId}`, serverData);
-        return transformServerTemplate(response.data);
+        const response = await axiosInstance.post<any[]>(`/v1/shift-templates?chat_id=${chatId}`, serverData);
+        // Сервер теперь возвращает массив шаблонов (по одному на каждый день недели)
+        if (Array.isArray(response.data)) {
+            return response.data.map(template => transformServerTemplate(template));
+        } else {
+            // Обратная совместимость: если сервер вернул один объект
+            return [transformServerTemplate(response.data)];
+        }
     } catch (error) {
         console.error('Error creating shift template:', error);
         throw new Error('Не удалось создать шаблон смены');
@@ -76,6 +82,10 @@ export const updateShiftTemplate = async (
         if (templateData.hasSeniorSlot !== undefined) serverData.has_senior_slot = templateData.hasSeniorSlot;
         if (templateData.isActive !== undefined) serverData.is_active = templateData.isActive;
         if (templateData.daysOfWeek !== undefined) serverData.days_of_week = templateData.daysOfWeek;
+        // ВАЖНО: Передаем период применения изменений
+        if (templateData.applyToPeriod !== undefined) serverData.apply_to_period = templateData.applyToPeriod;
+        
+        console.log('[updateShiftTemplate] Sending data:', { templateId, serverData, originalData: templateData });
         
         const response = await axiosInstance.put<any>(`/v1/shift-templates/${templateId}`, serverData);
         return transformServerTemplate(response.data);
@@ -130,22 +140,71 @@ export const getShiftTemplatesForDay = async (
 };
 
 // Получить примененные шаблоны смен для всех дней недели
-export const getAppliedShiftTemplates = async (chatId: number): Promise<{ [key: number]: ShiftTemplate[] }> => {
+export const getAppliedShiftTemplates = async (
+    chatId: number, 
+    forDate?: string // Дата для определения версии шаблона (YYYY-MM-DD)
+): Promise<{ [key: number]: ShiftTemplate[] }> => {
     try {
-        const response = await axiosInstance.get(`/v1/shift-templates/applied?chat_id=${chatId}`);
+        let url = `/v1/shift-templates/applied?chat_id=${chatId}`;
+        if (forDate) {
+            url += `&for_date=${forDate}`;
+        }
+        console.log('[getAppliedShiftTemplates] Requesting templates with forDate:', forDate);
+        const response = await axiosInstance.get(url);
         const serverData = response.data;
+        
+        console.log('[getAppliedShiftTemplates] Raw server response:', serverData);
         
         // Преобразуем данные с сервера в формат фронтенда
         const templatesByDay: { [key: number]: ShiftTemplate[] } = {};
         
         for (const [dayOfWeekStr, templates] of Object.entries(serverData)) {
             const dayOfWeek = parseInt(dayOfWeekStr);
-            templatesByDay[dayOfWeek] = (templates as any[]).map(transformServerTemplate);
+            const transformedTemplates = (templates as any[]).map(transformServerTemplate);
+            templatesByDay[dayOfWeek] = transformedTemplates;
+            
+            const templatesInfo = transformedTemplates.map(t => ({ id: t.id, name: t.name, maxSlots: t.maxSlots }));
+            console.log(`[getAppliedShiftTemplates] Day ${dayOfWeek} templates:`, templatesInfo);
+            
+            // Особое внимание к субботе (day 6) - проверяем версию
+            if (dayOfWeek === 6) {
+                console.log(`[getAppliedShiftTemplates] 🔍 SATURDAY (day 6) - Raw server data:`, templates);
+                console.log(`[getAppliedShiftTemplates] 🔍 SATURDAY (day 6) - Transformed:`, JSON.stringify(templatesInfo, null, 2));
+            }
         }
         
         return templatesByDay;
     } catch (error) {
         console.error('Error fetching applied shift templates:', error);
         throw new Error('Не удалось загрузить примененные шаблоны смен');
+    }
+};
+
+// Отменить применение шаблонов к дням недели (деактивировать)
+export const removeShiftTemplatesFromDays = async (
+    chatId: number,
+    templateIds: string[],
+    daysOfWeek: number[]
+): Promise<{ 
+    message: string; 
+    warning?: string; 
+    has_future_shifts?: boolean; 
+    templates_with_shifts?: any[];
+    templates_deactivated_for_next_period?: any[];
+    deactivated_count?: number;
+    skipped_count?: number;
+}> => {
+    try {
+        const serverData = {
+            template_ids: templateIds,
+            days_of_week: daysOfWeek
+        };
+        
+        const response = await axiosInstance.post(`/v1/shift-templates/remove-from-days?chat_id=${chatId}`, serverData);
+        
+        return response.data;
+    } catch (error: any) {
+        console.error('Error removing shift templates from days:', error);
+        throw new Error(error.response?.data?.detail || 'Не удалось отменить применение шаблонов смен');
     }
 };

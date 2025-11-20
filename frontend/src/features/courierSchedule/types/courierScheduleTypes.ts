@@ -9,7 +9,7 @@ export interface ApiShift {
     first_name: string;
     last_name: string;
     date: string;
-    shift_type: 'day' | 'night';
+    shift_type?: 'day' | 'night' | null; // Устаревшее поле, опционально
     slot_index: number;
     is_senior_courier?: boolean;
     template_id?: string | null; // ID шаблона смены
@@ -56,7 +56,7 @@ export interface CourierShift {
     firstName: string;
     lastName: string;
     date: string;
-    shiftType: 'day' | 'night';
+    shiftType?: 'day' | 'night' | null; // Устаревшее поле, опционально
     slotIndex: number;
     isSeniorCourier: boolean;
     template_id?: string | null;
@@ -188,7 +188,7 @@ export interface ShiftState {
 // --- Параметры для бронирования смены ---
 export interface BookShiftParams {
     date: string;
-    shiftType: 'day' | 'night';
+    shiftType?: 'day' | 'night' | null; // Устаревшее поле, опционально
     slotIndex: number;
     userId: string;
 }
@@ -278,6 +278,7 @@ export interface ShiftTemplateUpdatePayload {
     hasSeniorSlot?: boolean;
     isActive?: boolean;
     daysOfWeek?: number[];
+    applyToPeriod?: 'current' | 'next'; // Период применения изменений
 }
 
 export interface ShiftTemplateResponse {
@@ -325,10 +326,10 @@ export interface AddReserveApiData {
 export interface BookShiftApiData {
     date: string;
     user_telegram_id: number;
-    shift_type: 'day' | 'night';
+    shift_type?: 'day' | 'night'; // Устаревшее поле, опционально для обратной совместимости
     slot_index: number;
     group_telegram_id: number;
-    template_id?: string | null; // ID шаблона смены
+    template_id?: string | null; // ID шаблона смены (обязателен для новых смен)
 }
 
 // --- Тип: данные для назначения курьера на слот ---
@@ -337,7 +338,8 @@ export interface AssignCourierApiData {
     target_user_telegram_id: number | string;
     group_telegram_id: number | string;
     date: string;
-    shift_type: 'day' | 'night';
+    shift_type?: 'day' | 'night' | null; // Устаревшее поле, опционально (для обратной совместимости)
+    template_id?: string | null; // ID шаблона смены (приоритетный параметр)
     slot_index: number;
 }
 

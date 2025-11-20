@@ -24,12 +24,18 @@ POSTGRES_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
 DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 # Настройки CORS
-CORS_ALLOWED_ORIGINS = [
-    "http://192.168.0.115:3000",
-    "http://localhost:3000",
-    "http://localhost",
-    "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net"
-]
+# В dev режиме разрешаем все origins для React Native приложений
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'production')
+if ENVIRONMENT == 'development':
+    # В dev режиме разрешаем все origins (включая React Native без Origin заголовка)
+    CORS_ALLOWED_ORIGINS = "*"  # Разрешаем все origins
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://192.168.0.115:3000",
+        "http://localhost:3000",
+        "http://localhost",
+        "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net"
+    ]
 
 # Настройки WebSocket
 WEBSOCKET_PING_INTERVAL = 25

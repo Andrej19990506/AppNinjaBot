@@ -13,6 +13,15 @@ from .material_reaction import MaterialReaction
 from .competition import Competition, CompetitionParticipant, CompetitionWinner, CompetitionStatus
 from .delivery import Delivery, DeliveryItem
 from .shift_template import ShiftTemplate, ShiftTemplateDay
+from .company_bot import CompanyBot
+from .company_role import CompanyRole
+from .group_role_mapping import GroupRoleMapping
+from .bot_feature import BotFeature
+from .role_feature_mapping import RoleFeatureMapping
+from .group_feature_notification import GroupFeatureNotification
+from .admin_user import AdminUser, AdminRole
+from .feature_access_delegate import FeatureAccessDelegate
+from .feature_user_access import FeatureUserAccess
 
 __all__ = [
     "Base",
@@ -35,4 +44,14 @@ __all__ = [
     "DeliveryItem",
     "ShiftTemplate",
     "ShiftTemplateDay",
+    "CompanyBot",
+    "CompanyRole",
+    "GroupRoleMapping",
+    "BotFeature",
+    "RoleFeatureMapping",
+    "GroupFeatureNotification",
+    "AdminUser",
+    "AdminRole",
+    "FeatureAccessDelegate",
+    "FeatureUserAccess",
 ] 

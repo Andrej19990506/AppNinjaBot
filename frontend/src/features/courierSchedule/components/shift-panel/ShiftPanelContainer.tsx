@@ -48,7 +48,8 @@ const slotVariants = {
 };
 
 interface ShiftPanelContainerProps {
-    shiftType: 'day' | 'night';
+    shiftType: 'day' | 'night' | null; // Deprecated - оставлено для совместимости
+    templateId?: string | null; // ID шаблона смены (обязателен для новых смен)
     shifts: ShiftSlot[];
     maxSlots: number;
     currentUserId: string;
@@ -70,6 +71,7 @@ interface ShiftPanelContainerProps {
 
 const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
     shiftType,
+    templateId, // ID шаблона смены
     shifts,
     maxSlots,
     currentUserId,
@@ -88,6 +90,9 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
 }) => {
     const [activeTooltipSlot, setActiveTooltipSlot] = useState<{ type: 'day' | 'night', index: number } | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    
+    // Используем shiftType для совместимости, если templateId не передан
+    const effectiveShiftType = shiftType || 'day'; // Fallback для совместимости
 
     const handleRequestTooltip = useCallback((type: 'day' | 'night', index: number) => {
         if (activeTooltipSlot?.type === type && activeTooltipSlot?.index === index) {
@@ -126,18 +131,18 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
         const slots = [];
         const currentShifts = shifts;
 
-        if (shiftType === 'day' && hasSeniorSlot) {
+        if (hasSeniorSlot) {
             const seniorSlotData = currentShifts.find(shift => shift.slotIndex === -1);
             const isOccupied = Boolean(seniorSlotData);
 
             const shouldRenderSeniorSlot = isOccupied || (isSenior ?? false);
 
             if (shouldRenderSeniorSlot) {
-                const isSeniorSlotActiveTooltip = activeTooltipSlot?.type === shiftType && activeTooltipSlot?.index === -1;
+                const isSeniorSlotActiveTooltip = activeTooltipSlot?.type === effectiveShiftType && activeTooltipSlot?.index === -1;
                 
                 slots.push(
                     <motion.div
-                        key={seniorSlotData ? seniorSlotData.id : 'day-senior-slot'}
+                        key={seniorSlotData ? seniorSlotData.id : 'senior-slot'}
                         layout
                         custom={-1} 
                         initial="initial"
@@ -146,7 +151,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         variants={slotVariants}
                     >
                         <ShiftSlotComponent
-                            shiftType={shiftType}
+                            shiftType={effectiveShiftType}
+                            templateId={templateId}
                             slotIndex={-1} 
                             courier={seniorSlotData}
                             currentUserId={currentUserId}
@@ -154,7 +160,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                             onSlotClick={() => {
                                 if ((!seniorSlotData && (isSenior ?? false)) || seniorSlotData) {
                                     handleCloseTooltip();
-                                    onSlotSelect(shiftType, -1, seniorSlotData?.id, false);
+                                    onSlotSelect(effectiveShiftType, -1, seniorSlotData?.id, false, templateId || undefined);
                                 }
                             }}
                             isLoading={isLoading && loadingSlot === -1}
@@ -181,8 +187,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
             const slotData = currentShifts.find(shift => shift.slotIndex === i);
 
             const isDisabled = !slotData && userHasShift; 
-            const key = slotData ? slotData.id : `${shiftType}-empty-${i}`;
-            const isActiveTooltipForThisSlot = activeTooltipSlot?.type === shiftType && activeTooltipSlot?.index === i;
+            const key = slotData ? slotData.id : `${templateId || effectiveShiftType}-empty-${i}`;
+            const isActiveTooltipForThisSlot = activeTooltipSlot?.type === effectiveShiftType && activeTooltipSlot?.index === i;
 
             slots.push(
                 <motion.div
@@ -195,7 +201,8 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                     variants={slotVariants}
                 >
                     <ShiftSlotComponent
-                        shiftType={shiftType}
+                        shiftType={effectiveShiftType}
+                        templateId={templateId}
                         slotIndex={i}
                         courier={slotData}
                         currentUserId={currentUserId}
@@ -203,7 +210,7 @@ const ShiftPanelContainer: React.FC<ShiftPanelContainerProps> = React.memo(({
                         onSlotClick={() => {
                             if (!isDisabled || slotData) { 
                                 handleCloseTooltip();
-                                onSlotSelect(shiftType, i, slotData?.id, false);
+                                onSlotSelect(effectiveShiftType, i, slotData?.id, false, templateId || undefined);
                             }
                         }}
                         isLoading={isLoading && loadingSlot === i}

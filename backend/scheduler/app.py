@@ -73,7 +73,7 @@ async def lifespan(app: FastAPI):
         logger.info("🔍 Проверка наличия необходимых таблиц...")
         if not await db_service.check_tables_exist():
             logger.warning("⚠️ Необходимые таблицы отсутствуют. Проверьте миграции.")
-        # Короткая проверка доступности API сервера без блокировки
+        # Короткая проверка доступности API сервера без блокировки (не критично для запуска)
         logger.info("🔌 Проверка доступности API сервера...")
         try:
             import requests
@@ -85,16 +85,24 @@ async def lifespan(app: FastAPI):
                 logger.info(f"✅ API сервер доступен: {health_check_url}")
             else:
                 logger.warning(f"⚠️ API сервер ({health_check_url}) вернул код {response.status_code}")
-        except Exception as api_error:
+        except requests.exceptions.RequestException as api_error:
             logger.warning(f"⚠️ API сервер ({scheduler_settings.API_URL}) недоступен: {api_error}")
+        except Exception as api_error:
+            logger.warning(f"⚠️ Ошибка при проверке API сервера: {api_error}")
         
-        # --- Добавляем проверку доступности Telegram бота --- 
+        # --- Добавляем проверку доступности Telegram бота (не критично для запуска) --- 
         logger.info("🔌 Проверка доступности Telegram бота...")
         telegram_bot_available = False
         try:
             import requests
-            bot_url = "http://bot:8003" 
-            bot_response = requests.get(f"{bot_url}/health", timeout=1)
+            # Используем HEALTHCHECK_BOT_URL из настроек, если доступен, иначе используем BOT_URL
+            bot_url_raw = getattr(scheduler_settings, 'HEALTHCHECK_BOT_URL', getattr(scheduler_settings, 'BOT_URL', 'http://bot:8003'))
+            bot_url = str(bot_url_raw).rstrip('/')
+            # Убираем /health из конца, если он уже есть
+            if bot_url.endswith('/health'):
+                bot_url = bot_url[:-6].rstrip('/')
+            health_check_url = f"{bot_url}/health"
+            bot_response = requests.get(health_check_url, timeout=1)
             if bot_response.status_code == 200:
                 telegram_bot_available = True
                 logger.info(f"✅ Telegram бот доступен: {bot_url}")
@@ -124,12 +132,16 @@ async def lifespan(app: FastAPI):
                             logger.warning("⚠️ Не удалось добавить атрибут HEALTHCHECK_BOT_SEND_MESSAGE_URL в настройки")
                     else:
                         logger.warning(f"⚠️ ⚠️ ⚠️ ЭНДПОИНТ ОТПРАВКИ СООБЩЕНИЙ БОТА вернул код {send_message_response.status_code}: {bot_send_message_health_url}")
-                except Exception as send_message_error:
+                except requests.exceptions.RequestException as send_message_error:
                     logger.warning(f"⚠️ ⚠️ ⚠️ ЭНДПОИНТ ОТПРАВКИ СООБЩЕНИЙ БОТА НЕДОСТУПЕН: {send_message_error}")
+                except Exception as send_message_error:
+                    logger.warning(f"⚠️ ⚠️ ⚠️ Ошибка при проверке эндпоинта отправки сообщений: {send_message_error}")
             else:
                 logger.warning(f"⚠️ Telegram бот вернул код {bot_response.status_code}: {bot_url}")
+        except requests.exceptions.RequestException as bot_api_error:
+            logger.warning(f"⚠️ Telegram бот недоступен (ошибка сети/DNS): {bot_api_error}")
         except Exception as bot_api_error:
-            logger.warning(f"⚠️ Telegram бот недоступен: {bot_api_error}")
+            logger.warning(f"⚠️ Ошибка при проверке Telegram бота: {bot_api_error}")
         # -----------------------------------------------------
         
         scheduler_instance = InventoryScheduler(settings=scheduler_settings, db_service=db_service)

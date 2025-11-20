@@ -601,19 +601,38 @@ class SocketService {
   }
 
   public async joinRoom(room: string, userInfo?: Record<string, any>): Promise<boolean> {
+    logger.log(`🚪 [joinRoom] Попытка присоединиться к комнате: ${room}`);
+    logger.log(`🚪 [joinRoom] Состояние сокета: connected=${this.socket?.connected}, socket=${!!this.socket}`);
+    
     if (!this.socket?.connected) {
-      logger.error('❌ Попытка присоединиться к комнате при отключенном сокете');
+      logger.error('❌ [joinRoom] Попытка присоединиться к комнате при отключенном сокете');
       return false;
     }
 
     return new Promise((resolve) => {
-      console.log('[DEBUG] socket.emit join_room', room, userInfo);
+      let resolved = false;
+      
+      // Таймаут для ответа (создаем ДО emit, чтобы можно было очистить)
+      const timeoutId = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          logger.warn(`⏱️ [joinRoom] Таймаут ожидания ответа для комнаты: ${room}`);
+          resolve(false);
+        }
+      }, 5000);
+      
+      logger.log(`🚪 [joinRoom] Отправляем событие join_room для комнаты: ${room}`, { userInfo });
       this.socket?.emit('join_room', { room, user_info: userInfo }, (response: any) => {
+        if (resolved) return; // Предотвращаем двойной resolve
+        resolved = true;
+        clearTimeout(timeoutId); // Очищаем таймаут при получении ответа
+        
+        logger.log(`🚪 [joinRoom] Получен ответ от сервера:`, response);
         if (response?.error) {
-          logger.error('❌ Ошибка при присоединении к комнате:', response.error);
+          logger.error('❌ [joinRoom] Ошибка при присоединении к комнате:', response.error);
           resolve(false);
         } else {
-          logger.log(`✅ Успешно присоединились к комнате: ${room}`);
+          logger.log(`✅ [joinRoom] Успешно присоединились к комнате: ${room}`);
           this.updateState({ isConnected: true });
           resolve(true);
         }

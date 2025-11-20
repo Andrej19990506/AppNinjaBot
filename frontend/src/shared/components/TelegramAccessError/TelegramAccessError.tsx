@@ -16,12 +16,6 @@ const fadeIn = keyframes`
   }
 `;
 
-const pulse = keyframes`
-  0% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-  100% { transform: scale(1); }
-`;
-
 const Container = styled.div`
   display: flex;
   flex-direction: column;
@@ -29,67 +23,95 @@ const Container = styled.div`
   align-items: center;
   min-height: 100vh;
   background: var(--background-color);
-  padding: 20px;
+  padding: 24px;
+  position: relative;
 `;
 
-const ErrorCard = styled.div`
-  background: var(--card-background);
-  border-radius: var(--radius-lg);
-  padding: 2.5rem 2rem 2rem 2rem;
-  box-shadow: var(--shadow-lg);
-  max-width: 400px;
-  width: 100%;
-  animation: ${fadeIn} 0.7s cubic-bezier(0.4,0,0.2,1);
+const Content = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 500px;
+  animation: ${fadeIn} 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+`;
+
+const LogoContainer = styled.div`
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 8px 16px rgba(255, 107, 53, 0.3));
+`;
+
+const Logo = styled.img`
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+`;
+
+const TextContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 40px;
+  padding: 0 20px;
 `;
 
 const Title = styled.h1`
-  font-size: 2rem;
-  margin-bottom: 1.2rem;
-  color: var(--primary-color);
-  text-align: center;
-  font-weight: 700;
-`;
-
-const Message = styled.p`
-  margin: 0.5rem 0 1.5rem 0;
-  line-height: 1.6;
+  font-size: 32px;
+  font-weight: 800;
   color: var(--text-color);
+  margin-bottom: 16px;
   text-align: center;
-  font-size: 1.08rem;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+  
+  @media (max-width: 480px) {
+    font-size: 28px;
+  }
 `;
 
-const TechInfo = styled.div`
-  background: var(--card-background-transparent);
-  border-radius: 12px;
-  padding: 1rem;
-  margin-bottom: 1.5rem;
+const Subtitle = styled.p`
+  font-size: 16px;
   color: var(--text-secondary);
-  font-size: 0.98rem;
   text-align: center;
+  line-height: 24px;
+  padding: 0 8px;
+  margin: 0;
 `;
 
 const TelegramButton = styled.a`
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 0.85rem 1.7rem;
-  background: var(--gradient-primary);
-  color: var(--text-color-on-primary);
-  border-radius: 16px;
+  background-color: #0088cc;
+  border-radius: 20px;
+  padding: 18px 36px;
+  min-width: calc(100% - 48px);
+  max-width: calc(100% - 48px);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 1.1rem;
-  box-shadow: 0 2px 8px rgba(34,158,217,0.10);
-  margin-top: 0.5rem;
-  transition: background 0.2s, transform 0.15s;
-  gap: 0.7rem;
+  box-shadow: 0 6px 12px rgba(0, 136, 204, 0.4);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  
   &:hover {
-    background: var(--gradient-primary);
-    filter: brightness(1.08);
-    transform: translateY(-2px) scale(1.04);
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(0, 136, 204, 0.5);
+  }
+  
+  &:active {
+    transform: scale(0.97);
+    opacity: 0.85;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 16px 32px;
+    min-width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
   }
 `;
 
@@ -97,9 +119,30 @@ const TelegramIcon = styled.span`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.1rem;
-  height: 2.1rem;
-  animation: ${pulse} 1.2s infinite;
+  margin-right: 12px;
+  width: 24px;
+  height: 24px;
+`;
+
+const TelegramButtonText = styled.span`
+  color: #FFFFFF;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
+`;
+
+const Hint = styled.p`
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 32px;
+  padding: 0 24px;
+  line-height: 20px;
+  opacity: 0.7;
 `;
 
 interface Props {
@@ -107,7 +150,7 @@ interface Props {
 }
 
 const AnimatedTelegramSVG = () => (
-  <svg width="34" height="34" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <svg width="24" height="24" viewBox="0 0 240 240" fill="none" xmlns="http://www.w3.org/2000/svg">
     <circle cx="120" cy="120" r="120" fill="#229ED9"/>
     <path d="M180.5 72.5L156.5 180.5C154.5 188.5 149.5 190.5 142.5 186.5L110.5 162.5L95.5 176.5C93.5 178.5 91.5 180.5 88.5 180.5L90.5 147.5L157.5 86.5C160.5 83.5 157.5 82.5 153.5 85.5L77.5 137.5L45.5 127.5C38.5 125.5 38.5 120.5 47.5 117.5L170.5 73.5C176.5 71.5 181.5 75.5 180.5 72.5Z" fill="white"/>
   </svg>
@@ -145,40 +188,101 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
     if (error === 'AUTH_REQUIRED') {
       const setupWebSocket = async () => {
         try {
-          // Инициализируем и подключаемся к WebSocket
-          const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
-          socketService.init(wsUrl);
-          socketService.connect();
+          console.log(`🔐 [Auth] Начинаем настройку WebSocket для авторизации. SessionId: ${sessionId}`);
           
-          // Ждем подключения
+          // Проверяем, не инициализирован ли уже WebSocket
+          if (!socketService.isInitialized()) {
+            // Инициализируем и подключаемся к WebSocket
+            const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
+            console.log(`🔐 [Auth] Инициализируем WebSocket с URL: ${wsUrl}`);
+            socketService.init(wsUrl);
+          } else {
+            console.log(`🔐 [Auth] WebSocket уже инициализирован, используем существующее подключение`);
+          }
+          
+          // Подключаемся, если еще не подключены
+          if (!socketService.isConnected() && !socketService.isConnecting()) {
+            console.log(`🔐 [Auth] Подключаемся к WebSocket...`);
+            socketService.connect();
+          } else {
+            console.log(`🔐 [Auth] WebSocket уже подключен или подключается`);
+          }
+          
+          // Ждем подключения - подписываемся на изменения состояния
           const waitForConnection = () => {
-            return new Promise<void>((resolve) => {
+            return new Promise<void>((resolve, reject) => {
               if (socketService.isConnected()) {
+                console.log(`🔐 [Auth] WebSocket уже подключен`);
                 resolve();
                 return;
               }
               
-              const checkInterval = setInterval(() => {
-                if (socketService.isConnected()) {
+              console.log(`🔐 [Auth] Ожидаем подключения WebSocket...`);
+              
+              let resolved = false;
+              
+              // Подписываемся на изменения состояния
+              const unsubscribe = socketService.onStateChange((state) => {
+                if (resolved) return;
+                console.log(`🔐 [Auth] Изменение состояния WebSocket:`, state);
+                if (state.isConnected) {
+                  resolved = true;
+                  console.log(`🔐 [Auth] WebSocket подключен через подписку!`);
                   clearInterval(checkInterval);
+                  clearTimeout(timeoutId);
+                  unsubscribe();
+                  resolve();
+                }
+              });
+              
+              // Проверяем периодически на случай, если подписка не сработает
+              const checkInterval = setInterval(() => {
+                if (resolved) {
+                  clearInterval(checkInterval);
+                  return;
+                }
+                if (socketService.isConnected()) {
+                  resolved = true;
+                  console.log(`🔐 [Auth] WebSocket подключен через проверку!`);
+                  clearInterval(checkInterval);
+                  clearTimeout(timeoutId);
+                  unsubscribe();
                   resolve();
                 }
               }, 100);
               
-              // Таймаут 5 секунд
-              setTimeout(() => {
-                clearInterval(checkInterval);
-                resolve();
-              }, 5000);
+              // Таймаут 15 секунд
+              const timeoutId = setTimeout(() => {
+                if (!resolved) {
+                  resolved = true;
+                  clearInterval(checkInterval);
+                  unsubscribe();
+                  console.log(`🔐 [Auth] Таймаут ожидания подключения WebSocket`);
+                  if (socketService.isConnected()) {
+                    resolve();
+                  } else {
+                    reject(new Error('WebSocket не подключился в течение таймаута'));
+                  }
+                }
+              }, 15000);
             });
           };
           
-          await waitForConnection();
+          try {
+            await waitForConnection();
+          } catch (error) {
+            console.error(`❌ [Auth] Ошибка ожидания подключения:`, error);
+            return;
+          }
+          
+          console.log(`🔐 [Auth] Проверка состояния: isConnected=${socketService.isConnected()}, hasJoinedRoom=${hasJoinedRoom.current}`);
           
           if (socketService.isConnected() && !hasJoinedRoom.current) {
             // Присоединяемся к комнате для получения токена
             const roomName = `auth_session:${sessionId}`;
-            await socketService.joinRoom(roomName);
+            console.log(`🔐 [Auth] Подключаемся к комнате: ${roomName}`);
+            const joinResult = await socketService.joinRoom(roomName);
+            console.log(`🔐 [Auth] Результат подключения к комнате: ${joinResult}`);
             hasJoinedRoom.current = true;
             console.log(`✅ [Auth] Подключились к комнате ${roomName} для получения токена`);
             
@@ -280,40 +384,50 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
 
   return (
     <Container>
-      <ErrorCard>
-        <TelegramIcon>
-          <AnimatedTelegramSVG />
-        </TelegramIcon>
-        {isAuthRequired ? (
-          <>
-            <Title>Авторизация через Telegram</Title>
-            <Message>
-              Для доступа к приложению необходимо авторизоваться через Telegram бота.<br />
-              Нажмите на кнопку ниже, чтобы перейти к авторизации.
-            </Message>
-            <TelegramButton href={botAuthLink} target="_blank" rel="noopener noreferrer">
-              <TelegramIcon><AnimatedTelegramSVG /></TelegramIcon>
-              Авторизоваться через Telegram
-            </TelegramButton>
-          </>
-        ) : (
-          <>
-            <Title>Доступ только через Telegram</Title>
-            <Message>
-              Это приложение работает только внутри Telegram.<br />
-              Пожалуйста, откройте его через Telegram-бота.
-            </Message>
-            <TechInfo>
-              <strong>Техническая информация:</strong><br />
-              {error}
-            </TechInfo>
-            <TelegramButton href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer">
-              <TelegramIcon><AnimatedTelegramSVG /></TelegramIcon>
-              Открыть в Telegram
-            </TelegramButton>
-          </>
-        )}
-      </ErrorCard>
+      <Content>
+        {/* Логотип */}
+        <LogoContainer>
+          <Logo 
+            src="/Logo.png" 
+            alt="Flowix Logo"
+            onError={(e) => {
+              // Fallback на SVG если PNG не найден
+              (e.target as HTMLImageElement).src = '/logo.svg';
+            }}
+          />
+        </LogoContainer>
+
+        {/* Заголовок */}
+        <TextContainer>
+          <Title>Добро пожаловать в Flowix</Title>
+          <Subtitle>
+            {isAuthRequired 
+              ? 'Для доступа к приложению необходимо авторизоваться через Telegram'
+              : 'Это приложение работает только внутри Telegram. Пожалуйста, откройте его через Telegram-бота.'}
+          </Subtitle>
+        </TextContainer>
+
+        {/* Кнопка авторизации через Telegram */}
+        <TelegramButton 
+          href={isAuthRequired ? botAuthLink : `https://t.me/${botUsername}`} 
+          target="_blank" 
+          rel="noopener noreferrer"
+        >
+          <TelegramIcon>
+            <AnimatedTelegramSVG />
+          </TelegramIcon>
+          <TelegramButtonText>
+            {isAuthRequired ? 'Авторизоваться через Telegram' : 'Открыть в Telegram'}
+          </TelegramButtonText>
+        </TelegramButton>
+
+        {/* Подсказка */}
+        <Hint>
+          {isAuthRequired 
+            ? 'Нажмите на кнопку выше, чтобы перейти к авторизации через Telegram бота'
+            : 'Пожалуйста, откройте приложение через Telegram-бота для корректной работы'}
+        </Hint>
+      </Content>
     </Container>
   );
 };

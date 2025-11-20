@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { socketService, SocketState } from '../services/socketService';
 import { logger } from '../utils/logger';
 import { useAppSelector } from '../store/hooks';
+import { getAuthToken } from '../api/api';
 
 // --- useWebSocketConnection ---
 // Хук для инициализации и управления WebSocket соединением через socketService.
@@ -29,11 +30,24 @@ export const useWebSocketConnection = () => {
   );
 
   useEffect(() => {
-    logger.log(`🚀 [WebSocketHook] Главный useEffect. UserID: ${stringUserId}, isServerError: ${isServerError}`);
+    const authToken = getAuthToken();
+    logger.log(`🚀 [WebSocketHook] Главный useEffect. UserID: ${stringUserId}, isServerError: ${isServerError}, hasToken: ${!!authToken}`);
 
     // Не подключаемся к WebSocket при ошибках сервера
     if (isServerError) {
       logger.log(`❌ [WebSocketHook] Обнаружена ошибка сервера, пропускаем подключение WebSocket`);
+      return;
+    }
+
+    // Не подключаемся к WebSocket, если пользователь не авторизован
+    if (!authToken) {
+      logger.log(`🔒 [WebSocketHook] Токен авторизации отсутствует, пропускаем подключение WebSocket`);
+      // Если сокет был инициализирован, сбрасываем его
+      if (socketService.isInitialized()) {
+        logger.log(`🧹 [WebSocketHook] Сбрасываем WebSocket, так как токен отсутствует`);
+        socketService.reset();
+        setSocketState(socketService.getState());
+      }
       return;
     }
 
@@ -66,7 +80,7 @@ export const useWebSocketConnection = () => {
       // Не отключаем сокет при размонтировании, так как он может использоваться другими компонентами
       // socketService.disconnect();
     };
-  }, [stringUserId]);
+  }, [stringUserId, isServerError]);
 
   const sendMessage = useCallback(<T = any>(event: string, data?: T) => {
     socketService.emit(event, data);

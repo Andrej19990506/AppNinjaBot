@@ -341,21 +341,24 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        console.log('[SideMenuPanel] Начинаем процесс логаута...');
+        
+        // Полностью сбрасываем WebSocket сервис
+        try {
+            console.log('[SideMenuPanel] Сбрасываем WebSocket сервис...');
+            socketService.reset();
+        } catch (error) {
+            console.error('[SideMenuPanel] Ошибка при сбросе WebSocket:', error);
+        }
+        
         // Очищаем токены
         setAuthToken(null, null);
+        console.log('[SideMenuPanel] Токены очищены');
         
         // Очищаем данные пользователя из Redux
         dispatch(clearUserData());
-        
-        // Отключаем WebSocket
-        if (socketService.isConnected() || socketService.isInitialized()) {
-            try {
-                socketService.disconnect();
-            } catch (error) {
-                console.error('[SideMenuPanel] Ошибка отключения WebSocket:', error);
-            }
-        }
+        console.log('[SideMenuPanel] Данные пользователя очищены из Redux');
         
         // Очищаем localStorage (кроме настроек темы и декора)
         const winterDecorEnabled = localStorage.getItem('flowix-winter-decor-enabled');
@@ -367,9 +370,14 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
         if (theme) {
             localStorage.setItem('theme', theme);
         }
+        console.log('[SideMenuPanel] localStorage очищен');
         
+        // Даем время на полную очистку состояния перед перезагрузкой
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        console.log('[SideMenuPanel] Перезагружаем страницу...');
         // Перезагружаем страницу для повторной авторизации
-        window.location.reload();
+        window.location.href = '/';
     };
 
     const handleTutorialClick = () => {

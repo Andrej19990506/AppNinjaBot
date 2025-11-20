@@ -549,12 +549,57 @@ class SocketService {
   }
 
   public disconnect(): void {
+    logger.log('[socketService] disconnect() вызван');
     this.state.isConnecting = false;
+    
+    // Очищаем таймаут подключения, если он есть
+    if (this.connectionTimeout) {
+      clearTimeout(this.connectionTimeout);
+      this.connectionTimeout = null;
+    }
+    
     if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.disconnect();
+      try {
+        this.socket.removeAllListeners();
+        this.socket.disconnect();
+      } catch (error) {
+        logger.warn('[socketService] Ошибка при отключении сокета:', error);
+      }
       this.socket = null;
     }
+    
+    // Полностью сбрасываем состояние
+    this.state = {
+      isConnected: false,
+      isConnecting: false,
+      socketId: null,
+      transport: null,
+      error: null,
+    };
+    
+    // Сбрасываем счетчик попыток переподключения
+    this.reconnectAttempts = 0;
+    
+    // Очищаем все подписки на события
+    this.stateChangeEmitter.removeAllListeners();
+    
+    // Очищаем кэш обработанных событий
+    this.processedEvents.clear();
+    
+    // Уведомляем об изменении состояния
+    this.stateChangeEmitter.emit('change', this.state);
+    
+    logger.log('[socketService] disconnect() завершен, состояние сброшено');
+  }
+  
+  /**
+   * Полный сброс сервиса (для логаута)
+   */
+  public reset(): void {
+    logger.log('[socketService] reset() вызван - полный сброс сервиса');
+    this.disconnect();
+    this.lastUsedUrl = 'ws://localhost:8001';
+    logger.log('[socketService] reset() завершен');
   }
 
   public on<T = any>(event: string, callback: (data: T) => void): void {

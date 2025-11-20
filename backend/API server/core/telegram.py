@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, unquote, quote
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel
@@ -90,20 +90,26 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         logger.error("[Telegram Auth] Нет токенов для проверки!")
         raise RuntimeError("No TELEGRAM_BOT_TOKEN configured for verification")
 
-    pairs = parse_qsl(init_data, keep_blank_values=True)
-    logger.info(f"[Telegram Auth] Распарсено пар: {len(pairs)}")
-    logger.info(f"[Telegram Auth] Пары: {pairs}")
+    # Парсим init_data вручную, сохраняя исходные URL-encoded значения
+    # Это нужно для правильной проверки подписи
+    pairs_raw = []
+    for pair in init_data.split('&'):
+        if '=' in pair:
+            key, value = pair.split('=', 1)
+            pairs_raw.append((key, value))
     
-    if not pairs:
+    logger.info(f"[Telegram Auth] Распарсено пар (raw): {len(pairs_raw)}")
+    
+    if not pairs_raw:
         logger.error("[Telegram Auth] Пустые данные init_data")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Empty init data",
         )
 
-    data_dict = dict(pairs)
-    logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
-    received_hash = data_dict.get("hash")
+    # Создаем словарь из raw пар для получения hash
+    data_dict_raw = dict(pairs_raw)
+    received_hash = data_dict_raw.get("hash")
     if not received_hash:
         logger.error("[Telegram Auth] Отсутствует hash в init_data")
         raise HTTPException(
@@ -111,8 +117,14 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
             detail="Missing hash in init data",
         )
 
-    data_check_string = _build_data_check_string(pairs)
+    # Для проверки подписи используем исходные URL-encoded значения
+    data_check_string = _build_data_check_string(pairs_raw)
     logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
+    
+    # Для парсинга user и других полей декодируем значения
+    pairs = [(k, unquote(v)) for k, v in pairs_raw]
+    data_dict = dict(pairs)
+    logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
     
     if not _verify_signature(data_check_string, received_hash):
         logger.error(f"[Telegram Auth] Подпись не прошла валидацию. received_hash: {received_hash}")

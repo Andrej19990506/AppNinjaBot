@@ -86,6 +86,7 @@ class SocketService {
   private maxReconnectAttempts = 5;
   private connectionTimeout: NodeJS.Timeout | null = null;
   private lastUsedUrl = 'ws://localhost:8001';
+  private connectedAt: number | null = null; // Время подключения для фильтрации старых событий
 
   // Дедупликация событий по event_id
   private processedEvents: Map<string, number> = new Map();
@@ -151,13 +152,19 @@ class SocketService {
       try {
         // Попробуем создать сокет с более простой конфигурацией
         this.socket = io(normalizedUrl, {
-          transports: ['polling', 'websocket'],
+          transports: ['websocket', 'polling'], // Приоритет WebSocket
           reconnection: true,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          reconnectionAttempts: 5,
           autoConnect: false,
           forceNew: true,
-          timeout: 10000,
+          timeout: 20000, // Увеличиваем таймаут до 20 секунд
           path: '/socket.io/',
-          auth: { userId: userId ? String(userId) : undefined }
+          auth: { userId: userId ? String(userId) : undefined },
+          // Улучшенная обработка ошибок транспорта
+          upgrade: true,
+          rememberUpgrade: false
         });
 
         if (!this.socket) {
@@ -222,6 +229,27 @@ class SocketService {
         logger.log('🔄 Принудительно устанавливаем WebSocket при переподключении');
       }
     });
+    
+    // Обработка ошибок транспорта - принудительно переключаемся на WebSocket
+    this.socket.io.on("transport_error", (error: any) => {
+      logger.warn('⚠️ Ошибка транспорта Socket.IO:', error);
+      if (this.socket && this.socket.io && this.socket.io.opts) {
+        const currentTransport = this.socket.io.engine?.transport?.name;
+        if (currentTransport === 'polling') {
+          logger.warn('⚠️ Ошибка polling, принудительно переключаемся на WebSocket');
+          this.socket.io.opts.transports = ['websocket'];
+          // Пытаемся переподключиться с WebSocket
+          if (!this.socket.connected) {
+            setTimeout(() => {
+              if (this.socket && !this.socket.connected) {
+                logger.log('🔄 Пытаемся переподключиться с WebSocket транспортом');
+                this.socket.connect();
+              }
+            }, 1000);
+          }
+        }
+      }
+    });
 
     this.socket.io.on("reconnect", (attempt) => {
       logger.log(`✅ Успешное переподключение после ${attempt} попыток`);
@@ -279,9 +307,27 @@ class SocketService {
       this.stateChangeEmitter.emit('user_activity_update', data);
     });
 
-    // Добавляем обработчик user_away
+    // Добавляем обработчик user_away с фильтрацией старых событий
     this.socket.on('user_away', (data: any) => {
       logger.info('👤 Получено событие: user_away', data);
+      
+      // Фильтруем старые события, которые приходят сразу после подключения
+      // Игнорируем события, которые произошли до нашего подключения
+      if (this.connectedAt && data.timestamp) {
+        const eventTimestamp = parseFloat(data.timestamp);
+        const connectionTime = this.connectedAt / 1000; // Преобразуем в секунды
+        
+        // Если событие произошло до подключения или в течение первых 2 секунд после подключения, игнорируем
+        if (eventTimestamp < connectionTime || (eventTimestamp - connectionTime) < 2) {
+          logger.warn('⚠️ Игнорируем старое событие user_away, произошедшее до подключения или сразу после него', {
+            eventTimestamp,
+            connectionTime,
+            diff: eventTimestamp - connectionTime
+          });
+          return;
+        }
+      }
+      
       // Эмитим событие для подписчиков
       this.stateChangeEmitter.emit('user_away', data);
     });
@@ -461,12 +507,13 @@ class SocketService {
     
     this.clearConnectionTimeout();
 
+    // Таймаут должен быть больше, чем таймаут Socket.IO (20 секунд + запас)
     this.connectionTimeout = setTimeout(() => {
       if (this.state.isConnecting && !this.state.isConnected) {
         logger.error('❌ Таймаут подключения Socket.IO');
         this.handleConnectError(new Error('Connection timeout'));
       }
-    }, 15000);
+    }, 25000); // 25 секунд (больше чем таймаут Socket.IO)
 
     try {
         this.socket.connect();
@@ -482,6 +529,7 @@ class SocketService {
     logger.log(`✅ [socketService:handleConnect] Socket.IO подключен! ID: ${this.socket.id}, Transport: ${this.socket.io.engine.transport.name}`);
     this.clearConnectionTimeout();
     this.reconnectAttempts = 0;
+    this.connectedAt = Date.now(); // Сохраняем время подключения для фильтрации старых событий
     this.updateState({
       isConnected: true,
       isConnecting: false,
@@ -513,6 +561,26 @@ class SocketService {
       };
     logger.error('❌ [socketService:handleConnectError] Ошибка подключения Socket.IO:', errorDetails);
     this.clearConnectionTimeout();
+    
+    // Если ошибка связана с polling (400), принудительно переключаемся на WebSocket
+    if (errorDetails.type === 'TransportError' || errorDetails.message.includes('poll')) {
+      logger.warn('⚠️ Обнаружена ошибка polling, принудительно переключаемся на WebSocket');
+      if (this.socket && this.socket.io) {
+        try {
+          // Закрываем текущее соединение
+          if (this.socket.connected) {
+            this.socket.disconnect();
+          }
+          // Принудительно устанавливаем WebSocket как единственный транспорт
+          if (this.socket.io.opts) {
+            this.socket.io.opts.transports = ['websocket'];
+          }
+        } catch (e) {
+          logger.error('❌ Ошибка при переключении на WebSocket:', e);
+        }
+      }
+    }
+    
     this.updateState({
       isConnected: false,
       isConnecting: false,
@@ -599,6 +667,7 @@ class SocketService {
     logger.log('[socketService] reset() вызван - полный сброс сервиса');
     this.disconnect();
     this.lastUsedUrl = 'ws://localhost:8001';
+    this.connectedAt = null; // Сбрасываем время подключения
     logger.log('[socketService] reset() завершен');
   }
 

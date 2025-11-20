@@ -1,25 +1,43 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "FloWix",
+  "name": "FloWix - Умная автоматизация для вашего бизнеса",
+  "description": "Инвентаризация, списание, поставки, автоматические отчеты - всё в одной системе. Для магазинов, складов, ресторанов, любых точек продаж. Интеграция с Telegram для мгновенных уведомлений.",
   "icons": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/Logo.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
     },
     {
-      "src": "logo192.png",
+      "src": "/Logo.png",
       "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "portrait",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff",
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "График курьеров",
+      "short_name": "График",
+      "description": "Открыть график курьеров",
+      "url": "/courier-schedule",
+      "icons": [{ "src": "/Logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Инвентарь",
+      "short_name": "Инвентарь",
+      "description": "Открыть инвентарь",
+      "url": "/inventory",
+      "icons": [{ "src": "/Logo.png", "sizes": "192x192" }]
+    }
+  ]
 }

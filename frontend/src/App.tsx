@@ -38,6 +38,7 @@ import TutorialMaterials from './features/MainMenu/TutorialMaterials';
 import Competitions from './features/Competitions/Competitions';
 import Requests from './features/Requests/Requests';
 import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
+import InstallPWAButton from './shared/components/InstallPWAButton/InstallPWAButton';
 
 
 
@@ -412,6 +413,7 @@ function App() {
             <AppInitializer>
               <NotificationHandler />
               <TooltipContainer />
+              <InstallPWAButton />
               
               {/* Глобальный снег на видимых элементах приложения */}
               {isWinterDecorEnabled && (

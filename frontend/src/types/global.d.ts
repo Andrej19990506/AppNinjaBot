@@ -9,6 +9,11 @@ interface AppConfig {
     USER_AGENT_INFO?: string;
 }
 
+interface BeforeInstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
 declare global {
     interface Window {
         socket?: Socket;
@@ -16,6 +21,11 @@ declare global {
         Telegram?: {
             WebApp: any;
         };
+        deferredPrompt?: BeforeInstallPromptEvent;
+    }
+    
+    interface Navigator {
+        standalone?: boolean;
     }
 }
 

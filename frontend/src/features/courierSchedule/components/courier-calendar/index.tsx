@@ -90,7 +90,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         }
     }, [dispatch, chatId]);
 
-    useCourierWebSocketSync();
+    useCourierWebSocketSync(chatId);
 
     const handleDayClick = useCallback((date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');

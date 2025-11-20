@@ -26,9 +26,11 @@ const selectCurrentCourierChatId = (state: RootState): string | undefined => {
     return groups.find(g => g.group_type === 'courier')?.chat_id?.toString();
 };
 
-export const useCourierWebSocketSync = () => {
+export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
     const dispatch = useDispatch<AppDispatch>();
-    const chatId = useSelector(selectCurrentCourierChatId);
+    // Используем переданный selectedChatId, если он есть, иначе берем из селектора (для обратной совместимости)
+    const chatIdFromSelector = useSelector(selectCurrentCourierChatId);
+    const chatId = selectedChatId || chatIdFromSelector;
 
     useEffect(() => {
         if (!chatId) return () => {};
@@ -36,6 +38,9 @@ export const useCourierWebSocketSync = () => {
         // --- Обработчики событий ---
         const handleShiftsUpdated = (data: ShiftsUpdatedWsPayload | any) => {
             console.log('[WS][handleShiftsUpdated] payload:', data);
+            console.log('[WS][handleShiftsUpdated] current chatId:', chatId, 'event chat_id:', data.chat_id);
+            console.log('[WS][handleShiftsUpdated] comparison:', String(data.chat_id) === chatId, 'has shift_data:', !!data.shift_data);
+            
             if (data.source === 'shift_deletion') {
                 if (!data.chat_id || String(data.chat_id) === chatId) {
                     if (data.shift_id) {
@@ -45,9 +50,18 @@ export const useCourierWebSocketSync = () => {
                 }
             } else {
                 if (String(data.chat_id) === chatId && data.shift_data) {
-                    dispatch(fetchShifts());
+                    console.log('[WS][handleShiftsUpdated] ✅ Условие выполнено, обновляем смены...');
+                    // Передаем chatId в fetchShifts
+                    dispatch(fetchShifts({ chatId }));
                     dispatch(fetchReservesForGroup({ groupId: parseInt(chatId, 10) }));
-                    console.log('[WS][handleShiftsUpdated] dispatch fetchShifts() + fetchReservesForGroup()');
+                    console.log('[WS][handleShiftsUpdated] dispatch fetchShifts({ chatId }) + fetchReservesForGroup()');
+                } else {
+                    console.log('[WS][handleShiftsUpdated] ❌ Условие НЕ выполнено:', {
+                        chatIdMatch: String(data.chat_id) === chatId,
+                        hasShiftData: !!data.shift_data,
+                        dataChatId: data.chat_id,
+                        currentChatId: chatId
+                    });
                 }
             }
         };

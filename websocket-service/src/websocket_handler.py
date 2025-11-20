@@ -299,6 +299,8 @@ async def disconnect(sid):
             # 🔧 НОВОЕ: Очищаем информацию о текущей категории пользователя
             if 'current_category' in user_info[sid]:
                 logger.info(f"📂 [CATEGORY] Очищаем текущую категорию для отключившегося пользователя {sid}")
+            # Помечаем как отключенного перед удалением (для фильтрации в get_room_users)
+            user_info[sid]['connection_state'] = CONNECTION_STATES['DISCONNECTED']
             del user_info[sid]
         
         # Удаляем состояние подключения
@@ -604,9 +606,22 @@ async def join_room(sid, data):
             logger.info(f"📨 Отправлен список пользователей комнаты {room} клиенту {sid}")
             
             # НОВОЕ: Формируем детальный список для ActiveUsersPanel
+            # Фильтруем только активные подключения (исключаем отключенные)
             room_users_for_panel = []
             for user_sid in current_room_sids:
+                # Проверяем, что подключение действительно активно
+                if user_sid not in user_info:
+                    continue
+                    
+                # Исключаем отключенных пользователей
+                connection_state = user_info[user_sid].get('connection_state', 'unknown')
+                if connection_state == CONNECTION_STATES['DISCONNECTED']:
+                    continue
+                    
                 user_data = user_info.get(user_sid, {}).get('user_info', {})
+                if not user_data:
+                    continue
+                    
                 # 🔧 НОВОЕ: Добавляем информацию о текущей категории пользователя
                 current_category = user_info.get(user_sid, {}).get('current_category')
                 
@@ -723,7 +738,16 @@ async def leave_room(sid, room):
         room_users_for_panel = []
         
         for user_sid in room_sids:
-            if user_sid in user_info and user_info[user_sid].get('user_info'):
+            # Фильтруем только активные подключения
+            if user_sid not in user_info:
+                continue
+                
+            # Исключаем отключенных пользователей
+            connection_state = user_info[user_sid].get('connection_state', 'unknown')
+            if connection_state == CONNECTION_STATES['DISCONNECTED']:
+                continue
+                
+            if user_info[user_sid].get('user_info'):
                 user_data_item = user_info[user_sid].get('user_info', {})
                 # 🔧 НОВОЕ: Добавляем информацию о текущей категории пользователя
                 current_category = user_info.get(user_sid, {}).get('current_category')
@@ -1164,13 +1188,23 @@ async def get_room_users(sid, data):
         logger.info(f"📊 [ACTIVE USERS] Найдены SID в комнате {room}: {room_sids}")
 
         # Формируем список пользователей для ActiveUsersPanel с информацией о состоянии подключения
+        # Фильтруем только активные подключения (исключаем отключенные)
         room_users_for_panel = []
         for user_sid in room_sids:
-            if user_sid in user_info and user_info[user_sid].get('user_info'):
+            # Проверяем, что подключение действительно активно
+            if user_sid not in user_info:
+                logger.warning(f"⚠️ [ACTIVE USERS] SID {user_sid} в комнате {room}, но нет в user_info - пропускаем")
+                continue
+                
+            # Проверяем состояние подключения - исключаем отключенных
+            connection_state = user_info[user_sid].get('connection_state', 'unknown')
+            if connection_state == CONNECTION_STATES['DISCONNECTED']:
+                logger.warning(f"⚠️ [ACTIVE USERS] SID {user_sid} в комнате {room}, но состояние DISCONNECTED - пропускаем")
+                continue
+                
+            if user_info[user_sid].get('user_info'):
                 user_data = user_info[user_sid].get('user_info', {})
                 
-                # Получаем информацию о состоянии подключения
-                connection_state = user_info[user_sid].get('connection_state', 'unknown')
                 connection_quality = connection_states.get(user_sid, {}).get('connection_quality', 'unknown')
                 last_activity = user_info[user_sid].get('last_activity', 0)
                 

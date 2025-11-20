@@ -25,6 +25,7 @@ import ChatSelector, { ChatItem } from '@shared/components/ChatSelector/ChatSele
 // НОВЫЕ ИМПОРТЫ для работы с курьерскими чатами
 import { fetchCourierChats } from '@features/courierSchedule/store/courierSlice/courierThunks';
 import { selectCourierChats, selectCourierChatsLoading, selectCourierChatsError } from '@features/courierSchedule/store/courierSlice/courierSelectors';
+import { socketService } from '@shared/services/socketService';
 
 const Container = styled.div`
     padding: 20px;
@@ -130,6 +131,35 @@ const CourierSchedule: React.FC = () => {
             setSelectedChatId(courierGroups[0].chat_id.toString());
         }
     }, [courierGroups]);
+
+    // Подключаемся к комнате WebSocket при выборе чата
+    useEffect(() => {
+        if (!selectedChatId || !user) {
+            return;
+        }
+
+        const connectToRoom = async () => {
+            if (!socketService.isConnected()) {
+                console.log('[CourierSchedule] WebSocket не подключен, откладываем подключение к комнате:', selectedChatId);
+                return;
+            }
+
+            console.log('[CourierSchedule] Подключаемся к комнате курьеров:', selectedChatId);
+            try {
+                await socketService.joinRoom(selectedChatId, {
+                    userId: user.id,
+                    first_name: user.first_name,
+                    last_name: user.last_name,
+                    photo_url: user.photo_url
+                });
+                console.log('[CourierSchedule] Успешно подключились к комнате:', selectedChatId);
+            } catch (error) {
+                console.error('[CourierSchedule] Ошибка подключения к комнате:', error);
+            }
+        };
+
+        connectToRoom();
+    }, [selectedChatId, user]);
 
     // ОБНОВЛЯЕМ: courierChatId теперь берется из курьерских чатов
     const courierChatId = useMemo(() => {

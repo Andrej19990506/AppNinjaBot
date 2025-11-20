@@ -40,11 +40,15 @@ let unsubscribeSocketConnect: (() => void) | null = null;
 const COURIER_ROUTE = '/courier/courier-schedule';
 
 // Получить chat_id курьерской группы из state
+// ВАЖНО: Не подключаемся автоматически к первому чату - только к выбранному
 const findCourierChatId = (state: RootState | null): string | undefined => {
     if (!state) {
         throw new Error('[Store:findCourierChatId] Попытка вызова до инициализации state!');
     }
-    return state.user?.user?.groups?.find(g => g.group_type === 'courier')?.chat_id?.toString();
+    // НЕ используем первый чат из списка - подключаемся только к выбранному чату
+    // Выбранный чат должен быть установлен через выбор в UI
+    // Возвращаем undefined, чтобы не подключаться автоматически
+    return undefined;
 };
 
 // Войти в комнату с защитой от частых переподключений и ретраями

@@ -13,12 +13,21 @@ services:
       - BOT_PORT=8003
       - SCHEDULER_API_URL=http://scheduler:8002
       - BOT_TYPE=main
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
+      - USE_DATABASE=true
     volumes:
       - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env.prod
     command: python -u /app/telegramNinjaBot/main.py
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     deploy:
       replicas: 1
       restart_policy:
@@ -43,12 +52,21 @@ services:
       - BOT_PORT=8003
       - SCHEDULER_API_URL=http://scheduler:8002
       - BOT_TYPE=companies
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=appninjabot
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
+      - USE_DATABASE=true
     volumes:
       - shared-data:/app/shared
     env_file:
       - ./backend/telegramNinjaBot/.env.prod
     command: python -u /app/telegramNinjaBot/main.py
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     deploy:
       replicas: 1
       restart_policy:

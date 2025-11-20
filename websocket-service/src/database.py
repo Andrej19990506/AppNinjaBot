@@ -77,7 +77,10 @@ async def listen_for_notifications(sio: socketio.AsyncServer):
 
                 # 🚨 ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: проверяем количество пользователей в комнате
                 try:
-                    room_users_count = len(sio.rooms.get(room_name, set()))
+                    # Правильный способ получения пользователей в комнате для socketio
+                    server_rooms = sio.manager.rooms.get('/', {})
+                    room_sids = server_rooms.get(room_name, set())
+                    room_users_count = len(room_sids)
                     logger.info(f"📊 Пользователей в комнате '{room_name}': {room_users_count}")
                     
                     if room_users_count == 0:

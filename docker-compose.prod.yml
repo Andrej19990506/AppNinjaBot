@@ -28,6 +28,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - ninja_network
     deploy:
       replicas: 1
       restart_policy:
@@ -67,6 +69,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    networks:
+      - ninja_network
     deploy:
       replicas: 1
       restart_policy:

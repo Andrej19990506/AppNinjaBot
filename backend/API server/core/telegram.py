@@ -2,10 +2,11 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
+from urllib.parse import parse_qsl
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel
-from telegram_init_data import validate as validate_init_data, parse as parse_init_data
+from telegram_init_data import validate as validate_init_data
 
 from core.config import settings
 
@@ -63,13 +64,23 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
             try:
                 # Валидируем init_data с помощью библиотеки
                 # validate() выбрасывает исключение, если валидация не прошла
-                validated_data = validate_init_data(init_data, token)
+                validate_init_data(init_data, token)
                 
                 logger.info(f"[Telegram Auth] Подпись валидна для токена {i+1}")
                 validation_success = True
                 
-                # Парсим данные после успешной валидации
-                data_dict = parse_init_data(init_data)
+                # Парсим данные вручную после успешной валидации
+                # (библиотека может не поддерживать все типы чатов, поэтому парсим сами)
+                pairs = parse_qsl(init_data, keep_blank_values=True)
+                data_dict = dict(pairs)
+                
+                # Декодируем JSON-поля
+                if "user" in data_dict:
+                    try:
+                        data_dict["user"] = json.loads(data_dict["user"])
+                    except json.JSONDecodeError:
+                        pass  # Оставляем как есть, если не JSON
+                
                 break
                 
             except Exception as e:

@@ -6,9 +6,13 @@ import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAppSelector } from '@/shared/store/hooks';
+import { useAppSelector, useAppDispatch } from '@/shared/store/hooks';
 import { RootState } from '@/shared/store/store';
+import { clearUserData } from '@/shared/store/userSlice/userSlice';
+import { setAuthToken } from '@/shared/api/api';
+import { socketService } from '@/shared/services/socketService';
 
 // Стилизуем контейнер как боковую панель
 const SidePanelContainer = styled.div<{ $isOpen: boolean; }>`
@@ -231,24 +235,49 @@ const NativeAppDescription = styled.span`
     line-height: 1.45;
 `;
 
-const NativeAppButton = styled.button`
+const NativeAppButton = styled.button<{ $disabled?: boolean }>`
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     padding: 12px 18px;
     border-radius: var(--radius-md);
-    background: rgba(0, 0, 0, 0.35);
-    color: var(--text-color-on-primary);
+    background: ${props => props.$disabled ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.35)'};
+    color: ${props => props.$disabled ? 'rgba(255, 255, 255, 0.5)' : 'var(--text-color-on-primary)'};
     font-weight: 600;
     border: 1px solid rgba(255, 255, 255, 0.25);
+    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+    transition: transform var(--transition-fast), background-color var(--transition-normal), border-color var(--transition-normal);
+    opacity: ${props => props.$disabled ? 0.6 : 1};
+
+    &:hover {
+        ${props => !props.$disabled && `
+            transform: translateY(-1px);
+            background: rgba(0, 0, 0, 0.45);
+            border-color: rgba(255, 255, 255, 0.4);
+        `}
+    }
+`;
+
+const LogoutButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    background: rgba(220, 38, 38, 0.2);
+    color: var(--text-color-on-primary);
+    font-weight: 600;
+    border: 1px solid rgba(220, 38, 38, 0.4);
     cursor: pointer;
     transition: transform var(--transition-fast), background-color var(--transition-normal), border-color var(--transition-normal);
+    width: 100%;
 
     &:hover {
         transform: translateY(-1px);
-        background: rgba(0, 0, 0, 0.45);
-        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(220, 38, 38, 0.3);
+        border-color: rgba(220, 38, 38, 0.6);
     }
 `;
 
@@ -271,6 +300,10 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
     });
     const { theme, toggleTheme } = useTheme();
     const { user } = useAppSelector((state: RootState) => state.user);
+    const dispatch = useAppDispatch();
+    
+    // Проверяем, находимся ли мы в браузере (не в Telegram Mini App)
+    const isBrowser = !window.Telegram?.WebApp;
 
     useEffect(() => {
         setHasMounted(true);
@@ -293,27 +326,35 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
         }
     };
 
-    const handleOpenNativeApp = () => {
-        const webApp = window.Telegram?.WebApp;
-        const initData = webApp?.initData;
-
-        if (!initData) {
-            showAlert('Не удалось получить данные авторизации Telegram. Попробуйте обновить мини-апп.');
-            return;
-        }
-
-        const deepLink = `flowixapp://auth?payload=${encodeURIComponent(initData)}`;
-
-        try {
-            if (webApp?.openLink) {
-                webApp.openLink(deepLink, { try_instant_view: false });
-            } else {
-                window.location.href = deepLink;
+    const handleLogout = () => {
+        // Очищаем токены
+        setAuthToken(null, null);
+        
+        // Очищаем данные пользователя из Redux
+        dispatch(clearUserData());
+        
+        // Отключаем WebSocket
+        if (socketService.isConnected() || socketService.isInitialized()) {
+            try {
+                socketService.disconnect();
+            } catch (error) {
+                console.error('[SideMenuPanel] Ошибка отключения WebSocket:', error);
             }
-        } catch (error) {
-            console.error('[SideMenuPanel] Ошибка открытия нативного приложения', error);
-            showAlert('Не удалось открыть нативное приложение Flowix. Убедитесь, что оно установлено.');
         }
+        
+        // Очищаем localStorage (кроме настроек темы и декора)
+        const winterDecorEnabled = localStorage.getItem('flowix-winter-decor-enabled');
+        const theme = localStorage.getItem('theme');
+        localStorage.clear();
+        if (winterDecorEnabled) {
+            localStorage.setItem('flowix-winter-decor-enabled', winterDecorEnabled);
+        }
+        if (theme) {
+            localStorage.setItem('theme', theme);
+        }
+        
+        // Перезагружаем страницу для повторной авторизации
+        window.location.reload();
     };
 
     const handleTutorialClick = () => {
@@ -414,10 +455,18 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
                     <NativeAppDescription>
                         Продолжайте работу в нативном приложении: быстрый QR-сканер, офлайн-режим и мгновенный вход через Telegram.
                     </NativeAppDescription>
-                    <NativeAppButton onClick={handleOpenNativeApp}>
-                        Открыть в приложении
+                    <NativeAppButton $disabled={true} disabled>
+                        В разработке
                     </NativeAppButton>
                 </NativeAppCard>
+                
+                {/* Кнопка выхода только для браузера */}
+                {isBrowser && (
+                    <MenuOption onClick={handleLogout} style={{ marginTop: '24px', background: 'rgba(220, 38, 38, 0.1)', borderColor: 'rgba(220, 38, 38, 0.3)' }}>
+                        <OptionLabel style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Выйти из аккаунта</OptionLabel>
+                        <OptionIcon><LogoutIcon fontSize="inherit" /></OptionIcon>
+                    </MenuOption>
+                )}
                 {/* <MenuOption onClick={handleCompetitionsClick}>
                     <OptionLabel>Конкурсы</OptionLabel>
                     <OptionIcon><EventIcon fontSize="inherit" /></OptionIcon>

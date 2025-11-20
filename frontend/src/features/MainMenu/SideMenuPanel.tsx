@@ -303,7 +303,22 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
     const dispatch = useAppDispatch();
     
     // Проверяем, находимся ли мы в браузере (не в Telegram Mini App)
-    const isBrowser = !window.Telegram?.WebApp;
+    // В реальном Telegram Mini App есть initData и версия WebApp
+    const webApp = window.Telegram?.WebApp;
+    const hasInitData = webApp?.initData && webApp.initData.length > 0;
+    const isBrowser = !hasInitData;
+    
+    // Логирование для отладки
+    useEffect(() => {
+        console.log('[SideMenuPanel] isBrowser check:', {
+            hasTelegram: !!window.Telegram,
+            hasWebApp: !!webApp,
+            hasInitData,
+            platform: webApp?.platform,
+            version: webApp?.version,
+            isBrowser
+        });
+    }, [hasInitData, isBrowser, webApp]);
 
     useEffect(() => {
         setHasMounted(true);
@@ -462,9 +477,24 @@ const SideMenuPanel: React.FC<SideMenuPanelProps> = ({
                 
                 {/* Кнопка выхода только для браузера */}
                 {isBrowser && (
-                    <MenuOption onClick={handleLogout} style={{ marginTop: '24px', background: 'rgba(220, 38, 38, 0.1)', borderColor: 'rgba(220, 38, 38, 0.3)' }}>
-                        <OptionLabel style={{ color: 'rgba(255, 255, 255, 0.9)' }}>Выйти из аккаунта</OptionLabel>
-                        <OptionIcon><LogoutIcon fontSize="inherit" /></OptionIcon>
+                    <MenuOption 
+                        onClick={handleLogout} 
+                        style={{ 
+                            marginTop: '24px', 
+                            background: 'rgba(220, 38, 38, 0.1)', 
+                            borderColor: 'rgba(220, 38, 38, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '16px 20px'
+                        }}
+                    >
+                        <OptionLabel style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                            Выйти из аккаунта
+                        </OptionLabel>
+                        <OptionIcon>
+                            <LogoutIcon fontSize="inherit" />
+                        </OptionIcon>
                     </MenuOption>
                 )}
                 {/* <MenuOption onClick={handleCompetitionsClick}>

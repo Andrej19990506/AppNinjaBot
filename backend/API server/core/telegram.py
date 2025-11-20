@@ -36,11 +36,10 @@ def _get_secret_key(bot_token: str) -> bytes:
 
 def _build_data_check_string(pairs: List[Tuple[str, str]]) -> str:
     logger.info(f"[Telegram Auth] _build_data_check_string: входные пары: {pairs}")
-    # Исключаем hash и signature из data_check_string
-    # hash - это сама подпись, которую мы проверяем
-    # signature - это отдельное поле для проверки подлинности мини-аппа (Bot API 8.0+), не входит в проверку hash
-    filtered = [(k, v) for k, v in pairs if k not in ("hash", "signature")]
-    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash и signature): {filtered}")
+    # Исключаем только hash из data_check_string
+    # В Bot API 8.0+ signature ДОЛЖЕН быть включен в data_check_string для проверки hash
+    filtered = [(k, v) for k, v in pairs if k != "hash"]
+    logger.info(f"[Telegram Auth] _build_data_check_string: отфильтрованные пары (без hash): {filtered}")
     filtered.sort(key=lambda item: item[0])
     logger.info(f"[Telegram Auth] _build_data_check_string: отсортированные пары: {filtered}")
     result = "\n".join(f"{k}={v}" for k, v in filtered)
@@ -118,14 +117,15 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
             detail="Missing hash in init data",
         )
 
-    # Для проверки подписи используем исходные URL-encoded значения
-    data_check_string = _build_data_check_string(pairs_raw)
-    logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
-    
     # Для парсинга user и других полей декодируем значения
     pairs = [(k, unquote(v)) for k, v in pairs_raw]
     data_dict = dict(pairs)
     logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
+    
+    # Для проверки подписи используем ДЕКОДИРОВАННЫЕ значения (как в документации Telegram)
+    # parse_qsl автоматически декодирует значения, что соответствует спецификации Telegram
+    data_check_string = _build_data_check_string(pairs)
+    logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
     
     if not _verify_signature(data_check_string, received_hash):
         logger.error(f"[Telegram Auth] Подпись не прошла валидацию. received_hash: {received_hash}")

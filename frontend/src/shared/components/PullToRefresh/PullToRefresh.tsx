@@ -31,7 +31,7 @@ const Container = styled.div<{ $visible: boolean; $distance: number }>`
   pointer-events: none;
   transition: ${props => (props.$visible ? 'none' : 'opacity 0.3s ease-out')};
   opacity: ${props => (props.$visible ? 1 : 0)};
-  background: ${props => props.theme.colors.background};
+  background: ${props => props.theme?.colors?.background || 'var(--background-color, #0D0D0D)'};
 `;
 
 const LoaderContainer = styled.div<{ $progress: number }>`
@@ -48,8 +48,8 @@ const LoaderContainer = styled.div<{ $progress: number }>`
 const Spinner = styled.div<{ $isRefreshing: boolean }>`
   width: 32px;
   height: 32px;
-  border: 3px solid ${props => props.theme.colors.border || 'rgba(255, 255, 255, 0.2)'};
-  border-top-color: ${props => props.theme.colors.primary || '#007bff'};
+  border: 3px solid ${props => props.theme?.colors?.border || 'rgba(255, 255, 255, 0.2)'};
+  border-top-color: ${props => props.theme?.colors?.primary || '#007bff'};
   border-radius: 50%;
   animation: ${props => (props.$isRefreshing ? spin : 'none')} 0.8s linear infinite;
   transition: border-color 0.3s ease;
@@ -58,7 +58,7 @@ const Spinner = styled.div<{ $isRefreshing: boolean }>`
 const Text = styled.span<{ $isRefreshing: boolean }>`
   font-size: 14px;
   font-weight: 500;
-  color: ${props => props.theme.colors.text || '#333'};
+  color: ${props => props.theme?.colors?.text || 'var(--text-color, #FFFFFF)'};
   opacity: ${props => (props.$isRefreshing ? 1 : 0.7)};
   transition: opacity 0.3s ease;
 `;

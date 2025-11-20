@@ -33,7 +33,14 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
     const chatId = selectedChatId || chatIdFromSelector;
 
     useEffect(() => {
-        if (!chatId) return () => {};
+        console.log('[WS][useCourierWebSocketSync] useEffect вызван, chatId:', chatId, 'selectedChatId:', selectedChatId);
+        
+        if (!chatId) {
+            console.log('[WS][useCourierWebSocketSync] ❌ chatId пустой, пропускаем подписку');
+            return () => {};
+        }
+
+        console.log('[WS][useCourierWebSocketSync] ✅ Подписываемся на события для chatId:', chatId);
 
         // --- Обработчики событий ---
         const handleShiftsUpdated = (data: ShiftsUpdatedWsPayload | any) => {
@@ -123,6 +130,7 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
         };
 
         // --- Подписки на события ---
+        console.log('[WS][useCourierWebSocketSync] Подписываемся на shifts_updated для chatId:', chatId);
         const unsubscribeShiftUpdated = socketService.subscribe('shifts_updated', handleShiftsUpdated);
         const unsubscribeShiftCancelled = socketService.subscribe('shift_cancelled', handleShiftCancelled);
         const unsubscribeReserveAdded = socketService.subscribe('reserve_added', handleReserveAdded);
@@ -130,8 +138,10 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
         const unsubscribeBulkRemoved = socketService.subscribe('bulk_reserve_removed', handleBulkReserveRemoved);
         const unsubscribeTransferred = socketService.subscribe('reserve_transferred_to_shift', handleReserveTransferred);
         const unsubscribeShiftAccessSent = socketService.subscribe('shift_access_sent', handleShiftAccessSent);
+        console.log('[WS][useCourierWebSocketSync] ✅ Подписки установлены для chatId:', chatId);
 
         return () => {
+            console.log('[WS][useCourierWebSocketSync] Отписка от событий для chatId:', chatId);
             unsubscribeShiftUpdated();
             unsubscribeShiftCancelled();
             unsubscribeReserveAdded();
@@ -140,5 +150,5 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
             unsubscribeTransferred();
             unsubscribeShiftAccessSent();
         };
-    }, [dispatch, chatId]);
+    }, [dispatch, chatId, selectedChatId]);
 }; 

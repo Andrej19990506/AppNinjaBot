@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Provider, useSelector } from 'react-redux';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom'; 
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles'; 
@@ -39,6 +39,8 @@ import Competitions from './features/Competitions/Competitions';
 import Requests from './features/Requests/Requests';
 import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './shared/utils/globalErrorHandler';
 import InstallPWAButton from './shared/components/InstallPWAButton/InstallPWAButton';
+import { usePullToRefresh } from './shared/hooks/usePullToRefresh';
+import { PullToRefresh } from './shared/components/PullToRefresh/PullToRefresh';
 
 
 
@@ -157,6 +159,38 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   useActivityNotifications(); // Глобальные уведомления активности
   const { isAwayOverlayVisible, handleContinueWork } = useAwayState(); // Управление заставкой отсутствия
 
+  // Функция для обновления всех данных приложения
+  const refreshApp = useCallback(async () => {
+    console.log('🔄 [PullToRefresh] Начинаем обновление приложения...');
+    
+    try {
+      // Обновляем данные пользователя
+      await dispatch(initializeFromTelegram()).unwrap();
+      console.log('✅ [PullToRefresh] Данные пользователя обновлены');
+
+      // Отправляем событие для обновления данных текущей страницы
+      window.dispatchEvent(new CustomEvent('appRefresh', { detail: { pathname: location.pathname } }));
+      console.log('✅ [PullToRefresh] Событие appRefresh отправлено');
+    } catch (error) {
+      console.error('❌ [PullToRefresh] Ошибка при обновлении:', error);
+      throw error;
+    }
+  }, [dispatch, location.pathname]);
+
+  // Pull-to-refresh функциональность
+  const {
+    isRefreshing,
+    isPulling,
+    progress,
+    pullDistance,
+    shouldShowLoader,
+  } = usePullToRefresh({
+    onRefresh: refreshApp,
+    threshold: 80,
+    resistance: 0.5,
+    disabled: showOverlay || !isUserInitialized || !!initError,
+  });
+
   // Обработчики для TutorialMaterials
   useEffect(() => {
     const handleStartTransition = () => {
@@ -223,7 +257,18 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   return (
     <>
-        <LoadingOverlay isLoading={showOverlay} /> 
+        <LoadingOverlay isLoading={showOverlay} />
+        
+        {/* Pull-to-refresh индикатор */}
+        {shouldShowLoader && (
+          <PullToRefresh
+            isRefreshing={isRefreshing}
+            isPulling={isPulling}
+            progress={progress}
+            pullDistance={pullDistance}
+            threshold={80}
+          />
+        )}
         
         {/* Показываем экран авторизации если требуется авторизация */}
         {!showOverlay && initError === 'AUTH_REQUIRED' && !isServerError && (

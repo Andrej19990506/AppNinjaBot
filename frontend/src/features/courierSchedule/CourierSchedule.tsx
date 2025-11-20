@@ -6,8 +6,10 @@ import CourierProfileDialog from '@/features/courierSchedule/components/CourierP
 import CourierCalendar from '@/features/courierSchedule/components/courier-calendar/index';
 import { addNotification} from '@shared/store/notificationSlice/notificationSlice';
 import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
-import { bookShift } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
+import { bookShift, fetchShifts, fetchAccessSettings } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
 import { fetchSlotConfig } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
+import { fetchAllShiftTemplatesThunk } from '@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks';
+import { fetchReservesForGroup } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
 import { format } from 'date-fns';
 import { ShiftAccessModalRef } from '@/features/courierSchedule/components/setting-panel/shift-access-modal-settings';
 import SettingsPanel from '@/features/courierSchedule/components/setting-panel/SettingsPanel';
@@ -207,6 +209,33 @@ const CourierSchedule: React.FC = () => {
             document.body.style.overflow = originalOverflow;
             };
     }, []);
+
+    // Обработчик события appRefresh для pull-to-refresh
+    useEffect(() => {
+        const handleAppRefresh = async (event: Event) => {
+            const customEvent = event as CustomEvent<{ pathname: string }>;
+            const pathname = customEvent.detail?.pathname;
+            if (pathname?.startsWith('/courier') && selectedChatId) {
+                console.log('🔄 [CourierSchedule] Обновление данных через pull-to-refresh...');
+                try {
+                    // Обновляем все данные курьерского расписания
+                    const chatId = Number(selectedChatId);
+                    await dispatch(fetchShifts({ chatId })).unwrap();
+                    await dispatch(fetchAllShiftTemplatesThunk(chatId)).unwrap();
+                    await dispatch(fetchReservesForGroup({ groupId: chatId })).unwrap();
+                    await dispatch(fetchAccessSettings({ chatId: String(chatId) })).unwrap();
+                    console.log('✅ [CourierSchedule] Данные обновлены');
+                } catch (error) {
+                    console.error('❌ [CourierSchedule] Ошибка при обновлении данных:', error);
+                }
+            }
+        };
+
+        window.addEventListener('appRefresh', handleAppRefresh);
+        return () => {
+            window.removeEventListener('appRefresh', handleAppRefresh);
+        };
+    }, [dispatch, selectedChatId]);
 
     const handleProfileSave = async (data: { 
         firstName: string; 

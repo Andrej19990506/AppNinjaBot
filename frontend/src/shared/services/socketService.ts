@@ -407,6 +407,42 @@ class SocketService {
       this.stateChangeEmitter.emit('template_updated', data);
     });
 
+    // Добавляем обработчики для событий курьерских смен
+    this.socket.on('shifts_updated', (data: any) => {
+      logger.info('📅 Получено событие: shifts_updated', data);
+      this.stateChangeEmitter.emit('shifts_updated', data);
+    });
+
+    this.socket.on('shift_cancelled', (data: any) => {
+      logger.info('❌ Получено событие: shift_cancelled', data);
+      this.stateChangeEmitter.emit('shift_cancelled', data);
+    });
+
+    this.socket.on('reserve_added', (data: any) => {
+      logger.info('➕ Получено событие: reserve_added', data);
+      this.stateChangeEmitter.emit('reserve_added', data);
+    });
+
+    this.socket.on('reserve_removed', (data: any) => {
+      logger.info('➖ Получено событие: reserve_removed', data);
+      this.stateChangeEmitter.emit('reserve_removed', data);
+    });
+
+    this.socket.on('bulk_reserve_removed', (data: any) => {
+      logger.info('🗑️ Получено событие: bulk_reserve_removed', data);
+      this.stateChangeEmitter.emit('bulk_reserve_removed', data);
+    });
+
+    this.socket.on('reserve_transferred_to_shift', (data: any) => {
+      logger.info('🔄 Получено событие: reserve_transferred_to_shift', data);
+      this.stateChangeEmitter.emit('reserve_transferred_to_shift', data);
+    });
+
+    this.socket.on('shift_access_sent', (data: any) => {
+      logger.info('🔓 Получено событие: shift_access_sent', data);
+      this.stateChangeEmitter.emit('shift_access_sent', data);
+    });
+
     // Глобальный лог всех событий
     this.socket.onAny((event, ...args) => {
       logger.log(`[SOCKET][onAny] Событие: ${event}`, ...args);

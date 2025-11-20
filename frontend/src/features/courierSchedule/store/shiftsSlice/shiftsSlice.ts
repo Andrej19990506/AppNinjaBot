@@ -132,7 +132,9 @@ const shiftsSlice = createSlice({
     extraReducers: (builder) => {
         builder
             .addCase(fetchShifts.fulfilled, (state, action) => {
+                console.log('[shiftsSlice] fetchShifts.fulfilled: получено смен:', action.payload.length);
                 state.shifts = action.payload;
+                console.log('[shiftsSlice] state.shifts обновлен, всего смен:', state.shifts.length);
             })
             .addCase(bookShift.pending, (state) => {
                 state.loading = true;

@@ -123,9 +123,10 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
     data_dict = dict(pairs)
     logger.info(f"[Telegram Auth] data_dict ключи: {list(data_dict.keys())}")
     
-    # Для проверки подписи используем ИСХОДНЫЕ URL-encoded значения (исключая hash и signature)
-    # Telegram использует исходные URL-encoded значения для проверки подписи
-    data_check_string = _build_data_check_string(pairs_raw)
+    # Для проверки подписи используем ДЕКОДИРОВАННЫЕ значения (исключая hash и signature)
+    # Согласно документации Telegram, parse_qsl автоматически декодирует значения,
+    # и именно декодированные значения используются для проверки подписи
+    data_check_string = _build_data_check_string(pairs)
     logger.info(f"[Telegram Auth] data_check_string построен: {data_check_string}")
     
     if not _verify_signature(data_check_string, received_hash):

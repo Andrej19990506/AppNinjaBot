@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import '@/styles/admin-variables.css'
 
@@ -10,6 +10,26 @@ export default function AdminLogin() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Проверяем, авторизован ли пользователь при загрузке страницы
+  useEffect(() => {
+    const checkAuth = () => {
+      const accessToken = localStorage.getItem('admin_access_token')
+      const adminUser = localStorage.getItem('admin_user')
+      
+      console.log('[Admin Login] Проверка авторизации при загрузке:', {
+        hasAccessToken: !!accessToken,
+        hasAdminUser: !!adminUser
+      })
+      
+      if (accessToken && adminUser) {
+        console.log('[Admin Login] Пользователь уже авторизован, редирект на /admin')
+        window.location.href = '/admin'
+      }
+    }
+    
+    checkAuth()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,11 +97,12 @@ export default function AdminLogin() {
         console.log('[Admin Login] Обновление роутера и редирект на /admin')
         // Обновляем роутер чтобы cookies применились
         router.refresh()
+        // Используем window.location.href для надежного редиректа
         // Небольшая задержка перед редиректом, чтобы cookies успели установиться
         setTimeout(() => {
-          console.log('[Admin Login] Выполнение редиректа на /admin')
-          router.push('/admin')
-        }, 100)
+          console.log('[Admin Login] Выполнение редиректа на /admin через window.location')
+          window.location.href = '/admin'
+        }, 200)
       } else {
         console.error('[Admin Login] ❌ Ошибка авторизации:', {
           status: response.status,

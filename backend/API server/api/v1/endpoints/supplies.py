@@ -1116,7 +1116,8 @@ async def send_delivery_notification(
         message_text = "\n".join(message_lines)
         
         # Отправляем сообщение через Telegram бот API
-        bot_api_url = os.getenv("BOT_API_URL", "http://bot:8003")
+        # Для ботов компаний используем bot-companies
+        bot_api_url = os.getenv("BOT_API_URL", "http://bot-companies:8003")
         if not bot_api_url:
             logger.error("❌ [SEND_NOTIFICATION] BOT_API_URL не задан в переменных окружения")
             raise HTTPException(

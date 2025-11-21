@@ -39,7 +39,8 @@ SHARED_FOLDER = Path("/app/shared/timesheets")
 SHARED_FOLDER.mkdir(parents=True, exist_ok=True)
 
 # <<< URL сервиса бота >>>
-BOT_INTERNAL_URL = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
+# Для ботов компаний используем bot-companies, для основного бота - bot-main
+BOT_INTERNAL_URL = os.getenv("BOT_INTERNAL_URL", "http://bot-companies:8003")
 
 # <<< Новая вспомогательная функция для очистки имени файла >>>
 def sanitize_filename(name: str) -> str:

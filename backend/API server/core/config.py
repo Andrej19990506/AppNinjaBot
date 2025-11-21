@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     RETAILIQA_API_TIMEOUT: int = int(os.getenv("RETAILIQA_API_TIMEOUT", 15)) # Таймаут в секундах
 
     # --- Настройки Telegram Bot Service ---
-    BOT_SERVICE_URL: str = os.getenv("BOT_SERVICE_URL", "http://bot:8003") # URL сервиса бота
+    # Для ботов компаний используем bot-companies, для основного бота - bot-main
+    BOT_SERVICE_URL: str = os.getenv("BOT_SERVICE_URL", "http://bot-companies:8003") # URL сервиса бота
 
     # --- Настройки авторизации через Telegram ---
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")

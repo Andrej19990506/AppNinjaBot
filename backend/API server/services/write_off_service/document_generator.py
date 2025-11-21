@@ -283,7 +283,8 @@ async def generate_and_send_write_off_report(
     absolute_file_path = str(file_path.resolve())
 
     # 6. Готовим данные для бота
-    bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
+    # Для ботов компаний используем bot-companies
+    bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot-companies:8003")
     send_report_endpoint = f"{bot_internal_base_url}/internal/send_write_off_report"
     bot_payload = {
         "chat_id": str(group_id),

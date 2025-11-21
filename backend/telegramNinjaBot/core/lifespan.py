@@ -308,12 +308,30 @@ async def lifespan(app: FastAPI):
                     if config.WEBHOOK_URL and config.WEBHOOK_PATH:
                         webhook_url = f"{config.WEBHOOK_URL.rstrip('/')}{config.WEBHOOK_PATH}"
                         secret_token = config.WEBHOOK_SECRET
+                        # Указываем allowed_updates для получения событий о новых участниках
+                        allowed_updates = [
+                            "message",  # Включает new_chat_members
+                            "edited_message",
+                            "channel_post",
+                            "edited_channel_post",
+                            "inline_query",
+                            "chosen_inline_result",
+                            "callback_query",
+                            "shipping_query",
+                            "pre_checkout_query",
+                            "poll",
+                            "poll_answer",
+                            "my_chat_member",
+                            "chat_member",
+                            "chat_join_request"
+                        ]
                         await bot_app_instance.bot.set_webhook(
                             url=webhook_url,
                             secret_token=secret_token,
-                            drop_pending_updates=True
+                            drop_pending_updates=True,
+                            allowed_updates=allowed_updates
                         )
-                        logger.info(f"✅ Вебхук установлен для бота: {bot_name}")
+                        logger.info(f"✅ Вебхук установлен для бота: {bot_name} с allowed_updates: {allowed_updates}")
             except Exception as e:
                 logger.error(f"❌ Ошибка при запуске бота {bot_name}: {e}")
                 raise

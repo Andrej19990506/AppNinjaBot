@@ -68,11 +68,19 @@ class GroupHandler:
     async def handle_new_chat_members(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Обработчик добавления новых участников в чат"""
         try:
+            logger.info(f"🔔 [handle_new_chat_members] Вызван обработчик для update_id={update.update_id}")
             chat = update.effective_chat
+            if not chat:
+                logger.warning("⚠️ [handle_new_chat_members] chat отсутствует в update")
+                return
+            
+            logger.info(f"📱 [handle_new_chat_members] Чат: {chat.title} (ID: {chat.id}), тип: {chat.type}")
             new_members = update.message.new_chat_members if update.message else []
+            logger.info(f"👥 [handle_new_chat_members] Новых участников: {len(new_members)}")
             
             # Проверяем, был ли добавлен бот
             is_bot_added = any(member.id == context.bot.id for member in new_members)
+            logger.info(f"🤖 [handle_new_chat_members] Бот добавлен: {is_bot_added}")
             
             if is_bot_added:
                 # Создаем уникальный идентификатор события

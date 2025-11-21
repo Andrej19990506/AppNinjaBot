@@ -311,15 +311,98 @@ async def telegram_webhook_endpoint(update_data: dict, request: Request):
             raise HTTPException(status_code=403, detail="Invalid secret token")
     
     try:
-        bot_app: Application = request.app.state.bot_application
+        from telegramNinjaBot.config.config import Config
+        config = Config()
+        
+        # Определяем, какой бот использовать
+        bot_app: Application = None
+        
+        if config.BOT_TYPE == 'companies':
+            # Для режима companies нужно найти правильный бот по chat_id из обновления
+            bot_applications = getattr(request.app.state, 'bot_applications', None)
+            if not bot_applications:
+                logger.error("bot_applications не найдены в app.state")
+                raise HTTPException(status_code=503, detail="Bot applications not available")
+            
+            # Извлекаем chat_id из обновления для определения правильного бота
+            chat_id = None
+            if 'message' in update_data and 'chat' in update_data['message']:
+                chat_id = update_data['message']['chat'].get('id')
+            elif 'chat_member' in update_data and 'chat' in update_data['chat_member']:
+                chat_id = update_data['chat_member']['chat'].get('id')
+            elif 'my_chat_member' in update_data and 'chat' in update_data['my_chat_member']:
+                chat_id = update_data['my_chat_member']['chat'].get('id')
+            
+            if chat_id:
+                # Пытаемся найти правильный бот для этой группы
+                db_pool = getattr(request.app.state, 'db_pool', None)
+                if db_pool:
+                    try:
+                        # Пробуем найти через group_role_mappings
+                        query = """
+                            SELECT cb.id, cb.bot_token, cb.company_name 
+                            FROM company_bots cb
+                            JOIN company_roles cr ON cb.id = cr.company_bot_id
+                            JOIN group_role_mappings grm ON cr.id = grm.company_role_id
+                            WHERE grm.group_id = $1 
+                                AND cb.is_active = true 
+                                AND cr.is_active = true
+                            LIMIT 1
+                        """
+                        bot_row = await db_pool.fetchrow(query, chat_id)
+                        
+                        if not bot_row:
+                            # Если не найден, пробуем напрямую по group_id
+                            query = """
+                                SELECT id, bot_token, company_name 
+                                FROM company_bots 
+                                WHERE group_id = $1 AND is_active = true
+                                LIMIT 1
+                            """
+                            bot_row = await db_pool.fetchrow(query, chat_id)
+                        
+                        if bot_row:
+                            company_bot_id = bot_row['id']
+                            logger.info(f"🔍 Найден бот компании для группы {chat_id}: {bot_row['company_name']} (ID: {company_bot_id})")
+                            
+                            # Ищем соответствующий bot_app по company_bot_id
+                            for app_instance in bot_applications:
+                                app_bot_id = app_instance.bot_data.get('company_bot_id')
+                                if app_bot_id == company_bot_id:
+                                    bot_app = app_instance
+                                    logger.info(f"✅ Найден соответствующий bot_app для бота компании ID: {company_bot_id}")
+                                    break
+                    except Exception as e:
+                        logger.error(f"Ошибка при поиске бота компании для группы {chat_id}: {e}")
+            
+            # Если не нашли конкретный бот, используем первый доступный (fallback)
+            if not bot_app and bot_applications:
+                bot_app = bot_applications[0]
+                logger.warning(f"⚠️ Не удалось найти конкретный бот для группы {chat_id}, используем первый доступный бот")
+        else:
+            # Для других режимов используем bot_application
+            bot_app = request.app.state.bot_application
+        
         if not bot_app:
             logger.error("Экземпляр bot_application не найден в app.state")
             raise HTTPException(status_code=503, detail="Bot application not available")
         
-        update = Update.de_json(update_data, bot_app.bot)
-        logger.info(f"Получено обновление через вебхук: {update.update_id}")
+        # Создаем временный бот для десериализации Update (нужен для определения типа обновления)
+        temp_bot = bot_app.bot if hasattr(bot_app, 'bot') else None
+        if not temp_bot and bot_applications:
+            temp_bot = bot_applications[0].bot
+        
+        update = Update.de_json(update_data, temp_bot)
+        logger.info(f"📥 Получено обновление через вебхук: update_id={update.update_id}, type={update.update_type}")
+        
+        # Логируем детали обновления для отладки
+        if update.message and update.message.new_chat_members:
+            logger.info(f"👥 Обновление содержит новых участников: {[m.id for m in update.message.new_chat_members]}")
+        if update.chat_member:
+            logger.info(f"👤 Обновление chat_member: user_id={update.chat_member.user.id}, status={update.chat_member.new_chat_member.status}")
         
         await bot_app.update_queue.put(update)
+        logger.info(f"✅ Обновление {update.update_id} добавлено в очередь бота")
         
         return {"ok": True}
         

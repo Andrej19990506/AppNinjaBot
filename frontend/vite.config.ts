@@ -31,6 +31,24 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+          },
+          {
+            src: '/Logo.png',
+            sizes: '180x180',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/Logo.png',
+            sizes: '152x152',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/Logo.png',
+            sizes: '120x120',
+            type: 'image/png',
+            purpose: 'any'
           }
         ],
         shortcuts: [

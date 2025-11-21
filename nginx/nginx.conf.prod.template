@@ -388,33 +388,69 @@ http {
         client_max_body_size 100M;
         large_client_header_buffers 4 32k;
 
-        # Обработка вебхука (ТЕПЕРЬ ЗДЕСЬ)
-        location = ${WEBHOOK_PATH} { # Используем переменную!
-             proxy_pass http://bot-companies:8003; # Проксируем на бот компаний (порт 8003)
+        # УНИВЕРСАЛЬНЫЕ WEBHOOK ENDPOINTS для всех ботов
+        # Поддерживает динамические пути:
+        # - /api/telegram/webhook/main - основной бот -> bot-main
+        # - /api/telegram/webhook/{bot_id} - боты компаний -> bot-companies
+        
+        # Webhook для основного бота
+        location = /api/telegram/webhook/main {
+             proxy_pass http://bot-main:8003;
              proxy_http_version 1.1;
-
-             # Стандартные заголовки для проксирования
              proxy_set_header Host $host;
-             proxy_set_header X-Real-IP $http_cf_connecting_ip; # Используем IP от Cloudflare
+             proxy_set_header X-Real-IP $http_cf_connecting_ip;
              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
              proxy_set_header X-Forwarded-Proto $scheme;
-             proxy_set_header Connection ""; # Сбрасываем Connection
-             
-             # КРИТИЧНО: Передаём секретный токен Telegram
+             proxy_set_header X-Forwarded-Host $host;
+             proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+             proxy_set_header CF-IPCountry $http_cf_ipcountry;
+             proxy_set_header CF-RAY $http_cf_ray;
              proxy_set_header X-Telegram-Bot-Api-Secret-Token $http_x_telegram_bot_api_secret_token;
-             
-             # Передаём все заголовки
              proxy_pass_request_headers on;
-
-             # Таймауты для webhook
-             proxy_read_timeout 300s;
-             proxy_send_timeout 300s;
+             proxy_read_timeout 60s;
+             proxy_send_timeout 60s;
              proxy_connect_timeout 10s;
-
-             # Логи вебхука
-             access_log /var/log/nginx/bot_webhook_access.log combined;
-             error_log /var/log/nginx/bot_webhook_error.log warn;
-         }
+        }
+        
+        # Webhook для ботов компаний (динамический путь с ID бота)
+        location ~ ^/api/telegram/webhook/(\d+)$ {
+             # Проксируем на bot-companies, который содержит универсальный endpoint
+             proxy_pass http://bot-companies:8003;
+             proxy_http_version 1.1;
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $http_cf_connecting_ip;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+             proxy_set_header X-Forwarded-Host $host;
+             proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+             proxy_set_header CF-IPCountry $http_cf_ipcountry;
+             proxy_set_header CF-RAY $http_cf_ray;
+             proxy_set_header X-Telegram-Bot-Api-Secret-Token $http_x_telegram_bot_api_secret_token;
+             proxy_pass_request_headers on;
+             proxy_read_timeout 60s;
+             proxy_send_timeout 60s;
+             proxy_connect_timeout 10s;
+        }
+        
+        # Fallback для старого webhook пути (обратная совместимость)
+        location = ${WEBHOOK_PATH} {
+             # Проксируем на bot-main для старого формата
+             proxy_pass http://bot-main:8003;
+             proxy_http_version 1.1;
+             proxy_set_header Host $host;
+             proxy_set_header X-Real-IP $http_cf_connecting_ip;
+             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+             proxy_set_header X-Forwarded-Proto $scheme;
+             proxy_set_header X-Forwarded-Host $host;
+             proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
+             proxy_set_header CF-IPCountry $http_cf_ipcountry;
+             proxy_set_header CF-RAY $http_cf_ray;
+             proxy_set_header X-Telegram-Bot-Api-Secret-Token $http_x_telegram_bot_api_secret_token;
+             proxy_pass_request_headers on;
+             proxy_read_timeout 60s;
+             proxy_send_timeout 60s;
+             proxy_connect_timeout 10s;
+        }
 
         # Write-offs photos specific rule (HIGH PRIORITY)
         location ^~ /v1/write-offs/photos/ {

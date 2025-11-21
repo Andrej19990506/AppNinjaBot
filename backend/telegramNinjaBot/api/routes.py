@@ -349,24 +349,26 @@ async def check_send_message_availability(request: Request):
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 
-# --- Эндпоинт для вебхука --- 
-# Используем значения из Config
+# --- УНИВЕРСАЛЬНЫЙ ЭНДПОИНТ ДЛЯ ВЕБХУКОВ --- 
+# Поддерживает динамические пути: /api/telegram/webhook/{bot_identifier}
+# где bot_identifier = "main" для основного бота или {bot_id} для ботов компаний
+
+# Используем значения из Config для обратной совместимости
 c = Config()
-WEBHOOK_TELEGRAM_PATH = c.WEBHOOK_PATH if c.WEBHOOK_PATH else "/webhook" # Используем /webhook по умолчанию, если путь не задан
 WEBHOOK_SECRET = c.WEBHOOK_SECRET
 
-if not WEBHOOK_TELEGRAM_PATH:
-    logger.warning("WEBHOOK_PATH не задан, эндпоинт вебхука не может быть создан динамически в роутере.")
-    # Можно либо не создавать роут, либо использовать статический путь
-    # raise ValueError("WEBHOOK_PATH не может быть пустым для регистрации эндпоинта вебхука")
-    WEBHOOK_TELEGRAM_PATH = "/webhook_fallback_path" # Запасной статический путь
-
-logger.info(f"Регистрация эндпоинта вебхука в роутере по пути: {WEBHOOK_TELEGRAM_PATH}")
-@router.post(WEBHOOK_TELEGRAM_PATH, include_in_schema=False) # Скрываем из автодокументации Swagger/OpenAPI
-async def telegram_webhook_endpoint(update_data: dict, request: Request):
-    """Принимает обновления от Telegram через вебхук."""
+# Универсальный endpoint для всех webhook путей
+@router.post("/api/telegram/webhook/{bot_identifier}", include_in_schema=False)
+async def telegram_webhook_universal(bot_identifier: str, update_data: dict, request: Request):
+    """Универсальный endpoint для обработки webhook от Telegram.
     
-    logger.info(f"📥 Получено обновление через вебхук: {json.dumps(update_data, ensure_ascii=False, default=str)[:500]}")
+    Поддерживает пути:
+    - /api/telegram/webhook/main - основной бот
+    - /api/telegram/webhook/{bot_id} - боты компаний (где bot_id - ID из таблицы company_bots)
+    """
+    
+    logger.info(f"📥 Получено обновление через вебхук для бота: {bot_identifier}")
+    logger.debug(f"Обновление: {json.dumps(update_data, ensure_ascii=False, default=str)[:500]}")
     
     # Проверка секретного токена (если используется)
     if WEBHOOK_SECRET:
@@ -375,80 +377,59 @@ async def telegram_webhook_endpoint(update_data: dict, request: Request):
             logger.warning(f"Неверный секретный токен вебхука: {secret_token_header}")
             raise HTTPException(status_code=403, detail="Invalid secret token")
         else:
-            logger.info("✅ Секретный токен вебхука проверен успешно")
+            logger.debug("✅ Секретный токен вебхука проверен успешно")
     
     try:
         from telegramNinjaBot.config.config import Config
         config = Config()
         
-        # Определяем, какой бот использовать
+        # Определяем, какой бот использовать по bot_identifier
         bot_app: Application = None
         
-        if config.BOT_TYPE == 'companies':
-            # Для режима companies нужно найти правильный бот по chat_id из обновления
+        if bot_identifier == "main":
+            # Основной бот
+            bot_app = getattr(request.app.state, 'bot_application', None)
+            if not bot_app:
+                logger.error("Экземпляр bot_application не найден в app.state для основного бота")
+                raise HTTPException(status_code=503, detail="Main bot application not available")
+            logger.info("✅ Используется основной бот (main)")
+            
+        elif bot_identifier.isdigit():
+            # Бот компании по ID из пути webhook
+            bot_id = int(bot_identifier)
+            logger.info(f"🔍 Поиск бота компании по ID: {bot_id}")
+            
+            # Ищем бота в bot_applications по company_bot_id
             bot_applications = getattr(request.app.state, 'bot_applications', None)
-            if not bot_applications:
-                logger.error("bot_applications не найдены в app.state")
-                raise HTTPException(status_code=503, detail="Bot applications not available")
-            
-            # Извлекаем chat_id из обновления для определения правильного бота
-            chat_id = None
-            if 'message' in update_data and 'chat' in update_data['message']:
-                chat_id = update_data['message']['chat'].get('id')
-            elif 'chat_member' in update_data and 'chat' in update_data['chat_member']:
-                chat_id = update_data['chat_member']['chat'].get('id')
-            elif 'my_chat_member' in update_data and 'chat' in update_data['my_chat_member']:
-                chat_id = update_data['my_chat_member']['chat'].get('id')
-            
-            if chat_id:
-                # Пытаемся найти правильный бот для этой группы
-                db_pool = getattr(request.app.state, 'db_pool', None)
-                if db_pool:
-                    try:
-                        # Пробуем найти через group_role_mappings
-                        query = """
-                            SELECT cb.id, cb.bot_token, cb.company_name 
-                            FROM company_bots cb
-                            JOIN company_roles cr ON cb.id = cr.company_bot_id
-                            JOIN group_role_mappings grm ON cr.id = grm.company_role_id
-                            WHERE grm.group_id = $1 
-                                AND cb.is_active = true 
-                                AND cr.is_active = true
-                            LIMIT 1
-                        """
-                        bot_row = await db_pool.fetchrow(query, chat_id)
-                        
-                        if not bot_row:
-                            # Если не найден, пробуем напрямую по group_id
-                            query = """
-                                SELECT id, bot_token, company_name 
-                                FROM company_bots 
-                                WHERE group_id = $1 AND is_active = true
-                                LIMIT 1
-                            """
-                            bot_row = await db_pool.fetchrow(query, chat_id)
-                        
-                        if bot_row:
-                            company_bot_id = bot_row['id']
-                            logger.info(f"🔍 Найден бот компании для группы {chat_id}: {bot_row['company_name']} (ID: {company_bot_id})")
-                            
-                            # Ищем соответствующий bot_app по company_bot_id
-                            for app_instance in bot_applications:
-                                app_bot_id = app_instance.bot_data.get('company_bot_id')
-                                if app_bot_id == company_bot_id:
-                                    bot_app = app_instance
-                                    logger.info(f"✅ Найден соответствующий bot_app для бота компании ID: {company_bot_id}")
-                                    break
-                    except Exception as e:
-                        logger.error(f"Ошибка при поиске бота компании для группы {chat_id}: {e}")
-            
-            # Если не нашли конкретный бот, используем первый доступный (fallback)
-            if not bot_app and bot_applications:
-                bot_app = bot_applications[0]
-                logger.warning(f"⚠️ Не удалось найти конкретный бот для группы {chat_id}, используем первый доступный бот")
+            if bot_applications:
+                for app_instance in bot_applications:
+                    app_bot_id = app_instance.bot_data.get('company_bot_id')
+                    if app_bot_id == bot_id:
+                        bot_app = app_instance
+                        bot_name = app_instance.bot_data.get('company_name', f'Bot {bot_id}')
+                        logger.info(f"✅ Найден bot_app для бота компании: {bot_name} (ID: {bot_id})")
+                        break
+                
+                if not bot_app:
+                    logger.error(f"❌ Бот компании с ID {bot_id} не найден в bot_applications")
+                    raise HTTPException(status_code=404, detail=f"Company bot with ID {bot_id} not found")
+            else:
+                # Проверяем, может быть это режим company (один бот)
+                if config.BOT_TYPE == 'company':
+                    bot_app = getattr(request.app.state, 'bot_application', None)
+                    app_bot_id = bot_app.bot_data.get('company_bot_id') if bot_app else None
+                    if app_bot_id == bot_id:
+                        logger.info(f"✅ Найден bot_app для бота компании (single bot mode, ID: {bot_id})")
+                    else:
+                        logger.error(f"❌ Бот компании с ID {bot_id} не соответствует текущему боту")
+                        raise HTTPException(status_code=404, detail=f"Company bot with ID {bot_id} not found")
+                else:
+                    logger.error("bot_applications не найдены в app.state")
+                    raise HTTPException(status_code=503, detail="Bot applications not available")
         else:
-            # Для других режимов используем bot_application
-            bot_app = request.app.state.bot_application
+            # Неизвестный bot_identifier
+            logger.error(f"❌ Неизвестный bot_identifier: {bot_identifier}")
+            raise HTTPException(status_code=404, detail=f"Invalid bot identifier: {bot_identifier}")
         
         if not bot_app:
             logger.error("Экземпляр bot_application не найден в app.state")
@@ -489,16 +470,52 @@ async def telegram_webhook_endpoint(update_data: dict, request: Request):
             logger.info(f"👤 Обновление chat_member: user_id={update.chat_member.user.id}, status={update.chat_member.new_chat_member.status}")
         
         await bot_app.update_queue.put(update)
-        logger.info(f"✅ Обновление {update.update_id} добавлено в очередь бота")
+        logger.info(f"✅ Обновление {update.update_id} добавлено в очередь бота ({bot_identifier})")
         
         return {"ok": True}
         
     except json.JSONDecodeError:
         logger.error("Ошибка декодирования JSON в вебхуке")
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
+    except HTTPException:
+        # Пробрасываем HTTP исключения как есть
+        raise
     except Exception as e:
         logger.error(f"Ошибка при обработке вебхука: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error handling webhook")
+
+
+# --- СТАРЫЙ ЭНДПОИНТ ДЛЯ ОБРАТНОЙ СОВМЕСТИМОСТИ ---
+# Оставляем для совместимости со старыми webhook путями
+c = Config()
+WEBHOOK_TELEGRAM_PATH = c.WEBHOOK_PATH if c.WEBHOOK_PATH else None
+if WEBHOOK_TELEGRAM_PATH and WEBHOOK_TELEGRAM_PATH != "/api/telegram/webhook/{bot_identifier}":
+    logger.info(f"Регистрация старого эндпоинта вебхука для обратной совместимости: {WEBHOOK_TELEGRAM_PATH}")
+    @router.post(WEBHOOK_TELEGRAM_PATH, include_in_schema=False)
+    async def telegram_webhook_endpoint_legacy(update_data: dict, request: Request):
+        """Старый endpoint для обратной совместимости. Перенаправляет на универсальный endpoint."""
+        logger.warning(f"⚠️ Используется старый webhook path: {WEBHOOK_TELEGRAM_PATH}. Рекомендуется перейти на новый формат.")
+        # Определяем bot_identifier из конфига или по умолчанию "main"
+        from telegramNinjaBot.config.config import Config
+        config = Config()
+        if config.BOT_TYPE == 'main':
+            bot_identifier = "main"
+        elif config.BOT_TYPE in ('company', 'companies'):
+            # Для ботов компаний пытаемся определить ID
+            bot_app = getattr(request.app.state, 'bot_application', None)
+            if bot_app:
+                bot_id = bot_app.bot_data.get('company_bot_id')
+                if bot_id:
+                    bot_identifier = str(bot_id)
+                else:
+                    bot_identifier = "main"  # Fallback
+            else:
+                bot_identifier = "main"
+        else:
+            bot_identifier = "main"
+        
+        # Перенаправляем на универсальный endpoint
+        return await telegram_webhook_universal(bot_identifier, update_data, request)
 
 
 # --- НОВЫЙ ЭНДПОИНТ /internal/send-file --- 

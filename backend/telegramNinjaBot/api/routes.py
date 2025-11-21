@@ -397,7 +397,24 @@ async def telegram_webhook_endpoint(update_data: dict, request: Request):
             temp_bot = bot_applications[0].bot
         
         update = Update.de_json(update_data, temp_bot)
-        logger.info(f"📥 Получено обновление через вебхук: update_id={update.update_id}, type={update.update_type}")
+        # Определяем тип обновления вручную
+        update_type = None
+        if update.message:
+            if update.message.new_chat_members:
+                update_type = "new_chat_members"
+            elif update.message.left_chat_member:
+                update_type = "left_chat_member"
+            else:
+                update_type = "message"
+        elif update.chat_member:
+            update_type = "chat_member"
+        elif update.my_chat_member:
+            update_type = "my_chat_member"
+        elif update.callback_query:
+            update_type = "callback_query"
+        else:
+            update_type = "unknown"
+        logger.info(f"📥 Получено обновление через вебхук: update_id={update.update_id}, type={update_type}")
         
         # Логируем детали обновления для отладки
         if update.message and update.message.new_chat_members:

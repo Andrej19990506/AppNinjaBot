@@ -328,13 +328,39 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 logger.info(f"✅ Токен авторизации создан для пользователя {user.id}: {auth_token[:8]}...")
                 return
             else:
-                # Основной бот обрабатывает только /start auth
+                # Основной бот - показываем приветствие с кнопкой мини-аппа
+                web_app_url = config.WEB_APP_URL
+                
+                # Создаем кнопку с мини-аппом, если URL задан
+                keyboard_buttons = []
+                if web_app_url:
+                    keyboard_buttons.append([
+                        InlineKeyboardButton(
+                            text="🌐 Открыть приложение",
+                            web_app=WebAppInfo(url=web_app_url)
+                        )
+                    ])
+                
+                # Добавляем кнопку для авторизации через команду (fallback)
+                keyboard_buttons.append([
+                    InlineKeyboardButton(
+                        text="🔐 Авторизация через команду",
+                        callback_data="auth_via_command"
+                    )
+                ])
+                
+                keyboard = InlineKeyboardMarkup(keyboard_buttons) if keyboard_buttons else None
+                
+                message_text = (
+                    f"🔐 *Основной бот FloWix*\n\n"
+                    f"Добро пожаловать! Для авторизации в системе используйте кнопку ниже.\n\n"
+                    f"Нажмите *\"Открыть приложение\"* для авторизации через веб-приложение.\n\n"
+                    f"Для работы с группами используйте бота вашей компании."
+                )
+                
                 await update.message.reply_text(
-                    f"🔐 *Основной бот приложения*\n\n"
-                    f"Этот бот используется только для авторизации в приложении.\n\n"
-                    f"Для авторизации используйте команду:\n"
-                    f"`/start auth`\n\n"
-                    f"Для работы с группами используйте бота вашей компании.",
+                    message_text,
+                    reply_markup=keyboard,
                     parse_mode='Markdown'
                 )
                 return
@@ -812,6 +838,60 @@ async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             await update.effective_message.reply_text(
                 "❌ Произошла системная ошибка. Попробуйте позже."
         )
+
+
+async def handle_auth_via_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик callback для авторизации через команду"""
+    try:
+        query = update.callback_query
+        if not query:
+            return
+        
+        await query.answer()
+        
+        if query.data == "auth_via_command":
+            user = query.from_user
+            config = Config()
+            
+            # Проверяем, что это основной бот
+            if config.BOT_TYPE != 'main':
+                await query.message.reply_text(
+                    "❌ Этот обработчик доступен только в основном боте приложения."
+                )
+                return
+            
+            # Получаем сервис БД
+            db_service = context.application.bot_data.get('db_service')
+            if not db_service:
+                await query.message.reply_text(
+                    "❌ Ошибка системы. Попробуйте позже."
+                )
+                return
+            
+            # Проверяем, что пользователь существует в БД
+            user_groups = await db_service.get_user_groups(user.id)
+            if not user_groups:
+                await query.message.reply_text(
+                    f"❌ *Авторизация недоступна*\n\n"
+                    f"Вы не зарегистрированы ни в одной группе в системе.\n\n"
+                    f"📞 **Для регистрации обратитесь к своему руководителю.**",
+                    parse_mode='Markdown'
+                )
+                return
+            
+            # Инструкция по авторизации
+            await query.message.reply_text(
+                f"🔐 *Авторизация через команду*\n\n"
+                f"Для авторизации в приложении используйте команду:\n\n"
+                f"`/start auth`\n\n"
+                f"После выполнения команды откройте приложение в браузере и авторизуйтесь через Telegram.",
+                parse_mode='Markdown'
+            )
+            
+    except Exception as e:
+        logger.error(f"Ошибка при обработке callback авторизации: {e}", exc_info=True)
+        if update.callback_query:
+            await update.callback_query.answer("Произошла ошибка. Попробуйте позже.")
 
 
 async def handle_all_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

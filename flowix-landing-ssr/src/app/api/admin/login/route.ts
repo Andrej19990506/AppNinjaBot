@@ -116,29 +116,55 @@ export async function POST(request: NextRequest) {
     console.log('[Admin Login API] Устанавливаем cookies с токенами')
 
     // Устанавливаем cookies с токенами
+    // Определяем, нужно ли использовать secure (только для HTTPS)
+    // Проверяем заголовок X-Forwarded-Proto (для reverse proxy как nginx)
+    const forwardedProto = request.headers.get('x-forwarded-proto')
+    const protocol = forwardedProto || request.nextUrl.protocol.replace(':', '')
+    const isSecure = protocol === 'https'
+    console.log('[Admin Login API] Protocol check:', {
+      'x-forwarded-proto': forwardedProto,
+      'request.nextUrl.protocol': request.nextUrl.protocol,
+      'final protocol': protocol,
+      'isSecure': isSecure
+    })
+    
     if (data.access_token) {
-      nextResponse.cookies.set('admin_token', data.access_token, {
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isSecure, // Используем secure только для HTTPS
+        sameSite: 'lax' as const,
         maxAge: 60 * 60 * 24 * 7, // 7 дней (но токен живет 15 минут, refresh будет обновлять)
         path: '/',
+      }
+      nextResponse.cookies.set('admin_token', data.access_token, cookieOptions)
+      console.log('[Admin Login API] ✅ Cookie admin_token установлен с опциями:', {
+        httpOnly: cookieOptions.httpOnly,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        path: cookieOptions.path,
+        maxAge: cookieOptions.maxAge
       })
-      console.log('[Admin Login API] ✅ Cookie admin_token установлен')
     } else {
       console.warn('[Admin Login API] ⚠️ access_token отсутствует, не устанавливаем cookie')
     }
     
     // Сохраняем refresh token
     if (data.refresh_token) {
-      nextResponse.cookies.set('admin_refresh_token', data.refresh_token, {
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        secure: isSecure, // Используем secure только для HTTPS
+        sameSite: 'lax' as const,
         maxAge: 60 * 60 * 24 * 7, // 7 дней
         path: '/',
+      }
+      nextResponse.cookies.set('admin_refresh_token', data.refresh_token, cookieOptions)
+      console.log('[Admin Login API] ✅ Cookie admin_refresh_token установлен с опциями:', {
+        httpOnly: cookieOptions.httpOnly,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        path: cookieOptions.path,
+        maxAge: cookieOptions.maxAge
       })
-      console.log('[Admin Login API] ✅ Cookie admin_refresh_token установлен')
     } else {
       console.warn('[Admin Login API] ⚠️ refresh_token отсутствует, не устанавливаем cookie')
     }

@@ -46,6 +46,69 @@ ALLOWED_VIDEOS_DIR = Path("/app/shared/competition_videos")
 # Создаем APIRouter
 router = APIRouter()
 
+# --- Вспомогательная функция для поиска правильного бота компании ---
+async def find_company_bot_for_chat(chat_id: int, request: Request) -> Optional[Application]:
+    """
+    Находит правильный бот компании для указанного chat_id.
+    Возвращает Application или None, если не найден.
+    """
+    from telegramNinjaBot.config.config import Config
+    config = Config()
+    
+    if config.BOT_TYPE != 'companies':
+        return None
+    
+    bot_applications = getattr(request.app.state, 'bot_applications', None)
+    if not bot_applications:
+        return None
+    
+    db_pool = getattr(request.app.state, 'db_pool', None)
+    if not db_pool:
+        return None
+    
+    try:
+        # Сначала пробуем найти через group_role_mappings
+        query = """
+            SELECT cb.id, cb.bot_token, cb.company_name 
+            FROM company_bots cb
+            JOIN company_roles cr ON cb.id = cr.company_bot_id
+            JOIN group_role_mappings grm ON cr.id = grm.company_role_id
+            WHERE grm.group_id = $1 
+                AND cb.is_active = true 
+                AND cr.is_active = true
+            LIMIT 1
+        """
+        bot_row = await db_pool.fetchrow(query, chat_id)
+        
+        if not bot_row:
+            # Если не найден через group_role_mappings, пробуем напрямую по group_id
+            query = """
+                SELECT id, bot_token, company_name 
+                FROM company_bots 
+                WHERE group_id = $1 AND is_active = true
+                LIMIT 1
+            """
+            bot_row = await db_pool.fetchrow(query, chat_id)
+        
+        if bot_row:
+            company_bot_id = bot_row['id']
+            logger.info(f"🔍 Найден бот компании для группы {chat_id}: {bot_row['company_name']} (ID: {company_bot_id})")
+            
+            # Ищем соответствующий bot_app по company_bot_id
+            for app_instance in bot_applications:
+                app_bot_id = app_instance.bot_data.get('company_bot_id')
+                if app_bot_id == company_bot_id:
+                    logger.info(f"✅ Найден bot_app для бота компании {bot_row['company_name']}")
+                    return app_instance
+            
+            logger.warning(f"⚠️ Bot_app не найден для company_bot_id={company_bot_id}, хотя бот найден в БД")
+        else:
+            logger.warning(f"⚠️ Бот компании не найден для группы {chat_id} в БД")
+    except Exception as e:
+        logger.error(f"❌ Ошибка при поиске бота компании для группы {chat_id}: {e}", exc_info=True)
+    
+    return None
+
 # --- Эндпоинт /api/send_message --- 
 @router.post("/send_message", tags=["API"])
 async def send_message_api_v2(payload: SendMessagePayload, request: Request):
@@ -393,8 +456,11 @@ async def telegram_webhook_endpoint(update_data: dict, request: Request):
         
         # Создаем временный бот для десериализации Update (нужен для определения типа обновления)
         temp_bot = bot_app.bot if hasattr(bot_app, 'bot') else None
-        if not temp_bot and bot_applications:
-            temp_bot = bot_applications[0].bot
+        if not temp_bot:
+            # Fallback: пытаемся получить из bot_applications, если доступны
+            bot_applications = getattr(request.app.state, 'bot_applications', None)
+            if bot_applications:
+                temp_bot = bot_applications[0].bot
         
         update = Update.de_json(update_data, temp_bot)
         # Определяем тип обновления вручную
@@ -443,12 +509,6 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
     logger.debug(f"Payload: {payload.model_dump()}")
 
     try:
-        # Получаем экземпляр бота
-        bot_app: Application = request.app.state.bot_application
-        if not bot_app or not bot_app.bot:
-            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send-file")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
-
         # Преобразуем формат ID чата
         try:
             processed_chat_id = int(payload.target_chat_id)
@@ -456,6 +516,32 @@ async def send_file_internal(payload: SendFilePayload, request: Request):
         except ValueError:
             logger.error(f"Не удалось преобразовать target_chat_id '{payload.target_chat_id}' в число")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid target_chat_id format: {payload.target_chat_id}")
+
+        # Определяем, какой бот использовать для этой группы
+        bot_app: Application = None
+        
+        # Пытаемся найти бот компании для этой группы
+        company_bot = await find_company_bot_for_chat(processed_chat_id, request)
+        if company_bot:
+            bot_app = company_bot
+        else:
+            # Если режим companies, но бот не найден, используем первый доступный
+            from telegramNinjaBot.config.config import Config
+            config = Config()
+            if config.BOT_TYPE == 'companies':
+                bot_applications = getattr(request.app.state, 'bot_applications', None)
+                if bot_applications:
+                    bot_app = bot_applications[0]
+                    logger.warning(f"⚠️ Используем первый доступный бот для группы {payload.target_chat_id} (бот компании не найден)")
+                else:
+                    logger.error("❌ bot_applications не найдены в app.state")
+            else:
+                # Для других режимов используем основной бот
+                bot_app = request.app.state.bot_application
+        
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send-file")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
 
         # Валидация пути к файлу
         requested_path = Path(payload.file_path)
@@ -725,12 +811,6 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
     resolved_path: Optional[Path] = None # Инициализируем перед try
 
     try:
-        # Получаем экземпляр бота
-        bot_app: Application = request.app.state.bot_application
-        if not bot_app or not bot_app.bot:
-            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send_excel_report")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
-
         # Преобразуем формат ID чата (ожидаем ID группы, он должен быть отрицательным)
         try:
             # Убедимся, что chat_id начинается с "-", как и должно быть для групп
@@ -744,6 +824,32 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
         except ValueError:
             logger.error(f"Не удалось преобразовать chat_id '{payload.chat_id}' в число")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {payload.chat_id}")
+
+        # Определяем, какой бот использовать для этой группы
+        bot_app: Application = None
+        
+        # Пытаемся найти бот компании для этой группы
+        company_bot = await find_company_bot_for_chat(processed_chat_id, request)
+        if company_bot:
+            bot_app = company_bot
+        else:
+            # Если режим companies, но бот не найден, используем первый доступный
+            from telegramNinjaBot.config.config import Config
+            config = Config()
+            if config.BOT_TYPE == 'companies':
+                bot_applications = getattr(request.app.state, 'bot_applications', None)
+                if bot_applications:
+                    bot_app = bot_applications[0]
+                    logger.warning(f"⚠️ Используем первый доступный бот для группы {payload.chat_id} (бот компании не найден)")
+                else:
+                    logger.error("❌ bot_applications не найдены в app.state")
+            else:
+                # Для других режимов используем основной бот
+                bot_app = request.app.state.bot_application
+        
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send_excel_report")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
 
         # Валидация пути к файлу
         requested_path = Path(payload.file_path)
@@ -855,22 +961,43 @@ async def send_write_off_report_internal(payload: SendWriteOffReportPayload, req
     resolved_path: Optional[Path] = None
 
     try:
-        bot_app: Application = request.app.state.bot_application
-        if not bot_app or not bot_app.bot:
-            logger.error("\u274c \u042d\u043a\u0437\u0435\u043c\u043f\u043b\u044f\u0440 \u0431\u043e\u0442\u0430 \u043d\u0435 \u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d \u0432 app.state \u043f\u0440\u0438 \u0437\u0430\u043f\u0440\u043e\u0441\u0435 send_write_off_report")
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
-
         # Преобразуем chat_id
         try:
             if not payload.chat_id.startswith('-'):
-                logger.warning(f"\u041f\u043e\u043b\u0443\u0447\u0435\u043d chat_id '{payload.chat_id}' \u0431\u0435\u0437 \u043c\u0438\u043d\u0443\u0441\u0430 \u0434\u043b\u044f \u0433\u0440\u0443\u043f\u043f\u044b. \u041f\u044b\u0442\u0430\u044e\u0441\u044c \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c...")
+                logger.warning(f"Получен chat_id '{payload.chat_id}' без минуса для группы. Пытаюсь добавить...")
                 processed_chat_id = int(f"-{payload.chat_id}")
             else:
                 processed_chat_id = int(payload.chat_id)
-            logger.info(f"ID \u0447\u0430\u0442\u0430 \u0434\u043b\u044f \u043e\u0442\u043f\u0440\u0430\u0432\u043a\u0438 \u043e\u0442\u0447\u0451\u0442\u0430: {processed_chat_id}")
+            logger.info(f"ID чата для отправки отчёта: {processed_chat_id}")
         except ValueError:
-            logger.error(f"\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u0440\u0435\u043e\u0431\u0440\u0430\u0437\u043e\u0432\u0430\u0442\u044c chat_id '{payload.chat_id}' \u0432 \u0447\u0438\u0441\u043b\u043e")
+            logger.error(f"Не удалось преобразовать chat_id '{payload.chat_id}' в число")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {payload.chat_id}")
+
+        # Определяем, какой бот использовать для этой группы
+        bot_app: Application = None
+        
+        # Пытаемся найти бот компании для этой группы
+        company_bot = await find_company_bot_for_chat(processed_chat_id, request)
+        if company_bot:
+            bot_app = company_bot
+        else:
+            # Если режим companies, но бот не найден, используем первый доступный
+            from telegramNinjaBot.config.config import Config
+            config = Config()
+            if config.BOT_TYPE == 'companies':
+                bot_applications = getattr(request.app.state, 'bot_applications', None)
+                if bot_applications:
+                    bot_app = bot_applications[0]
+                    logger.warning(f"⚠️ Используем первый доступный бот для группы {payload.chat_id} (бот компании не найден)")
+                else:
+                    logger.error("❌ bot_applications не найдены в app.state")
+            else:
+                # Для других режимов используем основной бот
+                bot_app = request.app.state.bot_application
+        
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send_write_off_report")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
 
         # \u0412\u0430\u043b\u0438\u0434\u0430\u0446\u0438\u044f \u043f\u0443\u0442\u0438 \u043a \u0444\u0430\u0439\u043b\u0443
         requested_path = Path(payload.file_path)

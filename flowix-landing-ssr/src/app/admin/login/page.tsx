@@ -95,14 +95,15 @@ export default function AdminLogin() {
         })
         
         console.log('[Admin Login] Обновление роутера и редирект на /admin')
-        // Обновляем роутер чтобы cookies применились
-        router.refresh()
-        // Используем window.location.href для надежного редиректа
-        // Небольшая задержка перед редиректом, чтобы cookies успели установиться
+        // Cookies устанавливаются через Set-Cookie header, они недоступны клиенту через document.cookie
+        // (так как они httpOnly), поэтому просто ждем достаточно долго, чтобы они успели установиться
+        // Увеличиваем задержку до 500ms, чтобы cookies точно успели установиться на сервере
         setTimeout(() => {
           console.log('[Admin Login] Выполнение редиректа на /admin через window.location')
+          // Используем window.location.href для надежного редиректа с полной перезагрузкой страницы
+          // Это гарантирует, что cookies будут отправлены с запросом
           window.location.href = '/admin'
-        }, 200)
+        }, 500)
       } else {
         console.error('[Admin Login] ❌ Ошибка авторизации:', {
           status: response.status,

@@ -73,6 +73,59 @@ export default function RootLayout({
             `,
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              "name": "FloWix",
+              "applicationCategory": "BusinessApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "RUB"
+              },
+              "description": "Инвентаризация, списание, поставки, автоматические отчеты - всё в одной системе. Для магазинов, складов, ресторанов, любых точек продаж. Интеграция с Telegram для мгновенных уведомлений.",
+              "url": "https://flowixdata.ru",
+              "screenshot": "https://flowixdata.ru/Icon/Logo.png",
+              "featureList": [
+                "Инвентаризация товаров",
+                "Списание товаров",
+                "Контроль поставок",
+                "Автоматические отчеты в Excel и Word",
+                "Интеграция с Telegram",
+                "Управление группами и пользователями",
+                "Уведомления в реальном времени"
+              ],
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "5",
+                "ratingCount": "1"
+              },
+              "provider": {
+                "@type": "Organization",
+                "name": "FloWix",
+                "url": "https://flowixdata.ru"
+              }
+            }),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "FloWix",
+              "url": "https://flowixdata.ru",
+              "logo": "https://flowixdata.ru/Icon/Logo.png",
+              "description": "Умная автоматизация для вашего бизнеса - инвентаризация, списание, поставки, автоматические отчеты",
+              "sameAs": []
+            }),
+          }}
+        />
       </head>
       <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
         <ThemeProvider>

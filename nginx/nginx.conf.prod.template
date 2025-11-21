@@ -66,6 +66,12 @@ http {
         '' close;
     }
 
+    # Upstream для лендинга с keepalive для лучшей производительности
+    upstream flowix_landing {
+        server flowix-landing:3002;
+        keepalive 32;
+    }
+
 # Маппинг больше не нужен - используем прямую проверку в location
 
     # Основной сервер (appninjabot.ru)
@@ -652,28 +658,61 @@ http {
         # Редирект на HTTPS (раскомментировать после установки SSL)
         # return 301 https://$server_name$request_uri;
         
-        # Временный: проксируем на контейнер (до установки SSL)
         # Специальная обработка статических файлов Next.js для быстрой загрузки
-        location /_next/static/ {
-            proxy_pass http://flowix-landing:3002;
+        # Обработка всех статических файлов Next.js (_next/static, _next/image, и т.д.)
+        location ~ ^/_next/(static|image|media|webpack|chunks|css|js)/ {
+            proxy_pass http://flowix_landing;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             
+            # Keepalive для upstream
+            proxy_set_header Connection "";
+            
             # Кэширование статических файлов
             proxy_cache_valid 200 1y;
-            add_header Cache-Control "public, immutable";
+            add_header Cache-Control "public, immutable, max-age=31536000";
             
-            # Таймауты для статики
-            proxy_connect_timeout 10s;
+            # Таймауты для статики (быстрые)
+            proxy_connect_timeout 5s;
             proxy_send_timeout 10s;
             proxy_read_timeout 10s;
+            
+            # Включаем буферизацию для статики
+            proxy_buffering on;
+            proxy_buffer_size 4k;
+            proxy_buffers 8 4k;
         }
         
+        # Обработка статических файлов (CSS, JS, изображения, шрифты)
+        location ~* \.(css|js|jpg|jpeg|png|gif|ico|svg|woff|woff2|ttf|eot|webp|avif)$ {
+            proxy_pass http://flowix_landing;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $http_cf_connecting_ip;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            
+            # Keepalive для upstream
+            proxy_set_header Connection "";
+            
+            # Кэширование
+            expires 1y;
+            add_header Cache-Control "public, immutable, max-age=31536000";
+            
+            # Быстрые таймауты для статики
+            proxy_connect_timeout 5s;
+            proxy_send_timeout 10s;
+            proxy_read_timeout 10s;
+            
+            proxy_buffering on;
+        }
+        
+        # Основной location для всех остальных запросов (SSR, API routes и т.д.)
         location / {
-            proxy_pass http://flowix-landing:3002;
+            proxy_pass http://flowix_landing;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -685,18 +724,23 @@ http {
             proxy_set_header CF-IPCountry $http_cf_ipcountry;
             proxy_set_header CF-RAY $http_cf_ray;
             
-            # Важно для правильной работы Next.js
+            # Важно для правильной работы Next.js (WebSocket support)
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
             
-            # Таймауты
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 60s;
-            proxy_read_timeout 60s;
+            # Увеличенные таймауты для SSR (Next.js может долго рендерить первый запрос)
+            proxy_connect_timeout 120s;
+            proxy_send_timeout 120s;
+            proxy_read_timeout 120s;
             
-            # Отключаем буферизацию для SSR
+            # Отключаем буферизацию для SSR (чтобы пользователь видел прогресс)
             proxy_buffering off;
             proxy_request_buffering off;
+            
+            # Retry при ошибках
+            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+            proxy_next_upstream_tries 2;
+            proxy_next_upstream_timeout 10s;
         }
     }
 

@@ -26,7 +26,20 @@ export default function AdminLogin() {
       const data = await response.json()
 
       if (response.ok) {
-        // Успешный вход, токен сохранен в cookie
+        // Успешный вход, сохраняем токены в localStorage для клиентского доступа
+        if (data.access_token) {
+          localStorage.setItem('admin_access_token', data.access_token)
+        }
+        if (data.refresh_token) {
+          localStorage.setItem('admin_refresh_token', data.refresh_token)
+        }
+        // Также сохраняем информацию об админе
+        if (data.admin) {
+          localStorage.setItem('admin_user', JSON.stringify(data.admin))
+        }
+        
+        console.log('[Admin Login] Токены сохранены в localStorage')
+        
         // Обновляем роутер чтобы cookies применились
         router.refresh()
         // Небольшая задержка перед редиректом, чтобы cookies успели установиться

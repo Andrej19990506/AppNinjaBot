@@ -81,8 +81,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Сохраняем токен в cookie
+    // Также возвращаем токены клиенту для сохранения в localStorage
     const nextResponse = NextResponse.json(
-      { success: true, admin: data.admin },
+      { 
+        success: true, 
+        admin: data.admin,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      },
       { status: 200 }
     )
 

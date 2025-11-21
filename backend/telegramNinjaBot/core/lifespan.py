@@ -25,7 +25,7 @@ from telegramNinjaBot.services.database_service import DatabaseService
 # Импортируем хэндлеры
 from telegramNinjaBot.handlers.group_handlers import GroupHandler
 from telegramNinjaBot.handlers.message_handlers import MessageHandler as BotMessageHandler
-from telegramNinjaBot.handlers.common_handlers import handle_start, handle_webapp_data, handle_registry, handle_auth_via_command_callback
+from telegramNinjaBot.handlers.common_handlers import handle_start, handle_webapp_data, handle_registry
 from telegramNinjaBot.api.routes import handle_confirmation_callback
 
 logger = logging.getLogger(__name__)
@@ -236,8 +236,7 @@ async def lifespan(app: FastAPI):
             # Только авторизация через /start auth и мини-апп
             logger.info("🔐 Регистрация хендлеров для основного бота (только авторизация)")
             bot_app.add_handler(CommandHandler("start", handle_start))
-            bot_app.add_handler(CallbackQueryHandler(handle_auth_via_command_callback, pattern="^auth_via_command$"))
-            logger.info("✅ Основной бот: зарегистрирован /start и обработчик callback для авторизации")
+            logger.info("✅ Основной бот: зарегистрирован /start (для авторизации и мини-аппа)")
             
         elif config.BOT_TYPE in ('company', 'companies'):
             # === БОТ(Ы) КОМПАНИИ ===

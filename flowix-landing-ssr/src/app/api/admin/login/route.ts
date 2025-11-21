@@ -62,9 +62,15 @@ export async function POST(request: NextRequest) {
     let data
     try {
       data = await response.json()
-      console.log('[Admin Login API] FastAPI response data:', { ...data, access_token: data.access_token ? '***' : undefined })
+      console.log('[Admin Login API] FastAPI response data keys:', Object.keys(data))
+      console.log('[Admin Login API] FastAPI response has access_token:', !!data.access_token)
+      console.log('[Admin Login API] FastAPI response has refresh_token:', !!data.refresh_token)
+      console.log('[Admin Login API] FastAPI response has admin:', !!data.admin)
+      if (data.admin) {
+        console.log('[Admin Login API] Admin data:', { id: data.admin.id, email: data.admin.email, role: data.admin.role })
+      }
     } catch (e) {
-      console.error('[Admin Login API] Failed to parse JSON response:', e)
+      console.error('[Admin Login API] ❌ Failed to parse JSON response:', e)
       // Если ответ не JSON, возвращаем общую ошибку
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -73,33 +79,55 @@ export async function POST(request: NextRequest) {
     }
 
     if (!response.ok) {
-      console.log('[Admin Login API] FastAPI returned error:', data)
+      console.error('[Admin Login API] ❌ FastAPI returned error:', {
+        status: response.status,
+        detail: data.detail,
+        error: data.error
+      })
       return NextResponse.json(
         { error: data.detail || data.error || 'Invalid email or password' },
         { status: response.status }
       )
     }
 
+    console.log('[Admin Login API] ✅ FastAPI авторизация успешна, создаем ответ')
+
     // Сохраняем токен в cookie
     // Также возвращаем токены клиенту для сохранения в localStorage
+    const responseData = {
+      success: true,
+      admin: data.admin,
+      access_token: data.access_token,
+      refresh_token: data.refresh_token
+    }
+    
+    console.log('[Admin Login API] Response data structure:', {
+      hasSuccess: !!responseData.success,
+      hasAdmin: !!responseData.admin,
+      hasAccessToken: !!responseData.access_token,
+      hasRefreshToken: !!responseData.refresh_token
+    })
+
     const nextResponse = NextResponse.json(
-      { 
-        success: true, 
-        admin: data.admin,
-        access_token: data.access_token,
-        refresh_token: data.refresh_token
-      },
+      responseData,
       { status: 200 }
     )
+    
+    console.log('[Admin Login API] Устанавливаем cookies с токенами')
 
     // Устанавливаем cookies с токенами
-    nextResponse.cookies.set('admin_token', data.access_token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 дней (но токен живет 15 минут, refresh будет обновлять)
-      path: '/',
-    })
+    if (data.access_token) {
+      nextResponse.cookies.set('admin_token', data.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 дней (но токен живет 15 минут, refresh будет обновлять)
+        path: '/',
+      })
+      console.log('[Admin Login API] ✅ Cookie admin_token установлен')
+    } else {
+      console.warn('[Admin Login API] ⚠️ access_token отсутствует, не устанавливаем cookie')
+    }
     
     // Сохраняем refresh token
     if (data.refresh_token) {
@@ -110,8 +138,12 @@ export async function POST(request: NextRequest) {
         maxAge: 60 * 60 * 24 * 7, // 7 дней
         path: '/',
       })
+      console.log('[Admin Login API] ✅ Cookie admin_refresh_token установлен')
+    } else {
+      console.warn('[Admin Login API] ⚠️ refresh_token отсутствует, не устанавливаем cookie')
     }
 
+    console.log('[Admin Login API] ✅ Ответ готов, отправляем клиенту')
     return nextResponse
   } catch (error) {
     console.error('[Admin Login API] Error:', error)

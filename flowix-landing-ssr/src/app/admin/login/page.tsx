@@ -16,45 +16,91 @@ export default function AdminLogin() {
     setError('')
     setLoading(true)
 
+    console.log('[Admin Login] Начало авторизации')
+    console.log('[Admin Login] Email:', email)
+
     try {
+      console.log('[Admin Login] Отправка запроса на /api/admin/login')
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
 
+      console.log('[Admin Login] Ответ получен, статус:', response.status)
+      console.log('[Admin Login] Headers:', Object.fromEntries(response.headers.entries()))
+
       const data = await response.json()
+      console.log('[Admin Login] Данные ответа:', {
+        success: data.success,
+        hasAccessToken: !!data.access_token,
+        hasRefreshToken: !!data.refresh_token,
+        hasAdmin: !!data.admin,
+        admin: data.admin ? { id: data.admin.id, email: data.admin.email, role: data.admin.role } : null
+      })
 
       if (response.ok) {
+        console.log('[Admin Login] ✅ Авторизация успешна')
+        
         // Успешный вход, сохраняем токены в localStorage для клиентского доступа
         if (data.access_token) {
           localStorage.setItem('admin_access_token', data.access_token)
+          console.log('[Admin Login] ✅ access_token сохранен в localStorage')
+        } else {
+          console.warn('[Admin Login] ⚠️ access_token отсутствует в ответе')
         }
+        
         if (data.refresh_token) {
           localStorage.setItem('admin_refresh_token', data.refresh_token)
+          console.log('[Admin Login] ✅ refresh_token сохранен в localStorage')
+        } else {
+          console.warn('[Admin Login] ⚠️ refresh_token отсутствует в ответе')
         }
+        
         // Также сохраняем информацию об админе
         if (data.admin) {
           localStorage.setItem('admin_user', JSON.stringify(data.admin))
+          console.log('[Admin Login] ✅ Информация об админе сохранена в localStorage')
+        } else {
+          console.warn('[Admin Login] ⚠️ Данные админа отсутствуют в ответе')
         }
         
-        console.log('[Admin Login] Токены сохранены в localStorage')
+        // Проверяем, что токены действительно сохранились
+        const savedAccessToken = localStorage.getItem('admin_access_token')
+        const savedRefreshToken = localStorage.getItem('admin_refresh_token')
+        console.log('[Admin Login] Проверка сохранения:', {
+          accessTokenSaved: !!savedAccessToken,
+          refreshTokenSaved: !!savedRefreshToken,
+          accessTokenLength: savedAccessToken?.length || 0
+        })
         
+        console.log('[Admin Login] Обновление роутера и редирект на /admin')
         // Обновляем роутер чтобы cookies применились
         router.refresh()
         // Небольшая задержка перед редиректом, чтобы cookies успели установиться
         setTimeout(() => {
+          console.log('[Admin Login] Выполнение редиректа на /admin')
           router.push('/admin')
         }, 100)
       } else {
+        console.error('[Admin Login] ❌ Ошибка авторизации:', {
+          status: response.status,
+          error: data.error,
+          detail: data.detail
+        })
         // Показываем ошибку от сервера
-        setError(data.error || 'Неверный email или пароль')
+        setError(data.error || data.detail || 'Неверный email или пароль')
       }
     } catch (err) {
-      console.error('[Admin Login] Error:', err)
+      console.error('[Admin Login] ❌ Исключение при авторизации:', err)
+      if (err instanceof Error) {
+        console.error('[Admin Login] Сообщение об ошибке:', err.message)
+        console.error('[Admin Login] Stack trace:', err.stack)
+      }
       setError('Ошибка при входе. Попробуйте позже.')
     } finally {
       setLoading(false)
+      console.log('[Admin Login] Завершение обработки, loading установлен в false')
     }
   }
 

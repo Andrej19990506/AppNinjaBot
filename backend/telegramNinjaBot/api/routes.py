@@ -303,12 +303,16 @@ logger.info(f"Регистрация эндпоинта вебхука в роу
 async def telegram_webhook_endpoint(update_data: dict, request: Request):
     """Принимает обновления от Telegram через вебхук."""
     
+    logger.info(f"📥 Получено обновление через вебхук: {json.dumps(update_data, ensure_ascii=False, default=str)[:500]}")
+    
     # Проверка секретного токена (если используется)
     if WEBHOOK_SECRET:
         secret_token_header = request.headers.get('X-Telegram-Bot-Api-Secret-Token')
         if secret_token_header != WEBHOOK_SECRET:
             logger.warning(f"Неверный секретный токен вебхука: {secret_token_header}")
             raise HTTPException(status_code=403, detail="Invalid secret token")
+        else:
+            logger.info("✅ Секретный токен вебхука проверен успешно")
     
     try:
         from telegramNinjaBot.config.config import Config

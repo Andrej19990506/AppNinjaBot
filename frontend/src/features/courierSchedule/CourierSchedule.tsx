@@ -220,8 +220,8 @@ const CourierSchedule: React.FC = () => {
                 try {
                     // Обновляем все данные курьерского расписания
                     const chatId = Number(selectedChatId);
-                    await dispatch(fetchShifts({ chatId })).unwrap();
-                    await dispatch(fetchAllShiftTemplatesThunk(chatId)).unwrap();
+                    await dispatch(fetchShifts({ chatId: String(chatId) })).unwrap();
+                    await dispatch(fetchAllShiftTemplatesThunk({ chatId })).unwrap();
                     await dispatch(fetchReservesForGroup({ groupId: chatId })).unwrap();
                     await dispatch(fetchAccessSettings({ chatId: String(chatId) })).unwrap();
                     console.log('✅ [CourierSchedule] Данные обновлены');

@@ -39,29 +39,40 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
     }, [selectedChatId, chatIdFromSelector]);
     
     // Используем ref для отслеживания предыдущего chatId, чтобы избежать лишних переподписок
-    const prevChatIdRef = useRef<string | undefined>(chatId);
+    const prevChatIdRef = useRef<string | undefined>(undefined);
     // Используем ref для хранения текущего chatId в обработчиках, чтобы они не пересоздавались
     const currentChatIdRef = useRef<string | undefined>(chatId);
-    currentChatIdRef.current = chatId;
+    // Флаг для отслеживания, была ли подписка установлена
+    const isSubscribedRef = useRef<boolean>(false);
 
     useEffect(() => {
-        // Если chatId не изменился, не перезапускаем подписки
-        if (prevChatIdRef.current === chatId) {
+        // Обновляем currentChatIdRef всегда
+        currentChatIdRef.current = chatId;
+        
+        // Если chatId не изменился и подписка уже установлена, не перезапускаем
+        if (prevChatIdRef.current === chatId && isSubscribedRef.current) {
             return;
         }
         
-        console.log('[WS][useCourierWebSocketSync] useEffect вызван, chatId:', chatId, 'selectedChatId:', selectedChatId, 'prevChatId:', prevChatIdRef.current);
+        console.log('[WS][useCourierWebSocketSync] useEffect вызван, chatId:', chatId, 'selectedChatId:', selectedChatId, 'prevChatId:', prevChatIdRef.current, 'isSubscribed:', isSubscribedRef.current);
+        
+        // Если chatId изменился, отписываемся от предыдущего
+        if (prevChatIdRef.current !== undefined && prevChatIdRef.current !== chatId && isSubscribedRef.current) {
+            console.log('[WS][useCourierWebSocketSync] 🔄 chatId изменился, отписываемся от предыдущего:', prevChatIdRef.current);
+            // Отписка произойдет в cleanup функции предыдущего useEffect
+        }
         
         // Обновляем ref
         prevChatIdRef.current = chatId;
-        currentChatIdRef.current = chatId;
         
         if (!chatId) {
             console.log('[WS][useCourierWebSocketSync] ❌ chatId пустой, пропускаем подписку');
+            isSubscribedRef.current = false;
             return () => {};
         }
 
         console.log('[WS][useCourierWebSocketSync] ✅ Подписываемся на события для chatId:', chatId);
+        isSubscribedRef.current = true;
 
         // --- Обработчики событий ---
         const handleShiftsUpdated = (data: ShiftsUpdatedWsPayload | any) => {
@@ -191,8 +202,8 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
             unsubscribeBulkRemoved();
             unsubscribeTransferred();
             unsubscribeShiftAccessSent();
-            // Сбрасываем ref при отписке
-            prevChatIdRef.current = undefined;
+            // Сбрасываем флаг подписки
+            isSubscribedRef.current = false;
         };
     }, [dispatch, chatId]); // Убрали selectedChatId из зависимостей, так как он уже учтен в chatId через useMemo
 }; 

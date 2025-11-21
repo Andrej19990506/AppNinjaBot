@@ -29,38 +29,29 @@ const Container = styled.div<{ $visible: boolean; $distance: number }>`
   justify-content: center;
   z-index: 9999;
   pointer-events: none;
-  transition: ${props => (props.$visible ? 'none' : 'opacity 0.3s ease-out')};
+  transition: ${props => (props.$visible ? 'none' : 'opacity 0.2s ease-out')};
   opacity: ${props => (props.$visible ? 1 : 0)};
-  background: ${props => props.theme?.colors?.background || 'var(--background-color, #0D0D0D)'};
+  background: transparent;
 `;
 
 const LoaderContainer = styled.div<{ $progress: number }>`
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  transform: scale(${props => props.$progress});
-  opacity: ${props => props.$progress};
-  transition: ${props => (props.$progress >= 1 ? 'none' : 'transform 0.2s ease, opacity 0.2s ease')};
+  transform: scale(${props => Math.max(props.$progress, 0)});
+  opacity: ${props => Math.max(props.$progress, 0)};
+  transition: ${props => (props.$progress >= 1 ? 'none' : 'transform 0.15s ease, opacity 0.15s ease')};
 `;
 
 const Spinner = styled.div<{ $isRefreshing: boolean }>`
-  width: 32px;
-  height: 32px;
-  border: 3px solid ${props => props.theme?.colors?.border || 'rgba(255, 255, 255, 0.2)'};
-  border-top-color: ${props => props.theme?.colors?.primary || '#007bff'};
+  width: 40px;
+  height: 40px;
+  border: 3px solid ${props => props.theme?.colors?.border || 'rgba(255, 255, 255, 0.3)'};
+  border-top-color: ${props => props.theme?.colors?.primary || 'var(--primary-color, #FF5F1F)'};
   border-radius: 50%;
   animation: ${props => (props.$isRefreshing ? spin : 'none')} 0.8s linear infinite;
   transition: border-color 0.3s ease;
-`;
-
-const Text = styled.span<{ $isRefreshing: boolean }>`
-  font-size: 14px;
-  font-weight: 500;
-  color: ${props => props.theme?.colors?.text || 'var(--text-color, #FFFFFF)'};
-  opacity: ${props => (props.$isRefreshing ? 1 : 0.7)};
-  transition: opacity 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 `;
 
 export const PullToRefresh: React.FC<PullToRefreshProps> = ({
@@ -71,15 +62,13 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   threshold,
 }) => {
   const shouldShow = isPulling || isRefreshing;
-  const displayDistance = Math.max(pullDistance, shouldShow ? 60 : 0);
+  // Вычисляем расстояние для отображения - только иконка, без текста
+  const displayDistance = shouldShow ? Math.max(pullDistance, 50) : 0;
 
   return (
     <Container $visible={shouldShow} $distance={displayDistance}>
       <LoaderContainer $progress={progress}>
         <Spinner $isRefreshing={isRefreshing} />
-        <Text $isRefreshing={isRefreshing}>
-          {isRefreshing ? 'Обновление...' : progress >= 1 ? 'Отпустите для обновления' : 'Потяните для обновления'}
-        </Text>
       </LoaderContainer>
     </Container>
   );

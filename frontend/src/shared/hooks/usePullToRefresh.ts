@@ -5,6 +5,7 @@ interface UsePullToRefreshOptions {
   threshold?: number; // Минимальное расстояние для активации (в пикселях)
   resistance?: number; // Сопротивление при перетаскивании (0-1)
   disabled?: boolean;
+  minPullDistance?: number; // Минимальное расстояние для показа иконки (в пикселях)
 }
 
 interface PullToRefreshState {
@@ -19,6 +20,7 @@ export const usePullToRefresh = ({
   threshold = 80,
   resistance = 0.5,
   disabled = false,
+  minPullDistance = 30, // Минимальное расстояние для показа иконки
 }: UsePullToRefreshOptions) => {
   const [state, setState] = useState<PullToRefreshState>({
     isPulling: false,
@@ -44,8 +46,9 @@ export const usePullToRefresh = ({
 
       if (checkIfAtTop()) {
         isAtTopRef.current = true;
+        // НЕ устанавливаем isPulling сразу - только отслеживаем начальную позицию
         setState({
-          isPulling: true,
+          isPulling: false, // Не показываем иконку сразу
           isRefreshing: false,
           pullDistance: 0,
           startY: clientY,
@@ -58,7 +61,7 @@ export const usePullToRefresh = ({
   // Обработчик движения
   const handleMove = useCallback(
     (clientY: number) => {
-      if (disabled || !state.isPulling || !isAtTopRef.current || state.startY === null) return;
+      if (disabled || !isAtTopRef.current || state.startY === null) return;
 
       const deltaY = clientY - state.startY;
       
@@ -66,13 +69,25 @@ export const usePullToRefresh = ({
       if (deltaY > 0) {
         // Применяем сопротивление для более плавного эффекта
         const distance = Math.min(deltaY * resistance, threshold * 2);
+        
+        // Показываем иконку только после достижения минимального порога
+        const shouldShowIcon = distance >= minPullDistance;
+        
         setState((prev) => ({
           ...prev,
+          isPulling: shouldShowIcon, // Показываем иконку только после minPullDistance
           pullDistance: distance,
+        }));
+      } else {
+        // Если движение вверх, сбрасываем состояние
+        setState((prev) => ({
+          ...prev,
+          isPulling: false,
+          pullDistance: 0,
         }));
       }
     },
-    [disabled, state.isPulling, state.startY, threshold, resistance]
+    [disabled, state.startY, threshold, resistance, minPullDistance]
   );
 
   // Обработчик окончания касания/нажатия
@@ -120,8 +135,9 @@ export const usePullToRefresh = ({
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (state.isPulling && isAtTopRef.current) {
-        e.preventDefault(); // Предотвращаем скролл при перетаскивании
+      // Блокируем скролл только если мы действительно тянем (pullDistance >= minPullDistance)
+      if (state.isPulling && isAtTopRef.current && state.pullDistance >= minPullDistance) {
+        e.preventDefault(); // Предотвращаем скролл только при активном перетаскивании
       }
       handleMove(e.touches[0].clientY);
     };
@@ -139,7 +155,7 @@ export const usePullToRefresh = ({
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [disabled, state.isPulling, handleStart, handleMove, handleEnd]);
+  }, [disabled, state.isPulling, state.pullDistance, minPullDistance, handleStart, handleMove, handleEnd]);
 
   // Mouse события (десктоп, для тестирования)
   useEffect(() => {
@@ -156,7 +172,8 @@ export const usePullToRefresh = ({
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (isMouseDown && state.isPulling && isAtTopRef.current) {
+      // Блокируем скролл только если мы действительно тянем (pullDistance >= minPullDistance)
+      if (isMouseDown && state.isPulling && isAtTopRef.current && state.pullDistance >= minPullDistance) {
         e.preventDefault();
       }
       if (isMouseDown) {
@@ -180,7 +197,7 @@ export const usePullToRefresh = ({
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [disabled, state.isPulling, handleStart, handleMove, handleEnd]);
+  }, [disabled, state.isPulling, state.pullDistance, minPullDistance, handleStart, handleMove, handleEnd]);
 
   // Вычисляем прогресс (0-1) для анимации
   const progress = Math.min(state.pullDistance / threshold, 1);

@@ -2,7 +2,7 @@
 // Хук для подписки на WebSocket-события, связанные с курьерскими сменами и резервами.
 // Используется только внутри CourierSchedule (смены, резервы, доступ).
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '@shared/store/store';
 import { socketService } from '@shared/services/socketService';
@@ -30,10 +30,31 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
     const dispatch = useDispatch<AppDispatch>();
     // Используем переданный selectedChatId, если он есть, иначе берем из селектора (для обратной совместимости)
     const chatIdFromSelector = useSelector(selectCurrentCourierChatId);
-    const chatId = selectedChatId || chatIdFromSelector;
+    
+    // Стабилизируем chatId, чтобы избежать лишних перезапусков useEffect
+    const chatId = useMemo(() => {
+        const id = selectedChatId || chatIdFromSelector;
+        // Нормализуем к строке для стабильности
+        return id ? String(id) : undefined;
+    }, [selectedChatId, chatIdFromSelector]);
+    
+    // Используем ref для отслеживания предыдущего chatId, чтобы избежать лишних переподписок
+    const prevChatIdRef = useRef<string | undefined>(chatId);
+    // Используем ref для хранения текущего chatId в обработчиках, чтобы они не пересоздавались
+    const currentChatIdRef = useRef<string | undefined>(chatId);
+    currentChatIdRef.current = chatId;
 
     useEffect(() => {
-        console.log('[WS][useCourierWebSocketSync] useEffect вызван, chatId:', chatId, 'selectedChatId:', selectedChatId);
+        // Если chatId не изменился, не перезапускаем подписки
+        if (prevChatIdRef.current === chatId) {
+            return;
+        }
+        
+        console.log('[WS][useCourierWebSocketSync] useEffect вызван, chatId:', chatId, 'selectedChatId:', selectedChatId, 'prevChatId:', prevChatIdRef.current);
+        
+        // Обновляем ref
+        prevChatIdRef.current = chatId;
+        currentChatIdRef.current = chatId;
         
         if (!chatId) {
             console.log('[WS][useCourierWebSocketSync] ❌ chatId пустой, пропускаем подписку');
@@ -44,46 +65,55 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
 
         // --- Обработчики событий ---
         const handleShiftsUpdated = (data: ShiftsUpdatedWsPayload | any) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleShiftsUpdated] payload:', data);
-            console.log('[WS][handleShiftsUpdated] current chatId:', chatId, 'event chat_id:', data.chat_id);
-            console.log('[WS][handleShiftsUpdated] comparison:', String(data.chat_id) === chatId, 'has shift_data:', !!data.shift_data);
+            console.log('[WS][handleShiftsUpdated] current chatId:', currentChatId, 'event chat_id:', data.chat_id);
+            console.log('[WS][handleShiftsUpdated] comparison:', String(data.chat_id) === currentChatId, 'has shift_data:', !!data.shift_data);
             
             if (data.source === 'shift_deletion') {
-                if (!data.chat_id || String(data.chat_id) === chatId) {
+                if (!data.chat_id || String(data.chat_id) === currentChatId) {
                     if (data.shift_id) {
                         dispatch(shiftCancelledWs({ shift_id: data.shift_id }));
                         console.log('[WS][handleShiftsUpdated] dispatch shiftCancelledWs:', data.shift_id);
                     }
                 }
             } else {
-                if (String(data.chat_id) === chatId && data.shift_data) {
+                if (String(data.chat_id) === currentChatId && data.shift_data) {
                     console.log('[WS][handleShiftsUpdated] ✅ Условие выполнено, обновляем смены...');
                     // Передаем chatId в fetchShifts
-                    dispatch(fetchShifts({ chatId }));
-                    dispatch(fetchReservesForGroup({ groupId: parseInt(chatId, 10) }));
+                    dispatch(fetchShifts({ chatId: currentChatId }));
+                    dispatch(fetchReservesForGroup({ groupId: parseInt(currentChatId, 10) }));
                     console.log('[WS][handleShiftsUpdated] dispatch fetchShifts({ chatId }) + fetchReservesForGroup()');
                 } else {
                     console.log('[WS][handleShiftsUpdated] ❌ Условие НЕ выполнено:', {
-                        chatIdMatch: String(data.chat_id) === chatId,
+                        chatIdMatch: String(data.chat_id) === currentChatId,
                         hasShiftData: !!data.shift_data,
                         dataChatId: data.chat_id,
-                        currentChatId: chatId
+                        currentChatId: currentChatId
                     });
                 }
             }
         };
 
         const handleShiftCancelled = (data: { shift_id: string, chat_id?: string }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleShiftCancelled] payload:', data);
-            if (!data.chat_id || String(data.chat_id) === chatId) {
+            if (!data.chat_id || String(data.chat_id) === currentChatId) {
                 dispatch(shiftCancelledWs({ shift_id: data.shift_id }));
                 console.log('[WS][handleShiftCancelled] dispatch shiftCancelledWs:', data.shift_id);
             }
         };
 
         const handleReserveAdded = (eventData: { chat_id: string; data: ApiReserve }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleReserveAdded] payload:', eventData);
-            if (String(eventData.chat_id) === chatId) {
+            if (String(eventData.chat_id) === currentChatId) {
                 try {
                     const reserveEntry = mapApiReserveToReserveEntry(eventData.data);
                     dispatch(reserveAdded(reserveEntry));
@@ -95,8 +125,11 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
         };
 
         const handleReserveRemoved = (eventData: { type: string, chat_id?: string, data: { id: string } }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleReserveRemoved] payload:', eventData);
-            if (!eventData.chat_id || String(eventData.chat_id) === chatId) {
+            if (!eventData.chat_id || String(eventData.chat_id) === currentChatId) {
                 if (eventData.data && eventData.data.id) {
                     dispatch(reserveRemovedWs({ id: eventData.data.id }));
                     console.log('[WS][handleReserveRemoved] dispatch reserveRemovedWs:', eventData.data.id);
@@ -105,20 +138,29 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
         };
 
         const handleBulkReserveRemoved = (data: { reserveIds: string[], chat_id?: string }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleBulkReserveRemoved] payload:', data);
-            dispatch(fetchReservesForGroup({ groupId: parseInt(chatId, 10) }));
-            console.log('[WS][handleBulkReserveRemoved] dispatch fetchReservesForGroup:', chatId);
+            dispatch(fetchReservesForGroup({ groupId: parseInt(currentChatId, 10) }));
+            console.log('[WS][handleBulkReserveRemoved] dispatch fetchReservesForGroup:', currentChatId);
         };
 
         const handleReserveTransferred = (data: { id: string, chat_id?: string }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleReserveTransferred] payload:', data);
-            dispatch(fetchReservesForGroup({ groupId: parseInt(chatId, 10) }));
-            console.log('[WS][handleReserveTransferred] dispatch fetchReservesForGroup:', chatId);
+            dispatch(fetchReservesForGroup({ groupId: parseInt(currentChatId, 10) }));
+            console.log('[WS][handleReserveTransferred] dispatch fetchReservesForGroup:', currentChatId);
         };
 
         const handleShiftAccessSent = (data: { chat_id: string }) => {
+            const currentChatId = currentChatIdRef.current;
+            if (!currentChatId) return;
+            
             console.log('[WS][handleShiftAccessSent] payload:', data);
-            if (String(data.chat_id) === chatId) {
+            if (String(data.chat_id) === currentChatId) {
                 dispatch(addNotification({
                     message: 'Доступ к записи на смены открыт!',
                     type: NotificationTypes.SUCCESS,
@@ -149,6 +191,8 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
             unsubscribeBulkRemoved();
             unsubscribeTransferred();
             unsubscribeShiftAccessSent();
+            // Сбрасываем ref при отписке
+            prevChatIdRef.current = undefined;
         };
-    }, [dispatch, chatId, selectedChatId]);
+    }, [dispatch, chatId]); // Убрали selectedChatId из зависимостей, так как он уже учтен в chatId через useMemo
 }; 

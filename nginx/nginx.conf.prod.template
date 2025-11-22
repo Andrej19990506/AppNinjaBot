@@ -66,13 +66,7 @@ http {
         '' close;
     }
 
-    # Upstream для лендинга с keepalive для лучшей производительности
-    upstream flowix_landing {
-        server flowix-landing:3002 max_fails=0;
-        keepalive 16;
-        keepalive_requests 100;
-        keepalive_timeout 60s;
-    }
+    # Upstream удален - используем прямой proxy_pass для избежания проблем с ERR_CONNECTION_RESET
 
 # Маппинг больше не нужен - используем прямую проверку в location
 
@@ -663,38 +657,32 @@ http {
         # Специальная обработка статических файлов Next.js (высокий приоритет)
         # Обработка всех статических файлов Next.js (_next/static, _next/image, и т.д.)
         location ~ ^/_next/ {
-            proxy_pass http://flowix_landing;
+            proxy_pass http://flowix-landing:3002;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
             
-            # Keepalive для upstream (важно для производительности)
-            proxy_set_header Connection "";
+            # Закрываем соединение после каждого запроса (решает ERR_CONNECTION_RESET)
+            proxy_set_header Connection "close";
             
             # Кэширование статических файлов
             add_header Cache-Control "public, immutable, max-age=31536000";
             
             # Увеличенные таймауты для статики
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 120s;
-            proxy_read_timeout 120s;
+            proxy_connect_timeout 180s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
             
-            # Включаем буферизацию для статики
-            proxy_buffering on;
-            proxy_buffer_size 16k;
-            proxy_buffers 32 16k;
-            proxy_busy_buffers_size 32k;
-            proxy_max_temp_file_size 0;
-            
-            # Отключаем request buffering для быстрой отдачи
+            # Отключаем буферизацию для статики
+            proxy_buffering off;
             proxy_request_buffering off;
         }
         
         # Основной location для всех остальных запросов (SSR, API routes и т.д.)
         location / {
-            proxy_pass http://flowix_landing;
+            proxy_pass http://flowix-landing:3002;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -752,7 +740,7 @@ http {
 
         # Специальная обработка статических файлов Next.js (высокий приоритет)
         location ~ ^/_next/ {
-            proxy_pass http://flowix_landing;
+            proxy_pass http://flowix-landing:3002;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;
@@ -763,24 +751,21 @@ http {
             add_header Cache-Control "public, immutable, max-age=31536000";
             
             # Увеличенные таймауты для статики
-            proxy_connect_timeout 60s;
-            proxy_send_timeout 120s;
-            proxy_read_timeout 120s;
+            proxy_connect_timeout 180s;
+            proxy_send_timeout 300s;
+            proxy_read_timeout 300s;
             
-            # Включаем буферизацию для статики
-            proxy_buffering on;
-            proxy_buffer_size 16k;
-            proxy_buffers 32 16k;
-            proxy_busy_buffers_size 32k;
-            proxy_max_temp_file_size 0;
-            
-            # Отключаем request buffering для быстрой отдачи
+            # Отключаем буферизацию для статики (может вызывать проблемы)
+            proxy_buffering off;
             proxy_request_buffering off;
+            
+            # Закрываем соединение после каждого запроса
+            proxy_set_header Connection "close";
         }
 
         # Основной location для всех остальных запросов (SSR, API routes и т.д.)
         location / {
-            proxy_pass http://flowix_landing;
+            proxy_pass http://flowix-landing:3002;
             proxy_http_version 1.1;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $http_cf_connecting_ip;

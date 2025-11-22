@@ -730,7 +730,7 @@ http {
     server {
         listen 443 ssl;
         listen [::]:443 ssl;
-        http2 on;
+        # http2 on;  # Временно отключено из-за проблем с ERR_HTTP2_PING_FAILED
         server_name flowixdata.ru www.flowixdata.ru;
         # SSL сертификаты (Let's Encrypt)
         ssl_certificate /etc/letsencrypt/live/flowixdata.ru/fullchain.pem;

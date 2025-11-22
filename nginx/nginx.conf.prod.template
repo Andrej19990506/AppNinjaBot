@@ -727,8 +727,9 @@ http {
     }
 
     # Сервер для лендинга (flowixdata.ru) - HTTPS
-    server {
-        listen 443 ssl http2;
+    # Временно закомментировано до получения сертификатов
+    # server {
+    #     listen 443 ssl http2;
         listen [::]:443 ssl http2;
         server_name flowixdata.ru www.flowixdata.ru;
 
@@ -813,5 +814,5 @@ http {
             proxy_next_upstream_tries 3;
             proxy_next_upstream_timeout 60s;
         }
-    }
+    # }
 } 

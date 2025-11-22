@@ -194,6 +194,7 @@ services:
     volumes:
       - ./nginx_logs:/var/log/nginx
       - shared-data:/app/shared
+      - letsencrypt:/etc/letsencrypt
     environment:
       - REACT_APP_API_URL=${VITE_APP_API_URL:-https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
       - VITE_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru/socket.io/}
@@ -330,3 +331,4 @@ volumes:
   shared-data:
   prometheus_data:
   grafana_data:
+  letsencrypt:

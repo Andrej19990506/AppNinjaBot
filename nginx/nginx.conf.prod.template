@@ -653,65 +653,6 @@ http {
 
         # Редирект на HTTPS
         return 301 https://$server_name$request_uri;
-        
-        # Специальная обработка статических файлов Next.js (высокий приоритет)
-        # Обработка всех статических файлов Next.js (_next/static, _next/image, и т.д.)
-        location ~ ^/_next/ {
-            proxy_pass http://flowix-landing:3002;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $http_cf_connecting_ip;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            # Закрываем соединение после каждого запроса (решает ERR_CONNECTION_RESET)
-            proxy_set_header Connection "close";
-            
-            # Кэширование статических файлов
-            add_header Cache-Control "public, immutable, max-age=31536000";
-            
-            # Увеличенные таймауты для статики
-            proxy_connect_timeout 180s;
-            proxy_send_timeout 300s;
-            proxy_read_timeout 300s;
-            
-            # Отключаем буферизацию для статики
-            proxy_buffering off;
-            proxy_request_buffering off;
-        }
-        
-        # Основной location для всех остальных запросов (SSR, API routes и т.д.)
-        location / {
-            proxy_pass http://flowix-landing:3002;
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $http_cf_connecting_ip;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            proxy_set_header X-Forwarded-Host $host;
-            proxy_set_header X-Forwarded-Port $server_port;
-            proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
-            proxy_set_header CF-IPCountry $http_cf_ipcountry;
-            proxy_set_header CF-RAY $http_cf_ray;
-            
-            # Важно для правильной работы Next.js (WebSocket support)
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection $connection_upgrade;
-            
-            # Увеличенные таймауты для SSR (Next.js может долго рендерить первый запрос)
-            proxy_connect_timeout 180s;
-            proxy_send_timeout 180s;
-            proxy_read_timeout 180s;
-            
-            # Отключаем буферизацию для SSR (чтобы пользователь видел прогресс)
-            proxy_buffering off;
-            proxy_request_buffering off;
-            
-            # Retry при ошибках
-            proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
-            proxy_next_upstream_tries 3;
-            proxy_next_upstream_timeout 60s;
-        }
     }
 
     # Сервер для лендинга (flowixdata.ru) - HTTPS

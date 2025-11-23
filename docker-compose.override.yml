@@ -173,5 +173,18 @@ services:
       - postgres
 
   landing:
+    build:
+      context: ./flowix-landing-ssr
+      dockerfile: Dockerfile
+    container_name: flowix-landing
+    expose:
+      - "3002"
     environment:
+      - NODE_ENV=development
+      - PORT=3002
       - NEXT_PUBLIC_API_URL=http://localhost:8000/api
+    networks:
+      - ninja_network
+    restart: unless-stopped
+    depends_on:
+      - server

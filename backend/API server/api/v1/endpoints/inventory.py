@@ -21,6 +21,10 @@ from models.group import Group
 from models.member import Member # Для поиска админов и автора истории
 from models.group_member import GroupMember # Для поиска админов
 from models.inventory_history import InventoryHistory # Для истории
+from models.group_role_mapping import GroupRoleMapping
+from models.company_role import CompanyRole
+from models.role_feature_mapping import RoleFeatureMapping
+from models.bot_feature import BotFeature
 from schemas.inventory import InventoryData, InventoryUpdatePayload, InventoryItemUpdatePayload, AddItemNotesPayload # Схемы для POST/GET и точечный PUT
 from schemas.user import UserSimple # Для информации об админах
 # Добавим импорт Pydantic для полей админов
@@ -58,6 +62,56 @@ async def get_group_by_telegram_id(db: AsyncSession, group_telegram_id: int) -> 
     except Exception as e:
         logger.exception(f"[get_group_by_telegram_id] Ошибка при выполнении запроса к БД для group_id={group_telegram_id}")
         raise
+
+# Вспомогательная функция для проверки, есть ли у группы функционал 'inventory'
+async def has_inventory_feature(db: AsyncSession, group_telegram_id: int) -> bool:
+    """
+    Проверяет, есть ли у группы функционал 'inventory' через role_feature_mapping.
+    Используется для проверки доступа к инвентарю.
+    Возвращает True, если:
+    - group_type == 'chef' (старая модель, обратная совместимость) ИЛИ
+    - у группы через company_role -> role_feature_mapping есть функционал с feature_code == 'inventory'
+    """
+    # Сначала проверяем старую модель (group_type) для обратной совместимости
+    group = await get_group_by_telegram_id(db, group_telegram_id)
+    if not group:
+        logger.debug(f"[has_inventory_feature] Группа {group_telegram_id} не найдена")
+        return False
+    
+    # Если group_type == 'chef', возвращаем True (обратная совместимость)
+    if group.group_type == 'chef':
+        logger.debug(f"[has_inventory_feature] Группа {group_telegram_id} имеет group_type='chef' (старая модель)")
+        return True
+    
+    # Проверяем новую модель через role_feature_mapping
+    # 1. Получаем GroupRoleMapping для группы
+    group_mapping_stmt = select(GroupRoleMapping).where(
+        GroupRoleMapping.group_id == group_telegram_id
+    )
+    group_mapping_result = await db.execute(group_mapping_stmt)
+    group_mapping = group_mapping_result.scalar_one_or_none()
+    
+    if not group_mapping:
+        logger.debug(f"[has_inventory_feature] Группа {group_telegram_id} не имеет привязки к company_role")
+        return False
+    
+    # 2. Проверяем, есть ли у роли функционал 'inventory'
+    features_stmt = (
+        select(BotFeature, RoleFeatureMapping)
+        .join(RoleFeatureMapping, RoleFeatureMapping.bot_feature_id == BotFeature.id)
+        .where(
+            RoleFeatureMapping.company_role_id == group_mapping.company_role_id,
+            RoleFeatureMapping.is_enabled == True,
+            BotFeature.is_active == True,
+            BotFeature.feature_code == 'inventory'
+        )
+    )
+    features_result = await db.execute(features_stmt)
+    feature = features_result.first()
+    
+    has_feature = feature is not None
+    logger.debug(f"[has_inventory_feature] Группа {group_telegram_id} имеет функционал 'inventory': {has_feature}")
+    return has_feature
 
 # Python version of calculateInventoryProgress
 def calculate_inventory_progress_py(inventory: Dict[str, Any] | None) -> int:
@@ -226,7 +280,7 @@ async def get_inventory_template():
     "/{chat_id}",
     # response_model=InventoryData, # Убрано, возвращаем словарь
     summary="Get Inventory Data for a Chat",
-    description="Retrieves the current inventory data, metadata, and admins for a specific chat by its Telegram ID. Only for 'chef' groups.",
+    description="Retrieves the current inventory data, metadata, and admins for a specific chat by its Telegram ID. Only for groups with 'inventory' feature.",
     tags=["Inventory"]
 )
 async def read_inventory_for_chat(
@@ -284,9 +338,10 @@ async def read_inventory_for_chat(
             logger.warning(f"[read_inventory_for_chat] Group not found for chat_id: {chat_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-        if group.group_type != 'chef':
-            logger.warning(f"[read_inventory_for_chat] Inventory access denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data is only available for groups of type 'chef'")
+        # Проверяем доступ через наличие функционала 'inventory'
+        if not await has_inventory_feature(db, group_telegram_id):
+            logger.warning(f"[read_inventory_for_chat] Inventory access denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data is only available for groups with 'inventory' feature")
 
         # ---> НАЧАЛО НОВОЙ ЛОГИКИ <--- 
         # 1. Получаем основной инвентарь из БД
@@ -545,9 +600,9 @@ async def update_inventory_for_chat(
                 logger.warning(f"[update_inventory_for_chat] Group not found for chat_id: {chat_id}")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-            if group.group_type != 'chef':
-                logger.warning(f"[update_inventory_for_chat] Inventory update denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups of type 'chef'")
+            if not await has_inventory_feature(db, group_telegram_id):
+                logger.warning(f"[update_inventory_for_chat] Inventory update denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups with 'inventory' feature")
 
             # Сохраняем данные для ответа до их изменения
             group_id_for_response = group.id
@@ -865,9 +920,9 @@ async def get_item_history(
             logger.warning(f"[get_item_history] Group not found for chat_id: {chat_id}, raising 404.") # Added more detail
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
 
-        if group.group_type != 'chef':
-             logger.warning(f"[get_item_history] History access denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef', raising 403.") # Added more detail
-             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory history is only available for groups of type 'chef'")
+        if not await has_inventory_feature(db, group_telegram_id):
+             logger.warning(f"[get_item_history] History access denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}'), raising 403.")
+             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory history is only available for groups with 'inventory' feature")
 
         # --- Запрос истории из БД ---
         history_query = (
@@ -1142,9 +1197,9 @@ async def request_item_addition_through_bot(
             logger.warning(f"[request_item_addition_through_bot] Group not found for chat_id: {chat_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-        if group.group_type != 'chef':
-            logger.warning(f"[request_item_addition_through_bot] Item request denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Item requests can only be made from groups of type 'chef'")
+        if not await has_inventory_feature(db, group_telegram_id):
+            logger.warning(f"[request_item_addition_through_bot] Item request denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Item requests can only be made from groups with 'inventory' feature")
 
         # 2. Получаем ID группы инвентаризации из метаданных
         metadata = group.json_metadata or {}
@@ -1256,9 +1311,9 @@ async def delete_inventory_item(
                 logger.warning(f"[delete_inventory_item] Group not found for chat_id: {chat_id}")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-            if group.group_type != 'chef':
-                logger.warning(f"[delete_inventory_item] Delete item denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Items can only be deleted from groups of type 'chef'")
+            if not await has_inventory_feature(db, group_telegram_id):
+                logger.warning(f"[delete_inventory_item] Delete item denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Items can only be deleted from groups with 'inventory' feature")
 
             # TODO: Проверка прав доступа пользователя (что он админ группы)
 
@@ -1398,9 +1453,9 @@ async def trigger_excel_generation(
             logger.warning(f"[trigger_excel_generation] Group not found for chat_id: {chat_id}")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-        if group.group_type != 'chef':
-            logger.warning(f"[trigger_excel_generation] Excel generation denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Excel reports can only be generated for groups of type 'chef'")
+        if not await has_inventory_feature(db, group_telegram_id):
+            logger.warning(f"[trigger_excel_generation] Excel generation denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Excel reports can only be generated for groups with 'inventory' feature")
 
         # ---> ИСПОЛЬЗОВАНИЕ НОВОЙ ЛОГИКИ СЛИЯНИЯ ДЛЯ ПОЛУЧЕНИЯ АКТУАЛЬНОГО ИНВЕНТАРЯ <---
         # 1. Получаем основной инвентарь
@@ -1586,9 +1641,9 @@ async def reset_inventory_for_chat(
                 logger.warning(f"[reset_inventory_for_chat] Group not found for chat_id: {chat_id}")
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
 
-            if group.group_type != 'chef':
-                logger.warning(f"[reset_inventory_for_chat] Reset denied for chat_id: {chat_id}. Group type is '{group.group_type}', not 'chef'.")
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory can only be reset for groups of type 'chef'")
+            if not await has_inventory_feature(db, group_telegram_id):
+                logger.warning(f"[reset_inventory_for_chat] Reset denied for chat_id: {chat_id}. Group does not have 'inventory' feature (group_type='{group.group_type}').")
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory can only be reset for groups with 'inventory' feature")
 
             # TODO: Проверка прав доступа пользователя (что он админ группы)
 
@@ -2030,8 +2085,8 @@ async def mark_template_changes_viewed(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
         
-        if group.group_type != 'chef':
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Template changes are only available for chef groups")
+        if not await has_inventory_feature(db, group_telegram_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Template changes are only available for groups with 'inventory' feature")
         
         # Проверяем, есть ли информация о последних изменениях
         if not group.json_metadata:
@@ -2107,8 +2162,8 @@ async def sync_chat_with_template(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
         
-        if group.group_type != 'chef':
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory sync is only available for chef groups")
+        if not await has_inventory_feature(db, group_telegram_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory sync is only available for groups with 'inventory' feature")
         
         # 2. Загружаем шаблон
         template_path = "/app/data/templates/inventory_template.json"
@@ -2457,8 +2512,8 @@ async def update_inventory_item_point(
 
             if not group:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
-            if group.group_type != 'chef':
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups of type 'chef'")
+            if not await has_inventory_feature(db, group_telegram_id):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups with 'inventory' feature")
 
             saved_group_id = group.id
             group_title_for_response = group.title
@@ -2824,8 +2879,8 @@ async def update_inventory_item_by_uuid(
 
             if not group:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
-            if group.group_type != 'chef':
-                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups of type 'chef'")
+            if not await has_inventory_feature(db, group_telegram_id):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inventory data can only be updated for groups with 'inventory' feature")
 
             saved_group_id = group.id
             group_title_for_response = group.title
@@ -3037,3 +3092,196 @@ async def update_inventory_item_by_uuid(
             "chat_title": group_title_for_response or str(chat_id),
             "admins": []
         }
+
+
+# --- НОВЫЙ ЭНДПОИНТ: загрузка фото товара ---
+@router.post(
+    "/{chat_id}/items/{category}/{item_id:path}/photo",
+    summary="Upload item photo",
+    description="Uploads a photo for a specific inventory item and updates the item with photoUrl.",
+    tags=["Inventory"]
+)
+async def upload_item_photo(
+    photo: UploadFile = File(..., description="Photo file (image/jpeg, image/png)"),
+    chat_id: str = Path(..., description="Telegram ID of the chat (group)"),
+    category: str = Path(..., description="Inventory category name"),
+    item_id: str = Path(..., description="Inventory item id (name) (can contain slashes)"),
+    db: AsyncSession = Depends(get_db_session),
+    redis_client: redis.Redis = Depends(get_redis_client)
+):
+    """
+    Загружает фото товара, сохраняет его на сервере и обновляет товар с URL фото.
+    """
+    logger.info(f"[upload_item_photo] POST /inventory/{chat_id}/items/{category}/{item_id}/photo")
+    
+    try:
+        group_telegram_id = int(chat_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chat ID format")
+    
+    # Проверяем, что файл является изображением
+    if not photo.content_type or not photo.content_type.startswith('image/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (image/jpeg, image/png, etc.)"
+        )
+    
+    try:
+        async with db.begin():
+            # Получаем группу
+            group_query = select(Group).where(Group.group_id == group_telegram_id).with_for_update()
+            group_result = await db.execute(group_query)
+            group = group_result.scalar_one_or_none()
+            
+            if not group:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Chat with ID {chat_id} not found")
+            if not await has_inventory_feature(db, group_telegram_id):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Inventory data can only be updated for groups with 'inventory' feature"
+                )
+            
+            # Декодируем category и item_id
+            from urllib.parse import unquote
+            try:
+                decoded_category_key = unquote(category)
+                if '%' in decoded_category_key:
+                    decoded_category_key = unquote(decoded_category_key)
+            except Exception:
+                decoded_category_key = category
+            
+            try:
+                decoded_item_key = unquote(item_id)
+                if '%' in decoded_item_key:
+                    decoded_item_key = unquote(decoded_item_key)
+            except Exception:
+                decoded_item_key = item_id
+            
+            # Проверяем, что товар существует
+            current_inventory = group.json_inventory or {}
+            if not isinstance(current_inventory.get(decoded_category_key), dict) or decoded_item_key not in current_inventory.get(decoded_category_key, {}):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Item '{item_id}' not found in category '{category}'"
+                )
+            
+            # Создаем директорию для фото товаров
+            photos_dir = FilePath("/app/shared/inventory_photos")
+            photos_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Генерируем уникальное имя файла
+            file_extension = photo.filename.split('.')[-1] if '.' in photo.filename else 'jpg'
+            # Используем chat_id, category и item_id для создания уникального имени
+            safe_category = decoded_category_key.replace('/', '_').replace('\\', '_')
+            safe_item_id = decoded_item_key.replace('/', '_').replace('\\', '_')
+            photo_filename = f"item_{group_telegram_id}_{safe_category}_{safe_item_id}_{uuid.uuid4().hex}.{file_extension}"
+            photo_path_full = photos_dir / photo_filename
+            
+            # Сохраняем файл
+            content = await photo.read()
+            with open(photo_path_full, "wb") as f:
+                f.write(content)
+            
+            logger.info(f"[upload_item_photo] Фото сохранено: {photo_filename}")
+            
+            # Формируем относительный путь для URL
+            photo_url = f"/inventory_photos/{photo_filename}"
+            
+            # Обновляем товар с photoUrl
+            current_item = current_inventory[decoded_category_key][decoded_item_key]
+            if not isinstance(current_item, dict):
+                current_item = {}
+            
+            current_item["photoUrl"] = photo_url
+            current_item["lastUpdated"] = datetime.now(timezone.utc).isoformat()
+            
+            # Обновляем инвентарь
+            if decoded_category_key not in current_inventory:
+                current_inventory[decoded_category_key] = {}
+            current_inventory[decoded_category_key][decoded_item_key] = current_item
+            
+            # Обновляем метаданные
+            current_metadata = group.json_metadata or {}
+            current_metadata["lastUpdated"] = datetime.now(timezone.utc).isoformat()
+            current_metadata["chat_id"] = str(group_telegram_id)
+            
+            # Сохраняем в БД
+            group.json_inventory = current_inventory
+            group.json_metadata = current_metadata
+            flag_modified(group, "json_inventory")
+            flag_modified(group, "json_metadata")
+            
+            await db.flush()
+        
+        # Инвалидируем кэш
+        try:
+            cache_key = f"inventory:{group_telegram_id}"
+            await redis_client.delete(cache_key)
+            logger.info(f"[upload_item_photo] Кэш инвалидирован для группы {group_telegram_id}")
+        except Exception as cache_error:
+            logger.warning(f"[upload_item_photo] Ошибка при инвалидации кэша: {cache_error}")
+        
+        # Возвращаем URL фото
+        return {
+            "photoUrl": photo_url,
+            "photo_url": photo_url  # Для обратной совместимости
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[upload_item_photo] Ошибка при загрузке фото: {e}")
+        logger.exception(e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload photo: {str(e)}"
+        )
+
+
+# --- ЭНДПОИНТ: получение фото товара ---
+@router.get("/photos/{photo_filename:path}")
+async def get_item_photo(photo_filename: str):
+    """
+    Возвращает файл фотографии товара с сервера.
+    Если фото не найдено, возвращает 404 ошибку.
+    """
+    try:
+        # Путь к папке с фото товаров
+        photos_dir = FilePath("/app/shared/inventory_photos")
+        photo_path = photos_dir / photo_filename
+        
+        # Проверяем существование файла
+        if not photo_path.exists():
+            logger.warning(f"Фото товара {photo_filename} не найдено: {photo_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Фото товара {photo_filename} не найдено"
+            )
+        
+        # Определяем MIME тип на основе расширения
+        extension = photo_path.suffix.lower()
+        if extension in ['.jpg', '.jpeg']:
+            media_type = "image/jpeg"
+        elif extension == '.png':
+            media_type = "image/png"
+        elif extension == '.webp':
+            media_type = "image/webp"
+        else:
+            media_type = "image/jpeg"  # По умолчанию
+        
+        logger.info(f"Возвращаем фото товара {photo_filename}: {photo_path}")
+        
+        from fastapi.responses import FileResponse
+        return FileResponse(
+            path=str(photo_path),
+            media_type=media_type,
+            filename=photo_filename
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при получении фото товара {photo_filename}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при получении фото товара: {str(e)}"
+        )

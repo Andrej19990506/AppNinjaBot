@@ -30,11 +30,14 @@ if ENVIRONMENT == 'development':
     # В dev режиме разрешаем все origins (включая React Native без Origin заголовка)
     CORS_ALLOWED_ORIGINS = "*"  # Разрешаем все origins
 else:
+    # В production разрешаем конкретные origins для веб-приложений
+    # React Native приложения не отправляют Origin заголовок, поэтому добавляем None для их поддержки
     CORS_ALLOWED_ORIGINS = [
         "http://192.168.0.115:3000",
         "http://localhost:3000",
         "http://localhost",
-        "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net"
+        "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net",
+        None  # Разрешаем запросы без Origin заголовка (для React Native приложений)
     ]
 
 # Настройки WebSocket
@@ -43,4 +46,4 @@ WEBSOCKET_PING_TIMEOUT = 60
 WEBSOCKET_MAX_BUFFER_SIZE = 1e8
 
 # Настройки метрик
-METRICS_PORT = int(os.getenv('METRICS_PORT', 9090)) 
+METRICS_PORT = int(os.getenv('METRICS_PORT', 9090))

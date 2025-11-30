@@ -95,6 +95,7 @@ services:
     environment:
       - API_BASE_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api
       - BOT_URL=http://bot-companies:8003
+      - BOT_INTERNAL_URL=http://bot-companies:8003
       - SCHEDULER_URL=http://scheduler:8002
       - WEBSOCKET_SERVER_URL=http://websocket:8001
       - SOCKET_URL=wss://appninjabot.ru

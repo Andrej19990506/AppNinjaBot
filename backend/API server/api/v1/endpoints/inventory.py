@@ -1213,7 +1213,7 @@ async def request_item_addition_through_bot(
             )
 
         # 3. Формируем запрос к боту
-        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot:8003")
+        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot-companies:8003")
         send_request_endpoint = f"{bot_internal_base_url}/internal/send_item_request"
         
         bot_payload = {
@@ -1549,7 +1549,7 @@ async def trigger_excel_generation(
 
         # --- Логика вызова бота --- 
         # Используем ту же переменную окружения и базовый URL, что и для табелей
-        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot:8003") 
+        bot_internal_base_url = os.getenv("BOT_INTERNAL_URL", "http://bot-companies:8003") 
         # Формируем полный URL для эндпоинта отправки Excel отчетов
         send_report_endpoint = f"{bot_internal_base_url}/internal/send_excel_report" 
         bot_payload = {

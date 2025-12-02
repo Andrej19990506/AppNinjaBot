@@ -1,8 +1,9 @@
 import logging
 import json
 import os
+import asyncio
 from pathlib import Path
-from fastapi import APIRouter, Request, HTTPException, status
+from fastapi import APIRouter, Request, HTTPException, status, UploadFile, File, Form
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
@@ -871,16 +872,47 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
         # Валидация пути к файлу
         requested_path = Path(payload.file_path)
         logger.info(f"Проверка пути Excel файла: {requested_path}")
+        
+        # Создаем директорию, если она не существует (для синхронизации с API сервером)
+        parent_dir = ALLOWED_REPORTS_DIR.parent
+        logger.info(f"🔍 [Excel Report] Проверяем родительскую директорию: {parent_dir}")
+        logger.info(f"🔍 [Excel Report] Родительская директория существует: {parent_dir.exists()}")
+        
+        ALLOWED_REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        logger.info(f"🔍 [Excel Report] ALLOWED_REPORTS_DIR: {ALLOWED_REPORTS_DIR}")
+        logger.info(f"🔍 [Excel Report] ALLOWED_REPORTS_DIR exists: {ALLOWED_REPORTS_DIR.exists()}")
+        
+        # Дополнительное логирование для диагностики
+        if ALLOWED_REPORTS_DIR.exists():
+            try:
+                files_in_dir = list(ALLOWED_REPORTS_DIR.iterdir())
+                logger.info(f"🔍 [Excel Report] Files in directory ({len(files_in_dir)}): {[f.name for f in files_in_dir]}")
+            except Exception as list_err:
+                logger.warning(f"⚠️ [Excel Report] Не удалось прочитать содержимое директории: {list_err}")
 
         # 1. Проверка на абсолютный путь
         if not requested_path.is_absolute():
              logger.error(f"❌ Указан относительный путь для Excel: {requested_path}")
              raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Excel file path: Must be absolute.")
 
-        # 2. Проверка существования файла
-        if not requested_path.is_file():
-             logger.error(f"❌ Excel файл не найден по пути: {requested_path}")
-             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Excel file not found at path: {requested_path.name}")
+        # 2. Проверка существования файла с retry (для синхронизации Docker volume)
+        max_retries = 10
+        retry_delay = 0.5
+        file_found = False
+        
+        for attempt in range(max_retries):
+            if requested_path.exists() and requested_path.is_file():
+                logger.info(f"✅ [Excel Report] Файл найден на попытке {attempt + 1}: {requested_path}")
+                file_found = True
+                break
+            else:
+                if attempt < max_retries - 1:
+                    logger.info(f"⏳ [Excel Report] Файл не найден, ожидание... (попытка {attempt + 1}/{max_retries})")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(f"❌ [Excel Report] Файл не найден после {max_retries} попыток: {requested_path}")
+                    logger.error(f"❌ [Excel Report] Путь существует: {requested_path.exists()}, это файл: {requested_path.is_file() if requested_path.exists() else 'N/A'}")
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Excel file not found at path: {requested_path.name}")
 
         # 3. Проверка нахождения файла в разрешенной директории отчетов
         try:
@@ -968,6 +1000,112 @@ async def send_excel_report_internal(payload: SendExcelReportPayload, request: R
            
             pass # Пока не удаляем здесь, чтобы избежать случайного удаления
  
+
+# --- НОВЫЙ ЭНДПОИНТ /internal/send_excel_report_file (принимает файл напрямую через multipart/form-data) ---
+@router.post("/internal/send_excel_report_file", tags=["Internal"], status_code=status.HTTP_200_OK)
+async def send_excel_report_file_internal(
+    request: Request,
+    chat_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    """Принимает файл напрямую через multipart/form-data и отправляет сгенерированный Excel отчет в группу."""
+    logger.info(f"📬 Получен запрос на /internal/send_excel_report_file для чата ID {chat_id}")
+    logger.info(f"📎 Получен файл: {file.filename}, размер: {file.size if hasattr(file, 'size') else 'unknown'}")
+
+    try:
+        # Преобразуем формат ID чата
+        try:
+            if not chat_id.startswith('-'):
+                logger.warning(f"Получен chat_id '{chat_id}' без минуса для группы. Пытаюсь добавить...")
+                processed_chat_id = int(f"-{chat_id}")
+            else:
+                processed_chat_id = int(chat_id)
+            logger.info(f"ID чата для отправки отчета: {processed_chat_id}")
+        except ValueError:
+            logger.error(f"Не удалось преобразовать chat_id '{chat_id}' в число")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid chat_id format: {chat_id}")
+
+        # Определяем, какой бот использовать для этой группы
+        bot_app: Application = None
+        
+        company_bot = await find_company_bot_for_chat(processed_chat_id, request)
+        if company_bot:
+            bot_app = company_bot
+        else:
+            from telegramNinjaBot.config.config import Config
+            config = Config()
+            if config.BOT_TYPE == 'companies':
+                bot_applications = getattr(request.app.state, 'bot_applications', None)
+                if bot_applications:
+                    bot_app = bot_applications[0]
+                    logger.warning(f"⚠️ Используем первый доступный бот для группы {chat_id} (бот компании не найден)")
+                else:
+                    logger.error("❌ bot_applications не найдены в app.state")
+            else:
+                bot_app = request.app.state.bot_application
+        
+        if not bot_app or not bot_app.bot:
+            logger.error("❌ Экземпляр бота не доступен в app.state при запросе send_excel_report_file")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Bot instance not available")
+
+        # Формируем подпись для документа
+        report_date = datetime.now().strftime("%d.%m.%Y")
+        caption = f"📊 Отчет по инвентаризации от {report_date}"
+        logger.info(f"Сгенерирована подпись для Excel: '{caption}'")
+
+        # Читаем содержимое файла
+        file_content = await file.read()
+        file_size = len(file_content)
+        logger.info(f"✅ Файл прочитан: {file_size} байт")
+
+        # Отправка документа
+        try:
+            # Используем BytesIO для создания файлового объекта из байтов
+            from io import BytesIO
+            file_stream = BytesIO(file_content)
+            
+            # Получаем имя файла
+            filename = file.filename or f"inventory_report_{processed_chat_id}.xlsx"
+            
+            await bot_app.bot.send_document(
+                chat_id=processed_chat_id,
+                document=InputFile(file_stream, filename=filename),
+                caption=caption
+            )
+            logger.info(f"✅ Excel файл {filename} успешно отправлен в чат {chat_id}.")
+            
+            return {"success": True, "message": "Excel report sent successfully"}
+
+        except BadRequest as tg_err:
+            logger.error(f"❌ Ошибка BadRequest при отправке Excel {filename} в чат {chat_id}: {tg_err}")
+            # Попытка отправить с альтернативным ID (если это группа)
+            if str(processed_chat_id).startswith('-100'):
+                 alternative_chat_id = int(str(processed_chat_id).replace('-100', '-'))
+                 logger.info(f"Попытка отправить Excel в чат {alternative_chat_id} (альтернативный ID)")
+                 try:
+                     file_stream = BytesIO(file_content)
+                     await bot_app.bot.send_document(
+                         chat_id=alternative_chat_id,
+                         document=InputFile(file_stream, filename=filename),
+                         caption=caption
+                     )
+                     logger.info(f"✅ Excel файл {filename} успешно отправлен в чат {alternative_chat_id}.")
+                     return {"success": True, "message": "Excel report sent successfully (alt ID)"}
+                 except Exception as alt_send_err:
+                     logger.error(f"❌ Ошибка при отправке Excel {filename} в чат {alternative_chat_id}: {alt_send_err}")
+                     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send Excel report (alt ID): {alt_send_err}")
+            else:
+                 raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"BadRequest error sending Excel report: {tg_err}")
+        except Exception as send_err:
+            logger.error(f"❌ Ошибка при отправке Excel файла в чат {chat_id}: {send_err}", exc_info=True)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to send Excel report: {send_err}")
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logger.error(f"❌ Непредвиденная ошибка в /internal/send_excel_report_file: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Internal server error: {e}")
+
 
 # --- НОВЫЙ ЭНДПОИНТ /internal/send_write_off_report --- 
 @router.post("/internal/send_write_off_report", tags=["Internal"], status_code=status.HTTP_200_OK)

@@ -1541,7 +1541,18 @@ async def trigger_excel_generation(
         try:
             with open(save_file_path, "wb") as f:
                 f.write(excel_bytes)
+                f.flush()  # Принудительно записываем буфер в файл
+                os.fsync(f.fileno())  # Принудительно синхронизируем с диском
             logger.info(f"[trigger_excel_generation] Excel content for chat {chat_id} saved to: {save_file_path}")
+            
+            # Проверяем, что файл действительно существует и имеет размер
+            if not save_file_path.exists():
+                raise Exception(f"File was not created at {save_file_path}")
+            file_size = save_file_path.stat().st_size
+            if file_size == 0:
+                raise Exception(f"File is empty at {save_file_path}")
+            logger.info(f"[trigger_excel_generation] File verified: exists=True, size={file_size} bytes")
+            
         except Exception as save_err:
             logger.exception(f"[trigger_excel_generation] Failed to save Excel file to {save_file_path} for chat {chat_id}: {save_err}")
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to save generated report.")
@@ -1582,12 +1593,42 @@ async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_del
     """Отправляет отчет боту и удаляет временный файл."""
     logger.info(f"[BG Task - Inventory Report] Attempting to send request to bot. URL: {url}, Payload keys: {list(payload.keys())}")
     
-    # Отправляем боту
+    # Проверяем, что файл существует
+    file_path = FilePath(file_path_to_delete)
+    if not file_path.exists() or not file_path.is_file():
+        logger.error(f"[BG Task - Inventory Report] File does not exist: {file_path_to_delete}")
+        return  # Выходим, не отправляем запрос боту
+    
+    file_size = file_path.stat().st_size
+    logger.info(f"[BG Task - Inventory Report] File verified: exists=True, size={file_size} bytes")
+    
+    # Используем новый эндпоинт, который принимает файл напрямую через multipart/form-data
+    # Меняем URL с /internal/send_excel_report на /internal/send_excel_report_file
+    file_upload_url = url.replace("/internal/send_excel_report", "/internal/send_excel_report_file")
+    
+    # Отправляем файл через multipart/form-data
     async with httpx.AsyncClient(timeout=60.0) as client:
         try:
-            response = await client.post(url, json=payload)
+            # Читаем файл
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+            
+            # Получаем имя файла
+            filename = file_path.name
+            chat_id = payload.get("chat_id", "")
+            
+            # Отправляем через multipart/form-data
+            files = {
+                "file": (filename, file_content, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            }
+            data = {
+                "chat_id": chat_id
+            }
+            
+            logger.info(f"[BG Task - Inventory Report] Sending file via multipart/form-data to {file_upload_url}")
+            response = await client.post(file_upload_url, files=files, data=data)
             response.raise_for_status()
-            logger.info(f"[BG Task - Inventory Report] Successful response from bot (status {response.status_code}) for report {payload.get('chat_id')}")
+            logger.info(f"[BG Task - Inventory Report] Successful response from bot (status {response.status_code}) for report {chat_id}")
             
             # Удаляем временный файл после успешной отправки боту
             try:
@@ -1597,11 +1638,11 @@ async def send_inventory_report_to_bot(url: str, payload: dict, file_path_to_del
                 logger.error(f"[BG Task - Inventory Report] Failed to delete temporary file {file_path_to_delete}: {unlink_err}")
                 
         except httpx.RequestError as req_err:
-            logger.error(f"[BG Task - Inventory Report] Request error while contacting bot at {url}: {req_err}")
+            logger.error(f"[BG Task - Inventory Report] Request error while contacting bot at {file_upload_url}: {req_err}")
         except httpx.HTTPStatusError as status_err:
-            logger.error(f"[BG Task - Inventory Report] Bot returned an error status {status_err.response.status_code} for {url}. Response: {status_err.response.text}")
+            logger.error(f"[BG Task - Inventory Report] Bot returned an error status {status_err.response.status_code} for {file_upload_url}. Response: {status_err.response.text}")
         except Exception as e:
-            logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({url})")
+            logger.exception(f"[BG Task - Inventory Report] Unexpected error sending request to bot ({file_upload_url})")
 
 # ---> ДОБАВЛЕНИЕ: Новый эндпоинт для сброса инвентаризации <---
 @router.post(
@@ -2503,6 +2544,22 @@ async def update_inventory_item_point(
     group_title_for_response: str | None = None
     saved_group_id: int | None = None
     previous_item_snapshot: Dict[str, Any] | None = None
+    
+    # Декодируем параметры для использования после транзакции (для обновления шаблона)
+    from urllib.parse import unquote
+    try:
+        decoded_category_key = unquote(category)
+        if '%' in decoded_category_key:
+            decoded_category_key = unquote(decoded_category_key)
+    except Exception:
+        decoded_category_key = category
+
+    try:
+        decoded_item_key = unquote(item_id)
+        if '%' in decoded_item_key:
+            decoded_item_key = unquote(decoded_item_key)
+    except Exception:
+        decoded_item_key = item_id
 
     try:
         async with db.begin():
@@ -2522,23 +2579,6 @@ async def update_inventory_item_point(
             # Сохраняем предыдущую версию товара для истории
             if isinstance(current_inventory.get(category), dict) and item_id in current_inventory.get(category, {}):
                 previous_item_snapshot = json.loads(json.dumps(current_inventory[category][item_id]))
-
-            # Обновляем один товар (проставляем серверный timestamp)
-            # КАНОНИКАЛИЗАЦИЯ КЛЮЧЕЙ: декодируем category/item_id перед записью, чтобы в БД хранились Unicode-ключи
-            from urllib.parse import unquote
-            try:
-                decoded_category_key = unquote(category)
-                if '%' in decoded_category_key:
-                    decoded_category_key = unquote(decoded_category_key)
-            except Exception:
-                decoded_category_key = category
-
-            try:
-                decoded_item_key = unquote(item_id)
-                if '%' in decoded_item_key:
-                    decoded_item_key = unquote(decoded_item_key)
-            except Exception:
-                decoded_item_key = item_id
 
             # 🚨 ЗАЩИТА: Не позволяем создавать категорию "by-uuid"
             if decoded_category_key in ['by-uuid', 'uuid', 'by_uuid']:
@@ -2723,6 +2763,80 @@ async def update_inventory_item_point(
     except Exception as e:
         logger.exception(f"[update_inventory_item_point] Error during DB transaction for chat_id: {chat_id}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not update inventory item")
+
+    # --- ОБНОВЛЕНИЕ ШАБЛОНА: Сохраняем QR-коды и штрих-коды в файл шаблона ---
+    try:
+        if isinstance(payload.item, dict):
+            # Проверяем, есть ли данные о QR-кодах или штрих-кодах
+            has_qr_data = bool(payload.item.get('qrData') or payload.item.get('gtin') or payload.item.get('barcode'))
+            
+            if has_qr_data:
+                logger.info(f"[update_inventory_item_point] Обнаружены данные QR/штрих-кода, обновляем шаблон для товара {decoded_category_key}/{decoded_item_key}")
+                
+                template_path = "/app/data/templates/inventory_template.json"
+                
+                # Загружаем шаблон
+                if os.path.exists(template_path):
+                    with open(template_path, 'r', encoding='utf-8') as f:
+                        template_data = json.load(f)
+                    
+                    # Ищем товар в шаблоне по категории и имени (или UUID)
+                    template_updated = False
+                    item_uuid = payload.item.get('uuid')
+                    item_name = payload.item.get('name') or decoded_item_key
+                    
+                    # Ищем товар в шаблоне
+                    found_in_template = False
+                    for cat_key, cat_items in template_data.items():
+                        if not isinstance(cat_items, dict):
+                            continue
+                        
+                        for item_key, item_value in cat_items.items():
+                            if not isinstance(item_value, dict):
+                                continue
+                            
+                            # Проверяем совпадение по UUID или по имени и категории
+                            item_uuid_in_template = item_value.get('uuid')
+                            item_name_in_template = item_value.get('name') or item_key
+                            
+                            if (item_uuid and item_uuid_in_template == item_uuid) or \
+                               (cat_key == decoded_category_key and item_name_in_template == item_name):
+                                # Нашли товар в шаблоне, обновляем QR-коды и штрих-коды
+                                logger.info(f"[update_inventory_item_point] Найден товар в шаблоне: {cat_key}/{item_key}")
+                                
+                                # Обновляем только QR-коды и штрих-коды, не трогая остальные поля
+                                if payload.item.get('qrData'):
+                                    item_value['qrData'] = payload.item['qrData']
+                                    template_updated = True
+                                if payload.item.get('gtin'):
+                                    item_value['gtin'] = payload.item['gtin']
+                                    template_updated = True
+                                if payload.item.get('barcode'):
+                                    item_value['barcode'] = payload.item['barcode']
+                                    template_updated = True
+                                if payload.item.get('barcodeFormat'):
+                                    item_value['barcodeFormat'] = payload.item['barcodeFormat']
+                                    template_updated = True
+                                
+                                found_in_template = True
+                                break
+                        
+                        if found_in_template:
+                            break
+                    
+                    # Сохраняем шаблон, если были изменения
+                    if template_updated:
+                        with open(template_path, 'w', encoding='utf-8') as f:
+                            json.dump(template_data, f, ensure_ascii=False, indent=2)
+                        logger.info(f"[update_inventory_item_point] ✅ Шаблон обновлен: QR-коды и штрих-коды сохранены для товара {decoded_category_key}/{decoded_item_key}")
+                    elif not found_in_template:
+                        logger.info(f"[update_inventory_item_point] ⚠️ Товар {decoded_category_key}/{decoded_item_key} не найден в шаблоне, пропускаем обновление")
+                else:
+                    logger.warning(f"[update_inventory_item_point] Файл шаблона не найден: {template_path}")
+    except Exception as template_err:
+        # Не прерываем выполнение, если обновление шаблона не удалось
+        logger.error(f"[update_inventory_item_point] Ошибка при обновлении шаблона: {template_err}", exc_info=True)
+    # --- КОНЕЦ ОБНОВЛЕНИЯ ШАБЛОНА ---
 
     # Отправляем NOTIFY
     try:

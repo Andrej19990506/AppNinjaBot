@@ -584,6 +584,15 @@
         "notes": ""
       }
     },
+    "Чай в стиках Облепиха - Апельсин (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Холодный чай зеленый Мята-лайм 0.5 ПЭТ (шт.)": {
       "raw": {
         "quantity": 0,
@@ -603,6 +612,15 @@
       }
     },
     "Черноголовка кола 2л": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Кола Черноголовка «Снежная Ириска» 1,5 литра (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -638,7 +656,25 @@
         "notes": ""
       }
     },
+    "Глинтвейн (напиток в стике) (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Черноголовка Лимонад  2л": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "«Лимонный Пунш» Черноголовка 1,5 литра (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1742,6 +1778,15 @@
       }
     },
     "Чизкейк New York (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Чизкейк Кленовый Пекан (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

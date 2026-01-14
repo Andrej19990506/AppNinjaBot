@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 HEADER_FILL = PatternFill(start_color='FF5F1F', end_color='FF5F1F', fill_type='solid')
 SECTION_FILL = PatternFill(start_color='F2F2F2', end_color='F2F2F2', fill_type='solid')
 HEADER_FONT = Font(bold=True, color="FFFFFF")
+UNUSED_FILL = PatternFill(start_color='FFB3B3', end_color='FFB3B3', fill_type='solid') 
 SECTION_FONT = Font(bold=True)
 BORDER_THIN = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
@@ -74,6 +75,10 @@ def style_section_header(worksheet, row_idx, col_count):
         cell.alignment = Alignment(horizontal='left', vertical='center')
         cell.border = BORDER_THIN
 
+def mark_unused_cell(worksheet, row_idx, col_idx):
+    """Красит ячейку в красный для товаров с меткой 'Не используется'"""
+    cell = worksheet.cell(row=row_idx, column=col_idx)
+    cell.fill = UNUSED_FILL
 
 def generate_inventory_excel(
     inventory_data: Dict[str, Any],
@@ -86,6 +91,8 @@ def generate_inventory_excel(
     output = BytesIO()
     try:
         rows = []
+        unused_items = []  # ← НОВЫЙ СПИСОК для товаров "Не используется"
+        
         # --- 1. Основная таблица ---
         for idx, (category, item_name) in enumerate(EXCEL_MAIN_ITEMS, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
@@ -93,7 +100,19 @@ def generate_inventory_excel(
             semifinished = item_data.get('semifinished', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
-            raw_display = "Нет в наличии" if isinstance(raw, dict) and raw.get('isOutOfStock') else raw_qty
+            
+            if isinstance(raw, dict) and raw.get('isUnused'):
+                raw_display = "Не используется"
+                # Добавляем в список неиспользуемых товаров
+                unused_items.append({
+                    'Секция': category,
+                    'Наименование': item_name
+                })
+            elif isinstance(raw, dict) and raw.get('isOutOfStock'):
+                raw_display = "Нет в наличии"
+            else: 
+                raw_display = raw_qty
+            
             semifin_display = semifin_qty
             rows.append({
                 '№ п/п': idx,
@@ -102,6 +121,7 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
             })
+        
         # --- 2. Полуфабрикаты ---
         rows.append({'№ п/п': '', 'Секция': 'Полуфабрикаты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_SEMIFINISHED, 1):
@@ -117,6 +137,7 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_qty if raw_qty is not None else '',
                 'Полуфабрикаты (шт.)': semifin_qty if semifin_qty is not None else ''
             })
+        
         # --- 3. Напитки ---
         rows.append({'№ п/п': '', 'Секция': 'Напитки', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_DRINKS, 1):
@@ -130,6 +151,7 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_qty if raw_qty is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
+        
         # --- 4. Упаковка и приборы ---
         rows.append({'№ п/п': '', 'Секция': 'Упаковка и приборы', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_PACKAGING, 1):
@@ -143,6 +165,7 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_qty if raw_qty is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
+        
         # --- 5. Десерты ---
         rows.append({'№ п/п': '', 'Секция': 'Десерты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_DESSERTS, 1):
@@ -156,13 +179,26 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_qty if raw_qty is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
+        
         # --- 6. Бар (отдельная секция) ---
         rows.append({'№ п/п': '', 'Секция': 'Бар', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_BAR, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
             raw = item_data.get('raw', {})
             raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
-            raw_display = "Нет в наличии" if isinstance(raw, dict) and raw.get('isOutOfStock') else raw_qty
+            
+            if isinstance(raw, dict) and raw.get('isUnused'):
+                raw_display = "Не используется"
+                # Добавляем в список неиспользуемых товаров
+                unused_items.append({
+                    'Секция': category,
+                    'Наименование': item_name
+                })
+            elif isinstance(raw, dict) and raw.get('isOutOfStock'):
+                raw_display = "Нет в наличии"
+            else: 
+                raw_display = raw_qty
+            
             rows.append({
                 '№ п/п': idx,
                 'Секция': '',
@@ -170,6 +206,7 @@ def generate_inventory_excel(
                 'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
+        
         # --- Excel запись и оформление ---
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             author_first_name = metadata.get('currentUser', {}).get('first_name', '')
@@ -187,20 +224,68 @@ def generate_inventory_excel(
             metadata_df = pd.DataFrame(meta_info)
             metadata_df.to_excel(writer, sheet_name='Инвентаризация', index=False, header=False, startrow=0)
             worksheet = writer.sheets['Инвентаризация']
+            
+            # Основная таблица
             df = pd.DataFrame(rows, columns=COLUMNS)
             df.to_excel(writer, sheet_name='Инвентаризация', index=False, startrow=5)
             header_row = 6
             end_row = header_row + len(df)
             style_table(worksheet, header_row, end_row, 1, len(COLUMNS), header_row=header_row)
-            set_auto_width(worksheet)
-            # Оформление секций (заливка и жирный для строк, где есть только название секции)
+            
+            # Оформление секций и маркировка "Не используется"
             for row_idx in range(header_row, end_row + 1):
                 секция = worksheet.cell(row=row_idx, column=2).value
                 if секция and секция.strip() and all(worksheet.cell(row=row_idx, column=col).value in (None, '', секция) for col in range(3, len(COLUMNS)+1)):
                     style_section_header(worksheet, row_idx, len(COLUMNS))
+                
+                # Красим ячейки с "Не используется" в красный
+                raw_value = worksheet.cell(row=row_idx, column=4).value
+                if raw_value == "Не используется":
+                    cell = worksheet.cell(row=row_idx, column=4)
+                    cell.fill = UNUSED_FILL
+            
+            # --- НОВАЯ ТАБЛИЦА: Товары "Не используется" ---
+            if unused_items:
+                # Заголовок таблицы
+                unused_header_row = 5
+                worksheet.cell(row=unused_header_row, column=10, value="Не используется")
+                worksheet.cell(row=unused_header_row, column=10).font = Font(bold=True, size=14)
+                
+                # Заголовки колонок
+                unused_table_header = 6
+                worksheet.cell(row=unused_table_header, column=10, value="Секция")
+                worksheet.cell(row=unused_table_header, column=11, value="Наименование")
+                
+                # Стилизуем заголовки
+                for col in [10, 11]:
+                    cell = worksheet.cell(row=unused_table_header, column=col)
+                    cell.font = HEADER_FONT
+                    cell.fill = HEADER_FILL
+                    cell.border = BORDER_THIN
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Заполняем данные
+                for idx, item in enumerate(unused_items, start=1):
+                    row = unused_table_header + idx
+                    worksheet.cell(row=row, column=10, value=item['Секция'])
+                    worksheet.cell(row=row, column=11, value=item['Наименование'])
+                    
+                    # Стилизуем ячейки
+                    for col in [10, 11]:
+                        cell = worksheet.cell(row=row, column=col)
+                        cell.border = BORDER_THIN
+                        cell.alignment = Alignment(horizontal='left', vertical='center')
+                        cell.fill = UNUSED_FILL
+                
+                # Автоподбор ширины для колонок J и K
+                worksheet.column_dimensions['J'].width = 20
+                worksheet.column_dimensions['K'].width = 50
+            
+            set_auto_width(worksheet)
+            
         output.seek(0)
         logger.info("Excel generation finished successfully (unified template)")
         return output
     except Exception as e:
         logger.exception(f"Error generating Excel content: {e}")
-        return BytesIO()  # Возвращаем пустой поток при ошибке 
+        return BytesIO()

@@ -28,9 +28,9 @@ import EventList from './features/Events/EventList';
 import { setActiveRole } from './shared/store/userSlice/userSlice';
 import WriteOff from '@/features/WriteOff/WriteOff';
 import TelegramAccessError from './shared/components/TelegramAccessError/TelegramAccessError';
-import SnowOnElements from '@/shared/components/SnowOnElements';
-import ChristmasTree from '@/shared/components/ChristmasTree';
-import AutumnLeaves from '@/shared/components/AutumnLeaves';
+//import SnowOnElements from '@/shared/components/SnowOnElements';
+//import ChristmasTree from '@/shared/components/ChristmasTree';
+//import AutumnLeaves from '@/shared/components/AutumnLeaves';
 import ProtectedRoute from './shared/components/ProtectedRoute/ProtectedRoute';
 import NoGroupAssigned from './shared/components/NoGroupAssigned/NoGroupAssigned';
 import ServerErrorModal from './shared/components/ServerErrorModal/ServerErrorModal';
@@ -344,7 +344,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       />
       
       {/* Осенний листопад */}
-      <AutumnLeaves />
+      {/*<AutumnLeaves />*/}
     </>
   );
 };
@@ -443,11 +443,11 @@ function App() {
   }, []);
 
   // Обработчик клика на елочку
-  const handleChristmasTreeClick = () => {
-    if (!isWinterDecorEnabled) return;
-    console.log('🎄 Клик на елочку! Запускаем снежинки вручную');
-    setTriggerSnowflakes(prev => !prev); // Переключаем триггер для запуска
-  };
+  //const handleChristmasTreeClick = () => {
+   // if (!isWinterDecorEnabled) return;
+    //console.log('🎄 Клик на елочку! Запускаем снежинки вручную');
+    //setTriggerSnowflakes(prev => !prev); // Переключаем триггер для запуска
+  //};
 
   return (
     <Provider store={store}>
@@ -461,7 +461,7 @@ function App() {
               <InstallPWAButton />
               
               {/* Глобальный снег на видимых элементах приложения */}
-              {isWinterDecorEnabled && (
+              {/*{isWinterDecorEnabled && (
                 <SnowOnElements 
                   selectors={[
                     // Основные интерактивные элементы
@@ -490,10 +490,10 @@ function App() {
               )}
 
               {/* Глобальная елочка */}
-              {isWinterDecorEnabled && <ChristmasTree onClick={handleChristmasTreeClick} />}
+              {/*{isWinterDecorEnabled && <ChristmasTree onClick={handleChristmasTreeClick} />}
 
               {/* Падающие снежинки (автоматически + при клике на елочку) */}
-              {isWinterDecorEnabled && <AutumnLeaves triggerStart={triggerSnowflakes} />}
+              {/*{isWinterDecorEnabled && <AutumnLeaves triggerStart={triggerSnowflakes} />}*/}
 
                 <Routes>
                   <Route path="/courier" element={

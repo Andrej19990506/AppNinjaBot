@@ -23,6 +23,7 @@ import { useInventoryWebSocketSync } from '@features/Inventory/hooks/useInventor
 import { socketService } from '@shared/services/socketService';
 import styled from 'styled-components';
 import { QrScannerModal } from '@features/Inventory/components/QrScannerModal/QrScannerModal';
+import UnusedConfirmModal from '@features/Inventory/UnusedConfirmModal';
 
 // Импортируем необходимые хуки
 import { useInventoryLoader } from '@features/Inventory/hooks/useInventoryLoader';
@@ -78,6 +79,14 @@ const Inventory: React.FC = () => {
         type: 'raw' | 'semifinished';
         onConfirm: () => void;
     } | null>(null);
+    const [showUnusedConfirm, setShowUnusedConfirm] = useState(false);
+    const [pendingUnusedData, setPendingUnusedData] = useState<{
+        category: string;
+        itemId: string;
+        itemName: string;
+        type: 'raw' | 'semifinished';
+        onConfirm: () => void;
+      } | null>(null);
     
     // Состояние для модального окна агрессивных изменений
     const [showAggressiveChangeModal, setShowAggressiveChangeModal] = useState(false);
@@ -144,6 +153,7 @@ const Inventory: React.FC = () => {
         handleSearchFocusChange,
         handleSearchResultSelect: handleSearchResultSelectFromHook,
         handleHistoryItemSelect
+        
     } = useInventorySearch({
         inventory: selectedChat?.inventory,
         onSelectResult: (category, itemId) => {
@@ -339,6 +349,30 @@ const Inventory: React.FC = () => {
         navigate('/');
     }, [navigate]);
 
+    const handleUnusedConfirm = useCallback((
+        category: string,
+        itemId: string,
+        itemName: string,
+        type: 'raw' | 'semifinished',
+        onConfirm: () => void
+      ) => {
+        setPendingUnusedData({ category, itemId, itemName, type, onConfirm });
+        setShowUnusedConfirm(true);
+      }, []);
+      
+      const handleUnusedConfirmCancel = useCallback(() => {
+        setShowUnusedConfirm(false);
+        setPendingUnusedData(null);
+      }, []);
+      
+      const handleUnusedConfirmSubmit = useCallback(() => {
+        if (!pendingUnusedData) return;
+        
+        pendingUnusedData.onConfirm();
+        
+        setShowUnusedConfirm(false);
+        setPendingUnusedData(null);
+      }, [pendingUnusedData]);
 
     // Функции для управления модальным окном подтверждения "Нет в наличии"
     const handleOutOfStockConfirm = useCallback((category: string, itemId: string, itemName: string, type: 'raw' | 'semifinished', onConfirm: () => void) => {
@@ -504,6 +538,7 @@ const Inventory: React.FC = () => {
                     onOutOfStockConfirm={handleOutOfStockConfirm}
                     onAggressiveChange={handleAggressiveChange}
                     onEditingStateChange={handleEditingStateChange}
+                    onUnusedConfirm={handleUnusedConfirm}
                 />
                 
                 <ItemHistory
@@ -748,7 +783,12 @@ const Inventory: React.FC = () => {
                 onConfirm={handleOutOfStockConfirmSubmit}
                 onCancel={handleOutOfStockConfirmCancel}
             />
-
+            <UnusedConfirmModal
+                isOpen={showUnusedConfirm}
+                itemName={pendingUnusedData?.itemName || ''}
+                onConfirm={handleUnusedConfirmSubmit}
+                onClose={handleUnusedConfirmCancel}
+                />
             {/* Модальное окно агрессивных изменений */}
             {aggressiveChangeData && (
                 <AggressiveChangeModal

@@ -982,3 +982,68 @@
         transform: scale(0.98) !important;
     }
 }
+/* Статус "Не используется" — тёмно-серый, неактивный, крестик внизу посередине */
+.itemCard.unused {
+    opacity: 0.85 !important;                 /* чуть приглушённый */
+    color: #4b5563 !important;                /* тёмно-серый текст */
+    box-shadow: none !important;              /* убираем тень */
+  }
+  
+  /* Полностью отключаем hover и любые эффекты */
+  .itemCard.unused:hover,
+  .itemCard.unused:active,
+  .itemCard.unused:focus {
+    transform: none !important;
+    box-shadow: none !important;
+    opacity: 0.85 !important;
+  }
+  
+  /* Красный крестик — теперь внизу посередине (как была галочка) */
+  .itemCard.unused::after {
+    content: '✕';
+    position: absolute;
+    bottom: 12px;                             /* внизу */
+    left: 50%;
+    transform: translateX(-50%);              /* точно посередине */
+    font-size: 32px;                          /* крупный крестик */
+    font-weight: bold;
+    color: #dc2626;                           /* ярко-красный (можно #ef4444) */
+    background: rgba(220, 38, 38, 0.15);
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+    z-index: 2;
+  }
+  
+  /* Скрываем старую галочку и другие бейджи */
+  .itemCard.unused .filledBadge,
+  .itemCard.unused .outOfStockBadge {
+    display: none !important;
+  }
+  
+  /* Зачёркиваем и приглушаем название */
+  .itemCard.unused .itemTitle {
+    color: #ffffff !important;
+    text-decoration: line-through;
+    opacity: 0.75;
+    font-weight: 500;
+  }
+  
+  /* Приглушаем весь контент внутри */
+  .itemCard.unused * {
+    color: #4b5563 !important;
+  }
+  
+  /* Мобильная адаптация крестика */
+  @media (max-width: 768px) {
+    .itemCard.unused::after {
+      font-size: 28px;
+      width: 42px;
+      height: 42px;
+      bottom: 10px;
+    }
+  }

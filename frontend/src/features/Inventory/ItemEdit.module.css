@@ -169,9 +169,11 @@
 
 .buttons {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-left: auto;
     align-items: center;
+    justify-content: flex-end;
 }
 
 .button {
@@ -853,4 +855,77 @@
     .addSemifinishedButton {
         margin-bottom: 20px; /* Увеличиваем отступ снизу для футера */
     }
+}
+
+/* ────────────────────────────────────────────────
+   СТАТУС "НЕ ИСПОЛЬЗУЕТСЯ"
+───────────────────────────────────────────────── */
+
+.unusedStatus {
+    font-size: 16px;
+    font-weight: 600;
+    background: var(--success-color);
+    color: var(--text-color);
+    border-radius: var(--radius);
+    padding: 10px 16px;
+    text-align: center;
+    margin: 12px 0;
+    border: 1px solid rgba(217, 119, 6, 0.3);
+}
+
+/* Исправляем цвет "Нет в наличии" — должен быть тревожным */
+.outOfStockStatus {
+    background: var(--error-color);      /* или #ef4444 / #dc2626 */
+    color: white;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: var(--radius);
+    position: relative;                  /* убираем absolute, если не нужно прилипание */
+}
+
+/* Кнопка "Не используется" / "Возобновить" */
+.unusedButton {
+    height: 40px;
+    padding: 0 16px;
+    border: 1px solid var(--border-color);
+    background: var(--success-color);
+    color: var(--text-color);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.unusedButton:hover {
+    background: var(--success-color);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+}
+
+.unusedButton.active {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.25);
+}
+
+/* Disabled состояние для всех статусных кнопок */
+.outOfStockButton:disabled,
+.unusedButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Удаляем неиспользуемый блок (можно закомментировать или удалить) */
+.value.outOfStock,
+.value.outOfStock::before,
+.value.outOfStock .quantity {
+    /* display: none; */   /* или полностью удалить эти правила */
 }

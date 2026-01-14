@@ -152,50 +152,54 @@ const ItemList: React.FC<ItemListProps> = ({
     // Определяем статус товара (заполнен/пуст/нет в наличии)
     const getItemStatus = (item: InventoryItem) => {
         if (!item.raw) return '';
-        
+      
+        // Самый высокий приоритет — не используется
+        if (item.raw.isUnused) return 'unused';
+      
         if (item.raw.isOutOfStock) return 'outOfStock';
-        
+      
         const isRawFilled = item.raw.filled || item.raw.quantity > 0;
         const hasSemifinished = Boolean(item.semifinished);
         const isSemifinishedFilled = hasSemifinished && 
-            (item.semifinished?.filled || (item.semifinished?.quantity ?? 0) > 0);
-        
+          (item.semifinished?.filled || (item.semifinished?.quantity ?? 0) > 0);
+      
         if (isRawFilled && (!hasSemifinished || isSemifinishedFilled)) {
-            return 'filled';
+          return 'filled';
         }
-        
+      
         return '';
-    };
+      };
     
     // Получаем массив товаров и сортируем его
     const itemsArray = Object.entries(items)
-        .map(([itemId, item]) => ({
-            id: itemId,
-            ...item
-        }))
-        .sort((a, b) => {
-            // Определяем заполненность для каждого элемента
-            const aStatus = getItemStatus(a);
-            const bStatus = getItemStatus(b);
-            
-            // Приоритет сортировки: empty > filled > outOfStock
-            
-            // Если один из элементов "нет в наличии", он идет в конец
-            if (aStatus === 'outOfStock' && bStatus !== 'outOfStock') return 1;
-            if (aStatus !== 'outOfStock' && bStatus === 'outOfStock') return -1;
-            
-            // Если оба элемента "нет в наличии", сортируем по алфавиту
-            if (aStatus === 'outOfStock' && bStatus === 'outOfStock') {
-                return a.id.localeCompare(b.id);
-            }
-            
-            // Если один из элементов пустой, а другой заполнен (но не "нет в наличии")
-            if (aStatus === '' && bStatus === 'filled') return -1;
-            if (aStatus === 'filled' && bStatus === '') return 1;
-            
-            // Если оба элемента имеют одинаковый статус (filled или empty), сортируем по алфавиту
-            return a.id.localeCompare(b.id);
-        });
+    .map(([itemId, item]) => ({
+      id: itemId,
+      ...item
+    }))
+    .sort((a, b) => {
+      const aStatus = getItemStatus(a);
+      const bStatus = getItemStatus(b);
+  
+      // Новый приоритет: "не используется" всегда в самом конце
+      if (a.raw?.isUnused) return 1;   // a не используется → ставим в конец
+      if (b.raw?.isUnused) return -1;  // b не используется → ставим в конец
+  
+      // Дальше как было: outOfStock в конец, но перед "не используется"
+      if (aStatus === 'outOfStock' && bStatus !== 'outOfStock') return 1;
+      if (aStatus !== 'outOfStock' && bStatus === 'outOfStock') return -1;
+  
+      // Если оба outOfStock — по алфавиту
+      if (aStatus === 'outOfStock' && bStatus === 'outOfStock') {
+        return a.id.localeCompare(b.id);
+      }
+  
+      // Пустые перед заполненными
+      if (aStatus === '' && bStatus === 'filled') return -1;
+      if (aStatus === 'filled' && bStatus === '') return 1;
+  
+      // Остальные — по алфавиту
+      return a.id.localeCompare(b.id);
+    });
     
     // Функция для выделения совпадений в тексте
     const highlightMatch = (text: string, query: string) => {
@@ -443,7 +447,7 @@ const ItemList: React.FC<ItemListProps> = ({
                             return (
                                 <motion.div
                                     key={itemId}
-                                    className={`${styles.itemCard} ${styles[status]} ${isSearchResult ? styles.searchResult : ''} ${isPressing ? styles.pressing : ''}`}
+                                    className={`${styles.itemCard} ${styles[status]} ${status === 'unused' ? styles.unused : ''} ${isSearchResult ? styles.searchResult : ''} ${isPressing ? styles.pressing : ''}`}
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         handleItemClick(itemId);

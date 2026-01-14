@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
 import { updateInventoryItem, updateInventoryStructure, updateProgress, fetchItemHistory, selectHistoryRecordsForItem, saveItemNotes } from '@/store/slices/inventorySlice';
 import NotesModal from '@features/Inventory/components/NotesModal';
 
+
 interface ItemEditProps {
     category: string;
     itemId: string;
@@ -32,27 +33,34 @@ interface ItemEditProps {
         totalHistoryAmount?: number
     ) => void;
     onEditingStateChange?: (isEditing: boolean) => void;
+    onUnusedConfirm?: (
+        category: string,
+        itemId: string,
+        itemName: string,
+        type: 'raw' | 'semifinished',
+        onConfirm: () => void
+      ) => void;
 }
 
 const ItemEdit: React.FC<ItemEditProps> = ({ 
     category, 
     itemId, 
     item: initialItem, 
-    onClose, 
     onUpdate, 
     chatId, 
-    onDelete, 
-    onCancel, 
-    onSave, 
     onOutOfStockConfirm,
     onAggressiveChange,
-    onEditingStateChange
+    onEditingStateChange,
+    onUnusedConfirm
 }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [_isAddingItem, _setIsAddingItem] = useState(false);
     const [_error, setError] = useState<string | null>(null);
     const [item, setItem] = useState<InventoryItem>(initialItem);
     const [isOutOfStock, setIsOutOfStock] = useState(initialItem.raw?.isOutOfStock || false);
+    const [isUnused, setIsUnused] = useState(
+        initialItem.raw?.isUnused ?? false
+      );
     const [currentActiveItem, setCurrentActiveItem] = useState<{ type: 'raw' | 'semifinished', operation: 'add' | 'subtract' } | null>(null);
     const [currentInputValue, setCurrentInputValue] = useState('');
     const [isExiting, setIsExiting] = useState(false);
@@ -61,6 +69,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
     const [notes, setNotes] = useState(item.raw?.notes || item.semifinished?.notes || '');
     const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
+    const [isUnusedConfirmOpen, setIsUnusedConfirmOpen] = useState(false);
 
     // Интерфейс для данных агрессивного изменения
     interface AggressiveChangeData {
@@ -171,6 +180,7 @@ const ItemEdit: React.FC<ItemEditProps> = ({
         if (currentItem && JSON.stringify(currentItem) !== JSON.stringify(item)) {
             setItem(currentItem);
             setIsOutOfStock(currentItem.raw?.isOutOfStock || false);
+            setIsUnused(currentItem.raw?.isUnused ?? false);
             setNotes(currentItem.raw?.notes || currentItem.semifinished?.notes || '');
         }
     }, [currentInventory, category, itemId, item]);
@@ -453,6 +463,75 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             console.error('Error updating out of stock status:', error);
             setItem(item);
             setIsOutOfStock(!isOutOfStock);
+        }
+    };
+
+    const handleUnused = (type: 'raw' | 'semifinished') => {
+        if (type !== 'raw') return;
+    
+        const willBeUnused = !isUnused;
+    
+        if (willBeUnused && onUnusedConfirm) {
+            onUnusedConfirm(
+                category,
+                itemId,
+                itemId,  // потом замени на item.name, если будет
+                type,
+                () => confirmUnused(type)
+            );
+        } else {
+            confirmUnused(type);
+        }
+    };
+
+    const confirmUnused = async (type: 'raw' | 'semifinished') => {
+        if (type !== 'raw') return;
+      
+        try {
+          const newUnusedState = !isUnused;
+          const newItem: InventoryItem = {
+            ...item,
+            lastUpdated: new Date().toISOString(),
+          };
+      
+          if (newItem.raw) {
+            newItem.raw = {
+              ...newItem.raw,
+              isUnused: newUnusedState,
+              isOutOfStock: newUnusedState ? false : newItem.raw.isOutOfStock, // ← сбрасываем отсутствие
+              quantity: newUnusedState ? 0 : newItem.raw.quantity,
+              filled: newUnusedState ? true : newItem.raw.filled,
+            };
+          }
+      
+          setItem(newItem);
+          setIsUnused(newUnusedState);
+          if (newUnusedState) setIsOutOfStock(false);
+      
+          await dispatch(updateInventoryItem({
+            chatId,
+            category,
+            itemId,
+            item: newItem,
+            customAction: newUnusedState ? 'mark_unused' : 'unmark_unused'
+          })).unwrap();
+      
+          socketService.emit('inventory_update', {
+            source: 'client',
+            data: {
+              metadata: { lastUpdated: new Date().toISOString(), chat_id: chatId },
+              type: 'item_update',
+              category,
+              itemId,
+              item: newItem
+            }
+          });
+      
+          onUpdate();
+        } catch (error) {
+          console.error('Ошибка при изменении "Не используется":', error);
+          setIsUnused(!isUnused);
+          setItem(initialItem);
         }
     };
 
@@ -777,77 +856,98 @@ const ItemEdit: React.FC<ItemEditProps> = ({
                 <div className={styles.content}>
                     {showOutOfStock ? (
                         <div className={styles.outOfStockStatus}>
-                            Нет в наличии
+                        Нет в наличии
+                        </div>
+                    ) : isUnused && type === 'raw' ? (   // ← добавили условие для isUnused
+                        <div className={styles.unusedStatus}>
+                        Не используется
                         </div>
                     ) : (
                         <div className={`${styles.value} ${value > 0 ? styles.hasValue : ''}`}>
-                            <span className={styles.quantity}>{value}</span>
-                            {value > 0 && (
-                                <div className={styles.indicator}>
-                                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path 
-                                            d="M5 13l5 5L20 7" 
-                                            stroke="currentColor" 
-                                            strokeWidth="2" 
-                                            strokeLinecap="round" 
-                                            strokeLinejoin="round"
-                                        />
-                                    </svg>
-                                </div>
-                            )}
+                        <span className={styles.quantity}>{value}</span>
+                        {value > 0 && (
+                            <div className={styles.indicator}>
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path 
+                                d="M5 13l5 5L20 7" 
+                                stroke="currentColor" 
+                                strokeWidth="2" 
+                                strokeLinecap="round" 
+                                strokeLinejoin="round"
+                                />
+                            </svg>
+                            </div>
+                        )}
                         </div>
                     )}
+
                     {currentActiveItem?.type === type ? (
+                        // Поле ввода остаётся как есть — если пользователь уже начал редактировать
                         <div className={styles.inputGroup}>
-                            <input
-                                ref={inputRef}
-                                type="number"
-                                className={styles.input}
-                                value={currentInputValue}
-                                onChange={handleInputChange}
-                                onFocus={handleInputFocus}
-                                placeholder={`Введите число для ${currentActiveItem.operation === 'add' ? 'добавления' : 'вычитания'}`}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        handleSubmit();
-                                    }
-                                }}
-                                autoFocus
-                            />
-                            <button 
-                                className={styles.okButton}
-                                onClick={handleSubmit}
-                                disabled={isLoading}
-                            >
-                                {isLoading ? <div className={styles.spinner}></div> : 'OK'}
-                            </button>
+                        <input
+                            ref={inputRef}
+                            type="number"
+                            className={styles.input}
+                            value={currentInputValue}
+                            onChange={handleInputChange}
+                            onFocus={handleInputFocus}
+                            placeholder={`Введите число для ${currentActiveItem.operation === 'add' ? 'добавления' : 'вычитания'}`}
+                            onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleSubmit();
+                            }
+                            }}
+                            autoFocus
+                        />
+                        <button 
+                            className={styles.okButton}
+                            onClick={handleSubmit}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? <div className={styles.spinner}></div> : 'OK'}
+                        </button>
                         </div>
                     ) : (
                         <div className={styles.buttons}>
-                            {type === 'raw' && (
-                                <button 
-                                    className={`${styles.outOfStockButton} ${isOutOfStock ? styles.active : ''}`}
-                                    onClick={() => handleOutOfStock(type)}
-                                >
-                                    {isOutOfStock ? 'Восстановить' : 'Нет в наличии'}
+                        {type === 'raw' && (
+                            <>
+                        {!isUnused && (
+                            <button 
+                            className={`${styles.outOfStockButton} ${isOutOfStock ? styles.active : ''}`}
+                            onClick={() => handleOutOfStock(type)}
+                            >
+                            {isOutOfStock ? 'Восстановить' : 'Нет в наличии'}
+                            </button>
+                        )}
+
+                        {type === 'raw' && (
+                            <button 
+                                className={`${styles.unusedButton} ${isUnused ? styles.active : ''}`}
+                                onClick={() => handleUnused(type)}
+                             >
+                                {isUnused ? 'Возобновить' : 'Не используется'}
                                 </button>
                             )}
-                            {(type === 'semifinished' || !isOutOfStock) && (
-                                <>
-                                    <button 
-                                        className={styles.button}
-                                        onClick={() => handlePlusClick(type)}
-                                    >
-                                        +
-                                    </button>
-                                    <button 
-                                        className={styles.button}
-                                        onClick={() => handleMinusClick(type)}
-                                    >
-                                        -
-                                    </button>
-                                </>
-                            )}
+                            </>
+                        )}
+
+                        {/* Кнопки +/- показываем ТОЛЬКО если НЕТ ни outOfStock, ни isUnused */}
+                        {(type === 'semifinished' || (!isOutOfStock && !isUnused)) && (
+                            <>
+                            <button 
+                                className={styles.button}
+                                onClick={() => handlePlusClick(type)}
+                            >
+                                +
+                            </button>
+                            <button 
+                                className={styles.button}
+                                onClick={() => handleMinusClick(type)}
+                            >
+                                -
+                            </button>
+                            </>
+                        )}
                         </div>
                     )}
                 </div>

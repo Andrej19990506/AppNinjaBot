@@ -13,7 +13,7 @@ from pathlib import Path
 
 # Конфигурация
 API_BASE_URL = "http://localhost:8000/api/v1"
-CHAT_ID = "-1004917263769"
+CHAT_ID = "-1004799402850"
 
 # Путь к шаблону инвентаря
 TEMPLATE_PATH = Path("backend/API server/data/templates/inventory_template.json")
@@ -180,13 +180,15 @@ async def fill_full_inventory():
     print(f"🚀 Отправляем полный инвентарь для чата {CHAT_ID}...")
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{API_BASE_URL}/inventory/{CHAT_ID}",
                 json=payload,
                 headers={"Content-Type": "application/json"}
             )
-            
+            print(f"📊 Статус код: {response.status_code}")
+            print(f"📊 Headers: {response.headers}")
+            print(f"📊 Текст ответа: {response.text[:500]}")  
             if response.status_code == 200:
                 result = response.json()
                 print("✅ Инвентарь успешно заполнен!")
@@ -222,6 +224,8 @@ async def fill_full_inventory():
                 
     except Exception as e:
         print(f"❌ Ошибка при отправке запроса: {e}")
+        import traceback
+        traceback.print_exc()
 
 async def main():
     """Главная функция"""

@@ -1534,14 +1534,16 @@ async def generate_and_save_timesheet(group_telegram_id: int, db: AsyncSession,
          sheet.cell(row=header_row_idx, column=col, value=header_value)
 
     # Применяем стили к заголовкам и устанавливаем ширину
+    # Первая колонка (ФИ курьеров) шире, чтобы влезало имя
     sheet.column_dimensions[get_column_letter(1)].width = 30 
     for col_idx, header_val in enumerate(headers):
         cell = sheet.cell(row=header_row_idx, column=col_idx + 1)
-        cell.font = header_font # Используем header_font
-        cell.alignment = centered_alignment # Используем centered_alignment
-        cell.border = thin_border # Используем thin_border
-        if col_idx > 0: 
-            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 7 
+        cell.font = header_font  # Используем header_font
+        cell.alignment = centered_alignment  # Используем centered_alignment
+        cell.border = thin_border  # Используем thin_border
+        # Колонки с датами/временем делаем шире, чтобы помещался диапазон вида "00:00-23:40"
+        if col_idx > 0:
+            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 13
             
     # <<< ОПРЕДЕЛЯЕМ ИНДЕКС СТРОКИ ЗАГОЛОВКОВ (как в download_timesheet_data_pivoted_xlsx) >>>
     # header_row_idx = 2 # Уже определено выше
@@ -1859,19 +1861,21 @@ async def download_timesheet_data_pivoted_xlsx(
             headers.append(date_str)
             
     # <<< Записываем заголовки в строку header_row_idx >>>
-    sheet.append(headers) # Это запишет в следующую свободную строку, нужно явно указать
+    sheet.append(headers)  # Это запишет в следующую свободную строку, нужно явно указать
     for col, header_value in enumerate(headers, start=1):
          sheet.cell(row=header_row_idx, column=col, value=header_value)
 
     # Применяем стили к заголовкам и устанавливаем ширину
-    sheet.column_dimensions[get_column_letter(1)].width = 30 
+    # Первая колонка (ФИ курьеров) шире, чтобы влезало имя
+    sheet.column_dimensions[get_column_letter(1)].width = 30
     for col_idx, header_val in enumerate(headers):
         cell = sheet.cell(row=header_row_idx, column=col_idx + 1)
         cell.font = header_font
         cell.alignment = centered_alignment
         cell.border = thin_border
-        if col_idx > 0: 
-            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 7 
+        # Колонки с датами/временем делаем шире, чтобы строка "00:00-23:40" не обрезалась
+        if col_idx > 0:
+            sheet.column_dimensions[get_column_letter(col_idx + 1)].width = 11
 
     # Записываем строки данных и применяем стили (начиная с header_row_idx + 1)
     if pivoted_data.rows:

@@ -1066,15 +1066,15 @@
         "warning_days": null,
         "notes": ""
       }
-    },
-    "Креветка тигровая (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
+      },
+      "Креветка тигровая (шт.)": {
+        "raw": {
+          "quantity": 0,
+          "filled": false,
+          "expiry_date": null,
+          "warning_days": null,
+          "notes": ""
+        }
     },
     "Сервелат (гр.)": {
       "raw": {
@@ -1104,6 +1104,15 @@
       }
     },
     "Крылья куриные (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Куринные байтсы (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1714,7 +1723,7 @@
         "notes": ""
       }
     },
-    "Чизкейк шоколад (шт.)": {
+    "Чизкейк Вишня и Шоколад (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1759,7 +1768,7 @@
         "notes": ""
       }
     },
-    "Чизкейк Фисташковый (шт.)": {
+    "Чизкейк Фисташка и Малина (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1768,16 +1777,7 @@
         "notes": ""
       }
     },
-    "Чизкейк \"Малиновый вихрь\" (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Чизкейк New York (шт.)": {
+    "Чизкейк Шоколадный (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

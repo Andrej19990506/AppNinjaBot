@@ -80,6 +80,31 @@ def mark_unused_cell(worksheet, row_idx, col_idx):
     cell = worksheet.cell(row=row_idx, column=col_idx)
     cell.fill = UNUSED_FILL
 
+def get_display_value(item_data, section_name, item_name, unused_items):
+    """
+    Обрабатывает item_data и возвращает значение для отображения.
+    Если 'isUnused' — возвращает "Не используется" и добавляет в список.
+    Если 'isOutOfStock' — возвращает "Нет в наличии".
+    Иначе — количество.
+    """
+    raw = item_data.get('raw', {})
+    
+    if isinstance(raw, dict):
+        if raw.get('isUnused'):
+            display = "Не используется"
+            unused_items.append({
+                'Секция': section_name,
+                'Наименование': item_name
+            })
+        elif raw.get('isOutOfStock'):
+            display = "Нет в наличии"
+        else:
+            display = raw.get('quantity')
+    else:
+        display = None  # или 0, если нужно
+    
+    return display
+
 def generate_inventory_excel(
     inventory_data: Dict[str, Any],
     metadata: Dict[str, Any],
@@ -96,45 +121,30 @@ def generate_inventory_excel(
         # --- 1. Основная таблица ---
         for idx, (category, item_name) in enumerate(EXCEL_MAIN_ITEMS, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
+            
             semifinished = item_data.get('semifinished', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
-            
-            if isinstance(raw, dict) and raw.get('isUnused'):
-                raw_display = "Не используется"
-                # Добавляем в список неиспользуемых товаров
-                unused_items.append({
-                    'Секция': category,
-                    'Наименование': item_name
-                })
-            elif isinstance(raw, dict) and raw.get('isOutOfStock'):
-                raw_display = "Нет в наличии"
-            else: 
-                raw_display = raw_qty
-            
-            semifin_display = semifin_qty
             rows.append({
                 '№ п/п': idx,
                 'Секция': category,
                 'Наименование': item_name,
                 'Сырье (шт.)': raw_display if raw_display is not None else '',
-                'Полуфабрикаты (шт.)': semifin_display if semifin_display is not None else ''
+                'Полуфабрикаты (шт.)': semifin_qty if semifin_qty is not None else ''
             })
         
         # --- 2. Полуфабрикаты ---
         rows.append({'№ п/п': '', 'Секция': 'Полуфабрикаты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_SEMIFINISHED, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
             semifinished = item_data.get('semifinished', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
             semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             rows.append({
                 '№ п/п': idx,
                 'Секция': '',
                 'Наименование': item_name,
-                'Сырье (шт.)': raw_qty if raw_qty is not None else '',
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': semifin_qty if semifin_qty is not None else ''
             })
         
@@ -142,13 +152,14 @@ def generate_inventory_excel(
         rows.append({'№ п/п': '', 'Секция': 'Напитки', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_DRINKS, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
+            semifinished = item_data.get('semifinished', {})
+            semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             rows.append({
                 '№ п/п': idx,
                 'Секция': '',
                 'Наименование': item_name,
-                'Сырье (шт.)': raw_qty if raw_qty is not None else '',
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
         
@@ -156,13 +167,14 @@ def generate_inventory_excel(
         rows.append({'№ п/п': '', 'Секция': 'Упаковка и приборы', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_PACKAGING, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
+            semifinished = item_data.get('semifinished', {})
+            semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             rows.append({
                 '№ п/п': idx,
                 'Секция': '',
                 'Наименование': item_name,
-                'Сырье (шт.)': raw_qty if raw_qty is not None else '',
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
         
@@ -170,13 +182,14 @@ def generate_inventory_excel(
         rows.append({'№ п/п': '', 'Секция': 'Десерты', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_DESSERTS, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
+            semifinished = item_data.get('semifinished', {})
+            semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             rows.append({
                 '№ п/п': idx,
                 'Секция': '',
                 'Наименование': item_name,
-                'Сырье (шт.)': raw_qty if raw_qty is not None else '',
+                'Сырье (шт.)': raw_display if raw_display is not None else '',
                 'Полуфабрикаты (шт.)': ''
             })
         
@@ -184,20 +197,9 @@ def generate_inventory_excel(
         rows.append({'№ п/п': '', 'Секция': 'Бар', 'Наименование': '', 'Сырье (шт.)': '', 'Полуфабрикаты (шт.)': ''})
         for idx, (category, item_name) in enumerate(EXCEL_BAR, 1):
             item_data = inventory_data.get(category, {}).get(item_name, {})
-            raw = item_data.get('raw', {})
-            raw_qty = raw.get('quantity') if isinstance(raw, dict) else None
-            
-            if isinstance(raw, dict) and raw.get('isUnused'):
-                raw_display = "Не используется"
-                # Добавляем в список неиспользуемых товаров
-                unused_items.append({
-                    'Секция': category,
-                    'Наименование': item_name
-                })
-            elif isinstance(raw, dict) and raw.get('isOutOfStock'):
-                raw_display = "Нет в наличии"
-            else: 
-                raw_display = raw_qty
+            raw_display = get_display_value(item_data, category, item_name, unused_items)
+            semifinished = item_data.get('semifinished', {})
+            semifin_qty = semifinished.get('quantity') if isinstance(semifinished, dict) else None
             
             rows.append({
                 '№ п/п': idx,

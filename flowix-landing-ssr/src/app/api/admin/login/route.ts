@@ -2,20 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 
 // Определяем URL бэкенда в зависимости от окружения
 const getApiBaseUrl = (hostname: string): string => {
-  // Определяем по hostname
-  const isProduction = hostname.includes('appninjabot.ru') || hostname.includes('flowix.ru')
+  // В серверном контексте Next.js (API routes) всегда используем внутренний URL Docker Compose
+  // Для серверных запросов из контейнера используем имя сервиса 'server'
+  // Не используем внешние URL для серверных запросов, так как они могут не работать внутри контейнера
   
-  if (isProduction) {
-    return 'https://dev-bot.appninjabot.ru/api'
-  }
-  
-  // В серверном контексте Next.js (API routes) используем имя сервиса Docker Compose
-  // Для серверных запросов из контейнера используем 'server' вместо 'localhost'
   if (process.env.NEXT_PUBLIC_API_URL) {
     const url = process.env.NEXT_PUBLIC_API_URL
-    // Если это localhost, заменяем на имя сервиса для серверных запросов
-    if (url.includes('localhost')) {
-      return url.replace('localhost', 'server')
+    // Если это localhost или внешний URL, заменяем на имя сервиса для серверных запросов
+    if (url.includes('localhost') || url.includes('appninjabot.ru') || url.includes('flowix.ru')) {
+      // Извлекаем путь из URL и используем внутренний адрес
+      const urlObj = new URL(url)
+      return `http://server:8000${urlObj.pathname}`
+    }
+    // Если уже внутренний URL, возвращаем как есть
+    if (url.includes('server:8000')) {
+      return url
     }
     return url
   }

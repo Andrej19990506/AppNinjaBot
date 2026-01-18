@@ -468,7 +468,7 @@ async def telegram_webhook_universal(bot_identifier: str, update_data: dict, req
         if update.message and update.message.new_chat_members:
             logger.info(f"👥 Обновление содержит новых участников: {[m.id for m in update.message.new_chat_members]}")
         if update.chat_member:
-            logger.info(f"👤 Обновление chat_member: user_id={update.chat_member.user.id}, status={update.chat_member.new_chat_member.status}")
+            logger.info(f"👤 Обновление chat_member: user_id={update.chat_member.from_user.id}, status={update.chat_member.new_chat_member.status}")
         
         await bot_app.update_queue.put(update)
         logger.info(f"✅ Обновление {update.update_id} добавлено в очередь бота ({bot_identifier})")

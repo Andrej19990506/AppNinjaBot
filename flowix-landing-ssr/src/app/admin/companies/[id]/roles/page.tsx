@@ -106,6 +106,7 @@ export default function CompanyRolesPage() {
 
   const fetchRoleFeatures = async (roleId: number) => {
     try {
+      console.log('[Delegates][fetchRoleFeatures] roleId=', roleId)
       const features = await adminApi.getRoleFeatures(roleId)
       setRoleFeatures(prev => ({ ...prev, [roleId]: features }))
       
@@ -133,9 +134,11 @@ export default function CompanyRolesPage() {
       for (const mapping of restrictedMappings) {
         for (const groupInfo of groupsWithNames) {
           try {
+            console.log('[Delegates][fetchRoleFeatures] load delegates', { mappingId: mapping.id, groupId: groupInfo.group_id })
             const delegatesData = await adminApi.getFeatureAccessDelegates(mapping.id, groupInfo.group_id)
             const key = `${mapping.id}_${groupInfo.group_id}`
             setDelegates(prev => ({ ...prev, [key]: delegatesData }))
+            console.log('[Delegates][fetchRoleFeatures] loaded delegates', { key, count: delegatesData?.length ?? 0 })
           } catch (err) {
             console.error(`Ошибка при загрузке делегатов для mapping ${mapping.id}, group ${groupInfo.group_id}:`, err)
           }
@@ -160,24 +163,30 @@ export default function CompanyRolesPage() {
 
   const handleAddDelegate = async (mappingId: number, groupId: number, userId: number) => {
     try {
+      console.log('[Delegates][add] start', { mappingId, groupId, userId })
       await adminApi.createFeatureAccessDelegate({
         role_feature_mapping_id: mappingId,
         group_id: groupId,
         delegate_user_id: userId,
       })
+      console.log('[Delegates][add] success, refreshing features', { roleId: selectedRoleForFeatures })
       await fetchRoleFeatures(selectedRoleForFeatures!)
       setSuccess('Делегат успешно добавлен!')
     } catch (err) {
+      console.error('[Delegates][add] error', err)
       setError(err instanceof Error ? err.message : 'Ошибка при добавлении делегата')
     }
   }
 
   const handleRemoveDelegate = async (delegateId: number) => {
     try {
+      console.log('[Delegates][remove] start', { delegateId })
       await adminApi.deleteFeatureAccessDelegate(delegateId)
+      console.log('[Delegates][remove] success, refreshing features', { roleId: selectedRoleForFeatures })
       await fetchRoleFeatures(selectedRoleForFeatures!)
       setSuccess('Делегат успешно удален!')
     } catch (err) {
+      console.error('[Delegates][remove] error', err)
       setError(err instanceof Error ? err.message : 'Ошибка при удалении делегата')
     }
   }

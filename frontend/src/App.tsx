@@ -41,6 +41,8 @@ import { initializeGlobalErrorHandlers, cleanupGlobalErrorHandlers } from './sha
 import InstallPWAButton from './shared/components/InstallPWAButton/InstallPWAButton';
 import { usePullToRefresh } from './shared/hooks/usePullToRefresh';
 import { PullToRefresh } from './shared/components/PullToRefresh/PullToRefresh';
+import VoiceDataCollection from './features/VoiceDataCollection/VoiceDataCollection';
+import ContestTermsPage from './features/VoiceDataCollection/pages/ContestTermsPage';
 
 
 
@@ -495,6 +497,9 @@ function App() {
               {/* Падающие снежинки (автоматически + при клике на елочку) */}
               {/*{isWinterDecorEnabled && <AutumnLeaves triggerStart={triggerSnowflakes} />}*/}
 
+              {/* Система сбора голосовых данных */}
+              <VoiceDataCollection />
+
                 <Routes>
                   <Route path="/courier" element={
                     <ProtectedRoute requiredGroup="courier">
@@ -515,6 +520,7 @@ function App() {
                   <Route path="/chef/requests/:tab" element={<Requests />} />
                   <Route path="/inventory/:chatId" element={<InventoryPage />} />
                   <Route path="/competitions" element={<Competitions />} />
+                  <Route path="/voice-contest-terms" element={<ContestTermsPage />} />
                   <Route path="*" element={<AutoRedirectByRole />} />
                 </Routes>
             </AppInitializer>

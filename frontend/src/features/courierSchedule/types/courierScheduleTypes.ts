@@ -131,6 +131,16 @@ export interface AccessSettings {
     updatedBy?: string | number;
 }
 
+// --- Информация о будущей версии шаблона ---
+export interface FutureVersionInfo {
+    id: string; // ID версии
+    validFromDate: string; // Дата начала действия версии (YYYY-MM-DD)
+    maxSlots: number;
+    startTime?: string;
+    endTime?: string;
+    hasSeniorSlot?: boolean;
+}
+
 // --- Шаблон смены ---
 export interface ShiftTemplate {
     id: string;
@@ -144,6 +154,7 @@ export interface ShiftTemplate {
     daysOfWeek: number[]; // дни недели (0-6, где 0 = воскресенье)
     createdAt: string;
     updatedAt: string;
+    futureVersion?: FutureVersionInfo; // Информация о будущей версии, если она существует
 }
 
 // --- Конфиг слотов на день (обновленный для работы с шаблонами) ---

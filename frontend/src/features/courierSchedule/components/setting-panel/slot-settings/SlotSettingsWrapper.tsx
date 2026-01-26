@@ -16,6 +16,7 @@ interface SlotSettingsWrapperProps {
     dayIndex: number;
     onDayChangeRequest: (newDayIndex: number) => void;
     onDirtyChange: (isDirty: boolean) => void;
+    onConfirmModalStateChange?: (isOpen: boolean, onConfirm: (() => void) | null, onCancel: (() => void) | null) => void;
 }
 
 const SlotSettingsWrapper: React.ForwardRefRenderFunction<SlotSettingsWrapperRef, SlotSettingsWrapperProps> = ({
@@ -24,7 +25,8 @@ const SlotSettingsWrapper: React.ForwardRefRenderFunction<SlotSettingsWrapperRef
     chatId,
     dayIndex,
     onDayChangeRequest,
-    onDirtyChange
+    onDirtyChange,
+    onConfirmModalStateChange
 }, ref) => {
     const [useNewInterface, setUseNewInterface] = useState(true); // По умолчанию используем новый интерфейс
     
@@ -69,6 +71,7 @@ const SlotSettingsWrapper: React.ForwardRefRenderFunction<SlotSettingsWrapperRef
                     dayIndex={dayIndex}
                     onDayChangeRequest={onDayChangeRequest}
                     onDirtyChange={onDirtyChange}
+                    onConfirmModalStateChange={onConfirmModalStateChange}
                 />
             ) : (
                 <SlotSettings

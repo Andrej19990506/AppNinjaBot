@@ -61,7 +61,13 @@ export const deleteShiftTemplateThunk = createAsyncThunk(
     'shifts/deleteShiftTemplate',
     async (templateId: string, { rejectWithValue }) => {
         try {
-            await deleteShiftTemplate(templateId);
+            const result = await deleteShiftTemplate(templateId);
+            
+            if (!result.deleted) {
+                // Шаблон не был удален из-за привязанных смен
+                return rejectWithValue(result.message || 'Невозможно удалить шаблон: есть смены с записанными курьерами');
+            }
+            
             return templateId;
         } catch (error: any) {
             return rejectWithValue(error.message || 'Не удалось удалить шаблон смены');

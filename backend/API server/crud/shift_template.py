@@ -907,3 +907,67 @@ async def check_template_exists_in_group(
         )
     )
     return result.scalars().first() is not None
+
+async def get_future_version_by_template_id(
+    db: Session,
+    template_id: UUID
+) -> Optional[ShiftTemplateVersion]:
+    """Получает будущую версию шаблона (если есть)."""
+    from datetime import date
+    today = date.today()
+    
+    result = await db.execute(
+        select(ShiftTemplateVersion)
+        .where(
+            and_(
+                ShiftTemplateVersion.template_id == template_id,
+                ShiftTemplateVersion.valid_from_date > today
+            )
+        )
+        .order_by(ShiftTemplateVersion.valid_from_date.asc())
+        .limit(1)
+    )
+    return result.scalars().first()
+
+async def delete_template_version(
+    db: Session,
+    version_id: UUID
+) -> bool:
+    """Удаляет версию шаблона."""
+    result = await db.execute(
+        select(ShiftTemplateVersion)
+        .where(ShiftTemplateVersion.id == version_id)
+    )
+    version = result.scalars().first()
+    
+    if not version:
+        return False
+    
+    await db.delete(version)
+    await db.flush()
+    return True
+
+async def update_template_version(
+    db: Session,
+    version_id: UUID,
+    update_data: Dict[str, Any]
+) -> Optional[ShiftTemplateVersion]:
+    """Обновляет версию шаблона."""
+    result = await db.execute(
+        select(ShiftTemplateVersion)
+        .where(ShiftTemplateVersion.id == version_id)
+    )
+    version = result.scalars().first()
+    
+    if not version:
+        return None
+    
+    # Обновляем только разрешенные поля
+    allowed_fields = ['max_slots', 'start_time', 'end_time', 'has_senior_slot', 'valid_from_date']
+    for field, value in update_data.items():
+        if field in allowed_fields and hasattr(version, field):
+            setattr(version, field, value)
+    
+    await db.flush()
+    await db.refresh(version)
+    return version

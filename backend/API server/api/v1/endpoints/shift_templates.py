@@ -151,10 +151,41 @@ async def get_shift_templates_by_group(
                     # Продолжаем работу без миграции
         
         # Преобразуем SQLAlchemy объекты в Pydantic модели
+        from datetime import date as date_type
+        from models.shift_template import ShiftTemplateVersion
+        from schemas.shift_template import FutureVersionInfo
+        
         template_reads = []
+        today = date_type.today()
+        
         for template in templates:
             # Получаем дни недели из связи
             days_of_week = [day.day_of_week for day in template.days] if template.days else []
+            
+            # Проверяем наличие будущей версии
+            future_version_info = None
+            future_version_result = await db.execute(
+                select(ShiftTemplateVersion)
+                .where(
+                    and_(
+                        ShiftTemplateVersion.template_id == template.id,
+                        ShiftTemplateVersion.valid_from_date > today
+                    )
+                )
+                .order_by(ShiftTemplateVersion.valid_from_date.asc())
+                .limit(1)
+            )
+            future_version = future_version_result.scalars().first()
+            
+            if future_version:
+                future_version_info = FutureVersionInfo(
+                    id=future_version.id,
+                    valid_from_date=future_version.valid_from_date,
+                    max_slots=future_version.max_slots,
+                    start_time=future_version.start_time,
+                    end_time=future_version.end_time,
+                    has_senior_slot=future_version.has_senior_slot
+                )
             
             template_dict = {
                 "id": template.id,
@@ -168,7 +199,8 @@ async def get_shift_templates_by_group(
                 "days_of_week": days_of_week,
                 "group_id": template.group_id,
                 "created_at": template.created_at,
-                "updated_at": template.updated_at
+                "updated_at": template.updated_at,
+                "future_version": future_version_info
             }
             template_read = ShiftTemplateRead(**template_dict)
             template_reads.append(template_read)
@@ -834,4 +866,90 @@ async def migrate_group_to_templates(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при миграции группы: {str(e)}"
+        )
+
+@router.delete("/versions/{version_id}", status_code=status.HTTP_200_OK)
+async def delete_template_version(
+    *,
+    db: AsyncSession = Depends(get_db_session),
+    version_id: UUID = Path(..., description="ID версии шаблона")
+):
+    """Удаляет версию шаблона."""
+    try:
+        success = await crud_shift_template.delete_template_version(db, version_id)
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Версия шаблона не найдена"
+            )
+        await db.commit()
+        return {"message": "Версия шаблона успешно удалена"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting template version {version_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при удалении версии шаблона"
+        )
+
+@router.put("/versions/{version_id}", status_code=status.HTTP_200_OK)
+async def update_template_version(
+    *,
+    db: AsyncSession = Depends(get_db_session),
+    version_id: UUID = Path(..., description="ID версии шаблона"),
+    update_data: dict
+):
+    """Обновляет версию шаблона."""
+    try:
+        # Преобразуем данные из запроса
+        update_dict = {}
+        if 'max_slots' in update_data:
+            update_dict['max_slots'] = update_data['max_slots']
+        if 'start_time' in update_data:
+            # Парсим время из строки формата "HH:MM:SS" или "HH:MM"
+            from datetime import time as time_class
+            if isinstance(update_data['start_time'], str):
+                update_dict['start_time'] = time_class.fromisoformat(update_data['start_time'])
+            else:
+                update_dict['start_time'] = update_data['start_time']
+        if 'end_time' in update_data:
+            # Парсим время из строки формата "HH:MM:SS" или "HH:MM"
+            from datetime import time as time_class
+            if isinstance(update_data['end_time'], str):
+                update_dict['end_time'] = time_class.fromisoformat(update_data['end_time'])
+            else:
+                update_dict['end_time'] = update_data['end_time']
+        if 'has_senior_slot' in update_data:
+            update_dict['has_senior_slot'] = update_data['has_senior_slot']
+        if 'valid_from_date' in update_data:
+            from datetime import datetime
+            update_dict['valid_from_date'] = datetime.strptime(update_data['valid_from_date'], "%Y-%m-%d").date()
+        
+        version = await crud_shift_template.update_template_version(db, version_id, update_dict)
+        if not version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Версия шаблона не найдена"
+            )
+        await db.commit()
+        
+        # Возвращаем обновленную версию
+        return {
+            "id": str(version.id),
+            "valid_from_date": version.valid_from_date.isoformat(),
+            "max_slots": version.max_slots,
+            "start_time": version.start_time.isoformat() if version.start_time else None,
+            "end_time": version.end_time.isoformat() if version.end_time else None,
+            "has_senior_slot": version.has_senior_slot
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating template version {version_id}: {str(e)}")
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при обновлении версии шаблона"
         )

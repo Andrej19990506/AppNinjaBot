@@ -52,6 +52,11 @@ const CourierSchedule: React.FC = () => {
     const [currentModalStep, setCurrentModalStep] = useState(1);
     const shiftAccessModalRef = useRef<ShiftAccessModalRef>(null);
     const shiftTemplateSettingsRef = useRef<ShiftTemplateSettingsRef>(null);
+    
+    // Состояния для управления модалкой подтверждения через Footer
+    const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+    const confirmActionRef = useRef<(() => void) | null>(null);
+    const cancelActionRef = useRef<(() => void) | null>(null);
     const [isTimesheetLoading, setIsTimesheetLoading] = useState(false);
     const [timesheetData, setTimesheetData] = useState<TimesheetResponse | null>(null);
     const [isTimesheetPreviewVisible, setIsTimesheetPreviewVisible] = useState(false);
@@ -344,6 +349,17 @@ const CourierSchedule: React.FC = () => {
         }
     }, [selectedDayIndexForSlots]);
 
+    const handleConfirmModalStateChange = useCallback((
+        isOpen: boolean,
+        onConfirm: (() => void) | null,
+        onCancel: (() => void) | null
+    ) => {
+        console.log(`[CourierSchedule] Confirm modal state change:`, { isOpen, hasConfirm: !!onConfirm, hasCancel: !!onCancel });
+        setIsConfirmModalOpen(isOpen);
+        confirmActionRef.current = onConfirm;
+        cancelActionRef.current = onCancel;
+    }, []);
+
     const handleShiftAccessDirtyChange = useCallback((dirty: boolean) => {
         if (activeModalType === 'shiftAccess') {
             setIsShiftAccessDirty(dirty);
@@ -624,6 +640,7 @@ const CourierSchedule: React.FC = () => {
                             dayIndex={selectedDayIndexForSlots}
                             onDayChangeRequest={handleShiftTemplateSettingsDayChange}
                             onDirtyChange={setIsShiftTemplateSettingsDirty}
+                            onConfirmModalStateChange={handleConfirmModalStateChange}
                         />
                     )}
                     <SettingsPanel 
@@ -651,16 +668,16 @@ const CourierSchedule: React.FC = () => {
                         onBack={handleFooterBack}
                         showSettingsButton={currentCourierGroup?.is_senior_courier ?? false}
                         onSettingsClick={toggleSettingsPanel}
-                        showModalActions={isModalActive}
-                        showModalSteps={activeModalType === 'shiftAccess'}
+                        showModalActions={isModalActive || isConfirmModalOpen}
+                        showModalSteps={activeModalType === 'shiftAccess' && !isConfirmModalOpen}
                         modalCurrentStep={activeModalType === 'shiftAccess' ? currentModalStep : undefined}
                         modalTotalSteps={activeModalType === 'shiftAccess' ? MODAL_TOTAL_STEPS : undefined}
-                        onModalBack={activeModalType === 'shiftAccess' ? handleModalPrevStep : undefined}
-                        onModalNext={activeModalType === 'shiftAccess' ? handleModalNextStep : undefined}
+                        onModalBack={activeModalType === 'shiftAccess' && !isConfirmModalOpen ? handleModalPrevStep : undefined}
+                        onModalNext={activeModalType === 'shiftAccess' && !isConfirmModalOpen ? handleModalNextStep : undefined}
                         isModalNextDisabled={getIsModalNextDisabled()}
-                        onModalSave={handleModalSave}
-                        onModalCancel={handleModalCancel}
-                        isModalSaveDisabled={getIsModalSaveDisabled()}
+                        onModalSave={isConfirmModalOpen ? () => confirmActionRef.current?.() : handleModalSave}
+                        onModalCancel={isConfirmModalOpen ? () => cancelActionRef.current?.() : handleModalCancel}
+                        isModalSaveDisabled={isConfirmModalOpen ? false : getIsModalSaveDisabled()}
                     />
                     {isProfileModalOpen && selectedCourier && (
                         <CourierProfile 

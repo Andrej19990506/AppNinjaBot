@@ -24,6 +24,7 @@ import atoModalReducer from '@/store/slices/atoModalSlice';
 import socketReducer, { socketConnected, socketDisconnected } from '@/store/slices/socketSlice';
 import competitionsReducer from '@/store/slices/competitionsSlice';
 import requestsReducer from '@/features/Requests/store/requestsSlice';
+import voiceCollectionReducer from '@/features/VoiceDataCollection/store/voiceCollectionSlice';
 
 // --- Middleware для прослушивания событий ---
 export const listenerMiddleware = createListenerMiddleware();
@@ -166,6 +167,7 @@ const store = configureStore({
         atoModal: atoModalReducer,
         competitions: competitionsReducer,
         requests: requestsReducer,
+        voiceCollection: voiceCollectionReducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware({
@@ -190,6 +192,7 @@ export type RootState = {
     atoModal: ReturnType<typeof atoModalReducer>;
     competitions: ReturnType<typeof competitionsReducer>;
     requests: ReturnType<typeof requestsReducer>;
+    voiceCollection: ReturnType<typeof voiceCollectionReducer>;
 };
 export type AppDispatch = typeof store.dispatch;
 

@@ -44,15 +44,16 @@ def calculate_next_period_start_date(access_settings: Dict[str, Any], current_da
     registration_datetime_krt_today = datetime.combine(today_krt, registration_time_naive, tzinfo=KRT)
     
     # Вычисляем количество дней до следующего дня регистрации
+    # День регистрации повторяется с периодичностью = periodLength
     if current_weekday_krt < python_start_day:
         days_until_next = python_start_day - current_weekday_krt
     elif current_weekday_krt > python_start_day:
-        days_until_next = 7 - (current_weekday_krt - python_start_day)
+        days_until_next = period_length - (current_weekday_krt - python_start_day)
     else:  # current_weekday_krt == python_start_day
         # Если сегодня день регистрации
         if now_krt >= registration_datetime_krt_today:
-            # Время уже прошло - следующий день регистрации через неделю
-            days_until_next = 7
+            # Время уже прошло - следующий день регистрации через period_length дней
+            days_until_next = period_length
         else:
             # Время еще не наступило - следующий день регистрации сегодня
             days_until_next = 0
@@ -105,7 +106,8 @@ def calculate_current_period_dates(access_settings: Dict[str, Any], current_date
     last_registration_datetime_krt = datetime.combine(last_registration_day_date_krt, registration_time_naive, tzinfo=KRT)
     
     if current_weekday_krt == python_start_day and now_krt < registration_datetime_krt_today:
-        last_registration_datetime_krt -= timedelta(weeks=1)
+        # День регистрации повторяется с периодичностью = periodLength
+        last_registration_datetime_krt -= timedelta(days=period_length)
         last_registration_day_date_krt = last_registration_datetime_krt.date()
     
     # Рассчитываем начало текущего периода

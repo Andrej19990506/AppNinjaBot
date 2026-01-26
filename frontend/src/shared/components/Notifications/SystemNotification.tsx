@@ -129,8 +129,8 @@ const SystemNotification: React.FC<SystemNotificationProps> = ({ notifications, 
             } else {
                 console.log("[SystemNotification] Уведомление уже обработано или не имеет ID");
             }
-        } else {
-            // Если уведомлений нет, сбрасываем активное
+        } else if (currentNotification !== null) {
+            // Если уведомлений нет, сбрасываем активное (только если оно уже установлено)
             console.log("[SystemNotification] Сброс активного уведомления (нет уведомлений)");
             setCurrentNotification(null);
         }

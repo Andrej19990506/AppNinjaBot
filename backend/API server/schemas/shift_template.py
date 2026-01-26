@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any, Annotated
-from datetime import datetime, time
+from datetime import datetime, time, date
 import uuid
 
 # Базовая схема для общих полей шаблона смены
@@ -29,12 +29,22 @@ class ShiftTemplateUpdate(BaseModel):
     template_metadata: Optional[Dict[str, Any]] = None
     apply_to_period: Optional[str] = Field(None, description="Период применения изменений: 'current' или 'next'")
 
+# Схема для информации о будущей версии
+class FutureVersionInfo(BaseModel):
+    id: uuid.UUID = Field(..., description="ID версии")
+    valid_from_date: date = Field(..., description="Дата начала действия версии")
+    max_slots: int = Field(..., description="Количество слотов в будущей версии")
+    start_time: Optional[time] = Field(None, description="Время начала в будущей версии")
+    end_time: Optional[time] = Field(None, description="Время окончания в будущей версии")
+    has_senior_slot: Optional[bool] = Field(None, description="Есть ли слот старшего курьера в будущей версии")
+
 # Схема для чтения шаблона смены
 class ShiftTemplateRead(ShiftTemplateBase):
     id: uuid.UUID = Field(..., description="Уникальный идентификатор шаблона")
     group_id: int = Field(..., description="ID группы")
     created_at: datetime = Field(..., description="Время создания")
     updated_at: datetime = Field(..., description="Время последнего обновления")
+    future_version: Optional[FutureVersionInfo] = Field(None, description="Информация о будущей версии шаблона, если она существует")
 
     class ConfigDict:
         from_attributes = True

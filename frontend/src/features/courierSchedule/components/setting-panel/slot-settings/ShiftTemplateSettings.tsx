@@ -10,8 +10,6 @@ import {
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import {
-    updateSlotConfigLocal,
-    defaultSingleDaySlotConfig,
     setLocalAppliedTemplates
 } from '@features/courierSchedule/store/shiftsSlice/shiftsSlice';
 import {
@@ -23,7 +21,8 @@ import {
     ShiftTemplate, 
     ShiftTemplateCreatePayload,
     ShiftTemplateUpdatePayload,
-    ShiftTemplateApplyPayload
+    ShiftTemplateApplyPayload,
+    FutureVersionInfo
 } from '@features/courierSchedule/types/courierScheduleTypes';
 import { NotificationTypes } from '@/shared/store/notificationSlice/notificationTypes';
 import { SlotConfigForDay } from '@features/courierSchedule/types/courierScheduleTypes';
@@ -31,13 +30,7 @@ import ShiftTemplateSelector from './components/ShiftTemplateSelector';
 import ShiftTemplateForm from './components/ShiftTemplateForm';
 import { PeriodSelector } from './components/PeriodSelector';
 import { getCurrentBookingPeriod, getNextBookingPeriod } from '@features/courierSchedule/components/courier-calendar/utils/dateUtils';
-import { getAppliedShiftTemplates } from '@features/courierSchedule/services/courierApi/shiftTemplatesApi';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
+import { getAppliedShiftTemplates, updateTemplateVersion } from '@features/courierSchedule/services/courierApi/shiftTemplatesApi';
 import { selectAccessSettings } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { selectAllShifts } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { 
@@ -296,6 +289,203 @@ const OkButton = styled.button`
     }
 `;
 
+// Кастомная модалка в стиле панели настроек
+const ConfirmModalContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    animation: fadeIn 0.3s ease-out;
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+`;
+
+const ModalHeader = styled.div`
+    padding: 20px 24px;
+    border-bottom: 2px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: linear-gradient(135deg, var(--card-background) 0%, rgba(255, 95, 31, 0.02) 100%);
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+`;
+
+const ModalIcon = styled.div`
+    font-size: 36px;
+    line-height: 1;
+    filter: drop-shadow(0 3px 6px rgba(255, 95, 31, 0.4));
+    animation: iconPulse 2s ease-in-out infinite;
+    
+    @keyframes iconPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+`;
+
+const ModalTitle = styled.h2`
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-color);
+    flex: 1;
+    letter-spacing: -0.01em;
+`;
+
+const ModalBody = styled.div`
+    padding: 28px 28px 80px 28px;
+    overflow-y: auto;
+    flex: 1;
+    background: var(--card-background);
+`;
+
+const AlertBox = styled.div<{ $variant: 'warning' | 'success' | 'info' }>`
+    background: ${props => {
+        if (props.$variant === 'success') {
+            return 'linear-gradient(135deg, rgba(76, 175, 80, 0.12) 0%, rgba(76, 175, 80, 0.05) 100%)';
+        }
+        if (props.$variant === 'warning') {
+            return 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(245, 158, 11, 0.05) 100%)';
+        }
+        return 'linear-gradient(135deg, rgba(255, 95, 31, 0.12) 0%, rgba(255, 95, 31, 0.05) 100%)';
+    }};
+    border: 2px solid ${props => {
+        if (props.$variant === 'success') return 'rgba(76, 175, 80, 0.25)';
+        if (props.$variant === 'warning') return 'rgba(245, 158, 11, 0.25)';
+        return 'rgba(255, 95, 31, 0.25)';
+    }};
+    border-left-width: 5px;
+    padding: 24px;
+    border-radius: var(--radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+`;
+
+const AlertTitle = styled.div<{ $variant: 'warning' | 'success' | 'info' }>`
+    font-weight: 700;
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+    color: ${props => {
+        if (props.$variant === 'success') return '#2e7d32';
+        if (props.$variant === 'warning') return '#e65100';
+        return 'var(--primary-color)';
+    }};
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    
+    &::before {
+        content: '${props => {
+            if (props.$variant === 'success') return '✓';
+            if (props.$variant === 'warning') return '⚡';
+            return 'ℹ';
+        }}';
+        font-size: 1.5rem;
+        line-height: 1;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+    }
+`;
+
+const AlertText = styled.div`
+    color: var(--text-color);
+    line-height: 1.7;
+    font-size: 0.98rem;
+    font-weight: 400;
+`;
+
+const CheckboxContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+`;
+
+const Checkbox = styled.input`
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+    flex-shrink: 0;
+`;
+
+const CheckboxLabel = styled.label`
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-color);
+    flex: 1;
+    line-height: 1.5;
+`;
+
+const PeriodSelectorContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+`;
+
+const PeriodCard = styled.div<{ $isSelected: boolean; $isCurrent: boolean }>`
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    border: 2px solid ${props => props.$isSelected ? 'var(--primary-color)' : 'var(--border-color)'};
+    background: ${props => props.$isSelected ? 'rgba(255, 95, 31, 0.08)' : 'transparent'};
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    
+    &:hover {
+        border-color: ${props => props.$isSelected ? 'var(--primary-color)' : 'rgba(255, 95, 31, 0.4)'};
+        background: ${props => props.$isSelected ? 'rgba(255, 95, 31, 0.12)' : 'rgba(255, 95, 31, 0.04)'};
+    }
+    
+    ${props => props.$isCurrent && `
+        &::before {
+            content: 'Текущий';
+            position: absolute;
+            top: -8px;
+            right: 12px;
+            background: var(--primary-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+    `}
+`;
+
+const PeriodHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+`;
+
+const PeriodLabel = styled.span`
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text-color);
+`;
+
+const PeriodDates = styled.div`
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+`;
+
+const PeriodRegistration = styled.div`
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+`;
+
 export interface ShiftTemplateSettingsRef {
     triggerSave: () => Promise<void>;
     triggerReset: () => void;
@@ -310,6 +500,7 @@ interface IShiftTemplateSettingsProps {
     dayIndex: number;
     onDayChangeRequest: (newDayIndex: number) => void;
     onDirtyChange: (isDirty: boolean) => void;
+    onConfirmModalStateChange?: (isOpen: boolean, onConfirm: (() => void) | null, onCancel: (() => void) | null) => void;
 }
 
 const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTemplateSettingsRef, IShiftTemplateSettingsProps> = ({ 
@@ -318,7 +509,8 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
     chatId, 
     dayIndex,
     onDayChangeRequest,
-    onDirtyChange
+    onDirtyChange,
+    onConfirmModalStateChange
 }, ref) => {
     const dispatch = useDispatch<AppDispatch>();
 
@@ -339,6 +531,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
     const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
     const [showTemplateForm, setShowTemplateForm] = useState(false);
     const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
+    const [editingVersion, setEditingVersion] = useState<FutureVersionInfo | null>(null);
     const [selectedPeriod, setSelectedPeriod] = useState<'current' | 'next'>('next');
     
     const [isLoading, setIsLoading] = useState(false);
@@ -350,6 +543,11 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
     const [isCheckingNextPeriod, setIsCheckingNextPeriod] = useState(false);
     const [unapplyWarningMessage, setUnapplyWarningMessage] = useState<string | null>(null);
     
+    // Состояние для подтверждения периода при редактировании
+    const [showPeriodConfirmDialog, setShowPeriodConfirmDialog] = useState(false);
+    const [pendingSubmitData, setPendingSubmitData] = useState<any>(null);
+    const [confirmDialogSeniorSlot, setConfirmDialogSeniorSlot] = useState(false);
+    
     // Проверяем наличие записанных курьеров в текущем периоде
     const currentPeriodInfo = useMemo(() => {
         if (!accessSettings || !editingTemplate) return null;
@@ -360,7 +558,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
         // Подсчитываем смены с записанными курьерами в текущем периоде для этого шаблона
         const periodShifts = allShifts.filter(shift => {
             const shiftDate = new Date(shift.date);
-            return shift.templateId === editingTemplate.id &&
+            return shift.template_id === editingTemplate.id &&
                    shiftDate >= currentPeriod.startDate &&
                    shiftDate <= currentPeriod.endDate &&
                    shift.userId; // Только смены с записанными курьерами
@@ -414,9 +612,19 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
         setShowTemplateForm(true);
     }, []);
 
-    const handleTemplateEdit = useCallback((template: ShiftTemplate) => {
+    const handleTemplateEdit = useCallback((template: ShiftTemplate, version?: FutureVersionInfo) => {
+        console.log('[handleTemplateEdit] Opening edit form:', {
+            templateId: template.id,
+            versionId: version?.id,
+            hasVersion: !!version
+        });
         setEditingTemplate(template);
+        setEditingVersion(version || null);
         setShowTemplateForm(true);
+        // Если редактируем версию, автоматически выбираем период "next"
+        if (version) {
+            setSelectedPeriod('next');
+        }
     }, []);
 
     const handleTemplateDelete = useCallback(async (templateId: string) => {
@@ -622,10 +830,109 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
         setUnapplyWarningMessage(null);
     }, []);
 
-    const handleTemplateSubmit = useCallback(async (data: ShiftTemplateCreatePayload | ShiftTemplateUpdatePayload) => {
+    const handleTemplateSubmit = useCallback(async (data: ShiftTemplateCreatePayload | ShiftTemplateUpdatePayload | ShiftTemplateCreatePayload[] | ShiftTemplateUpdatePayload[], skipConfirmation: boolean = false) => {
         if (!chatId) return;
+        
+        // Проверяем нужно ли показать подтверждение периода
+        const isUpdate = Array.isArray(data) ? (data.length > 0 && 'id' in data[0]) : ('id' in data);
+        const isEditingNonVersion = editingTemplate && !editingVersion;
+        
+        console.log('[handleTemplateSubmit] Debug info:', {
+            isUpdate,
+            isEditingNonVersion,
+            skipConfirmation,
+            editingTemplate: editingTemplate?.id,
+            editingVersion: editingVersion?.id,
+            dataIsArray: Array.isArray(data),
+            dataHasId: Array.isArray(data) ? (data.length > 0 && 'id' in data[0]) : ('id' in data),
+            data: Array.isArray(data) ? data : { id: (data as any).id }
+        });
+        
+        if (isUpdate && isEditingNonVersion && !skipConfirmation) {
+            // Получаем текущее значение hasSeniorSlot из данных
+            const currentSeniorSlot = Array.isArray(data) 
+                ? (data[0] as any).hasSeniorSlot 
+                : (data as any).hasSeniorSlot;
+            
+            // Показываем диалог подтверждения
+            setPendingSubmitData(data);
+            setConfirmDialogSeniorSlot(currentSeniorSlot ?? false);
+            setShowPeriodConfirmDialog(true);
+            return;
+        }
 
         try {
+            // Если это массив (weekly режим)
+            if (Array.isArray(data)) {
+                // Проверяем тип первого элемента - CREATE или UPDATE
+                const isUpdate = data.length > 0 && 'id' in data[0];
+                
+                if (isUpdate) {
+                    // Обновляем все шаблоны по очереди
+                    for (const templateData of data as ShiftTemplateUpdatePayload[]) {
+                        const updateData: ShiftTemplateUpdatePayload = {
+                            ...templateData,
+                            applyToPeriod: selectedPeriod
+                        };
+                        await dispatch(updateShiftTemplateThunk({ 
+                            templateId: templateData.id, 
+                            templateData: updateData 
+                        })).unwrap();
+                    }
+                    
+                    dispatch(addNotification({
+                        type: NotificationTypes.SUCCESS,
+                        message: `Обновлено шаблонов: ${data.length}`,
+                        duration: 3000
+                    }));
+                } else {
+                    // Создаем все шаблоны по очереди
+                    for (const templateData of data as ShiftTemplateCreatePayload[]) {
+                        await dispatch(createShiftTemplateThunk({ chatId, templateData })).unwrap();
+                    }
+                    
+                    dispatch(addNotification({
+                        type: NotificationTypes.SUCCESS,
+                        message: `Создано шаблонов: ${data.length}`,
+                        duration: 3000
+                    }));
+                }
+                
+                // Обновляем список шаблонов
+                await dispatch(fetchAllShiftTemplatesThunk(chatId)).unwrap();
+                
+                setShowTemplateForm(false);
+                setEditingTemplate(null);
+                setEditingVersion(null);
+                setSelectedPeriod('next');
+                
+                return;
+            }
+            
+            // Если редактируем версию, обновляем версию напрямую
+            if (editingVersion) {
+                const versionUpdateData = {
+                    maxSlots: data.maxSlots,
+                    startTime: data.startTime,
+                    endTime: data.endTime,
+                    hasSeniorSlot: data.hasSeniorSlot,
+                    validFromDate: editingVersion.validFromDate
+                };
+                await updateTemplateVersion(editingVersion.id, versionUpdateData);
+                // Обновляем список шаблонов после обновления версии
+                await dispatch(fetchAllShiftTemplatesThunk(chatId)).unwrap();
+                setShowTemplateForm(false);
+                setEditingTemplate(null);
+                setEditingVersion(null);
+                setSelectedPeriod('next');
+                dispatch(addNotification({
+                    type: NotificationTypes.SUCCESS,
+                    message: "Версия шаблона успешно обновлена",
+                    duration: 3000
+                }));
+                return;
+            }
+
             // Если это обновление шаблона, добавляем информацию о периоде
             if ('id' in data) {
                 // Обновление существующего шаблона с учетом выбранного периода
@@ -649,6 +956,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
             
             setShowTemplateForm(false);
             setEditingTemplate(null);
+            setEditingVersion(null);
             setSelectedPeriod('next'); // Сбрасываем выбор периода
         } catch (error: any) {
             dispatch(addNotification({
@@ -657,11 +965,59 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                 duration: 5000
             }));
         }
-    }, [chatId, dispatch, selectedPeriod]);
+    }, [chatId, dispatch, selectedPeriod, editingVersion, editingTemplate]);
+    
+    // Обработчики для диалога подтверждения периода
+    const handleConfirmPeriodSave = useCallback(() => {
+        if (pendingSubmitData) {
+            // Применяем значение чекбокса старшего курьера к данным
+            let dataToSubmit = pendingSubmitData;
+            if (Array.isArray(dataToSubmit)) {
+                dataToSubmit = dataToSubmit.map(item => ({
+                    ...item,
+                    hasSeniorSlot: confirmDialogSeniorSlot
+                }));
+            } else {
+                dataToSubmit = {
+                    ...dataToSubmit,
+                    hasSeniorSlot: confirmDialogSeniorSlot
+                };
+            }
+            
+            // Сбрасываем состояния
+            setShowPeriodConfirmDialog(false);
+            setPendingSubmitData(null);
+            
+            // Вызываем handleTemplateSubmit с флагом пропуска подтверждения
+            handleTemplateSubmit(dataToSubmit, true);
+        }
+    }, [pendingSubmitData, confirmDialogSeniorSlot, handleTemplateSubmit]);
+    
+    const handleCancelPeriodSave = useCallback(() => {
+        setShowPeriodConfirmDialog(false);
+        setPendingSubmitData(null);
+    }, []);
+
+    // Эффект для передачи состояния модалок в Footer
+    useEffect(() => {
+        if (!onConfirmModalStateChange) return;
+
+        if (showUnapplyConfirmDialog) {
+            // Модалка отмены шаблона
+            onConfirmModalStateChange(true, handleConfirmUnapply, handleCancelUnapply);
+        } else if (showPeriodConfirmDialog) {
+            // Модалка подтверждения периода
+            onConfirmModalStateChange(true, handleConfirmPeriodSave, handleCancelPeriodSave);
+        } else {
+            // Модалки закрыты
+            onConfirmModalStateChange(false, null, null);
+        }
+    }, [showUnapplyConfirmDialog, showPeriodConfirmDialog, onConfirmModalStateChange, handleConfirmUnapply, handleCancelUnapply, handleConfirmPeriodSave, handleCancelPeriodSave]);
 
     const handleTemplateFormCancel = useCallback(() => {
         setShowTemplateForm(false);
         setEditingTemplate(null);
+        setEditingVersion(null);
     }, []);
 
     const handleSave = useCallback(async (): Promise<void> => {
@@ -745,124 +1101,212 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
 
     return (
         <SlotSettingsContainer $isOpen={isOpen}>
-            <FullHeightContent>
-                {/* Селектор дня недели - показываем только когда НЕ открыта форма */}
-                {!showTemplateForm && (
-                    <DaysSelectorContainer>
-                        <div style={{ width: '100%' }}>
-                            <DaySelectorTitle>Шаблоны на: {dayOfWeekNames[dayIndex]}</DaySelectorTitle>
-                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                                {dayShortNames.map((dayName, index) => (
-                                    <DayIndicator
-                                        key={index}
-                                        $isActive={index === dayIndex}
-                                        $isModified={false}
-                                        $clickable={true}
-                                        onClick={() => handleDayIndicatorClick(index)}
-                                        title={dayOfWeekNames[index]}
-                                    >
-                                        {dayName}
-                                    </DayIndicator>
-                                ))}
+            {/* Условный рендеринг: показываем либо модалку, либо основной контент */}
+            {showUnapplyConfirmDialog ? (
+                // Модалка подтверждения отмены шаблона
+                <ConfirmModalContainer>
+                    <ModalHeader>
+                        <ModalIcon>⚠️</ModalIcon>
+                        <ModalTitle>Подтверждение отмены шаблона</ModalTitle>
+                    </ModalHeader>
+                    <ModalBody>
+                        <AlertBox $variant="warning">
+                            <AlertText>
+                                {unapplyWarningMessage || "Вы уверены, что хотите отменить применение этого шаблона?"}
+                            </AlertText>
+                        </AlertBox>
+                    </ModalBody>
+                </ConfirmModalContainer>
+            ) : showPeriodConfirmDialog ? (
+                // Модалка подтверждения периода при редактировании
+                <ConfirmModalContainer>
+                    <ModalHeader>
+                        <ModalIcon>⚠️</ModalIcon>
+                        <ModalTitle>Подтверждение изменений</ModalTitle>
+                    </ModalHeader>
+                    <ModalBody>
+                        <AlertBox $variant={selectedPeriod === 'current' ? 'warning' : 'success'}>
+                            <AlertTitle $variant={selectedPeriod === 'current' ? 'warning' : 'success'}>
+                                {selectedPeriod === 'current' 
+                                    ? 'Изменения будут применены к ТЕКУЩЕМУ периоду' 
+                                    : 'Изменения будут применены к СЛЕДУЮЩЕМУ периоду'}
+                            </AlertTitle>
+                            <AlertText>
+                                {selectedPeriod === 'current' 
+                                    ? 'Это повлияет на уже открытые смены и записанных курьеров. Будьте внимательны при внесении изменений!'
+                                    : 'Текущие смены не будут затронуты. Изменения вступят в силу при следующем открытии смен.'}
+                            </AlertText>
+                            
+                            <CheckboxContainer onClick={() => setConfirmDialogSeniorSlot(!confirmDialogSeniorSlot)}>
+                                <Checkbox
+                                    type="checkbox"
+                                    id="senior-slot-checkbox"
+                                    checked={confirmDialogSeniorSlot}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDialogSeniorSlot(e.target.checked);
+                                    }}
+                                />
+                                <CheckboxLabel htmlFor="senior-slot-checkbox">
+                                    Включить слот для старшего курьера
+                                </CheckboxLabel>
+                            </CheckboxContainer>
+                            
+                            <PeriodSelectorContainer>
+                                {(() => {
+                                    const currentPeriod = getCurrentBookingPeriod(accessSettings);
+                                    const nextPeriod = getNextBookingPeriod(accessSettings);
+                                    
+                                    if (!currentPeriod || !nextPeriod) return null;
+                                    
+                                    // Показываем только альтернативный период
+                                    if (selectedPeriod === 'current') {
+                                        // Если выбран текущий - показываем следующий
+                                        return (
+                                            <PeriodCard
+                                                $isSelected={false}
+                                                $isCurrent={false}
+                                                onClick={() => setSelectedPeriod('next')}
+                                            >
+                                                <PeriodHeader>
+                                                    <PeriodLabel>Переключить на следующий период</PeriodLabel>
+                                                </PeriodHeader>
+                                                <PeriodDates>
+                                                    {nextPeriod.startDateStr} - {nextPeriod.endDateStr}
+                                                </PeriodDates>
+                                                <PeriodRegistration>
+                                                    Регистрация откроется: {nextPeriod.registrationDateStr}
+                                                </PeriodRegistration>
+                                            </PeriodCard>
+                                        );
+                                    } else {
+                                        // Если выбран следующий - показываем текущий
+                                        return (
+                                            <PeriodCard
+                                                $isSelected={false}
+                                                $isCurrent={true}
+                                                onClick={() => setSelectedPeriod('current')}
+                                            >
+                                                <PeriodHeader>
+                                                    <PeriodLabel>Переключить на текущий период</PeriodLabel>
+                                                </PeriodHeader>
+                                                <PeriodDates>
+                                                    {currentPeriod.startDateStr} - {currentPeriod.endDateStr}
+                                                </PeriodDates>
+                                                <PeriodRegistration>
+                                                    Регистрация: {currentPeriod.registrationDateStr}
+                                                </PeriodRegistration>
+                                            </PeriodCard>
+                                        );
+                                    }
+                                })()}
+                            </PeriodSelectorContainer>
+                        </AlertBox>
+                    </ModalBody>
+                </ConfirmModalContainer>
+            ) : (
+                // Основной контент
+                <FullHeightContent>
+                    {/* Селектор дня недели - показываем только когда НЕ открыта форма */}
+                    {!showTemplateForm && (
+                        <DaysSelectorContainer>
+                            <div style={{ width: '100%' }}>
+                                <DaySelectorTitle>Шаблоны на: {dayOfWeekNames[dayIndex]}</DaySelectorTitle>
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                    {dayShortNames.map((dayName, index) => (
+                                        <DayIndicator
+                                            key={index}
+                                            $isActive={index === dayIndex}
+                                            $isModified={false}
+                                            $clickable={true}
+                                            onClick={() => handleDayIndicatorClick(index)}
+                                            title={dayOfWeekNames[index]}
+                                        >
+                                            {dayName}
+                                        </DayIndicator>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    </DaysSelectorContainer>
-                )}
+                        </DaysSelectorContainer>
+                    )}
 
-                {showTemplateForm ? (
-                    <>
-                        {/* Показываем выбор периода только при редактировании существующего шаблона */}
-                        {editingTemplate && accessSettings && (
-                            <PeriodSelector
-                                accessSettings={accessSettings}
-                                selectedPeriod={selectedPeriod}
-                                onPeriodChange={setSelectedPeriod}
-                                hasShiftsInCurrentPeriod={currentPeriodInfo?.hasShifts || false}
-                                shiftsCount={currentPeriodInfo?.shiftsCount || 0}
+                    {showTemplateForm ? (
+                        <>
+                            {/* Показываем выбор периода только при редактировании существующего шаблона БЕЗ версии */}
+                            {editingTemplate && !editingVersion && accessSettings && (
+                                <PeriodSelector
+                                    accessSettings={accessSettings}
+                                    selectedPeriod={selectedPeriod}
+                                    onPeriodChange={setSelectedPeriod}
+                                    hasShiftsInCurrentPeriod={currentPeriodInfo?.hasShifts || false}
+                                    shiftsCount={currentPeriodInfo?.shiftsCount || 0}
+                                />
+                            )}
+                            <ShiftTemplateForm
+                                template={editingTemplate}
+                                version={editingVersion}
+                                onSubmit={handleTemplateSubmit}
+                                onCancel={handleTemplateFormCancel}
+                                isLoading={isLoading || templatesLoading}
+                                currentDayIndex={dayIndex}
+                                formId="shift-template-form"
+                                existingTemplates={templates}
                             />
-                        )}
-                        <ShiftTemplateForm
-                            template={editingTemplate}
-                            onSubmit={handleTemplateSubmit}
-                            onCancel={handleTemplateFormCancel}
+                        </>
+                    ) : (
+                        <ShiftTemplateSelector
+                                templates={templates.filter(template => {
+                                    // Показываем шаблоны только если:
+                                    // 1. У шаблона есть дни недели И текущий день входит в список
+                                    // 2. Если у шаблона нет дней недели (пустой массив), не показываем его
+                                    const hasDaysOfWeek = template.daysOfWeek && template.daysOfWeek.length > 0;
+                                    const shouldShow = hasDaysOfWeek && template.daysOfWeek.includes(dayIndex);
+                                    return shouldShow;
+                                })}
+                            selectedTemplateIds={selectedTemplateIds}
+                            onTemplateSelect={setSelectedTemplateIds}
+                            onTemplateEdit={handleTemplateEdit}
+                            onTemplateDelete={handleTemplateDelete}
+                            onTemplateCreate={handleTemplateCreate}
+                            onTemplateUnapply={handleTemplateUnapply}
+                            onTemplatesRefresh={async () => {
+                                if (chatId) {
+                                    await dispatch(fetchAllShiftTemplatesThunk(chatId));
+                                }
+                            }}
                             isLoading={isLoading || templatesLoading}
-                            currentDayIndex={dayIndex}
-                            formId="shift-template-form"
+                            appliedTemplates={(() => {
+                                // Создаем локальный массив примененных шаблонов на основе Redux состояния
+                                const currentAppliedIds = localAppliedTemplates[dayIndex] || [];
+                                return templates.filter(template => 
+                                    currentAppliedIds.includes(template.id) && 
+                                    template.daysOfWeek && 
+                                    template.daysOfWeek.includes(dayIndex)
+                                );
+                            })()}
                         />
-                    </>
-                ) : (
-                    <ShiftTemplateSelector
-                            templates={templates.filter(template => {
-                                // Показываем шаблоны только если:
-                                // 1. У шаблона есть дни недели И текущий день входит в список
-                                // 2. Если у шаблона нет дней недели (пустой массив), не показываем его
-                                const hasDaysOfWeek = template.daysOfWeek && template.daysOfWeek.length > 0;
-                                const shouldShow = hasDaysOfWeek && template.daysOfWeek.includes(dayIndex);
-                                return shouldShow;
-                            })}
-                        selectedTemplateIds={selectedTemplateIds}
-                        onTemplateSelect={setSelectedTemplateIds}
-                        onTemplateEdit={handleTemplateEdit}
-                        onTemplateDelete={handleTemplateDelete}
-                        onTemplateCreate={handleTemplateCreate}
-                        onTemplateUnapply={handleTemplateUnapply}
-                        isLoading={isLoading || templatesLoading}
-                        appliedTemplates={(() => {
-                            // Создаем локальный массив примененных шаблонов на основе Redux состояния
-                            const currentAppliedIds = localAppliedTemplates[dayIndex] || [];
-                            return templates.filter(template => 
-                                currentAppliedIds.includes(template.id) && 
-                                template.daysOfWeek && 
-                                template.daysOfWeek.includes(dayIndex)
-                            );
-                        })()}
-                    />
-                )}
+                    )}
 
-                {(isLoading || templatesLoading) && (
-                    <div style={{ textAlign: 'center', marginTop: '10px' }}>
-                        <InlineSpinner /> {templatesLoading ? 'Загрузка...' : 'Сохранение...'}
-                    </div>
-                )}
-                
-                {templatesError && (
-                    <div style={{ 
-                        textAlign: 'center', 
-                        marginTop: '10px', 
-                        color: 'var(--danger-color)',
-                        padding: '10px',
-                        backgroundColor: 'var(--danger-transparent)',
-                        borderRadius: 'var(--radius-sm)'
-                    }}>
-                        Ошибка: {templatesError}
-                    </div>
-                )}
-            </FullHeightContent>
-            
-            {/* Диалог подтверждения отмены шаблона для следующего периода */}
-            <Dialog
-                open={showUnapplyConfirmDialog}
-                onClose={handleCancelUnapply}
-                aria-labelledby="unapply-confirm-dialog-title"
-                aria-describedby="unapply-confirm-dialog-description"
-            >
-                <DialogTitle id="unapply-confirm-dialog-title">
-                    Подтверждение отмены шаблона
-                </DialogTitle>
-                <DialogContent>
-                    <DialogContentText id="unapply-confirm-dialog-description">
-                        {unapplyWarningMessage || "Вы уверены, что хотите отменить применение этого шаблона?"}
-                    </DialogContentText>
-                </DialogContent>
-                <DialogActions>
-                    <Button onClick={handleCancelUnapply} color="primary">
-                        Отмена
-                    </Button>
-                    <Button onClick={handleConfirmUnapply} color="primary" variant="contained" autoFocus>
-                        Подтвердить
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                    {(isLoading || templatesLoading) && (
+                        <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                            <InlineSpinner /> {templatesLoading ? 'Загрузка...' : 'Сохранение...'}
+                        </div>
+                    )}
+                    
+                    {templatesError && (
+                        <div style={{ 
+                            textAlign: 'center', 
+                            marginTop: '10px', 
+                            color: 'var(--danger-color)',
+                            padding: '10px',
+                            backgroundColor: 'var(--danger-transparent)',
+                            borderRadius: 'var(--radius-sm)'
+                        }}>
+                            Ошибка: {templatesError}
+                        </div>
+                    )}
+                </FullHeightContent>
+            )}
         </SlotSettingsContainer>
     );
 };

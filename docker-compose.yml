@@ -76,7 +76,8 @@ services:
       target: production-build 
       args:
         VITE_APP_API_URL: ${VITE_APP_API_URL:-http://localhost:8000/api} 
-        VITE_APP_WS_URL: ${VITE_APP_WS_URL:-ws://localhost:8001}   
+        VITE_APP_WS_URL: ${VITE_APP_WS_URL:-ws://localhost:8001}
+        VITE_YANDEX_DISK_TOKEN: ${VITE_YANDEX_DISK_TOKEN:-}
     image: appninjabot-frontend-img:latest 
     
 

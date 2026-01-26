@@ -22,6 +22,7 @@ from .endpoints.user_permissions import router as user_permissions_router
 from .endpoints.materials import router as materials_router
 
 from .endpoints.competitions import router as competitions_router
+from .endpoints.voice_contest import router as voice_contest_router
 
 from .endpoints.chats import router as chats_router
 from .endpoints.supplies import router as supplies_router
@@ -59,6 +60,7 @@ api_router.include_router(user_permissions_router, prefix="/user-permissions", t
 api_router.include_router(materials_router, tags=["Materials"])
 
 api_router.include_router(competitions_router, prefix="/competitions", tags=["Competitions"])
+api_router.include_router(voice_contest_router, prefix="/voice-contest", tags=["Voice Contest"])
 
 api_router.include_router(chats_router, prefix="/chats", tags=["Chats"])
 api_router.include_router(supplies_router, tags=["Supplies"])

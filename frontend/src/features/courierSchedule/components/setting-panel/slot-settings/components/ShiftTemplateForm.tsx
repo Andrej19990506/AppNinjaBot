@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from '@emotion/styled';
-import { ShiftTemplate, ShiftTemplateCreatePayload, ShiftTemplateUpdatePayload } from '@features/courierSchedule/types/courierScheduleTypes';
+import { ShiftTemplate, ShiftTemplateCreatePayload, ShiftTemplateUpdatePayload, FutureVersionInfo } from '@features/courierSchedule/types/courierScheduleTypes';
 
 // === СОВРЕМЕННЫЕ ЧИСТЫЕ СТИЛИ ===
 
@@ -295,6 +295,451 @@ const ErrorMessage = styled.div`
     }
 `;
 
+// === ТАБЫ ДНЕЙ НЕДЕЛИ ===
+
+const DayTabsContainer = styled.div`
+    padding: 16px 28px;
+    border-bottom: 1px solid rgba(255, 95, 31, 0.1);
+    background: rgba(255, 255, 255, 0.02);
+`;
+
+const DayTabsWrapper = styled.div`
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0;
+    
+    /* Скроллбар */
+    &::-webkit-scrollbar {
+        height: 4px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 2px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 95, 31, 0.3);
+        border-radius: 2px;
+    }
+`;
+
+const DayTab = styled.button<{ $active: boolean; $filled: boolean }>`
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border: 1.5px solid ${props => props.$active 
+        ? 'var(--primary-color)' 
+        : props.$filled 
+            ? 'rgba(255, 95, 31, 0.3)' 
+            : 'rgba(255, 255, 255, 0.1)'};
+    border-radius: 8px;
+    background: ${props => props.$active 
+        ? 'linear-gradient(135deg, rgba(255, 95, 31, 0.15), rgba(255, 95, 31, 0.08))' 
+        : props.$filled
+            ? 'rgba(255, 95, 31, 0.05)'
+            : 'rgba(255, 255, 255, 0.03)'};
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    
+    &:hover {
+        background: ${props => props.$active 
+            ? 'linear-gradient(135deg, rgba(255, 95, 31, 0.2), rgba(255, 95, 31, 0.1))' 
+            : 'rgba(255, 95, 31, 0.08)'};
+        border-color: var(--primary-color);
+        transform: translateY(-2px);
+    }
+    
+    &:active {
+        transform: translateY(0);
+    }
+`;
+
+const DayTabName = styled.span<{ $active: boolean }>`
+    font-size: 0.85rem;
+    font-weight: ${props => props.$active ? '600' : '500'};
+    color: ${props => props.$active ? 'var(--primary-color)' : 'var(--text-primary)'};
+`;
+
+const DayTabIndicator = styled.div<{ $visible: boolean }>`
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: ${props => props.$visible ? 'var(--primary-color)' : 'transparent'};
+    transition: all 0.2s ease;
+`;
+
+const ExistingTemplatesInfo = styled.div`
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+`;
+
+const ExistingTemplatesTitle = styled.div`
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    
+    svg {
+        width: 14px;
+        height: 14px;
+        color: var(--primary-color);
+    }
+`;
+
+const ExistingTemplatesList = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+`;
+
+const ExistingTemplateItem = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: rgba(255, 95, 31, 0.05);
+    border-radius: 4px;
+    font-size: 0.8rem;
+`;
+
+const ExistingTemplateIcon = styled.div`
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 95, 31, 0.1);
+    border-radius: 4px;
+    flex-shrink: 0;
+    
+    svg {
+        width: 12px;
+        height: 12px;
+        color: var(--primary-color);
+    }
+`;
+
+const ExistingTemplateName = styled.div`
+    flex: 1;
+    color: var(--text-primary);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const ExistingTemplateDetails = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    flex-shrink: 0;
+`;
+
+const ExistingTemplateTime = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    
+    svg {
+        width: 11px;
+        height: 11px;
+    }
+`;
+
+const ExistingTemplateSlots = styled.span`
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    
+    svg {
+        width: 11px;
+        height: 11px;
+    }
+`;
+
+const NoTemplatesMessage = styled.div`
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    padding: 6px 8px;
+    text-align: center;
+`;
+
+const SmartHintBanner = styled.div`
+    margin: 16px 0;
+    padding: 12px 14px;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15), rgba(255, 193, 7, 0.08));
+    border: 1.5px solid rgba(255, 193, 7, 0.4);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: slideDown 0.3s ease;
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+`;
+
+const SmartHintIcon = styled.div`
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 193, 7, 0.2);
+    border-radius: 5px;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+`;
+
+const SmartHintContent = styled.div`
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+`;
+
+const SmartHintTitle = styled.div`
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: rgb(255, 193, 7);
+`;
+
+const SmartHintText = styled.div`
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--text-primary);
+    
+    strong {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+`;
+
+const SmartHintButton = styled.button`
+    padding: 7px 14px;
+    background: rgba(255, 193, 7, 0.2);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 5px;
+    color: rgb(255, 193, 7);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    align-self: flex-end;
+    
+    &:hover {
+        background: rgba(255, 193, 7, 0.3);
+        border-color: rgba(255, 193, 7, 0.5);
+    }
+`;
+
+const QuickCreateSection = styled.div`
+    margin-top: 20px;
+    padding: 16px;
+    background: rgba(255, 95, 31, 0.03);
+    border: 1px dashed rgba(255, 95, 31, 0.2);
+    border-radius: 10px;
+`;
+
+const QuickCreateButton = styled.button<{ $isPulsing?: boolean }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 16px;
+    background: rgba(255, 95, 31, 0.08);
+    border: 1.5px dashed rgba(255, 95, 31, 0.3);
+    border-radius: 8px;
+    color: var(--primary-color);
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    
+    ${props => props.$isPulsing && `
+        animation: pulseGlow 2s ease-in-out infinite;
+        
+        @keyframes pulseGlow {
+            0%, 100% {
+                background: rgba(255, 95, 31, 0.08);
+                border-color: rgba(255, 95, 31, 0.3);
+                box-shadow: 0 0 0 0 rgba(255, 95, 31, 0.4);
+            }
+            50% {
+                background: rgba(255, 95, 31, 0.15);
+                border-color: rgba(255, 95, 31, 0.6);
+                box-shadow: 0 0 0 8px rgba(255, 95, 31, 0);
+            }
+        }
+    `}
+    
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    &:hover {
+        background: rgba(255, 95, 31, 0.12);
+        border-color: var(--primary-color);
+        border-style: solid;
+        transform: translateY(-1px);
+    }
+    
+    &:active {
+        transform: translateY(0);
+    }
+    
+    &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+`;
+
+const QuickCreateHint = styled.div`
+    margin-top: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    text-align: center;
+    
+    strong {
+        color: var(--primary-color);
+        font-weight: 600;
+    }
+`;
+
+const BulkApplyExpanded = styled.div`
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 95, 31, 0.2);
+`;
+
+const BulkApplyTitle = styled.div`
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    svg {
+        width: 18px;
+        height: 18px;
+        color: var(--primary-color);
+    }
+`;
+
+const BulkApplyGrid = styled.div`
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+`;
+
+const BulkApplyDayCard = styled.label<{ $checked: boolean; $disabled: boolean }>`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: ${props => props.$checked ? 'rgba(46, 213, 115, 0.1)' : 'rgba(255, 255, 255, 0.03)'};
+    border: 1.5px solid ${props => props.$checked ? 'rgba(46, 213, 115, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+    border-radius: 6px;
+    cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+    transition: all 0.2s ease;
+    opacity: ${props => props.$disabled ? 0.5 : 1};
+    user-select: none;
+    
+    &:hover {
+        background: ${props => !props.$disabled && (props.$checked ? 'rgba(46, 213, 115, 0.15)' : 'rgba(255, 255, 255, 0.05)')};
+        border-color: ${props => !props.$disabled && 'rgba(46, 213, 115, 0.3)'};
+    }
+`;
+
+const BulkApplyDayLabel = styled.span`
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+`;
+
+const BulkApplyActions = styled.div`
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+`;
+
+const BulkApplyActionButton = styled.button<{ $variant?: 'primary' | 'secondary' }>`
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    ${props => props.$variant === 'primary' ? `
+        background: linear-gradient(135deg, rgb(46, 213, 115), rgb(32, 191, 96));
+        color: white;
+        box-shadow: 0 2px 6px rgba(46, 213, 115, 0.2);
+        
+        &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(46, 213, 115, 0.3);
+        }
+        
+        &:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+    ` : `
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        
+        &:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+    `}
+    
+    &:active {
+        transform: translateY(0);
+    }
+`;
+
 // === ИКОНКИ ===
 const IconPlus = () => (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -310,26 +755,101 @@ const IconEdit = () => (
     </svg>
 );
 
-// === ИНТЕРФЕЙС ===
+const IconCalendar = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+);
+
+const IconCopy = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+    </svg>
+);
+
+const IconTemplate = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+        <line x1="16" y1="13" x2="8" y2="13"></line>
+        <line x1="16" y1="17" x2="8" y2="17"></line>
+        <polyline points="10 9 9 9 8 9"></polyline>
+    </svg>
+);
+
+const IconClock = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+    </svg>
+);
+
+const IconUsers = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+    </svg>
+);
+
+// === ИНТЕРФЕЙСЫ ===
+
+interface DayFormData {
+    name: string;
+    startTime: string;
+    endTime: string;
+    maxSlots: number;
+    hasSeniorSlot: boolean;
+    isActive: boolean;
+}
+
 interface ShiftTemplateFormProps {
     template?: ShiftTemplate | null;
-    onSubmit: (data: ShiftTemplateCreatePayload | ShiftTemplateUpdatePayload) => void;
+    version?: FutureVersionInfo | null;
+    onSubmit: (data: ShiftTemplateCreatePayload | ShiftTemplateUpdatePayload | ShiftTemplateCreatePayload[] | ShiftTemplateUpdatePayload[]) => void;
     onCancel: () => void;
     isLoading?: boolean;
     currentDayIndex?: number;
     formId?: string;
+    enableWeeklyMode?: boolean; // Новый проп для включения мульти-день режима
+    existingTemplates?: ShiftTemplate[]; // Существующие шаблоны для отображения
 }
 
 const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
     template,
+    version,
     onSubmit,
     onCancel,
     isLoading = false,
     currentDayIndex = 0,
-    formId = 'shift-template-form'
+    formId = 'shift-template-form',
+    enableWeeklyMode = true, // По умолчанию включен мульти-день режим
+    existingTemplates = [] // Существующие шаблоны
 }) => {
     const isEditing = !!template;
+    const isEditingVersion = !!version;
     
+    // Weekly режим доступен всегда кроме редактирования версии
+    const isWeeklyMode = enableWeeklyMode && !isEditingVersion;
+    
+    // Состояние для мульти-день режима
+    const [activeDay, setActiveDay] = useState<number>(currentDayIndex);
+    const [weekData, setWeekData] = useState<Record<number, DayFormData | null>>({
+        0: null,
+        1: null,
+        2: null,
+        3: null,
+        4: null,
+        5: null,
+        6: null
+    });
+    
+    // Состояние для обычного режима (редактирование)
     const [formData, setFormData] = useState({
         name: '',
         startTime: '10:00',
@@ -341,20 +861,165 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
     });
     
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showBulkApplyModal, setShowBulkApplyModal] = useState(false);
+    const [selectedDaysForBulkApply, setSelectedDaysForBulkApply] = useState<number[]>([]);
+    
+    // Отслеживание для умной подсказки
+    const [showDuplicateHintBanner, setShowDuplicateHintBanner] = useState(false);
+    const [bannerDismissed, setBannerDismissed] = useState(false);
+    const [bulkAppliedDays, setBulkAppliedDays] = useState<Set<number>>(new Set()); // Дни, заполненные через Bulk Apply
+    const [previousActiveDay, setPreviousActiveDay] = useState<number>(activeDay);
 
+    // Инициализация для режима редактирования
     useEffect(() => {
-        if (template) {
-            setFormData({
+        if (isWeeklyMode && template) {
+            // В weekly режиме при редактировании загружаем данные во все дни где применен шаблон
+            const templateData: DayFormData = {
                 name: template.name,
                 startTime: template.startTime,
                 endTime: template.endTime,
                 maxSlots: template.maxSlots,
                 hasSeniorSlot: template.hasSeniorSlot,
-                isActive: template.isActive,
-                daysOfWeek: template.daysOfWeek || [currentDayIndex]
+                isActive: template.isActive
+            };
+            
+            const newWeekData: Record<number, DayFormData | null> = {
+                0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null
+            };
+            
+            // Заполняем данные только для дней где применен шаблон
+            if (template.daysOfWeek && template.daysOfWeek.length > 0) {
+                template.daysOfWeek.forEach(dayIndex => {
+                    newWeekData[dayIndex] = { ...templateData };
+                });
+            }
+            
+            setWeekData(newWeekData);
+            
+            // Устанавливаем активный день - первый из применяемых
+            if (template.daysOfWeek && template.daysOfWeek.length > 0) {
+                setActiveDay(template.daysOfWeek[0]);
+            }
+        } else if (!isWeeklyMode && version) {
+            // Если редактируем версию (не weekly режим)
+            setFormData({
+                name: template?.name || '',
+                startTime: version.startTime || template?.startTime || '10:00',
+                endTime: version.endTime || template?.endTime || '18:00',
+                maxSlots: version.maxSlots,
+                hasSeniorSlot: version.hasSeniorSlot !== undefined ? version.hasSeniorSlot : (template?.hasSeniorSlot || false),
+                isActive: template?.isActive ?? true,
+                daysOfWeek: template?.daysOfWeek || [currentDayIndex]
             });
         }
-    }, [template, currentDayIndex]);
+    }, [template, version, currentDayIndex, isWeeklyMode]);
+    
+    // Хелпер: получить данные активного дня
+    const getActiveDayData = useCallback((): DayFormData => {
+        if (isWeeklyMode) {
+            return weekData[activeDay] || {
+                name: '',
+                startTime: '10:00',
+                endTime: '18:00',
+                maxSlots: 1,
+                hasSeniorSlot: false,
+                isActive: true
+            };
+        }
+        return {
+            name: formData.name,
+            startTime: formData.startTime,
+            endTime: formData.endTime,
+            maxSlots: formData.maxSlots,
+            hasSeniorSlot: formData.hasSeniorSlot,
+            isActive: formData.isActive
+        };
+    }, [isWeeklyMode, weekData, activeDay, formData]);
+    
+    // Хелпер: обновить данные активного дня
+    const updateActiveDayData = useCallback((updates: Partial<DayFormData>) => {
+        if (isWeeklyMode) {
+            // Каждый день = отдельный шаблон, редактируем только активный день
+            setWeekData(prev => ({
+                ...prev,
+                [activeDay]: {
+                    ...getActiveDayData(),
+                    ...updates
+                }
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                ...updates
+            }));
+        }
+    }, [isWeeklyMode, activeDay, getActiveDayData]);
+    
+    // Хелпер: подсчет заполненных дней
+    const getFilledDaysCount = useCallback(() => {
+        return Object.values(weekData).filter(data => data !== null && data.name.trim() !== '').length;
+    }, [weekData]);
+    
+    // Хелпер: проверка заполненности дня
+    const isDayFilled = useCallback((dayIndex: number) => {
+        const data = weekData[dayIndex];
+        return data !== null && data.name.trim() !== '';
+    }, [weekData]);
+    
+    // Хелпер: получить существующие шаблоны для текущего дня
+    const getExistingTemplatesForDay = useCallback((dayIndex: number) => {
+        return existingTemplates.filter(t => 
+            t.daysOfWeek && t.daysOfWeek.includes(dayIndex)
+        );
+    }, [existingTemplates]);
+    
+    // Хелпер: проверка идентичности данных двух дней
+    const areDaysIdentical = useCallback((day1Data: DayFormData, day2Data: DayFormData): boolean => {
+        return day1Data.startTime === day2Data.startTime &&
+               day1Data.endTime === day2Data.endTime &&
+               day1Data.maxSlots === day2Data.maxSlots &&
+               day1Data.hasSeniorSlot === day2Data.hasSeniorSlot;
+    }, []);
+    
+    // Проверка дубликатов для показа подсказки
+    const checkForDuplicateData = useCallback(() => {
+        if (!isWeeklyMode || bannerDismissed || showBulkApplyModal) {
+            return;
+        }
+        
+        const currentData = weekData[previousActiveDay];
+        
+        // Если предыдущий день не заполнен или был заполнен через Bulk Apply - не проверяем
+        if (!currentData || !currentData.name.trim() || bulkAppliedDays.has(previousActiveDay)) {
+            return;
+        }
+        
+        // Ищем другие дни с идентичными данными (исключая дни, заполненные через Bulk Apply)
+        const duplicateDays = Object.entries(weekData)
+            .filter(([dayIndexStr, data]) => {
+                const dayIndex = parseInt(dayIndexStr);
+                return dayIndex !== previousActiveDay && 
+                       data !== null && 
+                       data.name.trim() !== '' &&
+                       !bulkAppliedDays.has(dayIndex) &&
+                       areDaysIdentical(currentData, data);
+            });
+        
+        // Показываем банер только если нашли минимум 1 дубликат
+        if (duplicateDays.length >= 1) {
+            setShowDuplicateHintBanner(true);
+        }
+    }, [isWeeklyMode, bannerDismissed, showBulkApplyModal, weekData, previousActiveDay, bulkAppliedDays, areDaysIdentical]);
+    
+    // Обработчик: переключение дня
+    const handleDayChange = useCallback((dayIndex: number) => {
+        // Проверяем дубликаты перед переключением
+        checkForDuplicateData();
+        
+        // Обновляем предыдущий и текущий день
+        setPreviousActiveDay(activeDay);
+        setActiveDay(dayIndex);
+    }, [activeDay, checkForDuplicateData]);
 
     const validateForm = useCallback(() => {
         const newErrors: Record<string, string> = {};
@@ -395,11 +1060,89 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
     const handleSubmit = useCallback((e: React.FormEvent) => {
         e.preventDefault();
         
+        // В мульти-день режиме собираем все заполненные дни
+        if (isWeeklyMode) {
+            const filledDaysEntries = Object.entries(weekData)
+                .filter(([_, data]) => data !== null && data.name.trim() !== '');
+            
+            if (filledDaysEntries.length === 0) {
+                setErrors({ general: 'Заполните хотя бы один день недели' });
+                return;
+            }
+            
+            // Если редактируем существующий шаблон
+            if (isEditing && template) {
+                // Находим все шаблоны для заполненных дней и обновляем каждый
+                const updatesToSubmit: ShiftTemplateUpdatePayload[] = [];
+                
+                filledDaysEntries.forEach(([dayIndexStr, dayData]) => {
+                    const dayIndex = parseInt(dayIndexStr);
+                    
+                    // Находим шаблон для этого дня
+                    const dayTemplate = existingTemplates.find(t => 
+                        t.daysOfWeek && t.daysOfWeek.includes(dayIndex)
+                    );
+                    
+                    if (dayTemplate) {
+                        // Обновляем существующий шаблон для этого дня
+                        updatesToSubmit.push({
+                            id: dayTemplate.id,
+                            name: dayData!.name,
+                            startTime: dayData!.startTime,
+                            endTime: dayData!.endTime,
+                            maxSlots: dayData!.maxSlots,
+                            hasSeniorSlot: dayData!.hasSeniorSlot,
+                            isActive: dayData!.isActive
+                            // НЕ меняем daysOfWeek - каждый шаблон остается на своем дне
+                        });
+                    }
+                });
+                
+                // Отправляем массив обновлений
+                if (updatesToSubmit.length > 0) {
+                    onSubmit(updatesToSubmit);
+                }
+            } else {
+                // Создание новых шаблонов - каждый день отдельный шаблон
+                const filledDays = filledDaysEntries.map(([dayIndex, data]) => ({
+                    name: data!.name,
+                    startTime: data!.startTime,
+                    endTime: data!.endTime,
+                    maxSlots: data!.maxSlots,
+                    hasSeniorSlot: data!.hasSeniorSlot,
+                    daysOfWeek: [parseInt(dayIndex)]
+                }));
+                
+                onSubmit(filledDays);
+            }
+            
+            // Сбрасываем состояния для следующей сессии
+            setBannerDismissed(false);
+            setBulkAppliedDays(new Set());
+            setShowDuplicateHintBanner(false);
+            
+            return;
+        }
+        
+        // Обычный режим (редактирование)
         if (!validateForm()) {
             return;
         }
         
-        if (isEditing && template) {
+        // При редактировании версии передаем данные для обновления версии
+        if (isEditingVersion && version) {
+            const updateData: ShiftTemplateUpdatePayload = {
+                id: template!.id,
+                name: formData.name,
+                startTime: formData.startTime,
+                endTime: formData.endTime,
+                maxSlots: formData.maxSlots,
+                hasSeniorSlot: formData.hasSeniorSlot,
+                isActive: formData.isActive,
+                daysOfWeek: formData.daysOfWeek
+            };
+            onSubmit(updateData);
+        } else if (isEditing && template) {
             const updateData: ShiftTemplateUpdatePayload = {
                 id: template.id,
                 name: formData.name,
@@ -422,40 +1165,154 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
             };
             onSubmit(createData);
         }
-    }, [isEditing, template, formData, validateForm, onSubmit]);
+    }, [isWeeklyMode, weekData, isEditing, isEditingVersion, template, version, formData, validateForm, onSubmit]);
 
     const handleSlotCountChange = (delta: number) => {
-        setFormData(prev => ({
-            ...prev,
-            maxSlots: Math.max(1, Math.min(20, prev.maxSlots + delta))
-        }));
+        const currentData = getActiveDayData();
+        const newValue = Math.max(1, Math.min(20, currentData.maxSlots + delta));
+        updateActiveDayData({ maxSlots: newValue });
     };
 
     const toggleDay = (dayIndex: number) => {
-        setFormData(prev => ({
-            ...prev,
-            daysOfWeek: prev.daysOfWeek.includes(dayIndex)
-                ? prev.daysOfWeek.filter(d => d !== dayIndex)
-                : [...prev.daysOfWeek, dayIndex]
-        }));
+        if (!isWeeklyMode) {
+            setFormData(prev => ({
+                ...prev,
+                daysOfWeek: prev.daysOfWeek.includes(dayIndex)
+                    ? prev.daysOfWeek.filter(d => d !== dayIndex)
+                    : [...prev.daysOfWeek, dayIndex]
+            }));
+        }
     };
+    
+    // Bulk Apply: применить настройки к выбранным дням
+    const handleBulkApply = useCallback((targetDays: number[]) => {
+        const currentData = getActiveDayData();
+        
+        setWeekData(prev => {
+            const updated = { ...prev };
+            targetDays.forEach(dayIndex => {
+                updated[dayIndex] = {
+                    ...currentData,
+                    // Можно автоматически добавлять день в название
+                    // name: currentData.name || ''
+                };
+            });
+            return updated;
+        });
+        
+        // Отмечаем дни как заполненные через Bulk Apply (чтобы не показывать подсказку)
+        setBulkAppliedDays(prev => {
+            const newSet = new Set(prev);
+            targetDays.forEach(day => newSet.add(day));
+            return newSet;
+        });
+        
+        setShowBulkApplyModal(false);
+    }, [getActiveDayData]);
+    
+    // Проверка дубликатов при переключении дня (с небольшой задержкой)
+    useEffect(() => {
+        if (!isWeeklyMode) return;
+        
+        const timer = setTimeout(() => {
+            checkForDuplicateData();
+        }, 500); // Задержка чтобы не проверять во время активного редактирования
+        
+        return () => clearTimeout(timer);
+    }, [activeDay, isWeeklyMode, checkForDuplicateData]);
 
     const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+    const dayShortNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
     return (
         <FormContainer>
             <FormHeader>
                 <FormTitle>
-                    {isEditing ? <IconEdit /> : <IconPlus />}
-                    {isEditing ? 'Редактировать шаблон' : 'Создать шаблон'}
+                    {isEditingVersion ? <IconCalendar /> : (isEditing ? <IconEdit /> : <IconPlus />)}
+                    {isEditingVersion ? 'Редактировать версию шаблона' : (isEditing ? 'Редактировать шаблон' : 'Создать шаблон')}
                 </FormTitle>
                 <FormSubtitle>
-                    {isEditing 
-                        ? 'Измените параметры существующего шаблона смены' 
-                        : 'Настройте параметры для нового шаблона смены'
+                    {isEditingVersion
+                        ? 'Измените параметры будущей версии шаблона'
+                        : (isEditing 
+                            ? (isWeeklyMode
+                                ? 'Редактирование шаблонов для выбранных дней. Каждый день можно настроить отдельно.'
+                                : 'Измените параметры существующего шаблона смены'
+                            )
+                            : 'Настройте параметры для нового шаблона смены'
+                        )
                     }
                 </FormSubtitle>
             </FormHeader>
+            
+            {/* Табы дней недели (только в мульти-день режиме) */}
+            {isWeeklyMode && (
+                <DayTabsContainer>
+                    <DayTabsWrapper>
+                        {dayShortNames.map((dayShortName, dayIndex) => {
+                            const filled = isDayFilled(dayIndex);
+                            const active = activeDay === dayIndex;
+                            
+                            return (
+                                <DayTab
+                                    key={dayIndex}
+                                    type="button"
+                                    $active={active}
+                                    $filled={filled}
+                                    onClick={() => handleDayChange(dayIndex)}
+                                >
+                                    <DayTabName $active={active}>{dayShortName}</DayTabName>
+                                    <DayTabIndicator $visible={filled} />
+                                </DayTab>
+                            );
+                        })}
+                    </DayTabsWrapper>
+                    
+                    {/* Информация о существующих шаблонах для выбранного дня */}
+                    <ExistingTemplatesInfo>
+                        <ExistingTemplatesTitle>
+                            <IconTemplate />
+                            Шаблоны на {dayNames[activeDay]}
+                        </ExistingTemplatesTitle>
+                        {(() => {
+                            const dayTemplates = getExistingTemplatesForDay(activeDay);
+                            
+                            if (dayTemplates.length === 0) {
+                                return (
+                                    <NoTemplatesMessage>
+                                        Нет созданных шаблонов
+                                    </NoTemplatesMessage>
+                                );
+                            }
+                            
+                            return (
+                                <ExistingTemplatesList>
+                                    {dayTemplates.map((tmpl) => (
+                                        <ExistingTemplateItem key={tmpl.id}>
+                                            <ExistingTemplateIcon>
+                                                <IconTemplate />
+                                            </ExistingTemplateIcon>
+                                            <ExistingTemplateName>
+                                                {tmpl.name}
+                                            </ExistingTemplateName>
+                                            <ExistingTemplateDetails>
+                                                <ExistingTemplateTime>
+                                                    <IconClock />
+                                                    {tmpl.startTime.substring(0, 5)}-{tmpl.endTime.substring(0, 5)}
+                                                </ExistingTemplateTime>
+                                                <ExistingTemplateSlots>
+                                                    <IconUsers />
+                                                    {tmpl.maxSlots}
+                                                </ExistingTemplateSlots>
+                                            </ExistingTemplateDetails>
+                                        </ExistingTemplateItem>
+                                    ))}
+                                </ExistingTemplatesList>
+                            );
+                        })()}
+                    </ExistingTemplatesInfo>
+                </DayTabsContainer>
+            )}
             
             <FormContent id={formId} onSubmit={handleSubmit}>
                 <Section>
@@ -467,9 +1324,9 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                         </Label>
                         <Input
                             type="text"
-                            value={formData.name}
-                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="Например: Дневная смена"
+                            value={getActiveDayData().name}
+                            onChange={(e) => updateActiveDayData({ name: e.target.value })}
+                            placeholder={isWeeklyMode ? `Например: Дневная смена (${dayNames[activeDay]})` : "Например: Дневная смена"}
                             $hasError={!!errors.name}
                             disabled={isLoading}
                         />
@@ -483,16 +1340,16 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                         <TimeRow>
                             <TimeInput
                                 type="time"
-                                value={formData.startTime}
-                                onChange={(e) => setFormData(prev => ({ ...prev, startTime: e.target.value }))}
+                                value={getActiveDayData().startTime}
+                                onChange={(e) => updateActiveDayData({ startTime: e.target.value })}
                                 $hasError={!!errors.startTime}
                                 disabled={isLoading}
                             />
                             <TimeSeparator>—</TimeSeparator>
                             <TimeInput
                                 type="time"
-                                value={formData.endTime}
-                                onChange={(e) => setFormData(prev => ({ ...prev, endTime: e.target.value }))}
+                                value={getActiveDayData().endTime}
+                                onChange={(e) => updateActiveDayData({ endTime: e.target.value })}
                                 $hasError={!!errors.endTime}
                                 disabled={isLoading}
                             />
@@ -512,15 +1369,15 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                             <SlotButton
                                 type="button"
                                 onClick={() => handleSlotCountChange(-1)}
-                                disabled={isLoading || formData.maxSlots <= 1}
+                                disabled={isLoading || getActiveDayData().maxSlots <= 1}
                             >
                                 −
                             </SlotButton>
-                            <SlotValue>{formData.maxSlots}</SlotValue>
+                            <SlotValue>{getActiveDayData().maxSlots}</SlotValue>
                             <SlotButton
                                 type="button"
                                 onClick={() => handleSlotCountChange(1)}
-                                disabled={isLoading || formData.maxSlots >= 20}
+                                disabled={isLoading || getActiveDayData().maxSlots >= 20}
                             >
                                 +
                             </SlotButton>
@@ -532,18 +1389,139 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                         <Checkbox
                             type="checkbox"
                             id="hasSeniorSlot"
-                            checked={formData.hasSeniorSlot}
-                            onChange={(e) => setFormData(prev => ({ ...prev, hasSeniorSlot: e.target.checked }))}
+                            checked={getActiveDayData().hasSeniorSlot}
+                            onChange={(e) => updateActiveDayData({ hasSeniorSlot: e.target.checked })}
                             disabled={isLoading}
                         />
                         <CheckboxLabelText>
                             Включить слот для старшего курьера
                         </CheckboxLabelText>
                     </CheckboxRow>
+                    
+                    {/* Умная подсказка о дубликатах */}
+                    {isWeeklyMode && showDuplicateHintBanner && !bannerDismissed && (
+                        <SmartHintBanner>
+                            <SmartHintIcon>💡</SmartHintIcon>
+                            <SmartHintContent>
+                                <SmartHintTitle>Подсказка</SmartHintTitle>
+                                <SmartHintText>
+                                    Мы заметили, что вы вводите одинаковые данные для разных дней недели. 
+                                    Вы можете сделать это в один клик, воспользовавшись кнопкой{' '}
+                                    <strong 
+                                        style={{ 
+                                            textDecoration: 'underline', 
+                                            cursor: 'pointer' 
+                                        }}
+                                        onClick={() => {
+                                            setShowBulkApplyModal(true);
+                                            setBannerDismissed(true);
+                                            setShowDuplicateHintBanner(false);
+                                        }}
+                                    >
+                                        "Быстрое создание"
+                                    </strong>
+                                    {' '}ниже!
+                                </SmartHintText>
+                            </SmartHintContent>
+                            <SmartHintButton 
+                                type="button"
+                                onClick={() => {
+                                    setBannerDismissed(true);
+                                    setShowDuplicateHintBanner(false);
+                                }}
+                            >
+                                ОК, понятно
+                            </SmartHintButton>
+                        </SmartHintBanner>
+                    )}
+
+                    {/* Быстрое создание (только в мульти-день режиме) */}
+                    {isWeeklyMode && (
+                        <QuickCreateSection>
+                            {!showBulkApplyModal ? (
+                                <>
+                                    <QuickCreateButton 
+                                        type="button"
+                                        onClick={() => setShowBulkApplyModal(true)}
+                                        disabled={isLoading || !getActiveDayData().name.trim()}
+                                        $isPulsing={showDuplicateHintBanner && !bannerDismissed}
+                                    >
+                                        <IconCopy />
+                                        Быстрое создание
+                                    </QuickCreateButton>
+                                    <QuickCreateHint>
+                                        Для создания тех же данных для других дней, или <strong>выберите сверху день недели</strong> для индивидуальной настройки
+                                    </QuickCreateHint>
+                                </>
+                            ) : (
+                                <BulkApplyExpanded>
+                                    <BulkApplyTitle>
+                                        <IconCopy />
+                                        Выберите дни для применения настроек
+                                    </BulkApplyTitle>
+                                    <BulkApplyGrid>
+                                        {dayNames.map((dayName, dayIndex) => {
+                                            const isCurrentDay = dayIndex === activeDay;
+                                            const isChecked = selectedDaysForBulkApply.includes(dayIndex);
+                                            
+                                            return (
+                                                <BulkApplyDayCard
+                                                    key={dayIndex}
+                                                    $checked={isChecked}
+                                                    $disabled={isCurrentDay}
+                                                >
+                                                    <Checkbox
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setSelectedDaysForBulkApply(prev => [...prev, dayIndex]);
+                                                            } else {
+                                                                setSelectedDaysForBulkApply(prev => prev.filter(d => d !== dayIndex));
+                                                            }
+                                                        }}
+                                                        disabled={isCurrentDay}
+                                                    />
+                                                    <BulkApplyDayLabel>
+                                                        {dayName} {isCurrentDay && '(текущий)'}
+                                                    </BulkApplyDayLabel>
+                                                </BulkApplyDayCard>
+                                            );
+                                        })}
+                                    </BulkApplyGrid>
+                                    <BulkApplyActions>
+                                        <BulkApplyActionButton 
+                                            type="button"
+                                            $variant="secondary"
+                                            onClick={() => {
+                                                setShowBulkApplyModal(false);
+                                                setSelectedDaysForBulkApply([]);
+                                            }}
+                                        >
+                                            Отмена
+                                        </BulkApplyActionButton>
+                                        <BulkApplyActionButton 
+                                            type="button"
+                                            $variant="primary"
+                                            onClick={() => {
+                                                handleBulkApply(selectedDaysForBulkApply);
+                                                setSelectedDaysForBulkApply([]);
+                                            }}
+                                            disabled={selectedDaysForBulkApply.length === 0}
+                                        >
+                                            Применить ({selectedDaysForBulkApply.length})
+                                        </BulkApplyActionButton>
+                                    </BulkApplyActions>
+                                </BulkApplyExpanded>
+                            )}
+                        </QuickCreateSection>
+                    )}
                 </Section>
 
-                <Section>
-                    <SectionTitle>Дни недели<span style={{ color: 'var(--danger-color)', marginLeft: '4px' }}>*</span></SectionTitle>
+                {/* Секция "Дни недели" (только в обычном режиме) */}
+                {!isWeeklyMode && (
+                    <Section>
+                        <SectionTitle>Дни недели<span style={{ color: 'var(--danger-color)', marginLeft: '4px' }}>*</span></SectionTitle>
                     <DaysGrid>
                         {dayNames.map((dayName, index) => (
                             <DayCard 
@@ -562,6 +1540,7 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                     </DaysGrid>
                     {errors.daysOfWeek && <ErrorMessage>{errors.daysOfWeek}</ErrorMessage>}
                 </Section>
+                )}
 
                 {isEditing && (
                     <Section>

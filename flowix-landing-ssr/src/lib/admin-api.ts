@@ -333,22 +333,28 @@ export const adminApi = {
 
   // Делегаты доступа к функционалу
   async getFeatureAccessDelegates(mappingId: number, groupId: number) {
+    console.log('[AdminAPI][delegates][list] GET', { mappingId, groupId })
     const response = await apiFetch(`/v1/feature-access/delegates/mapping/${mappingId}/group/${groupId}`)
+    console.log('[AdminAPI][delegates][list] status', response.status)
     return response.json()
   },
 
   async createFeatureAccessDelegate(data: any) {
+    console.log('[AdminAPI][delegates][create] POST', data)
     const response = await apiFetch('/v1/feature-access/delegates', {
       method: 'POST',
       body: JSON.stringify(data),
     })
+    console.log('[AdminAPI][delegates][create] status', response.status)
     return response.json()
   },
 
   async deleteFeatureAccessDelegate(delegateId: number) {
+    console.log('[AdminAPI][delegates][delete] DELETE', { delegateId })
     await apiFetch(`/v1/feature-access/delegates/${delegateId}`, {
       method: 'DELETE',
     })
+    console.log('[AdminAPI][delegates][delete] status: ok')
   },
 }
 

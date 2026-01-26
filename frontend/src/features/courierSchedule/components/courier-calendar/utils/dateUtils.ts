@@ -137,6 +137,9 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const targetTime = targetHour * 60 + targetMinute;
     
+    // День регистрации повторяется с периодичностью = periodLength
+    // periodLength определяет И длину периода записи И частоту регистрации
+    
     // Определяем, сколько дней нужно вычесть
     let daysToSubtract;
     
@@ -146,15 +149,17 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
             // Если время уже прошло, используем сегодня
             daysToSubtract = 0;
         } else {
-            // Если время еще не наступило, берем прошлую неделю
+            // Если время еще не наступило, берем прошлый период (periodLength дней назад)
             daysToSubtract = periodLength;
         }
     } else if (currentDay > targetDay) {
         // Если день недели после дня регистрации
+        // День регистрации был в этой неделе
         daysToSubtract = currentDay - targetDay;
     } else {
         // Если день недели до дня регистрации
-        daysToSubtract = 7 - (targetDay - currentDay);
+        // Последний день регистрации был в прошлом периоде
+        daysToSubtract = periodLength - (targetDay - currentDay);
     }
     
     // Создаем дату последнего дня регистрации
@@ -166,12 +171,13 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
 }
 
 /**
- * Находит предпоследний прошедший день регистрации (всегда -7 дней)
+ * Находит предпоследний прошедший день регистрации
+ * День регистрации повторяется с периодичностью = periodLength
  */
 function getPenultimateRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
-    // Находим сначала последний
+    // Находим сначала последний день регистрации
     const lastRegDay = getLastRegistrationDay(now, targetDay, targetHour, targetMinute, periodLength);
-    // Отнимаем 7 дней, чтобы получить предыдущий
+    // Отнимаем periodLength дней, чтобы получить предыдущий день регистрации
     const penultimateRegDay = new Date(lastRegDay);
     penultimateRegDay.setDate(penultimateRegDay.getDate() - periodLength);
     return penultimateRegDay;
@@ -179,8 +185,10 @@ function getPenultimateRegistrationDay(now: Date, targetDay: number, targetHour:
 
 /**
  * Находит следующий день регистрации
+ * День регистрации повторяется с периодичностью = periodLength
+ * periodLength определяет И длину периода записи И частоту регистрации
  */
-function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number): Date {
+function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
     const currentDay = now.getDay();
     const currentTime = now.getHours() * 60 + now.getMinutes();
     const targetTime = targetHour * 60 + targetMinute;
@@ -191,18 +199,20 @@ function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number
     if (currentDay === targetDay) {
         // Если сегодня день регистрации, проверяем время
         if (currentTime >= targetTime) {
-            // Если время уже прошло, берем следующую неделю
-            daysToAdd = 7;
+            // Если время уже прошло, берем следующий период (periodLength дней вперед)
+            daysToAdd = periodLength;
         } else {
             // Если время еще не наступило, используем сегодня
             daysToAdd = 0;
         }
     } else if (currentDay < targetDay) {
         // Если день недели до дня регистрации
+        // День регистрации будет в этой неделе
         daysToAdd = targetDay - currentDay;
     } else {
         // Если день недели после дня регистрации
-        daysToAdd = 7 - (currentDay - targetDay);
+        // Следующий день регистрации будет в следующем периоде
+        daysToAdd = periodLength - (currentDay - targetDay);
     }
     
     // Создаем дату следующего дня регистрации
@@ -395,7 +405,7 @@ export function getNextBookingPeriod(accessSettings?: AccessSettings | null): Bo
     const periodLength = settings.periodLength ?? 7;
     
     // Получаем следующий день регистрации
-    const nextRegistrationDate = getNextRegistrationDay(now, registrationDay, registrationHour, registrationMinute);
+    const nextRegistrationDate = getNextRegistrationDay(now, registrationDay, registrationHour, registrationMinute, periodLength);
     
     // Рассчитываем даты периода
     const periodDates = calculateSingleWindowDates(nextRegistrationDate, settings, now);

@@ -19,7 +19,15 @@ const transformServerTemplate = (serverTemplate: any): ShiftTemplate => ({
     isActive: serverTemplate.is_active || true,
     daysOfWeek: serverTemplate.days_of_week || [],
     createdAt: serverTemplate.created_at,
-    updatedAt: serverTemplate.updated_at
+    updatedAt: serverTemplate.updated_at,
+    futureVersion: serverTemplate.future_version ? {
+        id: serverTemplate.future_version.id,
+        validFromDate: serverTemplate.future_version.valid_from_date,
+        maxSlots: serverTemplate.future_version.max_slots,
+        startTime: serverTemplate.future_version.start_time,
+        endTime: serverTemplate.future_version.end_time,
+        hasSeniorSlot: serverTemplate.future_version.has_senior_slot
+    } : undefined
 });
 
 // Получить все шаблоны смен
@@ -96,9 +104,15 @@ export const updateShiftTemplate = async (
 };
 
 // Удалить шаблон смены
-export const deleteShiftTemplate = async (templateId: string): Promise<void> => {
+export const deleteShiftTemplate = async (templateId: string): Promise<{
+    deleted: boolean;
+    has_future_shifts: boolean;
+    shifts_count?: number;
+    message: string;
+}> => {
     try {
-        await axiosInstance.delete(`/v1/shift-templates/${templateId}`);
+        const response = await axiosInstance.delete(`/v1/shift-templates/${templateId}`);
+        return response.data;
     } catch (error) {
         console.error('Error deleting shift template:', error);
         throw new Error('Не удалось удалить шаблон смены');
@@ -206,5 +220,42 @@ export const removeShiftTemplatesFromDays = async (
     } catch (error: any) {
         console.error('Error removing shift templates from days:', error);
         throw new Error(error.response?.data?.detail || 'Не удалось отменить применение шаблонов смен');
+    }
+};
+
+// Удалить версию шаблона
+export const deleteTemplateVersion = async (versionId: string): Promise<void> => {
+    try {
+        await axiosInstance.delete(`/v1/shift-templates/versions/${versionId}`);
+    } catch (error: any) {
+        console.error('Error deleting template version:', error);
+        throw new Error(error.response?.data?.detail || 'Не удалось удалить версию шаблона');
+    }
+};
+
+// Обновить версию шаблона
+export const updateTemplateVersion = async (
+    versionId: string,
+    updateData: {
+        maxSlots?: number;
+        startTime?: string;
+        endTime?: string;
+        hasSeniorSlot?: boolean;
+        validFromDate?: string;
+    }
+): Promise<any> => {
+    try {
+        const serverData: any = {};
+        if (updateData.maxSlots !== undefined) serverData.max_slots = updateData.maxSlots;
+        if (updateData.startTime !== undefined) serverData.start_time = updateData.startTime;
+        if (updateData.endTime !== undefined) serverData.end_time = updateData.endTime;
+        if (updateData.hasSeniorSlot !== undefined) serverData.has_senior_slot = updateData.hasSeniorSlot;
+        if (updateData.validFromDate !== undefined) serverData.valid_from_date = updateData.validFromDate;
+        
+        const response = await axiosInstance.put(`/v1/shift-templates/versions/${versionId}`, serverData);
+        return response.data;
+    } catch (error: any) {
+        console.error('Error updating template version:', error);
+        throw new Error(error.response?.data?.detail || 'Не удалось обновить версию шаблона');
     }
 };

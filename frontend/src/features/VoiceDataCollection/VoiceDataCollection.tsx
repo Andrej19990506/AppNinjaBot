@@ -33,8 +33,14 @@ const VoiceDataCollection: React.FC = () => {
 
   const { isWelcomeShown, markWelcomeAsShown } = useLocalStorage();
   
-  // Получаем user_id и синхронизируем прогресс с сервером
-  const userId = getCurrentUserId();
+  // Получаем user_id из Redux (настоящий ID пользователя из Telegram)
+  const currentUser = useSelector((state: RootState) => state.user.user);
+  const userId = currentUser?.id || getCurrentUserId();
+  
+  console.log('🔍 [VoiceDataCollection] Current User:', currentUser?.id);
+  console.log('🔍 [VoiceDataCollection] userId для проверки:', userId);
+  console.log('🔍 [VoiceDataCollection] Это тестовый пользователь?', TEST_USER_IDS.includes(userId));
+  
   const { stats, refresh, fetchProgress } = useVoiceContestSync({
     userId,
     autoFetch: true,

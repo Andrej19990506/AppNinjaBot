@@ -5,9 +5,21 @@
 
 import axios from 'axios';
 
-// API_BASE_URL может уже содержать /api, поэтому добавляем только /v1/voice-contest
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// Получаем API URL из runtime config или build-time env
+const getApiBaseUrl = (): string => {
+  // Пробуем получить из runtime config (прод)
+  const runtimeApiUrl = (window as any).APP_CONFIG?.API_URL;
+  // Или из build-time env (дев)
+  const buildApiUrl = import.meta.env.VITE_API_URL;
+  
+  return runtimeApiUrl || buildApiUrl || 'http://localhost:8000/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 const VOICE_CONTEST_API = `${API_BASE_URL}/v1/voice-contest`;
+
+console.log('🔍 [VoiceContestAPI] API_BASE_URL:', API_BASE_URL);
+console.log('🔍 [VoiceContestAPI] VOICE_CONTEST_API:', VOICE_CONTEST_API);
 
 // ============================================================================
 // ТИПЫ

@@ -299,15 +299,6 @@
     }
   },
   "Соусы": {
-    "Соус Чили сладкий (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Соевый соус (гр.)": {
       "raw": {
         "quantity": 0,
@@ -804,25 +795,7 @@
         "notes": ""
       }
     },
-    "Бутылка 0,65 л.(шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Крышка к контейнеру для салатов/закусок (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Крышка к коробка для кусочка": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1103,15 +1076,6 @@
         "notes": ""
       }
     },
-    "Крылья куриные (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Куринные байтсы (гр.)": {
       "raw": {
         "quantity": 0,
@@ -1140,33 +1104,6 @@
       }
     },
     "Пепперони (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Крылья куриные (маринованные) (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Фарш (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Форель (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1312,34 +1249,7 @@
         "notes": ""
       }
     },
-    "Лайм (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Свекла (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Компотная смесь (гр.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Мята (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1431,34 +1341,7 @@
         "notes": ""
       }
     },
-    "Сироп Малина (мл.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Салфетка бумажная в индивидуальной упаковке (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Сироп Ваниль  (мл.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Сироп Мохито (мл.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1503,15 +1386,6 @@
         "notes": ""
       }
     },
-    "Сироп Мандарин (мл.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "RJ - 0.33 Гранатовый сок (шт.)": {
       "raw": {
         "quantity": 0,
@@ -1522,24 +1396,6 @@
       }
     },
     "Стакан бумажный кофейный 200мл 80мм желтый KF200  (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Сироп Дыня (мл.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Сироп Перечная мята (мл.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1585,15 +1441,6 @@
       }
     },
     "Сироп Droppy Карамель (мл.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
-    "Сироп Арбуз  (мл.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -1714,15 +1561,6 @@
     }
   },
   "Десерты": {
-    "Макаруны (шт.)": {
-      "raw": {
-        "quantity": 0,
-        "filled": false,
-        "expiry_date": null,
-        "warning_days": null,
-        "notes": ""
-      }
-    },
     "Чизкейк Вишня и Шоколад (шт.)": {
       "raw": {
         "quantity": 0,

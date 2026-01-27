@@ -201,6 +201,7 @@ services:
       - VITE_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru/socket.io/}
       - ENV_TYPE=${ENV_TYPE:-production}
       - REACT_APP_DEBUG=${VITE_DEBUG:-false}
+      - VITE_YANDEX_DISK_TOKEN=${VITE_YANDEX_DISK_TOKEN:-}
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
       - NGINX_HOST=appninjabot.ru
       - NGINX_PORT=80

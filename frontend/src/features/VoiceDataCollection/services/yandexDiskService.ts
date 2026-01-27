@@ -9,11 +9,20 @@ import { RecordingType } from './voiceContestApi';
 
 const YANDEX_DISK_API = 'https://cloud-api.yandex.net/v1/disk';
 
-// OAuth токен для Яндекс.Диска (должен быть в .env)
-const YANDEX_DISK_TOKEN = (import.meta.env.VITE_YANDEX_DISK_TOKEN || '').trim();
+// OAuth токен для Яндекс.Диска (из build-time env или runtime config)
+const getYandexDiskToken = (): string => {
+  // Пробуем получить из runtime config (прод) или build-time env (дев)
+  const runtimeToken = (window as any).APP_CONFIG?.YANDEX_DISK_TOKEN;
+  const buildToken = import.meta.env.VITE_YANDEX_DISK_TOKEN;
+  
+  return (runtimeToken || buildToken || '').trim();
+};
+
+const YANDEX_DISK_TOKEN = getYandexDiskToken();
 
 // Отладка: выводим детальную информацию о токене
 console.log('🔍 [YandexDisk] Все env переменные:', import.meta.env);
+console.log('🔍 [YandexDisk] Runtime config:', (window as any).APP_CONFIG);
 console.log('🔍 [YandexDisk] Токен:', YANDEX_DISK_TOKEN ? `${YANDEX_DISK_TOKEN.substring(0, 20)}... (длина: ${YANDEX_DISK_TOKEN.length})` : 'ПУСТО');
 console.log('🔍 [YandexDisk] Токен полностью:', YANDEX_DISK_TOKEN);
 

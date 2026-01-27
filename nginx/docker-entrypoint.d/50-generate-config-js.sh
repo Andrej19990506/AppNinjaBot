@@ -19,6 +19,7 @@ echo "  REACT_APP_API_URL='${REACT_APP_API_URL}'"
 echo "  REACT_APP_WS_URL='${REACT_APP_WS_URL}'"
 echo "  ENV_TYPE='${ENV_TYPE}'"
 echo "  REACT_APP_DEBUG='${REACT_APP_DEBUG}'"
+echo "  VITE_YANDEX_DISK_TOKEN='${VITE_YANDEX_DISK_TOKEN:+[SET]}'"
 
 # ПРОВЕРКА НА ПУСТОТУ
 if [ -z "${REACT_APP_API_URL}" ] || [ -z "${REACT_APP_WS_URL}" ] || [ -z "${ENV_TYPE}" ] || [ -z "${REACT_APP_DEBUG}" ]; then
@@ -49,6 +50,7 @@ cat > "/usr/share/nginx/html/config.js" <<INNER_EOF
         WS_URL: "$(printf '%s' "${REACT_APP_WS_URL}")",
         ENV: "$(printf '%s' "${ENV_TYPE}")",
         DEBUG: "$(printf '%s' "${REACT_APP_DEBUG}")",
+        YANDEX_DISK_TOKEN: "$(printf '%s' "${VITE_YANDEX_DISK_TOKEN}")",
         GENERATED_AT: "$(date -Iseconds)",
         USER_AGENT_INFO: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
     };

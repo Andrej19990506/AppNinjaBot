@@ -66,6 +66,15 @@ export interface GlobalStats {
   };
 }
 
+export interface ContestStatus {
+  status: 'draft' | 'announcement' | 'active' | 'completed' | 'cancelled';
+  is_visible: boolean;
+  competition_id: number;
+  title?: string;
+  start_date?: string | null;
+  end_date?: string | null;
+}
+
 export type RecordingType = 'hotword' | 'command' | 'negative';
 
 // ============================================================================
@@ -167,6 +176,30 @@ export const getLeaderboard = async (limit: number = 100): Promise<VoiceContestL
   } catch (error: any) {
     console.error('❌ [VoiceContestAPI] Ошибка получения лидерборда:', error.response?.data || error.message);
     throw error;
+  }
+};
+
+/**
+ * Получить статус конкурса
+ */
+export const getContestStatus = async (): Promise<ContestStatus> => {
+  try {
+    console.log('🔍 [VoiceContestAPI] Получение статуса конкурса');
+    
+    const response = await axios.get<ContestStatus>(
+      `${VOICE_CONTEST_API}/status`
+    );
+    
+    console.log('✅ [VoiceContestAPI] Статус получен:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('❌ [VoiceContestAPI] Ошибка получения статуса:', error.response?.data || error.message);
+    // В случае ошибки возвращаем draft для безопасности
+    return {
+      status: 'draft',
+      is_visible: false,
+      competition_id: 1
+    };
   }
 };
 
@@ -290,6 +323,7 @@ export default {
   getProgress,
   updateProgress,
   getLeaderboard,
+  getContestStatus,
   getGlobalStats,
   isParticipantRegistered,
   getOrRegisterParticipant,

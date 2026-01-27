@@ -446,6 +446,46 @@ async def get_leaderboard(
             detail=f"Internal server error: {str(e)}"
         )
 
+@router.get("/status")
+async def get_contest_status(db: Session = Depends(get_db)):
+    """
+    Получить статус голосового конкурса
+    
+    Возвращает:
+    - **status**: текущий статус конкурса (draft, announcement, active, completed, cancelled)
+    - **is_visible**: true если конкурс должен отображаться (не draft)
+    - **competition_id**: ID конкурса
+    """
+    try:
+        competition = competition_crud.get(db, VOICE_CONTEST_ID)
+        if not competition:
+            # Если конкурс не найден, возвращаем draft
+            return {
+                "status": "draft",
+                "is_visible": False,
+                "competition_id": VOICE_CONTEST_ID
+            }
+        
+        is_visible = competition.status != CompetitionStatus.DRAFT
+        
+        return {
+            "status": competition.status.value,
+            "is_visible": is_visible,
+            "competition_id": VOICE_CONTEST_ID,
+            "title": competition.title,
+            "start_date": competition.start_date.isoformat() if competition.start_date else None,
+            "end_date": competition.end_date.isoformat() if competition.end_date else None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting contest status: {e}")
+        # В случае ошибки возвращаем draft для безопасности
+        return {
+            "status": "draft",
+            "is_visible": False,
+            "competition_id": VOICE_CONTEST_ID
+        }
+
 @router.get("/stats/global")
 async def get_global_stats(db: Session = Depends(get_db)):
     """

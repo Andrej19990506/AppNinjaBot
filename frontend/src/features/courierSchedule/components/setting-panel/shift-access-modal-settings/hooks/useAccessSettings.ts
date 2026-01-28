@@ -56,33 +56,51 @@ export const useAccessSettings = ({ chatId }: UseAccessSettingsProps) => {
     }, []);
 
     // Сохранение настроек ДОСТУПА на сервере
-    const saveSettings = useCallback(async () => {
+    const saveSettings = useCallback(async (customSettings?: AccessSettings) => {
         // log(`[useAccessSettings saveSettings] Попытка сохранения. Текущий chatId: ${chatId}`);
+        
+        const settingsToSave = customSettings || settings;
 
         if (!chatId) {
             // error('❌ Ошибка: chatId не определен при попытке сохранения настроек.');
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Ошибка: Не удалось определить ID чата.' }));
-            return false; 
+            return { success: false }; 
         }
         
         // Проверяем, есть ли локальные настройки для сохранения
-        if (!settings) {
+        if (!settingsToSave) {
              // error('❌ Ошибка: Локальные настройки отсутствуют (null).');
              dispatch(addNotification({ type: NotificationTypes.ERROR, message: 'Ошибка: Нет данных для сохранения.' }));
-             return false;
+             return { success: false };
         }
 
+        console.log('[useAccessSettings] Сохранение настроек:', settingsToSave);
+
         try {
-            await dispatch(updateAccessSettings({ chatId, settings: { ...settings } })).unwrap();
+            const result = await dispatch(updateAccessSettings({ chatId, settings: { ...settingsToSave } })).unwrap();
+            
+            console.log('[useAccessSettings] Результат сохранения:', result);
+            
+            // Проверяем наличие конфликта (существующих смен)
+            if (result?.hasExistingShifts) {
+                // Не показываем уведомление об успехе, вернём данные для модалки
+                setIsDirty(false);
+                return { 
+                    success: true, 
+                    hasConflict: true,
+                    existingShiftsCount: result.existingShiftsCount || 0,
+                    data: result
+                };
+            }
             
             dispatch(addNotification({ type: NotificationTypes.SUCCESS, message: 'Настройки доступа успешно сохранены' }));
             setIsDirty(false);
-            return true;
+            return { success: true, hasConflict: false, data: result };
         } catch (error) {
             // error('❌ Ошибка при сохранении настроек доступа:', error);
             const errorMessage = typeof error === 'string' ? error : (error instanceof Error ? error.message : 'Неизвестная ошибка');
             dispatch(addNotification({ type: NotificationTypes.ERROR, message: errorMessage }));
-            return false;
+            return { success: false };
         }
     }, [dispatch, settings, chatId]);
     

@@ -34,6 +34,18 @@ class GroupSettings(BaseModel):
     # Персональные ограничения
     restrictedUsers: Optional[List[int]] = Field(default_factory=list) # Используем int для ID
 
+    # Предупреждение о существующих сменах (только в ответе)
+    hasExistingShifts: Optional[bool] = Field(default=None, description="Флаг наличия существующих смен при изменении дня регистрации")
+    existingShiftsCount: Optional[int] = Field(default=None, description="Количество существующих смен в будущем")
+    
+    # Стратегия перехода при конфликте (мягкий/жесткий переход)
+    transitionStrategy: Optional[Literal['soft', 'hard']] = Field(default=None, description="Стратегия: 'soft' - мягкий переход, 'hard' - жесткий стоп")
+    isAccessBlocked: Optional[bool] = Field(default=False, description="Флаг блокировки доступа при жестком стопе")
+    nextOpeningDate: Optional[str] = Field(default=None, description="Дата следующего открытия доступа (ISO формат)")
+    
+    # Статус доступа (вычисляемое поле для UI)
+    accessStatus: Optional[Literal['active', 'pending', 'blocked']] = Field(default=None, description="Статус доступа: active/pending/blocked")
+
     # Метаданные (не храним в этой схеме, т.к. они не часть настроек)
     # lastUpdated: Optional[str] = None
     # updatedBy: Optional[int] = None
@@ -57,4 +69,6 @@ class GroupSettingsUpdate(BaseModel):
     activeEndDate: Optional[str] = None
     daysAhead: Optional[int] = None
     enabledDates: Optional[List[str]] = None
-    restrictedUsers: Optional[List[int]] = None 
+    restrictedUsers: Optional[List[int]] = None
+    transitionStrategy: Optional[Literal['soft', 'hard']] = None
+    isAccessBlocked: Optional[bool] = None 

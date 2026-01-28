@@ -130,44 +130,94 @@ export function getNextDayOfWeek(date: Date, dayOfWeek: number): Date {
 }
 
 /**
- * Находит последний прошедший день регистрации
+ * Находит первый день с нужным targetDay от базовой даты
  */
-function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
-    const currentDay = now.getDay();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const targetTime = targetHour * 60 + targetMinute;
+function findFirstTargetDayFrom(baseDate: Date, targetDay: number): Date {
+    const result = new Date(baseDate);
+    result.setHours(0, 0, 0, 0);
     
-    // День регистрации повторяется с периодичностью = periodLength
-    // periodLength определяет И длину периода записи И частоту регистрации
-    
-    // Определяем, сколько дней нужно вычесть
-    let daysToSubtract;
+    // Находим ближайший targetDay (вперёд или назад, в зависимости от того что ближе)
+    let currentDay = result.getDay();
+    let daysToAdd = 0;
     
     if (currentDay === targetDay) {
-        // Если сегодня день регистрации, проверяем время
-        if (currentTime >= targetTime) {
-            // Если время уже прошло, используем сегодня
-            daysToSubtract = 0;
-        } else {
-            // Если время еще не наступило, берем прошлый период (periodLength дней назад)
-            daysToSubtract = periodLength;
-        }
-    } else if (currentDay > targetDay) {
-        // Если день недели после дня регистрации
-        // День регистрации был в этой неделе
-        daysToSubtract = currentDay - targetDay;
+        daysToAdd = 0;
+    } else if (currentDay < targetDay) {
+        daysToAdd = targetDay - currentDay;
     } else {
-        // Если день недели до дня регистрации
-        // Последний день регистрации был в прошлом периоде
-        daysToSubtract = periodLength - (targetDay - currentDay);
+        daysToAdd = 7 - (currentDay - targetDay);
     }
     
-    // Создаем дату последнего дня регистрации
-    const calculatedDate = new Date(now);
-    calculatedDate.setDate(now.getDate() - daysToSubtract);
-    calculatedDate.setHours(targetHour, targetMinute, 0, 0);
+    result.setDate(result.getDate() + daysToAdd);
+    return result;
+}
 
-    return calculatedDate;
+/**
+ * Находит последний прошедший день регистрации
+ * ИСПРАВЛЕНО v6: Использует activeStartDate из настроек как динамический якорь
+ */
+function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
+    // Получаем настройки из store
+    const state = store.getState() as RootState;
+    const settings = state.shifts.accessSettings;
+    
+    // Шаг 1: Находим БЛИЖАЙШИЙ targetDay назад от now
+    const currentDay = now.getDay();
+    let daysBackToTargetDay: number;
+    
+    if (currentDay === targetDay) {
+        daysBackToTargetDay = 0;
+    } else if (currentDay > targetDay) {
+        daysBackToTargetDay = currentDay - targetDay;
+    } else {
+        daysBackToTargetDay = 7 - (targetDay - currentDay);
+    }
+    
+    let candidate = new Date(now);
+    candidate.setDate(now.getDate() - daysBackToTargetDay);
+    candidate.setHours(targetHour, targetMinute, 0, 0);
+    
+    // Если кандидат в будущем, берём предыдущий targetDay
+    if (candidate.getTime() > now.getTime()) {
+        candidate.setDate(candidate.getDate() - 7);
+    }
+    
+    // Шаг 2: Определяем якорную дату для расчёта циклов
+    let anchorDate: Date;
+    
+    if (settings?.activeStartDate) {
+        // Используем activeStartDate и находим первый targetDay от неё
+        const startDate = new Date(settings.activeStartDate);
+        anchorDate = findFirstTargetDayFrom(startDate, targetDay);
+    } else {
+        // Fallback: используем первый targetDay 2024 года
+        const fallbackYear = 2024;
+        anchorDate = new Date(fallbackYear, 0, 1, 0, 0, 0, 0);
+        anchorDate = findFirstTargetDayFrom(anchorDate, targetDay);
+    }
+    
+    // Нормализуем даты для точного подсчёта дней
+    const candidateNormalized = new Date(candidate.getFullYear(), candidate.getMonth(), candidate.getDate());
+    const anchorNormalized = new Date(anchorDate.getFullYear(), anchorDate.getMonth(), anchorDate.getDate());
+    
+    // Считаем разницу в днях
+    const daysDiff = Math.round((candidateNormalized.getTime() - anchorNormalized.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Находим остаток от деления на periodLength
+    let remainder = Math.abs(daysDiff) % periodLength;
+    
+    // Шаг 3: Если остаток не 0, отматываем на остаток
+    if (remainder !== 0) {
+        if (daysDiff >= 0) {
+            // Кандидат после якоря - отматываем назад
+            candidate.setDate(candidate.getDate() - remainder);
+        } else {
+            // Кандидат до якоря - отматываем назад на (periodLength - remainder)
+            candidate.setDate(candidate.getDate() - (periodLength - remainder));
+        }
+    }
+    
+    return candidate;
 }
 
 /**
@@ -175,9 +225,9 @@ function getLastRegistrationDay(now: Date, targetDay: number, targetHour: number
  * День регистрации повторяется с периодичностью = periodLength
  */
 function getPenultimateRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
-    // Находим сначала последний день регистрации
+    // Находим последний день регистрации
     const lastRegDay = getLastRegistrationDay(now, targetDay, targetHour, targetMinute, periodLength);
-    // Отнимаем periodLength дней, чтобы получить предыдущий день регистрации
+    // Отнимаем periodLength дней
     const penultimateRegDay = new Date(lastRegDay);
     penultimateRegDay.setDate(penultimateRegDay.getDate() - periodLength);
     return penultimateRegDay;
@@ -185,42 +235,17 @@ function getPenultimateRegistrationDay(now: Date, targetDay: number, targetHour:
 
 /**
  * Находит следующий день регистрации
- * День регистрации повторяется с периодичностью = periodLength
- * periodLength определяет И длину периода записи И частоту регистрации
+ * ИСПРАВЛЕНО: Использует эпоху для определения валидных дней
  */
 function getNextRegistrationDay(now: Date, targetDay: number, targetHour: number, targetMinute: number, periodLength: number): Date {
-    const currentDay = now.getDay();
-    const currentTime = now.getHours() * 60 + now.getMinutes();
-    const targetTime = targetHour * 60 + targetMinute;
+    // Находим последний прошедший день регистрации
+    const lastRegDay = getLastRegistrationDay(now, targetDay, targetHour, targetMinute, periodLength);
     
-    // Определяем, сколько дней нужно добавить
-    let daysToAdd;
+    // Добавляем один период
+    const nextRegDay = new Date(lastRegDay);
+    nextRegDay.setDate(lastRegDay.getDate() + periodLength);
     
-    if (currentDay === targetDay) {
-        // Если сегодня день регистрации, проверяем время
-        if (currentTime >= targetTime) {
-            // Если время уже прошло, берем следующий период (periodLength дней вперед)
-            daysToAdd = periodLength;
-        } else {
-            // Если время еще не наступило, используем сегодня
-            daysToAdd = 0;
-        }
-    } else if (currentDay < targetDay) {
-        // Если день недели до дня регистрации
-        // День регистрации будет в этой неделе
-        daysToAdd = targetDay - currentDay;
-    } else {
-        // Если день недели после дня регистрации
-        // Следующий день регистрации будет в следующем периоде
-        daysToAdd = periodLength - (currentDay - targetDay);
-    }
-    
-    // Создаем дату следующего дня регистрации
-    const nextRegistrationDay = new Date(now);
-    nextRegistrationDay.setDate(now.getDate() + daysToAdd);
-    nextRegistrationDay.setHours(targetHour, targetMinute, 0, 0);
-    
-    return nextRegistrationDay;
+    return nextRegDay;
 }
 
 // <<< НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ >>>
@@ -295,8 +320,12 @@ export function calculateAvailableDates(accessSettings?: AccessSettings | null):
     const combinedDatesSet = new Set<string>();
 
     if (now.getTime() >= currentCycleBaseDate.getTime()) {
-        // Добавляем все даты из окна текущего цикла (они все актуальны)
-        currentCycleWindowDates_Full.forEach(dateStr => combinedDatesSet.add(dateStr));
+        // Из окна текущего цикла берем только те, что >= today (прошедшие дни закрываем!)
+        currentCycleWindowDates_Full.forEach(dateStr => {
+            if (dateStr >= todayDateStr) {
+                combinedDatesSet.add(dateStr);
+            }
+        });
         
         // Из окна предыдущего цикла берем только те, что >= today
         previousCycleWindowDates_Full.forEach(dateStr => {

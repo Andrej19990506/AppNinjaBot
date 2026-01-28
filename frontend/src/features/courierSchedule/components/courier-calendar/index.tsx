@@ -9,6 +9,7 @@ import { CalendarContainer, MonthsContainer, MonthContainer } from '@/features/c
 import MonthSection from '@features/courierSchedule/components/courier-calendar/components/layout/mobile-layout/courier-calendar/month-section';
 import { useAvailabilityCheck } from '@/features/courierSchedule/components/setting-panel/shift-access-modal-settings/hooks/useAvailabilityCheck';
 import { useAccessSettingsSync } from '@/features/courierSchedule/components/setting-panel/shift-access-modal-settings/hooks/useAccessSettingsSync';
+import { FrozenShiftsBanner } from '@features/courierSchedule/components/FrozenShiftsBanner';
 import { fetchAccessSettings, cancelShift } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
 import { format } from 'date-fns';
 import { RootState } from '@shared/store/store';
@@ -236,6 +237,97 @@ const CourierCalendar: React.FC<CalendarProps> = ({
 
     const combinedError = shiftsError || reservesError;
 
+    // Проверяем заблокирован ли доступ
+    const isFrozen = accessSettings?.isAccessBlocked || false;
+    
+    // Функция для проверки, заморожена ли конкретная дата
+    const isDateFrozen = useCallback((date: Date): boolean => {
+        // Сначала проверяем есть ли смена у ТЕКУЩЕГО пользователя на эту дату
+        if (!hasUserShift(date)) {
+            return false; // Нет смены - нет треугольника
+        }
+        
+        // Если доступ не заблокирован - смены не заморожены
+        if (!isFrozen || !accessSettings) {
+            return false;
+        }
+        
+        const nextOpeningDate = accessSettings.nextOpeningDate;
+        const periodLength = accessSettings.periodLength || 7;
+        const offsetAmount = accessSettings.offsetAmount || 0;
+        
+        if (!nextOpeningDate) {
+            console.log('[isDateFrozen] Нет nextOpeningDate, показываем все как замороженные');
+            return true; // Если нет даты следующего открытия - все заморожено
+        }
+        
+        try {
+            const checkDate = new Date(date);
+            checkDate.setHours(0, 0, 0, 0);
+            
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            
+            // Если дата в прошлом - НЕ показываем треугольник
+            if (checkDate < now) {
+                return false;
+            }
+            
+            // Вычисляем период смен по новым правилам
+            const activeStartDate = accessSettings.activeStartDate;
+            if (!activeStartDate) {
+                // Нет activeStartDate - все заморожено
+                return true;
+            }
+            
+            const activeStart = new Date(activeStartDate);
+            activeStart.setHours(0, 0, 0, 0);
+            
+            // Начало периода смен = activeStartDate + offsetAmount
+            const newPeriodStart = new Date(activeStart);
+            newPeriodStart.setDate(newPeriodStart.getDate() + offsetAmount);
+            
+            const newPeriodEnd = new Date(newPeriodStart);
+            newPeriodEnd.setDate(newPeriodEnd.getDate() + periodLength);
+            
+            // Проверяем попадает ли смена в новый период
+            const isInNewPeriod = checkDate >= newPeriodStart && checkDate < newPeriodEnd;
+            
+            if (isInNewPeriod) {
+                // Смена в новом периоде - БЕЗ треугольника (валидная смена)
+                return false;
+            }
+            
+            // Смена ВНЕ нового периода - конфликт! С треугольником
+            console.log('[isDateFrozen] Конфликт: смена вне периода', {
+                date: checkDate.toISOString().split('T')[0],
+                periodStart: newPeriodStart.toISOString().split('T')[0],
+                periodEnd: newPeriodEnd.toISOString().split('T')[0]
+            });
+            return true;
+        } catch (e) {
+            console.error('[isDateFrozen] Ошибка:', e);
+            return false;
+        }
+    }, [isFrozen, accessSettings, hasUserShift]);
+
+    // Проверяем есть ли хотя бы одна конфликтная смена у текущего пользователя
+    const hasConflictingShifts = useMemo(() => {
+        if (!accessSettings?.isAccessBlocked) {
+            return false;
+        }
+        
+        // Проходим по всем сменам текущего пользователя
+        const userShifts = shifts.filter(shift => String(shift.userId) === String(currentUserId));
+        
+        // Проверяем есть ли хотя бы одна замороженная
+        return userShifts.some(shift => {
+            const shiftDate = new Date(shift.date);
+            return isDateFrozen(shiftDate);
+        });
+    }, [shifts, currentUserId, isDateFrozen, accessSettings?.isAccessBlocked]);
+
+    console.log('[CourierCalendar] hasConflictingShifts:', hasConflictingShifts, 'isAccessBlocked:', accessSettings?.isAccessBlocked);
 
     return (
         <>
@@ -244,6 +336,14 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                 className={isIOSDevice ? 'ios-scroll-container' : ''}
                 style={{ filter: combinedIsLoading ? 'blur(12px)' : 'none', pointerEvents: combinedIsLoading ? 'none' : 'auto' }}
             >
+                    {hasConflictingShifts && (
+                        <div style={{ padding: '16px 16px 0 16px' }}>
+                            <FrozenShiftsBanner 
+                                nextOpeningDate={accessSettings?.nextOpeningDate}
+                                reason="Правила записи изменены. Ваши смены, не попадающие в новый график, временно заморожены до следующего открытия доступа."
+                            />
+                        </div>
+                    )}
                     <MonthsContainer>
                         {monthsToDisplay.map((month) => (
                             <MonthContainer key={format(month, 'yyyy-MM')}>
@@ -261,6 +361,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
                                     currentUserAvatar={currentUserAvatar}
                                     usersById={usersById}
                                     isCurrentUserSenior={isCurrentUserSenior}
+                                    isDateFrozen={isDateFrozen}
                                 />
                             </MonthContainer>
                         ))}

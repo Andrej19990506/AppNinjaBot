@@ -36,6 +36,7 @@ interface MonthSectionProps {
     isDateAvailable: (date: Date) => boolean;
     usersById: { [key: string]: User };
     isCurrentUserSenior: boolean;
+    isDateFrozen?: (date: Date) => boolean;
 }
 
 const MonthSection: React.FC<MonthSectionProps> = ({
@@ -49,7 +50,8 @@ const MonthSection: React.FC<MonthSectionProps> = ({
     slotConfig,
     isDateAvailable,
     usersById,
-    isCurrentUserSenior
+    isCurrentUserSenior,
+    isDateFrozen
 }) => {
     const [openTooltip, setOpenTooltip] = useState<{ date: string | null, message: string }>({ date: null, message: '' });
     const days = getDaysInMonth(month);
@@ -260,6 +262,7 @@ const MonthSection: React.FC<MonthSectionProps> = ({
                             statusIcon={statusIconElement}
                             openTooltip={openTooltip}
                             handleTooltipClose={doCloseTooltip}
+                            isFrozen={isDateFrozen ? isDateFrozen(date) : false}
                         />
                     );
                 })}

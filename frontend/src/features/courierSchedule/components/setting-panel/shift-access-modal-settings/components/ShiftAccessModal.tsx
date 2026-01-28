@@ -1,4 +1,6 @@
 import React, { useState, useCallback, memo, createContext, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '@shared/store/store';
 import {
     Overlay,
     ModalContainer,
@@ -12,6 +14,8 @@ import StepsContainer from './StepsShiftAccess/common/StepsContainer';
 import ModalHeader from './common/ModalHeader';
 import { SuccessNotification } from './common';
 import { AccessSettings } from '@features/courierSchedule/types/courierScheduleTypes';
+// import { ConflictModal } from './ConflictModal'; // Больше не используется - всегда жесткий режим
+import { fetchAccessSettings } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
 
 interface ShiftAccessModalProps {
     isOpen: boolean;
@@ -55,7 +59,11 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
     onIsDirtyChange,
     onStepChange
 }, ref) => {
+    const dispatch = useDispatch<AppDispatch>();
     const [modalState, setModalState] = useState<ModalState>(ModalState.FORM);
+    // const [showConflictModal, setShowConflictModal] = useState(false); // Больше не нужно - всегда жесткий режим
+    const [existingShiftsCount, setExistingShiftsCount] = useState(0);
+    const [pendingStrategy, setPendingStrategy] = useState<'soft' | 'hard' | null>(null);
     
     const {
         settings,
@@ -100,15 +108,62 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
         }
     }, [goToNextStep, goToPrevStep]);
     
+    // Обработка выбора стратегии (перемещено выше для использования в handleSaveAttempt)
+    const handleStrategySelect = useCallback(async (strategy: 'soft' | 'hard') => {
+        if (!chatId || !settings) return;
+        
+        console.log('[ShiftAccessModal] Выбрана стратегия:', strategy);
+        console.log('[ShiftAccessModal] Текущие настройки:', settings);
+        
+        // Создаем обновленные настройки со стратегией
+        const updatedSettings = {
+            ...settings,
+            transitionStrategy: strategy,
+            isAccessBlocked: strategy === 'hard'
+        };
+        
+        console.log('[ShiftAccessModal] Обновленные настройки:', updatedSettings);
+        
+        // Сохраняем с выбранной стратегией напрямую
+        const result = await saveSettings(updatedSettings);
+        
+        console.log('[ShiftAccessModal] Результат сохранения:', result);
+        
+        if (result.success) {
+            setModalState(ModalState.SUCCESS);
+            resetStep();
+            onStepChange(FormStep.STEP_ONE + 1);
+            
+            console.log('[ShiftAccessModal] Перезагрузка настроек для календаря...');
+            
+            // Важно! Перезагружаем настройки чтобы календарь обновился
+            setTimeout(() => {
+                dispatch(fetchAccessSettings({ chatId }));
+                console.log('[ShiftAccessModal] fetchAccessSettings вызван');
+            }, 500);
+        }
+    }, [dispatch, chatId, settings, saveSettings, resetStep, onStepChange]);
+    
     const handleSaveAttempt = useCallback(async () => {
-        const success = await saveSettings();
-        if (success) {
+        const result = await saveSettings();
+        
+        // Проверяем наличие конфликта - автоматически применяем жесткий режим
+        if (result.success && result.hasConflict) {
+            console.log('[ShiftAccessModal] Обнаружен конфликт, автоматически применяем жесткий режим');
+            setExistingShiftsCount(result.existingShiftsCount || 0);
+            
+            // Автоматически выбираем жесткий режим без показа модалки
+            await handleStrategySelect('hard');
+            return true;
+        }
+        
+        if (result.success) {
             setModalState(ModalState.SUCCESS);
             resetStep();
             onStepChange(FormStep.STEP_ONE + 1);
         }
-        return success;
-    }, [saveSettings, resetStep, onStepChange]);
+        return result.success;
+    }, [saveSettings, resetStep, onStepChange, handleStrategySelect]);
     
     const handleResetAttempt = useCallback(() => {
         resetSettings();
@@ -195,6 +250,8 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
                     )}
                 </AccessSettingsContext.Provider>
             </ModalContainer>
+            
+            {/* Модалка конфликта смен убрана - всегда используется жесткий режим */}
         </Overlay>
     );
 }));

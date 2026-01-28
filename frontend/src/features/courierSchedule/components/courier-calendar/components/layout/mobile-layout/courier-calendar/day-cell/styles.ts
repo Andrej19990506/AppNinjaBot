@@ -46,9 +46,20 @@ export const DayCellContainer = styled.div<DayCellContainerProps>`
     }
 `;
 
-export const CourierAvatar = styled.img`
+export const AvatarContainer = styled.div`
+    position: relative;
     width: 95%;
     height: 95%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 50%;
+`;
+
+export const CourierAvatar = styled.img`
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
     object-fit: cover;
     pointer-events: none;

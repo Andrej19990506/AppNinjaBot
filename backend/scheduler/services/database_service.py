@@ -326,6 +326,52 @@ class DatabaseService:
             # Соединение возвращается в пул автоматически через async with
             pass 
 
+    async def get_tasks_by_chat_and_type(self, chat_id: str, task_type: str) -> List[Dict[str, Any]]:
+        """
+        Получает все задачи для указанного чата и типа.
+        Возвращает список задач.
+        """
+        if not self.pool:
+            logger.error("Пул соединений не инициализирован.")
+            return []
+        
+        try:
+            async with self.pool.acquire() as conn:
+                query = """
+                    SELECT * FROM scheduler_tasks 
+                    WHERE chat_id = $1 AND task_type = $2
+                    ORDER BY created_at DESC
+                """
+                rows = await conn.fetch(query, chat_id, task_type)
+                
+                if not rows:
+                    logger.debug(f"Задачи типа '{task_type}' для чата {chat_id} не найдены в БД.")
+                    return []
+                
+                tasks = []
+                for row in rows:
+                    task_data = dict(row)
+                    # Преобразуем JSONB 'data' в dict
+                    if task_data.get('data') and isinstance(task_data['data'], str):
+                        try:
+                            task_data['data'] = json.loads(task_data['data'])
+                        except json.JSONDecodeError:
+                            logger.error(f"Ошибка декодирования JSON для data задачи {task_data['task_id']}")
+                            task_data['data'] = {}
+                    elif task_data.get('data') is None:
+                        task_data['data'] = {}
+                    tasks.append(task_data)
+                
+                logger.info(f"Найдено {len(tasks)} задач типа '{task_type}' для чата {chat_id}")
+                return tasks
+                
+        except asyncpg.PostgresError as db_err:
+            logger.error(f"Ошибка БД при получении задач для чата {chat_id}: {db_err}")
+            return []
+        except Exception as e:
+            logger.error(f"Неожиданная ошибка при получении задач для чата {chat_id}: {e}", exc_info=True)
+            return []
+
     async def update_task_next_run_time(self, task_id: str, next_run_time: datetime) -> bool:
         """Обновляет только next_run_time для существующей задачи в БД."""
         if not self.pool:

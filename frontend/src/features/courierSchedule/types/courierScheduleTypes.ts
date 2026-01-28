@@ -129,6 +129,13 @@ export interface AccessSettings {
     restrictedUsers?: (string | number)[];
     lastUpdated?: string;
     updatedBy?: string | number;
+    // Новые поля для обработки конфликтов
+    hasExistingShifts?: boolean;
+    existingShiftsCount?: number;
+    transitionStrategy?: 'soft' | 'hard';
+    isAccessBlocked?: boolean;
+    nextOpeningDate?: string;
+    accessStatus?: 'active' | 'pending' | 'blocked';
 }
 
 // --- Информация о будущей версии шаблона ---

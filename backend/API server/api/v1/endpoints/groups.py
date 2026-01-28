@@ -5,7 +5,8 @@ from typing import List, Optional, Dict, Any
 import os
 import httpx
 import json
-from datetime import datetime 
+from datetime import datetime, timedelta, time
+from zoneinfo import ZoneInfo 
 
 # Используем абсолютные импорты от корня /app
 from db.session import get_db_session
@@ -17,6 +18,7 @@ from models.group_role_mapping import GroupRoleMapping
 from models.company_role import CompanyRole
 from models.role_feature_mapping import RoleFeatureMapping
 from models.bot_feature import BotFeature
+from models.shift import Shift
 from schemas.bot_feature import BotFeatureResponse
 from api.dependencies.auth import get_current_member 
 from schemas.group_settings import GroupSettings, GroupSettingsUpdate
@@ -25,7 +27,7 @@ from schemas.shift_template import ShiftTemplateRead
 import logging
 
 # --- НОВЫЕ ИМПОРТЫ для /chats ---
-from sqlalchemy import func # Для агрегации
+from sqlalchemy import func, or_ # Для агрегации и условий
 from sqlalchemy.orm import selectinload # Для эффективной загрузки связей
 from schemas.user import UserSimple # Простая схема для админов
 from pydantic import Field # Для описания полей
@@ -53,6 +55,69 @@ logging.basicConfig(level=logging.INFO)
 
 router = APIRouter()
 
+# Хелпер для вычисления статуса доступа
+def calculate_access_status(settings_data: dict) -> dict:
+    """Вычисляет accessStatus и nextOpeningDate на основе настроек группы."""
+    tz = ZoneInfo(os.getenv("TIMEZONE", "Europe/Moscow"))
+    now = datetime.now(tz)
+    
+    registration_day = settings_data.get('registrationStartDay')
+    registration_hour = settings_data.get('registrationStartHour', 0)
+    registration_minute = settings_data.get('registrationStartMinute', 0)
+    is_blocked = settings_data.get('isAccessBlocked', False)
+    
+    # Вычисляем nextOpeningDate независимо от статуса блокировки
+    if registration_day is not None:
+        # Вычисляем следующую дату открытия
+        target_weekday = (registration_day - 1) % 7
+        current_weekday = now.weekday()
+        
+        if current_weekday == target_weekday:
+            days_until_next = 0
+            target_datetime = now.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+            if now >= target_datetime:
+                days_until_next = 7
+        elif current_weekday < target_weekday:
+            days_until_next = target_weekday - current_weekday
+        else:
+            days_until_next = 7 - (current_weekday - target_weekday)
+        
+        next_opening = now + timedelta(days=days_until_next)
+        next_opening = next_opening.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+        
+        if next_opening <= now:
+            next_opening += timedelta(days=7)
+        
+        settings_data['nextOpeningDate'] = next_opening.isoformat()
+        
+        # Определяем статус (учитываем блокировку)
+        if is_blocked:
+            settings_data['accessStatus'] = 'blocked'
+        else:
+            active_start = settings_data.get('activeStartDate')
+            if active_start:
+                try:
+                    active_date = datetime.fromisoformat(active_start).replace(tzinfo=tz)
+                    period_length = settings_data.get('periodLength', 7)
+                    active_end = active_date + timedelta(days=period_length)
+                    
+                    if active_date <= now < active_end:
+                        settings_data['accessStatus'] = 'active'
+                    else:
+                        settings_data['accessStatus'] = 'pending'
+                except:
+                    settings_data['accessStatus'] = 'pending'
+            else:
+                settings_data['accessStatus'] = 'pending'
+    else:
+        # Если нет registrationStartDay
+        if is_blocked:
+            settings_data['accessStatus'] = 'blocked'
+        else:
+            settings_data['accessStatus'] = 'active'
+    
+    logger.info(f"[calculate_access_status] Результат: accessStatus={settings_data.get('accessStatus')}, nextOpeningDate={settings_data.get('nextOpeningDate')}, isBlocked={is_blocked}")
+    return settings_data
 
 
 @router.get(
@@ -274,6 +339,9 @@ async def read_group_settings(
     settings_data['group_id'] = db_group.group_id
     logger.info(f"[read_group_settings] Настройки взяты из '{source_field}': {settings_data}")
 
+    # Вычисляем статус доступа
+    settings_data = calculate_access_status(settings_data)
+
     try:
         response_model = GroupSettings(**settings_data)
         logger.info(f"[read_group_settings] Успешно возвращаем настройки для группы {group_telegram_id}")
@@ -302,6 +370,147 @@ async def update_group_settings(
 
     update_data = settings.model_dump(exclude_unset=True)
     logger.info(f"[update_group_settings] Данные для обновления поля 'access_settings': {update_data}")
+    
+    # Получаем текущие настройки из БД для сравнения
+    current_settings = db_group.access_settings or {}
+    
+    # Определяем нужно ли пересчитать activeStartDate
+    should_recalculate_active_start = False
+    
+    # Флаг и счетчик для существующих смен
+    has_existing_shifts = False
+    existing_shifts_count = 0
+    
+    # Случай 1: registrationStartDay изменился
+    if 'registrationStartDay' in update_data:
+        new_day = update_data['registrationStartDay']
+        old_day = current_settings.get('registrationStartDay')
+        if new_day != old_day:
+            logger.info(f"[update_group_settings] День регистрации изменился: {old_day} → {new_day}")
+            should_recalculate_active_start = True
+            
+            # НЕ проверяем смены при изменении дня регистрации
+            # Проверку конфликтов делаем после вычисления нового периода
+            pass
+    
+    # Случай 2: activeStartDate отсутствует
+    if update_data.get('activeStartDate') is None or current_settings.get('activeStartDate') is None:
+        logger.info(f"[update_group_settings] activeStartDate отсутствует")
+        should_recalculate_active_start = True
+    
+    # Случай 3: activeStartDate не совпадает с registrationStartDay (день недели)
+    if not should_recalculate_active_start and update_data.get('activeStartDate'):
+        try:
+            active_start_date = datetime.fromisoformat(update_data['activeStartDate'])
+            active_start_weekday = active_start_date.weekday()  # Python формат (0=Пн)
+            
+            registration_day = update_data.get('registrationStartDay') or current_settings.get('registrationStartDay')
+            if registration_day is not None:
+                target_weekday = (registration_day - 1) % 7  # JS → Python
+                
+                if active_start_weekday != target_weekday:
+                    logger.info(f"[update_group_settings] День недели activeStartDate ({active_start_weekday}) не совпадает с registrationStartDay ({target_weekday}). Пересчитываем.")
+                    should_recalculate_active_start = True
+        except:
+            logger.warning(f"[update_group_settings] Ошибка парсинга activeStartDate, пересчитываем.")
+            should_recalculate_active_start = True
+    
+    # Пересчитываем activeStartDate если нужно
+    if should_recalculate_active_start:
+        # Берём параметры регистрации из update_data (приоритет) или из БД
+        registration_start_day = update_data.get('registrationStartDay') or current_settings.get('registrationStartDay')
+        registration_hour = update_data.get('registrationStartHour') or current_settings.get('registrationStartHour', 0)
+        registration_minute = update_data.get('registrationStartMinute') or current_settings.get('registrationStartMinute', 0)
+        period_length = update_data.get('periodLength') or current_settings.get('periodLength', 7)
+        
+        logger.info(f"[update_group_settings] 🔍 Параметры для пересчёта: registrationDay={registration_start_day}, hour={registration_hour}, minute={registration_minute}, periodLength={period_length}")
+        
+        if registration_start_day is not None:
+            # Конвертируем из JS формата (0=Вс, 1=Пн, ...) в Python (0=Пн, 1=Вт, ...)
+            target_weekday = (registration_start_day - 1) % 7
+            
+            # Используем timezone-aware datetime для корректной работы
+            tz = ZoneInfo(os.getenv("TIMEZONE", "Europe/Moscow"))
+            now = datetime.now(tz)
+            current_weekday = now.weekday()
+            
+            logger.info(f"[update_group_settings] 🌍 Timezone: {tz}, Сейчас: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+            
+            # Шаг 1: Находим целевой день в ТЕКУЩЕЙ неделе
+            if current_weekday == target_weekday:
+                # Сегодня - целевой день
+                days_to_target = 0
+            elif current_weekday < target_weekday:
+                # Целевой день будет в этой неделе (вперёд)
+                days_to_target = target_weekday - current_weekday
+            else:
+                # Целевой день был в этой неделе (назад)
+                days_to_target = -(current_weekday - target_weekday)
+            
+            target_date_this_week = now + timedelta(days=days_to_target)
+            target_datetime_this_week = target_date_this_week.replace(
+                hour=registration_hour, 
+                minute=registration_minute, 
+                second=0, 
+                microsecond=0
+            )
+            
+            # Шаг 2: Проверяем прошло ли время регистрации
+            logger.info(f"[update_group_settings] 🕐 Сейчас: {now.isoformat()}")
+            logger.info(f"[update_group_settings] 🎯 Целевое время: {target_datetime_this_week.isoformat()}")
+            
+            if now >= target_datetime_this_week:
+                # Время УЖЕ ПРОШЛО в текущей неделе → используем эту дату
+                active_start = target_date_this_week.date()
+                logger.info(f"[update_group_settings] ✅ Время регистрации уже прошло в текущей неделе. activeStartDate = {active_start.isoformat()}")
+            else:
+                # Время ЕЩЁ НЕ НАСТУПИЛО → отматываем на periodLength
+                active_start_datetime = target_datetime_this_week - timedelta(days=period_length)
+                active_start = active_start_datetime.date()
+                logger.info(f"[update_group_settings] ⏪ Время регистрации ещё не наступило. Отматываем: {target_date_this_week.date()} - {period_length} дней = {active_start.isoformat()}")
+            
+            update_data['activeStartDate'] = active_start.isoformat()
+            logger.info(f"[update_group_settings] ✅ Автоматически установлен activeStartDate = {active_start.isoformat()} (день недели Python: {target_weekday}, JS: {registration_start_day})")
+    
+    # Проверяем конфликтные смены ПОСЛЕ вычисления нового периода
+    if 'registrationStartDay' in update_data and update_data.get('registrationStartDay') != current_settings.get('registrationStartDay'):
+        # Вычисляем период смен на основе НОВЫХ настроек
+        active_start_str = update_data.get('activeStartDate')
+        offset_amount = update_data.get('offsetAmount') or current_settings.get('offsetAmount', 0)
+        period_length = update_data.get('periodLength') or current_settings.get('periodLength', 7)
+        
+        if active_start_str:
+            try:
+                from datetime import date
+                active_start_date = datetime.fromisoformat(active_start_str).date()
+                
+                # Вычисляем начало и конец НОВОГО периода смен
+                new_period_start = active_start_date + timedelta(days=offset_amount)
+                new_period_end = new_period_start + timedelta(days=period_length)
+                
+                logger.info(f"[update_group_settings] 📅 Новый период смен: {new_period_start.isoformat()} - {new_period_end.isoformat()}")
+                
+                # Считаем смены в будущем, которые НЕ попадают в новый период
+                today = date.today()
+                conflicting_shifts_query = select(func.count(Shift.id)).where(
+                    Shift.group_id == db_group.id,
+                    Shift.date > today,
+                    or_(
+                        Shift.date < new_period_start,
+                        Shift.date >= new_period_end
+                    )
+                )
+                result = await db.execute(conflicting_shifts_query)
+                existing_shifts_count = result.scalar() or 0
+                
+                if existing_shifts_count > 0:
+                    has_existing_shifts = True
+                    logger.warning(f"[update_group_settings] ⚠️ Обнаружено {existing_shifts_count} конфликтных смен вне нового периода [{new_period_start} - {new_period_end})!")
+                else:
+                    logger.info(f"[update_group_settings] ✅ Все будущие смены попадают в новый период, конфликтов нет")
+            except Exception as e:
+                logger.error(f"[update_group_settings] Ошибка при проверке конфликтных смен: {e}")
+    
     # Записываем всегда в новое поле
     db_group.access_settings = update_data
 
@@ -317,6 +526,16 @@ async def update_group_settings(
     # В ответе используем данные из обновленного поля access_settings
     response_data = db_group.access_settings or {}
     response_data['group_id'] = db_group.group_id
+    
+    # Добавляем информацию о существующих сменах, если день регистрации изменился
+    if has_existing_shifts:
+        response_data['hasExistingShifts'] = True
+        response_data['existingShiftsCount'] = existing_shifts_count
+        logger.info(f"[update_group_settings] ⚠️ В ответ добавлена информация о {existing_shifts_count} существующих сменах")
+    
+    # Вычисляем статус доступа и дату следующего открытия
+    response_data = calculate_access_status(response_data)
+    
     logger.info(f"[update_group_settings] Успешно возвращаем обновленные настройки для группы {group_telegram_id} из 'access_settings'")
 
     # --- Вызов API шедулера --- 

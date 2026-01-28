@@ -89,7 +89,7 @@ export const MonthContainer = styled.div`
     box-sizing: border-box;
 
     &:first-child {
-        margin-top: 80px;
+        margin-top: 16px;
     }
     
 

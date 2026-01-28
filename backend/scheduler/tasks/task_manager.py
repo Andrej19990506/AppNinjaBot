@@ -511,6 +511,60 @@ class TaskManager:
 
         return db_deleted 
 
+    async def delete_tasks_by_chat_and_type(self, chat_id: str, task_type: str) -> int:
+        """
+        Удаляет ВСЕ задачи для указанного чата и типа.
+        Возвращает количество удалённых задач.
+        """
+        deleted_count = 0
+        
+        if not self.db_service:
+            logger.warning("db_service не инициализирован, невозможно удалить задачи из БД.")
+            return 0
+        
+        try:
+            logger.info(f"🧹 Поиск и удаление всех задач типа '{task_type}' для чата {chat_id}...")
+            
+            # Получаем все задачи для этого чата и типа из БД
+            tasks = await self.db_service.get_tasks_by_chat_and_type(chat_id, task_type)
+            
+            if not tasks:
+                logger.info(f"Задачи типа '{task_type}' для чата {chat_id} не найдены.")
+                return 0
+            
+            logger.info(f"Найдено {len(tasks)} задач для удаления: {[t['task_id'] for t in tasks]}")
+            
+            # Удаляем каждую задачу
+            for task in tasks:
+                task_id = task['task_id']
+                try:
+                    # Удаляем из БД
+                    await self.db_service.delete_task(task_id)
+                    
+                    # Удаляем из APScheduler
+                    try:
+                        self.scheduler.remove_job(str(task_id))
+                        logger.info(f"✅ Задача {task_id} удалена из APScheduler")
+                    except JobLookupError:
+                        logger.debug(f"Задача {task_id} не найдена в APScheduler (уже удалена или не была добавлена)")
+                    except Exception as aps_err:
+                        logger.warning(f"Ошибка при удалении задачи {task_id} из APScheduler: {aps_err}")
+                    
+                    deleted_count += 1
+                    logger.info(f"✅ Задача {task_id} успешно удалена")
+                    
+                except Exception as task_err:
+                    logger.error(f"❌ Ошибка при удалении задачи {task_id}: {task_err}")
+                    continue
+            
+            logger.info(f"🧹 Удалено {deleted_count} задач типа '{task_type}' для чата {chat_id}")
+            return deleted_count
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка при удалении задач для чата {chat_id}: {e}")
+            logger.error(traceback.format_exc())
+            return deleted_count
+
     async def cancel_reminder_task(self, reminder_job_id: str) -> bool:
         # Отмена задачи-напоминания (удаление из БД и APScheduler)
         logger.info(f"Попытка отмены задачи-напоминания: {reminder_job_id}")
@@ -544,8 +598,14 @@ class TaskManager:
                          logger.info(f"Слушатель: Задача {job_id} больше не имеет следующего времени запуска (одноразовая или завершена). Пометка для удаления из БД.")
                          is_one_time_job = True
                 else:
-                    logger.warning(f"Слушатель: Не удалось получить объект Job для {job_id} после выполнения. Предполагаем, что это одноразовая задача.")
-                    is_one_time_job = True
+                    logger.warning(f"Слушатель: Не удалось получить объект Job для {job_id} после выполнения.")
+                    # Проверяем тип задачи - некоторые задачи пересоздаются при перепланировании
+                    if 'courier_shift_access' in job_id or 'registration_open_event' in job_id:
+                        logger.info(f"Слушатель: Задача {job_id} будет пересоздана при перепланировании. НЕ удаляем из БД.")
+                        is_one_time_job = False
+                    else:
+                        logger.info(f"Слушатель: Предполагаем что это одноразовая задача.")
+                        is_one_time_job = True
                 
                 if is_one_time_job:
                     if self.db_service:

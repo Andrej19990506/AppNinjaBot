@@ -26,7 +26,7 @@ const slideDown = keyframes`
 const BannerContainer = styled.div`
     background: linear-gradient(135deg, #FFC107 0%, #FFB300 100%);
     border-radius: 12px;
-    padding: 16px 20px;
+    padding: 16px 50px;
     margin-bottom: 16px;
     display: flex;
     align-items: flex-start;
@@ -57,6 +57,7 @@ const BannerContainer = styled.div`
     }
 
     @media (max-width: 768px) {
+        margin-top: 50px;
         padding: 12px 16px;
         gap: 12px;
         border-radius: 8px;
@@ -215,13 +216,10 @@ export const FrozenShiftsBanner: React.FC<FrozenShiftsBannerProps> = ({
                     <InfoRow>
                         <EventIcon />
                         <InfoText>
-                            Следующее открытие: <strong>{formattedDate} в {formattedTime}</strong>
+                            Открытие доступа: <strong>{formattedDate} в {formattedTime}</strong>
                         </InfoText>
                     </InfoRow>
                 )}
-                <Description style={{ marginTop: '4px', fontSize: '0.85rem', fontWeight: 600 }}>
-                    ℹ️ Замороженные смены отмечены желтым значком. Вы сможете их редактировать после открытия доступа.
-                </Description>
             </Content>
         </BannerContainer>
     );

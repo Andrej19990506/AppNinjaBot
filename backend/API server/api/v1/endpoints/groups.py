@@ -339,6 +339,47 @@ async def read_group_settings(
     settings_data['group_id'] = db_group.group_id
     logger.info(f"[read_group_settings] Настройки взяты из '{source_field}': {settings_data}")
 
+    # Проверяем есть ли конфликтные смены и автоматически устанавливаем блокировку
+    active_start_str = settings_data.get('activeStartDate')
+    offset_amount = settings_data.get('offsetAmount', 0)
+    period_length = settings_data.get('periodLength', 7)
+    
+    if active_start_str:
+        try:
+            from datetime import date
+            active_start_date = datetime.fromisoformat(active_start_str).date()
+            
+            # Вычисляем период смен
+            new_period_start = active_start_date + timedelta(days=offset_amount)
+            new_period_end = new_period_start + timedelta(days=period_length)
+            
+            # Считаем смены в будущем, которые НЕ попадают в период
+            today = date.today()
+            conflicting_shifts_query = select(func.count(Shift.id)).where(
+                Shift.group_id == db_group.id,
+                Shift.date > today,
+                or_(
+                    Shift.date < new_period_start,
+                    Shift.date >= new_period_end
+                )
+            )
+            result = await db.execute(conflicting_shifts_query)
+            conflicting_shifts_count = result.scalar() or 0
+            
+            if conflicting_shifts_count > 0:
+                # Есть конфликтные смены - автоматически блокируем доступ
+                settings_data['isAccessBlocked'] = True
+                settings_data['hasExistingShifts'] = True
+                settings_data['existingShiftsCount'] = conflicting_shifts_count
+                logger.info(f"[read_group_settings] ⚠️ Обнаружено {conflicting_shifts_count} конфликтных смен, автоматически установлен isAccessBlocked=True")
+            else:
+                # Нет конфликтов - снимаем блокировку если она была установлена ранее
+                if settings_data.get('isAccessBlocked') and not settings_data.get('transitionStrategy') == 'hard':
+                    settings_data['isAccessBlocked'] = False
+                    logger.info(f"[read_group_settings] ✅ Конфликтов нет, снята блокировка доступа")
+        except Exception as e:
+            logger.error(f"[read_group_settings] Ошибка при проверке конфликтных смен: {e}")
+
     # Вычисляем статус доступа
     settings_data = calculate_access_status(settings_data)
 

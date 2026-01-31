@@ -113,6 +113,11 @@ const Label = styled.label`
     }
 `;
 
+const InputContainer = styled.div`
+    position: relative;
+    width: 100%;
+`;
+
 const Input = styled.input<{ $hasError?: boolean }>`
     width: 100%;
     padding: 12px 16px;
@@ -292,6 +297,78 @@ const ErrorMessage = styled.div`
     &::before {
         content: '⚠️';
         font-size: 1rem;
+    }
+`;
+
+const AutocompleteDropdown = styled.div`
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    animation: fadeIn 0.2s ease-out;
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-4px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Кастомный скроллбар */
+    &::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+        background: rgba(255, 95, 31, 0.3);
+        border-radius: 3px;
+        
+        &:hover {
+            background: rgba(255, 95, 31, 0.5);
+        }
+    }
+`;
+
+const AutocompleteItem = styled.button`
+    width: 100%;
+    padding: 12px 16px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    
+    &:last-child {
+        border-bottom: none;
+    }
+    
+    &:hover {
+        background: rgba(255, 95, 31, 0.1);
+        color: var(--primary-color);
+    }
+    
+    &:active {
+        background: rgba(255, 95, 31, 0.15);
     }
 `;
 
@@ -869,6 +946,14 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
     const [bannerDismissed, setBannerDismissed] = useState(false);
     const [bulkAppliedDays, setBulkAppliedDays] = useState<Set<number>>(new Set()); // Дни, заполненные через Bulk Apply
     const [previousActiveDay, setPreviousActiveDay] = useState<number>(activeDay);
+    
+    // ✅ Состояние для автодополнения названия
+    const [showNameSuggestions, setShowNameSuggestions] = useState(false);
+    const [nameInputFocused, setNameInputFocused] = useState(false);
+    
+    // ✅ Стандартные названия шаблонов
+    const templateNameSuggestions = ['Дневная смена', 'Вечерняя смена', 'Полная смена'];
+    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
 
     // Инициализация для режима редактирования
     useEffect(() => {
@@ -935,6 +1020,34 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
             isActive: formData.isActive
         };
     }, [isWeeklyMode, weekData, activeDay, formData]);
+    
+    // ✅ Получаем подсказки с учетом дня недели (если weekly режим)
+    const getNameSuggestions = useCallback(() => {
+        if (isWeeklyMode) {
+            const dayName = dayNames[activeDay];
+            return templateNameSuggestions.map(name => `${name} (${dayName})`);
+        }
+        return templateNameSuggestions;
+    }, [isWeeklyMode, activeDay]);
+    
+    // ✅ Фильтруем подсказки по введенному тексту
+    const getFilteredSuggestions = useCallback(() => {
+        if (!nameInputFocused) return [];
+        
+        const currentName = getActiveDayData().name.toLowerCase();
+        const suggestions = getNameSuggestions();
+        
+        // Если поле пустое - показываем все подсказки
+        if (!currentName) {
+            return suggestions;
+        }
+        
+        // Если есть текст - фильтруем по нему
+        return suggestions.filter(suggestion => 
+            suggestion.toLowerCase().includes(currentName) && 
+            suggestion.toLowerCase() !== currentName
+        );
+    }, [getActiveDayData, nameInputFocused, getNameSuggestions]);
     
     // Хелпер: обновить данные активного дня
     const updateActiveDayData = useCallback((updates: Partial<DayFormData>) => {
@@ -1078,10 +1191,20 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                 filledDaysEntries.forEach(([dayIndexStr, dayData]) => {
                     const dayIndex = parseInt(dayIndexStr);
                     
-                    // Находим шаблон для этого дня
-                    const dayTemplate = existingTemplates.find(t => 
-                        t.daysOfWeek && t.daysOfWeek.includes(dayIndex)
+                    // ✅ Сначала ищем шаблон по ID редактируемого шаблона, если он есть на этом дне
+                    // Это важно, если на один день есть несколько шаблонов (например, дневная и вечерняя)
+                    let dayTemplate = existingTemplates.find(t => 
+                        t.id === template.id && 
+                        t.daysOfWeek && 
+                        t.daysOfWeek.includes(dayIndex)
                     );
+                    
+                    // Если не нашли по ID, ищем по дню (для обратной совместимости)
+                    if (!dayTemplate) {
+                        dayTemplate = existingTemplates.find(t => 
+                            t.daysOfWeek && t.daysOfWeek.includes(dayIndex)
+                        );
+                    }
                     
                     if (dayTemplate) {
                         // Обновляем существующий шаблон для этого дня
@@ -1188,13 +1311,18 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
     const handleBulkApply = useCallback((targetDays: number[]) => {
         const currentData = getActiveDayData();
         
+        // ✅ Убираем день недели из названия перед применением к другим дням
+        // Это предотвращает дублирование дня недели
+        const baseName = currentData.name.replace(/\s*\([^)]+\)\s*$/, '').trim();
+        
         setWeekData(prev => {
             const updated = { ...prev };
             targetDays.forEach(dayIndex => {
+                // ✅ Для каждого дня добавляем его день недели к названию
+                const dayName = dayNames[dayIndex];
                 updated[dayIndex] = {
                     ...currentData,
-                    // Можно автоматически добавлять день в название
-                    // name: currentData.name || ''
+                    name: baseName ? `${baseName} (${dayName})` : ''
                 };
             });
             return updated;
@@ -1221,7 +1349,6 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
         return () => clearTimeout(timer);
     }, [activeDay, isWeeklyMode, checkForDuplicateData]);
 
-    const dayNames = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
     const dayShortNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
 
     return (
@@ -1322,14 +1449,49 @@ const ShiftTemplateForm: React.FC<ShiftTemplateFormProps> = ({
                         <Label>
                             Название шаблона<span>*</span>
                         </Label>
-                        <Input
-                            type="text"
-                            value={getActiveDayData().name}
-                            onChange={(e) => updateActiveDayData({ name: e.target.value })}
-                            placeholder={isWeeklyMode ? `Например: Дневная смена (${dayNames[activeDay]})` : "Например: Дневная смена"}
-                            $hasError={!!errors.name}
-                            disabled={isLoading}
-                        />
+                        <InputContainer>
+                            <Input
+                                type="text"
+                                value={getActiveDayData().name}
+                                onChange={(e) => {
+                                    updateActiveDayData({ name: e.target.value });
+                                    setShowNameSuggestions(true);
+                                }}
+                                onFocus={() => {
+                                    setNameInputFocused(true);
+                                    setShowNameSuggestions(true);
+                                }}
+                                onBlur={() => {
+                                    // Задержка чтобы успел сработать onClick на подсказке
+                                    setTimeout(() => {
+                                        setNameInputFocused(false);
+                                        setShowNameSuggestions(false);
+                                    }, 200);
+                                }}
+                                placeholder={isWeeklyMode ? `Например: Дневная смена (${dayNames[activeDay]})` : "Например: Дневная смена"}
+                                $hasError={!!errors.name}
+                                disabled={isLoading}
+                            />
+                            {showNameSuggestions && getFilteredSuggestions().length > 0 && (
+                                <AutocompleteDropdown>
+                                    {getFilteredSuggestions().map((suggestion, index) => (
+                                        <AutocompleteItem
+                                            key={index}
+                                            type="button"
+                                            onMouseDown={(e) => {
+                                                e.preventDefault(); // Предотвращаем onBlur
+                                                // ✅ Используем подсказку как есть - она уже содержит правильный день недели
+                                                updateActiveDayData({ name: suggestion });
+                                                setShowNameSuggestions(false);
+                                                setNameInputFocused(false);
+                                            }}
+                                        >
+                                            {suggestion}
+                                        </AutocompleteItem>
+                                    ))}
+                                </AutocompleteDropdown>
+                            )}
+                        </InputContainer>
                         {errors.name && <ErrorMessage>{errors.name}</ErrorMessage>}
                     </Field>
                     

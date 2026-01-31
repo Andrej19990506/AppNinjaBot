@@ -26,7 +26,8 @@ const transformServerTemplate = (serverTemplate: any): ShiftTemplate => ({
         maxSlots: serverTemplate.future_version.max_slots,
         startTime: serverTemplate.future_version.start_time,
         endTime: serverTemplate.future_version.end_time,
-        hasSeniorSlot: serverTemplate.future_version.has_senior_slot
+        hasSeniorSlot: serverTemplate.future_version.has_senior_slot,
+        isApplied: serverTemplate.future_version.is_applied || false
     } : undefined
 });
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Path, Body, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from typing import List, Optional, Dict, Any
@@ -29,6 +29,7 @@ import logging
 # --- НОВЫЕ ИМПОРТЫ для /chats ---
 from sqlalchemy import func, or_ # Для агрегации и условий
 from sqlalchemy.orm import selectinload # Для эффективной загрузки связей
+from sqlalchemy.orm.attributes import flag_modified # Для уведомления об изменении JSON полей
 from schemas.user import UserSimple # Простая схема для админов
 from pydantic import Field # Для описания полей
 # --- -------------------------- ---
@@ -58,7 +59,7 @@ router = APIRouter()
 # Хелпер для вычисления статуса доступа
 def calculate_access_status(settings_data: dict) -> dict:
     """Вычисляет accessStatus и nextOpeningDate на основе настроек группы."""
-    tz = ZoneInfo(os.getenv("TIMEZONE", "Europe/Moscow"))
+    tz = ZoneInfo(os.getenv("TIMEZONE", "Asia/Krasnoyarsk"))
     now = datetime.now(tz)
     
     registration_day = settings_data.get('registrationStartDay')
@@ -68,28 +69,126 @@ def calculate_access_status(settings_data: dict) -> dict:
     
     # Вычисляем nextOpeningDate независимо от статуса блокировки
     if registration_day is not None:
-        # Вычисляем следующую дату открытия
-        target_weekday = (registration_day - 1) % 7
-        current_weekday = now.weekday()
+        active_start = settings_data.get('activeStartDate')
+        period_length = settings_data.get('periodLength', 7)
         
-        if current_weekday == target_weekday:
-            days_until_next = 0
-            target_datetime = now.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
-            if now >= target_datetime:
-                days_until_next = 7
-        elif current_weekday < target_weekday:
-            days_until_next = target_weekday - current_weekday
-        else:
-            days_until_next = 7 - (current_weekday - target_weekday)
+        if active_start:
+            # ✅ Если есть activeStartDate, следующее открытие = activeStartDate + periodLength дней
+            try:
+                active_date = datetime.fromisoformat(active_start).replace(tzinfo=tz)
+                # Вычисляем текущее открытие: дата activeStartDate с временем открытия
+                current_opening_date = active_date.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+                
+                # Вычисляем следующее открытие: начало периода + период + время открытия
+                next_opening_date = active_date + timedelta(days=period_length)
+                next_opening_date = next_opening_date.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+                
+                # Если следующее открытие уже прошло, вычисляем следующее
+                while next_opening_date <= now:
+                    next_opening_date += timedelta(days=period_length)
+                
+                settings_data['nextOpeningDate'] = next_opening_date.isoformat()
+            except Exception as e:
+                logger.error(f"[calculate_access_status] Ошибка при парсинге activeStartDate: {e}")
+                active_start = None
+                current_opening_date = None
         
-        next_opening = now + timedelta(days=days_until_next)
-        next_opening = next_opening.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+        if not active_start:
+            # ✅ Если activeStartDate нет, вычисляем первое открытие на основе registrationStartDay (каждую неделю)
+            target_weekday = (registration_day - 1) % 7
+            current_weekday = now.weekday()
+            
+            if current_weekday == target_weekday:
+                days_until_next = 0
+                target_datetime = now.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+                if now >= target_datetime:
+                    days_until_next = 7
+            elif current_weekday < target_weekday:
+                days_until_next = target_weekday - current_weekday
+            else:
+                days_until_next = 7 - (current_weekday - target_weekday)
+            
+            next_opening = now + timedelta(days=days_until_next)
+            next_opening = next_opening.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+            
+            if next_opening <= now:
+                next_opening += timedelta(days=7)
+            
+            settings_data['nextOpeningDate'] = next_opening.isoformat()
+            next_opening_date = datetime.fromisoformat(settings_data['nextOpeningDate']).replace(tzinfo=tz)
+            
+            # Вычисляем дату открытия в текущей неделе для первого открытия
+            current_weekday = now.weekday()
+            if current_weekday == target_weekday:
+                current_opening_date = now.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+            elif current_weekday < target_weekday:
+                days_to_target = target_weekday - current_weekday
+                current_opening_date = (now + timedelta(days=days_to_target)).replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+            else:
+                days_to_target = -(current_weekday - target_weekday)
+                current_opening_date = (now + timedelta(days=days_to_target)).replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
         
-        if next_opening <= now:
-            next_opening += timedelta(days=7)
+        # ✅ Если activeStartDate равен null, нужно его установить
+        if not active_start:
+            # Вычисляем activeStartDate от последнего прошедшего времени регистрации
+            if current_opening_date <= now:
+                # Доступ уже открылся в текущей неделе - используем дату текущего открытия
+                new_active_start = current_opening_date.date()
+            else:
+                # Доступ еще не открылся - отматываем на periodLength назад от nextOpeningDate
+                new_active_start = (next_opening_date - timedelta(days=period_length)).date()
+            
+            settings_data['activeStartDate'] = new_active_start.isoformat()
+            logger.info(f"[calculate_access_status] ✅ Установлен activeStartDate (был null): {new_active_start.isoformat()}")
+            active_start = new_active_start.isoformat()
+            # Пересчитываем current_opening_date на основе нового activeStartDate
+            active_date = datetime.fromisoformat(active_start).replace(tzinfo=tz)
+            current_opening_date = active_date.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
         
-        settings_data['nextOpeningDate'] = next_opening.isoformat()
-        
+        if active_start:
+            try:
+                active_date = datetime.fromisoformat(active_start).replace(tzinfo=tz)
+                active_end = active_date + timedelta(days=period_length)
+                
+                # ✅ Вычисляем время открытия в день окончания периода
+                # Это время, когда должен открыться доступ после окончания текущего периода
+                opening_time_in_period_end = active_end.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+                
+                # ✅ Проверяем, открылся ли доступ (прошло ли activeStartDate + periodLength дней И прошло ли время открытия)
+                logger.info(f"[calculate_access_status] 🔍 Проверка доступа: now={now.isoformat()}, activeEnd={active_end.isoformat()}, openingTimeInPeriodEnd={opening_time_in_period_end.isoformat()}, nextOpeningDate={next_opening_date.isoformat()}")
+                
+                # ✅ ВАЖНО: Проверяем ДВА условия:
+                # 1. Период истек (active_end <= now) - дата окончания периода уже прошла
+                # 2. Время открытия доступа в день окончания периода уже прошло (opening_time_in_period_end <= now)
+                if active_end <= now and opening_time_in_period_end <= now:
+                    # Период истек И время открытия прошло - доступ открылся, обновляем activeStartDate
+                    new_active_start = active_end.date()
+                    new_active_start_datetime = datetime.combine(new_active_start, datetime.min.time()).replace(tzinfo=tz)
+                    new_active_start_datetime = new_active_start_datetime.replace(hour=registration_hour, minute=registration_minute, second=0, microsecond=0)
+                    
+                    # Если время открытия еще не наступило в день окончания периода, используем дату окончания периода
+                    # Если время уже прошло, используем дату окончания периода (доступ уже открылся)
+                    new_active_start = new_active_start_datetime.date()
+                    
+                    # Обновляем только если дата изменилась
+                    if new_active_start != active_date.date():
+                        settings_data['activeStartDate'] = new_active_start.isoformat()
+                        logger.info(f"[calculate_access_status] ✅ Доступ открылся! Обновлен activeStartDate: {active_start} → {new_active_start.isoformat()}")
+                        
+                        # Пересчитываем active_date и active_end после обновления
+                        active_date = datetime.combine(new_active_start, datetime.min.time()).replace(tzinfo=tz)
+                        active_end = active_date + timedelta(days=period_length)
+                    else:
+                        logger.info(f"[calculate_access_status] ✅ Доступ открылся, но activeStartDate уже актуален: {active_start}")
+                elif active_end <= now:
+                    # Период истек, но время открытия еще не наступило - НЕ обновляем activeStartDate
+                    logger.info(f"[calculate_access_status] ⏰ Период истек, но время открытия еще не наступило (openingTimeInPeriodEnd: {opening_time_in_period_end.isoformat()}), оставляем activeStartDate: {active_start}")
+                else:
+                    # Период еще не истек
+                    logger.info(f"[calculate_access_status] ⏳ Период еще не истек (activeEnd: {active_end.isoformat()}), оставляем activeStartDate: {active_start}")
+            except Exception as e:
+                logger.error(f"[calculate_access_status] Ошибка при обновлении activeStartDate: {e}")
+
         # Определяем статус (учитываем блокировку)
         if is_blocked:
             settings_data['accessStatus'] = 'blocked'
@@ -315,14 +414,29 @@ async def get_group_by_telegram_id(db: AsyncSession, group_telegram_id: int) -> 
         raise
 
 @router.get("/{group_telegram_id}/settings", response_model=GroupSettings)
+
 async def read_group_settings(
     group_telegram_id: int,
-    db: AsyncSession = Depends(get_db_session)
+    db: AsyncSession = Depends(get_db_session),
+    x_request_source: Optional[str] = Header(None, alias="X-Request-Source"),
+    user_agent: Optional[str] = Header(None, alias="User-Agent")
 ):
     """Получает настройки доступа к сменам для указанной группы.
        Читает данные **только** из нового поля `access_settings`.
     """
-    logger.info(f"[read_group_settings] Вход GET /groups/{group_telegram_id}/settings")
+    # Проверяем, откуда пришел запрос
+    request_source = x_request_source or 'unknown'
+    ua = user_agent or 'unknown'
+    
+    if request_source == 'scheduler-registration-open-event':
+        logger.info(f"[read_group_settings] 🔔 ЗАПРОС ОТ ШЕДУЛЕРА! Доступ открылся для группы {group_telegram_id}")
+    else:
+        logger.info(f"[read_group_settings] Вход GET /groups/{group_telegram_id}/settings (источник: {request_source}, UA: {ua})")
+    
+    # Определяем текущее время с правильным часовым поясом
+    tz = ZoneInfo(os.getenv("TIMEZONE", "Asia/Krasnoyarsk"))
+    now = datetime.now(tz)
+    
     db_group = await get_group_by_telegram_id(db, group_telegram_id)
     logger.info(f"[read_group_settings] Результат поиска группы: {db_group}")
 
@@ -331,14 +445,14 @@ async def read_group_settings(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
 
     # Берем данные ТОЛЬКО из нового поля
-    settings_data = db_group.access_settings
+    # ✅ Создаем КОПИЮ словаря, чтобы изменения не влияли на оригинал до сохранения
+    settings_data = dict(db_group.access_settings) if db_group.access_settings else {}
     source_field = "access_settings"
 
     # Если в access_settings пусто (None), используем пустой словарь
-    settings_data = settings_data or {}
     settings_data['group_id'] = db_group.group_id
     logger.info(f"[read_group_settings] Настройки взяты из '{source_field}': {settings_data}")
-
+    old_active_start = settings_data.get('activeStartDate')
     # Проверяем есть ли конфликтные смены и автоматически устанавливаем блокировку
     active_start_str = settings_data.get('activeStartDate')
     offset_amount = settings_data.get('offsetAmount', 0)
@@ -346,7 +460,6 @@ async def read_group_settings(
     
     if active_start_str:
         try:
-            from datetime import date
             active_start_date = datetime.fromisoformat(active_start_str).date()
             
             # Вычисляем период смен
@@ -354,10 +467,28 @@ async def read_group_settings(
             new_period_end = new_period_start + timedelta(days=period_length)
             
             # Считаем смены в будущем, которые НЕ попадают в период
-            today = date.today()
+            # ✅ Используем now.date() вместо date.today() для корректной работы с часовым поясом
+            today = now.date()
+            
+            logger.info(f"[read_group_settings] 🔍 Проверка конфликтных смен: activeStartDate={active_start_str}, offsetAmount={offset_amount}, periodLength={period_length}")
+            logger.info(f"[read_group_settings] 🔍 Период: {new_period_start} - {new_period_end}, today={today}")
+            
+            # Сначала получаем все смены для диагностики
+            all_shifts_query = select(Shift.date).where(
+                Shift.group_id == db_group.id,
+                Shift.date > today  # ✅ Только будущие смены
+            ).order_by(Shift.date)
+            all_shifts_result = await db.execute(all_shifts_query)
+            all_shifts = all_shifts_result.all()
+            
+            logger.info(f"[read_group_settings] 🔍 Всего смен в будущем: {len(all_shifts)}")
+            if all_shifts:
+                shifts_dates = [str(s.date) for s in all_shifts[:10]]  # Первые 10 для лога
+                logger.info(f"[read_group_settings] 🔍 Даты смен (первые 10): {', '.join(shifts_dates)}")
+            
             conflicting_shifts_query = select(func.count(Shift.id)).where(
                 Shift.group_id == db_group.id,
-                Shift.date > today,
+                Shift.date > today,  # ✅ Только будущие смены
                 or_(
                     Shift.date < new_period_start,
                     Shift.date >= new_period_end
@@ -366,6 +497,8 @@ async def read_group_settings(
             result = await db.execute(conflicting_shifts_query)
             conflicting_shifts_count = result.scalar() or 0
             
+            logger.info(f"[read_group_settings] 🔍 Найдено конфликтных смен: {conflicting_shifts_count}")
+            
             if conflicting_shifts_count > 0:
                 # Есть конфликтные смены - автоматически блокируем доступ
                 settings_data['isAccessBlocked'] = True
@@ -373,18 +506,133 @@ async def read_group_settings(
                 settings_data['existingShiftsCount'] = conflicting_shifts_count
                 logger.info(f"[read_group_settings] ⚠️ Обнаружено {conflicting_shifts_count} конфликтных смен, автоматически установлен isAccessBlocked=True")
             else:
-                # Нет конфликтов - снимаем блокировку если она была установлена ранее
-                if settings_data.get('isAccessBlocked') and not settings_data.get('transitionStrategy') == 'hard':
+                # Нет конфликтов - снимаем блокировку
+                if settings_data.get('isAccessBlocked'):
                     settings_data['isAccessBlocked'] = False
-                    logger.info(f"[read_group_settings] ✅ Конфликтов нет, снята блокировка доступа")
+                    logger.info(f"[read_group_settings] ✅ Конфликтов нет (0 конфликтных смен), снята блокировка доступа")
+                # Удаляем поля о конфликтных сменах если их нет
+                settings_data.pop('hasExistingShifts', None)
+                settings_data.pop('existingShiftsCount', None)
         except Exception as e:
             logger.error(f"[read_group_settings] Ошибка при проверке конфликтных смен: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
 
     # Вычисляем статус доступа
     settings_data = calculate_access_status(settings_data)
 
+    # ✨ ВОССТАНАВЛИВАЕМ поля которые были установлены ДО calculate_access_status
+    # (calculate_access_status не должен трогать эти поля)
+    if active_start_str:
+        try:
+            active_start_date = datetime.fromisoformat(settings_data.get('activeStartDate')).date()
+            
+            # Вычисляем период смен
+            new_period_start = active_start_date + timedelta(days=offset_amount)
+            new_period_end = new_period_start + timedelta(days=period_length)
+            
+            # Считаем конфликтные смены
+            # ✅ Используем now.date() вместо date.today() для корректной работы с часовым поясом
+            today = now.date()
+            conflicting_shifts_query = select(func.count(Shift.id)).where(
+                Shift.group_id == db_group.id,
+                Shift.date > today,  # ✅ Только будущие смены
+                or_(
+                    Shift.date < new_period_start,
+                    Shift.date >= new_period_end
+                )
+            )
+            result = await db.execute(conflicting_shifts_query)
+            conflicting_shifts_count = result.scalar() or 0
+            
+            # ✅ ВАЖНО: Устанавливаем поля ПОСЛЕ calculate_access_status
+            if conflicting_shifts_count > 0:
+                settings_data['hasExistingShifts'] = True
+                settings_data['existingShiftsCount'] = conflicting_shifts_count
+                logger.info(f"[read_group_settings] ⚠️ В ответ добавлена информация о {conflicting_shifts_count} конфликтных сменах")
+            else:
+                # ✅ ВАЖНО: Явно удаляем поля если конфликтов нет
+                settings_data.pop('hasExistingShifts', None)
+                settings_data.pop('existingShiftsCount', None)
+        except Exception as e:
+            logger.error(f"[read_group_settings] Ошибка при проверке конфликтных смен: {e}")
+    # ✅ Сохраняем activeStartDate в БД если он изменился
+    new_active_start = settings_data.get('activeStartDate')
+    next_opening_str = settings_data.get('nextOpeningDate')
+    
+    if old_active_start != new_active_start:
+        # Если activeStartDate был null и теперь установлен - сохраняем сразу
+        if old_active_start is None and new_active_start:
+            logger.info(f"[read_group_settings] 💾 activeStartDate установлен (был null): {new_active_start}, сохраняем в БД")
+            # ✅ Создаем новый словарь для сохранения (без вычисляемых полей)
+            save_data = dict(settings_data)
+            save_data.pop('nextOpeningDate', None)
+            save_data.pop('accessStatus', None)
+            db_group.access_settings = save_data
+            flag_modified(db_group, 'access_settings')  # ✅ Явно уведомляем SQLAlchemy об изменении
+            try:
+                await db.commit()
+                await db.refresh(db_group)
+                logger.info(f"[read_group_settings] ✅ activeStartDate сохранен в БД")
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"[read_group_settings] ❌ Ошибка при сохранении activeStartDate: {e}")
+        elif next_opening_str and old_active_start:
+            # Если activeStartDate изменился (не был null), сохраняем только если доступ УЖЕ открылся
+            try:
+                # ✅ Проверяем, прошло ли activeStartDate + periodLength дней
+                period_length = settings_data.get('periodLength', 7)
+                old_active_date = datetime.fromisoformat(old_active_start).replace(tzinfo=tz)
+                old_active_end = old_active_date + timedelta(days=period_length)
+                
+                logger.info(f"[read_group_settings] 🔍 Проверка сохранения: now={now.isoformat()}, oldActiveEnd={old_active_end.isoformat()}")
+                if old_active_end <= now:
+                    logger.info(f"[read_group_settings] 💾 activeStartDate изменился: {old_active_start} → {new_active_start}, доступ открыт, сохраняем в БД")
+                    # ✅ Создаем новый словарь для сохранения (без вычисляемых полей)
+                    save_data = dict(settings_data)
+                    save_data.pop('nextOpeningDate', None)
+                    save_data.pop('accessStatus', None)
+                    db_group.access_settings = save_data
+                    flag_modified(db_group, 'access_settings')  # ✅ Явно уведомляем SQLAlchemy об изменении
+                    try:
+                        await db.commit()
+                        await db.refresh(db_group)
+                        logger.info(f"[read_group_settings] ✅ Обновленный activeStartDate сохранен в БД")
+                    except Exception as e:
+                        await db.rollback()
+                        logger.error(f"[read_group_settings] ❌ Ошибка при сохранении activeStartDate: {e}")
+                else:
+                    logger.info(f"[read_group_settings] ⏳ activeStartDate изменился: {old_active_start} → {new_active_start}, но доступ еще не открылся (oldActiveEnd: {old_active_end.isoformat()}), НЕ сохраняем в БД")
+            except Exception as e:
+                logger.error(f"[read_group_settings] Ошибка при проверке даты открытия: {e}")
+    
+    # ✅ Сохраняем снятие блокировки в БД если она была снята
+    old_is_blocked = db_group.access_settings.get('isAccessBlocked') if db_group.access_settings else None
+    new_is_blocked = settings_data.get('isAccessBlocked')
+    
+    if old_is_blocked and not new_is_blocked:
+        # Блокировка была снята - сохраняем в БД
+        logger.info(f"[read_group_settings] 💾 Блокировка доступа снята (конфликтов нет), сохраняем в БД")
+        # ✅ Создаем новый словарь для сохранения (без вычисляемых полей)
+        save_data = dict(settings_data)
+        save_data.pop('nextOpeningDate', None)
+        save_data.pop('accessStatus', None)
+        db_group.access_settings = save_data
+        flag_modified(db_group, 'access_settings')
+        try:
+            await db.commit()
+            await db.refresh(db_group)
+            logger.info(f"[read_group_settings] ✅ Снятие блокировки сохранено в БД")
+        except Exception as e:
+            await db.rollback()
+            logger.error(f"[read_group_settings] ❌ Ошибка при сохранении снятия блокировки: {e}")
+
     try:
-        response_model = GroupSettings(**settings_data)
+        # ✅ Оставляем вычисляемые поля в ответе (nextOpeningDate и accessStatus нужны фронтенду)
+        # Они не сохраняются в БД, но должны быть в ответе API
+        response_data = dict(settings_data)
+        
+        response_model = GroupSettings(**response_data)
         logger.info(f"[read_group_settings] Успешно возвращаем настройки для группы {group_telegram_id}")
         return response_model
     except Exception as e:
@@ -434,6 +682,16 @@ async def update_group_settings(
             # Проверку конфликтов делаем после вычисления нового периода
             pass
     
+    # Случай 1.5: registrationStartHour или registrationStartMinute изменились
+    if 'registrationStartHour' in update_data or 'registrationStartMinute' in update_data:
+        new_hour = update_data.get('registrationStartHour', current_settings.get('registrationStartHour', 0))
+        new_minute = update_data.get('registrationStartMinute', current_settings.get('registrationStartMinute', 0))
+        old_hour = current_settings.get('registrationStartHour', 0)
+        old_minute = current_settings.get('registrationStartMinute', 0)
+        if new_hour != old_hour or new_minute != old_minute:
+            logger.info(f"[update_group_settings] Время регистрации изменилось: {old_hour}:{old_minute} → {new_hour}:{new_minute}")
+            should_recalculate_active_start = True
+    
     # Случай 2: activeStartDate отсутствует
     if update_data.get('activeStartDate') is None or current_settings.get('activeStartDate') is None:
         logger.info(f"[update_group_settings] activeStartDate отсутствует")
@@ -471,7 +729,7 @@ async def update_group_settings(
             target_weekday = (registration_start_day - 1) % 7
             
             # Используем timezone-aware datetime для корректной работы
-            tz = ZoneInfo(os.getenv("TIMEZONE", "Europe/Moscow"))
+            tz = ZoneInfo(os.getenv("TIMEZONE", "Asia/Krasnoyarsk"))
             now = datetime.now(tz)
             current_weekday = now.weekday()
             
@@ -522,7 +780,6 @@ async def update_group_settings(
         
         if active_start_str:
             try:
-                from datetime import date
                 active_start_date = datetime.fromisoformat(active_start_str).date()
                 
                 # Вычисляем начало и конец НОВОГО периода смен
@@ -532,10 +789,13 @@ async def update_group_settings(
                 logger.info(f"[update_group_settings] 📅 Новый период смен: {new_period_start.isoformat()} - {new_period_end.isoformat()}")
                 
                 # Считаем смены в будущем, которые НЕ попадают в новый период
-                today = date.today()
+                # ✅ Используем now.date() вместо date.today() для корректной работы с часовым поясом
+                tz = ZoneInfo(os.getenv("TIMEZONE", "Asia/Krasnoyarsk"))
+                now = datetime.now(tz)
+                today = now.date()
                 conflicting_shifts_query = select(func.count(Shift.id)).where(
                     Shift.group_id == db_group.id,
-                    Shift.date > today,
+                    Shift.date > today,  # ✅ Только будущие смены
                     or_(
                         Shift.date < new_period_start,
                         Shift.date >= new_period_end

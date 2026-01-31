@@ -18,6 +18,7 @@ import { addNotification} from '@shared/store/notificationSlice/notificationSlic
 import { NotificationTypes } from '@shared/store/notificationSlice/notificationTypes';
 import { fetchReservesForGroup, mapApiReserveToReserveEntry } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
 import { fetchAccessSettings, fetchShifts } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
+import { fetchShiftTemplatesThunk } from '@features/courierSchedule/store/shiftsSlice/shiftTemplatesThunks';
 import { ApiReserve, ShiftsUpdatedWsPayload } from '@features/courierSchedule/types/courierScheduleTypes';
 
 // Селектор: получить chatId курьерской группы пользователя
@@ -178,7 +179,9 @@ export const useCourierWebSocketSync = (selectedChatId?: string | null) => {
                     isToast: true
                 }));
                 dispatch(fetchAccessSettings({ chatId: data.chat_id }));
-                console.log('[WS][handleShiftAccessSent] dispatch fetchAccessSettings:', data.chat_id);
+                // ✅ Обновляем шаблоны после открытия доступа, чтобы убрать баннеры о будущих версиях
+                dispatch(fetchShiftTemplatesThunk(Number(data.chat_id)));
+                console.log('[WS][handleShiftAccessSent] dispatch fetchAccessSettings + fetchShiftTemplatesThunk:', data.chat_id);
             }
         };
 

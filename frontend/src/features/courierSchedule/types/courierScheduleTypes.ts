@@ -146,6 +146,7 @@ export interface FutureVersionInfo {
     startTime?: string;
     endTime?: string;
     hasSeniorSlot?: boolean;
+    isApplied?: boolean; // Применена ли версия для текущей даты (validFromDate <= today)
 }
 
 // --- Шаблон смены ---

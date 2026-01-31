@@ -249,6 +249,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         
         // Если доступ не заблокирован - смены не заморожены
         if (!isFrozen || !accessSettings) {
+            console.log('[isDateFrozen] Доступ не заблокирован или нет настроек', { isFrozen, hasAccessSettings: !!accessSettings });
             return false;
         }
         
@@ -263,13 +264,19 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         
         try {
             const checkDate = new Date(date);
-            checkDate.setHours(0, 0, 0, 0);
+            
+            // ✅ Сначала устанавливаем UTC для checkDate для корректного сравнения
+            checkDate.setUTCHours(0, 0, 0, 0);
             
             const now = new Date();
-            now.setHours(0, 0, 0, 0);
+            now.setUTCHours(0, 0, 0, 0);
             
-            // Если дата в прошлом - НЕ показываем треугольник
-            if (checkDate < now) {
+            // ✅ Если дата в прошлом - НЕ показываем треугольник (только будущие смены могут быть конфликтными)
+            if (checkDate <= now) {
+                console.log('[isDateFrozen] Дата в прошлом или сегодня, не показываем треугольник', {
+                    checkDate: checkDate.toISOString().split('T')[0],
+                    now: now.toISOString().split('T')[0]
+                });
                 return false;
             }
             
@@ -277,21 +284,41 @@ const CourierCalendar: React.FC<CalendarProps> = ({
             const activeStartDate = accessSettings.activeStartDate;
             if (!activeStartDate) {
                 // Нет activeStartDate - все заморожено
+                console.log('[isDateFrozen] Нет activeStartDate, все заморожено');
                 return true;
             }
             
-            const activeStart = new Date(activeStartDate);
-            activeStart.setHours(0, 0, 0, 0);
+            // ✅ Парсим дату в UTC, чтобы избежать проблем с часовыми поясами (как на бэкенде)
+            // Формат: '2026-01-31' -> Date в UTC
+            const activeStart = new Date(activeStartDate + 'T00:00:00Z');
             
-            // Начало периода смен = activeStartDate + offsetAmount
+            // Начало периода смен = activeStartDate + offsetAmount (в UTC, как на бэкенде)
             const newPeriodStart = new Date(activeStart);
-            newPeriodStart.setDate(newPeriodStart.getDate() + offsetAmount);
+            newPeriodStart.setUTCDate(newPeriodStart.getUTCDate() + offsetAmount);
             
             const newPeriodEnd = new Date(newPeriodStart);
-            newPeriodEnd.setDate(newPeriodEnd.getDate() + periodLength);
+            newPeriodEnd.setUTCDate(newPeriodEnd.getUTCDate() + periodLength);
             
             // Проверяем попадает ли смена в новый период
             const isInNewPeriod = checkDate >= newPeriodStart && checkDate < newPeriodEnd;
+            
+            // Вычисляем, является ли смена конфликтной (как на бэкенде)
+            const isBeforePeriod = checkDate < newPeriodStart;
+            const isAfterOrEqualPeriod = checkDate >= newPeriodEnd;
+            const isConflicting = isBeforePeriod || isAfterOrEqualPeriod;
+            
+            console.log('[isDateFrozen] Проверка периода:', {
+                date: checkDate.toISOString().split('T')[0],
+                activeStartDate: activeStartDate,
+                periodStart: newPeriodStart.toISOString().split('T')[0],
+                periodEnd: newPeriodEnd.toISOString().split('T')[0],
+                periodLength,
+                offsetAmount,
+                isInNewPeriod,
+                isBeforePeriod,
+                isAfterOrEqualPeriod,
+                isConflicting: !isInNewPeriod
+            });
             
             if (isInNewPeriod) {
                 // Смена в новом периоде - БЕЗ треугольника (валидная смена)
@@ -299,7 +326,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
             }
             
             // Смена ВНЕ нового периода - конфликт! С треугольником
-            console.log('[isDateFrozen] Конфликт: смена вне периода', {
+            console.log('[isDateFrozen] ✅ Конфликт: смена вне периода', {
                 date: checkDate.toISOString().split('T')[0],
                 periodStart: newPeriodStart.toISOString().split('T')[0],
                 periodEnd: newPeriodEnd.toISOString().split('T')[0]
@@ -314,17 +341,92 @@ const CourierCalendar: React.FC<CalendarProps> = ({
     // Проверяем есть ли хотя бы одна конфликтная смена у текущего пользователя
     const hasConflictingShifts = useMemo(() => {
         if (!accessSettings?.isAccessBlocked) {
+            console.log('[hasConflictingShifts] Доступ не заблокирован, конфликтов нет');
             return false;
         }
         
         // Проходим по всем сменам текущего пользователя
         const userShifts = shifts.filter(shift => String(shift.userId) === String(currentUserId));
         
-        // Проверяем есть ли хотя бы одна замороженная
-        return userShifts.some(shift => {
-            const shiftDate = new Date(shift.date);
-            return isDateFrozen(shiftDate);
+        // Логируем ВСЕ смены в группе для диагностики
+        const allShiftsDates = shifts.map(s => new Date(s.date).toISOString().split('T')[0]).sort();
+        console.log('[hasConflictingShifts] ВСЕ смены в группе (для диагностики):', {
+            total: shifts.length,
+            allDates: allShiftsDates.join(', '),
+            userShiftsCount: userShifts.length
         });
+        
+        // Вычисляем период для логирования
+        const activeStartDate = accessSettings.activeStartDate;
+        const offsetAmount = accessSettings.offsetAmount || 0;
+        const periodLength = accessSettings.periodLength || 7;
+        
+        let periodInfo = 'N/A';
+        if (activeStartDate) {
+            const activeStart = new Date(activeStartDate + 'T00:00:00Z');
+            const newPeriodStart = new Date(activeStart);
+            newPeriodStart.setUTCDate(newPeriodStart.getUTCDate() + offsetAmount);
+            const newPeriodEnd = new Date(newPeriodStart);
+            newPeriodEnd.setUTCDate(newPeriodEnd.getUTCDate() + periodLength);
+            periodInfo = `${newPeriodStart.toISOString().split('T')[0]} - ${newPeriodEnd.toISOString().split('T')[0]}`;
+        }
+        
+        // Сортируем смены по дате для удобства
+        const sortedShifts = [...userShifts].sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            return dateA - dateB;
+        });
+        
+        console.log('[hasConflictingShifts] Смены текущего пользователя:', {
+            total: userShifts.length,
+            period: periodInfo,
+            allDates: sortedShifts.map(s => new Date(s.date).toISOString().split('T')[0]).join(', '),
+            shifts: sortedShifts.map(s => ({ 
+                date: s.date, 
+                id: s.id,
+                dateStr: new Date(s.date).toISOString().split('T')[0]
+            }))
+        });
+        
+        // ✅ Фильтруем только будущие смены (прошедшие и сегодняшние не могут быть конфликтными)
+        const now = new Date();
+        now.setUTCHours(0, 0, 0, 0);
+        
+        const futureShifts = userShifts.filter(shift => {
+            const shiftDate = new Date(shift.date);
+            shiftDate.setUTCHours(0, 0, 0, 0);
+            return shiftDate > now; // Только будущие смены
+        });
+        
+        // Проверяем есть ли хотя бы одна замороженная среди будущих смен
+        const conflictingShifts = futureShifts.filter(shift => {
+            const shiftDate = new Date(shift.date);
+            const isFrozen = isDateFrozen(shiftDate);
+            return isFrozen;
+        });
+        
+        // Логируем все конфликтные смены отдельно
+        if (conflictingShifts.length > 0) {
+            console.log('[hasConflictingShifts] ✅ Найдены конфликтные смены:', conflictingShifts.map(s => ({
+                date: s.date,
+                dateStr: new Date(s.date).toISOString().split('T')[0],
+                id: s.id
+            })));
+        } else {
+            console.log('[hasConflictingShifts] ❌ Конфликтных смен не найдено. Все смены попадают в период:', periodInfo);
+        }
+        
+        const result = conflictingShifts.length > 0;
+        console.log('[hasConflictingShifts] Результат:', {
+            totalUserShifts: userShifts.length,
+            conflictingShifts: conflictingShifts.length,
+            hasConflicting: result,
+            isAccessBlocked: accessSettings?.isAccessBlocked,
+            activeStartDate: accessSettings?.activeStartDate
+        });
+        
+        return result;
     }, [shifts, currentUserId, isDateFrozen, accessSettings?.isAccessBlocked]);
 
     console.log('[CourierCalendar] hasConflictingShifts:', hasConflictingShifts, 'isAccessBlocked:', accessSettings?.isAccessBlocked);

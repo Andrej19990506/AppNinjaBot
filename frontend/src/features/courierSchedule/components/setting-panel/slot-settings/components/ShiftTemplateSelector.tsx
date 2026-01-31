@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import styled from '@emotion/styled';
 import { keyframes } from '@emotion/react';
 import { ShiftTemplate, FutureVersionInfo } from '@features/courierSchedule/types/courierScheduleTypes';
@@ -704,6 +704,7 @@ interface ShiftTemplateSelectorProps {
     onTemplatesRefresh?: () => void;
     isLoading?: boolean;
     appliedTemplates?: ShiftTemplate[];
+    accessSettings?: any; // AccessSettings для проверки статуса доступа
 }
 
 const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
@@ -716,7 +717,8 @@ const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
     onTemplateUnapply,
     onTemplatesRefresh,
     isLoading = false,
-    appliedTemplates = []
+    appliedTemplates = [],
+    accessSettings
 }) => {
     const [expandedVersionTemplateId, setExpandedVersionTemplateId] = useState<string | null>(null);
     const [isDeletingVersion, setIsDeletingVersion] = useState(false);
@@ -803,6 +805,33 @@ const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
         }
     };
 
+    // ✅ Функция для проверки, нужно ли показывать баннер будущей версии
+    // Баннер показываем, если:
+    // 1. Есть futureVersion
+    // 2. Версия еще не применена (isApplied === false)
+    // Баннер НЕ показываем, если:
+    // 1. Версия уже применена (isApplied === true) - данные уже обновлены из версии
+    const shouldShowFutureVersionBanner = useCallback((futureVersion: FutureVersionInfo | undefined): boolean => {
+        if (!futureVersion) return false;
+        
+        // ✅ Если версия уже применена для текущей даты, не показываем баннер
+        // Данные в карточке уже обновлены из версии через effective_* значения
+        if (futureVersion.isApplied === true) {
+            console.log('[shouldShowFutureVersionBanner] Версия применена, скрываем баннер:', {
+                validFromDate: futureVersion.validFromDate,
+                isApplied: futureVersion.isApplied
+            });
+            return false;
+        }
+        
+        // ✅ Версия еще не применена - показываем баннер
+        console.log('[shouldShowFutureVersionBanner] Версия еще не применена, показываем баннер:', {
+            validFromDate: futureVersion.validFromDate,
+            isApplied: futureVersion.isApplied
+        });
+        return true;
+    }, []);
+
     if (templates.length === 0) {
         return (
             <SettingsSection>
@@ -841,6 +870,8 @@ const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
             
             {templates.map(template => {
                 const isApplied = appliedTemplates.some(applied => applied.id === template.id);
+                const futureVersion = template.futureVersion;
+                const showBanner = shouldShowFutureVersionBanner(futureVersion);
                 
                 return (
                     <TemplateCard
@@ -850,24 +881,36 @@ const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
                         onClick={() => handleTemplateToggle(template.id)}
                     >
                         <TemplateHeader>
-                            {template.futureVersion && (
-                                <FutureVersionBanner>
-                                    <FutureVersionIcon>
-                                        <IconCalendar />
-                                    </FutureVersionIcon>
-                                    <FutureVersionText>
-                                        <FutureVersionTitle>
-                                            Новая версия будет применена
-                                        </FutureVersionTitle>
-                                        <FutureVersionDate>
-                                            С {formatDate(template.futureVersion.validFromDate)}: {template.futureVersion.maxSlots} слотов
-                                            {template.futureVersion.hasSeniorSlot !== undefined && (
-                                                template.futureVersion.hasSeniorSlot ? ', со старшим курьером' : ', без старшего курьера'
-                                            )}
-                                        </FutureVersionDate>
-                                    </FutureVersionText>
-                                </FutureVersionBanner>
-                            )}
+                            {showBanner && futureVersion && accessSettings?.activeStartDate && (() => {
+                                // Вычисляем дату открытия доступа (activeStartDate + periodLength)
+                                try {
+                                    const activeStart = new Date(accessSettings.activeStartDate);
+                                    const periodLength = accessSettings.periodLength || 14;
+                                    const applicationDate = new Date(activeStart);
+                                    applicationDate.setDate(applicationDate.getDate() + periodLength);
+                                    return (
+                                        <FutureVersionBanner>
+                                            <FutureVersionIcon>
+                                                <IconCalendar />
+                                            </FutureVersionIcon>
+                                            <FutureVersionText>
+                                                <FutureVersionTitle>
+                                                    Новая версия будет применена
+                                                </FutureVersionTitle>
+                                                <FutureVersionDate>
+                                                    {formatDate(applicationDate.toISOString().split('T')[0])}: {futureVersion.maxSlots} слотов
+                                                    {futureVersion.hasSeniorSlot !== undefined && (
+                                                        futureVersion.hasSeniorSlot ? ', со старшим курьером' : ', без старшего курьера'
+                                                    )}
+                                                </FutureVersionDate>
+                                            </FutureVersionText>
+                                        </FutureVersionBanner>
+                                    );
+                                } catch (e) {
+                                    console.error('[ShiftTemplateSelector] Ошибка вычисления даты применения:', e);
+                                    return null;
+                                }
+                            })()}
                             <TemplateHeaderTop>
                                 <TemplateName>
                                     <IconTemplate />
@@ -1113,7 +1156,8 @@ const ShiftTemplateSelector: React.FC<ShiftTemplateSelectorProps> = ({
                                 )}
                                 
                                 <ActionButtons onClick={(e) => e.stopPropagation()}>
-                                    {template.futureVersion && (
+                                    {/* ✅ Показываем кнопку "Показать изменения" только если версия еще не применена */}
+                                    {template.futureVersion && shouldShowFutureVersionBanner(template.futureVersion) && (
                                         <ActionButton 
                                             onClick={(e) => handleVersionBannerClick(template.id, e)}
                                             $variant="success"

@@ -154,47 +154,100 @@ async def get_shift_templates_by_group(
         from datetime import date as date_type
         from models.shift_template import ShiftTemplateVersion
         from schemas.shift_template import FutureVersionInfo
+        from utils.period_calculator import calculate_current_period_dates
         
         template_reads = []
         today = date_type.today()
+        
+        # ✅ Получаем access_settings для проверки текущего периода
+        access_settings = group.access_settings if hasattr(group, 'access_settings') and group.access_settings else None
+        current_period_start = None
+        current_period_end = None
+        
+        if access_settings:
+            try:
+                current_period_start, current_period_end = calculate_current_period_dates(access_settings, today)
+                logger.info(f"[get_shift_templates_by_group] Текущий период: {current_period_start} - {current_period_end}")
+            except Exception as e:
+                logger.error(f"[get_shift_templates_by_group] Ошибка вычисления периода: {e}")
         
         for template in templates:
             # Получаем дни недели из связи
             days_of_week = [day.day_of_week for day in template.days] if template.days else []
             
-            # Проверяем наличие будущей версии
-            future_version_info = None
-            future_version_result = await db.execute(
-                select(ShiftTemplateVersion)
-                .where(
-                    and_(
-                        ShiftTemplateVersion.template_id == template.id,
-                        ShiftTemplateVersion.valid_from_date > today
-                    )
-                )
-                .order_by(ShiftTemplateVersion.valid_from_date.asc())
-                .limit(1)
+            # ✅ Получаем активную версию для дат в текущем периоде
+            # Если есть текущий период, проверяем версию для начала периода
+            # Иначе проверяем для today
+            version_check_date = current_period_start if current_period_start else today
+            active_version = await crud_shift_template.get_template_version_for_date(
+                db,
+                template_id=template.id,
+                shift_date=version_check_date
             )
-            future_version = future_version_result.scalars().first()
             
-            if future_version:
+            # ✅ Используем значения из активной версии, если она есть, иначе из базового шаблона
+            effective_max_slots = active_version.max_slots if active_version else template.max_slots
+            effective_start_time = active_version.start_time if active_version else template.start_time
+            effective_end_time = active_version.end_time if active_version else template.end_time
+            effective_has_senior_slot = active_version.has_senior_slot if active_version else template.has_senior_slot
+            
+            # ✅ Проверяем наличие будущей версии
+            future_version_info = None
+            
+            # Ищем все версии (не только будущие)
+            all_versions_result = await db.execute(
+                select(ShiftTemplateVersion)
+                .where(ShiftTemplateVersion.template_id == template.id)
+                .order_by(ShiftTemplateVersion.valid_from_date.asc())
+            )
+            all_versions = all_versions_result.scalars().all()
+            
+            # Находим версию, которая должна быть применена в текущем периоде
+            version_in_current_period = None
+            future_version = None
+            
+            for version in all_versions:
+                # ✅ Проверяем, попадает ли valid_from_date в текущий период
+                if current_period_start and current_period_end:
+                    if current_period_start <= version.valid_from_date <= current_period_end:
+                        # Версия попадает в текущий период - она применена
+                        version_in_current_period = version
+                        break
+                    elif version.valid_from_date > current_period_end:
+                        # Версия для будущего периода
+                        if not future_version:
+                            future_version = version
+                else:
+                    # Если нет access_settings, используем простую проверку
+                    if version.valid_from_date <= today:
+                        version_in_current_period = version
+                    elif version.valid_from_date > today and not future_version:
+                        future_version = version
+            
+            # ✅ Если есть версия в текущем периоде, она применена - не показываем баннер
+            if version_in_current_period:
+                # Версия уже применена для текущего периода, не показываем баннер
+                future_version_info = None
+            elif future_version:
+                # ✅ Будущая версия еще не применена
                 future_version_info = FutureVersionInfo(
                     id=future_version.id,
                     valid_from_date=future_version.valid_from_date,
                     max_slots=future_version.max_slots,
                     start_time=future_version.start_time,
                     end_time=future_version.end_time,
-                    has_senior_slot=future_version.has_senior_slot
+                    has_senior_slot=future_version.has_senior_slot,
+                    is_applied=False  # Будущая версия еще не применена
                 )
             
             template_dict = {
                 "id": template.id,
                 "name": template.name,
                 "description": template.description,
-                "start_time": template.start_time,
-                "end_time": template.end_time,
-                "max_slots": template.max_slots,
-                "has_senior_slot": template.has_senior_slot,
+                "start_time": effective_start_time,  # ✅ Используем значения из активной версии или базового шаблона
+                "end_time": effective_end_time,  # ✅ Используем значения из активной версии или базового шаблона
+                "max_slots": effective_max_slots,  # ✅ Используем значения из активной версии или базового шаблона
+                "has_senior_slot": effective_has_senior_slot,  # ✅ Используем значения из активной версии или базового шаблона
                 "template_metadata": template.template_metadata,
                 "days_of_week": days_of_week,
                 "group_id": template.group_id,
@@ -270,44 +323,21 @@ async def get_applied_templates_for_all_days(
         for template in templates:
             logger.info(f"Template {template.name} has {len(template.days)} days: {[d.day_of_week for d in template.days]}")
             
-            # Получаем актуальную версию шаблона для текущей даты
-            from crud import shift_template as crud_shift_template
-            from models.shift_template import ShiftTemplateVersion
-            
+            # ✅ Получаем активную версию для указанной даты (version_date)
+            # Версии применяются только к датам >= valid_from_date
             version = await crud_shift_template.get_template_version_for_date(
                 db,
                 template_id=template.id,
                 shift_date=version_date
             )
             
-            # Логируем информацию о версии
-            if version:
-                logger.info(f"Template {template.name} (id={template.id}) has active version for date {version_date}: max_slots={version.max_slots}, valid_from={version.valid_from_date}, valid_to={version.valid_to_date}")
-            else:
-                # Проверяем, есть ли будущая версия
-                future_version_result = await db.execute(
-                    select(ShiftTemplateVersion)
-                    .where(
-                        and_(
-                            ShiftTemplateVersion.template_id == template.id,
-                            ShiftTemplateVersion.valid_from_date > version_date
-                        )
-                    )
-                    .order_by(ShiftTemplateVersion.valid_from_date.asc())
-                )
-                future_version = future_version_result.scalars().first()
-                if future_version:
-                    logger.info(f"Template {template.name} (id={template.id}) has future version: max_slots={future_version.max_slots}, valid_from={future_version.valid_from_date}, but using base template (max_slots={template.max_slots}) for date {version_date}")
-                else:
-                    logger.info(f"Template {template.name} (id={template.id}) has no versions, using base template: max_slots={template.max_slots}")
-            
-            # Используем данные из версии, если она существует, иначе из базового шаблона
+            # ✅ Используем значения из версии, если она существует для этой даты, иначе из базового шаблона
             effective_max_slots = version.max_slots if version else template.max_slots
             effective_start_time = version.start_time if version else template.start_time
             effective_end_time = version.end_time if version else template.end_time
             effective_has_senior_slot = version.has_senior_slot if version else template.has_senior_slot
             
-            logger.info(f"Template {template.name} (id={template.id}): using max_slots={effective_max_slots} (version={version is not None}, base={template.max_slots})")
+            logger.info(f"Template {template.name} (id={template.id}): using max_slots={effective_max_slots} (version={version is not None}, base={template.max_slots}) for date {version_date}")
             
             for template_day in template.days:
                 # Показываем только активные шаблоны

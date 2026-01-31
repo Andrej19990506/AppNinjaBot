@@ -32,9 +32,10 @@ async def apply_access_settings(
     # Запускаем через asyncio.create_task
     # Убедимся, что task_manager существует
     if hasattr(scheduler_instance, 'task_manager') and scheduler_instance.task_manager:
-        logger.info(f"Запуск asyncio.create_task для TaskManager.schedule_shift_access, chat_id: {chat_id}")
-        # Запускаем нужный метод напрямую
+        logger.info(f"Запуск asyncio.create_task для TaskManager.schedule_shift_access и schedule_registration_open_event, chat_id: {chat_id}")
+        # Запускаем оба метода: для уведомления в Telegram и для WebSocket события
         asyncio.create_task(scheduler_instance.task_manager.schedule_shift_access(chat_id))
+        asyncio.create_task(scheduler_instance.task_manager.schedule_registration_open_event(chat_id))
         message = f"Access settings application started in background for chat_id: {chat_id}"
         status = "success"
     else:

@@ -37,6 +37,7 @@ class FutureVersionInfo(BaseModel):
     start_time: Optional[time] = Field(None, description="Время начала в будущей версии")
     end_time: Optional[time] = Field(None, description="Время окончания в будущей версии")
     has_senior_slot: Optional[bool] = Field(None, description="Есть ли слот старшего курьера в будущей версии")
+    is_applied: bool = Field(False, description="Применена ли версия для текущей даты (valid_from_date <= today)")
 
 # Схема для чтения шаблона смены
 class ShiftTemplateRead(ShiftTemplateBase):

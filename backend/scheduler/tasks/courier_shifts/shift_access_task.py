@@ -106,9 +106,33 @@ class ShiftAccessTask(BaseTask):
                 return False
             python_weekday = (int(registration_day) - 1 + 7) % 7
             now = datetime.now(ZoneInfo(self.settings.TIMEZONE))
-            next_registration = self._calculate_next_registration_time(
-                now, python_weekday, int(registration_hour), int(registration_minute), period_length, self.settings
-            )
+            active_start_date = access_settings.get("activeStartDate")
+            next_opening_date = access_settings.get("nextOpeningDate")
+            
+            # ✅ Если есть nextOpeningDate из API - используем его напрямую
+            if next_opening_date:
+                try:
+                    # Парсим ISO формат с таймзоной
+                    next_registration = datetime.fromisoformat(next_opening_date.replace('Z', '+00:00'))
+                    if next_registration.tzinfo is None:
+                        # Если нет таймзоны, добавляем
+                        tz = ZoneInfo(self.settings.TIMEZONE)
+                        next_registration = next_registration.replace(tzinfo=tz)
+                    else:
+                        # Конвертируем в нужную таймзону
+                        tz = ZoneInfo(self.settings.TIMEZONE)
+                        next_registration = next_registration.astimezone(tz)
+                    logger.info(f"({self.TASK_TYPE}) Используем nextOpeningDate из API: {next_registration}")
+                except Exception as e:
+                    logger.warning(f"({self.TASK_TYPE}) ⚠️ Не удалось распарсить nextOpeningDate '{next_opening_date}': {e}. Используем расчет.")
+                    next_registration = self._calculate_next_registration_time(
+                        now, python_weekday, int(registration_hour), int(registration_minute), period_length, active_start_date, self.settings
+                    )
+            else:
+                # Если nextOpeningDate нет - рассчитываем
+                next_registration = self._calculate_next_registration_time(
+                    now, python_weekday, int(registration_hour), int(registration_minute), period_length, active_start_date, self.settings
+                )
             if not next_registration:
                 logger.error(f"({self.TASK_TYPE}) ❌ Не удалось рассчитать время следующей регистрации для {chat_id_str}")
                 return False
@@ -132,7 +156,7 @@ class ShiftAccessTask(BaseTask):
             logger.error(traceback.format_exc())
             return False
 
-    def _calculate_next_registration_time(self, now: datetime, target_weekday: int, hour: int, minute: int, period_length: int, settings: scheduler_settings) -> Optional[datetime]:
+    def _calculate_next_registration_time(self, now: datetime, target_weekday: int, hour: int, minute: int, period_length: int, active_start_date_str: Optional[str], settings: scheduler_settings) -> Optional[datetime]:
         """
         Рассчитывает следующее время запуска с использованием правильной логики циклов.
         ИСПРАВЛЕНО: Использует якорь (activeStartDate) для определения валидных дней регистрации.
@@ -167,23 +191,19 @@ class ShiftAccessTask(BaseTask):
             last_target_dt = now - timedelta(days=days_back_to_target)
             last_target_dt = last_target_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
             
-            # Получаем activeStartDate из настроек API (если есть)
-            active_start_date_str = None
-            try:
-                # Пробуем получить из переданных настроек или делаем запрос к API
-                # (в данном контексте у нас нет прямого доступа к activeStartDate, 
-                # поэтому используем упрощённую логику)
-                pass
-            except:
-                pass
-            
             # Определяем якорь для расчёта циклов
             if active_start_date_str:
-                anchor_dt = datetime.fromisoformat(active_start_date_str).replace(tzinfo=tz)
-                # Находим первый target_weekday от якоря
-                days_to_target = (target_weekday - anchor_dt.weekday() + 7) % 7
-                anchor_dt = anchor_dt + timedelta(days=days_to_target)
-            else:
+                try:
+                    anchor_dt = datetime.fromisoformat(active_start_date_str).replace(tzinfo=tz)
+                    # Находим первый target_weekday от якоря
+                    days_to_target = (target_weekday - anchor_dt.weekday() + 7) % 7
+                    anchor_dt = anchor_dt + timedelta(days=days_to_target)
+                    anchor_dt = anchor_dt.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                except Exception as e:
+                    logger.warning(f"({self.TASK_TYPE}) ⚠️ Не удалось распарсить activeStartDate '{active_start_date_str}': {e}. Используем fallback.")
+                    active_start_date_str = None
+            
+            if not active_start_date_str:
                 # Fallback: используем первый target_weekday 2024 года
                 anchor_dt = datetime(2024, 1, 1, hour, minute, tzinfo=tz)
                 days_to_target = (target_weekday - anchor_dt.weekday() + 7) % 7

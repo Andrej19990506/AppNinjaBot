@@ -579,6 +579,31 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
             dispatch(fetchShiftTemplatesThunk(chatId));
         }
     }, [isOpen, chatId, dispatch]);
+    
+    // ✅ Обновляем шаблоны при изменении статуса доступа (когда доступ открывается, версии применяются)
+    useEffect(() => {
+        if (isOpen && chatId && accessSettings?.accessStatus) {
+            // Обновляем шаблоны при изменении статуса доступа, чтобы получить актуальные данные после применения версий
+            dispatch(fetchShiftTemplatesThunk(chatId));
+        }
+    }, [isOpen, chatId, accessSettings?.accessStatus, dispatch]);
+
+    // ✅ Периодически обновляем шаблоны, чтобы проверить применение версий
+    // Бэкенд сам определяет, применена ли версия через active_version, поэтому просто периодически обновляем
+    // Это нужно для того, чтобы баннеры исчезли и данные обновились, когда версия применится
+    useEffect(() => {
+        if (!isOpen || !chatId) {
+            return;
+        }
+
+        // Обновляем шаблоны каждую минуту, чтобы проверить применение версий
+        const interval = setInterval(() => {
+            console.log('[ShiftTemplateSettings] Периодическое обновление шаблонов для проверки применения версий');
+            dispatch(fetchShiftTemplatesThunk(chatId));
+        }, 60000); // Каждую минуту
+
+        return () => clearInterval(interval);
+    }, [isOpen, chatId, dispatch]);
 
     // Проверка изменений
     const isDirty = useMemo(() => {
@@ -1284,6 +1309,7 @@ const ShiftTemplateSettingsComponent: React.ForwardRefRenderFunction<ShiftTempla
                                     template.daysOfWeek.includes(dayIndex)
                                 );
                             })()}
+                            accessSettings={accessSettings}
                         />
                     )}
 

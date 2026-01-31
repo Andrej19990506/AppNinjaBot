@@ -971,3 +971,169 @@ async def update_template_version(
     await db.flush()
     await db.refresh(version)
     return version
+
+
+async def apply_pending_template_versions(
+    db: Session,
+    group_id: int,
+    apply_date: date
+) -> int:
+    """
+    Применяет все версии шаблонов, у которых valid_from_date <= apply_date, к базовым шаблонам.
+    Обновляет поля базового шаблона (max_slots, start_time, end_time, has_senior_slot) значениями из версии.
+    После применения удаляет версию.
+    
+    Возвращает количество примененных версий.
+    """
+    from datetime import date as date_type
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"[apply_pending_template_versions] Применение версий для группы {group_id}, дата применения: {apply_date}")
+    
+    # Находим все версии, которые должны быть применены
+    versions_query = (
+        select(ShiftTemplateVersion)
+        .join(ShiftTemplate, ShiftTemplateVersion.template_id == ShiftTemplate.id)
+        .where(
+            and_(
+                ShiftTemplate.group_id == group_id,
+                ShiftTemplateVersion.valid_from_date <= apply_date
+            )
+        )
+        .order_by(ShiftTemplateVersion.valid_from_date.asc())
+    )
+    
+    result = await db.execute(versions_query)
+    pending_versions = result.scalars().all()
+    
+    if not pending_versions:
+        logger.info(f"[apply_pending_template_versions] Нет версий для применения")
+        return 0
+    
+    applied_count = 0
+    
+    for version in pending_versions:
+        try:
+            # Получаем базовый шаблон
+            template_query = select(ShiftTemplate).where(ShiftTemplate.id == version.template_id)
+            template_result = await db.execute(template_query)
+            template = template_result.scalar_one_or_none()
+            
+            if not template:
+                logger.warning(f"[apply_pending_template_versions] Шаблон {version.template_id} не найден для версии {version.id}")
+                continue
+            
+            # Применяем версию к базовому шаблону
+            logger.info(f"[apply_pending_template_versions] Применение версии {version.id} к шаблону {template.id} ({template.name}): "
+                       f"max_slots={version.max_slots} (было {template.max_slots}), "
+                       f"start_time={version.start_time} (было {template.start_time}), "
+                       f"end_time={version.end_time} (было {template.end_time}), "
+                       f"has_senior_slot={version.has_senior_slot} (было {template.has_senior_slot})")
+            
+            template.max_slots = version.max_slots
+            template.start_time = version.start_time
+            template.end_time = version.end_time
+            template.has_senior_slot = version.has_senior_slot
+            if version.template_metadata:
+                template.template_metadata = version.template_metadata
+            
+            # Удаляем примененную версию
+            await db.delete(version)
+            applied_count += 1
+            
+            logger.info(f"[apply_pending_template_versions] ✅ Версия {version.id} применена и удалена")
+            
+        except Exception as e:
+            logger.error(f"[apply_pending_template_versions] ❌ Ошибка при применении версии {version.id}: {e}")
+            continue
+    
+    if applied_count > 0:
+        await db.flush()
+        logger.info(f"[apply_pending_template_versions] ✅ Всего применено версий: {applied_count}")
+    
+    return applied_count
+
+
+async def apply_pending_template_versions_for_period(
+    db: Session,
+    group_id: int,
+    period_start: date,
+    period_end: date
+) -> int:
+    """
+    Применяет все версии шаблонов, у которых valid_from_date попадает в указанный период, к базовым шаблонам.
+    Обновляет поля базового шаблона (max_slots, start_time, end_time, has_senior_slot) значениями из версии.
+    После применения удаляет версию.
+    
+    Возвращает количество примененных версий.
+    """
+    from datetime import date as date_type
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    logger.info(f"[apply_pending_template_versions_for_period] Применение версий для группы {group_id}, период: {period_start} - {period_end}")
+    
+    # Находим все версии, у которых valid_from_date попадает в период
+    versions_query = (
+        select(ShiftTemplateVersion)
+        .join(ShiftTemplate, ShiftTemplateVersion.template_id == ShiftTemplate.id)
+        .where(
+            and_(
+                ShiftTemplate.group_id == group_id,
+                ShiftTemplateVersion.valid_from_date >= period_start,
+                ShiftTemplateVersion.valid_from_date < period_end
+            )
+        )
+        .order_by(ShiftTemplateVersion.valid_from_date.asc())
+    )
+    
+    result = await db.execute(versions_query)
+    pending_versions = result.scalars().all()
+    
+    if not pending_versions:
+        logger.info(f"[apply_pending_template_versions_for_period] Нет версий для применения в периоде {period_start} - {period_end}")
+        return 0
+    
+    applied_count = 0
+    
+    for version in pending_versions:
+        try:
+            # Получаем базовый шаблон
+            template_query = select(ShiftTemplate).where(ShiftTemplate.id == version.template_id)
+            template_result = await db.execute(template_query)
+            template = template_result.scalar_one_or_none()
+            
+            if not template:
+                logger.warning(f"[apply_pending_template_versions_for_period] Шаблон {version.template_id} не найден для версии {version.id}")
+                continue
+            
+            # Применяем версию к базовому шаблону
+            logger.info(f"[apply_pending_template_versions_for_period] Применение версии {version.id} к шаблону {template.id} ({template.name}): "
+                       f"max_slots={version.max_slots} (было {template.max_slots}), "
+                       f"start_time={version.start_time} (было {template.start_time}), "
+                       f"end_time={version.end_time} (было {template.end_time}), "
+                       f"has_senior_slot={version.has_senior_slot} (было {template.has_senior_slot})")
+            
+            template.max_slots = version.max_slots
+            template.start_time = version.start_time
+            template.end_time = version.end_time
+            template.has_senior_slot = version.has_senior_slot
+            if version.template_metadata:
+                template.template_metadata = version.template_metadata
+            
+            # Удаляем примененную версию
+            await db.delete(version)
+            applied_count += 1
+            
+            logger.info(f"[apply_pending_template_versions_for_period] ✅ Версия {version.id} применена и удалена")
+            
+        except Exception as e:
+            logger.error(f"[apply_pending_template_versions_for_period] ❌ Ошибка при применении версии {version.id}: {e}")
+            continue
+    
+    if applied_count > 0:
+        await db.flush()
+        logger.info(f"[apply_pending_template_versions_for_period] ✅ Всего применено версий: {applied_count}")
+    
+    return applied_count

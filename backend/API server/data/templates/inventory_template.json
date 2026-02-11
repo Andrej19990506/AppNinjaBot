@@ -335,7 +335,7 @@
         "notes": ""
       }
     },
-    "Соус Чили (гр.)": {
+    "Соус Чили сладкий (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -778,6 +778,24 @@
       }
     },
     "Коробка д/снеков (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Баночка для пресервов (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Коробка подарочная для набора (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

@@ -308,6 +308,15 @@
         "notes": ""
       }
     },
+    "Соус Бургер (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Соус Мутти (гр.) (5000 гр)": {
       "raw": {
         "quantity": 0,

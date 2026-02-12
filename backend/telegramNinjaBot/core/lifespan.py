@@ -431,13 +431,18 @@ async def lifespan(app: FastAPI):
             for bot_app_to_stop in bot_apps_to_stop:
                 bot_name = bot_app_to_stop.bot_data.get('company_name', 'Unknown') if hasattr(bot_app_to_stop, 'bot_data') else 'Unknown'
                 
-                # Удаление вебхука
+                # Удаление вебхука (только в development)
+                # В продакшене webhook должен оставаться активным между перезапусками
                 if getattr(bot_app_to_stop, 'bot', None):
-                    try:
-                        await bot_app_to_stop.bot.delete_webhook(drop_pending_updates=True)
-                        logger.info(f"✅ Вебхук удален для бота: {bot_name}")
-                    except Exception as e:
-                        logger.error(f"❌ Ошибка при удалении вебхука для бота {bot_name}: {e}", exc_info=True)
+                    environment = os.getenv('ENVIRONMENT', 'development')
+                    if environment == 'development':
+                        try:
+                            await bot_app_to_stop.bot.delete_webhook(drop_pending_updates=True)
+                            logger.info(f"✅ Вебхук удален для бота: {bot_name} (development mode)")
+                        except Exception as e:
+                            logger.error(f"❌ Ошибка при удалении вебхука для бота {bot_name}: {e}", exc_info=True)
+                    else:
+                        logger.info(f"ℹ️ Вебхук не удален для бота: {bot_name} (production mode - webhook сохранен)")
                 
                 # Остановка Application
                 try:

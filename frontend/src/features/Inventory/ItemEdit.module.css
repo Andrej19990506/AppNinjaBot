@@ -47,7 +47,23 @@
 /* Стили для iOS чтобы предотвратить скролл body при открытой клавиатуре */
 @supports (-webkit-touch-callout: none) {
     .container {
-        height: -webkit-fill-available;
+        /* height: -webkit-fill-available; Убираем - растягивает контейнер */
+        max-height: 70vh; /* Ограничиваем высоту для iOS */
+    }
+    
+    /* Фикс для секции заметок на iOS */
+    .notesSection {
+        max-height: 150px; /* Ограничиваем высоту секции заметок */
+        overflow-y: auto; /* Добавляем скролл */
+        -webkit-overflow-scrolling: touch; /* Плавный скролл на iOS */
+    }
+    
+    .notesDisplay {
+        max-height: 100px; /* Ограничиваем высоту контейнера заметок */
+    }
+    
+    .notesContent {
+        max-height: 80px; /* Ограничиваем высоту текста заметок */
     }
 }
 
@@ -340,9 +356,9 @@
 
 @media (max-width: 768px) {
     .container {
-        max-height: 60vh;
+        max-height: 70vh; /* Увеличиваем для iOS */
         padding: 16px;
-        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 120px);
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 200px); /* Увеличиваем для iOS */
         z-index: 10;
         margin-bottom: 80px;
         overflow-x: hidden; /* Убираем горизонтальный скролл */
@@ -422,9 +438,9 @@
 
 @media (max-width: 480px) {
     .container {
-        max-height: 60vh;
+        max-height: 70vh; /* Увеличиваем для iOS */
         padding: 14px;
-        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 120px);
+        padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 200px); /* Увеличиваем для iOS */
         overflow-x: hidden; /* Убираем горизонтальный скролл */
         scrollbar-width: none; /* Скрываем тулбар скролла для Firefox */
         -ms-overflow-style: none; /* Скрываем тулбар скролла для IE/Edge */
@@ -684,9 +700,10 @@
     opacity: 0;
     transform: translateY(20px);
     transition: opacity 0.2s ease-out, transform 0.2s ease-out;
-    flex: 1; /* Растягиваем секцию заметок */
+    /* flex: 1; Убираем - на iOS растягивает контейнер */
     display: flex;
     flex-direction: column;
+    max-height: 200px; /* Ограничиваем высоту для iOS */
 }
 
 .notesSection.visible {
@@ -746,7 +763,8 @@
     background: var(--background-color);
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    flex: 1; /* Растягиваем отображение заметок */
+    /* flex: 1; Убираем - на iOS растягивает контейнер */
+    max-height: 120px; /* Ограничиваем высоту для iOS */
     overflow-y: auto; /* Добавляем скролл при необходимости */
 }
 
@@ -756,7 +774,8 @@
     line-height: 1.5;
     white-space: pre-wrap;
     word-break: break-word;
-    flex: 1; /* Растягиваем контент заметок */
+    /* flex: 1; Убираем - на iOS растягивает контейнер */
+    max-height: 100px; /* Ограничиваем высоту для iOS */
     overflow-y: auto; /* Добавляем скролл при необходимости */
 }
 

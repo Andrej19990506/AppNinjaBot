@@ -450,7 +450,14 @@ const ItemList: React.FC<ItemListProps> = ({
                                 return () => unsubscribe();
                             }, [chatId, category, itemId]);
                             
-                            const isNew = item.raw?.isNew || item.semifinished?.isNew;
+                            const isNew =
+                                item.raw?.isNew ||
+                                // поддерживаем snake_case из бэка
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (item.raw as any)?.is_new ||
+                                item.semifinished?.isNew ||
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                (item.semifinished as any)?.is_new;
 
                             return (
                                 <motion.div

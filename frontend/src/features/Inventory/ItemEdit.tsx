@@ -4,6 +4,8 @@ import { InventoryItem } from '@/types/inventoryTypes';
 import { socketService } from '@shared/services/socketService';
 import { useAppDispatch, useAppSelector } from '@shared/store/hooks';
 import { updateInventoryItem, updateInventoryStructure, updateProgress, fetchItemHistory, selectHistoryRecordsForItem, saveItemNotes } from '@/store/slices/inventorySlice';
+import { showToastNotification } from '@/shared/store/notificationSlice/notificationThunks';
+import { NotificationTypes } from '@/shared/store/notificationSlice/notificationTypes';
 import NotesModal from '@features/Inventory/components/NotesModal';
 
 
@@ -184,6 +186,27 @@ const ItemEdit: React.FC<ItemEditProps> = ({
             setNotes(currentItem.raw?.notes || currentItem.semifinished?.notes || '');
         }
     }, [currentInventory, category, itemId, item]);
+
+    // Показываем тост для позиций с warning_unit / warningUnit
+    useEffect(() => {
+        const raw = item.raw;
+        const hasWarningUnit =
+            raw?.warningUnit ||
+            // поддержка snake_case из бэка
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (raw as any)?.warning_unit;
+
+        if (hasWarningUnit) {
+            dispatch(
+                showToastNotification(
+                    NotificationTypes.WARNING,
+                    `Для позиции "${itemId}" обязательно укажите количество в граммах. Например: 1 бутылка "Вода черноголовка 1.5л" = 1500 грамм.`
+                )
+            );
+        }
+    // хотим сработать при первом монтировании/смене товара
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [dispatch, itemId]);
 
     useEffect(() => {
         const timer = setTimeout(() => {

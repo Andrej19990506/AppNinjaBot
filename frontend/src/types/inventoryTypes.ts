@@ -51,6 +51,7 @@ export interface InventoryItemDetails {
     isOutOfStock?: boolean;
     isUnused?: boolean;
     isNew?: boolean;
+    warningUnit?: boolean;
     notes?: string;
 }
 

@@ -585,14 +585,15 @@
         "notes": ""
       }
     },
-    "Вода черноголовка 1.5л. (шт.)": {
+    "Вода черноголовка 1.5л. (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
         "notes": "",
-        "is_new": true
+        "is_new": true,
+        "warning_unit": true
       }
     },
     "Чай в пакетиках (шт.)": {
@@ -692,6 +693,56 @@
         "expiry_date": null,
         "warning_days": null,
         "notes": ""
+      }
+    },
+    "Смесь для приготовление сырной пенки (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Основа концетрат Бабл ти Баунти (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Основа концетрат Бабл ти Клубника-банан (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Основа концетрат Бабл ти Манго-Маракуя-Облепиха (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Основа концетрат Бабл ти Орео (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
       }
     },
     "«Лимонный Пунш» Черноголовка 1,5 литра (шт.)": {

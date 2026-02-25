@@ -198,6 +198,15 @@
         "notes": ""
       }
     },
+    "Заготовка для ролла \"Бургер\"": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Замес на \"Грибная\"": {
       "raw": {
         "quantity": 0,
@@ -813,6 +822,15 @@
         "notes": ""
       }
     },
+    "Коробка ролл/шаурма (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Стакан шейкер для лимонада (шт.)": {
       "raw": {
         "quantity": 0,
@@ -1149,6 +1167,15 @@
       }
     },
     "Сосиски (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },    
+    "Фарш (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

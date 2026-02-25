@@ -204,7 +204,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Замес на \"Грибная\"": {
@@ -584,6 +585,16 @@
         "notes": ""
       }
     },
+    "Вода черноголовка 1.5л. (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
     "Чай в пакетиках (шт.)": {
       "raw": {
         "quantity": 0,
@@ -810,7 +821,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Коробка подарочная для набора (шт.)": {
@@ -819,7 +831,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Коробка ролл/шаурма (шт.)": {
@@ -828,7 +841,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Стакан шейкер для лимонада (шт.)": {
@@ -846,7 +860,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Крышка для стакана бабл-ти (шт.)": {
@@ -855,7 +870,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Крышка к контейнеру для салатов/закусок (шт.)": {
@@ -885,13 +901,14 @@
         "notes": ""
       }
     },
-    "Трубочка для бабл-ти (шт.)": {
+    "Соломинка для Бабл ти (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Набор приборов 1 (шт.)": {
@@ -1208,7 +1225,8 @@
         "filled": false,
         "expiry_date": null,
         "warning_days": null,
-        "notes": ""
+        "notes": "",
+        "is_new": true
       }
     },
     "Филе куриное (гр.)": {

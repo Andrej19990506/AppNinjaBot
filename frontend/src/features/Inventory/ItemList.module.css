@@ -162,6 +162,43 @@
     );
 }
 
+/* Бейдж для новых позиций */
+.newBadge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.16);
+    z-index: 2;
+}
+
+.newBadge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #f97316, #fb923c);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+}
+
+.itemCard.filled .newBadge {
+    background: linear-gradient(135deg, #22c55e, #4ade80);
+}
+
 /* Индикатор редактирования */
 .editingBadge {
     position: absolute;

@@ -179,10 +179,16 @@ const ItemList: React.FC<ItemListProps> = ({
     .sort((a, b) => {
       const aStatus = getItemStatus(a);
       const bStatus = getItemStatus(b);
+
+      // Новые товары показываем первыми
+      const aIsNew = a.raw?.isNew || a.semifinished?.isNew;
+      const bIsNew = b.raw?.isNew || b.semifinished?.isNew;
+      if (aIsNew && !bIsNew) return -1;
+      if (!aIsNew && bIsNew) return 1;
   
-      // Новый приоритет: "не используется" всегда в самом конце
-      if (a.raw?.isUnused) return 1;   // a не используется → ставим в конец
-      if (b.raw?.isUnused) return -1;  // b не используется → ставим в конец
+      // "Не используется" всегда в самом конце
+      if (a.raw?.isUnused) return 1;
+      if (b.raw?.isUnused) return -1;
   
       // Дальше как было: outOfStock в конец, но перед "не используется"
       if (aStatus === 'outOfStock' && bStatus !== 'outOfStock') return 1;
@@ -444,6 +450,8 @@ const ItemList: React.FC<ItemListProps> = ({
                                 return () => unsubscribe();
                             }, [chatId, category, itemId]);
                             
+                            const isNew = item.raw?.isNew || item.semifinished?.isNew;
+
                             return (
                                 <motion.div
                                     key={itemId}
@@ -466,6 +474,11 @@ const ItemList: React.FC<ItemListProps> = ({
                                     whileTap={{ scale: 0.98 }}
                                     layout
                                 >
+                                    {isNew && (
+                                        <div className={styles.newBadge}>
+                                            NEW
+                                        </div>
+                                    )}
                                     <h3 className={styles.itemTitle}>
                                         {isSearchResult ? 
                                             highlightMatch(itemId, searchQuery) : itemId

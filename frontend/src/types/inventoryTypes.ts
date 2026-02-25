@@ -50,6 +50,7 @@ export interface InventoryItemDetails {
     filled: boolean;
     isOutOfStock?: boolean;
     isUnused?: boolean;
+    isNew?: boolean;
     notes?: string;
 }
 

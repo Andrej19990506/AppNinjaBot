@@ -840,6 +840,24 @@
         "notes": ""
       }
     },
+    "Стакан для бабл-ти (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Крышка для стакана бабл-ти (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
     "Крышка к контейнеру для салатов/закусок (шт.)": {
       "raw": {
         "quantity": 0,
@@ -859,6 +877,15 @@
       }
     },
     "Трубочка черная (шт.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": ""
+      }
+    },
+    "Трубочка для бабл-ти (шт.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

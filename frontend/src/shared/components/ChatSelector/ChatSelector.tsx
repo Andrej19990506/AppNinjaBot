@@ -497,7 +497,6 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                     style={{ 
                                         display: index === activeIndex ? 'block' : 'none'
                                     }}
-                                    onClick={() => handleChatClick(chat)}
                                     onMouseMove={handleMouseMove}
                                 >
                                     <div className={styles.chatHeader}>
@@ -579,6 +578,19 @@ const ChatSelector: React.FC<ChatSelectorProps> = ({
                                                 }
                                             </span>
                                         </div>
+                                    </div>
+
+                                    <div className={styles.startActionWrapper}>
+                                        <button
+                                            type="button"
+                                            className={styles.startActionButton}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleChatClick(chat);
+                                            }}
+                                        >
+                                            {mode === 'supplies' ? 'Выбрать' : 'Приступить'}
+                                        </button>
                                     </div>
                                 </div>
                             ))}

@@ -695,7 +695,7 @@
         "notes": ""
       }
     },
-    "Смесь для приготовление сырной пенки (гр.)": {
+    "Топинг-смесь Сыр (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,
@@ -736,6 +736,46 @@
       }
     },
     "Основа концетрат Бабл ти Орео (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Джус-боллы Шоколад (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Джус-боллы Маракуя (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Взрывная карамель (гр.)": {
+      "raw": {
+        "quantity": 0,
+        "filled": false,
+        "expiry_date": null,
+        "warning_days": null,
+        "notes": "",
+        "is_new": true
+      }
+    },
+    "Посыпка Шарики воздушный рис (гр.)": {
       "raw": {
         "quantity": 0,
         "filled": false,

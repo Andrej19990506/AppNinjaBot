@@ -115,39 +115,43 @@ async def has_inventory_feature(db: AsyncSession, group_telegram_id: int) -> boo
 
 # Python version of calculateInventoryProgress
 def calculate_inventory_progress_py(inventory: Dict[str, Any] | None) -> int:
-    if not inventory:
+    if not isinstance(inventory, dict):
         return 0
+
     total_items = 0
     filled_items = 0
+
     try:
         for category_data in inventory.values():
             if not isinstance(category_data, dict):
-                continue # Skip if category data is not a dict
+                continue
+
             for item in category_data.values():
                 if not isinstance(item, dict):
-                     continue # Skip if item data is not a dict
-                # Check raw item
-                raw = item.get('raw')
+                    continue
+
+                # raw: считаем всегда, если есть
+                raw = item.get("raw")
                 if isinstance(raw, dict):
                     total_items += 1
-                    if raw.get('filled') or raw.get('quantity', 0) > 0 or raw.get('isOutOfStock'):
+                    if raw.get("filled") or raw.get("quantity", 0) > 0 or raw.get("isOutOfStock"):
                         filled_items += 1
-                # Check semifinished item
-                semifinished = item.get('semifinished')
+
+                # semifinished: учитываем только когда он реально активен
+                semifinished = item.get("semifinished")
                 if isinstance(semifinished, dict):
-                    total_items += 1
-                    # Semifinished doesn't have isOutOfStock usually
-                    if semifinished.get('filled') or semifinished.get('quantity', 0) > 0:
+                    semi_filled = bool(semifinished.get("filled")) or semifinished.get("quantity", 0) > 0
+                    if semi_filled:
+                        total_items += 1
                         filled_items += 1
     except Exception as e:
         logger.error(f"Error calculating progress: {e}. Inventory structure might be invalid.")
-        return 0 # Return 0 on error
+        return 0
 
     if total_items == 0:
         return 0
 
-    progress = round((filled_items / total_items) * 100)  
-    return progress
+    return round((filled_items / total_items) * 100)
 
 # Функция обновления метаданных инвентаризации
 def update_inventory_metadata(metadata: Dict[str, Any], new_progress: int) -> Dict[str, Any]:

@@ -370,6 +370,15 @@ async def telegram_webhook_universal(bot_identifier: str, update_data: dict, req
     
     logger.info(f"📥 Получено обновление через вебхук для бота: {bot_identifier}")
     logger.debug(f"Обновление: {json.dumps(update_data, ensure_ascii=False, default=str)[:500]}")
+
+    # Optional Go-gateway auth: when token is configured, reject direct unsigned traffic.
+    forward_auth_token = os.getenv("FORWARD_AUTH_TOKEN")
+    if forward_auth_token:
+        auth_header = request.headers.get("Authorization", "")
+        expected = f"Bearer {forward_auth_token}"
+        if auth_header != expected:
+            logger.warning("Неверный Authorization токен для webhook proxy запроса")
+            raise HTTPException(status_code=401, detail="Invalid proxy authorization token")
     
     # Проверка секретного токена (если используется)
     if WEBHOOK_SECRET:

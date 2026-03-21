@@ -305,29 +305,23 @@ async def lifespan(app: FastAPI):
                     asyncio.create_task(bot_app_instance.updater.start_polling(drop_pending_updates=True))
                     logger.info(f"✅ Long polling запущен для бота: {bot_name}")
                 else:
+                    # Путь FastAPI, куда попадает тело апдейта (напрямую от Telegram или через Go-proxy)
+                    if config.BOT_TYPE == 'main':
+                        webhook_path = "/api/telegram/webhook/main"
+                    elif bot_id:
+                        webhook_path = f"/api/telegram/webhook/{bot_id}"
+                    else:
+                        webhook_path = config.WEBHOOK_PATH if config.WEBHOOK_PATH else "/api/telegram/webhook/main"
+                        logger.warning(f"⚠️ Используется fallback webhook path: {webhook_path}")
+
+                    bot_app_instance.bot_data['webhook_path'] = webhook_path
+
                     if config.WEBHOOK_URL:
-                        # Генерируем уникальный webhook path для каждого бота
-                        # Основной бот: /api/telegram/webhook/main
-                        # Боты компаний: /api/telegram/webhook/{bot_id}
-                        if config.BOT_TYPE == 'main':
-                            webhook_path = "/api/telegram/webhook/main"
-                        elif bot_id:
-                            # Для ботов компаний используем ID из БД
-                            webhook_path = f"/api/telegram/webhook/{bot_id}"
-                        else:
-                            # Fallback для старой конфигурации
-                            webhook_path = config.WEBHOOK_PATH if config.WEBHOOK_PATH else "/api/telegram/webhook/main"
-                            logger.warning(f"⚠️ Используется fallback webhook path: {webhook_path}")
-                        
                         webhook_url = f"{config.WEBHOOK_URL.rstrip('/')}{webhook_path}"
                         secret_token = config.WEBHOOK_SECRET
-                        
-                        # Сохраняем webhook_path в bot_data для использования в routes
-                        bot_app_instance.bot_data['webhook_path'] = webhook_path
-                        
-                        # Указываем allowed_updates для получения событий о новых участниках
+
                         allowed_updates = [
-                            "message",  # Включает new_chat_members
+                            "message",
                             "edited_message",
                             "channel_post",
                             "edited_channel_post",
@@ -340,48 +334,53 @@ async def lifespan(app: FastAPI):
                             "poll_answer",
                             "my_chat_member",
                             "chat_member",
-                            "chat_join_request"
+                            "chat_join_request",
                         ]
                         await bot_app_instance.bot.set_webhook(
                             url=webhook_url,
                             secret_token=secret_token,
                             drop_pending_updates=True,
-                            allowed_updates=allowed_updates
+                            allowed_updates=allowed_updates,
                         )
                         logger.info(f"✅ Вебхук установлен для бота: {bot_name} на {webhook_path}")
                         logger.info(f"   URL: {webhook_url}")
                         logger.info(f"   Allowed updates: {allowed_updates}")
-                        
-                        # Для webhook режима нужно запустить обработку очереди обновлений
-                        # updater.start_webhook() не нужен, так как мы получаем обновления через FastAPI
-                        # но нужно запустить обработку очереди обновлений
-                        if bot_app_instance.updater:
-                            bot_app_instance.updater._start_webhook = lambda: None  # Отключаем встроенный webhook сервер
-                            # Запускаем обработку очереди обновлений в фоне
-                            async def process_updates_from_queue():
-                                """Обрабатывает обновления из очереди для webhook режима"""
-                                try:
-                                    while bot_app_instance.running:
-                                        try:
-                                            # Получаем обновление из очереди с таймаутом
-                                            update = await asyncio.wait_for(
-                                                bot_app_instance.update_queue.get(),
-                                                timeout=1.0
-                                            )
-                                            # Обрабатываем обновление
-                                            await bot_app_instance.process_update(update)
-                                            logger.debug(f"✅ Обновление {update.update_id} обработано")
-                                        except asyncio.TimeoutError:
-                                            # Таймаут - это нормально, продолжаем цикл
-                                            continue
-                                        except Exception as e:
-                                            logger.error(f"❌ Ошибка при обработке обновления из очереди: {e}", exc_info=True)
-                                except Exception as e:
-                                    logger.error(f"❌ Критическая ошибка в обработчике очереди обновлений: {e}", exc_info=True)
-                            
-                            # Запускаем обработку очереди в фоне
-                            asyncio.create_task(process_updates_from_queue())
-                            logger.info(f"✅ Обработка очереди обновлений запущена для бота: {bot_name}")
+                    else:
+                        logger.info(
+                            "ℹ️ WEBHOOK_URL пуст — не вызываем Telegram setWebhook "
+                            "(ожидаем внешний шлюз или ручную настройку webhook в Telegram)."
+                        )
+
+                    # Webhook-режим: апдейты кладёт FastAPI в update_queue; очередь нужна всегда, не только при setWebhook.
+                    if bot_app_instance.updater:
+                        bot_app_instance.updater._start_webhook = lambda: None
+
+                        async def process_updates_from_queue():
+                            """Обрабатывает обновления из очереди для webhook режима"""
+                            try:
+                                while bot_app_instance.running:
+                                    try:
+                                        update = await asyncio.wait_for(
+                                            bot_app_instance.update_queue.get(),
+                                            timeout=1.0,
+                                        )
+                                        await bot_app_instance.process_update(update)
+                                        logger.debug(f"✅ Обновление {update.update_id} обработано")
+                                    except asyncio.TimeoutError:
+                                        continue
+                                    except Exception as e:
+                                        logger.error(
+                                            f"❌ Ошибка при обработке обновления из очереди: {e}",
+                                            exc_info=True,
+                                        )
+                            except Exception as e:
+                                logger.error(
+                                    f"❌ Критическая ошибка в обработчике очереди обновлений: {e}",
+                                    exc_info=True,
+                                )
+
+                        asyncio.create_task(process_updates_from_queue())
+                        logger.info(f"✅ Обработка очереди обновлений запущена для бота: {bot_name}")
             except Exception as e:
                 logger.error(f"❌ Ошибка при запуске бота {bot_name}: {e}")
                 raise

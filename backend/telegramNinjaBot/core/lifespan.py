@@ -138,29 +138,45 @@ async def lifespan(app: FastAPI):
         
         # Определяем, используем ли лонг-поллинг
         use_long_polling = (environment == 'development' or use_polling)
+
+        # Исходящий прокси к api.telegram.org через Go на Render (если хост режет Telegram)
+        telegram_proxy_base = os.getenv("TELEGRAM_API_PROXY_BASE", "").strip()
+        forward_auth_token = os.getenv("FORWARD_AUTH_TOKEN", "").strip()
+        if telegram_proxy_base and not forward_auth_token:
+            raise ValueError(
+                "TELEGRAM_API_PROXY_BASE задан, но FORWARD_AUTH_TOKEN пуст — "
+                "прокси требует Authorization: Bearer (тот же, что на Render и для входящего webhook)"
+            )
         
         async def create_bot_application(token: str, bot_id: int = None, bot_name: str = None) -> Application:
             """Создает и настраивает Application для одного бота"""
-            if use_long_polling:
-                bot_app = (
-                    Application.builder()
-                    .token(token) 
-                    .connect_timeout(60.0)
-                    .read_timeout(60.0)
-                    .write_timeout(60.0)
-                    .pool_timeout(60.0)
-                    .build()
+            builder = (
+                Application.builder()
+                .token(token)
+                .connect_timeout(60.0)
+                .read_timeout(60.0)
+                .write_timeout(60.0)
+                .pool_timeout(60.0)
+            )
+
+            if telegram_proxy_base and forward_auth_token:
+                from telegramNinjaBot.core.telegram_proxy_http import ProxyAuthHTTPXRequest
+
+                request = ProxyAuthHTTPXRequest(
+                    connection_pool_size=16,
+                    connect_timeout=60.0,
+                    read_timeout=60.0,
+                    write_timeout=60.0,
+                    pool_timeout=60.0,
+                    forward_auth_token=forward_auth_token,
                 )
-            else:
-                bot_app = (
-                    Application.builder()
-                    .token(token) 
-                    .connect_timeout(60.0)
-                    .read_timeout(60.0)
-                    .write_timeout(60.0)
-                    .pool_timeout(60.0)
-                    .build()
-                )
+                base = telegram_proxy_base.rstrip("/")
+                api_base = f"{base}/tgapi/bot"
+                file_base = f"{base}/tgfile/file/bot"
+                builder = builder.request(request).base_url(api_base).base_file_url(file_base)
+                logger.info("🌐 Исходящий Telegram Bot API через прокси: %s (file: %s)", api_base, file_base)
+
+            bot_app = builder.build()
             
             # Сохраняем db_service в bot_data
             bot_app.bot_data['db_service'] = db_service

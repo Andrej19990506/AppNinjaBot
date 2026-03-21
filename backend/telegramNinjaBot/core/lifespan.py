@@ -150,15 +150,8 @@ async def lifespan(app: FastAPI):
         
         async def create_bot_application(token: str, bot_id: int = None, bot_name: str = None) -> Application:
             """Создает и настраивает Application для одного бота"""
-            builder = (
-                Application.builder()
-                .token(token)
-                .connect_timeout(60.0)
-                .read_timeout(60.0)
-                .write_timeout(60.0)
-                .pool_timeout(60.0)
-            )
-
+            # PTB: нельзя одновременно задавать .request() и .connect_timeout() на builder —
+            # таймауты при кастомном HTTPXRequest только внутри него.
             if telegram_proxy_base and forward_auth_token:
                 from telegramNinjaBot.core.telegram_proxy_http import ProxyAuthHTTPXRequest
 
@@ -173,8 +166,23 @@ async def lifespan(app: FastAPI):
                 base = telegram_proxy_base.rstrip("/")
                 api_base = f"{base}/tgapi/bot"
                 file_base = f"{base}/tgfile/file/bot"
-                builder = builder.request(request).base_url(api_base).base_file_url(file_base)
+                builder = (
+                    Application.builder()
+                    .token(token)
+                    .request(request)
+                    .base_url(api_base)
+                    .base_file_url(file_base)
+                )
                 logger.info("🌐 Исходящий Telegram Bot API через прокси: %s (file: %s)", api_base, file_base)
+            else:
+                builder = (
+                    Application.builder()
+                    .token(token)
+                    .connect_timeout(60.0)
+                    .read_timeout(60.0)
+                    .write_timeout(60.0)
+                    .pool_timeout(60.0)
+                )
 
             bot_app = builder.build()
             

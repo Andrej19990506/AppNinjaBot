@@ -373,13 +373,18 @@ async def telegram_webhook_universal(bot_identifier: str, update_data: dict, req
 
     # Optional Go-gateway auth: when token is configured, reject direct unsigned traffic.
     # .strip() как в lifespan.py: в .env на сервере часто бывает \r\n — без strip вебхук 401 при верном токене.
+    # Render шлёт Bearer; Telegram напрямую на /api/telegram/webhook/<id> — без Bearer, но с X-Telegram-Bot-Api-Secret-Token (если задан в setWebhook).
     forward_auth_token = (os.getenv("FORWARD_AUTH_TOKEN") or "").strip()
     if forward_auth_token:
         auth_header = (request.headers.get("Authorization") or "").strip()
         expected = f"Bearer {forward_auth_token}"
         if auth_header != expected:
-            logger.warning("Неверный Authorization токен для webhook proxy запроса")
-            raise HTTPException(status_code=401, detail="Invalid proxy authorization token")
+            tg_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
+            direct_company = bot_identifier.isdigit() and tg_secret
+            if not direct_company:
+                logger.warning("Неверный Authorization токен для webhook proxy запроса")
+                raise HTTPException(status_code=401, detail="Invalid proxy authorization token")
+            logger.debug("Вебхук компании без Bearer (прямой Telegram), с секретом в заголовке")
     
     # Проверка секретного токена (если используется)
     if WEBHOOK_SECRET:

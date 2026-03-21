@@ -380,7 +380,8 @@ http {
 
     # Сервер для бота
     # ВАЖНО: при Cloudflare SSL = Full (strict) запросы идут на origin:443.
-    # Раньше был только listen 80 → на 443 не было server_name bot.* → 502 снаружи.
+    # Сертификат тот же, что у лендинга flowixdata.ru (в volume есть только live/flowixdata.ru).
+    # Для HTTPS на bot.* имя в сертификате не совпадёт — вебхук лучше вести на https://flowixdata.ru/api/telegram/webhook/...
     server {
         listen 80;
         listen [::]:80;
@@ -388,8 +389,8 @@ http {
         listen [::]:443 ssl;
         server_name bot.appninjabot.ru localhost;
 
-        ssl_certificate ${SSL_BOT_CERT};
-        ssl_certificate_key ${SSL_BOT_KEY};
+        ssl_certificate /etc/letsencrypt/live/flowixdata.ru/fullchain.pem;
+        ssl_certificate_key /etc/letsencrypt/live/flowixdata.ru/privkey.pem;
         ssl_protocols TLSv1.2 TLSv1.3;
         ssl_prefer_server_ciphers on;
         ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;

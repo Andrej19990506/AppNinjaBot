@@ -271,7 +271,7 @@ http {
 
         # Маршрут для отправки сообщений от шедулера к боту
         location /send_message {
-            proxy_pass http://bot:8003/send_message;
+            proxy_pass http://bot-main:8003/send_message;
             
             # Анти-кэш заголовки
             add_header Cache-Control "no-cache, no-store, must-revalidate" always;

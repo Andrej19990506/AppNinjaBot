@@ -205,11 +205,16 @@ services:
       - WEBHOOK_PATH=${WEBHOOK_PATH:-/api/telegram/wh_k8s3j9aLp7qWzXyB}
       - NGINX_HOST=appninjabot.ru
       - NGINX_PORT=80
-    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT}' < /etc/nginx/nginx.conf.prod.template > /etc/nginx/nginx.conf && /docker-entrypoint.d/50-generate-config-js.sh && nginx -g 'daemon off;'"
+      # Сертификат для HTTPS на bot.appninjabot.ru (SAN должен включать поддомен или wildcard)
+      - SSL_BOT_CERT=${SSL_BOT_CERT:-/etc/letsencrypt/live/appninjabot.ru/fullchain.pem}
+      - SSL_BOT_KEY=${SSL_BOT_KEY:-/etc/letsencrypt/live/appninjabot.ru/privkey.pem}
+    command: /bin/sh -c "envsubst '\$${WEBHOOK_PATH} \$${NGINX_HOST} \$${NGINX_PORT} \$${SSL_BOT_CERT} \$${SSL_BOT_KEY}' < /etc/nginx/nginx.conf.prod.template > /etc/nginx/nginx.conf && /docker-entrypoint.d/50-generate-config-js.sh && nginx -g 'daemon off;'"
     depends_on:
       - server
       - websocket
       - landing
+      - bot-main
+      - bot-companies
     restart: unless-stopped
     networks:
       - ninja_network

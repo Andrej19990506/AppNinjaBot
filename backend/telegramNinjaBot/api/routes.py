@@ -372,9 +372,10 @@ async def telegram_webhook_universal(bot_identifier: str, update_data: dict, req
     logger.debug(f"Обновление: {json.dumps(update_data, ensure_ascii=False, default=str)[:500]}")
 
     # Optional Go-gateway auth: when token is configured, reject direct unsigned traffic.
-    forward_auth_token = os.getenv("FORWARD_AUTH_TOKEN")
+    # .strip() как в lifespan.py: в .env на сервере часто бывает \r\n — без strip вебхук 401 при верном токене.
+    forward_auth_token = (os.getenv("FORWARD_AUTH_TOKEN") or "").strip()
     if forward_auth_token:
-        auth_header = request.headers.get("Authorization", "")
+        auth_header = (request.headers.get("Authorization") or "").strip()
         expected = f"Bearer {forward_auth_token}"
         if auth_header != expected:
             logger.warning("Неверный Authorization токен для webhook proxy запроса")

@@ -39,6 +39,13 @@ from .endpoints.admin import router as admin_router
 
 api_router = APIRouter()
 
+
+@api_router.get("/health", tags=["Health"])
+async def api_v1_health():
+    """Лёгкая проверка доступности REST API по тому же префиксу /api/v1, что использует фронт."""
+    return {"status": "ok"}
+
+
 api_router.include_router(inventory.router, prefix="/inventory", tags=["Inventory"])
 
 api_router.include_router(auth_router, tags=["Auth"])

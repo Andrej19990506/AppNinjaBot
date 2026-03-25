@@ -1,10 +1,8 @@
 /**
- * Утилита для проверки доступности сервера
+ * Проверка доступности API — тот же базовый URL, что и у axios (не относительный /health).
  */
 
-// Проверяем доступность основного API через health endpoint
-const SERVER_HEALTH_ENDPOINT = '/health'; // Эндпоинт для проверки здоровья сервера
-const TIMEOUT_MS = 5000; // 5 секунд таймаут
+const TIMEOUT_MS = 8000;
 
 export interface ServerHealthStatus {
   isAvailable: boolean;
@@ -12,81 +10,117 @@ export interface ServerHealthStatus {
   error?: string;
 }
 
+/** Совпадает с логикой baseURL в shared/api/api.ts */
+function getApiBaseUrl(): string {
+  const runtime =
+    typeof window !== 'undefined' ? window.APP_CONFIG?.API_URL : undefined;
+  const buildtime = import.meta.env.VITE_API_URL as string | undefined;
+  const base = (runtime || buildtime || '').trim();
+  return base.replace(/\/$/, '');
+}
+
 /**
- * Проверяет доступность сервера
+ * URL проверки: .../api/v1/health — ходит в FastAPI через тот же nginx/CDN, что и остальные запросы.
+ */
+function getHealthCheckUrl(): string | null {
+  const base = getApiBaseUrl();
+  if (base) {
+    return `${base}/v1/health`;
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/v1/health`;
+  }
+  return null;
+}
+
+function parseHealthJson(text: string): boolean {
+  try {
+    const data = JSON.parse(text) as { status?: string };
+    return data?.status === 'ok';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Проверяет доступность API (только успешный JSON { "status": "ok" } считается OK).
  */
 export const checkServerHealth = async (): Promise<ServerHealthStatus> => {
   const startTime = Date.now();
-  
+  const url = getHealthCheckUrl();
+
+  if (!url) {
+    return {
+      isAvailable: false,
+      error: 'Не задан URL API (APP_CONFIG.API_URL / VITE_API_URL)',
+      responseTime: Date.now() - startTime,
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
-    // Создаем AbortController для таймаута
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    
-    const response = await fetch(SERVER_HEALTH_ENDPOINT, {
+    const response = await fetch(url, {
       method: 'GET',
       signal: controller.signal,
       headers: {
-        'Content-Type': 'application/json',
+        Accept: 'application/json',
       },
+      cache: 'no-store',
     });
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok) {
-      const responseTime = Date.now() - startTime;
+
+    const text = await response.text();
+
+    if (!response.ok) {
       return {
-        isAvailable: true,
-        responseTime,
+        isAvailable: false,
+        error: `HTTP ${response.status}: ${response.statusText || 'ошибка'}`,
+        responseTime: Date.now() - startTime,
       };
-    } else {
-      // 404 - это не ошибка сервера, а нормальный ответ API
-      // Ошибки сервера начинаются с 5xx
-      if (response.status >= 500) {
-        return {
-          isAvailable: false,
-          error: `HTTP ${response.status}: ${response.statusText}`,
-        };
-      } else {
-        // 4xx ошибки (включая 404) означают, что сервер работает, но ресурс не найден
-        return {
-          isAvailable: true,
-          responseTime: Date.now() - startTime,
-        };
-      }
     }
-  } catch (error: any) {
+
+    if (!parseHealthJson(text)) {
+      return {
+        isAvailable: false,
+        error:
+          'Ответ не похож на health API (ожидался JSON {"status":"ok"}); возможно отдана HTML-страница',
+        responseTime: Date.now() - startTime,
+      };
+    }
+
+    return {
+      isAvailable: true,
+      responseTime: Date.now() - startTime,
+    };
+  } catch (error: unknown) {
     const responseTime = Date.now() - startTime;
-    
-    if (error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return {
         isAvailable: false,
         error: 'Timeout: сервер не отвечает',
         responseTime,
       };
     }
-    
-    if (error.message?.includes('fetch')) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (
+      message.includes('Failed to fetch') ||
+      message.includes('NetworkError') ||
+      message.toLowerCase().includes('network')
+    ) {
       return {
         isAvailable: false,
         error: 'Network Error: сервер недоступен',
         responseTime,
       };
     }
-    
-    if (error.message?.includes('Failed to fetch')) {
-      return {
-        isAvailable: false,
-        error: 'Failed to fetch: сервер недоступен',
-        responseTime,
-      };
-    }
-    
     return {
       isAvailable: false,
-      error: error.message || 'Неизвестная ошибка подключения',
+      error: message || 'Неизвестная ошибка подключения',
       responseTime,
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 };
 
@@ -98,25 +132,30 @@ export const checkServerHealthWithRetry = async (
   delayMs: number = 1000
 ): Promise<ServerHealthStatus> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(`🔍 [ServerHealth] Попытка ${attempt}/${maxRetries} проверки сервера`);
-    
+    console.log(
+      `🔍 [ServerHealth] Попытка ${attempt}/${maxRetries} → ${getHealthCheckUrl() ?? '(no url)'}`
+    );
+
     const status = await checkServerHealth();
-    
+
     if (status.isAvailable) {
-      console.log(`✅ [ServerHealth] Сервер доступен, время ответа: ${status.responseTime}ms`);
+      console.log(
+        `✅ [ServerHealth] API доступен, время ответа: ${status.responseTime}ms`
+      );
       return status;
     }
-    
+
     console.log(`❌ [ServerHealth] Попытка ${attempt} неудачна:`, status.error);
-    
-    // Если это не последняя попытка, ждем перед следующей
+
     if (attempt < maxRetries) {
-      console.log(`⏳ [ServerHealth] Ожидание ${delayMs}ms перед следующей попыткой...`);
-      await new Promise(resolve => setTimeout(resolve, delayMs));
+      console.log(
+        `⏳ [ServerHealth] Ожидание ${delayMs}ms перед следующей попыткой...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
   }
-  
-  console.log(`💀 [ServerHealth] Все попытки исчерпаны, сервер недоступен`);
+
+  console.log(`💀 [ServerHealth] Все попытки исчерпаны`);
   return {
     isAvailable: false,
     error: 'Сервер недоступен после всех попыток подключения',

@@ -293,11 +293,6 @@ http {
             error_log /var/log/nginx/scheduler_bot_proxy_error.log warn;
         }
 
-        # Remove or update this location if test client is not needed
-        location /test-client {
-            alias /var/www/appninjabot/websocket-service/; # Check if this path exists/needed
-            index index.html;
-        }
 
         # Remove or update this location if health check is handled differently
         location /health {
@@ -379,7 +374,6 @@ http {
     }
 
     # Сервер для бота
-    # ВАЖНО: при Cloudflare SSL = Full (strict) запросы идут на origin:443.
     # Сертификат тот же, что у лендинга flowixdata.ru (в volume есть только live/flowixdata.ru).
     # Для HTTPS на bot.* имя в сертификате не совпадёт — вебхук лучше вести на https://flowixdata.ru/api/telegram/webhook/...
     server {

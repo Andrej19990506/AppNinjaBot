@@ -165,6 +165,7 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
   const dispatch = useAppDispatch();
   const hasJoinedRoom = useRef(false);
   const authInProgress = useRef(false);
+  const authPollingIntervalRef = useRef<number | null>(null);
   
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -285,6 +286,71 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
             console.log(`🔐 [Auth] Результат подключения к комнате: ${joinResult}`);
             hasJoinedRoom.current = true;
             console.log(`✅ [Auth] Подключились к комнате ${roomName} для получения токена`);
+
+            const stopAuthPolling = () => {
+              if (authPollingIntervalRef.current) {
+                window.clearInterval(authPollingIntervalRef.current);
+                authPollingIntervalRef.current = null;
+              }
+            };
+
+            const handleTokenAuth = async (token: string, source: 'websocket' | 'polling', unsubscribe?: () => void) => {
+              if (authInProgress.current) {
+                console.log(`⚠️ [Auth] Пропускаем повторную авторизацию (${source}), процесс уже идет`);
+                return;
+              }
+
+              authInProgress.current = true;
+              console.log(`🔐 [Auth] Получен токен через ${source}, начинаем авторизацию`);
+
+              try {
+                const authResult = await authenticateWithBotToken(token);
+                console.log('✅ [Auth] authenticateWithBotToken успешно', {
+                  source,
+                  hasUser: !!authResult.user,
+                  hasGroups: !!authResult.groups,
+                  groupsCount: authResult.groups?.length || 0
+                });
+
+                const mappedGroups = (authResult.groups || []).map((group: any) => ({
+                  id: undefined,
+                  group_id: group.group_id,
+                  chat_id: group.group_id,
+                  title: group.title || '',
+                  chat_title: group.title || '',
+                  group_type: group.group_type || '',
+                  username: undefined,
+                  description: undefined,
+                  members_count: undefined,
+                  json_metadata: undefined,
+                  supplies_config: undefined,
+                  created_at: undefined,
+                  role: group.role || 'member',
+                  is_senior_courier: group.is_senior_courier || false,
+                }));
+
+                const user = {
+                  id: authResult.user.user_id,
+                  first_name: authResult.user.first_name || '',
+                  last_name: authResult.user.last_name || '',
+                  username: authResult.user.username || '',
+                  photo_url: authResult.user.photo_url || '',
+                  groups: mappedGroups,
+                  isAdmin: false,
+                  adminRights: {} as any
+                };
+
+                dispatch(initializeFromTelegram.fulfilled(user, ''));
+                console.log('✅ [Auth] Авторизация успешна, страница обновится автоматически');
+
+                stopAuthPolling();
+                if (unsubscribe) unsubscribe();
+                await socketService.leaveRoom(roomName);
+              } catch (authError) {
+                console.error(`❌ [Auth] Ошибка авторизации через ${source}:`, authError);
+                authInProgress.current = false;
+              }
+            };
             
             // Подписываемся на событие bot_auth_token
             const unsubscribe = socketService.subscribe('bot_auth_token', async (data: { token: string; session_id: string }) => {
@@ -295,65 +361,8 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
                 authInProgress: authInProgress.current
               });
               
-              if (data.session_id === sessionId && !authInProgress.current) {
-                authInProgress.current = true;
-                console.log('🔐 [Auth] Получен токен через WebSocket, начинаем авторизацию');
-                
-                try {
-                  // Авторизуемся через токен
-                  console.log('🔐 [Auth] Вызываем authenticateWithBotToken...');
-                  const authResult = await authenticateWithBotToken(data.token);
-                  console.log('✅ [Auth] authenticateWithBotToken успешно', {
-                    hasUser: !!authResult.user,
-                    hasGroups: !!authResult.groups,
-                    groupsCount: authResult.groups?.length || 0
-                  });
-                  
-                  // Формируем объект пользователя из результата авторизации
-                  const mappedGroups = (authResult.groups || []).map((group: any) => ({
-                    id: undefined,
-                    group_id: group.group_id,
-                    chat_id: group.group_id,
-                    title: group.title || '',
-                    chat_title: group.title || '',
-                    group_type: group.group_type || '',
-                    username: undefined,
-                    description: undefined,
-                    members_count: undefined,
-                    json_metadata: undefined,
-                    supplies_config: undefined,
-                    created_at: undefined,
-                    role: group.role || 'member',
-                    is_senior_courier: group.is_senior_courier || false,
-                  }));
-                  
-                  const user = {
-                    id: authResult.user.user_id,
-                    first_name: authResult.user.first_name || '',
-                    last_name: authResult.user.last_name || '',
-                    username: authResult.user.username || '',
-                    photo_url: authResult.user.photo_url || '',
-                    groups: mappedGroups,
-                    isAdmin: false,
-                    adminRights: {} as any
-                  };
-                  
-                  // Диспатчим успешную инициализацию через thunk
-                  console.log('🔐 [Auth] Диспатчим успешную инициализацию пользователя...');
-                  // Используем fulfilled action напрямую
-                  dispatch(initializeFromTelegram.fulfilled(user, ''));
-                  
-                  console.log('✅ [Auth] Авторизация успешна, страница обновится автоматически');
-                  
-                  // Отписываемся от события
-                  unsubscribe();
-                  
-                  // Покидаем комнату
-                  await socketService.leaveRoom(roomName);
-                } catch (authError) {
-                  console.error('❌ [Auth] Ошибка авторизации через WebSocket токен:', authError);
-                  authInProgress.current = false;
-                }
+              if (data.session_id === sessionId) {
+                await handleTokenAuth(data.token, 'websocket', unsubscribe);
               } else {
                 console.log('⚠️ [Auth] Событие проигнорировано:', {
                   sessionMatch: data.session_id === sessionId,
@@ -361,6 +370,20 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
                 });
               }
             });
+
+            // Fallback: поллинг, если WebSocket событие потерялось
+            authPollingIntervalRef.current = window.setInterval(async () => {
+              if (authInProgress.current) return;
+              try {
+                const response = await axiosInstance.get(`/v1/auth/bot-auth-check/${sessionId}`);
+                if (response.data?.has_token && response.data?.token) {
+                  console.log('🔐 [Auth] Найден токен через polling fallback');
+                  await handleTokenAuth(response.data.token, 'polling', unsubscribe);
+                }
+              } catch (pollError) {
+                console.warn('⚠️ [Auth] Ошибка polling fallback:', pollError);
+              }
+            }, 1500);
           }
         } catch (wsError) {
           console.error('❌ [Auth] Ошибка настройки WebSocket:', wsError);
@@ -372,6 +395,10 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
     
     return () => {
       document.body.style.overflow = 'auto';
+      if (authPollingIntervalRef.current) {
+        window.clearInterval(authPollingIntervalRef.current);
+        authPollingIntervalRef.current = null;
+      }
       // Отключаемся от WebSocket при размонтировании
       if (hasJoinedRoom.current) {
         socketService.leaveRoom(`auth_session:${sessionId}`);

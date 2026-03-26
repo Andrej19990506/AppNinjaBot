@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI, Request, status, Depends
 from dotenv import load_dotenv
 import os
@@ -51,14 +52,33 @@ async def lifespan(app: FastAPI):
     redis_host = os.getenv("REDIS_HOST", "cache") # Имя сервиса из docker-compose
     redis_port = int(os.getenv("REDIS_PORT", 6379))
     logger.info(f"🔗 [Redis] Попытка подключения к Redis/DragonflyDB: {redis_host}:{redis_port}")
+    # Иногда на старте срабатывает гонка готовности DNS/сервиса.
+    # Чтобы не оставлять redis_client=None навсегда, делаем повторные попытки ping.
+    max_tries = int(os.getenv("REDIS_CONNECT_MAX_TRIES", "10"))
+    retry_delay_sec = float(os.getenv("REDIS_CONNECT_RETRY_DELAY_SEC", "1.0"))
+
     try:
         redis_client = redis.Redis(host=redis_host, port=redis_port, decode_responses=True) # decode_responses=True для строк
-        await redis_client.ping() # Проверяем соединение
-        logger.info(f"✅ [Redis] Успешное подключение к Redis/DragonflyDB по адресу {redis_host}:{redis_port}")
-    except redis.ConnectionError as e:
-        logger.error(f"❌ [Redis] Ошибка подключения к Redis/DragonflyDB ({redis_host}:{redis_port}): {e}")
-        logger.error(f"❌ [Redis] Убедитесь, что Redis/DragonflyDB запущен и доступен")
-        redis_client = None # Устанавливаем в None, если не удалось подключиться
+
+        last_error: Exception | None = None
+        for attempt in range(1, max_tries + 1):
+            try:
+                logger.info(f"🔗 [Redis] Попытка подключения ({attempt}/{max_tries}): {redis_host}:{redis_port}")
+                await redis_client.ping()
+                logger.info(f"✅ [Redis] Успешное подключение к Redis/DragonflyDB по адресу {redis_host}:{redis_port}")
+                last_error = None
+                break
+            except redis.ConnectionError as e:
+                last_error = e
+                logger.error(f"❌ [Redis] Ошибка подключения ({attempt}/{max_tries}): {e}")
+                if attempt < max_tries:
+                    await asyncio.sleep(retry_delay_sec)
+
+        if last_error is not None:
+            logger.error(
+                f"❌ [Redis] Не удалось подключиться к Redis/DragonflyDB после {max_tries} попыток: {redis_host}:{redis_port}: {last_error}"
+            )
+            redis_client = None
     except Exception as e:
         logger.error(f"❌ [Redis] Неожиданная ошибка при подключении к Redis/DragonflyDB: {e}", exc_info=True)
         redis_client = None # Устанавливаем в None, если не удалось подключиться

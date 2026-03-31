@@ -73,6 +73,17 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5 MB
         globIgnores: ['**/node_modules/**/*'],
         runtimeCaching: [
+          // Telegram Login Widget callback MUST bypass Workbox cache.
+          // Otherwise redirects can fail with Workbox "no-response".
+          {
+            urlPattern: ({ url }) =>
+              url.pathname === '/v1/auth/telegram/login' ||
+              url.pathname.startsWith('/v1/auth/telegram/login/'),
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'auth-bypass'
+            }
+          },
           {
             urlPattern: /^https?:\/\/.*\.js$/i,
             handler: 'NetworkFirst',

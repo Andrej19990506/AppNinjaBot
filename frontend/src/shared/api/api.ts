@@ -230,6 +230,29 @@ export const authenticateWithTelegram = async (initData: string): Promise<{
     }
 };
 
+// Локальная авторизация (без Telegram)
+export const authenticateWithLocal = async (login: string, password: string): Promise<{
+    access_token: string;
+    refresh_token: string;
+    user: any;
+    groups: any[];
+}> => {
+    try {
+        const response = await axiosInstance.post('/v1/auth/local/login', { login, password });
+        const { tokens, user, groups } = response.data;
+        const access_token = tokens.access_token;
+        const refresh_token = tokens.refresh_token;
+        setAuthToken(access_token, refresh_token);
+        return { access_token, refresh_token, user, groups };
+    } catch (error: any) {
+        if (axios.isAxiosError(error)) {
+            const detail = error.response?.data?.detail || error.message;
+            throw new Error(detail || 'Ошибка локальной авторизации');
+        }
+        throw error;
+    }
+};
+
 const emitSocketEvent = (event: string, data: any): Promise<boolean> => {
     return new Promise((resolve) => {
         if (!socketService.isConnected()) {

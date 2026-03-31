@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { axiosInstance } from '@shared/api/api';
+import { axiosInstance, authenticateWithLocal } from '@shared/api/api';
+import { useAppDispatch } from '@shared/store/hooks';
+import { initializeFromTelegram } from '@shared/store/userSlice/userThunks';
 
 const fadeIn = keyframes`
   from {
@@ -142,6 +144,59 @@ const Hint = styled.p`
   opacity: 0.7;
 `;
 
+const Form = styled.form`
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+`;
+
+const Input = styled.input`
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-color);
+  outline: none;
+
+  &:focus {
+    border-color: rgba(0,136,204,0.7);
+    box-shadow: 0 0 0 3px rgba(0,136,204,0.15);
+  }
+`;
+
+const PrimaryButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 18px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #0088cc, #00a3ff);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
+const ErrorText = styled.div`
+  width: 100%;
+  max-width: 420px;
+  color: #ff6b6b;
+  font-size: 13px;
+  margin-top: 8px;
+  text-align: center;
+`;
+
 interface Props {
   error: string;
 }
@@ -156,6 +211,12 @@ const AnimatedTelegramSVG = () => (
 const TelegramAccessError: React.FC<Props> = ({ error }) => {
   const [botUsername, setBotUsername] = useState<string>('Flouix_bot');
   const widgetContainerRef = useRef<HTMLDivElement | null>(null);
+  const dispatch = useAppDispatch();
+
+  const [localLogin, setLocalLogin] = useState('');
+  const [localPassword, setLocalPassword] = useState('');
+  const [localSubmitting, setLocalSubmitting] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -234,7 +295,72 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
 
         {/* Кнопка авторизации через Telegram */}
         {isAuthRequired ? (
-          <div ref={widgetContainerRef} />
+          <>
+            <div ref={widgetContainerRef} />
+
+            <Form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setLocalError(null);
+                setLocalSubmitting(true);
+                try {
+                  const result = await authenticateWithLocal(localLogin.trim(), localPassword);
+                  const mappedGroups = (result.groups || []).map((group: any) => ({
+                    id: undefined,
+                    group_id: group.group_id,
+                    chat_id: group.group_id,
+                    title: group.title || '',
+                    chat_title: group.title || '',
+                    group_type: group.group_type || '',
+                    username: undefined,
+                    description: undefined,
+                    members_count: undefined,
+                    json_metadata: undefined,
+                    supplies_config: undefined,
+                    created_at: undefined,
+                    role: group.role || 'member',
+                    is_senior_courier: group.is_senior_courier || false,
+                  }));
+
+                  const user = {
+                    id: result.user.user_id,
+                    first_name: result.user.first_name || '',
+                    last_name: result.user.last_name || '',
+                    username: result.user.username || '',
+                    photo_url: result.user.photo_url || '',
+                    groups: mappedGroups,
+                    isAdmin: false,
+                    adminRights: {} as any,
+                  };
+
+                  dispatch(initializeFromTelegram.fulfilled(user as any, ''));
+                } catch (err: any) {
+                  setLocalError(err?.message || 'Ошибка локального входа');
+                } finally {
+                  setLocalSubmitting(false);
+                }
+              }}
+            >
+              <Input
+                value={localLogin}
+                onChange={(e) => setLocalLogin(e.target.value)}
+                placeholder="Логин (user_id или ваш логин)"
+                inputMode="numeric"
+                autoComplete="username"
+              />
+              <Input
+                value={localPassword}
+                onChange={(e) => setLocalPassword(e.target.value)}
+                placeholder="Пароль (первый вход: последние 4 цифры user_id)"
+                type="password"
+                autoComplete="current-password"
+              />
+              <PrimaryButton disabled={localSubmitting || !localLogin || !localPassword} type="submit">
+                {localSubmitting ? 'Входим...' : 'Войти по логину/паролю'}
+              </PrimaryButton>
+            </Form>
+            {localError && <ErrorText>{localError}</ErrorText>}
+          </>
         ) : (
           <TelegramButton 
             href={`https://t.me/${botUsername}`} 
@@ -253,7 +379,7 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
         {/* Подсказка */}
         <Hint>
           {isAuthRequired 
-            ? 'Нажмите “Войти через Telegram”, чтобы авторизоваться в браузере'
+            ? 'Можно войти через Telegram или по логину/паролю (первый вход: user_id + последние 4 цифры)'
             : 'Пожалуйста, откройте приложение через Telegram-бота для корректной работы'}
         </Hint>
       </Content>

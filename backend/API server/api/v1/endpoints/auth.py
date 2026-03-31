@@ -1,6 +1,7 @@
 import logging
 import json
 from typing import List
+import bcrypt
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.config import settings
 from core.dependencies import get_redis_client
+from api.dependencies.auth import get_current_member
 from core.security import (
     TokenType,
     create_access_token,
@@ -27,6 +29,8 @@ from schemas.auth import (
     BotTokenAuthRequest,
     BotTokenStoreRequest,
     DevAuthRequest,
+    LocalLoginRequest,
+    LocalSetupRequest,
     TelegramAuthResponse,
     TelegramWebAppAuthRequest,
     TokenRefreshRequest,
@@ -172,6 +176,118 @@ async def authenticate_telegram_login_widget(
     # (Simple & works with current app architecture; no WS/polling.)
     redirect_url = f"{base}/?tg_login=1&access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
     return RedirectResponse(url=redirect_url, status_code=302)
+
+
+def _bcrypt_hash_password(password: str) -> str:
+    hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12))
+    return hashed.decode("utf-8")
+
+
+def _bcrypt_verify(password: str, password_hash: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+
+@router.post("/local/login", response_model=TelegramAuthResponse)
+async def authenticate_local(
+    payload: LocalLoginRequest,
+    db: AsyncSession = Depends(get_db_session),
+) -> TelegramAuthResponse:
+    """
+    Локальная авторизация (без Telegram).
+    - Если у Member задан password_hash: проверяем bcrypt.
+    - Иначе разрешаем "первый вход" по user_id и паролю=последние 4 цифры user_id.
+    """
+    login_raw = (payload.login or "").strip()
+    password_raw = payload.password or ""
+
+    if not login_raw:
+        raise HTTPException(status_code=400, detail="Login is required")
+
+    member: Member | None = None
+
+    # 1) Попытка найти по login (если пользователь уже настроил)
+    stmt = select(Member).where(Member.login == login_raw)
+    result = await db.execute(stmt)
+    member = result.scalar_one_or_none()
+
+    # 2) Фолбэк: login как user_id (первый вход)
+    if member is None:
+        try:
+            user_id = int(login_raw)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+        stmt = select(Member).where(Member.user_id == user_id)
+        result = await db.execute(stmt)
+        member = result.scalar_one_or_none()
+
+    if member is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+    # Проверка пароля
+    if member.password_hash:
+        if not _bcrypt_verify(password_raw, member.password_hash):
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    else:
+        # Первый вход: пароль = последние 4 цифры user_id
+        expected = str(member.user_id)[-4:]
+        if password_raw != expected:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+
+        # Зафиксируем, что пользователь вошёл: по умолчанию выставим login=user_id (если пусто)
+        if not member.login:
+            member.login = str(member.user_id)
+            await db.flush()
+
+    groups = await _load_member_groups(db, member)
+    tokens = _build_token_pair(member.user_id)
+    auth_user = AuthenticatedUser(
+        user_id=member.user_id,
+        first_name=member.first_name,
+        last_name=member.last_name,
+        username=member.username,
+        photo_url=member.photo_url,
+    )
+    return TelegramAuthResponse(tokens=tokens, user=auth_user, groups=groups)
+
+
+@router.post("/local/setup", response_model=TelegramAuthResponse)
+async def setup_local_credentials(
+    payload: LocalSetupRequest,
+    current_member: Member = Depends(get_current_member),
+    db: AsyncSession = Depends(get_db_session),
+) -> TelegramAuthResponse:
+    """
+    Установка/смена логина и пароля для текущего пользователя.
+    Требует Bearer access token.
+    """
+    new_login = payload.new_login.strip()
+    new_password = payload.new_password
+
+    # Проверяем уникальность логина
+    stmt = select(Member).where(Member.login == new_login, Member.id != current_member.id)
+    result = await db.execute(stmt)
+    exists = result.scalar_one_or_none()
+    if exists is not None:
+        raise HTTPException(status_code=409, detail="Login already taken")
+
+    current_member.login = new_login
+    current_member.password_hash = _bcrypt_hash_password(new_password)
+    await db.flush()
+
+    groups = await _load_member_groups(db, current_member)
+    tokens = _build_token_pair(current_member.user_id)
+    auth_user = AuthenticatedUser(
+        user_id=current_member.user_id,
+        first_name=current_member.first_name,
+        last_name=current_member.last_name,
+        username=current_member.username,
+        photo_url=current_member.photo_url,
+    )
+    return TelegramAuthResponse(tokens=tokens, user=auth_user, groups=groups)
 
 
 @router.post("/token/refresh", response_model=AuthTokenPair)

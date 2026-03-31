@@ -17,6 +17,8 @@ class Member(Base):
     
     id: Mapped[int] = Column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = Column(BigInteger, unique=True, index=True, nullable=False)
+    login: Mapped[Optional[str]] = Column(String(255), unique=True, index=True, nullable=True)
+    password_hash: Mapped[Optional[str]] = Column(String(255), nullable=True)
     username: Mapped[Optional[str]] = Column(String(255), nullable=True)
     first_name: Mapped[Optional[str]] = Column(String(255), nullable=True)
     last_name: Mapped[Optional[str]] = Column(String(255), nullable=True)
@@ -34,6 +36,7 @@ class Member(Base):
     __table_args__ = (
         UniqueConstraint('user_id', name='uq_member_user_id'),
         Index('ix_members_user_id', 'user_id', unique=True),
+        Index('ix_members_login', 'login', unique=True),
         Index('ix_members_id', 'id', unique=False)
     )
 

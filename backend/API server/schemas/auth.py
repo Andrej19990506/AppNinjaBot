@@ -55,3 +55,20 @@ class BotTokenStoreRequest(BaseModel):
 class BotTokenAuthRequest(BaseModel):
     token: str = Field(..., min_length=16, description="One-time authentication token from bot")
 
+
+class LocalLoginRequest(BaseModel):
+    """
+    Локальная авторизация без Telegram.
+    Первый вход: login=user_id, password=последние 4 цифры user_id (если у пользователя ещё не задан пароль).
+    """
+    login: str = Field(..., min_length=1, max_length=255)
+    password: str = Field(..., min_length=1, max_length=255)
+
+
+class LocalSetupRequest(BaseModel):
+    """
+    Установка/смена логина и пароля после первого входа.
+    """
+    new_login: str = Field(..., min_length=3, max_length=255)
+    new_password: str = Field(..., min_length=6, max_length=255)
+

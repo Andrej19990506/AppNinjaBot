@@ -50,6 +50,35 @@ import { setAuthToken } from '@shared/api/api';
 const MIN_LOADING_TIME = 1500; 
 const WINTER_DECOR_STORAGE_KEY = 'flowix-winter-decor-enabled';
 
+const AuthenticatedAppEffects: React.FC = () => {
+  useWebSocketSync();
+  useWebSocketConnection(); // Инициализация WebSocket
+  useActivityNotifications(); // Глобальные уведомления активности
+  return null;
+};
+
+const AuthenticatedModals: React.FC = () => {
+  const { isModalOpen, permissionsNotification, handleModalClose } = usePermissionsWebSocket();
+  return permissionsNotification ? (
+    <PermissionsExpiredModal
+      isOpen={isModalOpen}
+      onClose={handleModalClose}
+      message={permissionsNotification.message}
+      notificationType={permissionsNotification.notification_type}
+    />
+  ) : null;
+};
+
+const AuthenticatedAwayOverlay: React.FC = () => {
+  const { isAwayOverlayVisible, handleContinueWork } = useAwayState();
+  return (
+    <AwayOverlay 
+      isVisible={isAwayOverlayVisible}
+      onContinue={handleContinueWork}
+    />
+  );
+};
+
 const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useAppDispatch();
   const isUserInitialized = useSelector(selectIsUserInitialized);
@@ -68,7 +97,6 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isActuallyLoading = !isUserInitialized && !initError;
 
   // Telegram Login Widget callback: tokens arrive via query params on main domain.
-  // We store them, clean URL, and reload so the normal init flow uses saved tokens.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tgLogin = params.get('tg_login');
@@ -85,10 +113,18 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
       window.history.replaceState({}, '', cleaned);
 
-      // Restart initialization cleanly
-      window.location.reload();
+      // Запускаем обычный flow инициализации без перезагрузки страницы
+      initStarted.current = false; // позволяем основному эффекту заново стартануть
+      dispatch(initializeFromTelegram())
+        .unwrap()
+        .then(() => {
+          console.log('✅ [Auth] Пользователь инициализирован после Telegram Login Widget');
+        })
+        .catch((err) => {
+          console.error('❌ [Auth] Ошибка инициализации после Telegram Login Widget:', err);
+        });
     }
-  }, []);
+  }, [dispatch]);
 
   // Определяем тип ошибки
   const isServerError = initError && (
@@ -179,11 +215,7 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     } 
   }, [isActuallyLoading]);
 
-  useWebSocketSync();
-  const { isModalOpen, permissionsNotification, handleModalClose } = usePermissionsWebSocket();
-  useWebSocketConnection(); // Инициализация WebSocket
-  useActivityNotifications(); // Глобальные уведомления активности
-  const { isAwayOverlayVisible, handleContinueWork } = useAwayState(); // Управление заставкой отсутствия
+  const isAuthenticated = isUserInitialized && initError !== 'AUTH_REQUIRED';
 
   // Функция для обновления всех данных приложения
   const refreshApp = useCallback(async () => {
@@ -253,7 +285,6 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
     isUserInitialized,
     user: user ? { id: user.id, groups: user.groups } : null,
     hasGroups: user?.groups ? user.groups.length : 0,
-    isAwayOverlayVisible, // Добавляем состояние заставки отсутствия
     isServerError,
     showServerError,
     serverChecked
@@ -275,11 +306,6 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
       console.log('ℹ️ [App] Требуется авторизация через Telegram бота');
     }
   }, [initError, isServerError, user]);
-
-  // Отладка состояния заставки отсутствия
-  useEffect(() => {
-    console.log('🔍 [App Debug] isAwayOverlayVisible изменился:', isAwayOverlayVisible);
-  }, [isAwayOverlayVisible]);
 
   return (
     <>
@@ -354,20 +380,11 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
        />
       
       {/* Модальное окно об истечении прав */}
-      {permissionsNotification && (
-        <PermissionsExpiredModal
-          isOpen={isModalOpen}
-          onClose={handleModalClose}
-          message={permissionsNotification.message}
-          notificationType={permissionsNotification.notification_type}
-        />
-      )}
-      
-      {/* Заставка отсутствия */}
-      <AwayOverlay 
-        isVisible={isAwayOverlayVisible}
-        onContinue={handleContinueWork}
-      />
+      {isAuthenticated && <AuthenticatedModals />}
+      {isAuthenticated && <AuthenticatedAwayOverlay />}
+
+      {/* WebSocket/уведомления стартуем только после авторизации */}
+      {isAuthenticated && <AuthenticatedAppEffects />}
       
       {/* Осенний листопад */}
       {/*<AutumnLeaves />*/}

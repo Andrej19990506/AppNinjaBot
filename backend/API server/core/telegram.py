@@ -3,6 +3,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 from urllib.parse import parse_qsl
+import hashlib
+import hmac
 
 from fastapi import HTTPException, status
 from pydantic import BaseModel
@@ -164,6 +166,119 @@ def validate_telegram_init_data(init_data: str) -> TelegramAuthPayload:
         auth_date=auth_datetime,
         query_id=query_id,
         raw_data=data_dict,
+    )
+
+
+def _compute_login_widget_hash(data: Dict[str, str], bot_token: str) -> str:
+    """
+    Telegram Login Widget signature verification:
+    https://core.telegram.org/widgets/login#checking-authorization
+    """
+    provided_hash = (data.get("hash") or "").strip()
+    if not provided_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing hash in Telegram login data",
+        )
+
+    # 1) Build data_check_string from all fields except 'hash'
+    pairs = []
+    for k in sorted(data.keys()):
+        if k == "hash":
+            continue
+        v = data.get(k)
+        if v is None:
+            continue
+        pairs.append(f"{k}={v}")
+    data_check_string = "\n".join(pairs)
+
+    # 2) secret_key = sha256(bot_token)
+    secret_key = hashlib.sha256(bot_token.encode("utf-8")).digest()
+
+    # 3) HMAC-SHA256 over data_check_string
+    calculated = hmac.new(secret_key, data_check_string.encode("utf-8"), hashlib.sha256).hexdigest()
+    return calculated
+
+
+def validate_telegram_login_widget_data(data: Dict[str, str]) -> TelegramAuthPayload:
+    """
+    Validates Telegram Login Widget callback payload (query params).
+    Returns normalized TelegramAuthPayload compatible with the rest of auth flow.
+    """
+    if not settings.telegram_bot_tokens:
+        logger.error("[Telegram Login] Нет токенов для проверки!")
+        raise RuntimeError("No TELEGRAM_BOT_TOKEN configured for verification")
+
+    # auth_date
+    auth_date_raw = (data.get("auth_date") or "").strip()
+    if not auth_date_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing auth_date in Telegram login data",
+        )
+    try:
+        auth_date_int = int(auth_date_raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid auth_date in Telegram login data",
+        ) from exc
+    auth_datetime = _validate_auth_date(auth_date_int)
+
+    # signature: try each configured bot token (support multi-bot setups)
+    provided_hash = (data.get("hash") or "").strip()
+    signature_ok = False
+    for i, token in enumerate(settings.telegram_bot_tokens):
+        try:
+            calculated = _compute_login_widget_hash(data, token)
+            if hmac.compare_digest(calculated, provided_hash):
+                signature_ok = True
+                logger.info(f"[Telegram Login] Подпись валидна для токена {i+1}")
+                break
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"[Telegram Login] Ошибка проверки подписи для токена {i+1}: {e}")
+
+    if not signature_ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Telegram login data signature",
+        )
+
+    # Build user from flat fields
+    user_id_raw = (data.get("id") or "").strip()
+    if not user_id_raw:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing id in Telegram login data",
+        )
+    try:
+        user_id = int(user_id_raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid id in Telegram login data",
+        ) from exc
+
+    telegram_user = TelegramAuthorizedUser(
+        id=user_id,
+        first_name=(data.get("first_name") or "").strip(),
+        last_name=(data.get("last_name") or None),
+        username=(data.get("username") or None),
+        language_code=(data.get("language_code") or None),
+        photo_url=(data.get("photo_url") or None),
+    )
+
+    if not telegram_user.first_name:
+        # Telegram usually sends first_name, but keep strictness modest
+        telegram_user.first_name = "Telegram"
+
+    return TelegramAuthPayload(
+        user=telegram_user,
+        auth_date=auth_datetime,
+        query_id=None,
+        raw_data=dict(data),
     )
 
 

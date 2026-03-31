@@ -1,9 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
-import { axiosInstance, authenticateWithBotToken } from '@shared/api/api';
-import { socketService } from '@shared/services/socketService';
-import { useAppDispatch } from '@shared/store/hooks';
-import { initializeFromTelegram } from '@shared/store/userSlice/userThunks';
+import { axiosInstance } from '@shared/api/api';
 
 const fadeIn = keyframes`
   from {
@@ -158,14 +155,7 @@ const AnimatedTelegramSVG = () => (
 
 const TelegramAccessError: React.FC<Props> = ({ error }) => {
   const [botUsername, setBotUsername] = useState<string>('Flouix_bot');
-  const [sessionId] = useState<string>(() => {
-    // Генерируем session_id один раз при монтировании (без префикса auth_, он добавится в ссылке)
-    return `${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  });
-  const dispatch = useAppDispatch();
-  const hasJoinedRoom = useRef(false);
-  const authInProgress = useRef(false);
-  const authPollingIntervalRef = useRef<number | null>(null);
+  const widgetContainerRef = useRef<HTMLDivElement | null>(null);
   
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -185,229 +175,37 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
     
     fetchBotUsername();
     
-    // Подключаемся к WebSocket и подписываемся на комнату для получения токена
-    if (error === 'AUTH_REQUIRED') {
-      const setupWebSocket = async () => {
-        try {
-          console.log(`🔐 [Auth] Начинаем настройку WebSocket для авторизации. SessionId: ${sessionId}`);
-          
-          // Проверяем, не инициализирован ли уже WebSocket
-          if (!socketService.isInitialized()) {
-            // Инициализируем и подключаемся к WebSocket
-            const wsUrl = (window as any).APP_CONFIG?.WS_URL || import.meta.env.VITE_WS_URL || 'ws://localhost:8001';
-            console.log(`🔐 [Auth] Инициализируем WebSocket с URL: ${wsUrl}`);
-            socketService.init(wsUrl);
-          } else {
-            console.log(`🔐 [Auth] WebSocket уже инициализирован, используем существующее подключение`);
-          }
-          
-          // Подключаемся, если еще не подключены
-          if (!socketService.isConnected() && !socketService.isConnecting()) {
-            console.log(`🔐 [Auth] Подключаемся к WebSocket...`);
-            socketService.connect();
-          } else {
-            console.log(`🔐 [Auth] WebSocket уже подключен или подключается`);
-          }
-          
-          // Ждем подключения - подписываемся на изменения состояния
-          const waitForConnection = () => {
-            return new Promise<void>((resolve, reject) => {
-              if (socketService.isConnected()) {
-                console.log(`🔐 [Auth] WebSocket уже подключен`);
-                resolve();
-                return;
-              }
-              
-              console.log(`🔐 [Auth] Ожидаем подключения WebSocket...`);
-              
-              let resolved = false;
-              
-              // Подписываемся на изменения состояния
-              const unsubscribe = socketService.onStateChange((state) => {
-                if (resolved) return;
-                console.log(`🔐 [Auth] Изменение состояния WebSocket:`, state);
-                if (state.isConnected) {
-                  resolved = true;
-                  console.log(`🔐 [Auth] WebSocket подключен через подписку!`);
-                  clearInterval(checkInterval);
-                  clearTimeout(timeoutId);
-                  unsubscribe();
-                  resolve();
-                }
-              });
-              
-              // Проверяем периодически на случай, если подписка не сработает
-              const checkInterval = setInterval(() => {
-                if (resolved) {
-                  clearInterval(checkInterval);
-                  return;
-                }
-                if (socketService.isConnected()) {
-                  resolved = true;
-                  console.log(`🔐 [Auth] WebSocket подключен через проверку!`);
-                  clearInterval(checkInterval);
-                  clearTimeout(timeoutId);
-                  unsubscribe();
-                  resolve();
-                }
-              }, 100);
-              
-              // Таймаут 15 секунд
-              const timeoutId = setTimeout(() => {
-                if (!resolved) {
-                  resolved = true;
-                  clearInterval(checkInterval);
-                  unsubscribe();
-                  console.log(`🔐 [Auth] Таймаут ожидания подключения WebSocket`);
-                  if (socketService.isConnected()) {
-                    resolve();
-                  } else {
-                    reject(new Error('WebSocket не подключился в течение таймаута'));
-                  }
-                }
-              }, 15000);
-            });
-          };
-          
-          try {
-            await waitForConnection();
-          } catch (error) {
-            console.error(`❌ [Auth] Ошибка ожидания подключения:`, error);
-            return;
-          }
-          
-          console.log(`🔐 [Auth] Проверка состояния: isConnected=${socketService.isConnected()}, hasJoinedRoom=${hasJoinedRoom.current}`);
-          
-          if (socketService.isConnected() && !hasJoinedRoom.current) {
-            // Присоединяемся к комнате для получения токена
-            const roomName = `auth_session:${sessionId}`;
-            console.log(`🔐 [Auth] Подключаемся к комнате: ${roomName}`);
-            const joinResult = await socketService.joinRoom(roomName);
-            console.log(`🔐 [Auth] Результат подключения к комнате: ${joinResult}`);
-            hasJoinedRoom.current = true;
-            console.log(`✅ [Auth] Подключились к комнате ${roomName} для получения токена`);
-
-            const stopAuthPolling = () => {
-              if (authPollingIntervalRef.current) {
-                window.clearInterval(authPollingIntervalRef.current);
-                authPollingIntervalRef.current = null;
-              }
-            };
-
-            const handleTokenAuth = async (token: string, source: 'websocket' | 'polling', unsubscribe?: () => void) => {
-              if (authInProgress.current) {
-                console.log(`⚠️ [Auth] Пропускаем повторную авторизацию (${source}), процесс уже идет`);
-                return;
-              }
-
-              authInProgress.current = true;
-              console.log(`🔐 [Auth] Получен токен через ${source}, начинаем авторизацию`);
-
-              try {
-                const authResult = await authenticateWithBotToken(token);
-                console.log('✅ [Auth] authenticateWithBotToken успешно', {
-                  source,
-                  hasUser: !!authResult.user,
-                  hasGroups: !!authResult.groups,
-                  groupsCount: authResult.groups?.length || 0
-                });
-
-                const mappedGroups = (authResult.groups || []).map((group: any) => ({
-                  id: undefined,
-                  group_id: group.group_id,
-                  chat_id: group.group_id,
-                  title: group.title || '',
-                  chat_title: group.title || '',
-                  group_type: group.group_type || '',
-                  username: undefined,
-                  description: undefined,
-                  members_count: undefined,
-                  json_metadata: undefined,
-                  supplies_config: undefined,
-                  created_at: undefined,
-                  role: group.role || 'member',
-                  is_senior_courier: group.is_senior_courier || false,
-                }));
-
-                const user = {
-                  id: authResult.user.user_id,
-                  first_name: authResult.user.first_name || '',
-                  last_name: authResult.user.last_name || '',
-                  username: authResult.user.username || '',
-                  photo_url: authResult.user.photo_url || '',
-                  groups: mappedGroups,
-                  isAdmin: false,
-                  adminRights: {} as any
-                };
-
-                dispatch(initializeFromTelegram.fulfilled(user, ''));
-                console.log('✅ [Auth] Авторизация успешна, страница обновится автоматически');
-
-                stopAuthPolling();
-                if (unsubscribe) unsubscribe();
-                await socketService.leaveRoom(roomName);
-              } catch (authError) {
-                console.error(`❌ [Auth] Ошибка авторизации через ${source}:`, authError);
-                authInProgress.current = false;
-              }
-            };
-            
-            // Подписываемся на событие bot_auth_token
-            const unsubscribe = socketService.subscribe('bot_auth_token', async (data: { token: string; session_id: string }) => {
-              console.log('🔐 [Auth] Получено событие bot_auth_token:', { 
-                received_session_id: data.session_id, 
-                expected_session_id: sessionId,
-                match: data.session_id === sessionId,
-                authInProgress: authInProgress.current
-              });
-              
-              if (data.session_id === sessionId) {
-                await handleTokenAuth(data.token, 'websocket', unsubscribe);
-              } else {
-                console.log('⚠️ [Auth] Событие проигнорировано:', {
-                  sessionMatch: data.session_id === sessionId,
-                  authInProgress: authInProgress.current
-                });
-              }
-            });
-
-            // Fallback: поллинг, если WebSocket событие потерялось
-            authPollingIntervalRef.current = window.setInterval(async () => {
-              if (authInProgress.current) return;
-              try {
-                const response = await axiosInstance.get(`/v1/auth/bot-auth-check/${sessionId}`);
-                if (response.data?.has_token && response.data?.token) {
-                  console.log('🔐 [Auth] Найден токен через polling fallback');
-                  await handleTokenAuth(response.data.token, 'polling', unsubscribe);
-                }
-              } catch (pollError) {
-                console.warn('⚠️ [Auth] Ошибка polling fallback:', pollError);
-              }
-            }, 1500);
-          }
-        } catch (wsError) {
-          console.error('❌ [Auth] Ошибка настройки WebSocket:', wsError);
-        }
-      };
-      
-      setupWebSocket();
-    }
-    
     return () => {
       document.body.style.overflow = 'auto';
-      if (authPollingIntervalRef.current) {
-        window.clearInterval(authPollingIntervalRef.current);
-        authPollingIntervalRef.current = null;
-      }
-      // Отключаемся от WebSocket при размонтировании
-      if (hasJoinedRoom.current) {
-        socketService.leaveRoom(`auth_session:${sessionId}`);
-      }
     };
-  }, [error, sessionId, dispatch]);
+  }, [error]);
+
+  // Render Telegram Login Widget for browser auth (no Telegram.WebApp.initData)
+  useEffect(() => {
+    if (error !== 'AUTH_REQUIRED') return;
+    if (!botUsername) return;
+    if (!widgetContainerRef.current) return;
+
+    // Telegram widget expects to be loaded as a script tag with data-* attrs.
+    const container = widgetContainerRef.current;
+    container.innerHTML = '';
+
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = 'https://telegram.org/js/telegram-widget.js?22';
+    script.setAttribute('data-telegram-login', botUsername);
+    script.setAttribute('data-size', 'large');
+    script.setAttribute('data-radius', '12');
+    script.setAttribute('data-request-access', 'write');
+
+    // Use same-origin callback in production (nginx proxies /v1/* to backend).
+    const authUrl = `${window.location.origin}/v1/auth/telegram/login`;
+    script.setAttribute('data-auth-url', authUrl);
+
+    container.appendChild(script);
+  }, [error, botUsername]);
 
   const isAuthRequired = error === 'AUTH_REQUIRED';
-  const botAuthLink = `https://t.me/${botUsername}?start=auth_${sessionId}`;
 
   return (
     <Container>
@@ -435,23 +233,27 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
         </TextContainer>
 
         {/* Кнопка авторизации через Telegram */}
-        <TelegramButton 
-          href={isAuthRequired ? botAuthLink : `https://t.me/${botUsername}`} 
-          target="_blank" 
-          rel="noopener noreferrer"
-        >
-          <TelegramIcon>
-            <AnimatedTelegramSVG />
-          </TelegramIcon>
-          <TelegramButtonText>
-            {isAuthRequired ? 'Авторизоваться через Telegram' : 'Открыть в Telegram'}
-          </TelegramButtonText>
-        </TelegramButton>
+        {isAuthRequired ? (
+          <div ref={widgetContainerRef} />
+        ) : (
+          <TelegramButton 
+            href={`https://t.me/${botUsername}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+          >
+            <TelegramIcon>
+              <AnimatedTelegramSVG />
+            </TelegramIcon>
+            <TelegramButtonText>
+              Войти через Telegram
+            </TelegramButtonText>
+          </TelegramButton>
+        )}
 
         {/* Подсказка */}
         <Hint>
           {isAuthRequired 
-            ? 'Нажмите на кнопку выше, чтобы перейти к авторизации через Telegram бота'
+            ? 'Нажмите “Войти через Telegram”, чтобы авторизоваться в браузере'
             : 'Пожалуйста, откройте приложение через Telegram-бота для корректной работы'}
         </Hint>
       </Content>

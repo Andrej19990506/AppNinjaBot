@@ -43,6 +43,7 @@ import { usePullToRefresh } from './shared/hooks/usePullToRefresh';
 import { PullToRefresh } from './shared/components/PullToRefresh/PullToRefresh';
 import VoiceDataCollection from './features/VoiceDataCollection/VoiceDataCollection';
 import ContestTermsPage from './features/VoiceDataCollection/pages/ContestTermsPage';
+import { setAuthToken } from '@shared/api/api';
 
 
 
@@ -65,6 +66,29 @@ const AppInitializer: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const [serverChecked, setServerChecked] = useState(false); 
 
   const isActuallyLoading = !isUserInitialized && !initError;
+
+  // Telegram Login Widget callback: tokens arrive via query params on main domain.
+  // We store them, clean URL, and reload so the normal init flow uses saved tokens.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tgLogin = params.get('tg_login');
+    const access = params.get('access_token');
+    const refresh = params.get('refresh_token');
+
+    if (tgLogin === '1' && access && refresh) {
+      console.log('✅ [Auth] Telegram Login Widget: tokens received, saving and reloading');
+      setAuthToken(access, refresh);
+
+      params.delete('tg_login');
+      params.delete('access_token');
+      params.delete('refresh_token');
+      const cleaned = window.location.pathname + (params.toString() ? `?${params.toString()}` : '');
+      window.history.replaceState({}, '', cleaned);
+
+      // Restart initialization cleanly
+      window.location.reload();
+    }
+  }, []);
 
   // Определяем тип ошибки
   const isServerError = initError && (

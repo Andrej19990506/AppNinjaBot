@@ -378,13 +378,17 @@ async def telegram_webhook_universal(bot_identifier: str, update_data: dict, req
     if forward_auth_token:
         auth_header = (request.headers.get("Authorization") or "").strip()
         expected = f"Bearer {forward_auth_token}"
-        if auth_header != expected:
+        # Telegram direct webhooks не присылают Authorization: Bearer ...
+        # Поэтому валидируем Bearer только если он реально передан.
+        if auth_header and auth_header != expected:
             tg_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token")
             direct_company = bot_identifier.isdigit() and tg_secret
             if not direct_company:
                 logger.warning("Неверный Authorization токен для webhook proxy запроса")
                 raise HTTPException(status_code=401, detail="Invalid proxy authorization token")
             logger.debug("Вебхук компании без Bearer (прямой Telegram), с секретом в заголовке")
+        elif not auth_header:
+            logger.debug("Authorization header отсутствует; вероятно Telegram direct webhook")
     
     # Проверка секретного токена (если используется)
     if WEBHOOK_SECRET:

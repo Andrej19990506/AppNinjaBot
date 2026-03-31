@@ -2,7 +2,7 @@ import logging
 import json
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +15,7 @@ from core.security import (
     create_refresh_token,
     decode_token,
 )
-from core.telegram import validate_telegram_init_data
+from core.telegram import validate_telegram_init_data, validate_telegram_login_widget_data
 from db.session import get_db_session
 from models.group import Group
 from models.group_member import GroupMember
@@ -140,6 +140,38 @@ async def authenticate_telegram_webapp(
     )
 
     return TelegramAuthResponse(tokens=tokens, user=auth_user, groups=groups)
+
+
+@router.get("/telegram/login")
+async def authenticate_telegram_login_widget(
+    request: Request,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Telegram Login Widget callback.
+    Telegram calls this URL with query params: id, first_name, username, photo_url, auth_date, hash, ...
+    We validate signature and redirect back to SPA with issued JWT tokens.
+    """
+    # Query params are strings; normalize to a plain dict
+    data = {k: str(v) for k, v in request.query_params.items()}
+
+    # Важно: не логируем query целиком (там есть hash и персональные данные)
+    logger.info("[Auth] Telegram Login Widget callback received")
+
+    telegram_payload = validate_telegram_login_widget_data(data)
+    member = await _upsert_member(db, telegram_payload.user)
+    groups = await _load_member_groups(db, member)
+    tokens = _build_token_pair(member.user_id)
+
+    # Redirect back to the same host (frontend is served by nginx on same domain)
+    scheme = request.scope.get("scheme") or "https"
+    host = request.headers.get("host") or ""
+    base = f"{scheme}://{host}" if host else ""
+
+    # Put tokens in query string for SPA to pick up then immediately clean URL.
+    # (Simple & works with current app architecture; no WS/polling.)
+    redirect_url = f"{base}/?tg_login=1&access_token={tokens.access_token}&refresh_token={tokens.refresh_token}"
+    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 @router.post("/token/refresh", response_model=AuthTokenPair)

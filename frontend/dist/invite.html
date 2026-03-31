@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Приглашение в чат - AppNinjaBot</title>
+    
+    <!-- Open Graph Meta Tags для красивого превью в Telegram -->
+    <meta property="og:title" content="🥷 Приглашение в чат Ninja Event Bot">
+    <meta property="og:description" content="Присоединяйтесь к нашему чату и получите доступ к управлению инвентарем, заявкам на списание и многому другому!">
+    <meta property="og:image" content="/ninja-avatar.jpg">
+    <meta property="og:image:width" content="400">
+    <meta property="og:image:height" content="400">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="AppNinjaBot">
+    
+    <!-- Telegram specific meta tags -->
+    <meta name="telegram:card" content="summary_large_image">
+    <meta name="telegram:site" content="@ninja_event_bot">
+    <meta name="telegram:title" content="🥷 Приглашение в чат Ninja Event Bot">
+    <meta name="telegram:description" content="Присоединяйтесь к нашему чату и получите доступ к управлению инвентарем, заявкам на списание и многому другому!">
+    <meta name="telegram:image" content="/ninja-avatar.jpg">
+    
+    <style>
+        :root {
+            /* Брендовые цвета из вашего проекта */
+            --orange-primary: #FF5F1F;
+            --orange-light: #FF8B59;
+            --orange-dark: #E64500;
+            --primary-color: var(--orange-primary);
+            --primary-light: var(--orange-light);
+            --primary-dark: var(--orange-dark);
+            --gradient-primary: linear-gradient(45deg, var(--orange-dark), var(--orange-primary));
+            
+            /* Нейтральные цвета */
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            /* Размеры */
+            --radius: 12px;
+            --radius-lg: 16px;
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 10%), 0 4px 6px -4px rgb(0 0 0 / 10%);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-800) 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .invite-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .ninja-avatar {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 20px;
+            border: 4px solid var(--primary-color);
+            box-shadow: 0 8px 32px rgba(255, 95, 31, 0.3);
+        }
+        
+        .invite-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 10px;
+        }
+        
+        .invite-subtitle {
+            font-size: 1.1rem;
+            color: var(--gray-800);
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        
+        .feature-list {
+            text-align: left;
+            margin-bottom: 30px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(255, 95, 31, 0.05);
+            border-radius: var(--radius);
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .feature-icon {
+            font-size: 1.2rem;
+            margin-right: 12px;
+        }
+        
+        .feature-text {
+            color: var(--gray-800);
+            font-weight: 500;
+        }
+        
+        .invite-button {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 16px 32px;
+            border: none;
+            border-radius: var(--radius);
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            box-shadow: 0 4px 12px rgba(255, 95, 31, 0.3);
+        }
+        
+        .invite-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 95, 31, 0.4);
+        }
+        
+        .powered-by {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .bot-badge {
+            background: var(--gradient-primary);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.8rem;
+        }
+        
+        @media (max-width: 480px) {
+            .invite-card {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+            
+            .ninja-avatar {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .invite-title {
+                font-size: 1.6rem;
+            }
+            
+            .invite-subtitle {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invite-card">
+        <img src="/ninja-avatar.jpg" alt="Ninja Avatar" class="ninja-avatar">
+        
+        <h1 class="invite-title">🥷 Присоединяйтесь к нашему чату!</h1>
+        <p class="invite-subtitle">Получите доступ к управлению инвентарем, заявкам на списание и многим другим возможностям</p>
+        
+        <div class="feature-list">
+            <div class="feature-item">
+                <span class="feature-icon">📦</span>
+                <span class="feature-text">Управление инвентарем</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">📋</span>
+                <span class="feature-text">Заявки на списание</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">📊</span>
+                <span class="feature-text">Отчеты и аналитика</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">⚡</span>
+                <span class="feature-text">Уведомления в реальном времени</span>
+            </div>
+        </div>
+        
+        <a href="#" class="invite-button" onclick="handleJoinChat()">
+            Присоединиться к чату
+        </a>
+        
+        <div class="powered-by">
+            Powered by <span class="bot-badge">@YOUR_BOT_USERNAME</span>
+        </div>
+    </div>
+    
+    <script>
+        function handleJoinChat() {
+            // Получаем параметры из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const chatId = urlParams.get('chat_id');
+            
+            // Перенаправляем на бота с параметрами регистрации
+            if (chatId) {
+                window.location.href = `https://t.me/ninja_event_bot?start=registry_${chatId}`;
+            } else {
+                window.location.href = 'https://t.me/ninja_event_bot?start=registry';
+            }
+        }
+        
+        // Автоматически получаем параметры при загрузке
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const chatId = urlParams.get('chat_id');
+            const chatTitle = urlParams.get('chat_title');
+            
+            if (chatTitle) {
+                const decodedTitle = decodeURIComponent(chatTitle);
+                
+                // Обновляем контент страницы
+                document.querySelector('.invite-subtitle').textContent = 
+                    `Присоединяйтесь к чату "${decodedTitle}" и получите доступ к управлению инвентарем и многому другому!`;
+                
+                // Обновляем meta tags для правильного превью
+                document.querySelector('meta[property="og:title"]').setAttribute('content', `🥷 Приглашение в чат "${decodedTitle}"`);
+                document.querySelector('meta[property="og:description"]').setAttribute('content', `Присоединяйтесь к чату "${decodedTitle}" и получите доступ к управлению инвентарем, заявкам на списание и многому другому!`);
+                document.querySelector('meta[name="telegram:title"]').setAttribute('content', `🥷 Приглашение в чат "${decodedTitle}"`);
+                document.querySelector('meta[name="telegram:description"]').setAttribute('content', `Присоединяйтесь к чату "${decodedTitle}" и получите доступ к управлению инвентарем, заявкам на списание и многому другому!`);
+                
+                // Обновляем og:url на текущую страницу
+                let ogUrl = document.querySelector('meta[property="og:url"]');
+                if (!ogUrl) {
+                    ogUrl = document.createElement('meta');
+                    ogUrl.setAttribute('property', 'og:url');
+                    document.head.appendChild(ogUrl);
+                }
+                ogUrl.setAttribute('content', window.location.href);
+            }
+        });
+    </script>
+</body>
+</html> 

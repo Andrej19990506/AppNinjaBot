@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // Регистрируем SW из приложения, чтобы показывать кнопку "Обновить"
+      injectRegister: null,
+      registerType: 'prompt',
       includeAssets: ['Logo.png', 'favicon.ico'],
       manifest: {
         name: 'FloWix - Умная автоматизация для вашего бизнеса',

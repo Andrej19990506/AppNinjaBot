@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './App'
+import { setupPwaUpdatePrompt } from './pwa'
 
 // --- Предотвращаем double-tap zoom на мобильных устройствах ---
 let lastTouchEnd = 0;
@@ -15,3 +16,5 @@ document.addEventListener('touchend', function(event) {
 createRoot(document.getElementById('root')!).render(
   <App />
 )
+
+setupPwaUpdatePrompt();

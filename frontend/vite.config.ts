@@ -101,8 +101,11 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/.*\.selcdn\.net\/.*/i,
-            handler: 'NetworkFirst',
+            // Не кэшируем через runtimeCaching весь selcdn.net, иначе могут "залипать"
+            // index.html и JS-бандлы на недели (особенно в связке с PWA).
+            // Кэшируем только медиа/изображения.
+            urlPattern: /^https:\/\/.*\.selcdn\.net\/.*\.(?:png|jpe?g|gif|webp|svg|ico|mp3|mp4|wav|ogg)$/i,
+            handler: 'CacheFirst',
             options: {
               cacheName: 'cdn-cache',
               expiration: {

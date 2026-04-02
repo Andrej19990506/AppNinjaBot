@@ -103,6 +103,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# CDN (selcdn) может блокировать PUT/PATCH/DELETE и отдавать 405 на edge.
+# Обходной путь: клиент шлёт POST + X-HTTP-Method-Override, а мы восстанавливаем метод внутри приложения.
+@app.middleware("http")
+async def method_override_middleware(request: Request, call_next):
+    override = request.headers.get("x-http-method-override")
+    if override and request.method.upper() == "POST":
+        override_up = override.strip().upper()
+        if override_up in {"PUT", "PATCH", "DELETE"}:
+            request.scope["method"] = override_up
+    return await call_next(request)
+
 # Добавляем настройки CORS
 app.add_middleware(
     CORSMiddleware,

@@ -354,6 +354,15 @@ export const api = {
 // Интерцептор для логирования запросов и добавления токена (объединенный)
 axiosInstance.interceptors.request.use(
     (config: any) => {
+        // CDN (selcdn) режет PUT/PATCH/DELETE и отвечает 405 на edge.
+        // Обходим это через POST + X-HTTP-Method-Override, а на бэке восстанавливаем исходный метод middleware'ом.
+        const originalMethod = (config.method || 'get').toString().toLowerCase();
+        if (originalMethod === 'put' || originalMethod === 'patch' || originalMethod === 'delete') {
+            config.headers = config.headers || {};
+            config.headers['X-HTTP-Method-Override'] = originalMethod.toUpperCase();
+            config.method = 'post';
+        }
+
         // Добавляем токен если есть
         const token = getAuthToken();
         if (token) {

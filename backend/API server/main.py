@@ -123,6 +123,8 @@ app.add_middleware(
         "http://localhost", 
         "http://localhost:8888",  # Landing page local server
         "https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net", 
+        "https://flowixdata.ru",
+        "https://www.flowixdata.ru",
         "http://192.168.0.115:3000", 
         "http://10.0.2.2:3000",
         # Google Sheets домены

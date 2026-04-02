@@ -7,7 +7,7 @@ services:
       context: ./backend/telegramNinjaBot
       target: production
     environment:
-      - API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
+      - API_URL=https://flowixdata.ru
       - ENVIRONMENT=production
       - PYTHONPATH=/app
       - BOT_PORT=8003
@@ -48,7 +48,7 @@ services:
       context: ./backend/telegramNinjaBot
       target: production
     environment:
-      - API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
+      - API_URL=https://flowixdata.ru
       - ENVIRONMENT=production
       - PYTHONPATH=/app
       - BOT_PORT=8003
@@ -93,13 +93,13 @@ services:
       - shared-data:/app/shared
     command: gunicorn main:app -b 0.0.0.0:8000 --workers 8 --timeout 120 -k uvicorn.workers.UvicornWorker
     environment:
-      - API_BASE_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api
+      - API_BASE_URL=https://flowixdata.ru/api
       - BOT_URL=http://bot-companies:8003
       - BOT_INTERNAL_URL=http://bot-companies:8003
       - SCHEDULER_URL=http://scheduler:8002
       - WEBSOCKET_SERVER_URL=http://websocket:8001
-      - SOCKET_URL=wss://appninjabot.ru
-      - DOMAIN=c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net
+      - SOCKET_URL=wss://flowixdata.ru/socket.io/
+      - DOMAIN=flowixdata.ru
       - ALLOWED_ORIGINS=*
       - TRUST_PROXY=true
       - PORT=8000
@@ -146,8 +146,8 @@ services:
       - POSTGRES_PASSWORD=qkfUdU9T7hjJm-VelFLI
       - BOT_API_URL=http://bot-companies:8003
       - BOT_INTERNAL_URL=http://bot-companies:8003
-      - HEALTHCHECK_API_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/health
-      - HEALTHCHECK_BOT_URL=https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net/api/bot/health
+      - HEALTHCHECK_API_URL=https://flowixdata.ru/api/health
+      - HEALTHCHECK_BOT_URL=https://flowixdata.ru/api/bot/health
       - HEALTHCHECK_BOT_SEND_MESSAGE_URL=http://bot-companies:8003/send_message/health
       - CLOUDINARY_CLOUD_NAME=dzymrkr14
       - CLOUDINARY_API_KEY=729531884973171
@@ -197,8 +197,8 @@ services:
       - shared-data:/app/shared
       - letsencrypt:/etc/letsencrypt
     environment:
-      - REACT_APP_API_URL=${VITE_APP_API_URL:-https://c8e767f0-ac37-4f85-88bd-7ce8bceb888c.selcdn.net}
-      - VITE_WS_URL=${VITE_APP_WS_URL:-wss://appninjabot.ru/socket.io/}
+      - REACT_APP_API_URL=${VITE_APP_API_URL:-https://flowixdata.ru}
+      - VITE_WS_URL=${VITE_APP_WS_URL:-wss://flowixdata.ru/socket.io/}
       - ENV_TYPE=${ENV_TYPE:-production}
       - REACT_APP_DEBUG=${VITE_DEBUG:-false}
       - VITE_YANDEX_DISK_TOKEN=${VITE_YANDEX_DISK_TOKEN:-}

@@ -340,8 +340,11 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
 
         {/* Подсказка */}
         <Hint>
-            Узнать свой ID можно в боте <a href="https://t.me" target="_blank" style={{color: '#0088cc', textDecoration: 'none', fontWeight: 'bold'}}>@myidbot</a>.<br/>
-            Логин — это ваш ID, пароль — последние 4 цифры этого ID.
+            Узнать свой ID можно в боте <a href="https://t.me/myidbot" target="_blank" style={{color: '#0088cc', textDecoration: 'none', fontWeight: 'bold'}}>@myidbot</a>.<br/>
+            <br />
+              Просто перейдите и нажмите <b>Запустить</b> или отправьте <b>/getid</b>.
+            <br />
+            Логин — ваш ID, пароль — последние 4 цифры ID.
           </Hint>
       </Content>
     </Container>

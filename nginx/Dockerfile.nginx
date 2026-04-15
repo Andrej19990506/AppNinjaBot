@@ -1,7 +1,9 @@
 FROM nginx:alpine
 
-# Установка certbot, его nginx плагина и gettext (для envsubst)
-RUN apk add --no-cache certbot certbot-nginx curl
+# Используем официальное зеркало через HTTP, чтобы избежать проблем с TLS
+RUN sed -i 's/https/http/g' /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache certbot certbot-nginx curl
 
 # Копируем собранные статические файлы из образа frontend
 COPY --from=appninjabot-frontend-img:latest /app/dist /usr/share/nginx/html

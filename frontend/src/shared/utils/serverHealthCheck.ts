@@ -19,9 +19,7 @@ function getApiBaseUrl(): string {
   return base.replace(/\/$/, '');
 }
 
-/**
- * URL проверки: .../api/v1/health — ходит в FastAPI через тот же nginx/CDN, что и остальные запросы.
- */
+
 function getHealthCheckUrl(): string | null {
   const base = getApiBaseUrl();
   if (base) {
@@ -124,40 +122,3 @@ export const checkServerHealth = async (): Promise<ServerHealthStatus> => {
   }
 };
 
-/**
- * Проверяет доступность сервера с повторными попытками
- */
-export const checkServerHealthWithRetry = async (
-  maxRetries: number = 3,
-  delayMs: number = 1000
-): Promise<ServerHealthStatus> => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    console.log(
-      `🔍 [ServerHealth] Попытка ${attempt}/${maxRetries} → ${getHealthCheckUrl() ?? '(no url)'}`
-    );
-
-    const status = await checkServerHealth();
-
-    if (status.isAvailable) {
-      console.log(
-        `✅ [ServerHealth] API доступен, время ответа: ${status.responseTime}ms`
-      );
-      return status;
-    }
-
-    console.log(`❌ [ServerHealth] Попытка ${attempt} неудачна:`, status.error);
-
-    if (attempt < maxRetries) {
-      console.log(
-        `⏳ [ServerHealth] Ожидание ${delayMs}ms перед следующей попыткой...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-
-  console.log(`💀 [ServerHealth] Все попытки исчерпаны`);
-  return {
-    isAvailable: false,
-    error: 'Сервер недоступен после всех попыток подключения',
-  };
-};

@@ -5,35 +5,8 @@ import { Admin } from '../../../types/inventoryTypes';
 import { ChatContext } from '@shared/store/chatSlice/chatTypes';
 import { api, authenticateWithTelegram, authenticateWithBotToken, axiosInstance } from '@shared/api/api';
 import { updateMemberSeniority, updateCourierProfile } from '@features/courierSchedule/services/courierApi';
-import { checkServerHealthWithRetry } from '@shared/utils/serverHealthCheck';
 
-// --- Thunk: проверка доступности сервера ---
-export const checkServerHealthThunk = createAsyncThunk(
-    'user/checkServerHealth',
-    async (_, { rejectWithValue }) => {
-        try {
-            console.log('🔍 [checkServerHealthThunk] Начинаем проверку доступности сервера...');
-            const serverStatus = await checkServerHealthWithRetry(3, 1000);
-            
-            if (!serverStatus.isAvailable) {
-                console.error('❌ [checkServerHealthThunk] Сервер недоступен:', serverStatus.error);
-                return rejectWithValue(`Сервер недоступен: ${serverStatus.error}`);
-            }
-            
-            console.log('✅ [checkServerHealthThunk] Сервер доступен, время ответа:', serverStatus.responseTime, 'ms');
-            return serverStatus;
-        } catch (error: any) {
-            console.error('💀 [checkServerHealthThunk] Критическая ошибка проверки сервера:', {
-                error: error.message || error,
-                stack: error.stack,
-                timestamp: new Date().toISOString(),
-                userAgent: navigator.userAgent,
-                url: window.location.href
-            });
-            return rejectWithValue('Критическая ошибка проверки сервера');
-        }
-    }
-);
+
 
 // --- Thunk: инициализация пользователя из Telegram WebApp ---
 export const initializeFromTelegram = createAsyncThunk(

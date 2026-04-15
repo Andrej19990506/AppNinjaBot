@@ -241,31 +241,6 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
     };
   }, [error]);
 
-  // Render Telegram Login Widget for browser auth (no Telegram.WebApp.initData)
-  useEffect(() => {
-    if (error !== 'AUTH_REQUIRED') return;
-    if (!botUsername) return;
-    if (!widgetContainerRef.current) return;
-
-    // Telegram widget expects to be loaded as a script tag with data-* attrs.
-    const container = widgetContainerRef.current;
-    container.innerHTML = '';
-
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'large');
-    script.setAttribute('data-radius', '12');
-    script.setAttribute('data-request-access', 'write');
-
-    // Use same-origin callback in production (nginx proxies /v1/* to backend).
-    const authUrl = `${window.location.origin}/v1/auth/telegram/login`;
-    script.setAttribute('data-auth-url', authUrl);
-
-    container.appendChild(script);
-  }, [error, botUsername]);
-
   const isAuthRequired = error === 'AUTH_REQUIRED';
 
   return (
@@ -288,12 +263,12 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
           <Title>Добро пожаловать в Flowix</Title>
           <Subtitle>
             {isAuthRequired 
-              ? 'Для доступа к приложению необходимо авторизоваться через Telegram'
-              : 'Это приложение работает только внутри Telegram. Пожалуйста, откройте его через Telegram-бота.'}
+              ? 'Используйте свой Telegram ID для входа в систему'
+              : 'Вход в систему Flowix'}
           </Subtitle>
         </TextContainer>
 
-        {/* Кнопка авторизации через Telegram */}
+
         {isAuthRequired ? (
           <>
             <div ref={widgetContainerRef} />
@@ -335,7 +310,7 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
 
                   dispatch(initializeFromTelegram.fulfilled(user as any, ''));
                 } catch (err: any) {
-                  setLocalError(err?.message || 'Ошибка локального входа');
+                  setLocalError(err?.message ||  'Ошибка авторизации. Проверьте ID и пароль.');
                 } finally {
                   setLocalSubmitting(false);
                 }
@@ -344,44 +319,30 @@ const TelegramAccessError: React.FC<Props> = ({ error }) => {
               <Input
                 value={localLogin}
                 onChange={(e) => setLocalLogin(e.target.value)}
-                placeholder="Логин (user_id или ваш логин)"
+                placeholder="Ваш Telegram ID"
                 inputMode="numeric"
                 autoComplete="username"
               />
               <Input
                 value={localPassword}
                 onChange={(e) => setLocalPassword(e.target.value)}
-                placeholder="Пароль (первый вход: последние 4 цифры user_id)"
+                placeholder="Последние 4 цифры вашего Telegram ID"
                 type="password"
                 autoComplete="current-password"
               />
-              <PrimaryButton disabled={localSubmitting || !localLogin || !localPassword} type="submit">
-                {localSubmitting ? 'Входим...' : 'Войти по логину/паролю'}
-              </PrimaryButton>
+            <PrimaryButton type="submit" disabled={localSubmitting}>
+              {localSubmitting ? 'Вход...' : 'Войти в систему'}
+            </PrimaryButton>
             </Form>
             {localError && <ErrorText>{localError}</ErrorText>}
           </>
-        ) : (
-          <TelegramButton 
-            href={`https://t.me/${botUsername}`} 
-            target="_blank" 
-            rel="noopener noreferrer"
-          >
-            <TelegramIcon>
-              <AnimatedTelegramSVG />
-            </TelegramIcon>
-            <TelegramButtonText>
-              Войти через Telegram
-            </TelegramButtonText>
-          </TelegramButton>
-        )}
+        ) : null}
 
         {/* Подсказка */}
         <Hint>
-          {isAuthRequired 
-            ? 'Можно войти через Telegram или по логину/паролю (первый вход: user_id + последние 4 цифры)'
-            : 'Пожалуйста, откройте приложение через Telegram-бота для корректной работы'}
-        </Hint>
+            Узнать свой ID можно в боте <a href="https://t.me" target="_blank" style={{color: '#0088cc', textDecoration: 'none', fontWeight: 'bold'}}>@myidbot</a>.<br/>
+            Логин — это ваш ID, пароль — последние 4 цифры этого ID.
+          </Hint>
       </Content>
     </Container>
   );

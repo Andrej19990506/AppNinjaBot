@@ -1,97 +1,173 @@
 import { registerSW } from 'virtual:pwa-register';
 
+// Экран обновления намеренно во весь экран и без крестика.
+// Раньше это была узкая плашка внизу: пользователи её просто не замечали и
+// продолжали сидеть на старой версии — а старая версия ходит в изменившийся API.
+// Поэтому теперь обновление нельзя пропустить: оно перекрывает интерфейс, пока
+// человек не нажмёт кнопку, после чего страница перезагружается уже на новой
+// версии и работа продолжается как обычно.
+//
+// Размытия фона здесь нет сознательно: на слабых телефонах оно стоит кадров
+// (та же причина, по которой его убрали из шторки календаря).
+
+const OVERLAY_ID = 'pwa-update-overlay';
+const STYLE_ID = 'pwa-update-styles';
+
+// Если обслуживающий воркер по какой-то причине не перезагрузит страницу,
+// человек не должен остаться запертым под этим экраном.
+const RELOAD_FALLBACK_MS = 8000;
+
 function ensureStyles() {
-  if (document.getElementById('pwa-update-styles')) return;
+  if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
-  style.id = 'pwa-update-styles';
+  style.id = STYLE_ID;
   style.textContent = `
-    .pwa-update-banner {
+    .pwa-update-overlay {
       position: fixed;
-      left: 12px;
-      right: 12px;
-      bottom: calc(12px + env(safe-area-inset-bottom));
+      inset: 0;
       z-index: 2147483647;
       display: flex;
       align-items: center;
-      gap: 12px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(20, 20, 20, 0.92);
-      color: #fff;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
-      font: 14px/1.25 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      justify-content: center;
+      padding: 24px;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
+      background: rgba(0, 0, 0, 0.72);
+      font: 15px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      animation: pwa-update-fade 0.2s ease-out;
     }
-    .pwa-update-banner__text { flex: 1; }
-    .pwa-update-banner__btn {
+    @keyframes pwa-update-fade { from { opacity: 0; } to { opacity: 1; } }
+
+    .pwa-update-card {
+      width: 100%;
+      max-width: 360px;
+      box-sizing: border-box;
+      padding: 24px;
+      border-radius: 18px;
+      background: var(--card-background, #1c1c1e);
+      color: var(--text-color, #fff);
+      border: 1px solid var(--border-color, rgba(255,255,255,0.12));
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      text-align: center;
+    }
+    .pwa-update-card__icon { font-size: 40px; line-height: 1; margin-bottom: 12px; }
+    .pwa-update-card__title {
+      margin: 0 0 8px;
+      font-size: 19px;
+      font-weight: 700;
+    }
+    .pwa-update-card__text {
+      margin: 0 0 20px;
+      color: var(--text-secondary, rgba(255,255,255,0.7));
+    }
+    .pwa-update-card__btn {
       appearance: none;
       border: 0;
-      border-radius: 10px;
-      padding: 10px 12px;
-      background: #2f80ff;
+      width: 100%;
+      border-radius: 12px;
+      padding: 15px 16px;
+      background: var(--primary-color, #2f80ff);
       color: #fff;
+      font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      white-space: nowrap;
     }
-    .pwa-update-banner__close {
+    .pwa-update-card__btn:disabled { opacity: 0.6; cursor: default; }
+    .pwa-update-card__hint {
+      margin: 14px 0 0;
+      font-size: 13px;
+      color: var(--text-secondary, rgba(255,255,255,0.6));
+    }
+    .pwa-update-card__link {
       appearance: none;
       border: 0;
       background: transparent;
-      color: rgba(255,255,255,0.7);
+      padding: 0;
+      color: var(--primary-color, #2f80ff);
+      font: inherit;
+      font-weight: 600;
+      text-decoration: underline;
       cursor: pointer;
-      padding: 8px;
-      margin: -4px -6px -4px 0;
-      border-radius: 10px;
-      font-size: 18px;
-      line-height: 1;
     }
   `;
   document.head.appendChild(style);
 }
 
-function showUpdateBanner(onUpdate: () => void) {
+function showUpdateOverlay(onUpdate: () => void) {
   ensureStyles();
 
-  const existing = document.getElementById('pwa-update-banner');
-  if (existing) existing.remove();
+  document.getElementById(OVERLAY_ID)?.remove();
 
-  const banner = document.createElement('div');
-  banner.id = 'pwa-update-banner';
-  banner.className = 'pwa-update-banner';
+  const overlay = document.createElement('div');
+  overlay.id = OVERLAY_ID;
+  overlay.className = 'pwa-update-overlay';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
 
-  const text = document.createElement('div');
-  text.className = 'pwa-update-banner__text';
-  text.textContent = 'Доступно обновление приложения.';
+  const card = document.createElement('div');
+  card.className = 'pwa-update-card';
+
+  const icon = document.createElement('div');
+  icon.className = 'pwa-update-card__icon';
+  icon.textContent = '🔄';
+
+  const title = document.createElement('h2');
+  title.className = 'pwa-update-card__title';
+  title.textContent = 'Вышла новая версия';
+
+  const text = document.createElement('p');
+  text.className = 'pwa-update-card__text';
+  text.textContent =
+    'Нужно обновиться, чтобы приложение работало правильно. Это займёт пару секунд — записи и смены не потеряются.';
 
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = 'pwa-update-banner__btn';
+  btn.className = 'pwa-update-card__btn';
   btn.textContent = 'Обновить';
-  btn.addEventListener('click', () => onUpdate());
 
-  const close = document.createElement('button');
-  close.type = 'button';
-  close.className = 'pwa-update-banner__close';
-  close.setAttribute('aria-label', 'Закрыть');
-  close.textContent = '×';
-  close.addEventListener('click', () => banner.remove());
+  const hint = document.createElement('p');
+  hint.className = 'pwa-update-card__hint';
+  hint.hidden = true;
 
-  banner.appendChild(text);
-  banner.appendChild(btn);
-  banner.appendChild(close);
-  document.body.appendChild(banner);
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    btn.textContent = 'Обновляем…';
+
+    // Страховка: если воркер не перезагрузил страницу, даём это сделать руками,
+    // иначе человек останется заперт под непропускаемым экраном.
+    window.setTimeout(() => {
+      hint.hidden = false;
+      hint.textContent = 'Что-то затянулось. ';
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'pwa-update-card__link';
+      link.textContent = 'Перезагрузить вручную';
+      link.addEventListener('click', () => window.location.reload());
+      hint.appendChild(link);
+    }, RELOAD_FALLBACK_MS);
+
+    onUpdate();
+  });
+
+  card.appendChild(icon);
+  card.appendChild(title);
+  card.appendChild(text);
+  card.appendChild(btn);
+  card.appendChild(hint);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  // Под экраном обновления фон листаться не должен
+  document.body.style.overflow = 'hidden';
+
+  btn.focus();
 }
 
 export function setupPwaUpdatePrompt() {
-  // Возвращает функцию updateSW, которая активирует новый SW
+  // Возвращает функцию updateSW, которая активирует новый SW и перезагружает страницу
   const updateSW = registerSW({
     onNeedRefresh() {
-      showUpdateBanner(() => updateSW(true));
+      showUpdateOverlay(() => updateSW(true));
     },
     // onOfflineReady() можно добавить, если захотите показывать "доступно оффлайн"
   });
 }
-

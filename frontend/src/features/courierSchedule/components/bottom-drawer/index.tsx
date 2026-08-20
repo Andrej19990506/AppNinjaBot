@@ -20,25 +20,26 @@ const slideDown = keyframes`
   }
 `;
 
+// Анимируется только прозрачность. Раньше в этих кейфреймах ездило ещё и
+// размытие фона от blur(0) до blur(8px): браузер переразмывал ВЕСЬ экран под
+// оверлеем на каждом кадре, и на слабых телефонах открытие шторки лагало.
+// Прозрачность и transform считает композитор, поэтому анимация идёт мимо
+// главного потока и остаётся плавной, пока React монтирует содержимое.
 const fadeIn = keyframes`
   from {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
   to {
     opacity: 1;
-    backdrop-filter: blur(8px);
   }
 `;
 
 const fadeOut = keyframes`
   from {
     opacity: 1;
-    backdrop-filter: blur(8px);
   }
   to {
     opacity: 0;
-    backdrop-filter: blur(0);
   }
 `;
 
@@ -49,11 +50,12 @@ const Overlay = styled.div<{ $isOpen: boolean; $isClosing: boolean }>`
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
+  /* Затемнение плотнее, чем было: часть отделения фона раньше давало размытие,
+     теперь его нет. */
+  background-color: rgba(0, 0, 0, 0.6);
   z-index: 1000;
   visibility: ${props => props.$isOpen || props.$isClosing ? 'visible' : 'hidden'};
   animation: ${props => props.$isClosing ? fadeOut : fadeIn} 0.3s ease-in-out forwards;
-  backdrop-filter: blur(8px);
 `;
 
 // Обновляем стили для DrawerContainer
@@ -115,7 +117,8 @@ const DrawerHeader = styled.div`
   background-color: var(--card-background);
   z-index: 2;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  backdrop-filter: blur(8px);
+  /* Размытие фона здесь убрано: фон шапки непрозрачный, размывать под ним нечего,
+     а лишний слой размытия стоил кадров при открытии. */
   
   /* Добавляем тень при скролле */
   &::after {
@@ -185,7 +188,9 @@ const DrawerContent = styled.div<{ $isClosing: boolean }>`
   position: relative;
   opacity: ${props => props.$isClosing ? 0 : 1};
   transform: translateY(${props => props.$isClosing ? '20px' : '0'});
-  transition: all 0.3s ease-out;
+  /* Именно opacity и transform, а не all: перечисление избавляет браузер от
+     отслеживания остальных свойств и держит анимацию на композиторе. */
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
   padding-bottom: 60px;
 `;
 

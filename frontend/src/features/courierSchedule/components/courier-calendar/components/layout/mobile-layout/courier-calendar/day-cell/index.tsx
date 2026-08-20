@@ -14,7 +14,6 @@ import {
     ReserveSlotIndicator,
     ReserveIcon,
 } from './styles';
-import { FrozenShiftIndicator } from '@features/courierSchedule/components/FrozenShiftIndicator';
 import { User } from '@/types/user';
 
 interface DayCellProps {
@@ -33,7 +32,6 @@ interface DayCellProps {
     statusIcon?: React.ReactElement | null;
     openTooltip: { date: string | null, message: string };
     handleTooltipClose: () => void;
-    isFrozen?: boolean;
 }
 
 const DayCell: React.FC<DayCellProps> = ({
@@ -52,7 +50,6 @@ const DayCell: React.FC<DayCellProps> = ({
     statusIcon,
     openTooltip,
     handleTooltipClose,
-    isFrozen = false
 }) => {
     if (!date) {
         return <DayCellContainer as="div" />;
@@ -102,7 +99,6 @@ const DayCell: React.FC<DayCellProps> = ({
                             img.src = defaultAvatar;
                         }}
                     />
-                    {isFrozen && <FrozenShiftIndicator size="small" showTooltip={true} />}
                 </AvatarContainer>
             );
         }

@@ -45,21 +45,52 @@ function mapApiShiftToCourierShift(apiShift: ApiShift): CourierShift {
 }
 
 // --- Thunk: загрузка смен ---
+// Сервер отдаёт смены в стабильном порядке, поэтому для ответа на вопрос «изменилось
+// ли что-нибудь» хватает длины и полей, влияющих на отрисовку ячейки календаря.
+const sameShifts = (a: CourierShift[] | undefined, b: CourierShift[]): boolean => {
+    if (!a || a.length !== b.length) return false;
+    for (let i = 0; i < b.length; i++) {
+        const x = a[i];
+        const y = b[i];
+        if (
+            x.id !== y.id ||
+            x.date !== y.date ||
+            String(x.userId) !== String(y.userId) ||
+            x.slotIndex !== y.slotIndex ||
+            x.template_id !== y.template_id ||
+            x.photoUrl !== y.photoUrl ||
+            x.isSeniorCourier !== y.isSeniorCourier
+        ) {
+            return false;
+        }
+    }
+    return true;
+};
+
 export const fetchShifts = createAsyncThunk<
     CourierShift[],
     { chatId: number | string },
-    { rejectValue: string }
+    { state: RootState; rejectValue: string }
 >(
     'shifts/fetchShifts',
-    async ({ chatId }, { rejectWithValue }) => {
+    async ({ chatId }, { getState, rejectWithValue }) => {
         if (!chatId) {
             return rejectWithValue('Не найден chat_id для загрузки смен');
         }
         try {
             // 1. Получаем смены
             const shiftsData = await getShifts(chatId);
-            // 2. Возвращаем смены
-            return shiftsData.map(mapApiShiftToCourierShift);
+            const mapped = shiftsData.map(mapApiShiftToCourierShift);
+
+            // 2. Если список не изменился — отдаём ПРЕЖНЮЮ ссылку. Календарь
+            // перезапрашивает смены на каждое событие вебсокета, и почти всегда
+            // приходит то же самое. Новый массив менял идентичность в сторе и
+            // перерисовывал все 12 месяцев (~360 ячеек с тултипами) — на слабых
+            // телефонах именно это и делало ячейки «прыгающими» и ненажимаемыми.
+            // Сравниваем здесь, а не в редьюсере: там стор — черновик immer, и
+            // и снятие с него копии стоило бы дороже самой перерисовки.
+            const previous = getState().shifts.shifts;
+            return sameShifts(previous, mapped) ? previous : mapped;
         } catch (error: any) {
             return rejectWithValue(error.message || 'Не удалось загрузить смены');
         }
@@ -113,13 +144,16 @@ export const cancelShift = createAsyncThunk<
 export const fetchAccessSettings = createAsyncThunk<
   any,
   { chatId: string },
-  { rejectValue: string }
+  { state: RootState; rejectValue: string }
 >(
   'shifts/fetchAccessSettings',
-  async ({ chatId }, { rejectWithValue }) => {
+  async ({ chatId }, { getState, rejectWithValue }) => {
     try {
       const settings = await getShiftAccessSettingsApi(chatId);
-      return settings;
+      // Та же причина, что и в fetchShifts: настройки тянутся вместе со сменами и
+      // почти всегда приходят неизменными, а новый объект дёргал весь календарь.
+      const previous = getState().shifts.accessSettings;
+      return JSON.stringify(previous) === JSON.stringify(settings) ? previous : settings;
     } catch (error: any) {
       return rejectWithValue(error.message || 'Не удалось загрузить настройки доступа');
     }

@@ -18,7 +18,7 @@ export const useAvailabilityCheck = (chatId?: string, refreshCalendar?: () => vo
         if (refreshCalendar) {
             refreshCalendar();
         } else if (chatId) {
-            dispatch(fetchShifts());
+            dispatch(fetchShifts({ chatId }));
             dispatch(fetchAccessSettings({ chatId }));
         }
     }, [refreshCalendar, chatId, dispatch]);

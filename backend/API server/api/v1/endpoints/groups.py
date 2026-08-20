@@ -453,109 +453,19 @@ async def read_group_settings(
     settings_data['group_id'] = db_group.group_id
     logger.info(f"[read_group_settings] Настройки взяты из '{source_field}': {settings_data}")
     old_active_start = settings_data.get('activeStartDate')
-    # Проверяем есть ли конфликтные смены и автоматически устанавливаем блокировку
-    active_start_str = settings_data.get('activeStartDate')
-    offset_amount = settings_data.get('offsetAmount', 0)
-    period_length = settings_data.get('periodLength', 7)
-    
-    if active_start_str:
-        try:
-            active_start_date = datetime.fromisoformat(active_start_str).date()
-            
-            # Вычисляем период смен
-            new_period_start = active_start_date + timedelta(days=offset_amount)
-            new_period_end = new_period_start + timedelta(days=period_length)
-            
-            # Считаем смены в будущем, которые НЕ попадают в период
-            # ✅ Используем now.date() вместо date.today() для корректной работы с часовым поясом
-            today = now.date()
-            
-            logger.info(f"[read_group_settings] 🔍 Проверка конфликтных смен: activeStartDate={active_start_str}, offsetAmount={offset_amount}, periodLength={period_length}")
-            logger.info(f"[read_group_settings] 🔍 Период: {new_period_start} - {new_period_end}, today={today}")
-            
-            # Сначала получаем все смены для диагностики
-            all_shifts_query = select(Shift.date).where(
-                Shift.group_id == db_group.id,
-                Shift.date > today  # ✅ Только будущие смены
-            ).order_by(Shift.date)
-            all_shifts_result = await db.execute(all_shifts_query)
-            all_shifts = all_shifts_result.all()
-            
-            logger.info(f"[read_group_settings] 🔍 Всего смен в будущем: {len(all_shifts)}")
-            if all_shifts:
-                shifts_dates = [str(s.date) for s in all_shifts[:10]]  # Первые 10 для лога
-                logger.info(f"[read_group_settings] 🔍 Даты смен (первые 10): {', '.join(shifts_dates)}")
-            
-            conflicting_shifts_query = select(func.count(Shift.id)).where(
-                Shift.group_id == db_group.id,
-                Shift.date > today,  # ✅ Только будущие смены
-                or_(
-                    Shift.date < new_period_start,
-                    Shift.date >= new_period_end
-                )
-            )
-            result = await db.execute(conflicting_shifts_query)
-            conflicting_shifts_count = result.scalar() or 0
-            
-            logger.info(f"[read_group_settings] 🔍 Найдено конфликтных смен: {conflicting_shifts_count}")
-            
-            if conflicting_shifts_count > 0:
-                # Есть конфликтные смены - автоматически блокируем доступ
-                settings_data['isAccessBlocked'] = True
-                settings_data['hasExistingShifts'] = True
-                settings_data['existingShiftsCount'] = conflicting_shifts_count
-                logger.info(f"[read_group_settings] ⚠️ Обнаружено {conflicting_shifts_count} конфликтных смен, автоматически установлен isAccessBlocked=True")
-            else:
-                # Нет конфликтов - снимаем блокировку
-                if settings_data.get('isAccessBlocked'):
-                    settings_data['isAccessBlocked'] = False
-                    logger.info(f"[read_group_settings] ✅ Конфликтов нет (0 конфликтных смен), снята блокировка доступа")
-                # Удаляем поля о конфликтных сменах если их нет
-                settings_data.pop('hasExistingShifts', None)
-                settings_data.pop('existingShiftsCount', None)
-        except Exception as e:
-            logger.error(f"[read_group_settings] Ошибка при проверке конфликтных смен: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
+
+    # Блокировка доступа больше НЕ вычисляется на чтении настроек.
+    # Здесь стоял подсчёт «конфликтных» смен: любая будущая смена вне текущего
+    # периода записи включала isAccessBlocked, и клиент показывал баннер про
+    # заморозку. Но период — неделя (periodLength), а записываться разрешено на
+    # daysAhead вперёд, поэтому смены за пределами периода есть всегда: 20.08.2026
+    # на проде так «заморозились» 3 группы из 4 (21, 17 и 6 смен), хотя графики
+    # никто не менял. Баннер объявлял замороженными живые смены.
+    # isAccessBlocked остаётся РУЧНЫМ флагом администратора (PUT settings).
 
     # Вычисляем статус доступа
     settings_data = calculate_access_status(settings_data)
 
-    # ✨ ВОССТАНАВЛИВАЕМ поля которые были установлены ДО calculate_access_status
-    # (calculate_access_status не должен трогать эти поля)
-    if active_start_str:
-        try:
-            active_start_date = datetime.fromisoformat(settings_data.get('activeStartDate')).date()
-            
-            # Вычисляем период смен
-            new_period_start = active_start_date + timedelta(days=offset_amount)
-            new_period_end = new_period_start + timedelta(days=period_length)
-            
-            # Считаем конфликтные смены
-            # ✅ Используем now.date() вместо date.today() для корректной работы с часовым поясом
-            today = now.date()
-            conflicting_shifts_query = select(func.count(Shift.id)).where(
-                Shift.group_id == db_group.id,
-                Shift.date > today,  # ✅ Только будущие смены
-                or_(
-                    Shift.date < new_period_start,
-                    Shift.date >= new_period_end
-                )
-            )
-            result = await db.execute(conflicting_shifts_query)
-            conflicting_shifts_count = result.scalar() or 0
-            
-            # ✅ ВАЖНО: Устанавливаем поля ПОСЛЕ calculate_access_status
-            if conflicting_shifts_count > 0:
-                settings_data['hasExistingShifts'] = True
-                settings_data['existingShiftsCount'] = conflicting_shifts_count
-                logger.info(f"[read_group_settings] ⚠️ В ответ добавлена информация о {conflicting_shifts_count} конфликтных сменах")
-            else:
-                # ✅ ВАЖНО: Явно удаляем поля если конфликтов нет
-                settings_data.pop('hasExistingShifts', None)
-                settings_data.pop('existingShiftsCount', None)
-        except Exception as e:
-            logger.error(f"[read_group_settings] Ошибка при проверке конфликтных смен: {e}")
     # ✅ Сохраняем activeStartDate в БД если он изменился
     new_active_start = settings_data.get('activeStartDate')
     next_opening_str = settings_data.get('nextOpeningDate')

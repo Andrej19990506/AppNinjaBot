@@ -39,10 +39,13 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
         loadCalendarData();
     }, [loadCalendarData]);
 
-    const getShiftsForDate = (date: Date) => {
+    // useCallback обязателен: эта функция уходит пропом в MonthSection, обёрнутый в
+    // React.memo. Обычное объявление меняло идентичность на каждый рендер, мемо
+    // промахивалось всегда, и любое событие вебсокета перерисовывало все 12 месяцев.
+    const getShiftsForDate = useCallback((date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.filter(shift => shift.date === dateStr);
-    };
+    }, [shifts]);
 
     // Убрали getDayShifts и getNightShifts - теперь группируем только по шаблонам
     // Для обратной совместимости оставляем функции, но они возвращают пустые массивы
@@ -57,13 +60,13 @@ export const useCalendarData = (currentUserId: string, chatId: number | string |
         return [];
     };
 
-    const hasUserShift = (date: Date) => {
+    const hasUserShift = useCallback((date: Date) => {
         const dateStr = formatDateForAPI(date);
         return shifts.some(shift => 
             shift.date === dateStr && 
             String(shift.userId) === String(currentUserId)
         );
-    };
+    }, [shifts, currentUserId]);
 
     useEffect(() => {
         loadCalendarData();

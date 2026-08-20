@@ -79,7 +79,7 @@ export const addCurrentUserToReserveThunk = createAsyncThunk<
                         }
                     }
                     // После удаления смен диспатчим обновление стора смен
-                    await dispatch(fetchShifts());
+                    await dispatch(fetchShifts({ chatId: groupTelegramId }));
                 }
             } catch (errorGettingShifts: any) {
                 logger.error('[addCurrentUserToReserveThunk] Ошибка получения смен:', errorGettingShifts);
@@ -127,7 +127,7 @@ export const moveCourierToReserveThunk = createAsyncThunk<
             const apiReserve = await moveShiftToReserve(shiftId, requesterId);
             // 2. Обновляем резервы и смены
             await dispatch(fetchReservesForGroup({ groupId: groupTelegramId }));
-            await dispatch(fetchShifts());
+            await dispatch(fetchShifts({ chatId: groupTelegramId }));
             // 3. Маппим и возвращаем
             return mapApiReserveToReserveEntry(apiReserve);
         } catch (error: any) {

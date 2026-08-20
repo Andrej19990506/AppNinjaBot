@@ -1,6 +1,4 @@
 import React, { useState, useCallback, memo, createContext, useMemo, forwardRef, useImperativeHandle, useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { AppDispatch } from '@shared/store/store';
 import {
     Overlay,
     ModalContainer,
@@ -15,7 +13,6 @@ import ModalHeader from './common/ModalHeader';
 import { SuccessNotification } from './common';
 import { AccessSettings } from '@features/courierSchedule/types/courierScheduleTypes';
 // import { ConflictModal } from './ConflictModal'; // Больше не используется - всегда жесткий режим
-import { fetchAccessSettings } from '@features/courierSchedule/store/shiftsSlice/shiftsThunks';
 
 interface ShiftAccessModalProps {
     isOpen: boolean;
@@ -59,10 +56,8 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
     onIsDirtyChange,
     onStepChange
 }, ref) => {
-    const dispatch = useDispatch<AppDispatch>();
     const [modalState, setModalState] = useState<ModalState>(ModalState.FORM);
     // const [showConflictModal, setShowConflictModal] = useState(false); // Больше не нужно - всегда жесткий режим
-    const [existingShiftsCount, setExistingShiftsCount] = useState(0);
     const [pendingStrategy, setPendingStrategy] = useState<'soft' | 'hard' | null>(null);
     
     const {
@@ -108,62 +103,23 @@ const ShiftAccessModal = memo(forwardRef<ShiftAccessModalRef, ShiftAccessModalPr
         }
     }, [goToNextStep, goToPrevStep]);
     
-    // Обработка выбора стратегии (перемещено выше для использования в handleSaveAttempt)
-    const handleStrategySelect = useCallback(async (strategy: 'soft' | 'hard') => {
-        if (!chatId || !settings) return;
-        
-        console.log('[ShiftAccessModal] Выбрана стратегия:', strategy);
-        console.log('[ShiftAccessModal] Текущие настройки:', settings);
-        
-        // Создаем обновленные настройки со стратегией
-        const updatedSettings = {
-            ...settings,
-            transitionStrategy: strategy,
-            isAccessBlocked: strategy === 'hard'
-        };
-        
-        console.log('[ShiftAccessModal] Обновленные настройки:', updatedSettings);
-        
-        // Сохраняем с выбранной стратегией напрямую
-        const result = await saveSettings(updatedSettings);
-        
-        console.log('[ShiftAccessModal] Результат сохранения:', result);
-        
-        if (result.success) {
-            setModalState(ModalState.SUCCESS);
-            resetStep();
-            onStepChange(FormStep.STEP_ONE + 1);
-            
-            console.log('[ShiftAccessModal] Перезагрузка настроек для календаря...');
-            
-            // Важно! Перезагружаем настройки чтобы календарь обновился
-            setTimeout(() => {
-                dispatch(fetchAccessSettings({ chatId }));
-                console.log('[ShiftAccessModal] fetchAccessSettings вызван');
-            }, 500);
-        }
-    }, [dispatch, chatId, settings, saveSettings, resetStep, onStepChange]);
-    
     const handleSaveAttempt = useCallback(async () => {
+        // Здесь стояло автоматическое включение «жёсткого режима»: если сервер сообщал
+        // о сменах вне нового периода, клиент молча сохранял isAccessBlocked=true и
+        // курьеры получали баннер про заморозку. Выбора стратегии в интерфейсе не
+        // было — режим ставился только сам собой, а смены вне периода есть почти
+        // всегда: период неделя, а записываются на две вперёд. Настройки сохраняются
+        // и без этого, а число смен вне периода сервер по-прежнему возвращает —
+        // само по себе оно ничего не блокирует.
         const result = await saveSettings();
-        
-        // Проверяем наличие конфликта - автоматически применяем жесткий режим
-        if (result.success && result.hasConflict) {
-            console.log('[ShiftAccessModal] Обнаружен конфликт, автоматически применяем жесткий режим');
-            setExistingShiftsCount(result.existingShiftsCount || 0);
-            
-            // Автоматически выбираем жесткий режим без показа модалки
-            await handleStrategySelect('hard');
-            return true;
-        }
-        
+
         if (result.success) {
             setModalState(ModalState.SUCCESS);
             resetStep();
             onStepChange(FormStep.STEP_ONE + 1);
         }
         return result.success;
-    }, [saveSettings, resetStep, onStepChange, handleStrategySelect]);
+    }, [saveSettings, resetStep, onStepChange]);
     
     const handleResetAttempt = useCallback(() => {
         resetSettings();

@@ -81,9 +81,17 @@ router = APIRouter()
 async def read_shifts(
     # Принимаем Telegram ID группы как параметр запроса
     group_telegram_id: int = Query(..., description="Telegram ID of the group to fetch shifts for"),
+    date_from: Optional[date] = Query(None, description="Нижняя граница периода включительно (YYYY-MM-DD)"),
+    date_to: Optional[date] = Query(None, description="Верхняя граница периода включительно (YYYY-MM-DD)"),
     db: AsyncSession = Depends(get_db_session)
 ):
-    """Получает список всех смен для указанной группы (по Telegram ID)."""
+    """Получает смены группы (по Telegram ID) за период.
+
+    Границы необязательны — без них отдаётся вся история, как раньше. Календарь
+    их передаёт всегда: он рисует текущий месяц и 11 вперёд, а тянул при этом
+    всё, что накопилось. На проде 20.08.2026 у Словцова это 3783 смены с апреля
+    2025 против 186 нужных — и так на каждое событие вебсокета.
+    """
     
     # 1. Найти внутренний ID группы по Telegram ID
     group_result = await db.execute(
@@ -108,36 +116,41 @@ async def read_shifts(
         .where(Shift.group_id == group_internal_id) # <<< Используем внутренний ID
         .order_by(Shift.date, Shift.shift_type, Shift.slot_index)
     )
-    
+
+    if date_from is not None:
+        stmt = stmt.where(Shift.date >= date_from)
+    if date_to is not None:
+        stmt = stmt.where(Shift.date <= date_to)
+
     result = await db.execute(stmt)
     shifts = result.scalars().all()
     
-    # <<< НАЧАЛО ИЗМЕНЕНИЙ: Добавляем статус старшего курьера >>>
-    for shift in shifts:
-        is_senior = False # По умолчанию False
-        if shift.member:
-            # Запрос статуса из group_members для этого member_id и group_internal_id
-            gm_result = await db.execute(
-                select(GroupMember.is_senior_courier)
-                .where(
-                    (GroupMember.member_id == shift.member.id) &
-                    (GroupMember.group_id == group_internal_id)
-                )
+    # Статус старшего курьера — одним запросом на всю выборку. Раньше здесь был
+    # отдельный SELECT на КАЖДУЮ смену: на выборке в несколько тысяч смен это
+    # столько же запросов внутри одного ответа, и именно так календарь и грузился.
+    member_ids = {shift.member.id for shift in shifts if shift.member}
+    seniority: Dict[Any, bool] = {}
+    if member_ids:
+        gm_result = await db.execute(
+            select(GroupMember.member_id, GroupMember.is_senior_courier)
+            .where(
+                GroupMember.group_id == group_internal_id,
+                GroupMember.member_id.in_(member_ids)
             )
-            # Используем .scalar_one_or_none() и проверяем на None
-            senior_status = gm_result.scalar_one_or_none()
-            if senior_status is not None: # Если запись найдена
-                 is_senior = senior_status
+        )
+        # is_senior_courier в базе может быть NULL — считаем это «не старший»,
+        # как и прежняя проверка на None.
+        seniority = {row.member_id: bool(row.is_senior_courier) for row in gm_result}
 
-            # Добавляем полученный статус к объекту member, Pydantic его подхватит
-            try:
-                setattr(shift.member, 'is_senior_courier', is_senior)
-            except AttributeError:
-                 logger.warning(f"Could not set is_senior_courier on member {shift.member.id}")
-                 # В этом случае схема возьмет свое дефолтное значение (None), что ок
-                 pass # Просто пропускаем, если не удалось установить атрибут
-
-    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+    for shift in shifts:
+        if not shift.member:
+            continue
+        # Pydantic подхватит атрибут из объекта member
+        try:
+            setattr(shift.member, 'is_senior_courier', seniority.get(shift.member.id, False))
+        except AttributeError:
+            # Схема возьмёт своё значение по умолчанию — это допустимо
+            logger.warning(f"Could not set is_senior_courier on member {shift.member.id}")
 
     # Возвращаем исходный список shifts, т.к. мы модифицировали shift.member на месте
     return shifts

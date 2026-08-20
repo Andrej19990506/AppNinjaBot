@@ -14,6 +14,7 @@ import {
 import { RootState } from '@shared/types/store';
 import { ApiShift, CourierShift, CourierInfo, BookShiftApiData  } from '@features/courierSchedule/types/courierScheduleTypes';
 import { fetchReservesForGroup } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
+import { CALENDAR_MONTHS_AHEAD } from '@features/courierSchedule/constants';
 
 
 
@@ -45,6 +46,21 @@ function mapApiShiftToCourierShift(apiShift: ApiShift): CourierShift {
 }
 
 // --- Thunk: загрузка смен ---
+// Период загрузки смен: с начала текущего месяца и на CALENDAR_MONTHS_AHEAD вперёд,
+// то есть ровно то, что рисует календарь. Раньше период не передавался вовсе, и
+// клиент тянул всю историю группы: у Словцова 3783 смены с апреля 2025 при 186
+// нужных, и так на каждое открытие календаря и каждое событие вебсокета.
+// Прошлое календарю не нужно — за историей есть табель со своим фильтром по месяцу.
+const calendarPeriod = (): { from: string; to: string } => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Последний день последнего показываемого месяца: нулевой день следующего.
+    const end = new Date(now.getFullYear(), now.getMonth() + CALENDAR_MONTHS_AHEAD, 0);
+    const iso = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return { from: iso(start), to: iso(end) };
+};
+
 // Сервер отдаёт смены в стабильном порядке, поэтому для ответа на вопрос «изменилось
 // ли что-нибудь» хватает длины и полей, влияющих на отрисовку ячейки календаря.
 const sameShifts = (a: CourierShift[] | undefined, b: CourierShift[]): boolean => {
@@ -78,8 +94,9 @@ export const fetchShifts = createAsyncThunk<
             return rejectWithValue('Не найден chat_id для загрузки смен');
         }
         try {
-            // 1. Получаем смены
-            const shiftsData = await getShifts(chatId);
+            // 1. Получаем смены за период, который календарь реально рисует
+            const { from, to } = calendarPeriod();
+            const shiftsData = await getShifts(chatId, from, to);
             const mapped = shiftsData.map(mapApiShiftToCourierShift);
 
             // 2. Если список не изменился — отдаём ПРЕЖНЮЮ ссылку. Календарь

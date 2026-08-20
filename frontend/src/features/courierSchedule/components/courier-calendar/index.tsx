@@ -20,6 +20,7 @@ import { useAppDispatch } from '@/shared/store/hooks';
 import { NotificationTypes } from '@/shared/store/notificationSlice/notificationTypes';
 import { selectSlotConfig } from '@features/courierSchedule/store/shiftsSlice/shiftsSelectors';
 import { CalendarProps } from '@features/courierSchedule/components/types';
+import { CALENDAR_MONTHS_AHEAD } from '@features/courierSchedule/constants';
 import { addCurrentUserToReserveThunk } from '@features/courierSchedule/store/reservesSlice/reservesThunks';
 import { useCourierWebSocketSync } from '@features/courierSchedule/hooks/useCourierWebSocketSync';
 import { selectSelectedChatId } from '@shared/store/chatSlice/chatSelectors';
@@ -63,7 +64,7 @@ const CourierCalendar: React.FC<CalendarProps> = ({
         const monthsArray: Date[] = [];
         const baseMonth = new Date(currentMonth);
         baseMonth.setDate(1);
-        for (let i = 0; i < 12; i++) {
+        for (let i = 0; i < CALENDAR_MONTHS_AHEAD; i++) {
             const monthDate = new Date(baseMonth);
             monthDate.setMonth(baseMonth.getMonth() + i);
             monthsArray.push(monthDate);

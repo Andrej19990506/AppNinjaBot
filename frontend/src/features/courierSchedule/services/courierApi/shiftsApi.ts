@@ -17,16 +17,26 @@ import {
 import { TimesheetResponse } from '@features/courierSchedule/types/timesheet';
 
 // Получить список смен
-export const getShifts = async (chatId: number | string): Promise<ApiShift[]> => {
+export const getShifts = async (
+  chatId: number | string,
+  dateFrom?: string,
+  dateTo?: string
+): Promise<ApiShift[]> => {
   const groupId = typeof chatId === 'string' ? parseInt(chatId, 10) : chatId;
   if (isNaN(groupId)) {
     logger.error('[shiftsApi] ❌ Invalid groupId provided for getShifts', { chatId });
     throw new Error('Invalid Group ID');
   }
-  logger.info(`[shiftsApi] 📡 Запрос смен для группы ID: ${groupId}`);
+  logger.info(`[shiftsApi] 📡 Запрос смен для группы ID: ${groupId}`, { dateFrom, dateTo });
   try {
+    // Границы периода необязательны на стороне API, но календарь передаёт их
+    // всегда: без них приходит вся история группы за годы.
     const response = await axiosInstance.get<ApiShift[]>('/v1/shifts', {
-      params: { group_telegram_id: groupId }
+      params: {
+        group_telegram_id: groupId,
+        ...(dateFrom ? { date_from: dateFrom } : {}),
+        ...(dateTo ? { date_to: dateTo } : {}),
+      }
     });
     return response.data || [];
   } catch (error) {

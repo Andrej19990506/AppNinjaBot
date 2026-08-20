@@ -269,23 +269,29 @@ const Footer: React.FC<FooterProps> = ({
 
     // Отслеживаем виртуальную клавиатуру
     useEffect(() => {
+        // Клавиатура перекрывает ВИЗУАЛЬНЫЙ вьюпорт, не трогая вёрстку страницы,
+        // поэтому её признак — разница между innerHeight и visualViewport.height.
+        //
+        // Раньше здесь сравнивали вьюпорт с window.screen.height — физической
+        // высотой экрана. Это разные величины: в screen.height входят и строка
+        // статуса, и панели браузера, и шапка Telegram, а в ориентации, отличной
+        // от портретной, iOS вдобавок продолжает отдавать портретное значение.
+        // Из-за этого признак срабатывал сам по себе, без всякой клавиатуры, и
+        // футер уезжал вниз вместе с pointer-events: none — кнопки переставали
+        // нажиматься на ровном месте.
+        const KEYBOARD_MIN_HEIGHT = 120; // меньше не бывает ни у одной клавиатуры
+
         const checkKeyboard = () => {
-            // Используем visualViewport если доступен, иначе fallback на window.innerHeight
-            const viewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-            const screenHeight = window.screen.height;
-            
-            // Клавиатура открыта, если viewport значительно меньше экрана
-            const keyboardThreshold = 0.7; // 70% от высоты экрана
-            const isKeyboardVisible = viewportHeight < screenHeight * keyboardThreshold;
-            
-            console.log('🔍 [Footer] Keyboard check:', {
-                viewportHeight,
-                screenHeight,
-                keyboardThreshold: screenHeight * keyboardThreshold,
-                isKeyboardVisible
-            });
-            
-            setIsKeyboardOpen(isKeyboardVisible);
+            const visualViewport = window.visualViewport;
+            if (!visualViewport) {
+                // Без visualViewport определить клавиатуру нечем: любые догадки по
+                // innerHeight ошибаются на панелях браузера. Лучше не прятать футер.
+                setIsKeyboardOpen(false);
+                return;
+            }
+
+            const overlap = window.innerHeight - visualViewport.height;
+            setIsKeyboardOpen(overlap > KEYBOARD_MIN_HEIGHT);
         };
 
         // Проверяем при загрузке

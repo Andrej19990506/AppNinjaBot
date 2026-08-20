@@ -3,7 +3,10 @@
     bottom: 0;
     left: 0;
     right: 0;
-    background: var(--color-background);
+    /* --color-background в проекте не определена НИГДЕ, поэтому фон футера был
+       прозрачным: сквозь панель просвечивал контент, и полоса читалась как
+       пустое место. Берём определённый токен темы. */
+    background: var(--card-background);
     border-top: 1px solid var(--gray-200);
     /* Компактный паддинг + безопасная зона снизу для устройств с жестями/кнопками */
     padding: 8px 0 calc(10px + max(env(safe-area-inset-bottom, 0px), var(--device-bottom-inset, 0px))) 0;

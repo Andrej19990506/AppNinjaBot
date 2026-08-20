@@ -93,17 +93,12 @@ const DrawerContainer = styled.div<{ $isOpen: boolean; $isClosing: boolean }>`
     border: 2px solid var(--card-background);
   }
 
-  /* Добавляем плавное затухание контента внизу */
-  &::after {
-    content: '';
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 40px;
-    background: linear-gradient(to top, var(--card-background), transparent);
-    pointer-events: none;
-  }
+  /* Здесь был «плавно затухающий» градиент внизу: position: fixed, bottom: 0,
+     высота 40px. Задумывался он как затухание контента у нижнего края шторки, но
+     из-за fixed прилипал к низу ЭКРАНА и превращался в сплошную полосу цвета
+     карточки под футером — то самое пустое место, которое появлялось ровно при
+     открытии панели смен. Затухание тут и не нужно: низ шторки и так перекрыт
+     футером, который лежит выше по z-index. */
 `;
 
 const DrawerHeader = styled.div`

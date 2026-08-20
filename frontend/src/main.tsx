@@ -2,7 +2,6 @@ import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './App'
 import { setupPwaUpdatePrompt } from './pwa'
-import { setupStableBottomInset } from './shared/utils/bottomInset'
 
 // --- Предотвращаем double-tap zoom на мобильных устройствах ---
 let lastTouchEnd = 0;
@@ -18,5 +17,4 @@ createRoot(document.getElementById('root')!).render(
   <App />
 )
 
-setupStableBottomInset();
 setupPwaUpdatePrompt();

@@ -49,7 +49,13 @@ function ensureStyles() {
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
       text-align: center;
     }
-    .pwa-update-card__icon { font-size: 40px; line-height: 1; margin-bottom: 12px; }
+    .pwa-update-card__icon {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: var(--primary-color, #2f80ff);
+    }
+    .pwa-update-card__icon svg { width: 44px; height: 44px; display: block; }
     .pwa-update-card__title {
       margin: 0 0 8px;
       font-size: 19px;
@@ -108,7 +114,15 @@ function showUpdateOverlay(onUpdate: () => void) {
 
   const icon = document.createElement('div');
   icon.className = 'pwa-update-card__icon';
-  icon.textContent = '🔄';
+  icon.setAttribute('aria-hidden', 'true');
+  // Tabler «refresh» — та же система иконок, что и в Android-приложениях:
+  // сетка 24, обводка 2, круглые концы, без заливки.
+  icon.innerHTML =
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"' +
+    ' stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />' +
+    '<path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />' +
+    '</svg>';
 
   const title = document.createElement('h2');
   title.className = 'pwa-update-card__title';
